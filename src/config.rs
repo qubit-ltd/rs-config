@@ -41,7 +41,7 @@ pub const DEFAULT_MAX_SUBSTITUTION_DEPTH: usize = 64;
 /// - Supports variable substitution (`${var_name}` format)
 /// - Supports configuration merging
 /// - Supports final value protection
-/// - Thread-safe (when wrapped in Arc<RwLock<Config>>)
+/// - Thread-safe (when wrapped in `Arc<RwLock<Config>>`)
 ///
 /// # Important Limitations of Generic set/add Methods
 ///
