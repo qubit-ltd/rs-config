@@ -374,10 +374,10 @@ limitations under the License.
 
 See [LICENSE](LICENSE) for the full license text.
 
-## Related Projects
+## Author
 
-- [prism3-core](../prism3-core) - Core utilities
-- [prism3-value](../prism3-value) - Value handling framework
-- [prism3-retry](../prism3-retry) - Retry mechanism
-- [prism3-concurrent](../prism3-concurrent) - Concurrency utilities
+**Hu Haixing** - *3-Prism Co. Ltd.*
 
+---
+
+For more information about the Prism3 ecosystem, visit our [GitHub homepage](https://github.com/3-prism).

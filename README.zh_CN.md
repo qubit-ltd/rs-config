@@ -374,10 +374,14 @@ Copyright (c) 2025 3-Prism Co. Ltd. All rights reserved.
 
 完整的许可证文本请参阅 [LICENSE](LICENSE)。
 
-## 相关项目
+## 贡献
 
-- [prism3-core](../prism3-core) - 核心工具
-- [prism3-value](../prism3-value) - 值处理框架
-- [prism3-retry](../prism3-retry) - 重试机制
-- [prism3-concurrent](../prism3-concurrent) - 并发工具
+欢迎贡献！请随时提交 Pull Request。
 
+## 作者
+
+**胡海星** - *棱芯科技有限公司*
+
+---
+
+有关 Prism3 生态系统的更多信息，请访问我们的 [GitHub 主页](https://github.com/3-prism)。

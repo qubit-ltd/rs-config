@@ -355,7 +355,7 @@ dependencies = [
 
 [[package]]
 name = "prism3-config"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "bigdecimal",
  "chrono",
@@ -372,9 +372,9 @@ dependencies = [
 
 [[package]]
 name = "prism3-core"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ecfc9ab9d6c55b45834a2654ba55462dbf6f59b3dde9c918f3dc67aed2a336f"
+checksum = "df2bd5c48e234c73c75358b55dc3a8a14a6d74f84175df63c10b58ad246af276"
 dependencies = [
  "bigdecimal",
  "chrono",
@@ -388,9 +388,9 @@ dependencies = [
 
 [[package]]
 name = "prism3-value"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1145ed16519d20f66287745ad4540edb1619eb55dacb2fb768e57b71ae66ecc"
+checksum = "f18b396abe5a6149cbdcf07c0277849d99aff2073c57aa620b14ba5018f2c1df"
 dependencies = [
  "bigdecimal",
  "chrono",
