@@ -1,0 +1,32 @@
+[package]
+name = "prism3-config"
+version = "0.1.0"
+edition = "2021"
+authors = ["Hu Haixing <starfish.hu@gmail.com>"]
+license = "Apache-2.0"
+description = "Common configuration module providing flexible configuration management with support for multiple data types and variable substitution"
+
+[lib]
+name = "prism3_config"
+
+[dependencies]
+# 核心依赖
+prism3-core = "0.1.0"
+prism3-value = "0.1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0.17"
+tracing = "0.1"
+
+# 时间处理
+chrono = { version = "0.4", features = ["serde"] }
+
+# 正则表达式
+regex = "1.10"
+
+# URL处理
+url = "2.5"
+
+# 数值处理
+num-bigint = { version = "0.4", features = ["serde"] }
+bigdecimal = { version = "0.4", features = ["serde"] }
