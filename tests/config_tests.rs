@@ -1041,14 +1041,14 @@ mod test_get_string_list_or {
     fn test_get_string_list_or_returns_value_when_property_exists() {
         let mut config = Config::new();
         config.set("test", vec!["value1", "value2"]).unwrap();
-        let values = config.get_string_list_or("test", vec!["default".to_string()]);
+        let values = config.get_string_list_or("test", &["default"]);
         assert_eq!(values, vec!["value1", "value2"]);
     }
 
     #[test]
     fn test_get_string_list_or_returns_default_when_property_not_exists() {
         let config = Config::new();
-        let values = config.get_string_list_or("nonexistent", vec!["default".to_string()]);
+        let values = config.get_string_list_or("nonexistent", &["default"]);
         assert_eq!(values, vec!["default"]);
     }
 
@@ -1056,7 +1056,7 @@ mod test_get_string_list_or {
     fn test_get_string_list_or_returns_default_when_type_mismatch() {
         let mut config = Config::new();
         config.set("test", vec![1, 2, 3]).unwrap();
-        let values = config.get_string_list_or("test", vec!["default".to_string()]);
+        let values = config.get_string_list_or("test", &["default"]);
         assert_eq!(values, vec!["default"]);
     }
 
@@ -1067,8 +1067,23 @@ mod test_get_string_list_or {
         config
             .set("urls", vec!["${base}/api", "${base}/admin"])
             .unwrap();
-        let urls = config.get_string_list_or("urls", vec!["default".to_string()]);
+        let urls = config.get_string_list_or("urls", &["default"]);
         assert_eq!(urls, vec!["http://localhost/api", "http://localhost/admin"]);
+    }
+
+    #[test]
+    fn test_get_string_list_or_with_array_default() {
+        let config = Config::new();
+        let values = config.get_string_list_or("nonexistent", &["default1", "default2"]);
+        assert_eq!(values, vec!["default1", "default2"]);
+    }
+
+    #[test]
+    fn test_get_string_list_or_with_vec_default() {
+        let config = Config::new();
+        let default_vec = vec!["vec1", "vec2", "vec3"];
+        let values = config.get_string_list_or("nonexistent", &default_vec);
+        assert_eq!(values, vec!["vec1", "vec2", "vec3"]);
     }
 }
 

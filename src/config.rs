@@ -724,7 +724,7 @@ impl Config {
     /// # Parameters
     ///
     /// * `name` - Configuration item name
-    /// * `default` - Default value
+    /// * `default` - Default value (can be array slice or vec)
     ///
     /// # Returns
     ///
@@ -737,11 +737,17 @@ impl Config {
     ///
     /// let config = Config::new();
     ///
-    /// let paths = config.get_string_list_or("paths", vec!["/default/path".to_string()]);
+    /// // Using array slice
+    /// let paths = config.get_string_list_or("paths", &["/default/path"]);
     /// assert_eq!(paths, vec!["/default/path"]);
+    ///
+    /// // Using vec
+    /// let paths = config.get_string_list_or("paths", &vec!["path1", "path2"]);
+    /// assert_eq!(paths, vec!["path1", "path2"]);
     /// ```
-    pub fn get_string_list_or(&self, name: &str, default: Vec<String>) -> Vec<String> {
-        self.get_string_list(name).unwrap_or(default)
+    pub fn get_string_list_or(&self, name: &str, default: &[&str]) -> Vec<String> {
+        self.get_string_list(name)
+            .unwrap_or_else(|_| default.iter().map(|s| s.to_string()).collect())
     }
 }
 
