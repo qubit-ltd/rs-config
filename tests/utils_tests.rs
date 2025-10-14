@@ -69,3 +69,62 @@ fn test_substitute_env_var() {
 
     std::env::remove_var("TEST_VAR");
 }
+
+#[test]
+fn test_substitute_empty_string() {
+    let config = Config::new();
+    let result = substitute_variables("", &config, 10).unwrap();
+    assert_eq!(result, "");
+}
+
+#[test]
+fn test_substitute_variable_not_found() {
+    let config = Config::new();
+    let result = substitute_variables("${NONEXISTENT_VAR}", &config, 10);
+    assert!(matches!(
+        result,
+        Err(ConfigError::SubstitutionError(_))
+    ));
+    
+    if let Err(ConfigError::SubstitutionError(msg)) = result {
+        assert!(msg.contains("Cannot resolve variable: NONEXISTENT_VAR"));
+    }
+}
+
+#[test]
+fn test_substitute_no_variables() {
+    let config = Config::new();
+    let result = substitute_variables("Plain text with no variables", &config, 10).unwrap();
+    assert_eq!(result, "Plain text with no variables");
+}
+
+#[test]
+fn test_substitute_mixed_sources() {
+    std::env::set_var("ENV_VAR", "from_env");
+    
+    let mut config = Config::new();
+    config.set("CONFIG_VAR", "from_config").unwrap();
+    
+    let result = substitute_variables(
+        "${CONFIG_VAR} and ${ENV_VAR}",
+        &config,
+        10
+    ).unwrap();
+    assert_eq!(result, "from_config and from_env");
+    
+    std::env::remove_var("ENV_VAR");
+}
+
+#[test]
+fn test_substitute_config_priority_over_env() {
+    std::env::set_var("SHARED_VAR", "from_env");
+    
+    let mut config = Config::new();
+    config.set("SHARED_VAR", "from_config").unwrap();
+    
+    // Config should have priority over environment
+    let result = substitute_variables("${SHARED_VAR}", &config, 10).unwrap();
+    assert_eq!(result, "from_config");
+    
+    std::env::remove_var("SHARED_VAR");
+}
