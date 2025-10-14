@@ -1,0 +1,268 @@
+/*******************************************************************************
+ *
+ *    Copyright (c) 2025.
+ *    3-Prism Co. Ltd.
+ *
+ *    All rights reserved.
+ *
+ ******************************************************************************/
+//! # Configuration Property
+//!
+//! Defines the property structure for configuration items, including name, value, description, and other information.
+//!
+//! # Author
+//!
+//! Hu Haixing
+
+use serde::{Deserialize, Serialize};
+use std::ops::{Deref, DerefMut};
+
+use prism3_core::DataType;
+use prism3_value::MultiValues;
+
+/// Configuration Property
+///
+/// Represents a configuration item, containing name, value, description, and whether it's a final value.
+///
+/// # Features
+///
+/// - Supports multi-value configuration
+/// - Supports description information
+/// - Supports final value marking (final properties cannot be overridden)
+/// - Supports serialization and deserialization
+///
+/// # Important Limitations of Generic set/add Methods
+///
+/// **`u8` type does not support generic `set()` and `add()` methods**. See `MultiValues` documentation for details.
+///
+/// For `u8` type, use dedicated methods:
+///
+/// ```rust,ignore
+/// use prism3_config::Property;
+///
+/// let mut prop = Property::new("byte_value");
+///
+/// // ✅ Use dedicated methods to set u8
+/// prop.set_uint8(42).unwrap();
+/// prop.add_uint8(128).unwrap();
+///
+/// // ❌ Generic methods not supported
+/// // prop.set(42u8).unwrap();  // Compile error
+/// ```
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// use prism3_config::Property;
+///
+/// let mut prop = Property::new("port");
+/// prop.set(8080).unwrap();  // Generic method, type auto-inferred
+/// prop.set_description(Some("Server port".to_string()));
+///
+/// assert_eq!(prop.name(), "port");
+/// assert_eq!(prop.count(), 1);
+/// ```
+///
+/// # Author
+///
+/// Hu Haixing
+///
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Property {
+    /// Property name
+    name: String,
+    /// Property value
+    value: MultiValues,
+    /// Property description
+    description: Option<String>,
+    /// Whether this is a final value (cannot be overridden)
+    is_final: bool,
+}
+
+impl Property {
+    /// Creates a new property
+    ///
+    /// Creates an empty property with an initial value of an empty i32 list.
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Property name
+    ///
+    /// # Returns
+    ///
+    /// Returns a new property instance
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// use common_rs::util::config::Property;
+    ///
+    /// let prop = Property::new("server.port");
+    /// assert_eq!(prop.name(), "server.port");
+    /// assert!(prop.is_empty());
+    /// ```
+    pub fn new(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            value: MultiValues::Empty(DataType::Int32),
+            description: None,
+            is_final: false,
+        }
+    }
+
+    /// Creates a property with a value
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Property name
+    /// * `value` - Property value
+    ///
+    /// # Returns
+    ///
+    /// Returns a new property instance
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// use prism3_config::Property;
+    /// use prism3_value::MultiValues;
+    ///
+    /// let prop = Property::with_value("port", MultiValues::Int32(vec![8080]));
+    /// assert_eq!(prop.name(), "port");
+    /// assert_eq!(prop.count(), 1);
+    /// ```
+    pub fn with_value(name: impl Into<String>, value: MultiValues) -> Self {
+        Self {
+            name: name.into(),
+            value,
+            description: None,
+            is_final: false,
+        }
+    }
+
+    /// Gets the property name
+    ///
+    /// # Returns
+    ///
+    /// Returns the property name as a string slice
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Gets a reference to the property value
+    ///
+    /// # Returns
+    ///
+    /// Returns a reference to the property value
+    pub fn value(&self) -> &MultiValues {
+        &self.value
+    }
+
+    /// Gets a mutable reference to the property value
+    ///
+    /// # Returns
+    ///
+    /// Returns a mutable reference to the property value
+    pub fn value_mut(&mut self) -> &mut MultiValues {
+        &mut self.value
+    }
+
+    /// Sets the property value
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - New property value
+    pub fn set_value(&mut self, value: MultiValues) {
+        self.value = value;
+    }
+
+    /// Gets the property description
+    ///
+    /// # Returns
+    ///
+    /// Returns the property description as Option
+    pub fn description(&self) -> Option<&str> {
+        self.description.as_deref()
+    }
+
+    /// Sets the property description
+    ///
+    /// # Parameters
+    ///
+    /// * `description` - Property description
+    pub fn set_description(&mut self, description: Option<String>) {
+        self.description = description;
+    }
+
+    /// Checks if this is a final value
+    ///
+    /// # Returns
+    ///
+    /// Returns `true` if the property is final
+    pub fn is_final(&self) -> bool {
+        self.is_final
+    }
+
+    /// Sets whether this is a final value
+    ///
+    /// # Parameters
+    ///
+    /// * `is_final` - Whether this is final
+    pub fn set_final(&mut self, is_final: bool) {
+        self.is_final = is_final;
+    }
+
+    /// Gets the data type
+    ///
+    /// # Returns
+    ///
+    /// Returns the data type of the property value
+    pub fn data_type(&self) -> DataType {
+        self.value.data_type()
+    }
+
+    /// Gets the number of values
+    ///
+    /// # Returns
+    ///
+    /// Returns the number of values in the property
+    pub fn count(&self) -> usize {
+        self.value.count()
+    }
+
+    /// Checks if the property is empty
+    ///
+    /// # Returns
+    ///
+    /// Returns `true` if the property contains no values
+    pub fn is_empty(&self) -> bool {
+        self.value.is_empty()
+    }
+
+    /// Clears the property value
+    ///
+    /// Clears all values in the property but keeps type information
+    pub fn clear(&mut self) {
+        self.value.clear();
+    }
+}
+
+impl Deref for Property {
+    type Target = MultiValues;
+
+    /// Dereferences to MultiValues
+    ///
+    /// Allows direct access to all MultiValues methods
+    fn deref(&self) -> &Self::Target {
+        &self.value
+    }
+}
+
+impl DerefMut for Property {
+    /// Mutably dereferences to MultiValues
+    ///
+    /// Allows direct mutable access to all MultiValues methods
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.value
+    }
+}
