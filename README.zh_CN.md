@@ -1,6 +1,6 @@
 # prism3-config
 
-
+[![CircleCI](https://circleci.com/gh/3-prism/prism3-rust-config.svg?style=shield)](https://circleci.com/gh/3-prism/prism3-rust-config)
 [![Coverage Status](https://coveralls.io/repos/github/3-prism/prism3-rust-config/badge.svg?branch=main)](https://coveralls.io/github/3-prism/prism3-rust-config?branch=main)
 [![Crates.io](https://img.shields.io/crates/v/prism3-config.svg?color=blue)](https://crates.io/crates/prism3-config)
 [![Rust](https://img.shields.io/badge/rust-1.70+-blue.svg?logo=rust)](https://www.rust-lang.org)
