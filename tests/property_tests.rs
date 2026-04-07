@@ -17,8 +17,8 @@
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, NaiveDate, NaiveTime};
 use num_bigint::BigInt;
-use qubit_config::Property;
 use qubit_common::DataType;
+use qubit_config::Property;
 use qubit_value::MultiValues;
 use std::str::FromStr;
 

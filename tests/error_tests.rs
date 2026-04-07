@@ -10,8 +10,8 @@
 //!
 //! Tests all error types and conversions of the ConfigError enum.
 
-use qubit_config::ConfigError;
 use qubit_common::DataType;
+use qubit_config::ConfigError;
 use qubit_value::ValueError;
 use std::io;
 
