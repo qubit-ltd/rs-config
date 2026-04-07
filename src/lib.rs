@@ -12,7 +12,7 @@
 //!
 //! # Author
 //!
-//! Hu Haixing
+//! Haixing Hu
 
 mod config;
 mod configurable;

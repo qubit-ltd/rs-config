@@ -376,7 +376,7 @@ See [LICENSE](LICENSE) for the full license text.
 
 ## Author
 
-**Hu Haixing** - *3-Prism Co. Ltd.*
+**Haixing Hu** - *3-Prism Co. Ltd.*
 
 ---
 

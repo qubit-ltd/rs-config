@@ -12,7 +12,7 @@
 //!
 //! # Author
 //!
-//! Hu Haixing
+//! Haixing Hu
 
 use super::Config;
 
@@ -40,7 +40,7 @@ use super::Config;
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub trait Configurable {
     /// Gets a reference to the configuration
     ///
@@ -50,7 +50,7 @@ pub trait Configurable {
     ///
     /// # Author
     ///
-    /// Hu Haixing
+    /// Haixing Hu
     fn config(&self) -> &Config;
 
     /// Gets a mutable reference to the configuration
@@ -61,7 +61,7 @@ pub trait Configurable {
     ///
     /// # Author
     ///
-    /// Hu Haixing
+    /// Haixing Hu
     fn config_mut(&mut self) -> &mut Config;
 
     /// Sets the configuration
@@ -72,7 +72,7 @@ pub trait Configurable {
     ///
     /// # Author
     ///
-    /// Hu Haixing
+    /// Haixing Hu
     fn set_config(&mut self, config: Config);
 
     /// Callback after configuration changes
@@ -81,7 +81,7 @@ pub trait Configurable {
     ///
     /// # Author
     ///
-    /// Hu Haixing
+    /// Haixing Hu
     fn on_config_changed(&mut self) {
         // Default implementation is empty
     }

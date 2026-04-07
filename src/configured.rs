@@ -12,7 +12,7 @@
 //!
 //! # Author
 //!
-//! Hu Haixing
+//! Haixing Hu
 
 use super::{Config, Configurable};
 
@@ -63,7 +63,7 @@ use super::{Config, Configurable};
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 ///
 #[derive(Debug, Clone, PartialEq)]
 pub struct Configured {

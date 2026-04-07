@@ -12,7 +12,7 @@
 //!
 //! # Author
 //!
-//! Hu Haixing
+//! Haixing Hu
 
 use thiserror::Error;
 
@@ -32,7 +32,7 @@ use prism3_value::ValueError;
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 ///
 #[derive(Debug, Error)]
 pub enum ConfigError {

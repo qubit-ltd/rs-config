@@ -12,7 +12,7 @@
 //!
 //! # Author
 //!
-//! Hu Haixing
+//! Haixing Hu
 
 mod config_tests;
 mod configurable_tests;

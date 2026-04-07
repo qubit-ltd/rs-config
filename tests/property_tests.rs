@@ -12,7 +12,7 @@
 //!
 //! # Author
 //!
-//! Hu Haixing
+//! Haixing Hu
 
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, NaiveDate, NaiveTime};

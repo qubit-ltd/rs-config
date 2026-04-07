@@ -12,7 +12,7 @@
 //!
 //! # Author
 //!
-//! Hu Haixing
+//! Haixing Hu
 
 use regex::Regex;
 use std::sync::OnceLock;
@@ -25,7 +25,7 @@ use super::{Config, ConfigError, ConfigResult};
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 ///
 static VARIABLE_PATTERN: OnceLock<Regex> = OnceLock::new();
 
@@ -33,7 +33,7 @@ static VARIABLE_PATTERN: OnceLock<Regex> = OnceLock::new();
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 ///
 fn get_variable_pattern() -> &'static Regex {
     VARIABLE_PATTERN.get_or_init(|| {
@@ -77,7 +77,7 @@ fn get_variable_pattern() -> &'static Regex {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 ///
 pub fn substitute_variables(
     value: &str,
@@ -139,7 +139,7 @@ pub fn substitute_variables(
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 ///
 fn find_variable_value(var_name: &str, config: &Config) -> ConfigResult<String> {
     // 1. Try to get from configuration

@@ -12,7 +12,7 @@
 //!
 //! # Author
 //!
-//! Hu Haixing
+//! Haixing Hu
 
 #![allow(private_bounds)]
 
@@ -108,7 +108,7 @@ pub const DEFAULT_MAX_SUBSTITUTION_DEPTH: usize = 64;
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 ///
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Config {

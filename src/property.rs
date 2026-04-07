@@ -12,7 +12,7 @@
 //!
 //! # Author
 //!
-//! Hu Haixing
+//! Haixing Hu
 
 use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
@@ -65,7 +65,7 @@ use prism3_value::MultiValues;
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 ///
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Property {
