@@ -1,7 +1,7 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025.
- *    3-Prism Co. Ltd.
+ *    Copyright (c) 2025 - 2026.
+ *    Haixing Hu, Qubit Co. Ltd.
  *
  *    All rights reserved.
  *
@@ -64,7 +64,7 @@ fn get_variable_pattern() -> &'static Regex {
 /// # Examples
 ///
 /// ```rust,ignore
-/// use prism3_config::Config;
+/// use qubit_config::Config;
 ///
 /// let mut config = Config::new();
 /// config.set("host", "localhost")?;

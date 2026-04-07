@@ -1,16 +1,16 @@
 [package]
-name = "prism3-config"
-version = "0.1.1"
+name = "qubit-config"
+version = "0.2.0"
 edition = "2021"
 rust-version = "1.70"
 authors = ["Haixing Hu <starfish.hu@gmail.com>"]
 license = "Apache-2.0"
-repository = "https://github.com/3-prism/prism3-rust-config"
+repository = "https://github.com/qubit-ltd/rust-config"
 description = "Powerful type-safe configuration management with multi-value properties, variable substitution, and rich data type support"
-homepage = "https://github.com/3-prism/prism3-rust-config"
-documentation = "https://docs.rs/prism3-config"
+homepage = "https://github.com/qubit-ltd/rust-config"
+documentation = "https://docs.rs/qubit-config"
 readme = "README.md"
-keywords = ["config", "configuration", "settings", "properties", "prism3"]
+keywords = ["config", "configuration", "settings", "properties", "qubit"]
 categories = ["config", "development-tools"]
 exclude = [
     "coverage.sh",
@@ -23,12 +23,12 @@ exclude = [
 ]
 
 [lib]
-name = "prism3_config"
+name = "qubit_config"
 doctest = false
 
 [dependencies]
 qubit-common = "0.3.0"
-qubit-value = "0.1.2"
+qubit-value = { path = "../rust-value" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2.0.17"

@@ -1,7 +1,7 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025.
- *    3-Prism Co. Ltd.
+ *    Copyright (c) 2025 - 2026.
+ *    Haixing Hu, Qubit Co. Ltd.
  *
  *    All rights reserved.
  *
@@ -21,12 +21,12 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use super::{utils, ConfigError, ConfigResult, Property};
-use prism3_value::multi_values::{
+use qubit_value::multi_values::{
     MultiValuesAddArg, MultiValuesAdder, MultiValuesFirstGetter, MultiValuesGetter,
     MultiValuesMultiAdder, MultiValuesSetArg, MultiValuesSetter, MultiValuesSetterSlice,
     MultiValuesSingleSetter,
 };
-use prism3_value::MultiValues;
+use qubit_value::MultiValues;
 
 /// Default maximum depth for variable substitution
 pub const DEFAULT_MAX_SUBSTITUTION_DEPTH: usize = 64;
@@ -50,7 +50,7 @@ pub const DEFAULT_MAX_SUBSTITUTION_DEPTH: usize = 64;
 /// For `u8` type configuration values, use dedicated methods:
 ///
 /// ```rust,ignore
-/// use prism3_config::Config;
+/// use qubit_config::Config;
 ///
 /// let mut config = Config::new();
 ///
@@ -80,7 +80,7 @@ pub const DEFAULT_MAX_SUBSTITUTION_DEPTH: usize = 64;
 /// # Examples
 ///
 /// ```rust,ignore
-/// use prism3_config::Config;
+/// use qubit_config::Config;
 ///
 /// let mut config = Config::new();
 ///
@@ -132,7 +132,7 @@ impl Config {
     /// # Examples
     ///
     /// ```rust,ignore
-    /// use prism3_config::Config;
+    /// use qubit_config::Config;
     ///
     /// let config = Config::new();
     /// assert!(config.is_empty());
@@ -159,7 +159,7 @@ impl Config {
     /// # Examples
     ///
     /// ```rust,ignore
-    /// use prism3_config::Config;
+    /// use qubit_config::Config;
     ///
     /// let config = Config::with_description("Server Configuration");
     /// assert_eq!(config.description(), Some("Server Configuration"));
@@ -248,7 +248,7 @@ impl Config {
     /// # Examples
     ///
     /// ```rust,ignore
-    /// use prism3_config::Config;
+    /// use qubit_config::Config;
     ///
     /// let mut config = Config::new();
     /// config.set("port", 8080)?;
@@ -299,7 +299,7 @@ impl Config {
     /// # Examples
     ///
     /// ```rust,ignore
-    /// use prism3_config::Config;
+    /// use qubit_config::Config;
     ///
     /// let mut config = Config::new();
     /// config.set("port", 8080)?;
@@ -317,7 +317,7 @@ impl Config {
     /// # Examples
     ///
     /// ```rust,ignore
-    /// use prism3_config::Config;
+    /// use qubit_config::Config;
     ///
     /// let mut config = Config::new();
     /// config.set("port", 8080)?;
@@ -357,7 +357,7 @@ impl Config {
     /// # Examples
     ///
     /// ```rust,ignore
-    /// use prism3_config::Config;
+    /// use qubit_config::Config;
     ///
     /// let mut config = Config::new();
     /// config.set("port", 8080)?;
@@ -406,7 +406,7 @@ impl Config {
     /// # Examples
     ///
     /// ```rust,ignore
-    /// use prism3_config::Config;
+    /// use qubit_config::Config;
     ///
     /// let mut config = Config::new();
     /// config.set("port", 8080)?;
@@ -456,7 +456,7 @@ impl Config {
     /// # Examples
     ///
     /// ```rust,ignore
-    /// use prism3_config::Config;
+    /// use qubit_config::Config;
     ///
     /// let config = Config::new();
     ///
@@ -492,7 +492,7 @@ impl Config {
     /// # Examples
     ///
     /// ```rust,ignore
-    /// use prism3_config::Config;
+    /// use qubit_config::Config;
     ///
     /// let mut config = Config::new();
     /// config.set("ports", vec![8080, 8081, 8082])?;
@@ -536,7 +536,7 @@ impl Config {
     /// # Examples
     ///
     /// ```rust,ignore
-    /// use prism3_config::Config;
+    /// use qubit_config::Config;
     ///
     /// let mut config = Config::new();
     ///
@@ -592,7 +592,7 @@ impl Config {
     /// # Examples
     ///
     /// ```rust,ignore
-    /// use prism3_config::Config;
+    /// use qubit_config::Config;
     ///
     /// let mut config = Config::new();
     /// config.set("port", 8080)?;                    // Set initial value
@@ -653,7 +653,7 @@ impl Config {
     /// # Examples
     ///
     /// ```rust,ignore
-    /// use prism3_config::Config;
+    /// use qubit_config::Config;
     ///
     /// let mut config = Config::new();
     /// config.set("base_url", "http://localhost")?;
@@ -702,7 +702,7 @@ impl Config {
     /// # Examples
     ///
     /// ```rust,ignore
-    /// use prism3_config::Config;
+    /// use qubit_config::Config;
     ///
     /// let mut config = Config::new();
     /// config.set("base_path", "/opt/app")?;
@@ -737,7 +737,7 @@ impl Config {
     /// # Examples
     ///
     /// ```rust,ignore
-    /// use prism3_config::Config;
+    /// use qubit_config::Config;
     ///
     /// let config = Config::new();
     ///
@@ -765,7 +765,7 @@ impl Default for Config {
     /// # Examples
     ///
     /// ```rust,ignore
-    /// use prism3_config::Config;
+    /// use qubit_config::Config;
     ///
     /// let config = Config::default();
     /// assert!(config.is_empty());

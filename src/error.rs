@@ -1,7 +1,7 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025.
- *    3-Prism Co. Ltd.
+ *    Copyright (c) 2025 - 2026.
+ *    Haixing Hu, Qubit Co. Ltd.
  *
  *    All rights reserved.
  *
@@ -16,8 +16,8 @@
 
 use thiserror::Error;
 
-use prism3_core::DataType;
-use prism3_value::ValueError;
+use qubit_common::DataType;
+use qubit_value::ValueError;
 
 /// Configuration error type
 ///
@@ -26,7 +26,7 @@ use prism3_value::ValueError;
 /// # Examples
 ///
 /// ```rust,ignore
-/// use prism3_config::{Config, ConfigError, ConfigResult};
+/// use qubit_config::{Config, ConfigError, ConfigResult};
 /// fn get_port(config: &Config) -> ConfigResult<i32> { unimplemented!() }
 /// ```
 ///

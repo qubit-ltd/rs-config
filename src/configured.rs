@@ -1,7 +1,7 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025.
- *    3-Prism Co. Ltd.
+ *    Copyright (c) 2025 - 2026.
+ *    Haixing Hu, Qubit Co. Ltd.
  *
  *    All rights reserved.
  *
@@ -29,7 +29,7 @@ use super::{Config, Configurable};
 /// # Examples
 ///
 /// ```rust,ignore
-/// use prism3_config::{Config, Configured};
+/// use qubit_config::{Config, Configured};
 ///
 /// let mut configured = Configured::new();
 /// configured.config_mut().set("port", 8080)?;

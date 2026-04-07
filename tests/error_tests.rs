@@ -1,7 +1,7 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025.
- *    3-Prism Co. Ltd.
+ *    Copyright (c) 2025 - 2026.
+ *    Haixing Hu, Qubit Co. Ltd.
  *
  *    All rights reserved.
  *
@@ -10,9 +10,9 @@
 //!
 //! Tests all error types and conversions of the ConfigError enum.
 
-use prism3_config::ConfigError;
-use prism3_core::DataType;
-use prism3_value::ValueError;
+use qubit_config::ConfigError;
+use qubit_common::DataType;
+use qubit_value::ValueError;
 use std::io;
 
 // ============================================================================

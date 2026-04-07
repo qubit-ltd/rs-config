@@ -30,7 +30,7 @@ WORKSPACE_ROOT=$(cd "$(dirname "$0")/.." && pwd)
 
 # Create list of other workspace crates to exclude
 OTHER_CRATES=""
-for crate_dir in "$WORKSPACE_ROOT"/prism3-*/; do
+for crate_dir in "$WORKSPACE_ROOT"/rust-*/; do
     crate_name=$(basename "$crate_dir")
     if [ "$crate_name" != "$CURRENT_CRATE_NAME" ]; then
         if [ -z "$OTHER_CRATES" ]; then

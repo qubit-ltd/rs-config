@@ -1,7 +1,7 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025.
- *    3-Prism Co. Ltd.
+ *    Copyright (c) 2025 - 2026.
+ *    Haixing Hu, Qubit Co. Ltd.
  *
  *    All rights reserved.
  *
@@ -23,7 +23,7 @@ use super::Config;
 /// # Examples
 ///
 /// ```rust,ignore
-/// use prism3_config::{Config, Configurable};
+/// use qubit_config::{Config, Configurable};
 ///
 /// struct Server { config: Config }
 ///
@@ -35,7 +35,7 @@ use super::Config;
 /// ```
 ///
 /// ```rust,ignore
-/// use prism3_config::{ConfigResult, ConfigError};
+/// use qubit_config::{ConfigResult, ConfigError};
 /// ```
 ///
 /// # Author

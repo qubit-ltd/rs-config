@@ -1,7 +1,7 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025.
- *    3-Prism Co. Ltd.
+ *    Copyright (c) 2025 - 2026.
+ *    Haixing Hu, Qubit Co. Ltd.
  *
  *    All rights reserved.
  *
@@ -17,8 +17,8 @@
 use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
 
-use prism3_core::DataType;
-use prism3_value::MultiValues;
+use qubit_common::DataType;
+use qubit_value::MultiValues;
 
 /// Configuration Property
 ///
@@ -38,7 +38,7 @@ use prism3_value::MultiValues;
 /// For `u8` type, use dedicated methods:
 ///
 /// ```rust,ignore
-/// use prism3_config::Property;
+/// use qubit_config::Property;
 ///
 /// let mut prop = Property::new("byte_value");
 ///
@@ -53,7 +53,7 @@ use prism3_value::MultiValues;
 /// # Examples
 ///
 /// ```rust,ignore
-/// use prism3_config::Property;
+/// use qubit_config::Property;
 ///
 /// let mut prop = Property::new("port");
 /// prop.set(8080).unwrap();  // Generic method, type auto-inferred
@@ -124,8 +124,8 @@ impl Property {
     /// # Examples
     ///
     /// ```rust,ignore
-    /// use prism3_config::Property;
-    /// use prism3_value::MultiValues;
+    /// use qubit_config::Property;
+    /// use qubit_value::MultiValues;
     ///
     /// let prop = Property::with_value("port", MultiValues::Int32(vec![8080]));
     /// assert_eq!(prop.name(), "port");

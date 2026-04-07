@@ -1,7 +1,7 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025.
- *    3-Prism Co. Ltd.
+ *    Copyright (c) 2025 - 2026.
+ *    Haixing Hu, Qubit Co. Ltd.
  *
  *    All rights reserved.
  *
@@ -17,9 +17,9 @@
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, NaiveDate, NaiveTime};
 use num_bigint::BigInt;
-use prism3_config::Property;
-use prism3_core::DataType;
-use prism3_value::MultiValues;
+use qubit_config::Property;
+use qubit_common::DataType;
+use qubit_value::MultiValues;
 use std::str::FromStr;
 
 // ============================================================================

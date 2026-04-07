@@ -354,14 +354,39 @@ dependencies = [
 ]
 
 [[package]]
-name = "prism3-config"
-version = "0.1.1"
+name = "proc-macro2"
+version = "1.0.101"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "89ae43fd86e4158d6db51ad8e2b80f313af9cc74f5c0e03ccb87de09998732de"
+dependencies = [
+ "unicode-ident",
+]
+
+[[package]]
+name = "qubit-common"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7e5470d3788b83562cfbe3cc20b15714335140fdc2b5bf62ed38b810c75dc64"
 dependencies = [
  "bigdecimal",
  "chrono",
  "num-bigint",
- "prism3-core",
- "prism3-value",
+ "regex",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
+name = "qubit-config"
+version = "0.2.0"
+dependencies = [
+ "bigdecimal",
+ "chrono",
+ "num-bigint",
+ "qubit-common",
+ "qubit-value",
  "regex",
  "serde",
  "serde_json",
@@ -371,46 +396,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "prism3-core"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df2bd5c48e234c73c75358b55dc3a8a14a6d74f84175df63c10b58ad246af276"
-dependencies = [
- "bigdecimal",
- "chrono",
- "num-bigint",
- "regex",
- "serde",
- "serde_json",
- "thiserror",
- "tracing",
-]
-
-[[package]]
-name = "prism3-value"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f18b396abe5a6149cbdcf07c0277849d99aff2073c57aa620b14ba5018f2c1df"
+name = "qubit-value"
+version = "0.2.0"
 dependencies = [
  "bigdecimal",
  "chrono",
  "num-bigint",
  "num-traits",
- "prism3-core",
+ "qubit-common",
  "serde",
  "serde_json",
  "thiserror",
  "tracing",
  "uuid",
-]
-
-[[package]]
-name = "proc-macro2"
-version = "1.0.101"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89ae43fd86e4158d6db51ad8e2b80f313af9cc74f5c0e03ccb87de09998732de"
-dependencies = [
- "unicode-ident",
 ]
 
 [[package]]

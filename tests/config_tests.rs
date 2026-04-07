@@ -1,7 +1,7 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025.
- *    3-Prism Co. Ltd.
+ *    Copyright (c) 2025 - 2026.
+ *    Haixing Hu, Qubit Co. Ltd.
  *
  *    All rights reserved.
  *
@@ -11,7 +11,7 @@
 //! Tests all public methods of the Config class, including all supported data types for generic methods.
 
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
-use prism3_config::{Config, ConfigError};
+use qubit_config::{Config, ConfigError};
 
 // ============================================================================
 // Test Helper Functions
