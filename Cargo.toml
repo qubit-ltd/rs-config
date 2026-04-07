@@ -28,7 +28,7 @@ doctest = false
 
 [dependencies]
 qubit-common = "0.3.0"
-qubit-value = { path = "../rust-value" }
+qubit-value = "0.2.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2.0.17"
