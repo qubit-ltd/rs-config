@@ -31,7 +31,7 @@
 
 use std::path::{Path, PathBuf};
 
-use toml::Value as TomlValue;
+use toml::{Table as TomlTable, Value as TomlValue};
 
 use crate::{Config, ConfigError, ConfigResult};
 
@@ -80,7 +80,7 @@ impl ConfigSource for TomlConfigSource {
             ))
         })?;
 
-        let value: TomlValue = content.parse().map_err(|e| {
+        let table: TomlTable = content.parse().map_err(|e| {
             ConfigError::ParseError(format!(
                 "Failed to parse TOML file '{}': {}",
                 self.path.display(),
@@ -88,11 +88,15 @@ impl ConfigSource for TomlConfigSource {
             ))
         })?;
 
-        flatten_toml_value("", &value, config)
+        flatten_toml_value("", &TomlValue::Table(table), config)
     }
 }
 
-/// Recursively flattens a TOML value into the config using dot-separated keys
+/// Recursively flattens a TOML value into the config using dot-separated keys.
+///
+/// Scalar types are stored with their native types (integer → i64, float → f64,
+/// bool → bool, null/empty → empty property). String and datetime values are
+/// stored as `String`.
 pub(crate) fn flatten_toml_value(
     prefix: &str,
     value: &TomlValue,
@@ -110,22 +114,119 @@ pub(crate) fn flatten_toml_value(
             }
         }
         TomlValue::Array(arr) => {
-            // Store scalar arrays as multi-value string properties.
-            // Nested arrays/tables are rejected to avoid silent data loss.
-            for item in arr {
-                let str_val = toml_scalar_to_string(item, prefix)?;
-                config.add(prefix, str_val)?;
-            }
+            // Detect the element type of the first non-table/non-array item.
+            // All elements must be the same scalar type; mixed-type arrays fall
+            // back to string representation to avoid silent data loss.
+            flatten_toml_array(prefix, arr, config)?;
         }
-        scalar => {
-            let str_val = toml_scalar_to_string(scalar, prefix)?;
-            config.set(prefix, str_val)?;
+        TomlValue::String(s) => {
+            config.set(prefix, s.clone())?;
+        }
+        TomlValue::Integer(i) => {
+            config.set(prefix, *i)?;
+        }
+        TomlValue::Float(f) => {
+            config.set(prefix, *f)?;
+        }
+        TomlValue::Boolean(b) => {
+            config.set(prefix, *b)?;
+        }
+        TomlValue::Datetime(dt) => {
+            config.set(prefix, dt.to_string())?;
         }
     }
     Ok(())
 }
 
-/// Converts a TOML scalar value to a string
+/// Flattens a TOML array into multi-value config entries.
+///
+/// Homogeneous scalar arrays are stored with their native types.
+/// Mixed or nested arrays fall back to string representation.
+fn flatten_toml_array(prefix: &str, arr: &[TomlValue], config: &mut Config) -> ConfigResult<()> {
+    if arr.is_empty() {
+        return Ok(());
+    }
+
+    // Determine the dominant scalar type from the first element.
+    enum ArrayKind {
+        Integer,
+        Float,
+        Bool,
+        String,
+    }
+
+    let kind = match &arr[0] {
+        TomlValue::Integer(_) => ArrayKind::Integer,
+        TomlValue::Float(_) => ArrayKind::Float,
+        TomlValue::Boolean(_) => ArrayKind::Bool,
+        TomlValue::Table(_) => {
+            return Err(ConfigError::ParseError(format!(
+                "Unsupported nested TOML table inside array at key '{prefix}'"
+            )));
+        }
+        TomlValue::Array(_) => {
+            return Err(ConfigError::ParseError(format!(
+                "Unsupported nested TOML array at key '{prefix}'"
+            )));
+        }
+        _ => ArrayKind::String,
+    };
+
+    // Check that all elements match the first element's type; fall back to string if not.
+    let all_same = arr.iter().all(|item| {
+        matches!(
+            (&kind, item),
+            (ArrayKind::Integer, TomlValue::Integer(_))
+                | (ArrayKind::Float, TomlValue::Float(_))
+                | (ArrayKind::Bool, TomlValue::Boolean(_))
+                | (
+                    ArrayKind::String,
+                    TomlValue::String(_) | TomlValue::Datetime(_)
+                )
+        )
+    });
+
+    if !all_same {
+        // Mixed types → fall back to string
+        for item in arr {
+            config.add(prefix, toml_scalar_to_string(item, prefix)?)?;
+        }
+        return Ok(());
+    }
+
+    match kind {
+        ArrayKind::Integer => {
+            for item in arr {
+                if let TomlValue::Integer(i) = item {
+                    config.add(prefix, *i)?;
+                }
+            }
+        }
+        ArrayKind::Float => {
+            for item in arr {
+                if let TomlValue::Float(f) = item {
+                    config.add(prefix, *f)?;
+                }
+            }
+        }
+        ArrayKind::Bool => {
+            for item in arr {
+                if let TomlValue::Boolean(b) = item {
+                    config.add(prefix, *b)?;
+                }
+            }
+        }
+        ArrayKind::String => {
+            for item in arr {
+                config.add(prefix, toml_scalar_to_string(item, prefix)?)?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Converts a TOML scalar value to a string (used as fallback for mixed arrays)
 fn toml_scalar_to_string(value: &TomlValue, key: &str) -> ConfigResult<String> {
     match value {
         TomlValue::String(s) => Ok(s.clone()),
@@ -140,5 +241,73 @@ fn toml_scalar_to_string(value: &TomlValue, key: &str) -> ConfigResult<String> {
                 key
             )))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_toml_scalar_to_string_float() {
+        let val = TomlValue::Float(1.5);
+        assert_eq!(toml_scalar_to_string(&val, "key").unwrap(), "1.5");
+    }
+
+    #[test]
+    fn test_toml_scalar_to_string_bool() {
+        let val = TomlValue::Boolean(true);
+        assert_eq!(toml_scalar_to_string(&val, "key").unwrap(), "true");
+    }
+
+    #[test]
+    fn test_toml_scalar_to_string_nested_array_empty_key() {
+        let val = TomlValue::Array(vec![]);
+        let result = toml_scalar_to_string(&val, "");
+        assert!(result.is_err());
+        let msg = format!("{}", result.unwrap_err());
+        assert!(msg.contains("<root>"));
+    }
+
+    #[test]
+    fn test_toml_scalar_to_string_nested_table_with_key() {
+        let val = TomlValue::Table(toml::Table::new());
+        let result = toml_scalar_to_string(&val, "my.key");
+        assert!(result.is_err());
+        let msg = format!("{}", result.unwrap_err());
+        assert!(msg.contains("my.key"));
+    }
+
+    #[test]
+    fn test_flatten_toml_array_mixed_int_string_fallback() {
+        // Build a mixed array manually: first element is Integer, second is String
+        // This tests the all_same=false branch
+        let arr = vec![TomlValue::Integer(1), TomlValue::String("two".to_string())];
+        let mut config = Config::new();
+        flatten_toml_array("mixed", &arr, &mut config).unwrap();
+        // Should fall back to string representation
+        let vals: Vec<String> = config.get_list("mixed").unwrap();
+        assert_eq!(vals.len(), 2);
+    }
+
+    #[test]
+    fn test_flatten_toml_array_mixed_float_string_fallback() {
+        let arr = vec![TomlValue::Float(1.5), TomlValue::String("two".to_string())];
+        let mut config = Config::new();
+        flatten_toml_array("mixed", &arr, &mut config).unwrap();
+        let vals: Vec<String> = config.get_list("mixed").unwrap();
+        assert_eq!(vals.len(), 2);
+    }
+
+    #[test]
+    fn test_flatten_toml_array_mixed_bool_string_fallback() {
+        let arr = vec![
+            TomlValue::Boolean(true),
+            TomlValue::String("two".to_string()),
+        ];
+        let mut config = Config::new();
+        flatten_toml_array("mixed", &arr, &mut config).unwrap();
+        let vals: Vec<String> = config.get_list("mixed").unwrap();
+        assert_eq!(vals.len(), 2);
     }
 }

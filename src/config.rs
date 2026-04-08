@@ -27,6 +27,7 @@ use qubit_value::multi_values::{
     MultiValuesSingleSetter,
 };
 use qubit_value::MultiValues;
+use qubit_value::ValueError;
 
 /// Default maximum depth for variable substitution
 pub const DEFAULT_MAX_SUBSTITUTION_DEPTH: usize = 64;
@@ -433,7 +434,25 @@ impl Config {
             .get(name)
             .ok_or_else(|| ConfigError::PropertyNotFound(name.to_string()))?;
 
-        property.get_first::<T>().map_err(ConfigError::from)
+        property.get_first::<T>().map_err(|e| match e {
+            ValueError::NoValue => ConfigError::PropertyHasNoValue(name.to_string()),
+            ValueError::TypeMismatch { expected, actual } => {
+                ConfigError::type_mismatch_at(name, expected, actual)
+            }
+            ValueError::ConversionFailed { from, to } => {
+                ConfigError::conversion_error_at(name, format!("From {from} to {to}"))
+            }
+            ValueError::ConversionError(msg) => ConfigError::conversion_error_at(name, msg),
+            ValueError::IndexOutOfBounds { index, len } => {
+                ConfigError::IndexOutOfBounds { index, len }
+            }
+            ValueError::JsonSerializationError(msg) => {
+                ConfigError::conversion_error_at(name, format!("JSON serialization error: {msg}"))
+            }
+            ValueError::JsonDeserializationError(msg) => {
+                ConfigError::conversion_error_at(name, format!("JSON deserialization error: {msg}"))
+            }
+        })
     }
 
     /// Gets a configuration value or returns a default value
@@ -509,7 +528,25 @@ impl Config {
             .get(name)
             .ok_or_else(|| ConfigError::PropertyNotFound(name.to_string()))?;
 
-        property.get::<T>().map_err(ConfigError::from)
+        property.get::<T>().map_err(|e| match e {
+            ValueError::NoValue => ConfigError::PropertyHasNoValue(name.to_string()),
+            ValueError::TypeMismatch { expected, actual } => {
+                ConfigError::type_mismatch_at(name, expected, actual)
+            }
+            ValueError::ConversionFailed { from, to } => {
+                ConfigError::conversion_error_at(name, format!("From {from} to {to}"))
+            }
+            ValueError::ConversionError(msg) => ConfigError::conversion_error_at(name, msg),
+            ValueError::IndexOutOfBounds { index, len } => {
+                ConfigError::IndexOutOfBounds { index, len }
+            }
+            ValueError::JsonSerializationError(msg) => {
+                ConfigError::conversion_error_at(name, format!("JSON serialization error: {msg}"))
+            }
+            ValueError::JsonDeserializationError(msg) => {
+                ConfigError::conversion_error_at(name, format!("JSON deserialization error: {msg}"))
+            }
+        })
     }
 
     /// Sets a configuration value
@@ -787,6 +824,451 @@ impl Config {
     /// ```
     pub fn merge_from_source(&mut self, source: &dyn ConfigSource) -> ConfigResult<()> {
         source.load(self)
+    }
+
+    // ========================================================================
+    // Prefix Traversal and Sub-tree Extraction (v0.4.0)
+    // ========================================================================
+
+    /// Iterates over all configuration entries as `(key, &Property)` pairs.
+    ///
+    /// # Returns
+    ///
+    /// An iterator yielding `(&str, &Property)` tuples.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// use qubit_config::Config;
+    ///
+    /// let mut config = Config::new();
+    /// config.set("host", "localhost")?;
+    /// config.set("port", 8080)?;
+    ///
+    /// for (key, prop) in config.iter() {
+    ///     println!("{} = {:?}", key, prop);
+    /// }
+    /// ```
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &Property)> {
+        self.properties.iter().map(|(k, v)| (k.as_str(), v))
+    }
+
+    /// Iterates over all configuration entries whose key starts with `prefix`.
+    ///
+    /// # Parameters
+    ///
+    /// * `prefix` - The key prefix to filter by (e.g., `"http."`)
+    ///
+    /// # Returns
+    ///
+    /// An iterator yielding `(&str, &Property)` tuples where the key starts with `prefix`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// use qubit_config::Config;
+    ///
+    /// let mut config = Config::new();
+    /// config.set("http.host", "localhost")?;
+    /// config.set("http.port", 8080)?;
+    /// config.set("db.host", "dbhost")?;
+    ///
+    /// let http_entries: Vec<_> = config.iter_prefix("http.").collect();
+    /// assert_eq!(http_entries.len(), 2);
+    /// ```
+    pub fn iter_prefix<'a>(
+        &'a self,
+        prefix: &'a str,
+    ) -> impl Iterator<Item = (&'a str, &'a Property)> {
+        self.properties
+            .iter()
+            .filter(move |(k, _)| k.starts_with(prefix))
+            .map(|(k, v)| (k.as_str(), v))
+    }
+
+    /// Returns `true` if any configuration key starts with `prefix`.
+    ///
+    /// # Parameters
+    ///
+    /// * `prefix` - The key prefix to check
+    ///
+    /// # Returns
+    ///
+    /// `true` if at least one key starts with `prefix`, `false` otherwise.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// use qubit_config::Config;
+    ///
+    /// let mut config = Config::new();
+    /// config.set("http.host", "localhost")?;
+    ///
+    /// assert!(config.contains_prefix("http."));
+    /// assert!(!config.contains_prefix("db."));
+    /// ```
+    pub fn contains_prefix(&self, prefix: &str) -> bool {
+        self.properties.keys().any(|k| k.starts_with(prefix))
+    }
+
+    /// Extracts a sub-configuration for keys matching `prefix`.
+    ///
+    /// # Parameters
+    ///
+    /// * `prefix` - The key prefix to extract (e.g., `"http"`)
+    /// * `strip_prefix` - If `true`, the prefix and the following `.` separator are stripped
+    ///   from the keys in the returned `Config`. If `false`, keys are kept as-is.
+    ///
+    /// # Returns
+    ///
+    /// A new `Config` containing only the matching entries.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// use qubit_config::Config;
+    ///
+    /// let mut config = Config::new();
+    /// config.set("http.host", "localhost")?;
+    /// config.set("http.port", 8080)?;
+    /// config.set("db.host", "dbhost")?;
+    ///
+    /// let http_config = config.subconfig("http", true)?;
+    /// assert!(http_config.contains("host"));
+    /// assert!(http_config.contains("port"));
+    /// assert!(!http_config.contains("db.host"));
+    /// ```
+    pub fn subconfig(&self, prefix: &str, strip_prefix: bool) -> ConfigResult<Config> {
+        let mut sub = Config::new();
+        sub.enable_variable_substitution = self.enable_variable_substitution;
+        sub.max_substitution_depth = self.max_substitution_depth;
+
+        // Empty prefix means "all keys"
+        if prefix.is_empty() {
+            for (k, v) in &self.properties {
+                sub.properties.insert(k.clone(), v.clone());
+            }
+            return Ok(sub);
+        }
+
+        let full_prefix = format!("{prefix}.");
+
+        for (k, v) in &self.properties {
+            if k == prefix || k.starts_with(&full_prefix) {
+                let new_key = if strip_prefix {
+                    if k == prefix {
+                        prefix.to_string()
+                    } else {
+                        k[full_prefix.len()..].to_string()
+                    }
+                } else {
+                    k.clone()
+                };
+                sub.properties.insert(new_key, v.clone());
+            }
+        }
+
+        Ok(sub)
+    }
+
+    // ========================================================================
+    // Optional and Null Semantics (v0.4.0)
+    // ========================================================================
+
+    /// Returns `true` if the property exists but has no value (i.e., is empty/null).
+    ///
+    /// This distinguishes between:
+    /// - Key does not exist → `contains()` returns `false`
+    /// - Key exists but is empty/null → `is_null()` returns `true`
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Configuration item name
+    ///
+    /// # Returns
+    ///
+    /// `true` if the property exists and has no values (is empty).
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// use qubit_config::{Config, Property};
+    /// use qubit_value::MultiValues;
+    /// use qubit_common::DataType;
+    ///
+    /// let mut config = Config::new();
+    /// config.properties_mut().insert(
+    ///     "nullable".to_string(),
+    ///     Property::with_value("nullable", MultiValues::Empty(DataType::String)),
+    /// );
+    ///
+    /// assert!(config.is_null("nullable"));
+    /// assert!(!config.is_null("missing"));
+    /// ```
+    pub fn is_null(&self, name: &str) -> bool {
+        self.properties
+            .get(name)
+            .map(|p| p.is_empty())
+            .unwrap_or(false)
+    }
+
+    /// Gets an optional configuration value.
+    ///
+    /// Distinguishes between three states:
+    /// - `Ok(Some(value))` – key exists and has a value
+    /// - `Ok(None)` – key does not exist, **or** exists but is null/empty
+    /// - `Err(e)` – key exists and has a value, but conversion failed
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Target type
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Configuration item name
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// use qubit_config::Config;
+    ///
+    /// let mut config = Config::new();
+    /// config.set("port", 8080)?;
+    ///
+    /// let port: Option<i32> = config.get_optional("port")?;
+    /// assert_eq!(port, Some(8080));
+    ///
+    /// let missing: Option<i32> = config.get_optional("missing")?;
+    /// assert_eq!(missing, None);
+    /// ```
+    pub fn get_optional<T>(&self, name: &str) -> ConfigResult<Option<T>>
+    where
+        MultiValues: MultiValuesFirstGetter<T>,
+    {
+        match self.properties.get(name) {
+            None => Ok(None),
+            Some(prop) if prop.is_empty() => Ok(None),
+            Some(_) => self.get::<T>(name).map(Some),
+        }
+    }
+
+    /// Gets an optional list of configuration values.
+    ///
+    /// Distinguishes between three states:
+    /// - `Ok(Some(vec))` – key exists and has values
+    /// - `Ok(None)` – key does not exist, **or** exists but is null/empty
+    /// - `Err(e)` – key exists and has values, but conversion failed
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Target element type
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Configuration item name
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// use qubit_config::Config;
+    ///
+    /// let mut config = Config::new();
+    /// config.set("ports", vec![8080, 8081])?;
+    ///
+    /// let ports: Option<Vec<i32>> = config.get_list_optional("ports")?;
+    /// assert_eq!(ports, Some(vec![8080, 8081]));
+    ///
+    /// let missing: Option<Vec<i32>> = config.get_list_optional("missing")?;
+    /// assert_eq!(missing, None);
+    /// ```
+    pub fn get_list_optional<T>(&self, name: &str) -> ConfigResult<Option<Vec<T>>>
+    where
+        MultiValues: MultiValuesGetter<T>,
+    {
+        match self.properties.get(name) {
+            None => Ok(None),
+            Some(prop) if prop.is_empty() => Ok(None),
+            Some(_) => self.get_list::<T>(name).map(Some),
+        }
+    }
+
+    // ========================================================================
+    // Structured Config Deserialization (v0.4.0)
+    // ========================================================================
+
+    /// Deserializes a sub-configuration (identified by `prefix`) into a struct `T`.
+    ///
+    /// The keys under `prefix` (with the prefix and its trailing `.` stripped) are
+    /// presented to `serde` as a flat map, so a struct like:
+    ///
+    /// ```rust,ignore
+    /// #[derive(serde::Deserialize)]
+    /// struct HttpOptions {
+    ///     host: String,
+    ///     port: u16,
+    /// }
+    /// ```
+    ///
+    /// can be populated from config keys `http.host` and `http.port` by calling
+    /// `config.deserialize::<HttpOptions>("http")`.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Target type, must implement `serde::de::DeserializeOwned`
+    ///
+    /// # Parameters
+    ///
+    /// * `prefix` - The key prefix that scopes the struct fields (use `""` for the root)
+    ///
+    /// # Returns
+    ///
+    /// Returns the deserialized value on success, or a `ConfigError` on failure.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// use qubit_config::Config;
+    /// use serde::Deserialize;
+    ///
+    /// #[derive(Deserialize, Debug, PartialEq)]
+    /// struct Server {
+    ///     host: String,
+    ///     port: i32,
+    /// }
+    ///
+    /// let mut config = Config::new();
+    /// config.set("server.host", "localhost")?;
+    /// config.set("server.port", 8080)?;
+    ///
+    /// let server: Server = config.deserialize("server")?;
+    /// assert_eq!(server.host, "localhost");
+    /// assert_eq!(server.port, 8080);
+    /// ```
+    pub fn deserialize<T>(&self, prefix: &str) -> ConfigResult<T>
+    where
+        T: serde::de::DeserializeOwned,
+    {
+        use serde_json::{Map, Value as JsonValue};
+
+        let sub = self.subconfig(prefix, true)?;
+
+        let mut map = Map::new();
+        for (key, prop) in &sub.properties {
+            let json_val = property_to_json_value(prop);
+            map.insert(key.clone(), json_val);
+        }
+
+        let json_obj = JsonValue::Object(map);
+
+        serde_json::from_value(json_obj).map_err(|e| ConfigError::DeserializeError {
+            path: prefix.to_string(),
+            message: e.to_string(),
+        })
+    }
+
+    /// Returns a mutable reference to the internal properties map.
+    ///
+    /// This is primarily intended for advanced use cases such as directly inserting
+    /// null/empty properties that cannot be expressed via the normal `set()` API.
+    pub fn properties_mut(&mut self) -> &mut HashMap<String, Property> {
+        &mut self.properties
+    }
+}
+
+/// Converts a `Property` to a `serde_json::Value` for use in structured deserialization.
+fn property_to_json_value(prop: &Property) -> serde_json::Value {
+    use qubit_value::MultiValues;
+    use serde_json::Value as JsonValue;
+
+    let mv = prop.value();
+
+    match mv {
+        MultiValues::Empty(_) => JsonValue::Null,
+        MultiValues::Bool(v) => {
+            if v.len() == 1 {
+                JsonValue::Bool(v[0])
+            } else {
+                JsonValue::Array(v.iter().map(|b| JsonValue::Bool(*b)).collect())
+            }
+        }
+        MultiValues::Int8(v) => scalar_or_array(v, |x| JsonValue::Number((*x).into())),
+        MultiValues::Int16(v) => scalar_or_array(v, |x| JsonValue::Number((*x).into())),
+        MultiValues::Int32(v) => scalar_or_array(v, |x| JsonValue::Number((*x).into())),
+        MultiValues::Int64(v) => scalar_or_array(v, |x| JsonValue::Number((*x).into())),
+        MultiValues::IntSize(v) => scalar_or_array(v, |x| {
+            JsonValue::Number(serde_json::Number::from(*x as i64))
+        }),
+        MultiValues::UInt8(v) => scalar_or_array(v, |x| JsonValue::Number((*x).into())),
+        MultiValues::UInt16(v) => scalar_or_array(v, |x| JsonValue::Number((*x).into())),
+        MultiValues::UInt32(v) => scalar_or_array(v, |x| JsonValue::Number((*x).into())),
+        MultiValues::UInt64(v) => scalar_or_array(v, |x| JsonValue::Number((*x).into())),
+        MultiValues::UIntSize(v) => scalar_or_array(v, |x| {
+            JsonValue::Number(serde_json::Number::from(*x as u64))
+        }),
+        MultiValues::Float32(v) => scalar_or_array(v, |x| {
+            serde_json::Number::from_f64(*x as f64)
+                .map(JsonValue::Number)
+                .unwrap_or(JsonValue::Null)
+        }),
+        MultiValues::Float64(v) => scalar_or_array(v, |x| {
+            serde_json::Number::from_f64(*x)
+                .map(JsonValue::Number)
+                .unwrap_or(JsonValue::Null)
+        }),
+        MultiValues::String(v) => scalar_or_array(v, |x| JsonValue::String(x.clone())),
+        MultiValues::Duration(v) => {
+            scalar_or_array(v, |x| JsonValue::String(format!("{}ms", x.as_millis())))
+        }
+        MultiValues::Url(v) => scalar_or_array(v, |x| JsonValue::String(x.to_string())),
+        MultiValues::StringMap(v) => {
+            if v.len() == 1 {
+                let obj: serde_json::Map<String, JsonValue> = v[0]
+                    .iter()
+                    .map(|(k, val)| (k.clone(), JsonValue::String(val.clone())))
+                    .collect();
+                JsonValue::Object(obj)
+            } else {
+                JsonValue::Array(
+                    v.iter()
+                        .map(|m| {
+                            let obj: serde_json::Map<String, JsonValue> = m
+                                .iter()
+                                .map(|(k, val)| (k.clone(), JsonValue::String(val.clone())))
+                                .collect();
+                            JsonValue::Object(obj)
+                        })
+                        .collect(),
+                )
+            }
+        }
+        MultiValues::Json(v) => {
+            if v.len() == 1 {
+                v[0].clone()
+            } else {
+                JsonValue::Array(v.clone())
+            }
+        }
+        MultiValues::Char(v) => scalar_or_array(v, |x| JsonValue::String(x.to_string())),
+        MultiValues::BigInteger(v) => scalar_or_array(v, |x| JsonValue::String(x.to_string())),
+        MultiValues::BigDecimal(v) => scalar_or_array(v, |x| JsonValue::String(x.to_string())),
+        MultiValues::DateTime(v) => scalar_or_array(v, |x| JsonValue::String(x.to_string())),
+        MultiValues::Date(v) => scalar_or_array(v, |x| JsonValue::String(x.to_string())),
+        MultiValues::Time(v) => scalar_or_array(v, |x| JsonValue::String(x.to_string())),
+        MultiValues::Instant(v) => scalar_or_array(v, |x| JsonValue::String(x.to_string())),
+        MultiValues::Int128(v) => scalar_or_array(v, |x| JsonValue::String(x.to_string())),
+        MultiValues::UInt128(v) => scalar_or_array(v, |x| JsonValue::String(x.to_string())),
+    }
+}
+
+/// Helper: if the vec has exactly one element, return a scalar JSON value; otherwise an array.
+fn scalar_or_array<T, F>(v: &[T], f: F) -> serde_json::Value
+where
+    F: Fn(&T) -> serde_json::Value,
+{
+    if v.len() == 1 {
+        f(&v[0])
+    } else {
+        serde_json::Value::Array(v.iter().map(f).collect())
     }
 }
 

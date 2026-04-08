@@ -92,7 +92,14 @@ impl ConfigSource for YamlConfigSource {
     }
 }
 
-/// Recursively flattens a YAML value into the config using dot-separated keys
+/// Recursively flattens a YAML value into the config using dot-separated keys.
+///
+/// Scalar types are stored with their native types where possible:
+/// - Integer numbers → i64
+/// - Floating-point numbers → f64
+/// - Booleans → bool
+/// - Strings → String
+/// - Null → empty property (is_null returns true)
 pub(crate) fn flatten_yaml_value(
     prefix: &str,
     value: &YamlValue,
@@ -111,20 +118,121 @@ pub(crate) fn flatten_yaml_value(
             }
         }
         YamlValue::Sequence(seq) => {
-            for item in seq {
-                let str_val = yaml_scalar_to_string(item);
-                config.add(prefix, str_val)?;
-            }
+            flatten_yaml_sequence(prefix, seq, config)?;
         }
         YamlValue::Null => {
-            // Null values are stored as empty string
-            config.set(prefix, String::new())?;
+            // Null values are stored as empty properties to preserve null semantics.
+            // Use properties_mut() to insert an empty property directly.
+            use crate::Property;
+            use qubit_common::DataType;
+            use qubit_value::MultiValues;
+            config
+                .properties_mut()
+                .entry(prefix.to_string())
+                .or_insert_with(|| {
+                    Property::with_value(prefix, MultiValues::Empty(DataType::String))
+                });
         }
-        scalar => {
-            let str_val = yaml_scalar_to_string(scalar);
-            config.set(prefix, str_val)?;
+        YamlValue::Bool(b) => {
+            config.set(prefix, *b)?;
+        }
+        YamlValue::Number(n) => {
+            if let Some(i) = n.as_i64() {
+                config.set(prefix, i)?;
+            } else if let Some(f) = n.as_f64() {
+                config.set(prefix, f)?;
+            } else {
+                config.set(prefix, n.to_string())?;
+            }
+        }
+        YamlValue::String(s) => {
+            config.set(prefix, s.clone())?;
+        }
+        YamlValue::Tagged(tagged) => {
+            flatten_yaml_value(prefix, &tagged.value, config)?;
         }
     }
+    Ok(())
+}
+
+/// Flattens a YAML sequence into multi-value config entries.
+///
+/// Homogeneous scalar sequences are stored with their native types.
+/// Mixed or nested sequences fall back to string representation.
+fn flatten_yaml_sequence(prefix: &str, seq: &[YamlValue], config: &mut Config) -> ConfigResult<()> {
+    if seq.is_empty() {
+        return Ok(());
+    }
+
+    enum SeqKind {
+        Integer,
+        Float,
+        Bool,
+        String,
+    }
+
+    let kind = match &seq[0] {
+        YamlValue::Number(n) if n.is_i64() => SeqKind::Integer,
+        YamlValue::Number(_) => SeqKind::Float,
+        YamlValue::Bool(_) => SeqKind::Bool,
+        YamlValue::Mapping(_) | YamlValue::Sequence(_) => {
+            // Nested structures: fall back to string
+            for item in seq {
+                config.add(prefix, yaml_scalar_to_string(item))?;
+            }
+            return Ok(());
+        }
+        _ => SeqKind::String,
+    };
+
+    let all_same = seq.iter().all(|item| match (&kind, item) {
+        (SeqKind::Integer, YamlValue::Number(n)) => n.is_i64(),
+        (SeqKind::Float, YamlValue::Number(_)) => true,
+        (SeqKind::Bool, YamlValue::Bool(_)) => true,
+        (SeqKind::String, YamlValue::String(_)) => true,
+        _ => false,
+    });
+
+    if !all_same {
+        for item in seq {
+            config.add(prefix, yaml_scalar_to_string(item))?;
+        }
+        return Ok(());
+    }
+
+    match kind {
+        SeqKind::Integer => {
+            for item in seq {
+                if let YamlValue::Number(n) = item {
+                    if let Some(i) = n.as_i64() {
+                        config.add(prefix, i)?;
+                    }
+                }
+            }
+        }
+        SeqKind::Float => {
+            for item in seq {
+                if let YamlValue::Number(n) = item {
+                    if let Some(f) = n.as_f64() {
+                        config.add(prefix, f)?;
+                    }
+                }
+            }
+        }
+        SeqKind::Bool => {
+            for item in seq {
+                if let YamlValue::Bool(b) = item {
+                    config.add(prefix, *b)?;
+                }
+            }
+        }
+        SeqKind::String => {
+            for item in seq {
+                config.add(prefix, yaml_scalar_to_string(item))?;
+            }
+        }
+    }
+
     Ok(())
 }
 
@@ -141,7 +249,7 @@ fn yaml_key_to_string(value: &YamlValue) -> ConfigResult<String> {
     }
 }
 
-/// Converts a YAML scalar value to a string
+/// Converts a YAML scalar value to a string (fallback for mixed-type sequences)
 fn yaml_scalar_to_string(value: &YamlValue) -> String {
     match value {
         YamlValue::String(s) => s.clone(),
@@ -149,5 +257,120 @@ fn yaml_scalar_to_string(value: &YamlValue) -> String {
         YamlValue::Bool(b) => b.to_string(),
         YamlValue::Null => String::new(),
         YamlValue::Sequence(_) | YamlValue::Mapping(_) | YamlValue::Tagged(_) => String::new(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_yaml_key_to_string_number() {
+        let key = YamlValue::Number(serde_yaml::Number::from(42));
+        assert_eq!(yaml_key_to_string(&key).unwrap(), "42");
+    }
+
+    #[test]
+    fn test_yaml_key_to_string_bool() {
+        let key = YamlValue::Bool(true);
+        assert_eq!(yaml_key_to_string(&key).unwrap(), "true");
+    }
+
+    #[test]
+    fn test_yaml_key_to_string_null() {
+        let key = YamlValue::Null;
+        assert_eq!(yaml_key_to_string(&key).unwrap(), "null");
+    }
+
+    #[test]
+    fn test_yaml_scalar_to_string_bool() {
+        assert_eq!(yaml_scalar_to_string(&YamlValue::Bool(false)), "false");
+    }
+
+    #[test]
+    fn test_yaml_scalar_to_string_null() {
+        assert_eq!(yaml_scalar_to_string(&YamlValue::Null), "");
+    }
+
+    #[test]
+    fn test_yaml_scalar_to_string_sequence() {
+        assert_eq!(yaml_scalar_to_string(&YamlValue::Sequence(vec![])), "");
+    }
+
+    #[test]
+    fn test_yaml_scalar_to_string_mapping() {
+        assert_eq!(
+            yaml_scalar_to_string(&YamlValue::Mapping(serde_yaml::Mapping::new())),
+            ""
+        );
+    }
+
+    #[test]
+    fn test_flatten_yaml_sequence_mixed_int_null_fallback() {
+        // Mixed: int + null → falls back to string
+        let seq = vec![
+            YamlValue::Number(serde_yaml::Number::from(1i64)),
+            YamlValue::Null,
+        ];
+        let mut config = Config::new();
+        flatten_yaml_sequence("mixed", &seq, &mut config).unwrap();
+        // Should fall back to string representation
+        assert!(config.contains("mixed"));
+    }
+
+    #[test]
+    fn test_flatten_yaml_sequence_mixed_float_string_fallback() {
+        // Mixed: float + string → falls back to string
+        let seq = vec![
+            YamlValue::Number(serde_yaml::Number::from(1.5f64)),
+            YamlValue::String("two".to_string()),
+        ];
+        let mut config = Config::new();
+        flatten_yaml_sequence("mixed", &seq, &mut config).unwrap();
+        assert!(config.contains("mixed"));
+    }
+
+    #[test]
+    fn test_flatten_yaml_sequence_mixed_bool_string_fallback() {
+        // Mixed: bool + string → falls back to string
+        let seq = vec![YamlValue::Bool(true), YamlValue::String("two".to_string())];
+        let mut config = Config::new();
+        flatten_yaml_sequence("mixed", &seq, &mut config).unwrap();
+        assert!(config.contains("mixed"));
+    }
+
+    #[test]
+    fn test_flatten_yaml_sequence_mixed_string_int_fallback() {
+        // Mixed: string + int → falls back to string
+        let seq = vec![
+            YamlValue::String("one".to_string()),
+            YamlValue::Number(serde_yaml::Number::from(2i64)),
+        ];
+        let mut config = Config::new();
+        flatten_yaml_sequence("mixed", &seq, &mut config).unwrap();
+        assert!(config.contains("mixed"));
+    }
+
+    #[test]
+    fn test_flatten_yaml_value_tagged() {
+        use serde_yaml::value::Tag;
+        use serde_yaml::value::TaggedValue;
+        let tagged = YamlValue::Tagged(Box::new(TaggedValue {
+            tag: Tag::new("!!str"),
+            value: YamlValue::String("hello".to_string()),
+        }));
+        let mut config = Config::new();
+        flatten_yaml_value("key", &tagged, &mut config).unwrap();
+        assert_eq!(config.get_string("key").unwrap(), "hello");
+    }
+
+    #[test]
+    fn test_flatten_yaml_value_number_no_i64() {
+        // A very large float that can't be represented as i64
+        let num = serde_yaml::Number::from(f64::MAX);
+        let val = YamlValue::Number(num);
+        let mut config = Config::new();
+        flatten_yaml_value("key", &val, &mut config).unwrap();
+        assert!(config.contains("key"));
     }
 }

@@ -38,6 +38,7 @@ fn test_property_has_no_value_error() {
 #[test]
 fn test_type_mismatch_error() {
     let error = ConfigError::TypeMismatch {
+        key: "server.port".to_string(),
         expected: DataType::Int32,
         actual: DataType::String,
     };
@@ -45,14 +46,19 @@ fn test_type_mismatch_error() {
     assert!(error_msg.contains("Type mismatch"));
     assert!(error_msg.contains("expected"));
     assert!(error_msg.contains("actual"));
+    assert!(error_msg.contains("server.port"));
 }
 
 #[test]
 fn test_conversion_error() {
-    let error = ConfigError::ConversionError("Cannot convert to integer".to_string());
+    let error = ConfigError::ConversionError {
+        key: "db.timeout".to_string(),
+        message: "Cannot convert to integer".to_string(),
+    };
     let error_msg = format!("{}", error);
     assert!(error_msg.contains("Type conversion failed"));
     assert!(error_msg.contains("Cannot convert to integer"));
+    assert!(error_msg.contains("db.timeout"));
 }
 
 #[test]
@@ -143,7 +149,12 @@ fn test_from_value_error_type_mismatch() {
     };
     let config_err: ConfigError = value_err.into();
     match config_err {
-        ConfigError::TypeMismatch { expected, actual } => {
+        ConfigError::TypeMismatch {
+            key,
+            expected,
+            actual,
+        } => {
+            assert_eq!(key, "");
             assert_eq!(expected, DataType::Bool);
             assert_eq!(actual, DataType::Int32);
         }
@@ -159,8 +170,9 @@ fn test_from_value_error_conversion_failed() {
     };
     let config_err: ConfigError = value_err.into();
     match config_err {
-        ConfigError::ConversionError(msg) => {
-            assert!(msg.contains("From") && msg.contains("to"));
+        ConfigError::ConversionError { key, message } => {
+            assert_eq!(key, "");
+            assert!(message.contains("From") && message.contains("to"));
         }
         _ => panic!("Expected ConversionError"),
     }
@@ -171,8 +183,9 @@ fn test_from_value_error_conversion_error() {
     let value_err = ValueError::ConversionError("Custom error message".to_string());
     let config_err: ConfigError = value_err.into();
     match config_err {
-        ConfigError::ConversionError(msg) => {
-            assert_eq!(msg, "Custom error message");
+        ConfigError::ConversionError { key, message } => {
+            assert_eq!(key, "");
+            assert_eq!(message, "Custom error message");
         }
         _ => panic!("Expected ConversionError"),
     }
@@ -212,10 +225,14 @@ fn test_error_matching() {
         ConfigError::PropertyNotFound("test".to_string()),
         ConfigError::PropertyHasNoValue("test".to_string()),
         ConfigError::TypeMismatch {
+            key: "test.key".to_string(),
             expected: DataType::Int32,
             actual: DataType::String,
         },
-        ConfigError::ConversionError("test".to_string()),
+        ConfigError::ConversionError {
+            key: "test.key".to_string(),
+            message: "test".to_string(),
+        },
         ConfigError::IndexOutOfBounds { index: 1, len: 0 },
         ConfigError::SubstitutionError("test".to_string()),
         ConfigError::SubstitutionDepthExceeded(100),
