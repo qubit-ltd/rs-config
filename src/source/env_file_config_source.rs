@@ -33,10 +33,10 @@ use super::ConfigSource;
 /// # Examples
 ///
 /// ```rust,ignore
-/// use qubit_config::source::{EnvFileSource, ConfigSource};
+/// use qubit_config::source::{EnvFileConfigSource, ConfigSource};
 /// use qubit_config::Config;
 ///
-/// let source = EnvFileSource::from_file(".env");
+/// let source = EnvFileConfigSource::from_file(".env");
 /// let mut config = Config::new();
 /// source.load(&mut config).unwrap();
 /// ```
@@ -45,12 +45,12 @@ use super::ConfigSource;
 ///
 /// Haixing Hu
 #[derive(Debug, Clone)]
-pub struct EnvFileSource {
+pub struct EnvFileConfigSource {
     path: PathBuf,
 }
 
-impl EnvFileSource {
-    /// Creates a new `EnvFileSource` from a file path
+impl EnvFileConfigSource {
+    /// Creates a new `EnvFileConfigSource` from a file path
     ///
     /// # Parameters
     ///
@@ -62,7 +62,7 @@ impl EnvFileSource {
     }
 }
 
-impl ConfigSource for EnvFileSource {
+impl ConfigSource for EnvFileConfigSource {
     fn load(&self, config: &mut Config) -> ConfigResult<()> {
         let iter = dotenvy::from_path_iter(&self.path).map_err(|e| {
             ConfigError::IoError(std::io::Error::new(

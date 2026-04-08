@@ -35,14 +35,14 @@ use super::ConfigSource;
 /// # Examples
 ///
 /// ```rust,ignore
-/// use qubit_config::source::{EnvSource, ConfigSource};
+/// use qubit_config::source::{EnvConfigSource, ConfigSource};
 /// use qubit_config::Config;
 ///
 /// // Load all env vars
-/// let source = EnvSource::new();
+/// let source = EnvConfigSource::new();
 ///
 /// // Load only vars with prefix "APP_", strip prefix and normalize key
-/// let source = EnvSource::with_prefix("APP_");
+/// let source = EnvConfigSource::with_prefix("APP_");
 ///
 /// let mut config = Config::new();
 /// source.load(&mut config).unwrap();
@@ -52,7 +52,7 @@ use super::ConfigSource;
 ///
 /// Haixing Hu
 #[derive(Debug, Clone)]
-pub struct EnvSource {
+pub struct EnvConfigSource {
     /// Optional prefix filter; only variables with this prefix are loaded
     prefix: Option<String>,
     /// Whether to strip the prefix from the key
@@ -63,8 +63,8 @@ pub struct EnvSource {
     lowercase_keys: bool,
 }
 
-impl EnvSource {
-    /// Creates a new `EnvSource` that loads all environment variables
+impl EnvConfigSource {
+    /// Creates a new `EnvConfigSource` that loads all environment variables
     ///
     /// Keys are loaded as-is (no prefix filtering, no transformation).
     pub fn new() -> Self {
@@ -76,7 +76,7 @@ impl EnvSource {
         }
     }
 
-    /// Creates a new `EnvSource` that filters by prefix and normalizes keys
+    /// Creates a new `EnvConfigSource` that filters by prefix and normalizes keys
     ///
     /// Only variables with the given prefix are loaded. The prefix is stripped,
     /// the key is lowercased, and underscores are converted to dots.
@@ -93,7 +93,7 @@ impl EnvSource {
         }
     }
 
-    /// Creates a new `EnvSource` with a custom prefix and explicit options
+    /// Creates a new `EnvConfigSource` with a custom prefix and explicit options
     ///
     /// # Parameters
     ///
@@ -139,13 +139,13 @@ impl EnvSource {
     }
 }
 
-impl Default for EnvSource {
+impl Default for EnvConfigSource {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl ConfigSource for EnvSource {
+impl ConfigSource for EnvConfigSource {
     fn load(&self, config: &mut Config) -> ConfigResult<()> {
         for (key, value) in std::env::vars() {
             // Filter by prefix if set

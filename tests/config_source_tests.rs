@@ -14,8 +14,8 @@ use std::path::PathBuf;
 
 use qubit_config::{
     source::{
-        CompositeSource, ConfigSource, EnvFileSource, EnvSource, PropertiesSource, TomlSource,
-        YamlSource,
+        CompositeConfigSource, ConfigSource, EnvConfigSource, EnvFileConfigSource,
+        PropertiesConfigSource, TomlConfigSource, YamlConfigSource,
     },
     Config, ConfigError,
 };
@@ -29,11 +29,11 @@ fn fixture(name: &str) -> PathBuf {
 }
 
 // ============================================================================
-// PropertiesSource Tests
+// PropertiesConfigSource Tests
 // ============================================================================
 
 #[cfg(test)]
-mod test_properties_source {
+mod test_properties_config_source {
     use super::*;
 
     // ---- parse_content unit tests ----
@@ -41,7 +41,7 @@ mod test_properties_source {
     #[test]
     fn test_parse_basic_key_value_equals() {
         let content = "key=value\nhost=localhost";
-        let pairs = PropertiesSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content);
         assert_eq!(pairs.len(), 2);
         assert_eq!(pairs[0], ("key".to_string(), "value".to_string()));
         assert_eq!(pairs[1], ("host".to_string(), "localhost".to_string()));
@@ -50,7 +50,7 @@ mod test_properties_source {
     #[test]
     fn test_parse_colon_separator() {
         let content = "key: value\nhost: localhost";
-        let pairs = PropertiesSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content);
         assert_eq!(pairs.len(), 2);
         assert_eq!(pairs[0], ("key".to_string(), "value".to_string()));
         assert_eq!(pairs[1], ("host".to_string(), "localhost".to_string()));
@@ -59,7 +59,7 @@ mod test_properties_source {
     #[test]
     fn test_parse_skips_hash_comments() {
         let content = "# This is a comment\nkey=value";
-        let pairs = PropertiesSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content);
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0].0, "key");
     }
@@ -67,7 +67,7 @@ mod test_properties_source {
     #[test]
     fn test_parse_skips_exclamation_comments() {
         let content = "! Another comment style\nkey=value";
-        let pairs = PropertiesSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content);
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0].0, "key");
     }
@@ -75,7 +75,7 @@ mod test_properties_source {
     #[test]
     fn test_parse_skips_blank_lines() {
         let content = "\n\nkey=value\n\n";
-        let pairs = PropertiesSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content);
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0].0, "key");
     }
@@ -83,7 +83,7 @@ mod test_properties_source {
     #[test]
     fn test_parse_line_continuation() {
         let content = "key=val\\\nue";
-        let pairs = PropertiesSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content);
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0], ("key".to_string(), "value".to_string()));
     }
@@ -91,7 +91,7 @@ mod test_properties_source {
     #[test]
     fn test_parse_unicode_escape() {
         let content = "greeting=\\u4e2d\\u6587";
-        let pairs = PropertiesSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content);
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0], ("greeting".to_string(), "中文".to_string()));
     }
@@ -99,7 +99,7 @@ mod test_properties_source {
     #[test]
     fn test_parse_empty_value() {
         let content = "empty=";
-        let pairs = PropertiesSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content);
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0], ("empty".to_string(), "".to_string()));
     }
@@ -107,7 +107,7 @@ mod test_properties_source {
     #[test]
     fn test_parse_value_with_spaces() {
         let content = "key = value with spaces";
-        let pairs = PropertiesSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content);
         assert_eq!(pairs.len(), 1);
         assert_eq!(
             pairs[0],
@@ -117,21 +117,21 @@ mod test_properties_source {
 
     #[test]
     fn test_parse_empty_content() {
-        let pairs = PropertiesSource::parse_content("");
+        let pairs = PropertiesConfigSource::parse_content("");
         assert!(pairs.is_empty());
     }
 
     #[test]
     fn test_parse_only_comments() {
         let content = "# comment1\n# comment2\n! comment3";
-        let pairs = PropertiesSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content);
         assert!(pairs.is_empty());
     }
 
     #[test]
     fn test_parse_multiple_line_continuation() {
         let content = "key=first \\\n    second \\\n    third";
-        let pairs = PropertiesSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content);
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0].0, "key");
         assert!(pairs[0].1.contains("first"));
@@ -142,7 +142,7 @@ mod test_properties_source {
     #[test]
     fn test_parse_newline_escape() {
         let content = "key=line1\\nline2";
-        let pairs = PropertiesSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content);
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0], ("key".to_string(), "line1\nline2".to_string()));
     }
@@ -150,7 +150,7 @@ mod test_properties_source {
     #[test]
     fn test_parse_tab_escape() {
         let content = "key=col1\\tcol2";
-        let pairs = PropertiesSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content);
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0], ("key".to_string(), "col1\tcol2".to_string()));
     }
@@ -158,7 +158,7 @@ mod test_properties_source {
     #[test]
     fn test_parse_backslash_escape() {
         let content = "key=path\\\\to\\\\file";
-        let pairs = PropertiesSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content);
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0], ("key".to_string(), "path\\to\\file".to_string()));
     }
@@ -166,7 +166,7 @@ mod test_properties_source {
     #[test]
     fn test_parse_even_backslashes_before_separator() {
         let content = r"path\\=value";
-        let pairs = PropertiesSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content);
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0], ("path\\".to_string(), "value".to_string()));
     }
@@ -175,7 +175,7 @@ mod test_properties_source {
 
     #[test]
     fn test_load_basic_properties_file() {
-        let source = PropertiesSource::from_file(fixture("basic.properties"));
+        let source = PropertiesConfigSource::from_file(fixture("basic.properties"));
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
@@ -188,7 +188,7 @@ mod test_properties_source {
 
     #[test]
     fn test_load_multivalue_properties_file() {
-        let source = PropertiesSource::from_file(fixture("multivalue.properties"));
+        let source = PropertiesConfigSource::from_file(fixture("multivalue.properties"));
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
@@ -203,7 +203,7 @@ mod test_properties_source {
 
     #[test]
     fn test_load_nonexistent_file_returns_error() {
-        let source = PropertiesSource::from_file("/nonexistent/path/config.properties");
+        let source = PropertiesConfigSource::from_file("/nonexistent/path/config.properties");
         let mut config = Config::new();
         let result = source.load(&mut config);
         assert!(result.is_err());
@@ -213,8 +213,8 @@ mod test_properties_source {
     // ---- merge_from_source integration ----
 
     #[test]
-    fn test_merge_from_properties_source() {
-        let source = PropertiesSource::from_file(fixture("basic.properties"));
+    fn test_merge_from_properties_config_source() {
+        let source = PropertiesConfigSource::from_file(fixture("basic.properties"));
         let mut config = Config::new();
         config.merge_from_source(&source).unwrap();
 
@@ -224,16 +224,16 @@ mod test_properties_source {
 }
 
 // ============================================================================
-// TomlSource Tests
+// TomlConfigSource Tests
 // ============================================================================
 
 #[cfg(test)]
-mod test_toml_source {
+mod test_toml_config_source {
     use super::*;
 
     #[test]
     fn test_load_basic_toml_file() {
-        let source = TomlSource::from_file(fixture("basic.toml"));
+        let source = TomlConfigSource::from_file(fixture("basic.toml"));
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
@@ -245,7 +245,7 @@ mod test_toml_source {
 
     #[test]
     fn test_load_toml_nested_table_flattened() {
-        let source = TomlSource::from_file(fixture("basic.toml"));
+        let source = TomlConfigSource::from_file(fixture("basic.toml"));
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
@@ -257,7 +257,7 @@ mod test_toml_source {
 
     #[test]
     fn test_load_toml_array_as_multivalue() {
-        let source = TomlSource::from_file(fixture("basic.toml"));
+        let source = TomlConfigSource::from_file(fixture("basic.toml"));
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
@@ -270,7 +270,7 @@ mod test_toml_source {
 
     #[test]
     fn test_load_nonexistent_toml_file_returns_error() {
-        let source = TomlSource::from_file("/nonexistent/path/config.toml");
+        let source = TomlConfigSource::from_file("/nonexistent/path/config.toml");
         let mut config = Config::new();
         let result = source.load(&mut config);
         assert!(result.is_err());
@@ -283,7 +283,7 @@ mod test_toml_source {
         let path = dir.path().join("invalid.toml");
         std::fs::write(&path, "this is not valid toml ===").unwrap();
 
-        let source = TomlSource::from_file(&path);
+        let source = TomlConfigSource::from_file(&path);
         let mut config = Config::new();
         let result = source.load(&mut config);
         assert!(result.is_err());
@@ -291,8 +291,8 @@ mod test_toml_source {
     }
 
     #[test]
-    fn test_merge_from_toml_source() {
-        let source = TomlSource::from_file(fixture("basic.toml"));
+    fn test_merge_from_toml_config_source() {
+        let source = TomlConfigSource::from_file(fixture("basic.toml"));
         let mut config = Config::new();
         config.merge_from_source(&source).unwrap();
 
@@ -318,7 +318,7 @@ pool = 5
         )
         .unwrap();
 
-        let source = TomlSource::from_file(&path);
+        let source = TomlConfigSource::from_file(&path);
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
@@ -350,7 +350,7 @@ port = 2
         )
         .unwrap();
 
-        let source = TomlSource::from_file(&path);
+        let source = TomlConfigSource::from_file(&path);
         let mut config = Config::new();
         let result = source.load(&mut config);
         assert!(matches!(result, Err(ConfigError::ParseError(_))));
@@ -358,16 +358,16 @@ port = 2
 }
 
 // ============================================================================
-// YamlSource Tests
+// YamlConfigSource Tests
 // ============================================================================
 
 #[cfg(test)]
-mod test_yaml_source {
+mod test_yaml_config_source {
     use super::*;
 
     #[test]
     fn test_load_basic_yaml_file() {
-        let source = YamlSource::from_file(fixture("basic.yaml"));
+        let source = YamlConfigSource::from_file(fixture("basic.yaml"));
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
@@ -379,7 +379,7 @@ mod test_yaml_source {
 
     #[test]
     fn test_load_yaml_nested_mapping_flattened() {
-        let source = YamlSource::from_file(fixture("basic.yaml"));
+        let source = YamlConfigSource::from_file(fixture("basic.yaml"));
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
@@ -391,7 +391,7 @@ mod test_yaml_source {
 
     #[test]
     fn test_load_yaml_sequence_as_multivalue() {
-        let source = YamlSource::from_file(fixture("basic.yaml"));
+        let source = YamlConfigSource::from_file(fixture("basic.yaml"));
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
@@ -404,7 +404,7 @@ mod test_yaml_source {
 
     #[test]
     fn test_load_nonexistent_yaml_file_returns_error() {
-        let source = YamlSource::from_file("/nonexistent/path/config.yaml");
+        let source = YamlConfigSource::from_file("/nonexistent/path/config.yaml");
         let mut config = Config::new();
         let result = source.load(&mut config);
         assert!(result.is_err());
@@ -417,7 +417,7 @@ mod test_yaml_source {
         let path = dir.path().join("invalid.yaml");
         std::fs::write(&path, "key: [unclosed bracket").unwrap();
 
-        let source = YamlSource::from_file(&path);
+        let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
         let result = source.load(&mut config);
         assert!(result.is_err());
@@ -425,8 +425,8 @@ mod test_yaml_source {
     }
 
     #[test]
-    fn test_merge_from_yaml_source() {
-        let source = YamlSource::from_file(fixture("basic.yaml"));
+    fn test_merge_from_yaml_config_source() {
+        let source = YamlConfigSource::from_file(fixture("basic.yaml"));
         let mut config = Config::new();
         config.merge_from_source(&source).unwrap();
 
@@ -451,7 +451,7 @@ db:
         )
         .unwrap();
 
-        let source = YamlSource::from_file(&path);
+        let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
@@ -471,7 +471,7 @@ db:
         let path = dir.path().join("null.yaml");
         std::fs::write(&path, "key: ~\nother: value").unwrap();
 
-        let source = YamlSource::from_file(&path);
+        let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
@@ -485,7 +485,7 @@ db:
         let path = dir.path().join("complex_key.yaml");
         std::fs::write(&path, "? [a, b]\n: 1\n? {x: 1}\n: 2\n").unwrap();
 
-        let source = YamlSource::from_file(&path);
+        let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
         let result = source.load(&mut config);
         assert!(matches!(result, Err(ConfigError::ParseError(_))));
@@ -493,16 +493,16 @@ db:
 }
 
 // ============================================================================
-// EnvFileSource Tests
+// EnvFileConfigSource Tests
 // ============================================================================
 
 #[cfg(test)]
-mod test_env_file_source {
+mod test_env_file_config_source {
     use super::*;
 
     #[test]
     fn test_load_basic_env_file() {
-        let source = EnvFileSource::from_file(fixture("basic.env"));
+        let source = EnvFileConfigSource::from_file(fixture("basic.env"));
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
@@ -515,7 +515,7 @@ mod test_env_file_source {
 
     #[test]
     fn test_load_env_file_quoted_values() {
-        let source = EnvFileSource::from_file(fixture("basic.env"));
+        let source = EnvFileConfigSource::from_file(fixture("basic.env"));
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
@@ -525,7 +525,7 @@ mod test_env_file_source {
 
     #[test]
     fn test_load_nonexistent_env_file_returns_error() {
-        let source = EnvFileSource::from_file("/nonexistent/path/.env");
+        let source = EnvFileConfigSource::from_file("/nonexistent/path/.env");
         let mut config = Config::new();
         let result = source.load(&mut config);
         assert!(result.is_err());
@@ -542,7 +542,7 @@ mod test_env_file_source {
         )
         .unwrap();
 
-        let source = EnvFileSource::from_file(&path);
+        let source = EnvFileConfigSource::from_file(&path);
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
@@ -552,8 +552,8 @@ mod test_env_file_source {
     }
 
     #[test]
-    fn test_merge_from_env_file_source() {
-        let source = EnvFileSource::from_file(fixture("basic.env"));
+    fn test_merge_from_env_file_config_source() {
+        let source = EnvFileConfigSource::from_file(fixture("basic.env"));
         let mut config = Config::new();
         config.merge_from_source(&source).unwrap();
 
@@ -563,11 +563,11 @@ mod test_env_file_source {
 }
 
 // ============================================================================
-// EnvSource Tests
+// EnvConfigSource Tests
 // ============================================================================
 
 #[cfg(test)]
-mod test_env_source {
+mod test_env_config_source {
     use super::*;
 
     #[test]
@@ -575,7 +575,7 @@ mod test_env_source {
         // Set a unique test env var to verify it's loaded
         std::env::set_var("QUBIT_TEST_UNIQUE_KEY_12345", "test_value");
 
-        let source = EnvSource::new();
+        let source = EnvConfigSource::new();
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
@@ -593,7 +593,7 @@ mod test_env_source {
         std::env::set_var("QTEST_PORT", "9999");
         std::env::set_var("OTHER_VAR", "should_not_appear");
 
-        let source = EnvSource::with_prefix("QTEST_");
+        let source = EnvConfigSource::with_prefix("QTEST_");
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
@@ -614,7 +614,7 @@ mod test_env_source {
     fn test_load_with_prefix_strips_prefix() {
         std::env::set_var("MYAPP_SERVER_HOST", "app-host");
 
-        let source = EnvSource::with_prefix("MYAPP_");
+        let source = EnvConfigSource::with_prefix("MYAPP_");
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
@@ -629,7 +629,7 @@ mod test_env_source {
     fn test_load_with_prefix_converts_underscores_to_dots() {
         std::env::set_var("TAPP_DB_POOL_SIZE", "10");
 
-        let source = EnvSource::with_prefix("TAPP_");
+        let source = EnvConfigSource::with_prefix("TAPP_");
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
@@ -642,7 +642,7 @@ mod test_env_source {
     fn test_load_with_prefix_lowercases_keys() {
         std::env::set_var("LAPP_MY_KEY", "val");
 
-        let source = EnvSource::with_prefix("LAPP_");
+        let source = EnvConfigSource::with_prefix("LAPP_");
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
@@ -653,7 +653,7 @@ mod test_env_source {
 
     #[test]
     fn test_default_creates_plain_source() {
-        let source = EnvSource::default();
+        let source = EnvConfigSource::default();
         let mut config = Config::new();
         // Should not panic
         source.load(&mut config).unwrap();
@@ -663,7 +663,7 @@ mod test_env_source {
     fn test_with_options_no_strip_no_convert() {
         std::env::set_var("RAWAPP_MY_KEY", "raw_val");
 
-        let source = EnvSource::with_options("RAWAPP_", false, false, false);
+        let source = EnvConfigSource::with_options("RAWAPP_", false, false, false);
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
@@ -674,10 +674,10 @@ mod test_env_source {
     }
 
     #[test]
-    fn test_merge_from_env_source() {
+    fn test_merge_from_env_config_source() {
         std::env::set_var("MERGETEST_KEY", "merge_value");
 
-        let source = EnvSource::with_prefix("MERGETEST_");
+        let source = EnvConfigSource::with_prefix("MERGETEST_");
         let mut config = Config::new();
         config.merge_from_source(&source).unwrap();
 
@@ -688,42 +688,44 @@ mod test_env_source {
 }
 
 // ============================================================================
-// CompositeSource Tests
+// CompositeConfigSource Tests
 // ============================================================================
 
 #[cfg(test)]
-mod test_composite_source {
+mod test_composite_config_source {
     use super::*;
 
     #[test]
     fn test_new_composite_is_empty() {
-        let composite = CompositeSource::new();
+        let composite = CompositeConfigSource::new();
         assert!(composite.is_empty());
         assert_eq!(composite.len(), 0);
     }
 
     #[test]
     fn test_add_source_increases_len() {
-        let mut composite = CompositeSource::new();
-        composite.add(TomlSource::from_file(fixture("basic.toml")));
+        let mut composite = CompositeConfigSource::new();
+        composite.add(TomlConfigSource::from_file(fixture("basic.toml")));
         assert_eq!(composite.len(), 1);
         assert!(!composite.is_empty());
     }
 
     #[test]
     fn test_add_multiple_sources() {
-        let mut composite = CompositeSource::new();
-        composite.add(TomlSource::from_file(fixture("basic.toml")));
-        composite.add(PropertiesSource::from_file(fixture("basic.properties")));
+        let mut composite = CompositeConfigSource::new();
+        composite.add(TomlConfigSource::from_file(fixture("basic.toml")));
+        composite.add(PropertiesConfigSource::from_file(fixture(
+            "basic.properties",
+        )));
         assert_eq!(composite.len(), 2);
     }
 
     #[test]
     fn test_load_merges_sources_in_order() {
         // basic.toml sets host=localhost, override.toml sets host=production-server
-        let mut composite = CompositeSource::new();
-        composite.add(TomlSource::from_file(fixture("basic.toml")));
-        composite.add(TomlSource::from_file(fixture("override.toml")));
+        let mut composite = CompositeConfigSource::new();
+        composite.add(TomlConfigSource::from_file(fixture("basic.toml")));
+        composite.add(TomlConfigSource::from_file(fixture("override.toml")));
 
         let mut config = Config::new();
         composite.load(&mut config).unwrap();
@@ -737,7 +739,7 @@ mod test_composite_source {
 
     #[test]
     fn test_load_empty_composite_does_nothing() {
-        let composite = CompositeSource::new();
+        let composite = CompositeConfigSource::new();
         let mut config = Config::new();
         composite.load(&mut config).unwrap();
         assert!(config.is_empty());
@@ -745,9 +747,9 @@ mod test_composite_source {
 
     #[test]
     fn test_load_stops_on_first_error() {
-        let mut composite = CompositeSource::new();
-        composite.add(TomlSource::from_file("/nonexistent/path.toml"));
-        composite.add(TomlSource::from_file(fixture("basic.toml")));
+        let mut composite = CompositeConfigSource::new();
+        composite.add(TomlConfigSource::from_file("/nonexistent/path.toml"));
+        composite.add(TomlConfigSource::from_file(fixture("basic.toml")));
 
         let mut config = Config::new();
         let result = composite.load(&mut config);
@@ -756,7 +758,7 @@ mod test_composite_source {
 
     #[test]
     fn test_default_creates_empty_composite() {
-        let composite = CompositeSource::default();
+        let composite = CompositeConfigSource::default();
         assert!(composite.is_empty());
     }
 
@@ -764,9 +766,9 @@ mod test_composite_source {
     fn test_composite_with_env_override() {
         std::env::set_var("CTEST_HOST", "env-host");
 
-        let mut composite = CompositeSource::new();
-        composite.add(TomlSource::from_file(fixture("basic.toml")));
-        composite.add(EnvSource::with_prefix("CTEST_"));
+        let mut composite = CompositeConfigSource::new();
+        composite.add(TomlConfigSource::from_file(fixture("basic.toml")));
+        composite.add(EnvConfigSource::with_prefix("CTEST_"));
 
         let mut config = Config::new();
         composite.load(&mut config).unwrap();
@@ -780,10 +782,10 @@ mod test_composite_source {
     }
 
     #[test]
-    fn test_merge_from_composite_source() {
-        let mut composite = CompositeSource::new();
-        composite.add(TomlSource::from_file(fixture("basic.toml")));
-        composite.add(TomlSource::from_file(fixture("override.toml")));
+    fn test_merge_from_composite_config_source() {
+        let mut composite = CompositeConfigSource::new();
+        composite.add(TomlConfigSource::from_file(fixture("basic.toml")));
+        composite.add(TomlConfigSource::from_file(fixture("override.toml")));
 
         let mut config = Config::new();
         config.merge_from_source(&composite).unwrap();
@@ -794,10 +796,10 @@ mod test_composite_source {
     #[test]
     fn test_add_returns_mutable_ref_for_chaining() {
         // Verify the builder-style chaining works
-        let mut composite = CompositeSource::new();
+        let mut composite = CompositeConfigSource::new();
         composite
-            .add(TomlSource::from_file(fixture("basic.toml")))
-            .add(TomlSource::from_file(fixture("override.toml")));
+            .add(TomlConfigSource::from_file(fixture("basic.toml")))
+            .add(TomlConfigSource::from_file(fixture("override.toml")));
 
         assert_eq!(composite.len(), 2);
     }
@@ -813,7 +815,7 @@ mod test_config_merge_from_source {
 
     #[test]
     fn test_merge_from_source_populates_config() {
-        let source = TomlSource::from_file(fixture("basic.toml"));
+        let source = TomlConfigSource::from_file(fixture("basic.toml"));
         let mut config = Config::new();
         config.merge_from_source(&source).unwrap();
 
@@ -826,7 +828,7 @@ mod test_config_merge_from_source {
         let mut config = Config::new();
         config.set("host", "old-host").unwrap();
 
-        let source = TomlSource::from_file(fixture("basic.toml"));
+        let source = TomlConfigSource::from_file(fixture("basic.toml"));
         config.merge_from_source(&source).unwrap();
 
         assert_eq!(config.get_string("host").unwrap(), "localhost");
@@ -840,7 +842,7 @@ mod test_config_merge_from_source {
             prop.set_final(true);
         }
 
-        let source = TomlSource::from_file(fixture("basic.toml"));
+        let source = TomlConfigSource::from_file(fixture("basic.toml"));
         let result = config.merge_from_source(&source);
 
         // Should fail because host is final
@@ -855,7 +857,7 @@ mod test_config_merge_from_source {
         let mut config = Config::new();
         config.set("existing", "value").unwrap();
 
-        let source = TomlSource::from_file(fixture("basic.toml"));
+        let source = TomlConfigSource::from_file(fixture("basic.toml"));
         config.merge_from_source(&source).unwrap();
 
         // Original key preserved
@@ -867,7 +869,7 @@ mod test_config_merge_from_source {
 
     #[test]
     fn test_merge_from_source_returns_error_on_failure() {
-        let source = TomlSource::from_file("/nonexistent/path.toml");
+        let source = TomlConfigSource::from_file("/nonexistent/path.toml");
         let mut config = Config::new();
         let result = config.merge_from_source(&source);
         assert!(result.is_err());
@@ -886,7 +888,7 @@ api_url = "${base_url}/api"
         )
         .unwrap();
 
-        let source = TomlSource::from_file(&path);
+        let source = TomlConfigSource::from_file(&path);
         let mut config = Config::new();
         config.merge_from_source(&source).unwrap();
 

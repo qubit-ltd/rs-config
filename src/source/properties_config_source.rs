@@ -35,10 +35,10 @@ use super::ConfigSource;
 /// # Examples
 ///
 /// ```rust,ignore
-/// use qubit_config::source::{PropertiesSource, ConfigSource};
+/// use qubit_config::source::{PropertiesConfigSource, ConfigSource};
 /// use qubit_config::Config;
 ///
-/// let source = PropertiesSource::from_file("config.properties");
+/// let source = PropertiesConfigSource::from_file("config.properties");
 /// let mut config = Config::new();
 /// source.load(&mut config).unwrap();
 /// ```
@@ -47,12 +47,12 @@ use super::ConfigSource;
 ///
 /// Haixing Hu
 #[derive(Debug, Clone)]
-pub struct PropertiesSource {
+pub struct PropertiesConfigSource {
     path: PathBuf,
 }
 
-impl PropertiesSource {
-    /// Creates a new `PropertiesSource` from a file path
+impl PropertiesConfigSource {
+    /// Creates a new `PropertiesConfigSource` from a file path
     ///
     /// # Parameters
     ///
@@ -189,7 +189,7 @@ fn unescape_unicode(s: &str) -> String {
     result
 }
 
-impl ConfigSource for PropertiesSource {
+impl ConfigSource for PropertiesConfigSource {
     fn load(&self, config: &mut Config) -> ConfigResult<()> {
         let content = std::fs::read_to_string(&self.path).map_err(|e| {
             ConfigError::IoError(std::io::Error::new(

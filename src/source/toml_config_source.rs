@@ -42,10 +42,10 @@ use super::ConfigSource;
 /// # Examples
 ///
 /// ```rust,ignore
-/// use qubit_config::source::{TomlSource, ConfigSource};
+/// use qubit_config::source::{TomlConfigSource, ConfigSource};
 /// use qubit_config::Config;
 ///
-/// let source = TomlSource::from_file("config.toml");
+/// let source = TomlConfigSource::from_file("config.toml");
 /// let mut config = Config::new();
 /// source.load(&mut config).unwrap();
 /// ```
@@ -54,12 +54,12 @@ use super::ConfigSource;
 ///
 /// Haixing Hu
 #[derive(Debug, Clone)]
-pub struct TomlSource {
+pub struct TomlConfigSource {
     path: PathBuf,
 }
 
-impl TomlSource {
-    /// Creates a new `TomlSource` from a file path
+impl TomlConfigSource {
+    /// Creates a new `TomlConfigSource` from a file path
     ///
     /// # Parameters
     ///
@@ -71,7 +71,7 @@ impl TomlSource {
     }
 }
 
-impl ConfigSource for TomlSource {
+impl ConfigSource for TomlConfigSource {
     fn load(&self, config: &mut Config) -> ConfigResult<()> {
         let content = std::fs::read_to_string(&self.path).map_err(|e| {
             ConfigError::IoError(std::io::Error::new(

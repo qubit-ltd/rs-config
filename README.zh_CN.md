@@ -7,12 +7,13 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![English Doc](https://img.shields.io/badge/doc-English-blue.svg)](README.md)
 
-一个功能强大、类型安全的 Rust 配置管理系统，提供灵活的配置管理，支持多种数据类型、变量替换和多值属性。
+一个功能强大、类型安全的 Rust 配置管理系统，提供灵活的配置管理，支持多种数据类型、变量替换、多值属性，以及可插拔的**配置来源（config source）**（文件、环境变量与组合源）。
 
 [English](README.md) | 简体中文
 
 ## 特性
 
+- ✅ **配置来源（ConfigSource）** - 提供 [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) trait 与多种内置实现：TOML、YAML、Java 风格 `.properties`、`.env` 文件、进程环境变量（可选前缀与键名规范化），以及按顺序合并多个来源的 [`CompositeConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.CompositeConfigSource.html)（后加载的来源覆盖同名键）；通过 [`Config::merge_from_source`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.merge_from_source) 将外部配置载入 `Config`
 - ✅ **纯泛型 API** - 使用 `get<T>()` 和 `set<T>()` 泛型方法，支持完整的类型推断
 - ✅ **丰富的数据类型** - 支持所有基本类型、时间类型、字符串、字节数组等
 - ✅ **多值属性** - 每个配置项可以包含多个值，支持列表操作
@@ -83,6 +84,32 @@ config.set("database.port", 5432)?;
 ### MultiValues（多值容器）
 
 一个类型安全的容器，可以保存相同数据类型的多个值。
+
+### 配置来源（Configuration sources）
+
+[`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) 的实现负责把外部设置写入 [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html)。可调用 [`merge_from_source`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.merge_from_source)，或在持有 `&mut Config` 时对具体来源调用 `load`。
+
+| 类型 | 作用 |
+|------|------|
+| [`TomlConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.TomlConfigSource.html) | 读取 TOML 文件；嵌套表展平为点号分隔键 |
+| [`YamlConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.YamlConfigSource.html) | 读取 YAML 文件；嵌套映射同样展平 |
+| [`PropertiesConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.PropertiesConfigSource.html) | Java `.properties` 文件 |
+| [`EnvFileConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.EnvFileConfigSource.html) | `.env` 风格文件 |
+| [`EnvConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.EnvConfigSource.html) | 进程环境变量；可选前缀过滤与键名规范化（例如 `APP_SERVER_HOST` → `server.host`） |
+| [`CompositeConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.CompositeConfigSource.html) | 按顺序组合多个来源；后出现者覆盖同名键（并受 `Property` 的 final 语义约束） |
+
+```rust
+use qubit_config::{Config, source::{
+    CompositeConfigSource, ConfigSource, EnvConfigSource, TomlConfigSource,
+}};
+
+let mut config = Config::new();
+let mut composite = CompositeConfigSource::new();
+composite
+    .add(TomlConfigSource::from_file("config.toml"))
+    .add(EnvConfigSource::with_prefix("APP_"));
+config.merge_from_source(&composite)?;
+```
 
 ## 使用示例
 
@@ -344,11 +371,14 @@ cargo test
 - `serde` - 序列化框架
 - `chrono` - 日期和时间处理
 - `regex` - 正则表达式支持
+- `toml` - 解析 TOML，供 `TomlConfigSource` 使用
+- `serde_yaml` - 解析 YAML，供 `YamlConfigSource` 使用
+- `dotenvy` - 解析 `.env` 文件，供 `EnvFileConfigSource` 使用
 
 ## 发展路线图
 
-- [ ] 支持配置文件加载（XML, TOML, YAML, JSON）
-- [ ] 支持配置合并策略
+- [ ] 更多配置格式加载器（如 JSON、XML）
+- [ ] 除有序 `CompositeConfigSource` 外的高级合并 / 覆盖策略
 - [ ] 支持配置监听和热重载
 - [ ] 支持配置验证框架
 - [ ] 支持配置加密
@@ -373,10 +403,6 @@ Copyright (c) 2025 - 2026. Haixing Hu, Qubit Co. Ltd. All rights reserved.
 有关许可证下的特定语言管理权限和限制，请参阅许可证。
 
 完整的许可证文本请参阅 [LICENSE](LICENSE)。
-
-## 贡献
-
-欢迎贡献！请随时提交 Pull Request。
 
 ## 作者
 

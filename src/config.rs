@@ -776,11 +776,11 @@ impl Config {
     /// # Examples
     ///
     /// ```rust,ignore
-    /// use qubit_config::{Config, source::{TomlSource, EnvSource, CompositeSource, ConfigSource}};
+    /// use qubit_config::{Config, source::{TomlConfigSource, EnvConfigSource, CompositeConfigSource, ConfigSource}};
     ///
-    /// let mut composite = CompositeSource::new();
-    /// composite.add(TomlSource::from_file("config.toml"));
-    /// composite.add(EnvSource::with_prefix("APP_"));
+    /// let mut composite = CompositeConfigSource::new();
+    /// composite.add(TomlConfigSource::from_file("config.toml"));
+    /// composite.add(EnvConfigSource::with_prefix("APP_"));
     ///
     /// let mut config = Config::new();
     /// config.merge_from_source(&composite).unwrap();
