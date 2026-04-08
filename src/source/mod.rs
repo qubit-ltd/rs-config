@@ -39,16 +39,16 @@
 //! Haixing Hu
 
 mod composite;
-mod env;
-mod env_file;
-mod properties;
+mod env_file_source;
+mod env_source;
+mod properties_source;
 mod toml_source;
 mod yaml_source;
 
 pub use composite::CompositeSource;
-pub use env::EnvSource;
-pub use env_file::EnvFileSource;
-pub use properties::PropertiesSource;
+pub use env_file_source::EnvFileSource;
+pub use env_source::EnvSource;
+pub use properties_source::PropertiesSource;
 pub use toml_source::TomlSource;
 pub use yaml_source::YamlSource;
 
