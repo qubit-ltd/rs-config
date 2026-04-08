@@ -1,0 +1,15 @@
+host = "localhost"
+port = 8080
+debug = true
+timeout = 30.5
+
+[app]
+name = "MyApp"
+version = "1.0.0"
+
+[server]
+host = "0.0.0.0"
+port = 9090
+
+[tags]
+list = ["web", "api", "v2"]

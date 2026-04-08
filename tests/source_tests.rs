@@ -1,0 +1,855 @@
+/*******************************************************************************
+ *
+ *    Copyright (c) 2025 - 2026.
+ *    Haixing Hu, Qubit Co. Ltd.
+ *
+ *    All rights reserved.
+ *
+ ******************************************************************************/
+//! # Configuration Source Integration Tests
+//!
+//! Tests all configuration source implementations and the `merge_from_source` method.
+
+use std::path::PathBuf;
+
+use qubit_config::{
+    source::{
+        CompositeSource, ConfigSource, EnvFileSource, EnvSource, PropertiesSource, TomlSource,
+        YamlSource,
+    },
+    Config, ConfigError,
+};
+
+/// Returns the path to a test fixture file
+fn fixture(name: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join(name)
+}
+
+// ============================================================================
+// PropertiesSource Tests
+// ============================================================================
+
+#[cfg(test)]
+mod test_properties_source {
+    use super::*;
+
+    // ---- parse_content unit tests ----
+
+    #[test]
+    fn test_parse_basic_key_value_equals() {
+        let content = "key=value\nhost=localhost";
+        let pairs = PropertiesSource::parse_content(content);
+        assert_eq!(pairs.len(), 2);
+        assert_eq!(pairs[0], ("key".to_string(), "value".to_string()));
+        assert_eq!(pairs[1], ("host".to_string(), "localhost".to_string()));
+    }
+
+    #[test]
+    fn test_parse_colon_separator() {
+        let content = "key: value\nhost: localhost";
+        let pairs = PropertiesSource::parse_content(content);
+        assert_eq!(pairs.len(), 2);
+        assert_eq!(pairs[0], ("key".to_string(), "value".to_string()));
+        assert_eq!(pairs[1], ("host".to_string(), "localhost".to_string()));
+    }
+
+    #[test]
+    fn test_parse_skips_hash_comments() {
+        let content = "# This is a comment\nkey=value";
+        let pairs = PropertiesSource::parse_content(content);
+        assert_eq!(pairs.len(), 1);
+        assert_eq!(pairs[0].0, "key");
+    }
+
+    #[test]
+    fn test_parse_skips_exclamation_comments() {
+        let content = "! Another comment style\nkey=value";
+        let pairs = PropertiesSource::parse_content(content);
+        assert_eq!(pairs.len(), 1);
+        assert_eq!(pairs[0].0, "key");
+    }
+
+    #[test]
+    fn test_parse_skips_blank_lines() {
+        let content = "\n\nkey=value\n\n";
+        let pairs = PropertiesSource::parse_content(content);
+        assert_eq!(pairs.len(), 1);
+        assert_eq!(pairs[0].0, "key");
+    }
+
+    #[test]
+    fn test_parse_line_continuation() {
+        let content = "key=val\\\nue";
+        let pairs = PropertiesSource::parse_content(content);
+        assert_eq!(pairs.len(), 1);
+        assert_eq!(pairs[0], ("key".to_string(), "value".to_string()));
+    }
+
+    #[test]
+    fn test_parse_unicode_escape() {
+        let content = "greeting=\\u4e2d\\u6587";
+        let pairs = PropertiesSource::parse_content(content);
+        assert_eq!(pairs.len(), 1);
+        assert_eq!(pairs[0], ("greeting".to_string(), "中文".to_string()));
+    }
+
+    #[test]
+    fn test_parse_empty_value() {
+        let content = "empty=";
+        let pairs = PropertiesSource::parse_content(content);
+        assert_eq!(pairs.len(), 1);
+        assert_eq!(pairs[0], ("empty".to_string(), "".to_string()));
+    }
+
+    #[test]
+    fn test_parse_value_with_spaces() {
+        let content = "key = value with spaces";
+        let pairs = PropertiesSource::parse_content(content);
+        assert_eq!(pairs.len(), 1);
+        assert_eq!(
+            pairs[0],
+            ("key".to_string(), "value with spaces".to_string())
+        );
+    }
+
+    #[test]
+    fn test_parse_empty_content() {
+        let pairs = PropertiesSource::parse_content("");
+        assert!(pairs.is_empty());
+    }
+
+    #[test]
+    fn test_parse_only_comments() {
+        let content = "# comment1\n# comment2\n! comment3";
+        let pairs = PropertiesSource::parse_content(content);
+        assert!(pairs.is_empty());
+    }
+
+    #[test]
+    fn test_parse_multiple_line_continuation() {
+        let content = "key=first \\\n    second \\\n    third";
+        let pairs = PropertiesSource::parse_content(content);
+        assert_eq!(pairs.len(), 1);
+        assert_eq!(pairs[0].0, "key");
+        assert!(pairs[0].1.contains("first"));
+        assert!(pairs[0].1.contains("second"));
+        assert!(pairs[0].1.contains("third"));
+    }
+
+    #[test]
+    fn test_parse_newline_escape() {
+        let content = "key=line1\\nline2";
+        let pairs = PropertiesSource::parse_content(content);
+        assert_eq!(pairs.len(), 1);
+        assert_eq!(pairs[0], ("key".to_string(), "line1\nline2".to_string()));
+    }
+
+    #[test]
+    fn test_parse_tab_escape() {
+        let content = "key=col1\\tcol2";
+        let pairs = PropertiesSource::parse_content(content);
+        assert_eq!(pairs.len(), 1);
+        assert_eq!(pairs[0], ("key".to_string(), "col1\tcol2".to_string()));
+    }
+
+    #[test]
+    fn test_parse_backslash_escape() {
+        let content = "key=path\\\\to\\\\file";
+        let pairs = PropertiesSource::parse_content(content);
+        assert_eq!(pairs.len(), 1);
+        assert_eq!(pairs[0], ("key".to_string(), "path\\to\\file".to_string()));
+    }
+
+    // ---- load from file tests ----
+
+    #[test]
+    fn test_load_basic_properties_file() {
+        let source = PropertiesSource::from_file(fixture("basic.properties"));
+        let mut config = Config::new();
+        source.load(&mut config).unwrap();
+
+        assert_eq!(config.get_string("host").unwrap(), "localhost");
+        assert_eq!(config.get_string("port").unwrap(), "8080");
+        assert_eq!(config.get_string("debug").unwrap(), "true");
+        assert_eq!(config.get_string("app.name").unwrap(), "MyApp");
+        assert_eq!(config.get_string("app.version").unwrap(), "1.0.0");
+    }
+
+    #[test]
+    fn test_load_multivalue_properties_file() {
+        let source = PropertiesSource::from_file(fixture("multivalue.properties"));
+        let mut config = Config::new();
+        source.load(&mut config).unwrap();
+
+        assert_eq!(config.get_string("greeting").unwrap(), "中文测试");
+        assert_eq!(config.get_string("empty.value").unwrap(), "");
+        assert_eq!(config.get_string("colon.key").unwrap(), "colon value");
+        assert_eq!(
+            config.get_string("spaces.key").unwrap(),
+            "value with spaces"
+        );
+    }
+
+    #[test]
+    fn test_load_nonexistent_file_returns_error() {
+        let source = PropertiesSource::from_file("/nonexistent/path/config.properties");
+        let mut config = Config::new();
+        let result = source.load(&mut config);
+        assert!(result.is_err());
+        assert!(matches!(result, Err(ConfigError::IoError(_))));
+    }
+
+    // ---- merge_from_source integration ----
+
+    #[test]
+    fn test_merge_from_properties_source() {
+        let source = PropertiesSource::from_file(fixture("basic.properties"));
+        let mut config = Config::new();
+        config.merge_from_source(&source).unwrap();
+
+        assert!(config.contains("host"));
+        assert!(config.contains("port"));
+    }
+}
+
+// ============================================================================
+// TomlSource Tests
+// ============================================================================
+
+#[cfg(test)]
+mod test_toml_source {
+    use super::*;
+
+    #[test]
+    fn test_load_basic_toml_file() {
+        let source = TomlSource::from_file(fixture("basic.toml"));
+        let mut config = Config::new();
+        source.load(&mut config).unwrap();
+
+        assert_eq!(config.get_string("host").unwrap(), "localhost");
+        assert_eq!(config.get_string("port").unwrap(), "8080");
+        assert_eq!(config.get_string("debug").unwrap(), "true");
+        assert_eq!(config.get_string("timeout").unwrap(), "30.5");
+    }
+
+    #[test]
+    fn test_load_toml_nested_table_flattened() {
+        let source = TomlSource::from_file(fixture("basic.toml"));
+        let mut config = Config::new();
+        source.load(&mut config).unwrap();
+
+        assert_eq!(config.get_string("app.name").unwrap(), "MyApp");
+        assert_eq!(config.get_string("app.version").unwrap(), "1.0.0");
+        assert_eq!(config.get_string("server.host").unwrap(), "0.0.0.0");
+        assert_eq!(config.get_string("server.port").unwrap(), "9090");
+    }
+
+    #[test]
+    fn test_load_toml_array_as_multivalue() {
+        let source = TomlSource::from_file(fixture("basic.toml"));
+        let mut config = Config::new();
+        source.load(&mut config).unwrap();
+
+        let tags = config.get_string_list("tags.list").unwrap();
+        assert_eq!(tags.len(), 3);
+        assert!(tags.contains(&"web".to_string()));
+        assert!(tags.contains(&"api".to_string()));
+        assert!(tags.contains(&"v2".to_string()));
+    }
+
+    #[test]
+    fn test_load_nonexistent_toml_file_returns_error() {
+        let source = TomlSource::from_file("/nonexistent/path/config.toml");
+        let mut config = Config::new();
+        let result = source.load(&mut config);
+        assert!(result.is_err());
+        assert!(matches!(result, Err(ConfigError::IoError(_))));
+    }
+
+    #[test]
+    fn test_load_invalid_toml_returns_parse_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("invalid.toml");
+        std::fs::write(&path, "this is not valid toml ===").unwrap();
+
+        let source = TomlSource::from_file(&path);
+        let mut config = Config::new();
+        let result = source.load(&mut config);
+        assert!(result.is_err());
+        assert!(matches!(result, Err(ConfigError::ParseError(_))));
+    }
+
+    #[test]
+    fn test_merge_from_toml_source() {
+        let source = TomlSource::from_file(fixture("basic.toml"));
+        let mut config = Config::new();
+        config.merge_from_source(&source).unwrap();
+
+        assert!(config.contains("host"));
+        assert!(config.contains("app.name"));
+    }
+
+    #[test]
+    fn test_load_inline_toml_content() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("inline.toml");
+        std::fs::write(
+            &path,
+            r#"
+name = "test"
+value = 42
+enabled = false
+
+[db]
+url = "postgres://localhost/mydb"
+pool = 5
+"#,
+        )
+        .unwrap();
+
+        let source = TomlSource::from_file(&path);
+        let mut config = Config::new();
+        source.load(&mut config).unwrap();
+
+        assert_eq!(config.get_string("name").unwrap(), "test");
+        assert_eq!(config.get_string("value").unwrap(), "42");
+        assert_eq!(config.get_string("enabled").unwrap(), "false");
+        assert_eq!(
+            config.get_string("db.url").unwrap(),
+            "postgres://localhost/mydb"
+        );
+        assert_eq!(config.get_string("db.pool").unwrap(), "5");
+    }
+}
+
+// ============================================================================
+// YamlSource Tests
+// ============================================================================
+
+#[cfg(test)]
+mod test_yaml_source {
+    use super::*;
+
+    #[test]
+    fn test_load_basic_yaml_file() {
+        let source = YamlSource::from_file(fixture("basic.yaml"));
+        let mut config = Config::new();
+        source.load(&mut config).unwrap();
+
+        assert_eq!(config.get_string("host").unwrap(), "localhost");
+        assert_eq!(config.get_string("port").unwrap(), "8080");
+        assert_eq!(config.get_string("debug").unwrap(), "true");
+        assert_eq!(config.get_string("timeout").unwrap(), "30.5");
+    }
+
+    #[test]
+    fn test_load_yaml_nested_mapping_flattened() {
+        let source = YamlSource::from_file(fixture("basic.yaml"));
+        let mut config = Config::new();
+        source.load(&mut config).unwrap();
+
+        assert_eq!(config.get_string("app.name").unwrap(), "MyApp");
+        assert_eq!(config.get_string("app.version").unwrap(), "1.0.0");
+        assert_eq!(config.get_string("server.host").unwrap(), "0.0.0.0");
+        assert_eq!(config.get_string("server.port").unwrap(), "9090");
+    }
+
+    #[test]
+    fn test_load_yaml_sequence_as_multivalue() {
+        let source = YamlSource::from_file(fixture("basic.yaml"));
+        let mut config = Config::new();
+        source.load(&mut config).unwrap();
+
+        let tags = config.get_string_list("tags").unwrap();
+        assert_eq!(tags.len(), 3);
+        assert!(tags.contains(&"web".to_string()));
+        assert!(tags.contains(&"api".to_string()));
+        assert!(tags.contains(&"v2".to_string()));
+    }
+
+    #[test]
+    fn test_load_nonexistent_yaml_file_returns_error() {
+        let source = YamlSource::from_file("/nonexistent/path/config.yaml");
+        let mut config = Config::new();
+        let result = source.load(&mut config);
+        assert!(result.is_err());
+        assert!(matches!(result, Err(ConfigError::IoError(_))));
+    }
+
+    #[test]
+    fn test_load_invalid_yaml_returns_parse_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("invalid.yaml");
+        std::fs::write(&path, "key: [unclosed bracket").unwrap();
+
+        let source = YamlSource::from_file(&path);
+        let mut config = Config::new();
+        let result = source.load(&mut config);
+        assert!(result.is_err());
+        assert!(matches!(result, Err(ConfigError::ParseError(_))));
+    }
+
+    #[test]
+    fn test_merge_from_yaml_source() {
+        let source = YamlSource::from_file(fixture("basic.yaml"));
+        let mut config = Config::new();
+        config.merge_from_source(&source).unwrap();
+
+        assert!(config.contains("host"));
+        assert!(config.contains("app.name"));
+    }
+
+    #[test]
+    fn test_load_inline_yaml_content() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("inline.yaml");
+        std::fs::write(
+            &path,
+            r#"
+name: test
+value: 42
+enabled: false
+db:
+  url: "postgres://localhost/mydb"
+  pool: 5
+"#,
+        )
+        .unwrap();
+
+        let source = YamlSource::from_file(&path);
+        let mut config = Config::new();
+        source.load(&mut config).unwrap();
+
+        assert_eq!(config.get_string("name").unwrap(), "test");
+        assert_eq!(config.get_string("value").unwrap(), "42");
+        assert_eq!(config.get_string("enabled").unwrap(), "false");
+        assert_eq!(
+            config.get_string("db.url").unwrap(),
+            "postgres://localhost/mydb"
+        );
+        assert_eq!(config.get_string("db.pool").unwrap(), "5");
+    }
+
+    #[test]
+    fn test_load_yaml_null_value() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("null.yaml");
+        std::fs::write(&path, "key: ~\nother: value").unwrap();
+
+        let source = YamlSource::from_file(&path);
+        let mut config = Config::new();
+        source.load(&mut config).unwrap();
+
+        assert_eq!(config.get_string("key").unwrap(), "");
+        assert_eq!(config.get_string("other").unwrap(), "value");
+    }
+}
+
+// ============================================================================
+// EnvFileSource Tests
+// ============================================================================
+
+#[cfg(test)]
+mod test_env_file_source {
+    use super::*;
+
+    #[test]
+    fn test_load_basic_env_file() {
+        let source = EnvFileSource::from_file(fixture("basic.env"));
+        let mut config = Config::new();
+        source.load(&mut config).unwrap();
+
+        assert_eq!(config.get_string("HOST").unwrap(), "localhost");
+        assert_eq!(config.get_string("PORT").unwrap(), "8080");
+        assert_eq!(config.get_string("DEBUG").unwrap(), "true");
+        assert_eq!(config.get_string("APP_NAME").unwrap(), "MyApp");
+        assert_eq!(config.get_string("APP_VERSION").unwrap(), "1.0.0");
+    }
+
+    #[test]
+    fn test_load_env_file_quoted_values() {
+        let source = EnvFileSource::from_file(fixture("basic.env"));
+        let mut config = Config::new();
+        source.load(&mut config).unwrap();
+
+        assert_eq!(config.get_string("QUOTED_VALUE").unwrap(), "hello world");
+        assert_eq!(config.get_string("SINGLE_QUOTED").unwrap(), "single quoted");
+    }
+
+    #[test]
+    fn test_load_nonexistent_env_file_returns_error() {
+        let source = EnvFileSource::from_file("/nonexistent/path/.env");
+        let mut config = Config::new();
+        let result = source.load(&mut config);
+        assert!(result.is_err());
+        assert!(matches!(result, Err(ConfigError::IoError(_))));
+    }
+
+    #[test]
+    fn test_load_inline_env_content() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(".env");
+        std::fs::write(
+            &path,
+            "DB_HOST=db.example.com\nDB_PORT=5432\nDB_NAME=mydb\n",
+        )
+        .unwrap();
+
+        let source = EnvFileSource::from_file(&path);
+        let mut config = Config::new();
+        source.load(&mut config).unwrap();
+
+        assert_eq!(config.get_string("DB_HOST").unwrap(), "db.example.com");
+        assert_eq!(config.get_string("DB_PORT").unwrap(), "5432");
+        assert_eq!(config.get_string("DB_NAME").unwrap(), "mydb");
+    }
+
+    #[test]
+    fn test_merge_from_env_file_source() {
+        let source = EnvFileSource::from_file(fixture("basic.env"));
+        let mut config = Config::new();
+        config.merge_from_source(&source).unwrap();
+
+        assert!(config.contains("HOST"));
+        assert!(config.contains("PORT"));
+    }
+}
+
+// ============================================================================
+// EnvSource Tests
+// ============================================================================
+
+#[cfg(test)]
+mod test_env_source {
+    use super::*;
+
+    #[test]
+    fn test_load_all_env_vars() {
+        // Set a unique test env var to verify it's loaded
+        std::env::set_var("QUBIT_TEST_UNIQUE_KEY_12345", "test_value");
+
+        let source = EnvSource::new();
+        let mut config = Config::new();
+        source.load(&mut config).unwrap();
+
+        assert_eq!(
+            config.get_string("QUBIT_TEST_UNIQUE_KEY_12345").unwrap(),
+            "test_value"
+        );
+
+        std::env::remove_var("QUBIT_TEST_UNIQUE_KEY_12345");
+    }
+
+    #[test]
+    fn test_load_with_prefix_filters_vars() {
+        std::env::set_var("QTEST_HOST", "myhost");
+        std::env::set_var("QTEST_PORT", "9999");
+        std::env::set_var("OTHER_VAR", "should_not_appear");
+
+        let source = EnvSource::with_prefix("QTEST_");
+        let mut config = Config::new();
+        source.load(&mut config).unwrap();
+
+        // After stripping prefix + lowercase + underscore→dot:
+        // QTEST_HOST → host
+        // QTEST_PORT → port
+        assert_eq!(config.get_string("host").unwrap(), "myhost");
+        assert_eq!(config.get_string("port").unwrap(), "9999");
+        assert!(!config.contains("OTHER_VAR"));
+        assert!(!config.contains("other.var"));
+
+        std::env::remove_var("QTEST_HOST");
+        std::env::remove_var("QTEST_PORT");
+        std::env::remove_var("OTHER_VAR");
+    }
+
+    #[test]
+    fn test_load_with_prefix_strips_prefix() {
+        std::env::set_var("MYAPP_SERVER_HOST", "app-host");
+
+        let source = EnvSource::with_prefix("MYAPP_");
+        let mut config = Config::new();
+        source.load(&mut config).unwrap();
+
+        // MYAPP_SERVER_HOST → server.host (strip prefix, lowercase, underscore→dot)
+        assert_eq!(config.get_string("server.host").unwrap(), "app-host");
+        assert!(!config.contains("MYAPP_SERVER_HOST"));
+
+        std::env::remove_var("MYAPP_SERVER_HOST");
+    }
+
+    #[test]
+    fn test_load_with_prefix_converts_underscores_to_dots() {
+        std::env::set_var("TAPP_DB_POOL_SIZE", "10");
+
+        let source = EnvSource::with_prefix("TAPP_");
+        let mut config = Config::new();
+        source.load(&mut config).unwrap();
+
+        assert_eq!(config.get_string("db.pool.size").unwrap(), "10");
+
+        std::env::remove_var("TAPP_DB_POOL_SIZE");
+    }
+
+    #[test]
+    fn test_load_with_prefix_lowercases_keys() {
+        std::env::set_var("LAPP_MY_KEY", "val");
+
+        let source = EnvSource::with_prefix("LAPP_");
+        let mut config = Config::new();
+        source.load(&mut config).unwrap();
+
+        assert_eq!(config.get_string("my.key").unwrap(), "val");
+
+        std::env::remove_var("LAPP_MY_KEY");
+    }
+
+    #[test]
+    fn test_default_creates_plain_source() {
+        let source = EnvSource::default();
+        let mut config = Config::new();
+        // Should not panic
+        source.load(&mut config).unwrap();
+    }
+
+    #[test]
+    fn test_with_options_no_strip_no_convert() {
+        std::env::set_var("RAWAPP_MY_KEY", "raw_val");
+
+        let source = EnvSource::with_options("RAWAPP_", false, false, false);
+        let mut config = Config::new();
+        source.load(&mut config).unwrap();
+
+        // Key kept as-is (prefix not stripped, no lowercase, no underscore conversion)
+        assert_eq!(config.get_string("RAWAPP_MY_KEY").unwrap(), "raw_val");
+
+        std::env::remove_var("RAWAPP_MY_KEY");
+    }
+
+    #[test]
+    fn test_merge_from_env_source() {
+        std::env::set_var("MERGETEST_KEY", "merge_value");
+
+        let source = EnvSource::with_prefix("MERGETEST_");
+        let mut config = Config::new();
+        config.merge_from_source(&source).unwrap();
+
+        assert_eq!(config.get_string("key").unwrap(), "merge_value");
+
+        std::env::remove_var("MERGETEST_KEY");
+    }
+}
+
+// ============================================================================
+// CompositeSource Tests
+// ============================================================================
+
+#[cfg(test)]
+mod test_composite_source {
+    use super::*;
+
+    #[test]
+    fn test_new_composite_is_empty() {
+        let composite = CompositeSource::new();
+        assert!(composite.is_empty());
+        assert_eq!(composite.len(), 0);
+    }
+
+    #[test]
+    fn test_add_source_increases_len() {
+        let mut composite = CompositeSource::new();
+        composite.add(TomlSource::from_file(fixture("basic.toml")));
+        assert_eq!(composite.len(), 1);
+        assert!(!composite.is_empty());
+    }
+
+    #[test]
+    fn test_add_multiple_sources() {
+        let mut composite = CompositeSource::new();
+        composite.add(TomlSource::from_file(fixture("basic.toml")));
+        composite.add(PropertiesSource::from_file(fixture("basic.properties")));
+        assert_eq!(composite.len(), 2);
+    }
+
+    #[test]
+    fn test_load_merges_sources_in_order() {
+        // basic.toml sets host=localhost, override.toml sets host=production-server
+        let mut composite = CompositeSource::new();
+        composite.add(TomlSource::from_file(fixture("basic.toml")));
+        composite.add(TomlSource::from_file(fixture("override.toml")));
+
+        let mut config = Config::new();
+        composite.load(&mut config).unwrap();
+
+        // Later source wins
+        assert_eq!(config.get_string("host").unwrap(), "production-server");
+        assert_eq!(config.get_string("port").unwrap(), "443");
+        // Keys only in first source are still present
+        assert_eq!(config.get_string("app.name").unwrap(), "MyApp");
+    }
+
+    #[test]
+    fn test_load_empty_composite_does_nothing() {
+        let composite = CompositeSource::new();
+        let mut config = Config::new();
+        composite.load(&mut config).unwrap();
+        assert!(config.is_empty());
+    }
+
+    #[test]
+    fn test_load_stops_on_first_error() {
+        let mut composite = CompositeSource::new();
+        composite.add(TomlSource::from_file("/nonexistent/path.toml"));
+        composite.add(TomlSource::from_file(fixture("basic.toml")));
+
+        let mut config = Config::new();
+        let result = composite.load(&mut config);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_default_creates_empty_composite() {
+        let composite = CompositeSource::default();
+        assert!(composite.is_empty());
+    }
+
+    #[test]
+    fn test_composite_with_env_override() {
+        std::env::set_var("CTEST_HOST", "env-host");
+
+        let mut composite = CompositeSource::new();
+        composite.add(TomlSource::from_file(fixture("basic.toml")));
+        composite.add(EnvSource::with_prefix("CTEST_"));
+
+        let mut config = Config::new();
+        composite.load(&mut config).unwrap();
+
+        // env source overrides toml
+        assert_eq!(config.get_string("host").unwrap(), "env-host");
+        // toml-only keys still present
+        assert_eq!(config.get_string("app.name").unwrap(), "MyApp");
+
+        std::env::remove_var("CTEST_HOST");
+    }
+
+    #[test]
+    fn test_merge_from_composite_source() {
+        let mut composite = CompositeSource::new();
+        composite.add(TomlSource::from_file(fixture("basic.toml")));
+        composite.add(TomlSource::from_file(fixture("override.toml")));
+
+        let mut config = Config::new();
+        config.merge_from_source(&composite).unwrap();
+
+        assert_eq!(config.get_string("host").unwrap(), "production-server");
+    }
+
+    #[test]
+    fn test_add_returns_mutable_ref_for_chaining() {
+        // Verify the builder-style chaining works
+        let mut composite = CompositeSource::new();
+        composite
+            .add(TomlSource::from_file(fixture("basic.toml")))
+            .add(TomlSource::from_file(fixture("override.toml")));
+
+        assert_eq!(composite.len(), 2);
+    }
+}
+
+// ============================================================================
+// Config::merge_from_source Tests
+// ============================================================================
+
+#[cfg(test)]
+mod test_config_merge_from_source {
+    use super::*;
+
+    #[test]
+    fn test_merge_from_source_populates_config() {
+        let source = TomlSource::from_file(fixture("basic.toml"));
+        let mut config = Config::new();
+        config.merge_from_source(&source).unwrap();
+
+        assert!(!config.is_empty());
+        assert!(config.contains("host"));
+    }
+
+    #[test]
+    fn test_merge_from_source_overwrites_existing_keys() {
+        let mut config = Config::new();
+        config.set("host", "old-host").unwrap();
+
+        let source = TomlSource::from_file(fixture("basic.toml"));
+        config.merge_from_source(&source).unwrap();
+
+        assert_eq!(config.get_string("host").unwrap(), "localhost");
+    }
+
+    #[test]
+    fn test_merge_from_source_preserves_final_property() {
+        let mut config = Config::new();
+        config.set("host", "final-host").unwrap();
+        if let Some(prop) = config.get_property_mut("host") {
+            prop.set_final(true);
+        }
+
+        let source = TomlSource::from_file(fixture("basic.toml"));
+        let result = config.merge_from_source(&source);
+
+        // Should fail because host is final
+        assert!(result.is_err());
+        assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
+        // Value unchanged
+        assert_eq!(config.get_string("host").unwrap(), "final-host");
+    }
+
+    #[test]
+    fn test_merge_from_source_adds_new_keys() {
+        let mut config = Config::new();
+        config.set("existing", "value").unwrap();
+
+        let source = TomlSource::from_file(fixture("basic.toml"));
+        config.merge_from_source(&source).unwrap();
+
+        // Original key preserved
+        assert_eq!(config.get_string("existing").unwrap(), "value");
+        // New keys added
+        assert!(config.contains("host"));
+        assert!(config.contains("app.name"));
+    }
+
+    #[test]
+    fn test_merge_from_source_returns_error_on_failure() {
+        let source = TomlSource::from_file("/nonexistent/path.toml");
+        let mut config = Config::new();
+        let result = config.merge_from_source(&source);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_merge_from_source_with_variable_substitution() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("vars.toml");
+        std::fs::write(
+            &path,
+            r#"
+base_url = "http://localhost:8080"
+api_url = "${base_url}/api"
+"#,
+        )
+        .unwrap();
+
+        let source = TomlSource::from_file(&path);
+        let mut config = Config::new();
+        config.merge_from_source(&source).unwrap();
+
+        // Variable substitution is applied on get_string
+        assert_eq!(
+            config.get_string("api_url").unwrap(),
+            "http://localhost:8080/api"
+        );
+    }
+}

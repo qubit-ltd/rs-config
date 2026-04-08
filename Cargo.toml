@@ -38,3 +38,9 @@ regex = "1.10"
 url = "2.5"
 num-bigint = { version = "0.4", features = ["serde"] }
 bigdecimal = { version = "0.4", features = ["serde"] }
+toml = { version = "0.8", features = ["parse"] }
+serde_yaml = "0.9"
+dotenvy = "0.15"
+
+[dev-dependencies]
+tempfile = "3"

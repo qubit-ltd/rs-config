@@ -20,7 +20,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use super::{utils, ConfigError, ConfigResult, Property};
+use super::{source::ConfigSource, utils, ConfigError, ConfigResult, Property};
 use qubit_value::multi_values::{
     MultiValuesAddArg, MultiValuesAdder, MultiValuesFirstGetter, MultiValuesGetter,
     MultiValuesMultiAdder, MultiValuesSetArg, MultiValuesSetter, MultiValuesSetterSlice,
@@ -752,6 +752,41 @@ impl Config {
     pub fn get_string_list_or(&self, name: &str, default: &[&str]) -> Vec<String> {
         self.get_string_list(name)
             .unwrap_or_else(|_| default.iter().map(|s| s.to_string()).collect())
+    }
+
+    // ========================================================================
+    // Configuration Source Integration
+    // ========================================================================
+
+    /// Merges configuration from a `ConfigSource`
+    ///
+    /// Loads all key-value pairs from the given source and merges them into
+    /// this configuration. Existing non-final properties are overwritten;
+    /// final properties are preserved and cause an error if the source tries
+    /// to overwrite them.
+    ///
+    /// # Parameters
+    ///
+    /// * `source` - The configuration source to load from
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` on success, or a `ConfigError` on failure
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// use qubit_config::{Config, source::{TomlSource, EnvSource, CompositeSource, ConfigSource}};
+    ///
+    /// let mut composite = CompositeSource::new();
+    /// composite.add(TomlSource::from_file("config.toml"));
+    /// composite.add(EnvSource::with_prefix("APP_"));
+    ///
+    /// let mut config = Config::new();
+    /// config.merge_from_source(&composite).unwrap();
+    /// ```
+    pub fn merge_from_source(&mut self, source: &dyn ConfigSource) -> ConfigResult<()> {
+        source.load(self)
     }
 }
 
