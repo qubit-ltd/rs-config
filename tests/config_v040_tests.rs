@@ -818,8 +818,8 @@ mod test_toml_type_faithful {
     #[test]
     fn test_toml_bool_stored_as_bool() {
         let config = load_toml("debug = true\nenabled = false\n");
-        assert_eq!(config.get::<bool>("debug").unwrap(), true);
-        assert_eq!(config.get::<bool>("enabled").unwrap(), false);
+        assert!(config.get::<bool>("debug").unwrap());
+        assert!(!config.get::<bool>("enabled").unwrap());
     }
 
     #[test]
@@ -922,8 +922,8 @@ mod test_yaml_type_faithful {
     #[test]
     fn test_yaml_bool_stored_as_bool() {
         let config = load_yaml("debug: true\nenabled: false\n");
-        assert_eq!(config.get::<bool>("debug").unwrap(), true);
-        assert_eq!(config.get::<bool>("enabled").unwrap(), false);
+        assert!(config.get::<bool>("debug").unwrap());
+        assert!(!config.get::<bool>("enabled").unwrap());
     }
 
     #[test]
@@ -1129,14 +1129,14 @@ mod test_property_to_json_value_coverage {
 
     #[test]
     fn test_deserialize_float32() {
-        let config = config_with_mv("x.val", MultiValues::Float32(vec![3.14f32]));
+        let config = config_with_mv("x.val", MultiValues::Float32(vec![1.5f32]));
         let s: AnyStruct = config.deserialize("x").unwrap();
         assert!(s.val.is_number());
     }
 
     #[test]
     fn test_deserialize_float64() {
-        let config = config_with_mv("x.val", MultiValues::Float64(vec![3.14f64]));
+        let config = config_with_mv("x.val", MultiValues::Float64(vec![1.5f64]));
         let s: AnyStruct = config.deserialize("x").unwrap();
         assert!(s.val.is_number());
     }

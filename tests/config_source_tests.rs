@@ -242,7 +242,7 @@ mod test_toml_config_source {
         // Integer values are stored as i64 (type-faithful)
         assert_eq!(config.get::<i64>("port").unwrap(), 8080);
         // Boolean values are stored as bool
-        assert_eq!(config.get::<bool>("debug").unwrap(), true);
+        assert!(config.get::<bool>("debug").unwrap());
         // Float values are stored as f64
         assert_eq!(config.get::<f64>("timeout").unwrap(), 30.5);
     }
@@ -331,7 +331,7 @@ pool = 5
         // Integer values are stored as i64 (type-faithful)
         assert_eq!(config.get::<i64>("value").unwrap(), 42);
         // Boolean values are stored as bool
-        assert_eq!(config.get::<bool>("enabled").unwrap(), false);
+        assert!(!config.get::<bool>("enabled").unwrap());
         assert_eq!(
             config.get_string("db.url").unwrap(),
             "postgres://localhost/mydb"
@@ -384,7 +384,7 @@ mod test_yaml_config_source {
         // Integer values are stored as i64 (type-faithful)
         assert_eq!(config.get::<i64>("port").unwrap(), 8080);
         // Boolean values are stored as bool
-        assert_eq!(config.get::<bool>("debug").unwrap(), true);
+        assert!(config.get::<bool>("debug").unwrap());
         // Float values are stored as f64
         assert_eq!(config.get::<f64>("timeout").unwrap(), 30.5);
     }
@@ -472,7 +472,7 @@ db:
         // Integer values are stored as i64 (type-faithful)
         assert_eq!(config.get::<i64>("value").unwrap(), 42);
         // Boolean values are stored as bool
-        assert_eq!(config.get::<bool>("enabled").unwrap(), false);
+        assert!(!config.get::<bool>("enabled").unwrap());
         assert_eq!(
             config.get_string("db.url").unwrap(),
             "postgres://localhost/mydb"

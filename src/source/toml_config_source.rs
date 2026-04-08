@@ -250,8 +250,8 @@ mod tests {
 
     #[test]
     fn test_toml_scalar_to_string_float() {
-        let val = TomlValue::Float(3.14);
-        assert_eq!(toml_scalar_to_string(&val, "key").unwrap(), "3.14");
+        let val = TomlValue::Float(1.5);
+        assert_eq!(toml_scalar_to_string(&val, "key").unwrap(), "1.5");
     }
 
     #[test]
