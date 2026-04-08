@@ -13,22 +13,22 @@
 //!
 //! # Supported Sources
 //!
-//! - [`PropertiesSource`]: Loads configuration from Java `.properties` format files
-//! - [`TomlSource`]: Loads configuration from TOML format files
-//! - [`YamlSource`]: Loads configuration from YAML format files
-//! - [`EnvFileSource`]: Loads configuration from `.env` format files
-//! - [`EnvSource`]: Loads configuration from system environment variables
-//! - [`CompositeSource`]: Merges configuration from multiple sources
+//! - [`PropertiesConfigSource`]: Loads configuration from Java `.properties` format files
+//! - [`TomlConfigSource`]: Loads configuration from TOML format files
+//! - [`YamlConfigSource`]: Loads configuration from YAML format files
+//! - [`EnvFileConfigSource`]: Loads configuration from `.env` format files
+//! - [`EnvConfigSource`]: Loads configuration from system environment variables
+//! - [`CompositeConfigSource`]: Merges configuration from multiple sources
 //!
 //! # Examples
 //!
 //! ```rust,ignore
-//! use qubit_config::{Config, source::{TomlSource, EnvSource, CompositeSource, ConfigSource}};
+//! use qubit_config::{Config, source::{TomlConfigSource, EnvConfigSource, CompositeConfigSource, ConfigSource}};
 //!
 //! // Load from TOML file with env override
-//! let mut composite = CompositeSource::new();
-//! composite.add(TomlSource::from_file("config.toml"));
-//! composite.add(EnvSource::with_prefix("APP_"));
+//! let mut composite = CompositeConfigSource::new();
+//! composite.add(TomlConfigSource::from_file("config.toml"));
+//! composite.add(EnvConfigSource::with_prefix("APP_"));
 //!
 //! let mut config = Config::new();
 //! config.merge_from_source(&composite).unwrap();
@@ -38,53 +38,18 @@
 //!
 //! Haixing Hu
 
-mod composite;
-mod env_file_source;
-mod env_source;
-mod properties_source;
-mod toml_source;
-mod yaml_source;
+mod composite_config_source;
+mod config_source;
+mod env_config_source;
+mod env_file_config_source;
+mod properties_config_source;
+mod toml_config_source;
+mod yaml_config_source;
 
-pub use composite::CompositeSource;
-pub use env_file_source::EnvFileSource;
-pub use env_source::EnvSource;
-pub use properties_source::PropertiesSource;
-pub use toml_source::TomlSource;
-pub use yaml_source::YamlSource;
-
-use crate::{Config, ConfigResult};
-
-/// Trait for configuration sources
-///
-/// Implementors of this trait can load configuration data and populate a `Config` object.
-///
-/// # Examples
-///
-/// ```rust,ignore
-/// use qubit_config::{Config, source::ConfigSource};
-///
-/// struct MySource;
-///
-/// impl ConfigSource for MySource {
-///     fn load(&self, config: &mut Config) -> qubit_config::ConfigResult<()> {
-///         config.set("key", "value")?;
-///         Ok(())
-///     }
-/// }
-/// ```
-///
-/// # Author
-///
-/// Haixing Hu
-pub trait ConfigSource {
-    /// Loads configuration data into the provided `Config` object
-    ///
-    /// # Parameters
-    ///
-    /// * `config` - The configuration object to populate
-    ///
-    /// # Returns
-    ///
-    /// Returns `Ok(())` on success, or a `ConfigError` on failure
-    fn load(&self, config: &mut Config) -> ConfigResult<()>;
-}
+pub use composite_config_source::CompositeConfigSource;
+pub use config_source::ConfigSource;
+pub use env_config_source::EnvConfigSource;
+pub use env_file_config_source::EnvFileConfigSource;
+pub use properties_config_source::PropertiesConfigSource;
+pub use toml_config_source::TomlConfigSource;
+pub use yaml_config_source::YamlConfigSource;

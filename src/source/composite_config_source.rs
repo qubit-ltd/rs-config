@@ -16,13 +16,13 @@
 //! # Examples
 //!
 //! ```rust,ignore
-//! use qubit_config::source::{CompositeSource, TomlSource, EnvSource, ConfigSource};
+//! use qubit_config::source::{CompositeConfigSource, TomlConfigSource, EnvConfigSource, ConfigSource};
 //! use qubit_config::Config;
 //!
-//! let mut composite = CompositeSource::new();
-//! composite.add(TomlSource::from_file("defaults.toml"));
-//! composite.add(TomlSource::from_file("config.toml"));
-//! composite.add(EnvSource::with_prefix("APP_"));
+//! let mut composite = CompositeConfigSource::new();
+//! composite.add(TomlConfigSource::from_file("defaults.toml"));
+//! composite.add(TomlConfigSource::from_file("config.toml"));
+//! composite.add(EnvConfigSource::with_prefix("APP_"));
 //!
 //! let mut config = Config::new();
 //! composite.load(&mut config).unwrap();
@@ -41,12 +41,12 @@ use super::ConfigSource;
 /// # Author
 ///
 /// Haixing Hu
-pub struct CompositeSource {
+pub struct CompositeConfigSource {
     sources: Vec<Box<dyn ConfigSource>>,
 }
 
-impl CompositeSource {
-    /// Creates a new empty `CompositeSource`
+impl CompositeConfigSource {
+    /// Creates a new empty `CompositeConfigSource`
     pub fn new() -> Self {
         Self {
             sources: Vec::new(),
@@ -77,13 +77,13 @@ impl CompositeSource {
     }
 }
 
-impl Default for CompositeSource {
+impl Default for CompositeConfigSource {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl ConfigSource for CompositeSource {
+impl ConfigSource for CompositeConfigSource {
     fn load(&self, config: &mut Config) -> ConfigResult<()> {
         for source in &self.sources {
             source.load(config)?;

@@ -42,10 +42,10 @@ use super::ConfigSource;
 /// # Examples
 ///
 /// ```rust,ignore
-/// use qubit_config::source::{YamlSource, ConfigSource};
+/// use qubit_config::source::{YamlConfigSource, ConfigSource};
 /// use qubit_config::Config;
 ///
-/// let source = YamlSource::from_file("config.yaml");
+/// let source = YamlConfigSource::from_file("config.yaml");
 /// let mut config = Config::new();
 /// source.load(&mut config).unwrap();
 /// ```
@@ -54,12 +54,12 @@ use super::ConfigSource;
 ///
 /// Haixing Hu
 #[derive(Debug, Clone)]
-pub struct YamlSource {
+pub struct YamlConfigSource {
     path: PathBuf,
 }
 
-impl YamlSource {
-    /// Creates a new `YamlSource` from a file path
+impl YamlConfigSource {
+    /// Creates a new `YamlConfigSource` from a file path
     ///
     /// # Parameters
     ///
@@ -71,7 +71,7 @@ impl YamlSource {
     }
 }
 
-impl ConfigSource for YamlSource {
+impl ConfigSource for YamlConfigSource {
     fn load(&self, config: &mut Config) -> ConfigResult<()> {
         let content = std::fs::read_to_string(&self.path).map_err(|e| {
             ConfigError::IoError(std::io::Error::new(

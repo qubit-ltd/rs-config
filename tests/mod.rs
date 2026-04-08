@@ -14,10 +14,10 @@
 //!
 //! Haixing Hu
 
+mod config_source_tests;
 mod config_tests;
 mod configurable_tests;
 mod configured_tests;
 mod error_tests;
 mod property_tests;
-mod source_tests;
 mod utils_tests;

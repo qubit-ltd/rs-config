@@ -7,10 +7,11 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](README.zh_CN.md)
 
-A powerful, type-safe configuration management system for Rust, providing flexible configuration management with support for multiple data types, variable substitution, and multi-value properties.
+A powerful, type-safe configuration management system for Rust, providing flexible configuration management with support for multiple data types, variable substitution, multi-value properties, and pluggable **configuration sources** (files, environment, and composites).
 
 ## Features
 
+- ✅ **Configuration sources** - [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) trait with built-in loaders: TOML, YAML, Java-style `.properties`, `.env` files, process environment variables (with optional prefix / key normalization), and [`CompositeConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.CompositeConfigSource.html) to merge several sources in order (later entries override earlier ones for the same key); use [`Config::merge_from_source`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.merge_from_source) to populate a `Config`
 - ✅ **Pure Generic API** - Use `get<T>()` and `set<T>()` generic methods with full type inference support
 - ✅ **Rich Data Types** - Support for all primitive types, temporal types, strings, byte arrays, and more
 - ✅ **Multi-Value Properties** - Each configuration property can contain multiple values with list operations
@@ -81,6 +82,32 @@ Each configuration item is represented by a `Property` that contains:
 ### MultiValues
 
 A type-safe container that can hold multiple values of the same data type.
+
+### Configuration sources
+
+Implementations of [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) load external settings into a [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html). Call [`merge_from_source`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.merge_from_source) (or `load` on the source with a `&mut Config`) to apply them.
+
+| Type | Role |
+|------|------|
+| [`TomlConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.TomlConfigSource.html) | TOML files; nested tables are flattened to dot-separated keys |
+| [`YamlConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.YamlConfigSource.html) | YAML files; nested mappings flattened similarly |
+| [`PropertiesConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.PropertiesConfigSource.html) | Java `.properties` files |
+| [`EnvFileConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.EnvFileConfigSource.html) | `.env`-style files |
+| [`EnvConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.EnvConfigSource.html) | Process environment; optional prefix filtering and key normalization (e.g. `APP_SERVER_HOST` → `server.host`) |
+| [`CompositeConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.CompositeConfigSource.html) | Chains multiple sources in order; later sources win on duplicate keys (subject to `Property` final semantics) |
+
+```rust
+use qubit_config::{Config, source::{
+    CompositeConfigSource, ConfigSource, EnvConfigSource, TomlConfigSource,
+}};
+
+let mut config = Config::new();
+let mut composite = CompositeConfigSource::new();
+composite
+    .add(TomlConfigSource::from_file("config.toml"))
+    .add(EnvConfigSource::with_prefix("APP_"));
+config.merge_from_source(&composite)?;
+```
 
 ## Usage Examples
 
@@ -342,11 +369,14 @@ For internal design documentation (Chinese), see [src/README.md](src/README.md).
 - `serde` - Serialization framework
 - `chrono` - Date and time handling
 - `regex` - Regular expression support
+- `toml` - TOML parsing for `TomlConfigSource`
+- `serde_yaml` - YAML parsing for `YamlConfigSource`
+- `dotenvy` - `.env` file parsing for `EnvFileConfigSource`
 
 ## Roadmap
 
-- [ ] Configuration file loading (XML, TOML, YAML, JSON)
-- [ ] Configuration merge strategies
+- [ ] Additional configuration loaders (e.g. JSON, XML)
+- [ ] Advanced merge / overlay policies beyond ordered `CompositeConfigSource`
 - [ ] Configuration watching and hot reload
 - [ ] Configuration validation framework
 - [ ] Configuration encryption support
