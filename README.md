@@ -11,7 +11,6 @@ A powerful, type-safe configuration management system for Rust, providing flexib
 
 ## Features
 
-- ✅ **Configuration sources** - [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) trait with built-in loaders: TOML, YAML, Java-style `.properties`, `.env` files, process environment variables (with optional prefix / key normalization), and [`CompositeConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.CompositeConfigSource.html) to merge several sources in order (later entries override earlier ones for the same key); use [`Config::merge_from_source`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.merge_from_source) to populate a `Config`
 - ✅ **Pure Generic API** - Use `get<T>()` and `set<T>()` generic methods with full type inference support
 - ✅ **Rich Data Types** - Support for all primitive types, temporal types, strings, byte arrays, and more
 - ✅ **Multi-Value Properties** - Each configuration property can contain multiple values with list operations
@@ -19,6 +18,7 @@ A powerful, type-safe configuration management system for Rust, providing flexib
 - ✅ **Type Safety** - Compile-time type checking to prevent runtime type errors
 - ✅ **Serialization Support** - Full serde support for serialization and deserialization
 - ✅ **Extensible** - Trait-based design for easy custom type support
+- ✅ **Configuration sources** - [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) trait with built-in loaders: TOML, YAML, Java-style `.properties`, `.env` files, process environment variables (with optional prefix / key normalization), and [`CompositeConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.CompositeConfigSource.html) to merge several sources in order (later entries override earlier ones for the same key); use [`Config::merge_from_source`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.merge_from_source) to populate a `Config`
 - ✅ **Zero-Cost Abstractions** - Uses enums instead of trait objects to avoid dynamic dispatch overhead
 
 ## Installation
