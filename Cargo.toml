@@ -38,7 +38,7 @@ regex = "1.10"
 url = "2.5"
 num-bigint = { version = "0.4", features = ["serde"] }
 bigdecimal = { version = "0.4", features = ["serde"] }
-toml = { version = "1.1.2+spec-1.1.0", features = ["parse"] }
+toml = { version = "1.1.2", features = ["parse"] }
 serde_yaml = "0.9"
 dotenvy = "0.15"
 
