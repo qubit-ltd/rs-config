@@ -78,6 +78,13 @@ fn test_substitute_empty_string() {
 }
 
 #[test]
+fn test_substitute_zero_depth_without_placeholders_should_succeed() {
+    let config = Config::new();
+    let result = substitute_variables("plain text", &config, 0).unwrap();
+    assert_eq!(result, "plain text");
+}
+
+#[test]
 fn test_substitute_variable_not_found() {
     let config = Config::new();
     let result = substitute_variables("${NONEXISTENT_VAR}", &config, 10);
