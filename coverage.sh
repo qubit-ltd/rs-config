@@ -27,6 +27,7 @@ echo "📁 Coverage will only include files in: $CURRENT_CRATE_DIR"
 # Build regex pattern to exclude third-party code and other workspace members
 CURRENT_CRATE_NAME=$(basename "$CURRENT_CRATE_DIR")
 WORKSPACE_ROOT=$(cd "$(dirname "$0")/.." && pwd)
+ESCAPED_WORKSPACE_ROOT=$(printf '%s\n' "$WORKSPACE_ROOT" | sed 's/[][(){}.+*?^$|\\]/\\&/g')
 
 # Create list of other workspace crates to exclude
 OTHER_CRATES=""
@@ -41,19 +42,28 @@ for crate_dir in "$WORKSPACE_ROOT"/rust-*/; do
     fi
 done
 
-# Exclude: cargo registry, rustup, and other workspace crates
-# Using simple alternation for clarity
-EXCLUDE_PATTERN="(\.cargo/registry|\.rustup/|/($OTHER_CRATES)/)"
+# Exclude: cargo registry, rustup, and other workspace crates.
+# Use an anchored workspace path to avoid accidentally excluding this crate
+# when parent directory names overlap (e.g. /rust-common/rust-config).
+if [ -n "$OTHER_CRATES" ]; then
+    EXCLUDE_PATTERN="(\.cargo/registry|\.rustup/|^$ESCAPED_WORKSPACE_ROOT/($OTHER_CRATES)/)"
+else
+    EXCLUDE_PATTERN="(\.cargo/registry|\.rustup/)"
+fi
 echo "🚫 Excluding: .cargo/registry, .rustup, and other workspace members"
 
 # Parse arguments, check if cleanup is needed
 CLEAN_FLAG=""
 FORMAT_ARG=""
+PRINT_EXCLUDE_PATTERN=""
 
 for arg in "$@"; do
     case "$arg" in
         --clean)
             CLEAN_FLAG="yes"
+            ;;
+        --print-exclude-pattern)
+            PRINT_EXCLUDE_PATTERN="yes"
             ;;
         *)
             FORMAT_ARG="$arg"
@@ -63,6 +73,12 @@ done
 
 # Default format is html
 FORMAT_ARG="${FORMAT_ARG:-html}"
+
+# Print the computed exclude regex and exit (for testing/debugging)
+if [ "$PRINT_EXCLUDE_PATTERN" = "yes" ]; then
+    echo "$EXCLUDE_PATTERN"
+    exit 0
+fi
 
 # If --clean option is specified, clean old data
 if [ "$CLEAN_FLAG" = "yes" ]; then
@@ -157,6 +173,8 @@ case "$FORMAT_ARG" in
         echo "Options:"
         echo "  --clean    Clean old coverage data and build cache before running"
         echo "             By default, cached builds are used to speed up compilation"
+        echo "  --print-exclude-pattern"
+        echo "             Print computed --ignore-filename-regex and exit"
         echo ""
         echo "Performance tips:"
         echo "  • First run will be slower (needs to compile all dependencies)"
@@ -180,4 +198,3 @@ case "$FORMAT_ARG" in
 esac
 
 echo "✅ Code coverage testing completed!"
-
