@@ -93,10 +93,6 @@ pub fn substitute_variables(
     let mut depth = 0;
 
     loop {
-        if depth >= max_depth {
-            return Err(ConfigError::SubstitutionDepthExceeded(max_depth));
-        }
-
         // Find all variables and collect replacement information
         let replacements: Vec<(String, String)> = pattern
             .captures_iter(&result)
@@ -111,6 +107,10 @@ pub fn substitute_variables(
         if replacements.is_empty() {
             // No more variables to replace
             break;
+        }
+
+        if depth >= max_depth {
+            return Err(ConfigError::SubstitutionDepthExceeded(max_depth));
         }
 
         // Perform all replacements
