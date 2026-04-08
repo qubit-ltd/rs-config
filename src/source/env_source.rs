@@ -20,8 +20,7 @@
 //! - `APP_SERVER_HOST=localhost` → `server.host = "localhost"`
 //! - `APP_SERVER_PORT=8080` → `server.port = "8080"`
 //!
-//! Without a prefix, all environment variables are loaded as-is (lowercased,
-//! underscores converted to dots).
+//! Without a prefix, all environment variables are loaded as-is.
 //!
 //! # Author
 //!

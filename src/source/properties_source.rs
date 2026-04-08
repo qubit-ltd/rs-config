@@ -113,9 +113,8 @@ fn parse_key_value(line: &str) -> Option<(&str, &str)> {
     let chars = line.char_indices();
     for (i, ch) in chars {
         if ch == '=' || ch == ':' {
-            // Check it's not escaped
-            let before = &line[..i];
-            if !before.ends_with('\\') {
+            // Separator is escaped only if there is an odd number of trailing backslashes.
+            if !is_escaped_separator(line, i) {
                 return Some((&line[..i], &line[i + ch.len_utf8()..]));
             }
         }
@@ -126,6 +125,16 @@ fn parse_key_value(line: &str) -> Option<(&str, &str)> {
     } else {
         None
     }
+}
+
+/// Returns true if the separator at `sep_pos` is escaped by a preceding odd number of backslashes.
+fn is_escaped_separator(line: &str, sep_pos: usize) -> bool {
+    let slash_count = line.as_bytes()[..sep_pos]
+        .iter()
+        .rev()
+        .take_while(|&&b| b == b'\\')
+        .count();
+    slash_count % 2 == 1
 }
 
 /// Processes Unicode escape sequences (`\uXXXX`) in a string

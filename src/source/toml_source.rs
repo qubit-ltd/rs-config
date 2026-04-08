@@ -110,14 +110,15 @@ pub(crate) fn flatten_toml_value(
             }
         }
         TomlValue::Array(arr) => {
-            // Store arrays as multi-value string properties
+            // Store scalar arrays as multi-value string properties.
+            // Nested arrays/tables are rejected to avoid silent data loss.
             for item in arr {
-                let str_val = toml_scalar_to_string(item);
+                let str_val = toml_scalar_to_string(item, prefix)?;
                 config.add(prefix, str_val)?;
             }
         }
         scalar => {
-            let str_val = toml_scalar_to_string(scalar);
+            let str_val = toml_scalar_to_string(scalar, prefix)?;
             config.set(prefix, str_val)?;
         }
     }
@@ -125,13 +126,19 @@ pub(crate) fn flatten_toml_value(
 }
 
 /// Converts a TOML scalar value to a string
-fn toml_scalar_to_string(value: &TomlValue) -> String {
+fn toml_scalar_to_string(value: &TomlValue, key: &str) -> ConfigResult<String> {
     match value {
-        TomlValue::String(s) => s.clone(),
-        TomlValue::Integer(i) => i.to_string(),
-        TomlValue::Float(f) => f.to_string(),
-        TomlValue::Boolean(b) => b.to_string(),
-        TomlValue::Datetime(dt) => dt.to_string(),
-        TomlValue::Array(_) | TomlValue::Table(_) => String::new(),
+        TomlValue::String(s) => Ok(s.clone()),
+        TomlValue::Integer(i) => Ok(i.to_string()),
+        TomlValue::Float(f) => Ok(f.to_string()),
+        TomlValue::Boolean(b) => Ok(b.to_string()),
+        TomlValue::Datetime(dt) => Ok(dt.to_string()),
+        TomlValue::Array(_) | TomlValue::Table(_) => {
+            let key = if key.is_empty() { "<root>" } else { key };
+            Err(ConfigError::ParseError(format!(
+                "Unsupported nested TOML structure at key '{}'",
+                key
+            )))
+        }
     }
 }
