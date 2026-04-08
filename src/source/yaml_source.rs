@@ -101,7 +101,7 @@ pub(crate) fn flatten_yaml_value(
     match value {
         YamlValue::Mapping(map) => {
             for (k, v) in map {
-                let key_str = yaml_key_to_string(k);
+                let key_str = yaml_key_to_string(k)?;
                 let key = if prefix.is_empty() {
                     key_str
                 } else {
@@ -129,12 +129,15 @@ pub(crate) fn flatten_yaml_value(
 }
 
 /// Converts a YAML key to a string
-fn yaml_key_to_string(value: &YamlValue) -> String {
+fn yaml_key_to_string(value: &YamlValue) -> ConfigResult<String> {
     match value {
-        YamlValue::String(s) => s.clone(),
-        YamlValue::Number(n) => n.to_string(),
-        YamlValue::Bool(b) => b.to_string(),
-        _ => String::new(),
+        YamlValue::String(s) => Ok(s.clone()),
+        YamlValue::Number(n) => Ok(n.to_string()),
+        YamlValue::Bool(b) => Ok(b.to_string()),
+        YamlValue::Null => Ok("null".to_string()),
+        _ => Err(ConfigError::ParseError(format!(
+            "Unsupported YAML mapping key type: {value:?}"
+        ))),
     }
 }
 

@@ -163,6 +163,14 @@ mod test_properties_source {
         assert_eq!(pairs[0], ("key".to_string(), "path\\to\\file".to_string()));
     }
 
+    #[test]
+    fn test_parse_even_backslashes_before_separator() {
+        let content = r"path\\=value";
+        let pairs = PropertiesSource::parse_content(content);
+        assert_eq!(pairs.len(), 1);
+        assert_eq!(pairs[0], ("path\\".to_string(), "value".to_string()));
+    }
+
     // ---- load from file tests ----
 
     #[test]
@@ -323,6 +331,30 @@ pool = 5
         );
         assert_eq!(config.get_string("db.pool").unwrap(), "5");
     }
+
+    #[test]
+    fn test_load_toml_array_of_tables_returns_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("array_of_tables.toml");
+        std::fs::write(
+            &path,
+            r#"
+[[servers]]
+host = "a"
+port = 1
+
+[[servers]]
+host = "b"
+port = 2
+"#,
+        )
+        .unwrap();
+
+        let source = TomlSource::from_file(&path);
+        let mut config = Config::new();
+        let result = source.load(&mut config);
+        assert!(matches!(result, Err(ConfigError::ParseError(_))));
+    }
 }
 
 // ============================================================================
@@ -445,6 +477,18 @@ db:
 
         assert_eq!(config.get_string("key").unwrap(), "");
         assert_eq!(config.get_string("other").unwrap(), "value");
+    }
+
+    #[test]
+    fn test_load_yaml_complex_keys_returns_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("complex_key.yaml");
+        std::fs::write(&path, "? [a, b]\n: 1\n? {x: 1}\n: 2\n").unwrap();
+
+        let source = YamlSource::from_file(&path);
+        let mut config = Config::new();
+        let result = source.load(&mut config);
+        assert!(matches!(result, Err(ConfigError::ParseError(_))));
     }
 }
 
