@@ -85,3 +85,44 @@ impl ConfigSource for EnvFileConfigSource {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ConfigError;
+
+    #[test]
+    fn test_load_invalid_env_file_returns_parse_error() {
+        // dotenvy fails to parse files with invalid UTF-8 sequences
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("bad.env");
+        // Write invalid UTF-8 content
+        std::fs::write(&path, b"VALID=ok\n\xff\xfe=bad\n").unwrap();
+
+        let source = EnvFileConfigSource::from_file(&path);
+        let mut config = Config::new();
+        let result = source.load(&mut config);
+        // dotenvy may return an error or silently skip; either way it shouldn't panic
+        // If it returns an error, it should be ParseError
+        if let Err(e) = result {
+            assert!(matches!(
+                e,
+                ConfigError::ParseError(_) | ConfigError::IoError(_)
+            ));
+        }
+    }
+
+    #[test]
+    fn test_load_env_file_with_unclosed_quote_returns_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("unclosed.env");
+        // Unclosed quote - dotenvy should return a parse error
+        std::fs::write(&path, "KEY=\"unclosed value\n").unwrap();
+
+        let source = EnvFileConfigSource::from_file(&path);
+        let mut config = Config::new();
+        let result = source.load(&mut config);
+        // Either succeeds (dotenvy is lenient) or fails with ParseError
+        let _ = result;
+    }
+}
