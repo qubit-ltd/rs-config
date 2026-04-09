@@ -47,8 +47,9 @@
 新增能力：
 
 1. `get_optional<T>()`
-2. `get_list_optional<T>()`
-3. `is_null(name)` 或等价语义
+2. `get_optional_list<T>()`
+3. `get_optional_string()` / `get_optional_string_list()`（走 `get_string` / `get_string_list`，含变量替换）
+4. `is_null(name)` 或等价语义
 
 要求：
 
@@ -133,7 +134,9 @@ impl Config {
     pub fn subconfig(&self, prefix: &str, strip_prefix: bool) -> ConfigResult<Config>;
 
     pub fn get_optional<T>(&self, name: &str) -> ConfigResult<Option<T>>;
-    pub fn get_list_optional<T>(&self, name: &str) -> ConfigResult<Option<Vec<T>>>;
+    pub fn get_optional_list<T>(&self, name: &str) -> ConfigResult<Option<Vec<T>>>;
+    pub fn get_optional_string(&self, name: &str) -> ConfigResult<Option<String>>;
+    pub fn get_optional_string_list(&self, name: &str) -> ConfigResult<Option<Vec<String>>>;
 
     pub fn deserialize<T>(&self, prefix: &str) -> ConfigResult<T>
     where
