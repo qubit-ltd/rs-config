@@ -21,6 +21,8 @@
 - ✅ **序列化支持** - 完整的 serde 支持，可序列化和反序列化
 - ✅ **可扩展** - 基于 trait 的设计，易于支持自定义类型
 - ✅ **配置来源（ConfigSource）** - 提供 [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) trait 与多种内置实现：TOML、YAML、Java 风格 `.properties`、`.env` 文件、进程环境变量（可选前缀与键名规范化），以及按顺序合并多个来源的 [`CompositeConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.CompositeConfigSource.html)（后加载的来源覆盖同名键）；通过 [`Config::merge_from_source`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.merge_from_source) 将外部配置载入 `Config`
+- ✅ **只读访问（ConfigReader）** - [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) trait 提供无需修改配置的泛型读取；[`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) 与 [`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html) 均实现该 trait，并包含 `get_string`、`get_string_or`、可选值与列表等辅助方法，行为与底层配置的变量替换设置一致
+- ✅ **前缀视图（ConfigPrefixView）** - [`Config::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.prefix_view) 返回绑定逻辑键前缀的 [`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html)（相对键解析为 `前缀.键`）；可通过 [`ConfigPrefixView::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html#method.prefix_view) 嵌套子前缀
 - ✅ **零成本抽象** - 使用枚举而非 trait object，避免动态分发开销
 
 ## 安装
@@ -84,6 +86,24 @@ config.set("database.port", 5432)?;
 ### MultiValues（多值容器）
 
 一个类型安全的容器，可以保存相同数据类型的多个值。
+
+### ConfigReader 与 ConfigPrefixView（只读接口与前缀视图）
+
+[`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) 是配置的只读抽象：仅需读取时，API 可接受 `&impl ConfigReader`（或 `&dyn ConfigReader`），而不必暴露完整的 `&Config`。除 `get` / `get_list`、`contains`、`contains_prefix`、`iter_prefix` 外，trait 还提供带默认实现的字符串相关方法，如 `get_string`、`get_string_or`、`get_string_list`、`get_optional_string` 及其列表变体，并与所属 `Config` 的变量替换开关、最大深度保持一致。
+
+[`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html) 表示对 `Config` 的零拷贝借用，并带有一个逻辑键前缀；类型名明确表示「前缀视图」，便于日后增加其他种类的视图而不与泛称冲突。通过 [`Config::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.prefix_view) 创建；传入的键名会在该前缀下解析（例如前缀 `db`、键 `host` 对应存储键 `db.host`）。使用 [`ConfigPrefixView::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html#method.prefix_view) 可得到嵌套前缀视图。`iter_prefix` 与 `contains_prefix` 仅针对当前视图下「相对键」可见的项。
+
+```rust
+use qubit_config::{Config, ConfigReader};
+
+let mut config = Config::new();
+config.set("db.host", "localhost")?;
+config.set("db.port", 5432i32)?;
+
+let db = config.prefix_view("db");
+let host: String = db.get_string("host")?;
+let port: i32 = db.get("port")?;
+```
 
 ### 配置来源（Configuration sources）
 
