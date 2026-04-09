@@ -6,25 +6,25 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-//! [`qubit_config::ConfigView`] tests.
+//! [`qubit_config::ConfigPrefixView`] tests.
 
 use qubit_config::{Config, ConfigReader};
 
 #[cfg(test)]
-mod test_config_view_smoke {
+mod test_config_prefix_view_smoke {
     use super::*;
 
     #[test]
-    fn config_view_reads_relative_key() {
+    fn config_prefix_view_reads_relative_key() {
         let mut c = Config::new();
         c.set("http.host", "localhost").unwrap();
-        let v = c.view("http");
+        let v = c.prefix_view("http");
         assert_eq!(v.get::<String>("host").unwrap(), "localhost");
     }
 }
 
 #[cfg(test)]
-mod test_config_view {
+mod test_config_prefix_view {
     use super::*;
 
     #[test]
@@ -34,7 +34,7 @@ mod test_config_view {
         config.set("http.port", 8080).unwrap();
         config.set("db.host", "db").unwrap();
 
-        let view = config.view("http");
+        let view = config.prefix_view("http");
         assert!(view.contains("host"));
         assert!(view.contains("port"));
         assert!(!view.contains("db.host"));
@@ -51,7 +51,7 @@ mod test_config_view {
         config.set("http.proxy.port", 3128).unwrap();
         config.set("http.timeout", 30).unwrap();
 
-        let proxy = config.view("http").view("proxy");
+        let proxy = config.prefix_view("http").prefix_view("proxy");
         assert_eq!(proxy.prefix(), "http.proxy");
         let host: String = proxy.get("host").unwrap();
         let port: i32 = proxy.get("port").unwrap();
@@ -69,7 +69,7 @@ mod test_config_view {
             .set("http.base_url", "http://${host}:${port}")
             .unwrap();
 
-        let view = config.view("http");
+        let view = config.prefix_view("http");
         let base_url = view.get_string("base_url").unwrap();
         assert_eq!(base_url, "http://localhost:8080");
     }
@@ -81,7 +81,7 @@ mod test_config_view {
         config.set("http.proxy.port", 3128).unwrap();
         config.set("http.timeout", 30).unwrap();
 
-        let view = config.view("http");
+        let view = config.prefix_view("http");
         assert!(view.contains_prefix("proxy"));
         assert!(!view.contains_prefix("db"));
 
@@ -97,7 +97,7 @@ mod test_config_view {
         config.set("http", "root-value").unwrap();
         config.set("http.host", "localhost").unwrap();
 
-        let view = config.view("http");
+        let view = config.prefix_view("http");
         assert!(view.contains("http"));
         assert_eq!(view.get_string("http").unwrap(), "root-value");
         assert_eq!(view.get_string("host").unwrap(), "localhost");
@@ -109,7 +109,7 @@ mod test_config_view {
         config.set("host", "localhost").unwrap();
         config.set("port", 8080).unwrap();
 
-        let root_view = config.view("");
+        let root_view = config.prefix_view("");
         assert_eq!(root_view.get_string("host").unwrap(), "localhost");
         let port: i32 = root_view.get("port").unwrap();
         assert_eq!(port, 8080);
@@ -121,9 +121,9 @@ mod test_config_view {
         config.set("http.full", "http://${http.host}").unwrap();
         config.set("http", "root").unwrap();
 
-        let from_root = config.view("").view("http");
+        let from_root = config.prefix_view("").prefix_view("http");
         assert_eq!(from_root.get_string("host").unwrap(), "localhost");
-        let same = config.view("http").view("");
+        let same = config.prefix_view("http").prefix_view("");
         assert_eq!(same.prefix(), "http");
         assert_eq!(same.get_string("http.host").unwrap(), "localhost");
 
@@ -138,7 +138,7 @@ mod test_config_view {
         config.set("alpha", "a").unwrap();
         config.set("beta", "b").unwrap();
 
-        let root_view = config.view("");
+        let root_view = config.prefix_view("");
         let keys: Vec<&str> = root_view.iter_prefix("").map(|(k, _)| k).collect();
         assert_eq!(keys.len(), 2);
         assert!(keys.contains(&"alpha"));

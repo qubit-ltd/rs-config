@@ -17,18 +17,20 @@ use crate::config::Config;
 use crate::config_reader::ConfigReader;
 use crate::{ConfigResult, Property};
 
-/// Read-only view over a [`Config`] with a logical key prefix.
+/// Read-only **prefix** view over a [`Config`]: key lookups use a logical key prefix.
 ///
-/// The view rewrites key lookups by prepending `prefix`, while exposing keys
-/// relative to that prefix.
+/// This type is named explicitly so other kinds of configuration views can be added later
+/// without overloading a generic `ConfigView`.
+///
+/// Lookups rewrite keys by prepending `prefix`, while exposing keys relative to that prefix.
 #[derive(Debug, Clone)]
-pub struct ConfigView<'a> {
+pub struct ConfigPrefixView<'a> {
     config: &'a Config,
     prefix: String,
     full_prefix: Option<String>,
 }
 
-impl<'a> ConfigView<'a> {
+impl<'a> ConfigPrefixView<'a> {
     pub(crate) fn new(config: &'a Config, prefix: &str) -> Self {
         let normalized_prefix = prefix.trim_matches('.').to_string();
         let full_prefix = if normalized_prefix.is_empty() {
@@ -48,15 +50,15 @@ impl<'a> ConfigView<'a> {
         &self.prefix
     }
 
-    /// Creates a nested view by appending `prefix`.
-    pub fn view(&self, prefix: &str) -> ConfigView<'a> {
+    /// Creates a nested prefix view by appending `prefix`.
+    pub fn prefix_view(&self, prefix: &str) -> ConfigPrefixView<'a> {
         let child = prefix.trim_matches('.');
         if self.prefix.is_empty() {
-            ConfigView::new(self.config, child)
+            ConfigPrefixView::new(self.config, child)
         } else if child.is_empty() {
-            ConfigView::new(self.config, self.prefix.as_str())
+            ConfigPrefixView::new(self.config, self.prefix.as_str())
         } else {
-            ConfigView::new(self.config, &format!("{}.{}", self.prefix, child))
+            ConfigPrefixView::new(self.config, &format!("{}.{}", self.prefix, child))
         }
     }
 
@@ -96,7 +98,7 @@ impl<'a> ConfigView<'a> {
     }
 }
 
-impl<'a> ConfigReader for ConfigView<'a> {
+impl<'a> ConfigReader for ConfigPrefixView<'a> {
     fn is_enable_variable_substitution(&self) -> bool {
         self.config.is_enable_variable_substitution()
     }

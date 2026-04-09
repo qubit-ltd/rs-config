@@ -16,7 +16,7 @@ use crate::{utils, ConfigResult, Property};
 /// Read-only configuration interface.
 ///
 /// This trait allows consumers to read configuration values without requiring
-/// ownership of a [`crate::Config`]. Both [`crate::Config`] and [`crate::ConfigView`]
+/// ownership of a [`crate::Config`]. Both [`crate::Config`] and [`crate::ConfigPrefixView`]
 /// implement it.
 ///
 /// Author: Haixing Hu

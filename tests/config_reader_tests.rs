@@ -8,7 +8,7 @@
  ******************************************************************************/
 //! [`qubit_config::ConfigReader`] tests.
 
-use qubit_config::{Config, ConfigReader, ConfigView};
+use qubit_config::{Config, ConfigPrefixView, ConfigReader};
 
 fn create_test_config() -> Config {
     let mut config = Config::new();
@@ -106,37 +106,38 @@ mod test_config_reader {
         config.set("http.timeout", 30).unwrap();
         config.set("http.url", "http://${host}").unwrap();
 
-        let view = config.view("http");
+        let view = config.prefix_view("http");
         assert_eq!(
-            <ConfigView<'_> as ConfigReader>::get_string_or(&view, "missing", "fallback"),
+            <ConfigPrefixView<'_> as ConfigReader>::get_string_or(&view, "missing", "fallback"),
             "fallback"
         );
         assert_eq!(
-            <ConfigView<'_> as ConfigReader>::get_string_list_or(&view, "missing", &["m"]),
+            <ConfigPrefixView<'_> as ConfigReader>::get_string_list_or(&view, "missing", &["m"]),
             vec!["m".to_string()]
         );
         assert_eq!(
-            <ConfigView<'_> as ConfigReader>::get_optional_string(&view, "host").unwrap(),
+            <ConfigPrefixView<'_> as ConfigReader>::get_optional_string(&view, "host").unwrap(),
             Some("localhost".to_string())
         );
         assert_eq!(
-            <ConfigView<'_> as ConfigReader>::get_optional_string_list(&view, "names").unwrap(),
+            <ConfigPrefixView<'_> as ConfigReader>::get_optional_string_list(&view, "names")
+                .unwrap(),
             Some(vec!["a".to_string(), "b".to_string()])
         );
-        let timeout: i32 = <ConfigView<'_> as ConfigReader>::get(&view, "timeout").unwrap();
+        let timeout: i32 = <ConfigPrefixView<'_> as ConfigReader>::get(&view, "timeout").unwrap();
         assert_eq!(timeout, 30);
         let timeout_list: Vec<i32> =
-            <ConfigView<'_> as ConfigReader>::get_list(&view, "timeout").unwrap();
+            <ConfigPrefixView<'_> as ConfigReader>::get_list(&view, "timeout").unwrap();
         assert_eq!(timeout_list, vec![30]);
-        assert!(<ConfigView<'_> as ConfigReader>::contains_prefix(
+        assert!(<ConfigPrefixView<'_> as ConfigReader>::contains_prefix(
             &view, "na"
         ));
-        let keys: Vec<&str> = <ConfigView<'_> as ConfigReader>::iter_prefix(&view, "h")
+        let keys: Vec<&str> = <ConfigPrefixView<'_> as ConfigReader>::iter_prefix(&view, "h")
             .map(|(k, _)| k)
             .collect();
         assert_eq!(keys, vec!["host"]);
         assert_eq!(
-            <ConfigView<'_> as ConfigReader>::get_string_or(&view, "url", "fallback"),
+            <ConfigPrefixView<'_> as ConfigReader>::get_string_or(&view, "url", "fallback"),
             "http://localhost"
         );
     }
