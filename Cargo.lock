@@ -485,7 +485,7 @@ dependencies = [
 
 [[package]]
 name = "qubit-config"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "bigdecimal",
  "chrono",
@@ -506,9 +506,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-value"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d883a12092bcab586b29e892a9f8e1a0e91de3af01b86f4f3256fb212456a5cb"
+checksum = "c18ebaad8d67b4a3eeee5fa1b246e6de96a4dc37c9c276f5c6395cc88c6ea4b9"
 dependencies = [
  "bigdecimal",
  "chrono",
