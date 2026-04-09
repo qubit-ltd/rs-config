@@ -20,8 +20,8 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::config_prefix_view::ConfigPrefixView;
 use crate::config_reader::ConfigReader;
-use crate::config_view::ConfigView;
 use crate::source::ConfigSource;
 use crate::utils;
 use crate::{ConfigError, ConfigResult, Property};
@@ -192,7 +192,7 @@ impl Config {
         self.max_substitution_depth
     }
 
-    /// Creates a read-only prefixed view.
+    /// Creates a read-only prefix view ([`ConfigPrefixView`](crate::ConfigPrefixView)).
     ///
     /// # Parameters
     ///
@@ -200,23 +200,23 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// Returns a read-only prefixed view
+    /// Returns a read-only prefix view
     ///
     /// # Examples
     ///
     /// ```rust,ignore
-    /// use qubit_config::Config;
+    /// use qubit_config::{Config, ConfigReader};
     ///
     /// let config = Config::new();
     /// config.set("server.port", 8080)?;
     /// config.set("server.host", "localhost")?;
     ///
-    /// let view = config.view("server");
-    /// assert_eq!(view.get("port")?, 8080);
-    /// assert_eq!(view.get("host")?, "localhost");
+    /// let server = config.prefix_view("server");
+    /// assert_eq!(server.get("port")?, 8080);
+    /// assert_eq!(server.get("host")?, "localhost");
     /// ```
-    pub fn view(&self, prefix: &str) -> ConfigView<'_> {
-        ConfigView::new(self, prefix)
+    pub fn prefix_view(&self, prefix: &str) -> ConfigPrefixView<'_> {
+        ConfigPrefixView::new(self, prefix)
     }
 
     /// Sets the maximum depth for variable substitution
