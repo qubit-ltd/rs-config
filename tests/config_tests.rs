@@ -427,15 +427,13 @@ mod test_get {
     // }
 
     // Unsigned integer type tests
-    // Note: Skip u8 test because Vec<u8> is used as byte array
-    // u8 functionality can be covered by similar u16 tests
-    // #[test]
-    // fn test_get_u8() {
-    //     let mut config = Config::new();
-    //     config.set("test", 42u8).unwrap();
-    //     let value: u8 = config.get("test").unwrap();
-    //     assert_eq!(value, 42);
-    // }
+    #[test]
+    fn test_get_u8() {
+        let mut config = Config::new();
+        config.set("test", 42u8).unwrap();
+        let value: u8 = config.get("test").unwrap();
+        assert_eq!(value, 42);
+    }
 
     #[test]
     fn test_get_u16() {
@@ -757,8 +755,7 @@ mod test_set {
         // Note: isize and usize types do not implement IntoPropertyValue and FromPropertyValue traits
         // config.set("isize", 42isize).unwrap();
 
-        // Note: u8 does not support generic set because Vec<u8> is used as byte array
-        // config.set("u8", 42u8).unwrap();
+        config.set("u8", 42u8).unwrap();
         config.set("u16", 42u16).unwrap();
         config.set("u32", 42u32).unwrap();
         config.set("u64", 42u64).unwrap();
@@ -772,7 +769,7 @@ mod test_set {
         assert_eq!(config.get::<i128>("i128").unwrap(), 42);
         // assert_eq!(config.get::<isize>("isize").unwrap(), 42);
 
-        // assert_eq!(config.get::<u8>("u8").unwrap(), 42);
+        assert_eq!(config.get::<u8>("u8").unwrap(), 42);
         assert_eq!(config.get::<u16>("u16").unwrap(), 42);
         assert_eq!(config.get::<u32>("u32").unwrap(), 42);
         assert_eq!(config.get::<u64>("u64").unwrap(), 42);

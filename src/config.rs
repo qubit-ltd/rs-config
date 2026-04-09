@@ -44,40 +44,6 @@ pub const DEFAULT_MAX_SUBSTITUTION_DEPTH: usize = 64;
 /// - Supports final value protection
 /// - Thread-safe (when wrapped in `Arc<RwLock<Config>>`)
 ///
-/// # Important Limitations of Generic set/add Methods
-///
-/// **`u8` type does not support generic `set()` and `add()` methods**. See `MultiValues` documentation for details.
-///
-/// For `u8` type configuration values, use dedicated methods:
-///
-/// ```rust,ignore
-/// use qubit_config::Config;
-///
-/// let mut config = Config::new();
-///
-/// // ❌ Not supported: config.set("byte_value", 42u8)?;
-///
-/// // ✅ Method 1: Use dedicated method via get_property_mut
-/// config.get_property_mut("byte_value")
-///     .unwrap()
-///     .set_uint8(42)
-///     .unwrap();
-///
-/// // ✅ Method 2: Create property first if it doesn't exist
-/// if config.get_property("byte_value").is_none() {
-///     let mut prop = Property::new("byte_value");
-///     prop.set_uint8(42).unwrap();
-///     config.properties.insert("byte_value".to_string(), prop);
-/// }
-///
-/// // Reading works normally
-/// let value: u8 = config.get("byte_value")?;
-/// ```
-///
-/// **Recommendation**: If you truly need to store `u8` values, consider using `u16` instead,
-/// as `u8` is rarely used for configuration values in practice, while `Vec<u8>` is more
-/// commonly used for byte arrays (such as keys, hashes, etc.).
-///
 /// # Examples
 ///
 /// ```rust,ignore
@@ -87,18 +53,20 @@ pub const DEFAULT_MAX_SUBSTITUTION_DEPTH: usize = 64;
 ///
 /// // Set configuration values (type inference)
 /// config.set("port", 8080)?;                    // inferred as i32
-/// config.set("host", "localhost")?;              // &str automatically converted to String
+/// config.set("host", "localhost")?;             // &str automatically converted to String
 /// config.set("debug", true)?;                   // inferred as bool
 /// config.set("timeout", 30.5)?;                 // inferred as f64
+/// config.set("code", 42u8)?;                    // inferred as u8
 ///
 /// // Set multiple values (type inference)
 /// config.set("ports", vec![8080, 8081, 8082])?; // inferred as i32
-/// config.set("hosts", &["host1", "host2"])?;     // &str automatically converted
+/// config.set("hosts", &["host1", "host2"])?;    // &str automatically converted
 ///
 /// // Read configuration values (type inference)
 /// let port: i32 = config.get("port")?;
 /// let host: String = config.get("host")?;
 /// let debug: bool = config.get("debug")?;
+/// let code: u8 = config.get("code")?;
 ///
 /// // Read configuration values (turbofish)
 /// let port = config.get::<i32>("port")?;
@@ -760,7 +728,8 @@ impl Config {
         }
     }
 
-    /// Gets a list of string configuration values or returns a default value (with variable substitution)
+    /// Gets a list of string configuration values or returns a default value
+    /// (with variable substitution)
     ///
     /// # Parameters
     ///

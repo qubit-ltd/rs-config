@@ -31,36 +31,21 @@ use qubit_value::MultiValues;
 /// - Supports final value marking (final properties cannot be overridden)
 /// - Supports serialization and deserialization
 ///
-/// # Important Limitations of Generic set/add Methods
-///
-/// **`u8` type does not support generic `set()` and `add()` methods**. See `MultiValues` documentation for details.
-///
-/// For `u8` type, use dedicated methods:
-///
-/// ```rust,ignore
-/// use qubit_config::Property;
-///
-/// let mut prop = Property::new("byte_value");
-///
-/// // ✅ Use dedicated methods to set u8
-/// prop.set_uint8(42).unwrap();
-/// prop.add_uint8(128).unwrap();
-///
-/// // ❌ Generic methods not supported
-/// // prop.set(42u8).unwrap();  // Compile error
-/// ```
-///
 /// # Examples
 ///
 /// ```rust,ignore
 /// use qubit_config::Property;
 ///
-/// let mut prop = Property::new("port");
-/// prop.set(8080).unwrap();  // Generic method, type auto-inferred
-/// prop.set_description(Some("Server port".to_string()));
+/// let mut port = Property::new("port");
+/// port.set(8080).unwrap();  // Generic method, type auto-inferred
+/// port.set_description(Some("Server port".to_string()));
+/// assert_eq!(port.name(), "port");
+/// assert_eq!(port.count(), 1);
 ///
-/// assert_eq!(prop.name(), "port");
-/// assert_eq!(prop.count(), 1);
+/// let mut code = Property::new("code");
+/// code.set(42u8).unwrap();  // Generic set, inferred as u8
+/// code.add(1u8).unwrap();
+/// assert_eq!(code.count(), 2);
 /// ```
 ///
 /// # Author

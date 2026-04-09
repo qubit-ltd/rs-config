@@ -503,8 +503,7 @@ mod integration_tests {
         // Note: isize and usize types do not implement IntoPropertyValue and FromPropertyValue traits
         // configured.config_mut().set("isize", 42isize).unwrap();
 
-        // Note: u8 does not support generic set because Vec<u8> is used as byte array
-        // configured.config_mut().set("uint8", 42u8).unwrap();
+        configured.config_mut().set("uint8", 42u8).unwrap();
         configured.config_mut().set("uint16", 42u16).unwrap();
         configured.config_mut().set("uint32", 42u32).unwrap();
         configured.config_mut().set("uint64", 42u64).unwrap();
@@ -526,7 +525,7 @@ mod integration_tests {
         assert_eq!(configured.config().get::<i128>("int128").unwrap(), 42);
         // assert_eq!(configured.config().get::<isize>("isize").unwrap(), 42);
 
-        // assert_eq!(configured.config().get::<u8>("uint8").unwrap(), 42);
+        assert_eq!(configured.config().get::<u8>("uint8").unwrap(), 42);
         assert_eq!(configured.config().get::<u16>("uint16").unwrap(), 42);
         assert_eq!(configured.config().get::<u32>("uint32").unwrap(), 42);
         assert_eq!(configured.config().get::<u64>("uint64").unwrap(), 42);
