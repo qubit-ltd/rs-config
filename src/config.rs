@@ -1265,6 +1265,10 @@ impl ConfigReader for Config {
     ) -> Box<dyn Iterator<Item = (&'a str, &'a Property)> + 'a> {
         Box::new(Config::iter_prefix(self, prefix))
     }
+
+    fn prefix_view(&self, prefix: &str) -> ConfigPrefixView<'_> {
+        Config::prefix_view(self, prefix)
+    }
 }
 
 /// Converts a `Property` to a `serde_json::Value` for use in structured deserialization.

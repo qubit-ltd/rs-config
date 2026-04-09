@@ -11,6 +11,7 @@
 use qubit_value::multi_values::{MultiValuesFirstGetter, MultiValuesGetter};
 use qubit_value::MultiValues;
 
+use crate::config_prefix_view::ConfigPrefixView;
 use crate::{utils, ConfigResult, Property};
 
 /// Read-only configuration interface.
@@ -48,6 +49,12 @@ pub trait ConfigReader {
         &'a self,
         prefix: &'a str,
     ) -> Box<dyn Iterator<Item = (&'a str, &'a Property)> + 'a>;
+
+    /// Creates a read-only prefix view; relative keys resolve under `prefix`.
+    ///
+    /// Semantics match [`crate::Config::prefix_view`] and
+    /// [`crate::ConfigPrefixView::prefix_view`] (nested prefix when called on a view).
+    fn prefix_view(&self, prefix: &str) -> ConfigPrefixView<'_>;
 
     /// Gets a string value with variable substitution.
     fn get_string(&self, name: &str) -> ConfigResult<String> {

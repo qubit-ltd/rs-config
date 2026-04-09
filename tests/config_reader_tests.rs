@@ -41,11 +41,28 @@ mod test_config_reader {
         reader.get_string("host").unwrap()
     }
 
+    fn read_http_host_via_prefix_view(reader: &impl ConfigReader) -> String {
+        reader.prefix_view("http").get_string("host").unwrap()
+    }
+
     #[test]
     fn test_config_implements_config_reader() {
         let mut config = Config::new();
         config.set("host", "localhost").unwrap();
         assert_eq!(read_host(&config), "localhost");
+    }
+
+    #[test]
+    fn test_config_reader_prefix_view_on_config_and_nested_view() {
+        let mut config = Config::new();
+        config.set("http.host", "localhost").unwrap();
+        config.set("http.proxy.addr", "127.0.0.1").unwrap();
+        assert_eq!(read_http_host_via_prefix_view(&config), "localhost");
+        let http = ConfigReader::prefix_view(&config, "http");
+        let addr: String = ConfigReader::prefix_view(&http, "proxy")
+            .get_string("addr")
+            .unwrap();
+        assert_eq!(addr, "127.0.0.1");
     }
     #[test]
     fn test_trait_default_methods_with_substitution_disabled_branches() {

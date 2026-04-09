@@ -141,4 +141,8 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
                 .filter(move |(k, _)| k.starts_with(prefix)),
         )
     }
+
+    fn prefix_view(&self, prefix: &str) -> ConfigPrefixView<'a> {
+        ConfigPrefixView::prefix_view(self, prefix)
+    }
 }
