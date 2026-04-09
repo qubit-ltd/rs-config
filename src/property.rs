@@ -8,7 +8,8 @@
  ******************************************************************************/
 //! # Configuration Property
 //!
-//! Defines the property structure for configuration items, including name, value, description, and other information.
+//! Defines the property structure for configuration items, including name,
+//! value, description, and other information.
 //!
 //! # Author
 //!
@@ -22,7 +23,8 @@ use qubit_value::MultiValues;
 
 /// Configuration Property
 ///
-/// Represents a configuration item, containing name, value, description, and whether it's a final value.
+/// Represents a configuration item: name, value, description, and whether it is
+/// final.
 ///
 /// # Features
 ///

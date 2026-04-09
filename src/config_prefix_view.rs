@@ -17,12 +17,14 @@ use crate::config::Config;
 use crate::config_reader::ConfigReader;
 use crate::{ConfigResult, Property};
 
-/// Read-only **prefix** view over a [`Config`]: key lookups use a logical key prefix.
+/// Read-only **prefix** view over a [`Config`]: key lookups use a logical key
+/// prefix.
 ///
-/// This type is named explicitly so other kinds of configuration views can be added later
-/// without overloading a generic `ConfigView`.
+/// This type is named explicitly so other kinds of configuration views can be
+/// added later without overloading a generic `ConfigView`.
 ///
-/// Lookups rewrite keys by prepending `prefix`, while exposing keys relative to that prefix.
+/// Lookups rewrite keys by prepending `prefix`, while exposing keys relative to
+/// that prefix.
 #[derive(Debug, Clone)]
 pub struct ConfigPrefixView<'a> {
     config: &'a Config,
@@ -31,6 +33,17 @@ pub struct ConfigPrefixView<'a> {
 }
 
 impl<'a> ConfigPrefixView<'a> {
+    /// Builds a prefix view for `config` with the given `prefix` (leading and
+    /// trailing `.` are trimmed; empty means the root).
+    ///
+    /// # Parameters
+    ///
+    /// * `config` - Underlying configuration.
+    /// * `prefix` - Logical prefix for relative keys.
+    ///
+    /// # Returns
+    ///
+    /// A new [`ConfigPrefixView`].
     pub(crate) fn new(config: &'a Config, prefix: &str) -> Self {
         let normalized_prefix = prefix.trim_matches('.').to_string();
         let full_prefix = if normalized_prefix.is_empty() {
@@ -46,11 +59,24 @@ impl<'a> ConfigPrefixView<'a> {
     }
 
     /// Gets the logical prefix of this view.
+    ///
+    /// # Returns
+    ///
+    /// The normalized prefix string (no leading or trailing dot separators).
     pub fn prefix(&self) -> &str {
         &self.prefix
     }
 
     /// Creates a nested prefix view by appending `prefix`.
+    ///
+    /// # Parameters
+    ///
+    /// * `prefix` - Segment to append (`.` is trimmed); empty keeps the current
+    ///   prefix.
+    ///
+    /// # Returns
+    ///
+    /// A new view with the combined prefix.
     pub fn prefix_view(&self, prefix: &str) -> ConfigPrefixView<'a> {
         let child = prefix.trim_matches('.');
         if self.prefix.is_empty() {

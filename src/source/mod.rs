@@ -8,12 +8,14 @@
  ******************************************************************************/
 //! # Configuration Source Module
 //!
-//! Provides various configuration source implementations for loading configuration
-//! from different sources such as files, environment variables, etc.
+//! Provides various configuration source implementations for loading
+//! configuration from different sources such as files, environment variables,
+//! etc.
 //!
 //! # Supported Sources
 //!
-//! - [`PropertiesConfigSource`]: Loads configuration from Java `.properties` format files
+//! - [`PropertiesConfigSource`]: Loads configuration from Java `.properties`
+//!   format files
 //! - [`TomlConfigSource`]: Loads configuration from TOML format files
 //! - [`YamlConfigSource`]: Loads configuration from YAML format files
 //! - [`EnvFileConfigSource`]: Loads configuration from `.env` format files
@@ -23,7 +25,10 @@
 //! # Examples
 //!
 //! ```rust,ignore
-//! use qubit_config::{Config, source::{TomlConfigSource, EnvConfigSource, CompositeConfigSource, ConfigSource}};
+//! use qubit_config::Config;
+//! use qubit_config::source::{
+//!     CompositeConfigSource, ConfigSource, EnvConfigSource, TomlConfigSource,
+//! };
 //!
 //! // Load from TOML file with env override
 //! let mut composite = CompositeConfigSource::new();

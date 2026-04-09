@@ -8,7 +8,8 @@
  ******************************************************************************/
 //! # Configuration Management Module
 //!
-//! Provides flexible configuration management with support for multiple data types and variable substitution.
+//! Provides flexible configuration management with support for multiple data
+//! types and variable substitution.
 //!
 //! # Author
 //!
