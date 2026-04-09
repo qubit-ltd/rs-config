@@ -19,6 +19,8 @@ A powerful, type-safe configuration management system for Rust, providing flexib
 - ✅ **Serialization Support** - Full serde support for serialization and deserialization
 - ✅ **Extensible** - Trait-based design for easy custom type support
 - ✅ **Configuration sources** - [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) trait with built-in loaders: TOML, YAML, Java-style `.properties`, `.env` files, process environment variables (with optional prefix / key normalization), and [`CompositeConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.CompositeConfigSource.html) to merge several sources in order (later entries override earlier ones for the same key); use [`Config::merge_from_source`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.merge_from_source) to populate a `Config`
+- ✅ **Read-only API** - [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) trait for typed reads without mutation; implemented by [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) and [`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html), with string helpers (`get_string`, `get_string_or`, optional variants, lists) that respect variable substitution
+- ✅ **Prefix views** - [`Config::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.prefix_view) returns a [`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html) scoped to a logical key prefix (relative keys map to `prefix.key`); nest with [`ConfigPrefixView::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html#method.prefix_view)
 - ✅ **Zero-Cost Abstractions** - Uses enums instead of trait objects to avoid dynamic dispatch overhead
 
 ## Installation
@@ -82,6 +84,24 @@ Each configuration item is represented by a `Property` that contains:
 ### MultiValues
 
 A type-safe container that can hold multiple values of the same data type.
+
+### ConfigReader and ConfigPrefixView
+
+[`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) is the read-only configuration surface. Functions or types that only need to read settings can take `&impl ConfigReader` (or `&dyn ConfigReader`) instead of `&Config`, and the same API works for a full [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) or a scoped prefix view. Besides `get` / `get_list`, `contains`, `contains_prefix`, and `iter_prefix`, the trait provides default helpers such as `get_string`, `get_string_or`, `get_string_list`, `get_optional_string`, and list variants, all consistent with the owning config’s variable substitution settings.
+
+[`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html) is a zero-copy borrow of a `Config` with a logical key prefix (distinctly named so other view kinds can be added later). Use [`Config::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.prefix_view) to create it; keys you pass are resolved under that prefix (for example, prefix `db` and key `host` reads `db.host`). Use [`ConfigPrefixView::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html#method.prefix_view) to obtain a nested prefix view. `iter_prefix` and `contains_prefix` only see keys exposed relative to the view’s prefix.
+
+```rust
+use qubit_config::{Config, ConfigReader};
+
+let mut config = Config::new();
+config.set("db.host", "localhost")?;
+config.set("db.port", 5432i32)?;
+
+let db = config.prefix_view("db");
+let host: String = db.get_string("host")?;
+let port: i32 = db.get("port")?;
+```
 
 ### Configuration sources
 
