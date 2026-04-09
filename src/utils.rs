@@ -17,7 +17,7 @@
 use regex::Regex;
 use std::sync::OnceLock;
 
-use super::{Config, ConfigError, ConfigResult};
+use super::{ConfigError, ConfigReader, ConfigResult};
 
 /// Regular expression pattern for variables
 ///
@@ -79,9 +79,9 @@ fn get_variable_pattern() -> &'static Regex {
 ///
 /// Haixing Hu
 ///
-pub fn substitute_variables(
+pub fn substitute_variables<R: ConfigReader + ?Sized>(
     value: &str,
-    config: &Config,
+    config: &R,
     max_depth: usize,
 ) -> ConfigResult<String> {
     if value.is_empty() {
@@ -141,7 +141,10 @@ pub fn substitute_variables(
 ///
 /// Haixing Hu
 ///
-fn find_variable_value(var_name: &str, config: &Config) -> ConfigResult<String> {
+fn find_variable_value<R: ConfigReader + ?Sized>(
+    var_name: &str,
+    config: &R,
+) -> ConfigResult<String> {
     // 1. Try to get from configuration
     if let Ok(value) = config.get::<String>(var_name) {
         return Ok(value);

@@ -15,14 +15,19 @@
 //! Haixing Hu
 
 mod config;
+mod config_reader;
+mod config_view;
 mod configurable;
 mod configured;
+mod constants;
 mod error;
 mod property;
 pub mod source;
 mod utils;
 
 pub use config::Config;
+pub use config_reader::ConfigReader;
+pub use config_view::ConfigView;
 pub use configurable::Configurable;
 pub use configured::Configured;
 pub use error::{ConfigError, ConfigResult};

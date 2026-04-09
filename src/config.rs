@@ -20,7 +20,11 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use super::{source::ConfigSource, utils, ConfigError, ConfigResult, Property};
+use crate::config_reader::ConfigReader;
+use crate::config_view::ConfigView;
+use crate::source::ConfigSource;
+use crate::utils;
+use crate::{ConfigError, ConfigResult, Property};
 use qubit_value::multi_values::{
     MultiValuesAddArg, MultiValuesAdder, MultiValuesFirstGetter, MultiValuesGetter,
     MultiValuesMultiAdder, MultiValuesSetArg, MultiValuesSetter, MultiValuesSetterSlice,
@@ -28,9 +32,6 @@ use qubit_value::multi_values::{
 };
 use qubit_value::MultiValues;
 use qubit_value::ValueError;
-
-/// Default maximum depth for variable substitution
-pub const DEFAULT_MAX_SUBSTITUTION_DEPTH: usize = 64;
 
 /// Configuration Manager
 ///
@@ -84,7 +85,7 @@ pub struct Config {
     /// Configuration description
     description: Option<String>,
     /// Configuration property mapping
-    properties: HashMap<String, Property>,
+    pub(crate) properties: HashMap<String, Property>,
     /// Whether variable substitution is enabled
     enable_variable_substitution: bool,
     /// Maximum depth for variable substitution
@@ -111,7 +112,7 @@ impl Config {
             description: None,
             properties: HashMap::new(),
             enable_variable_substitution: true,
-            max_substitution_depth: DEFAULT_MAX_SUBSTITUTION_DEPTH,
+            max_substitution_depth: crate::constants::DEFAULT_MAX_SUBSTITUTION_DEPTH,
         }
     }
 
@@ -138,7 +139,7 @@ impl Config {
             description: Some(description.to_string()),
             properties: HashMap::new(),
             enable_variable_substitution: true,
-            max_substitution_depth: DEFAULT_MAX_SUBSTITUTION_DEPTH,
+            max_substitution_depth: crate::constants::DEFAULT_MAX_SUBSTITUTION_DEPTH,
         }
     }
 
@@ -189,6 +190,33 @@ impl Config {
     /// Returns the maximum depth value
     pub fn max_substitution_depth(&self) -> usize {
         self.max_substitution_depth
+    }
+
+    /// Creates a read-only prefixed view.
+    ///
+    /// # Parameters
+    ///
+    /// * `prefix` - Prefix
+    ///
+    /// # Returns
+    ///
+    /// Returns a read-only prefixed view
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// use qubit_config::Config;
+    ///
+    /// let config = Config::new();
+    /// config.set("server.port", 8080)?;
+    /// config.set("server.host", "localhost")?;
+    ///
+    /// let view = config.view("server");
+    /// assert_eq!(view.get("port")?, 8080);
+    /// assert_eq!(view.get("host")?, "localhost");
+    /// ```
+    pub fn view(&self, prefix: &str) -> ConfigView<'_> {
+        ConfigView::new(self, prefix)
     }
 
     /// Sets the maximum depth for variable substitution
@@ -1197,6 +1225,45 @@ impl Config {
     /// null/empty properties that cannot be expressed via the normal `set()` API.
     pub fn properties_mut(&mut self) -> &mut HashMap<String, Property> {
         &mut self.properties
+    }
+}
+
+impl ConfigReader for Config {
+    fn is_enable_variable_substitution(&self) -> bool {
+        Config::is_enable_variable_substitution(self)
+    }
+
+    fn max_substitution_depth(&self) -> usize {
+        Config::max_substitution_depth(self)
+    }
+
+    fn contains(&self, name: &str) -> bool {
+        Config::contains(self, name)
+    }
+
+    fn get<T>(&self, name: &str) -> ConfigResult<T>
+    where
+        MultiValues: MultiValuesFirstGetter<T>,
+    {
+        Config::get(self, name)
+    }
+
+    fn get_list<T>(&self, name: &str) -> ConfigResult<Vec<T>>
+    where
+        MultiValues: MultiValuesGetter<T>,
+    {
+        Config::get_list(self, name)
+    }
+
+    fn contains_prefix(&self, prefix: &str) -> bool {
+        Config::contains_prefix(self, prefix)
+    }
+
+    fn iter_prefix<'a>(
+        &'a self,
+        prefix: &'a str,
+    ) -> Box<dyn Iterator<Item = (&'a str, &'a Property)> + 'a> {
+        Box::new(Config::iter_prefix(self, prefix))
     }
 }
 

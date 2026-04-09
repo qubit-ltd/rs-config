@@ -44,3 +44,27 @@ dotenvy = "0.15"
 
 [dev-dependencies]
 tempfile = "3"
+
+[[test]]
+name = "composite_config_source_tests"
+path = "tests/source/composite_config_source_tests.rs"
+
+[[test]]
+name = "env_config_source_tests"
+path = "tests/source/env_config_source_tests.rs"
+
+[[test]]
+name = "env_file_config_source_tests"
+path = "tests/source/env_file_config_source_tests.rs"
+
+[[test]]
+name = "properties_config_source_tests"
+path = "tests/source/properties_config_source_tests.rs"
+
+[[test]]
+name = "toml_config_source_tests"
+path = "tests/source/toml_config_source_tests.rs"
+
+[[test]]
+name = "yaml_config_source_tests"
+path = "tests/source/yaml_config_source_tests.rs"
