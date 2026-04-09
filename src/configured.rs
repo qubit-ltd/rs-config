@@ -18,7 +18,8 @@ use super::{Config, Configurable};
 
 /// Base implementation of configurable objects
 ///
-/// This is a base structure that implements the `Configurable` trait and can be used as a base for other structures that need configuration.
+/// This is a base structure that implements the `Configurable` trait and can be
+/// used as a base for other structures that need configuration.
 ///
 /// # Features
 ///

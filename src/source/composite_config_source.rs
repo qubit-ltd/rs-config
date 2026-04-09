@@ -16,7 +16,9 @@
 //! # Examples
 //!
 //! ```rust,ignore
-//! use qubit_config::source::{CompositeConfigSource, TomlConfigSource, EnvConfigSource, ConfigSource};
+//! use qubit_config::source::{
+//!     CompositeConfigSource, ConfigSource, EnvConfigSource, TomlConfigSource,
+//! };
 //! use qubit_config::Config;
 //!
 //! let mut composite = CompositeConfigSource::new();
@@ -46,7 +48,11 @@ pub struct CompositeConfigSource {
 }
 
 impl CompositeConfigSource {
-    /// Creates a new empty `CompositeConfigSource`
+    /// Creates a new empty `CompositeConfigSource`.
+    ///
+    /// # Returns
+    ///
+    /// An empty composite with no inner sources.
     pub fn new() -> Self {
         Self {
             sources: Vec::new(),
@@ -61,17 +67,29 @@ impl CompositeConfigSource {
     /// # Parameters
     ///
     /// * `source` - The configuration source to add
+    ///
+    /// # Returns
+    ///
+    /// `self` for method chaining.
     pub fn add<S: ConfigSource + 'static>(&mut self, source: S) -> &mut Self {
         self.sources.push(Box::new(source));
         self
     }
 
-    /// Returns the number of sources in this composite
+    /// Returns the number of sources in this composite.
+    ///
+    /// # Returns
+    ///
+    /// The length of the internal source list.
     pub fn len(&self) -> usize {
         self.sources.len()
     }
 
-    /// Returns `true` if this composite has no sources
+    /// Returns `true` if this composite has no sources.
+    ///
+    /// # Returns
+    ///
+    /// `true` when [`Self::len`] is zero.
     pub fn is_empty(&self) -> bool {
         self.sources.is_empty()
     }

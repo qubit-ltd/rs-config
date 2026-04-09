@@ -64,9 +64,13 @@ pub struct EnvConfigSource {
 }
 
 impl EnvConfigSource {
-    /// Creates a new `EnvConfigSource` that loads all environment variables
+    /// Creates a new `EnvConfigSource` that loads all environment variables.
     ///
     /// Keys are loaded as-is (no prefix filtering, no transformation).
+    ///
+    /// # Returns
+    ///
+    /// A source that ingests every `std::env::vars()` entry.
     pub fn new() -> Self {
         Self {
             prefix: None,
@@ -76,7 +80,8 @@ impl EnvConfigSource {
         }
     }
 
-    /// Creates a new `EnvConfigSource` that filters by prefix and normalizes keys
+    /// Creates a new `EnvConfigSource` that filters by prefix and normalizes
+    /// keys.
     ///
     /// Only variables with the given prefix are loaded. The prefix is stripped,
     /// the key is lowercased, and underscores are converted to dots.
@@ -84,6 +89,10 @@ impl EnvConfigSource {
     /// # Parameters
     ///
     /// * `prefix` - The prefix to filter by (e.g., `"APP_"`)
+    ///
+    /// # Returns
+    ///
+    /// A source with prefix filtering and key normalization enabled.
     pub fn with_prefix(prefix: &str) -> Self {
         Self {
             prefix: Some(prefix.to_string()),
@@ -93,7 +102,8 @@ impl EnvConfigSource {
         }
     }
 
-    /// Creates a new `EnvConfigSource` with a custom prefix and explicit options
+    /// Creates a new `EnvConfigSource` with a custom prefix and explicit
+    /// options.
     ///
     /// # Parameters
     ///
@@ -101,6 +111,10 @@ impl EnvConfigSource {
     /// * `strip_prefix` - Whether to strip the prefix from the key
     /// * `convert_underscores` - Whether to convert underscores to dots
     /// * `lowercase_keys` - Whether to lowercase the key
+    ///
+    /// # Returns
+    ///
+    /// A configured [`EnvConfigSource`].
     pub fn with_options(
         prefix: &str,
         strip_prefix: bool,
@@ -115,7 +129,17 @@ impl EnvConfigSource {
         }
     }
 
-    /// Transforms an environment variable key according to the source's settings
+    /// Transforms an environment variable key according to the source's
+    /// settings.
+    ///
+    /// # Parameters
+    ///
+    /// * `key` - Original environment variable name.
+    ///
+    /// # Returns
+    ///
+    /// The key after optional prefix strip, lowercasing, and underscore
+    /// replacement.
     fn transform_key(&self, key: &str) -> String {
         let mut result = key.to_string();
 

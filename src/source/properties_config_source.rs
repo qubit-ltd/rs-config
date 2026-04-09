@@ -127,7 +127,17 @@ fn parse_key_value(line: &str) -> Option<(&str, &str)> {
     }
 }
 
-/// Returns true if the separator at `sep_pos` is escaped by a preceding odd number of backslashes.
+/// Returns true if the separator at `sep_pos` is escaped by a preceding odd
+/// number of backslashes.
+///
+/// # Parameters
+///
+/// * `line` - Full properties line being parsed.
+/// * `sep_pos` - Byte index of `=` or `:` in `line`.
+///
+/// # Returns
+///
+/// `true` when the separator is escaped and must not split the key/value.
 fn is_escaped_separator(line: &str, sep_pos: usize) -> bool {
     let slash_count = line.as_bytes()[..sep_pos]
         .iter()

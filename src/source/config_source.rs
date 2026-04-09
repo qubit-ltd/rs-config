@@ -10,7 +10,8 @@ use crate::{Config, ConfigResult};
 
 /// Trait for configuration sources
 ///
-/// Implementors of this trait can load configuration data and populate a `Config` object.
+/// Implementors of this trait can load configuration data and populate a
+/// [`Config`] object.
 ///
 /// # Examples
 ///

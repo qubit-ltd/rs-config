@@ -8,7 +8,8 @@
  ******************************************************************************/
 //! # Configurable Interface
 //!
-//! Provides the `Configurable` trait for types to have unified configuration access and change callback interfaces.
+//! Provides the `Configurable` trait for types to have unified configuration
+//! access and change callback interfaces.
 //!
 //! # Author
 //!
@@ -28,9 +29,16 @@ use super::Config;
 /// struct Server { config: Config }
 ///
 /// impl Configurable for Server {
-///     fn config(&self) -> &Config { &self.config }
-///     fn config_mut(&mut self) -> &mut Config { &mut self.config }
-///     fn set_config(&mut self, config: Config) { self.config = config; self.on_config_changed(); }
+///     fn config(&self) -> &Config {
+///         &self.config
+///     }
+///     fn config_mut(&mut self) -> &mut Config {
+///         &mut self.config
+///     }
+///     fn set_config(&mut self, config: Config) {
+///         self.config = config;
+///         self.on_config_changed();
+///     }
 /// }
 /// ```
 ///
@@ -70,6 +78,10 @@ pub trait Configurable {
     ///
     /// * `config` - The new configuration
     ///
+    /// # Returns
+    ///
+    /// Nothing.
+    ///
     /// # Author
     ///
     /// Haixing Hu
@@ -77,7 +89,12 @@ pub trait Configurable {
 
     /// Callback after configuration changes
     ///
-    /// This method is called when the configuration is modified. Subclasses can override this method to perform additional operations.
+    /// This method is called when the configuration is modified. Implementors
+    /// may override it to run side effects after [`Self::set_config`].
+    ///
+    /// # Returns
+    ///
+    /// Nothing.
     ///
     /// # Author
     ///

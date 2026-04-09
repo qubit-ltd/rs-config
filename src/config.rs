@@ -35,7 +35,8 @@ use qubit_value::ValueError;
 
 /// Configuration Manager
 ///
-/// Manages a set of configuration properties with type-safe read/write interfaces.
+/// Manages a set of configuration properties with type-safe read/write
+/// interfaces.
 ///
 /// # Features
 ///
@@ -54,14 +55,16 @@ use qubit_value::ValueError;
 ///
 /// // Set configuration values (type inference)
 /// config.set("port", 8080)?;                    // inferred as i32
-/// config.set("host", "localhost")?;             // &str automatically converted to String
+/// config.set("host", "localhost")?;
+/// // &str is converted to String
 /// config.set("debug", true)?;                   // inferred as bool
 /// config.set("timeout", 30.5)?;                 // inferred as f64
 /// config.set("code", 42u8)?;                    // inferred as u8
 ///
 /// // Set multiple values (type inference)
 /// config.set("ports", vec![8080, 8081, 8082])?; // inferred as i32
-/// config.set("hosts", &["host1", "host2"])?;    // &str automatically converted
+/// config.set("hosts", &["host1", "host2"])?;
+/// // &str elements are converted
 ///
 /// // Read configuration values (type inference)
 /// let port: i32 = config.get("port")?;
@@ -161,6 +164,10 @@ impl Config {
     /// # Parameters
     ///
     /// * `description` - Configuration description
+    ///
+    /// # Returns
+    ///
+    /// Nothing.
     pub fn set_description(&mut self, description: Option<String>) {
         self.description = description;
     }
@@ -179,6 +186,10 @@ impl Config {
     /// # Parameters
     ///
     /// * `enable` - Whether to enable
+    ///
+    /// # Returns
+    ///
+    /// Nothing.
     pub fn set_enable_variable_substitution(&mut self, enable: bool) {
         self.enable_variable_substitution = enable;
     }
@@ -192,7 +203,7 @@ impl Config {
         self.max_substitution_depth
     }
 
-    /// Creates a read-only prefix view ([`ConfigPrefixView`](crate::ConfigPrefixView)).
+    /// Creates a read-only prefix view using [`crate::ConfigPrefixView`].
     ///
     /// # Parameters
     ///
@@ -224,6 +235,10 @@ impl Config {
     /// # Parameters
     ///
     /// * `depth` - Maximum depth
+    ///
+    /// # Returns
+    ///
+    /// Nothing.
     pub fn set_max_substitution_depth(&mut self, depth: usize) {
         self.max_substitution_depth = depth;
     }
@@ -323,6 +338,10 @@ impl Config {
     /// config.clear();
     /// assert!(config.is_empty());
     /// ```
+    ///
+    /// # Returns
+    ///
+    /// Nothing.
     pub fn clear(&mut self) {
         self.properties.clear();
     }
@@ -373,14 +392,14 @@ impl Config {
     // Core Generic Methods
     // ========================================================================
 
-    /// Gets a configuration value
+    /// Gets a configuration value.
     ///
-    /// This is the core method for getting configuration values, supporting type inference.
+    /// Core read API with type inference.
     ///
     /// # Note
     ///
-    /// This method does not perform variable substitution for string types. If you need
-    /// variable substitution, please use the `get_string` method.
+    /// This method does not perform variable substitution for string types. If
+    /// you need variable substitution, use [`Self::get_string`].
     ///
     /// # Type Parameters
     ///
@@ -392,13 +411,14 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// Returns the value of the specified type on success, or an error on failure
+    /// The value of the specified type on success, or a [`ConfigError`] on
+    /// failure.
     ///
     /// # Errors
     ///
-    /// - Returns `ConfigError::PropertyNotFound` if the configuration item doesn't exist
-    /// - Returns `ConfigError::PropertyHasNoValue` if the configuration item has no value
-    /// - Returns `ConfigError::TypeMismatch` if the type doesn't match
+    /// - [`ConfigError::PropertyNotFound`] if the key does not exist
+    /// - [`ConfigError::PropertyHasNoValue`] if the property has no value
+    /// - [`ConfigError::TypeMismatch`] if the type does not match
     ///
     /// # Examples
     ///
@@ -453,7 +473,7 @@ impl Config {
 
     /// Gets a configuration value or returns a default value
     ///
-    /// Returns the default value if the configuration item doesn't exist or retrieval fails.
+    /// Returns `default` if the key is missing or if reading the value fails.
     ///
     /// # Type Parameters
     ///
@@ -547,7 +567,8 @@ impl Config {
 
     /// Sets a configuration value
     ///
-    /// This is the core method for setting configuration values, supporting type inference.
+    /// This is the core method for setting configuration values, supporting
+    /// type inference.
     ///
     /// # Type Parameters
     ///
@@ -556,7 +577,8 @@ impl Config {
     /// # Parameters
     ///
     /// * `name` - Configuration item name
-    /// * `values` - Configuration value, supports `T`, `Vec<T>`, `&[T]`, and other types
+    /// * `values` - Value to store; supports `T`, `Vec<T>`, `&[T]`, and related
+    ///   forms accepted by [`MultiValues`] setters
     ///
     /// # Returns
     ///
@@ -564,7 +586,7 @@ impl Config {
     ///
     /// # Errors
     ///
-    /// - Returns `ConfigError::PropertyIsFinal` if the configuration item is final
+    /// - [`ConfigError::PropertyIsFinal`] if the property is marked final
     ///
     /// # Examples
     ///
@@ -575,13 +597,15 @@ impl Config {
     ///
     /// // Set single values (type auto-inference)
     /// config.set("port", 8080)?;                    // T inferred as i32
-    /// config.set("host", "localhost")?;              // T inferred as String (&str auto-converted)
+    /// config.set("host", "localhost")?;
+    /// // T inferred as String; &str is converted
     /// config.set("debug", true)?;                   // T inferred as bool
     /// config.set("timeout", 30.5)?;                 // T inferred as f64
     ///
     /// // Set multiple values (type auto-inference)
     /// config.set("ports", vec![8080, 8081, 8082])?; // T inferred as i32
-    /// config.set("hosts", &["host1", "host2"])?;     // T inferred as &str (auto-converted)
+    /// config.set("hosts", &["host1", "host2"])?;
+    /// // T inferred as &str (then converted)
     /// ```
     pub fn set<S>(&mut self, name: &str, values: S) -> ConfigResult<()>
     where
@@ -607,7 +631,7 @@ impl Config {
 
     /// Adds configuration values
     ///
-    /// Adds values to an existing configuration item (for multi-value configuration).
+    /// Adds values to an existing configuration item (multi-value properties).
     ///
     /// # Type Parameters
     ///
@@ -616,7 +640,7 @@ impl Config {
     /// # Parameters
     ///
     /// * `name` - Configuration item name
-    /// * `values` - Values to add, supports `T`, `Vec<T>`, `&[T]`, and other types
+    /// * `values` - Values to append; supports the same forms as [`Self::set`]
     ///
     /// # Returns
     ///
@@ -673,7 +697,8 @@ impl Config {
 
     /// Gets a string configuration value (with variable substitution)
     ///
-    /// If variable substitution is enabled, automatically replaces variables in `${var_name}` format.
+    /// If variable substitution is enabled, replaces `${var_name}` placeholders
+    /// in the stored string.
     ///
     /// # Parameters
     ///
@@ -704,7 +729,7 @@ impl Config {
         }
     }
 
-    /// Gets a string configuration value or returns a default value (with variable substitution)
+    /// Gets a string with substitution, or `default` if reading fails.
     ///
     /// # Parameters
     ///
@@ -722,7 +747,8 @@ impl Config {
 
     /// Gets a list of string configuration values (with variable substitution)
     ///
-    /// If variable substitution is enabled, automatically replaces variables in `${var_name}` format for each string in the list.
+    /// If variable substitution is enabled, runs it on each list element
+    /// (same `${var_name}` rules as [`Self::get_string`]).
     ///
     /// # Parameters
     ///
@@ -810,7 +836,11 @@ impl Config {
     /// # Examples
     ///
     /// ```rust,ignore
-    /// use qubit_config::{Config, source::{TomlConfigSource, EnvConfigSource, CompositeConfigSource, ConfigSource}};
+    /// use qubit_config::Config;
+    /// use qubit_config::source::{
+    ///     CompositeConfigSource, ConfigSource,
+    ///     EnvConfigSource, TomlConfigSource,
+    /// };
     ///
     /// let mut composite = CompositeConfigSource::new();
     /// composite.add(TomlConfigSource::from_file("config.toml"));
@@ -858,7 +888,7 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// An iterator yielding `(&str, &Property)` tuples where the key starts with `prefix`.
+    /// An iterator of `(&str, &Property)` whose keys start with `prefix`.
     ///
     /// # Examples
     ///
@@ -913,8 +943,8 @@ impl Config {
     /// # Parameters
     ///
     /// * `prefix` - The key prefix to extract (e.g., `"http"`)
-    /// * `strip_prefix` - If `true`, the prefix and the following `.` separator are stripped
-    ///   from the keys in the returned `Config`. If `false`, keys are kept as-is.
+    /// * `strip_prefix` - When `true`, removes `prefix` and the following dot
+    ///   from keys in the result; when `false`, keys are copied unchanged.
     ///
     /// # Returns
     ///
@@ -972,7 +1002,7 @@ impl Config {
     // Optional and Null Semantics (v0.4.0)
     // ========================================================================
 
-    /// Returns `true` if the property exists but has no value (i.e., is empty/null).
+    /// Returns `true` if the property exists but has no value (empty / null).
     ///
     /// This distinguishes between:
     /// - Key does not exist → `contains()` returns `false`
@@ -996,7 +1026,10 @@ impl Config {
     /// let mut config = Config::new();
     /// config.properties_mut().insert(
     ///     "nullable".to_string(),
-    ///     Property::with_value("nullable", MultiValues::Empty(DataType::String)),
+    ///     Property::with_value(
+    ///         "nullable",
+    ///         MultiValues::Empty(DataType::String),
+    ///     ),
     /// );
     ///
     /// assert!(config.is_null("nullable"));
@@ -1023,6 +1056,10 @@ impl Config {
     /// # Parameters
     ///
     /// * `name` - Configuration item name
+    ///
+    /// # Returns
+    ///
+    /// `Ok(Some(value))`, `Ok(None)`, or `Err` as described above.
     ///
     /// # Examples
     ///
@@ -1051,7 +1088,8 @@ impl Config {
 
     /// Gets an optional list of configuration values.
     ///
-    /// See also [`Self::get_optional_string_list`] for optional string lists with variable substitution.
+    /// See also [`Self::get_optional_string_list`] for optional string lists
+    /// with variable substitution.
     ///
     /// Distinguishes between three states:
     /// - `Ok(Some(vec))` – key exists and has values
@@ -1065,6 +1103,10 @@ impl Config {
     /// # Parameters
     ///
     /// * `name` - Configuration item name
+    ///
+    /// # Returns
+    ///
+    /// `Ok(Some(vec))`, `Ok(None)`, or `Err` as described above.
     ///
     /// # Examples
     ///
@@ -1091,10 +1133,18 @@ impl Config {
         }
     }
 
-    /// Gets an optional string configuration value (with variable substitution).
+    /// Gets an optional string (with variable substitution when enabled).
     ///
-    /// Same three-way semantics as [`Self::get_optional`], but the value is read via
+    /// Same semantics as [`Self::get_optional`], but values are read via
     /// [`Self::get_string`], so `${...}` substitution applies when enabled.
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Configuration item name
+    ///
+    /// # Returns
+    ///
+    /// `Ok(Some(s))`, `Ok(None)`, or `Err` as for [`Self::get_optional`].
     ///
     /// # Examples
     ///
@@ -1119,11 +1169,18 @@ impl Config {
         }
     }
 
-    /// Gets an optional list of strings (with variable substitution per element).
+    /// Gets an optional string list (substitution per element when enabled).
     ///
-    /// Same three-way semantics as [`Self::get_optional_list`], but elements are read via
-    /// [`Self::get_string_list`], which applies the same `${...}` substitution as
-    /// [`Self::get_string`] for each entry.
+    /// Same semantics as [`Self::get_optional_list`], but elements use
+    /// [`Self::get_string_list`] (same `${...}` rules as [`Self::get_string`]).
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Configuration item name
+    ///
+    /// # Returns
+    ///
+    /// `Ok(Some(vec))`, `Ok(None)`, or `Err` like [`Self::get_optional_list`].
     ///
     /// # Examples
     ///
@@ -1135,7 +1192,13 @@ impl Config {
     /// config.set("paths", vec!["${root}/bin", "${root}/lib"])?;
     ///
     /// let paths = config.get_optional_string_list("paths")?;
-    /// assert_eq!(paths, Some(vec!["/opt/app/bin".to_string(), "/opt/app/lib".to_string()]));
+    /// assert_eq!(
+    ///     paths,
+    ///     Some(vec![
+    ///         "/opt/app/bin".to_string(),
+    ///         "/opt/app/lib".to_string(),
+    ///     ]),
+    /// );
     /// ```
     pub fn get_optional_string_list(&self, name: &str) -> ConfigResult<Option<Vec<String>>> {
         match self.properties.get(name) {
@@ -1149,10 +1212,10 @@ impl Config {
     // Structured Config Deserialization (v0.4.0)
     // ========================================================================
 
-    /// Deserializes a sub-configuration (identified by `prefix`) into a struct `T`.
+    /// Deserializes the subtree at `prefix` into `T` using `serde`.
     ///
-    /// The keys under `prefix` (with the prefix and its trailing `.` stripped) are
-    /// presented to `serde` as a flat map, so a struct like:
+    /// Keys under `prefix` (prefix and trailing dot removed) form a flat map
+    /// for `serde`, for example:
     ///
     /// ```rust,ignore
     /// #[derive(serde::Deserialize)]
@@ -1171,11 +1234,11 @@ impl Config {
     ///
     /// # Parameters
     ///
-    /// * `prefix` - The key prefix that scopes the struct fields (use `""` for the root)
+    /// * `prefix` - Key prefix for the struct fields (`""` means the root map)
     ///
     /// # Returns
     ///
-    /// Returns the deserialized value on success, or a `ConfigError` on failure.
+    /// The deserialized `T`, or a [`ConfigError::DeserializeError`] on failure.
     ///
     /// # Examples
     ///
@@ -1221,8 +1284,12 @@ impl Config {
 
     /// Returns a mutable reference to the internal properties map.
     ///
-    /// This is primarily intended for advanced use cases such as directly inserting
-    /// null/empty properties that cannot be expressed via the normal `set()` API.
+    /// For advanced use cases, e.g. inserting null/empty properties that
+    /// [`Self::set`] cannot represent alone.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to the backing [`HashMap`].
     pub fn properties_mut(&mut self) -> &mut HashMap<String, Property> {
         &mut self.properties
     }
@@ -1271,7 +1338,16 @@ impl ConfigReader for Config {
     }
 }
 
-/// Converts a `Property` to a `serde_json::Value` for use in structured deserialization.
+/// Converts a [`Property`] into [`serde_json::Value`] (for
+/// [`Config::deserialize`]).
+///
+/// # Parameters
+///
+/// * `prop` - Source property.
+///
+/// # Returns
+///
+/// JSON null, scalar, array, or object matching the stored [`MultiValues`].
 fn property_to_json_value(prop: &Property) -> serde_json::Value {
     use qubit_value::MultiValues;
     use serde_json::Value as JsonValue;
@@ -1356,7 +1432,17 @@ fn property_to_json_value(prop: &Property) -> serde_json::Value {
     }
 }
 
-/// Helper: if the vec has exactly one element, return a scalar JSON value; otherwise an array.
+/// If `v` has one element, returns `f(&v[0])`; otherwise a JSON array of `f`
+/// applied to each item.
+///
+/// # Parameters
+///
+/// * `v` - Multi-values slice from a [`Property`].
+/// * `f` - Maps each element to [`serde_json::Value`].
+///
+/// # Returns
+///
+/// A scalar or array [`serde_json::Value`].
 fn scalar_or_array<T, F>(v: &[T], f: F) -> serde_json::Value
 where
     F: Fn(&T) -> serde_json::Value,

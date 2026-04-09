@@ -117,8 +117,17 @@ pub enum ConfigError {
 pub type ConfigResult<T> = Result<T, ConfigError>;
 
 impl ConfigError {
-    /// Creates a `TypeMismatch` error with an empty key (for backward compatibility with
-    /// `ValueError` conversions that don't have key context).
+    /// Creates a `TypeMismatch` error with an empty key (for backward
+    /// compatibility with `ValueError` conversions that lack key context).
+    ///
+    /// # Parameters
+    ///
+    /// * `expected` - Expected [`DataType`].
+    /// * `actual` - Actual [`DataType`].
+    ///
+    /// # Returns
+    ///
+    /// A [`ConfigError::TypeMismatch`] with an empty `key`.
     pub(crate) fn type_mismatch_no_key(expected: DataType, actual: DataType) -> Self {
         ConfigError::TypeMismatch {
             key: String::new(),
@@ -128,6 +137,16 @@ impl ConfigError {
     }
 
     /// Creates a `TypeMismatch` error with a specific key.
+    ///
+    /// # Parameters
+    ///
+    /// * `key` - Configuration key or path.
+    /// * `expected` - Expected [`DataType`].
+    /// * `actual` - Actual [`DataType`].
+    ///
+    /// # Returns
+    ///
+    /// A [`ConfigError::TypeMismatch`].
     pub(crate) fn type_mismatch_at(key: &str, expected: DataType, actual: DataType) -> Self {
         ConfigError::TypeMismatch {
             key: key.to_string(),
@@ -137,6 +156,14 @@ impl ConfigError {
     }
 
     /// Creates a `ConversionError` with an empty key.
+    ///
+    /// # Parameters
+    ///
+    /// * `message` - Human-readable conversion error message.
+    ///
+    /// # Returns
+    ///
+    /// A [`ConfigError::ConversionError`] with an empty `key`.
     pub(crate) fn conversion_error_no_key(message: impl Into<String>) -> Self {
         ConfigError::ConversionError {
             key: String::new(),
@@ -145,6 +172,15 @@ impl ConfigError {
     }
 
     /// Creates a `ConversionError` with a specific key.
+    ///
+    /// # Parameters
+    ///
+    /// * `key` - Configuration key or path.
+    /// * `message` - Human-readable conversion error message.
+    ///
+    /// # Returns
+    ///
+    /// A [`ConfigError::ConversionError`].
     pub(crate) fn conversion_error_at(key: &str, message: impl Into<String>) -> Self {
         ConfigError::ConversionError {
             key: key.to_string(),

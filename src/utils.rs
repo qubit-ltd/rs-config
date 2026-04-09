@@ -8,7 +8,8 @@
  ******************************************************************************/
 //! # Configuration Utility Functions
 //!
-//! Provides configuration-related utility functions, such as variable substitution.
+//! Provides configuration-related utility functions, such as variable
+//! substitution.
 //!
 //! # Author
 //!
@@ -43,8 +44,9 @@ fn get_variable_pattern() -> &'static Regex {
 
 /// Replaces variables in a string
 ///
-/// Replaces all variables in `${var_name}` format in the string. Variable values are first
-/// looked up in the configuration, and if not found, then in environment variables.
+/// Replaces all variables in `${var_name}` format in the string. Variable
+/// values are first looked up in the configuration, and if not found, then in
+/// environment variables.
 ///
 /// # Parameters
 ///
@@ -58,7 +60,8 @@ fn get_variable_pattern() -> &'static Regex {
 ///
 /// # Errors
 ///
-/// - Returns `ConfigError::SubstitutionDepthExceeded` if substitution depth exceeds maximum
+/// - Returns `ConfigError::SubstitutionDepthExceeded` if substitution depth
+///   exceeds maximum
 /// - Returns `ConfigError::SubstitutionError` if a variable cannot be resolved
 ///
 /// # Examples
@@ -126,7 +129,8 @@ pub fn substitute_variables<R: ConfigReader + ?Sized>(
 
 /// Finds the value of a variable
 ///
-/// First looks in the configuration, and if not found, then in environment variables.
+/// First looks in the configuration, and if not found, then in environment
+/// variables.
 ///
 /// # Parameters
 ///
