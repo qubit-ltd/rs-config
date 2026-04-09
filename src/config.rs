@@ -1054,6 +1054,8 @@ impl Config {
 
     /// Gets an optional list of configuration values.
     ///
+    /// See also [`Self::get_optional_string_list`] for optional string lists with variable substitution.
+    ///
     /// Distinguishes between three states:
     /// - `Ok(Some(vec))` – key exists and has values
     /// - `Ok(None)` – key does not exist, **or** exists but is null/empty
@@ -1075,13 +1077,13 @@ impl Config {
     /// let mut config = Config::new();
     /// config.set("ports", vec![8080, 8081])?;
     ///
-    /// let ports: Option<Vec<i32>> = config.get_list_optional("ports")?;
+    /// let ports: Option<Vec<i32>> = config.get_optional_list("ports")?;
     /// assert_eq!(ports, Some(vec![8080, 8081]));
     ///
-    /// let missing: Option<Vec<i32>> = config.get_list_optional("missing")?;
+    /// let missing: Option<Vec<i32>> = config.get_optional_list("missing")?;
     /// assert_eq!(missing, None);
     /// ```
-    pub fn get_list_optional<T>(&self, name: &str) -> ConfigResult<Option<Vec<T>>>
+    pub fn get_optional_list<T>(&self, name: &str) -> ConfigResult<Option<Vec<T>>>
     where
         MultiValues: MultiValuesGetter<T>,
     {
@@ -1089,6 +1091,60 @@ impl Config {
             None => Ok(None),
             Some(prop) if prop.is_empty() => Ok(None),
             Some(_) => self.get_list::<T>(name).map(Some),
+        }
+    }
+
+    /// Gets an optional string configuration value (with variable substitution).
+    ///
+    /// Same three-way semantics as [`Self::get_optional`], but the value is read via
+    /// [`Self::get_string`], so `${...}` substitution applies when enabled.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// use qubit_config::Config;
+    ///
+    /// let mut config = Config::new();
+    /// config.set("base", "http://localhost")?;
+    /// config.set("api", "${base}/api")?;
+    ///
+    /// let api = config.get_optional_string("api")?;
+    /// assert_eq!(api.as_deref(), Some("http://localhost/api"));
+    ///
+    /// let missing = config.get_optional_string("missing")?;
+    /// assert_eq!(missing, None);
+    /// ```
+    pub fn get_optional_string(&self, name: &str) -> ConfigResult<Option<String>> {
+        match self.properties.get(name) {
+            None => Ok(None),
+            Some(prop) if prop.is_empty() => Ok(None),
+            Some(_) => self.get_string(name).map(Some),
+        }
+    }
+
+    /// Gets an optional list of strings (with variable substitution per element).
+    ///
+    /// Same three-way semantics as [`Self::get_optional_list`], but elements are read via
+    /// [`Self::get_string_list`], which applies the same `${...}` substitution as
+    /// [`Self::get_string`] for each entry.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// use qubit_config::Config;
+    ///
+    /// let mut config = Config::new();
+    /// config.set("root", "/opt/app")?;
+    /// config.set("paths", vec!["${root}/bin", "${root}/lib"])?;
+    ///
+    /// let paths = config.get_optional_string_list("paths")?;
+    /// assert_eq!(paths, Some(vec!["/opt/app/bin".to_string(), "/opt/app/lib".to_string()]));
+    /// ```
+    pub fn get_optional_string_list(&self, name: &str) -> ConfigResult<Option<Vec<String>>> {
+        match self.properties.get(name) {
+            None => Ok(None),
+            Some(prop) if prop.is_empty() => Ok(None),
+            Some(_) => self.get_string_list(name).map(Some),
         }
     }
 

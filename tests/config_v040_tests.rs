@@ -10,7 +10,7 @@
 //!
 //! Tests all new APIs introduced in v0.4.0:
 //! - `iter()` / `iter_prefix()` / `contains_prefix()` / `subconfig()`
-//! - `get_optional()` / `get_list_optional()` / `is_null()`
+//! - `get_optional()` / `get_optional_list()` / `get_optional_string()` / `get_optional_string_list()` / `is_null()`
 //! - `deserialize::<T>()`
 //! - Enhanced error model with key/path context
 //! - TOML/YAML type-faithful loading
@@ -365,52 +365,52 @@ mod test_get_optional {
 }
 
 // ============================================================================
-// get_list_optional() Tests
+// get_optional_list() Tests
 // ============================================================================
 
 #[cfg(test)]
-mod test_get_list_optional {
+mod test_get_optional_list {
     use super::*;
 
     #[test]
-    fn test_get_list_optional_missing_key_returns_none() {
+    fn test_get_optional_list_missing_key_returns_none() {
         let config = Config::new();
-        let result: Option<Vec<i32>> = config.get_list_optional("missing").unwrap();
+        let result: Option<Vec<i32>> = config.get_optional_list("missing").unwrap();
         assert_eq!(result, None);
     }
 
     #[test]
-    fn test_get_list_optional_existing_key_returns_some() {
+    fn test_get_optional_list_existing_key_returns_some() {
         let mut config = Config::new();
         config.set("ports", vec![8080, 8081, 8082]).unwrap();
-        let result: Option<Vec<i32>> = config.get_list_optional("ports").unwrap();
+        let result: Option<Vec<i32>> = config.get_optional_list("ports").unwrap();
         assert_eq!(result, Some(vec![8080, 8081, 8082]));
     }
 
     #[test]
-    fn test_get_list_optional_null_property_returns_none() {
+    fn test_get_optional_list_null_property_returns_none() {
         let mut config = Config::new();
         config.properties_mut().insert(
             "nullable".to_string(),
             Property::with_value("nullable", MultiValues::Empty(DataType::Int32)),
         );
-        let result: Option<Vec<i32>> = config.get_list_optional("nullable").unwrap();
+        let result: Option<Vec<i32>> = config.get_optional_list("nullable").unwrap();
         assert_eq!(result, None);
     }
 
     #[test]
-    fn test_get_list_optional_single_value() {
+    fn test_get_optional_list_single_value() {
         let mut config = Config::new();
         config.set("port", 8080).unwrap();
-        let result: Option<Vec<i32>> = config.get_list_optional("port").unwrap();
+        let result: Option<Vec<i32>> = config.get_optional_list("port").unwrap();
         assert_eq!(result, Some(vec![8080]));
     }
 
     #[test]
-    fn test_get_list_optional_type_mismatch_returns_error() {
+    fn test_get_optional_list_type_mismatch_returns_error() {
         let mut config = Config::new();
         config.set("ports", vec![8080, 8081]).unwrap();
-        let result: Result<Option<Vec<bool>>, _> = config.get_list_optional("ports");
+        let result: Result<Option<Vec<bool>>, _> = config.get_optional_list("ports");
         assert!(result.is_err());
         match result.unwrap_err() {
             ConfigError::TypeMismatch { key, .. } => {
@@ -418,6 +418,230 @@ mod test_get_list_optional {
             }
             e => panic!("Expected TypeMismatch, got {:?}", e),
         }
+    }
+}
+
+// ============================================================================
+// get_optional_string() / get_optional_string_list() Tests
+// ============================================================================
+
+#[cfg(test)]
+mod test_get_optional_string {
+    use super::*;
+
+    #[test]
+    fn test_get_optional_string_missing_returns_none() {
+        let config = Config::new();
+        assert_eq!(config.get_optional_string("missing").unwrap(), None);
+    }
+
+    #[test]
+    fn test_get_optional_string_null_returns_none() {
+        let mut config = Config::new();
+        config.properties_mut().insert(
+            "n".to_string(),
+            Property::with_value("n", MultiValues::Empty(DataType::String)),
+        );
+        assert_eq!(config.get_optional_string("n").unwrap(), None);
+    }
+
+    #[test]
+    fn test_get_optional_string_null_non_string_empty_still_none() {
+        let mut config = Config::new();
+        config.properties_mut().insert(
+            "nullable".to_string(),
+            Property::with_value("nullable", MultiValues::Empty(DataType::Int32)),
+        );
+        assert_eq!(config.get_optional_string("nullable").unwrap(), None);
+    }
+
+    #[test]
+    fn test_get_optional_string_plain_no_variables() {
+        let mut config = Config::new();
+        config.set("greeting", "hello").unwrap();
+        assert_eq!(
+            config.get_optional_string("greeting").unwrap().as_deref(),
+            Some("hello")
+        );
+    }
+
+    #[test]
+    fn test_get_optional_string_empty_string_is_some() {
+        let mut config = Config::new();
+        config.set("empty", "").unwrap();
+        assert_eq!(
+            config.get_optional_string("empty").unwrap().as_deref(),
+            Some("")
+        );
+    }
+
+    #[test]
+    fn test_get_optional_string_substitution() {
+        let mut config = Config::new();
+        config.set("base", "http://localhost").unwrap();
+        config.set("api", "${base}/api").unwrap();
+        assert_eq!(
+            config.get_optional_string("api").unwrap().as_deref(),
+            Some("http://localhost/api")
+        );
+    }
+
+    #[test]
+    fn test_get_optional_string_substitution_disabled_keeps_placeholders() {
+        let mut config = Config::new();
+        config.set_enable_variable_substitution(false);
+        config.set("raw", "${not_replaced}").unwrap();
+        assert_eq!(
+            config.get_optional_string("raw").unwrap().as_deref(),
+            Some("${not_replaced}")
+        );
+    }
+
+    #[test]
+    fn test_get_optional_string_type_mismatch_returns_error() {
+        let mut config = Config::new();
+        config.set("port", 8080i32).unwrap();
+        let result = config.get_optional_string("port");
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ConfigError::TypeMismatch { key, .. } => assert_eq!(key, "port"),
+            e => panic!("Expected TypeMismatch, got {:?}", e),
+        }
+    }
+
+    #[test]
+    fn test_get_optional_string_unresolved_variable_returns_error() {
+        let mut config = Config::new();
+        config
+            .set(
+                "bad",
+                "${qubit_cfg_test_var_that_must_not_exist_7a8b9c0d1e2f}",
+            )
+            .unwrap();
+        let result = config.get_optional_string("bad");
+        assert!(matches!(result, Err(ConfigError::SubstitutionError(_))));
+    }
+
+    #[test]
+    fn test_get_optional_string_substitution_depth_exceeded() {
+        let mut config = Config::new();
+        config.set_max_substitution_depth(0);
+        config.set("a", "v").unwrap();
+        config.set("b", "${a}").unwrap();
+        let result = config.get_optional_string("b");
+        assert!(matches!(
+            result,
+            Err(ConfigError::SubstitutionDepthExceeded(0))
+        ));
+    }
+
+    #[test]
+    fn test_get_optional_string_list_missing_returns_none() {
+        let config = Config::new();
+        assert_eq!(config.get_optional_string_list("missing").unwrap(), None);
+    }
+
+    #[test]
+    fn test_get_optional_string_list_null_returns_none() {
+        let mut config = Config::new();
+        config.properties_mut().insert(
+            "nullable".to_string(),
+            Property::with_value("nullable", MultiValues::Empty(DataType::String)),
+        );
+        assert_eq!(config.get_optional_string_list("nullable").unwrap(), None);
+    }
+
+    #[test]
+    fn test_get_optional_string_list_substitution() {
+        let mut config = Config::new();
+        config.set("root", "/opt/app").unwrap();
+        config
+            .set("paths", vec!["${root}/bin", "${root}/lib"])
+            .unwrap();
+        assert_eq!(
+            config.get_optional_string_list("paths").unwrap(),
+            Some(vec!["/opt/app/bin".to_string(), "/opt/app/lib".to_string()])
+        );
+    }
+
+    #[test]
+    fn test_get_optional_string_list_plain_no_variables() {
+        let mut config = Config::new();
+        config.set("items", vec!["a", "b"]).unwrap();
+        assert_eq!(
+            config.get_optional_string_list("items").unwrap(),
+            Some(vec!["a".to_string(), "b".to_string()])
+        );
+    }
+
+    #[test]
+    fn test_get_optional_string_list_single_scalar_coerced_to_one_element() {
+        let mut config = Config::new();
+        config.set("only", "solo").unwrap();
+        assert_eq!(
+            config.get_optional_string_list("only").unwrap(),
+            Some(vec!["solo".to_string()])
+        );
+    }
+
+    #[test]
+    fn test_get_optional_string_list_empty_vec_set_is_treated_as_absent_none() {
+        let mut config = Config::new();
+        config.set("empty_list", Vec::<String>::new()).unwrap();
+        // Empty collection normalizes to an empty property; optional readers treat it like null.
+        assert_eq!(config.get_optional_string_list("empty_list").unwrap(), None);
+    }
+
+    #[test]
+    fn test_get_optional_string_list_substitution_disabled() {
+        let mut config = Config::new();
+        config.set_enable_variable_substitution(false);
+        config.set("items", vec!["${x}", "y"]).unwrap();
+        assert_eq!(
+            config.get_optional_string_list("items").unwrap(),
+            Some(vec!["${x}".to_string(), "y".to_string()])
+        );
+    }
+
+    #[test]
+    fn test_get_optional_string_list_type_mismatch_returns_error() {
+        let mut config = Config::new();
+        config.set("ports", vec![1i32, 2i32]).unwrap();
+        let result = config.get_optional_string_list("ports");
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ConfigError::TypeMismatch { key, .. } => assert_eq!(key, "ports"),
+            e => panic!("Expected TypeMismatch, got {:?}", e),
+        }
+    }
+
+    #[test]
+    fn test_get_optional_string_list_unresolved_variable_in_element_returns_error() {
+        let mut config = Config::new();
+        config
+            .set(
+                "items",
+                vec![
+                    "ok",
+                    "${qubit_cfg_list_bad_var_that_must_not_exist_9f8e7d6c5b4a}",
+                ],
+            )
+            .unwrap();
+        let result = config.get_optional_string_list("items");
+        assert!(matches!(result, Err(ConfigError::SubstitutionError(_))));
+    }
+
+    #[test]
+    fn test_get_optional_string_list_substitution_depth_exceeded() {
+        let mut config = Config::new();
+        config.set_max_substitution_depth(0);
+        config.set("a", "x").unwrap();
+        config.set("items", vec!["${a}"]).unwrap();
+        let result = config.get_optional_string_list("items");
+        assert!(matches!(
+            result,
+            Err(ConfigError::SubstitutionDepthExceeded(0))
+        ));
     }
 }
 
@@ -1002,7 +1226,7 @@ mod test_yaml_type_faithful {
         // Empty sequence should not create any entry (or create empty)
         // The key may or may not exist depending on implementation
         // Just verify it doesn't panic
-        let _ = config.get_list_optional::<String>("empty");
+        let _ = config.get_optional_list::<String>("empty");
     }
 
     #[test]
