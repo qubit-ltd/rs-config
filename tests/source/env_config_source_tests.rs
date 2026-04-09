@@ -10,17 +10,8 @@
 
 use qubit_config::{
     source::{ConfigSource, EnvConfigSource},
-    Config, ConfigError,
+    Config,
 };
-
-use std::path::PathBuf;
-
-fn fixture(name: &str) -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("tests")
-        .join("fixtures")
-        .join(name)
-}
 
 // ============================================================================
 // EnvConfigSource Tests

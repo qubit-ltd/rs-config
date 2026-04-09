@@ -13,7 +13,7 @@ use qubit_config::{
         CompositeConfigSource, ConfigSource, EnvConfigSource, PropertiesConfigSource,
         TomlConfigSource,
     },
-    Config, ConfigError,
+    Config,
 };
 
 use std::path::PathBuf;
