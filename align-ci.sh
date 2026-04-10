@@ -1,4 +1,12 @@
 #!/bin/bash
+################################################################################
+#
+#    Copyright (c) 2026.
+#    Haixing Hu, Qubit Co. Ltd.
+#
+#    All rights reserved.
+#
+################################################################################
 #
 # One-shot auto-fix to match local CI (fmt + clippy on all targets, then verify).
 # Run from repo root: ./align-ci.sh
