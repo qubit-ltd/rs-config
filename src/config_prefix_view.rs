@@ -44,6 +44,7 @@ impl<'a> ConfigPrefixView<'a> {
     /// # Returns
     ///
     /// A new [`ConfigPrefixView`].
+    #[inline]
     pub(crate) fn new(config: &'a Config, prefix: &str) -> Self {
         let normalized_prefix = prefix.trim_matches('.').to_string();
         let full_prefix = if normalized_prefix.is_empty() {
@@ -63,6 +64,7 @@ impl<'a> ConfigPrefixView<'a> {
     /// # Returns
     ///
     /// The normalized prefix string (no leading or trailing dot separators).
+    #[inline]
     pub fn prefix(&self) -> &str {
         &self.prefix
     }
@@ -138,14 +140,17 @@ impl<'a> ConfigPrefixView<'a> {
 }
 
 impl<'a> ConfigReader for ConfigPrefixView<'a> {
+    #[inline]
     fn is_enable_variable_substitution(&self) -> bool {
         self.config.is_enable_variable_substitution()
     }
 
+    #[inline]
     fn max_substitution_depth(&self) -> usize {
         self.config.max_substitution_depth()
     }
 
+    #[inline]
     fn description(&self) -> Option<&str> {
         self.config.description()
     }
@@ -240,6 +245,7 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
         self.config.deserialize(&full)
     }
 
+    #[inline]
     fn prefix_view(&self, prefix: &str) -> ConfigPrefixView<'a> {
         ConfigPrefixView::prefix_view(self, prefix)
     }

@@ -128,6 +128,7 @@ impl ConfigError {
     /// # Returns
     ///
     /// A [`ConfigError::TypeMismatch`] with an empty `key`.
+    #[inline]
     pub(crate) fn type_mismatch_no_key(expected: DataType, actual: DataType) -> Self {
         ConfigError::TypeMismatch {
             key: String::new(),
@@ -147,6 +148,7 @@ impl ConfigError {
     /// # Returns
     ///
     /// A [`ConfigError::TypeMismatch`].
+    #[inline]
     pub(crate) fn type_mismatch_at(key: &str, expected: DataType, actual: DataType) -> Self {
         ConfigError::TypeMismatch {
             key: key.to_string(),
@@ -164,6 +166,7 @@ impl ConfigError {
     /// # Returns
     ///
     /// A [`ConfigError::ConversionError`] with an empty `key`.
+    #[inline]
     pub(crate) fn conversion_error_no_key(message: impl Into<String>) -> Self {
         ConfigError::ConversionError {
             key: String::new(),
@@ -181,6 +184,7 @@ impl ConfigError {
     /// # Returns
     ///
     /// A [`ConfigError::ConversionError`].
+    #[inline]
     pub(crate) fn conversion_error_at(key: &str, message: impl Into<String>) -> Self {
         ConfigError::ConversionError {
             key: key.to_string(),

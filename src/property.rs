@@ -88,6 +88,7 @@ impl Property {
     /// assert_eq!(prop.name(), "server.port");
     /// assert!(prop.is_empty());
     /// ```
+    #[inline]
     pub fn new(name: impl Into<String>) -> Self {
         Self {
             name: name.into(),
@@ -118,6 +119,7 @@ impl Property {
     /// assert_eq!(prop.name(), "port");
     /// assert_eq!(prop.count(), 1);
     /// ```
+    #[inline]
     pub fn with_value(name: impl Into<String>, value: MultiValues) -> Self {
         Self {
             name: name.into(),
@@ -132,6 +134,7 @@ impl Property {
     /// # Returns
     ///
     /// Returns the property name as a string slice
+    #[inline]
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -141,6 +144,7 @@ impl Property {
     /// # Returns
     ///
     /// Returns a reference to the property value
+    #[inline]
     pub fn value(&self) -> &MultiValues {
         &self.value
     }
@@ -150,6 +154,7 @@ impl Property {
     /// # Returns
     ///
     /// Returns a mutable reference to the property value
+    #[inline]
     pub fn value_mut(&mut self) -> &mut MultiValues {
         &mut self.value
     }
@@ -159,6 +164,7 @@ impl Property {
     /// # Parameters
     ///
     /// * `value` - New property value
+    #[inline]
     pub fn set_value(&mut self, value: MultiValues) {
         self.value = value;
     }
@@ -168,6 +174,7 @@ impl Property {
     /// # Returns
     ///
     /// Returns the property description as Option
+    #[inline]
     pub fn description(&self) -> Option<&str> {
         self.description.as_deref()
     }
@@ -177,6 +184,7 @@ impl Property {
     /// # Parameters
     ///
     /// * `description` - Property description
+    #[inline]
     pub fn set_description(&mut self, description: Option<String>) {
         self.description = description;
     }
@@ -186,6 +194,7 @@ impl Property {
     /// # Returns
     ///
     /// Returns `true` if the property is final
+    #[inline]
     pub fn is_final(&self) -> bool {
         self.is_final
     }
@@ -195,6 +204,7 @@ impl Property {
     /// # Parameters
     ///
     /// * `is_final` - Whether this is final
+    #[inline]
     pub fn set_final(&mut self, is_final: bool) {
         self.is_final = is_final;
     }
@@ -204,6 +214,7 @@ impl Property {
     /// # Returns
     ///
     /// Returns the data type of the property value
+    #[inline]
     pub fn data_type(&self) -> DataType {
         self.value.data_type()
     }
@@ -213,6 +224,7 @@ impl Property {
     /// # Returns
     ///
     /// Returns the number of values in the property
+    #[inline]
     pub fn count(&self) -> usize {
         self.value.count()
     }
@@ -222,6 +234,7 @@ impl Property {
     /// # Returns
     ///
     /// Returns `true` if the property contains no values
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.value.is_empty()
     }
@@ -229,6 +242,7 @@ impl Property {
     /// Clears the property value
     ///
     /// Clears all values in the property but keeps type information
+    #[inline]
     pub fn clear(&mut self) {
         self.value.clear();
     }
@@ -240,6 +254,7 @@ impl Deref for Property {
     /// Dereferences to MultiValues
     ///
     /// Allows direct access to all MultiValues methods
+    #[inline]
     fn deref(&self) -> &Self::Target {
         &self.value
     }
@@ -249,6 +264,7 @@ impl DerefMut for Property {
     /// Mutably dereferences to MultiValues
     ///
     /// Allows direct mutable access to all MultiValues methods
+    #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.value
     }

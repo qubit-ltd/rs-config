@@ -53,6 +53,7 @@ impl CompositeConfigSource {
     /// # Returns
     ///
     /// An empty composite with no inner sources.
+    #[inline]
     pub fn new() -> Self {
         Self {
             sources: Vec::new(),
@@ -71,6 +72,7 @@ impl CompositeConfigSource {
     /// # Returns
     ///
     /// `self` for method chaining.
+    #[inline]
     pub fn add<S: ConfigSource + 'static>(&mut self, source: S) -> &mut Self {
         self.sources.push(Box::new(source));
         self
@@ -81,6 +83,7 @@ impl CompositeConfigSource {
     /// # Returns
     ///
     /// The length of the internal source list.
+    #[inline]
     pub fn len(&self) -> usize {
         self.sources.len()
     }
@@ -90,12 +93,14 @@ impl CompositeConfigSource {
     /// # Returns
     ///
     /// `true` when [`Self::len`] is zero.
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.sources.is_empty()
     }
 }
 
 impl Default for CompositeConfigSource {
+    #[inline]
     fn default() -> Self {
         Self::new()
     }

@@ -71,6 +71,7 @@ impl EnvConfigSource {
     /// # Returns
     ///
     /// A source that ingests every `std::env::vars()` entry.
+    #[inline]
     pub fn new() -> Self {
         Self {
             prefix: None,
@@ -93,6 +94,7 @@ impl EnvConfigSource {
     /// # Returns
     ///
     /// A source with prefix filtering and key normalization enabled.
+    #[inline]
     pub fn with_prefix(prefix: &str) -> Self {
         Self {
             prefix: Some(prefix.to_string()),
@@ -115,6 +117,7 @@ impl EnvConfigSource {
     /// # Returns
     ///
     /// A configured [`EnvConfigSource`].
+    #[inline]
     pub fn with_options(
         prefix: &str,
         strip_prefix: bool,
@@ -164,6 +167,7 @@ impl EnvConfigSource {
 }
 
 impl Default for EnvConfigSource {
+    #[inline]
     fn default() -> Self {
         Self::new()
     }

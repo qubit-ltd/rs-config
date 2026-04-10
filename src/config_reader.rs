@@ -118,6 +118,7 @@ pub trait ConfigReader {
 
     /// Gets a value or `default` if the key is missing or conversion fails (same
     /// as [`crate::Config::get_or`]).
+    #[inline]
     fn get_or<T>(&self, name: &str, default: T) -> T
     where
         MultiValues: MultiValuesFirstGetter<T>,
@@ -251,6 +252,7 @@ pub trait ConfigReader {
     /// # Returns
     ///
     /// The resolved string or a clone of `default`.
+    #[inline]
     fn get_string_or(&self, name: &str, default: &str) -> String {
         self.get_string(name)
             .unwrap_or_else(|_| default.to_string())
@@ -290,6 +292,7 @@ pub trait ConfigReader {
     /// # Returns
     ///
     /// The resolved list or `default` converted to owned `String`s.
+    #[inline]
     fn get_string_list_or(&self, name: &str, default: &[&str]) -> Vec<String> {
         self.get_string_list(name)
             .unwrap_or_else(|_| default.iter().map(|s| s.to_string()).collect())
@@ -307,6 +310,7 @@ pub trait ConfigReader {
     /// `Ok(None)` if the key is missing or empty; `Ok(Some(s))` with
     /// substitution applied; or `Err` if the value exists but cannot be read as
     /// a string.
+    #[inline]
     fn get_optional_string(&self, name: &str) -> ConfigResult<Option<String>> {
         match self.get_property(name) {
             None => Ok(None),
@@ -325,6 +329,7 @@ pub trait ConfigReader {
     ///
     /// `Ok(None)` if the key is missing or empty; `Ok(Some(vec))` otherwise; or
     /// `Err` on conversion/substitution failure.
+    #[inline]
     fn get_optional_string_list(&self, name: &str) -> ConfigResult<Option<Vec<String>>> {
         match self.get_property(name) {
             None => Ok(None),

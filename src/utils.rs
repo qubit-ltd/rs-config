@@ -36,6 +36,7 @@ static VARIABLE_PATTERN: OnceLock<Regex> = OnceLock::new();
 ///
 /// Haixing Hu
 ///
+#[inline]
 fn get_variable_pattern() -> &'static Regex {
     VARIABLE_PATTERN.get_or_init(|| {
         Regex::new(r"\$\{([^}]+)\}").expect("Failed to compile variable pattern regex")

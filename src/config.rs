@@ -110,6 +110,7 @@ impl Config {
     /// let config = Config::new();
     /// assert!(config.is_empty());
     /// ```
+    #[inline]
     pub fn new() -> Self {
         Self {
             description: None,
@@ -137,6 +138,7 @@ impl Config {
     /// let config = Config::with_description("Server Configuration");
     /// assert_eq!(config.description(), Some("Server Configuration"));
     /// ```
+    #[inline]
     pub fn with_description(description: &str) -> Self {
         Self {
             description: Some(description.to_string()),
@@ -155,6 +157,7 @@ impl Config {
     /// # Returns
     ///
     /// Returns the configuration description as Option
+    #[inline]
     pub fn description(&self) -> Option<&str> {
         self.description.as_deref()
     }
@@ -168,6 +171,7 @@ impl Config {
     /// # Returns
     ///
     /// Nothing.
+    #[inline]
     pub fn set_description(&mut self, description: Option<String>) {
         self.description = description;
     }
@@ -177,6 +181,7 @@ impl Config {
     /// # Returns
     ///
     /// Returns `true` if variable substitution is enabled
+    #[inline]
     pub fn is_enable_variable_substitution(&self) -> bool {
         self.enable_variable_substitution
     }
@@ -190,6 +195,7 @@ impl Config {
     /// # Returns
     ///
     /// Nothing.
+    #[inline]
     pub fn set_enable_variable_substitution(&mut self, enable: bool) {
         self.enable_variable_substitution = enable;
     }
@@ -199,6 +205,7 @@ impl Config {
     /// # Returns
     ///
     /// Returns the maximum depth value
+    #[inline]
     pub fn max_substitution_depth(&self) -> usize {
         self.max_substitution_depth
     }
@@ -226,6 +233,7 @@ impl Config {
     /// assert_eq!(server.get("port")?, 8080);
     /// assert_eq!(server.get("host")?, "localhost");
     /// ```
+    #[inline]
     pub fn prefix_view(&self, prefix: &str) -> ConfigPrefixView<'_> {
         ConfigPrefixView::new(self, prefix)
     }
@@ -239,6 +247,7 @@ impl Config {
     /// # Returns
     ///
     /// Nothing.
+    #[inline]
     pub fn set_max_substitution_depth(&mut self, depth: usize) {
         self.max_substitution_depth = depth;
     }
@@ -268,6 +277,7 @@ impl Config {
     /// assert!(config.contains("port"));
     /// assert!(!config.contains("host"));
     /// ```
+    #[inline]
     pub fn contains(&self, name: &str) -> bool {
         self.properties.contains_key(name)
     }
@@ -281,6 +291,7 @@ impl Config {
     /// # Returns
     ///
     /// Returns Option containing the configuration item
+    #[inline]
     pub fn get_property(&self, name: &str) -> Option<&Property> {
         self.properties.get(name)
     }
@@ -294,6 +305,7 @@ impl Config {
     /// # Returns
     ///
     /// Returns mutable Option containing the configuration item
+    #[inline]
     pub fn get_property_mut(&mut self, name: &str) -> Option<&mut Property> {
         self.properties.get_mut(name)
     }
@@ -320,6 +332,7 @@ impl Config {
     /// assert!(removed.is_some());
     /// assert!(!config.contains("port"));
     /// ```
+    #[inline]
     pub fn remove(&mut self, name: &str) -> Option<Property> {
         self.properties.remove(name)
     }
@@ -342,6 +355,7 @@ impl Config {
     /// # Returns
     ///
     /// Nothing.
+    #[inline]
     pub fn clear(&mut self) {
         self.properties.clear();
     }
@@ -351,6 +365,7 @@ impl Config {
     /// # Returns
     ///
     /// Returns the number of configuration items
+    #[inline]
     pub fn len(&self) -> usize {
         self.properties.len()
     }
@@ -360,6 +375,7 @@ impl Config {
     /// # Returns
     ///
     /// Returns `true` if the configuration contains no items
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.properties.is_empty()
     }
@@ -849,6 +865,7 @@ impl Config {
     /// let mut config = Config::new();
     /// config.merge_from_source(&composite).unwrap();
     /// ```
+    #[inline]
     pub fn merge_from_source(&mut self, source: &dyn ConfigSource) -> ConfigResult<()> {
         source.load(self)
     }
@@ -876,6 +893,7 @@ impl Config {
     ///     println!("{} = {:?}", key, prop);
     /// }
     /// ```
+    #[inline]
     pub fn iter(&self) -> impl Iterator<Item = (&str, &Property)> {
         self.properties.iter().map(|(k, v)| (k.as_str(), v))
     }
@@ -903,6 +921,7 @@ impl Config {
     /// let http_entries: Vec<_> = config.iter_prefix("http.").collect();
     /// assert_eq!(http_entries.len(), 2);
     /// ```
+    #[inline]
     pub fn iter_prefix<'a>(
         &'a self,
         prefix: &'a str,
@@ -934,6 +953,7 @@ impl Config {
     /// assert!(config.contains_prefix("http."));
     /// assert!(!config.contains_prefix("db."));
     /// ```
+    #[inline]
     pub fn contains_prefix(&self, prefix: &str) -> bool {
         self.properties.keys().any(|k| k.starts_with(prefix))
     }
@@ -1290,32 +1310,39 @@ impl Config {
     /// # Returns
     ///
     /// A mutable reference to the backing [`HashMap`].
+    #[inline]
     pub fn properties_mut(&mut self) -> &mut HashMap<String, Property> {
         &mut self.properties
     }
 }
 
 impl ConfigReader for Config {
+    #[inline]
     fn is_enable_variable_substitution(&self) -> bool {
         Config::is_enable_variable_substitution(self)
     }
 
+    #[inline]
     fn max_substitution_depth(&self) -> usize {
         Config::max_substitution_depth(self)
     }
 
+    #[inline]
     fn description(&self) -> Option<&str> {
         Config::description(self)
     }
 
+    #[inline]
     fn get_property(&self, name: &str) -> Option<&Property> {
         Config::get_property(self, name)
     }
 
+    #[inline]
     fn len(&self) -> usize {
         Config::len(self)
     }
 
+    #[inline]
     fn is_empty(&self) -> bool {
         Config::is_empty(self)
     }
@@ -1324,10 +1351,12 @@ impl ConfigReader for Config {
         Config::keys(self)
     }
 
+    #[inline]
     fn contains(&self, name: &str) -> bool {
         Config::contains(self, name)
     }
 
+    #[inline]
     fn get<T>(&self, name: &str) -> ConfigResult<T>
     where
         MultiValues: MultiValuesFirstGetter<T>,
@@ -1335,6 +1364,7 @@ impl ConfigReader for Config {
         Config::get(self, name)
     }
 
+    #[inline]
     fn get_list<T>(&self, name: &str) -> ConfigResult<Vec<T>>
     where
         MultiValues: MultiValuesGetter<T>,
@@ -1342,6 +1372,7 @@ impl ConfigReader for Config {
         Config::get_list(self, name)
     }
 
+    #[inline]
     fn get_optional<T>(&self, name: &str) -> ConfigResult<Option<T>>
     where
         MultiValues: MultiValuesFirstGetter<T>,
@@ -1349,6 +1380,7 @@ impl ConfigReader for Config {
         Config::get_optional(self, name)
     }
 
+    #[inline]
     fn get_optional_list<T>(&self, name: &str) -> ConfigResult<Option<Vec<T>>>
     where
         MultiValues: MultiValuesGetter<T>,
@@ -1356,10 +1388,12 @@ impl ConfigReader for Config {
         Config::get_optional_list(self, name)
     }
 
+    #[inline]
     fn contains_prefix(&self, prefix: &str) -> bool {
         Config::contains_prefix(self, prefix)
     }
 
+    #[inline]
     fn iter_prefix<'a>(
         &'a self,
         prefix: &'a str,
@@ -1367,18 +1401,22 @@ impl ConfigReader for Config {
         Box::new(Config::iter_prefix(self, prefix))
     }
 
+    #[inline]
     fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a str, &'a Property)> + 'a> {
         Box::new(Config::iter(self))
     }
 
+    #[inline]
     fn is_null(&self, name: &str) -> bool {
         Config::is_null(self, name)
     }
 
+    #[inline]
     fn subconfig(&self, prefix: &str, strip_prefix: bool) -> ConfigResult<Config> {
         Config::subconfig(self, prefix, strip_prefix)
     }
 
+    #[inline]
     fn deserialize<T>(&self, prefix: &str) -> ConfigResult<T>
     where
         T: serde::de::DeserializeOwned,
@@ -1386,6 +1424,7 @@ impl ConfigReader for Config {
         Config::deserialize(self, prefix)
     }
 
+    #[inline]
     fn prefix_view(&self, prefix: &str) -> ConfigPrefixView<'_> {
         Config::prefix_view(self, prefix)
     }
@@ -1522,6 +1561,7 @@ impl Default for Config {
     /// let config = Config::default();
     /// assert!(config.is_empty());
     /// ```
+    #[inline]
     fn default() -> Self {
         Self::new()
     }
