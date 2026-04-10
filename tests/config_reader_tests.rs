@@ -260,7 +260,10 @@ mod test_config_reader_extended_surface {
         assert_eq!(<Config as ConfigReader>::iter(&config).count(), 2);
 
         assert_eq!(<Config as ConfigReader>::get_or(&config, "k", 0i32), 1);
-        assert_eq!(<Config as ConfigReader>::get_or(&config, "missing", 99i32), 99);
+        assert_eq!(
+            <Config as ConfigReader>::get_or(&config, "missing", 99i32),
+            99
+        );
 
         assert_eq!(
             <Config as ConfigReader>::get_optional_string(&config, "nullish").unwrap(),
@@ -283,11 +286,19 @@ mod test_config_reader_extended_surface {
         assert_eq!(<ConfigPrefixView<'_> as ConfigReader>::len(&view), 3);
         let mut keys = <ConfigPrefixView<'_> as ConfigReader>::keys(&view);
         keys.sort();
-        assert_eq!(keys, vec!["empty".to_string(), "x".to_string(), "y".to_string()]);
-        assert_eq!(<ConfigPrefixView<'_> as ConfigReader>::iter(&view).count(), 3);
+        assert_eq!(
+            keys,
+            vec!["empty".to_string(), "x".to_string(), "y".to_string()]
+        );
+        assert_eq!(
+            <ConfigPrefixView<'_> as ConfigReader>::iter(&view).count(),
+            3
+        );
 
         assert!(<ConfigPrefixView<'_> as ConfigReader>::get_property(&view, "x").is_some());
-        assert!(<ConfigPrefixView<'_> as ConfigReader>::is_null(&view, "empty"));
+        assert!(<ConfigPrefixView<'_> as ConfigReader>::is_null(
+            &view, "empty"
+        ));
         assert_eq!(
             <ConfigPrefixView<'_> as ConfigReader>::get_optional_string(&view, "empty").unwrap(),
             None
@@ -297,7 +308,8 @@ mod test_config_reader_extended_surface {
         assert!(sub.contains("x") && sub.contains("y") && sub.contains("empty"));
         assert!(!sub.contains("a.x"));
 
-        let nested = <ConfigPrefixView<'_> as ConfigReader>::subconfig(&view, "nope", true).unwrap();
+        let nested =
+            <ConfigPrefixView<'_> as ConfigReader>::subconfig(&view, "nope", true).unwrap();
         assert!(nested.is_empty());
     }
 

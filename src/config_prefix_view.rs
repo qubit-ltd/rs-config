@@ -164,9 +164,7 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
     }
 
     fn keys(&self) -> Vec<String> {
-        self.visible_entries()
-            .map(|(k, _)| k.to_string())
-            .collect()
+        self.visible_entries().map(|(k, _)| k.to_string()).collect()
     }
 
     fn contains(&self, name: &str) -> bool {
