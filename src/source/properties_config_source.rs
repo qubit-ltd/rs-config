@@ -57,6 +57,7 @@ impl PropertiesConfigSource {
     /// # Parameters
     ///
     /// * `path` - Path to the `.properties` file
+    #[inline]
     pub fn from_file<P: AsRef<Path>>(path: P) -> Self {
         Self {
             path: path.as_ref().to_path_buf(),
@@ -138,6 +139,7 @@ fn parse_key_value(line: &str) -> Option<(&str, &str)> {
 /// # Returns
 ///
 /// `true` when the separator is escaped and must not split the key/value.
+#[inline]
 fn is_escaped_separator(line: &str, sep_pos: usize) -> bool {
     let slash_count = line.as_bytes()[..sep_pos]
         .iter()

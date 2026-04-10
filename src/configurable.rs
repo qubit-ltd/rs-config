@@ -99,6 +99,7 @@ pub trait Configurable {
     /// # Author
     ///
     /// Haixing Hu
+    #[inline]
     fn on_config_changed(&mut self) {
         // Default implementation is empty
     }

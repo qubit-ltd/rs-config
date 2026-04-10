@@ -64,6 +64,7 @@ impl YamlConfigSource {
     /// # Parameters
     ///
     /// * `path` - Path to the YAML file
+    #[inline]
     pub fn from_file<P: AsRef<Path>>(path: P) -> Self {
         Self {
             path: path.as_ref().to_path_buf(),

@@ -87,6 +87,7 @@ impl Configured {
     /// let configured = Configured::new();
     /// assert!(configured.config().is_empty());
     /// ```
+    #[inline]
     pub fn new() -> Self {
         Self {
             config: Config::new(),
@@ -111,16 +112,19 @@ impl Configured {
     /// let mut configured = Configured::with_config(Config::new());
     /// assert!(configured.config().is_empty());
     /// ```
+    #[inline]
     pub fn with_config(config: Config) -> Self {
         Self { config }
     }
 }
 
 impl Configurable for Configured {
+    #[inline]
     fn config(&self) -> &Config {
         &self.config
     }
 
+    #[inline]
     fn config_mut(&mut self) -> &mut Config {
         &mut self.config
     }
@@ -130,12 +134,14 @@ impl Configurable for Configured {
         self.on_config_changed();
     }
 
+    #[inline]
     fn on_config_changed(&mut self) {
         // Default implementation is empty, subclasses can override
     }
 }
 
 impl Default for Configured {
+    #[inline]
     fn default() -> Self {
         Self::new()
     }
