@@ -1304,6 +1304,26 @@ impl ConfigReader for Config {
         Config::max_substitution_depth(self)
     }
 
+    fn description(&self) -> Option<&str> {
+        Config::description(self)
+    }
+
+    fn get_property(&self, name: &str) -> Option<&Property> {
+        Config::get_property(self, name)
+    }
+
+    fn len(&self) -> usize {
+        Config::len(self)
+    }
+
+    fn is_empty(&self) -> bool {
+        Config::is_empty(self)
+    }
+
+    fn keys(&self) -> Vec<String> {
+        Config::keys(self)
+    }
+
     fn contains(&self, name: &str) -> bool {
         Config::contains(self, name)
     }
@@ -1322,6 +1342,20 @@ impl ConfigReader for Config {
         Config::get_list(self, name)
     }
 
+    fn get_optional<T>(&self, name: &str) -> ConfigResult<Option<T>>
+    where
+        MultiValues: MultiValuesFirstGetter<T>,
+    {
+        Config::get_optional(self, name)
+    }
+
+    fn get_optional_list<T>(&self, name: &str) -> ConfigResult<Option<Vec<T>>>
+    where
+        MultiValues: MultiValuesGetter<T>,
+    {
+        Config::get_optional_list(self, name)
+    }
+
     fn contains_prefix(&self, prefix: &str) -> bool {
         Config::contains_prefix(self, prefix)
     }
@@ -1331,6 +1365,25 @@ impl ConfigReader for Config {
         prefix: &'a str,
     ) -> Box<dyn Iterator<Item = (&'a str, &'a Property)> + 'a> {
         Box::new(Config::iter_prefix(self, prefix))
+    }
+
+    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a str, &'a Property)> + 'a> {
+        Box::new(Config::iter(self))
+    }
+
+    fn is_null(&self, name: &str) -> bool {
+        Config::is_null(self, name)
+    }
+
+    fn subconfig(&self, prefix: &str, strip_prefix: bool) -> ConfigResult<Config> {
+        Config::subconfig(self, prefix, strip_prefix)
+    }
+
+    fn deserialize<T>(&self, prefix: &str) -> ConfigResult<T>
+    where
+        T: serde::de::DeserializeOwned,
+    {
+        Config::deserialize(self, prefix)
     }
 
     fn prefix_view(&self, prefix: &str) -> ConfigPrefixView<'_> {

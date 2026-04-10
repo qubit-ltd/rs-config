@@ -8,7 +8,10 @@
  ******************************************************************************/
 //! [`qubit_config::ConfigReader`] tests.
 
-use qubit_config::{Config, ConfigPrefixView, ConfigReader};
+use qubit_common::DataType;
+use qubit_config::{Config, ConfigPrefixView, ConfigReader, Property};
+use qubit_value::MultiValues;
+use serde::Deserialize;
 
 fn create_test_config() -> Config {
     let mut config = Config::new();
@@ -158,6 +161,38 @@ mod test_config_reader {
             "http://localhost"
         );
     }
+
+    #[test]
+    fn test_config_reader_get_optional_on_config_and_prefix_view() {
+        let mut config = Config::new();
+        config.set("http.ipv4_only", true).unwrap();
+        config.set("http.port", 8080i32).unwrap();
+
+        assert_eq!(
+            <Config as ConfigReader>::get_optional::<bool>(&config, "missing").unwrap(),
+            None
+        );
+        assert_eq!(
+            <Config as ConfigReader>::get_optional::<bool>(&config, "http.ipv4_only").unwrap(),
+            Some(true)
+        );
+
+        let http = config.prefix_view("http");
+        assert_eq!(
+            <ConfigPrefixView<'_> as ConfigReader>::get_optional::<bool>(&http, "ipv4_only")
+                .unwrap(),
+            Some(true)
+        );
+        assert_eq!(
+            <ConfigPrefixView<'_> as ConfigReader>::get_optional::<i32>(&http, "port").unwrap(),
+            Some(8080)
+        );
+        assert_eq!(
+            <ConfigPrefixView<'_> as ConfigReader>::get_optional::<i32>(&http, "nope").unwrap(),
+            None
+        );
+    }
+
     #[test]
     fn test_config_reader_forwarding_for_config_impl() {
         let mut config = Config::new();
@@ -175,5 +210,114 @@ mod test_config_reader {
             .map(|(k, _)| k)
             .collect();
         assert_eq!(keys.len(), 2);
+    }
+}
+
+/// Exercises [`ConfigReader`] methods added to mirror [`Config`]'s read-only API.
+#[cfg(test)]
+mod test_config_reader_extended_surface {
+    use super::*;
+
+    #[derive(Deserialize, Debug, PartialEq, Eq)]
+    struct Server {
+        host: String,
+        port: i32,
+    }
+
+    #[test]
+    fn description_matches_underlying_config_on_root_and_prefix_view() {
+        let config = Config::with_description("app");
+        assert_eq!(<Config as ConfigReader>::description(&config), Some("app"));
+        let view = config.prefix_view("any");
+        assert_eq!(
+            <ConfigPrefixView<'_> as ConfigReader>::description(&view),
+            Some("app")
+        );
+    }
+
+    #[test]
+    fn get_property_len_keys_iter_get_or_is_null_and_optional_string_empty() {
+        let mut config = Config::new();
+        config.set("k", 1i32).unwrap();
+        config.properties_mut().insert(
+            "nullish".to_string(),
+            Property::with_value("nullish", MultiValues::Empty(DataType::Int32)),
+        );
+
+        assert!(<Config as ConfigReader>::get_property(&config, "k").is_some());
+        assert!(<Config as ConfigReader>::get_property(&config, "nullish").is_some());
+        assert!(<Config as ConfigReader>::is_null(&config, "nullish"));
+        assert!(!<Config as ConfigReader>::is_null(&config, "k"));
+        assert!(!<Config as ConfigReader>::is_null(&config, "missing"));
+
+        assert_eq!(<Config as ConfigReader>::len(&config), 2);
+        assert!(!<Config as ConfigReader>::is_empty(&config));
+
+        let mut keys = <Config as ConfigReader>::keys(&config);
+        keys.sort();
+        assert_eq!(keys, vec!["k".to_string(), "nullish".to_string()]);
+
+        assert_eq!(<Config as ConfigReader>::iter(&config).count(), 2);
+
+        assert_eq!(<Config as ConfigReader>::get_or(&config, "k", 0i32), 1);
+        assert_eq!(<Config as ConfigReader>::get_or(&config, "missing", 99i32), 99);
+
+        assert_eq!(
+            <Config as ConfigReader>::get_optional_string(&config, "nullish").unwrap(),
+            None
+        );
+    }
+
+    #[test]
+    fn prefix_view_len_keys_iter_get_property_is_null_subconfig() {
+        let mut config = Config::new();
+        config.set("a.x", 1i32).unwrap();
+        config.set("a.y", 2i32).unwrap();
+        config.set("b.z", 3i32).unwrap();
+        config.properties_mut().insert(
+            "a.empty".to_string(),
+            Property::with_value("a.empty", MultiValues::Empty(DataType::String)),
+        );
+
+        let view = config.prefix_view("a");
+        assert_eq!(<ConfigPrefixView<'_> as ConfigReader>::len(&view), 3);
+        let mut keys = <ConfigPrefixView<'_> as ConfigReader>::keys(&view);
+        keys.sort();
+        assert_eq!(keys, vec!["empty".to_string(), "x".to_string(), "y".to_string()]);
+        assert_eq!(<ConfigPrefixView<'_> as ConfigReader>::iter(&view).count(), 3);
+
+        assert!(<ConfigPrefixView<'_> as ConfigReader>::get_property(&view, "x").is_some());
+        assert!(<ConfigPrefixView<'_> as ConfigReader>::is_null(&view, "empty"));
+        assert_eq!(
+            <ConfigPrefixView<'_> as ConfigReader>::get_optional_string(&view, "empty").unwrap(),
+            None
+        );
+
+        let sub = <ConfigPrefixView<'_> as ConfigReader>::subconfig(&view, "", true).unwrap();
+        assert!(sub.contains("x") && sub.contains("y") && sub.contains("empty"));
+        assert!(!sub.contains("a.x"));
+
+        let nested = <ConfigPrefixView<'_> as ConfigReader>::subconfig(&view, "nope", true).unwrap();
+        assert!(nested.is_empty());
+    }
+
+    #[test]
+    fn deserialize_via_trait_on_config_and_prefix_view() {
+        let mut config = Config::new();
+        config.set("srv.host", "h").unwrap();
+        config.set("srv.port", 5i32).unwrap();
+
+        let server: Server = <Config as ConfigReader>::deserialize(&config, "srv").unwrap();
+        assert_eq!(
+            server,
+            Server {
+                host: "h".to_string(),
+                port: 5,
+            }
+        );
+
+        let view = config.prefix_view("srv");
+        let again: Server = <ConfigPrefixView<'_> as ConfigReader>::deserialize(&view, "").unwrap();
+        assert_eq!(again, server);
     }
 }

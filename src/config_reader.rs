@@ -10,15 +10,21 @@
 
 use qubit_value::multi_values::{MultiValuesFirstGetter, MultiValuesGetter};
 use qubit_value::MultiValues;
+use serde::de::DeserializeOwned;
 
 use crate::config_prefix_view::ConfigPrefixView;
-use crate::{utils, ConfigResult, Property};
+use crate::{utils, Config, ConfigResult, Property};
 
 /// Read-only configuration interface.
 ///
 /// This trait allows consumers to read configuration values without requiring
 /// ownership of a [`crate::Config`]. Both [`crate::Config`] and
 /// [`crate::ConfigPrefixView`] implement it.
+///
+/// Its required methods mirror the read-only surface of [`crate::Config`]
+/// (metadata, raw properties, iteration, subtree extraction, and serde
+/// deserialization), with prefix views resolving keys relative to their
+/// logical prefix.
 ///
 /// Author: Haixing Hu
 pub trait ConfigReader {
@@ -39,6 +45,27 @@ pub trait ConfigReader {
     /// [`crate::constants::DEFAULT_MAX_SUBSTITUTION_DEPTH`] for the default
     /// used by [`crate::Config`]).
     fn max_substitution_depth(&self) -> usize;
+
+    /// Returns the optional human-readable description attached to this
+    /// configuration (the whole document; prefix views expose the same value
+    /// as the underlying [`crate::Config`]).
+    fn description(&self) -> Option<&str>;
+
+    /// Returns a reference to the raw [`Property`] for `name`, if present.
+    ///
+    /// For a [`ConfigPrefixView`], `name` is resolved relative to the view
+    /// prefix (same rules as [`Self::get`]).
+    fn get_property(&self, name: &str) -> Option<&Property>;
+
+    /// Number of configuration entries visible to this reader (all keys for
+    /// [`crate::Config`]; relative keys only for a [`ConfigPrefixView`]).
+    fn len(&self) -> usize;
+
+    /// Returns `true` when [`Self::len`] is zero.
+    fn is_empty(&self) -> bool;
+
+    /// All keys visible to this reader (relative keys for a prefix view).
+    fn keys(&self) -> Vec<String>;
 
     /// Returns whether a property exists for the given key.
     ///
@@ -89,6 +116,50 @@ pub trait ConfigReader {
     where
         MultiValues: MultiValuesGetter<T>;
 
+    /// Gets a value or `default` if the key is missing or conversion fails (same
+    /// as [`crate::Config::get_or`]).
+    fn get_or<T>(&self, name: &str, default: T) -> T
+    where
+        MultiValues: MultiValuesFirstGetter<T>,
+    {
+        self.get(name).unwrap_or(default)
+    }
+
+    /// Gets an optional value with the same semantics as [`crate::Config::get_optional`].
+    ///
+    /// # Type parameters
+    ///
+    /// * `T` - Target type; requires `MultiValues` to implement
+    ///   `MultiValuesFirstGetter` for `T`.
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Configuration key (relative for a prefix view).
+    ///
+    /// # Returns
+    ///
+    /// `Ok(Some(v))`, `Ok(None)` when missing or empty, or `Err` on conversion failure.
+    fn get_optional<T>(&self, name: &str) -> ConfigResult<Option<T>>
+    where
+        MultiValues: MultiValuesFirstGetter<T>;
+
+    /// Gets an optional list with the same semantics as [`crate::Config::get_optional_list`].
+    ///
+    /// # Type parameters
+    ///
+    /// * `T` - Element type; requires `MultiValues` to implement `MultiValuesGetter` for `T`.
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Configuration key.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(Some(vec))`, `Ok(None)` when missing or empty, or `Err` on failure.
+    fn get_optional_list<T>(&self, name: &str) -> ConfigResult<Option<Vec<T>>>
+    where
+        MultiValues: MultiValuesGetter<T>;
+
     /// Returns whether any key visible to this reader starts with `prefix`.
     ///
     /// # Parameters
@@ -114,6 +185,25 @@ pub trait ConfigReader {
         &'a self,
         prefix: &'a str,
     ) -> Box<dyn Iterator<Item = (&'a str, &'a Property)> + 'a>;
+
+    /// Iterates all `(key, property)` pairs visible to this reader (same scope
+    /// as [`Self::keys`]).
+    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a str, &'a Property)> + 'a>;
+
+    /// Returns `true` if the key exists and the property has no values (same
+    /// as [`crate::Config::is_null`]).
+    fn is_null(&self, name: &str) -> bool;
+
+    /// Extracts a subtree as a new [`Config`] (same semantics as
+    /// [`crate::Config::subconfig`]; on a prefix view, `prefix` is relative to
+    /// the view).
+    fn subconfig(&self, prefix: &str, strip_prefix: bool) -> ConfigResult<Config>;
+
+    /// Deserializes the subtree at `prefix` with serde (same as
+    /// [`crate::Config::deserialize`]; on a prefix view, `prefix` is relative).
+    fn deserialize<T>(&self, prefix: &str) -> ConfigResult<T>
+    where
+        T: DeserializeOwned;
 
     /// Creates a read-only prefix view; relative keys resolve under `prefix`.
     ///
@@ -218,10 +308,10 @@ pub trait ConfigReader {
     /// substitution applied; or `Err` if the value exists but cannot be read as
     /// a string.
     fn get_optional_string(&self, name: &str) -> ConfigResult<Option<String>> {
-        if self.contains(name) {
-            Ok(Some(self.get_string(name)?))
-        } else {
-            Ok(None)
+        match self.get_property(name) {
+            None => Ok(None),
+            Some(prop) if prop.is_empty() => Ok(None),
+            Some(_) => self.get_string(name).map(Some),
         }
     }
 
@@ -236,10 +326,10 @@ pub trait ConfigReader {
     /// `Ok(None)` if the key is missing or empty; `Ok(Some(vec))` otherwise; or
     /// `Err` on conversion/substitution failure.
     fn get_optional_string_list(&self, name: &str) -> ConfigResult<Option<Vec<String>>> {
-        if self.contains(name) {
-            Ok(Some(self.get_string_list(name)?))
-        } else {
-            Ok(None)
+        match self.get_property(name) {
+            None => Ok(None),
+            Some(prop) if prop.is_empty() => Ok(None),
+            Some(_) => self.get_string_list(name).map(Some),
         }
     }
 }

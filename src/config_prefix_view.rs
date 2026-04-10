@@ -122,6 +122,19 @@ impl<'a> ConfigPrefixView<'a> {
             }
         }))
     }
+
+    /// Combines this view's prefix with a relative `sub_prefix` for delegation
+    /// to [`Config::subconfig`] / [`Config::deserialize`].
+    fn effective_root_prefix(&self, sub_prefix: &str) -> String {
+        let child = sub_prefix.trim_matches('.');
+        if self.prefix.is_empty() {
+            child.to_string()
+        } else if child.is_empty() {
+            self.prefix.clone()
+        } else {
+            format!("{}.{}", self.prefix, child)
+        }
+    }
 }
 
 impl<'a> ConfigReader for ConfigPrefixView<'a> {
@@ -131,6 +144,29 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
 
     fn max_substitution_depth(&self) -> usize {
         self.config.max_substitution_depth()
+    }
+
+    fn description(&self) -> Option<&str> {
+        self.config.description()
+    }
+
+    fn get_property(&self, name: &str) -> Option<&Property> {
+        let key = self.resolve_key(name);
+        self.config.get_property(key.as_ref())
+    }
+
+    fn len(&self) -> usize {
+        self.visible_entries().count()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.visible_entries().next().is_none()
+    }
+
+    fn keys(&self) -> Vec<String> {
+        self.visible_entries()
+            .map(|(k, _)| k.to_string())
+            .collect()
     }
 
     fn contains(&self, name: &str) -> bool {
@@ -154,6 +190,22 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
         self.config.get_list(key.as_ref())
     }
 
+    fn get_optional<T>(&self, name: &str) -> ConfigResult<Option<T>>
+    where
+        MultiValues: MultiValuesFirstGetter<T>,
+    {
+        let key = self.resolve_key(name);
+        self.config.get_optional(key.as_ref())
+    }
+
+    fn get_optional_list<T>(&self, name: &str) -> ConfigResult<Option<Vec<T>>>
+    where
+        MultiValues: MultiValuesGetter<T>,
+    {
+        let key = self.resolve_key(name);
+        self.config.get_optional_list(key.as_ref())
+    }
+
     fn contains_prefix(&self, prefix: &str) -> bool {
         self.visible_entries().any(|(k, _)| k.starts_with(prefix))
     }
@@ -166,6 +218,28 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
             self.visible_entries()
                 .filter(move |(k, _)| k.starts_with(prefix)),
         )
+    }
+
+    fn iter<'b>(&'b self) -> Box<dyn Iterator<Item = (&'b str, &'b Property)> + 'b> {
+        self.visible_entries()
+    }
+
+    fn is_null(&self, name: &str) -> bool {
+        let key = self.resolve_key(name);
+        self.config.is_null(key.as_ref())
+    }
+
+    fn subconfig(&self, prefix: &str, strip_prefix: bool) -> ConfigResult<Config> {
+        let full = self.effective_root_prefix(prefix);
+        self.config.subconfig(&full, strip_prefix)
+    }
+
+    fn deserialize<T>(&self, prefix: &str) -> ConfigResult<T>
+    where
+        T: serde::de::DeserializeOwned,
+    {
+        let full = self.effective_root_prefix(prefix);
+        self.config.deserialize(&full)
     }
 
     fn prefix_view(&self, prefix: &str) -> ConfigPrefixView<'a> {
