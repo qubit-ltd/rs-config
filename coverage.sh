@@ -52,7 +52,7 @@ done
 
 # Exclude: cargo registry, rustup, and other workspace crates.
 # Use an anchored workspace path to avoid accidentally excluding this crate
-# when parent directory names overlap (e.g. /rust-common/rust-config).
+# when parent directory names overlap (e.g. /rust-common/rs-config).
 if [ -n "$OTHER_CRATES" ]; then
     EXCLUDE_PATTERN="(\.cargo/registry|\.rustup/|^$ESCAPED_WORKSPACE_ROOT/($OTHER_CRATES)/)"
 else

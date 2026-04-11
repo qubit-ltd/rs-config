@@ -9,7 +9,7 @@
 ### 1. CircleCI Configuration
 
 ```
-rust-config/
+rs-config/
 ├── .circleci/
 │   ├── config.yml                # Main CircleCI configuration (generic)
 │   ├── README.md                 # Full documentation (English)
@@ -202,8 +202,8 @@ If build is abnormally slow or failing:
 Need help?
 
 - 📧 Email: starfish.hu@gmail.com
-- 🐛 Issues: https://github.com/qubit-ltd/rust-config/issues
-- 💬 Discussions: https://github.com/qubit-ltd/rust-config/discussions
+- 🐛 Issues: https://github.com/qubit-ltd/rs-config/issues
+- 💬 Discussions: https://github.com/qubit-ltd/rs-config/discussions
 
 ## 🔗 Related Links
 

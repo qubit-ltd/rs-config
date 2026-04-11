@@ -8,7 +8,7 @@
 ### 1. ✅ Made Configuration Generic
 
 **Changes**:
-- Removed all hardcoded `rust-config` references
+- CI scripts no longer assume a fixed checkout directory name (paths are project-root-relative)
 - All paths are now relative to project root
 - Package name auto-detected from `Cargo.toml`
 - Works from any Rust project directory
@@ -21,9 +21,9 @@
 ### 2. ✅ Moved Configuration Location
 
 **From**: `/rust-common/.circleci/`
-**To**: `/rust-common/rust-config/.circleci/`
+**To**: `/rust-common/rs-config/.circleci/`
 
-**Reason**: Configuration is specific to the `rust-config` project, not the workspace root.
+**Reason**: Configuration is specific to the `rs-config` project, not the workspace root.
 
 ### 3. ✅ Internationalized All Content
 
@@ -50,7 +50,7 @@ All documents now have both English (default) and Chinese versions:
 - ❌ `/rust-common/CIRCLECI_SETUP.md` (moved to new location)
 
 **Kept**:
-- ✅ `/rust-common/rust-config/.circleci/` (new location)
+- ✅ `/rust-common/rs-config/.circleci/` (new location)
 - ✅ All documentation files (English + Chinese)
 
 ### 5. ✅ Coverage Integration
@@ -64,7 +64,7 @@ All documents now have both English (default) and Chinese versions:
 ## 📁 Final File Structure
 
 ```
-rust-config/
+rs-config/
 ├── .circleci/
 │   ├── config.yml                # Main configuration (generic, English)
 │   ├── README.md                 # Full docs (English) ⭐
@@ -116,7 +116,7 @@ rust-config/
 
 ## 🚀 How to Use
 
-### For This Project (rust-config)
+### For This Project (rs-config)
 
 Configuration is ready to use:
 
@@ -132,10 +132,10 @@ Copy to another project:
 
 ```bash
 # Copy entire .circleci directory
-cp -r rust-config/.circleci /path/to/other-rust-project/
+cp -r rs-config/.circleci /path/to/other-rust-project/
 
 # Copy ci-check script
-cp rust-config/ci-check.sh /path/to/other-rust-project/
+cp rs-config/ci-check.sh /path/to/other-rust-project/
 
 # Done! No configuration changes needed
 ```
@@ -186,9 +186,9 @@ See:
 
 **Before**:
 ```yaml
-- cd rust-config
+- cd rs-config
 - cargo build
-- checksum "rust-config/Cargo.lock"
+- checksum "rs-config/Cargo.lock"
 ```
 
 **After**:
