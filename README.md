@@ -1,7 +1,7 @@
 # qubit-config
 
-[![CircleCI](https://circleci.com/gh/qubit-ltd/rust-config.svg?style=shield)](https://circleci.com/gh/qubit-ltd/rust-config)
-[![Coverage Status](https://coveralls.io/repos/github/qubit-ltd/rust-config/badge.svg?branch=main)](https://coveralls.io/github/qubit-ltd/rust-config?branch=main)
+[![CircleCI](https://circleci.com/gh/qubit-ltd/rs-config.svg?style=shield)](https://circleci.com/gh/qubit-ltd/rs-config)
+[![Coverage Status](https://coveralls.io/repos/github/qubit-ltd/rs-config/badge.svg?branch=main)](https://coveralls.io/github/qubit-ltd/rs-config?branch=main)
 [![Crates.io](https://img.shields.io/crates/v/qubit-config.svg?color=blue)](https://crates.io/crates/qubit-config)
 [![Rust](https://img.shields.io/badge/rust-1.70+-blue.svg?logo=rust)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)

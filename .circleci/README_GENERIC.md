@@ -35,10 +35,10 @@ All commands work from the project root without `cd` commands:
 
 ## How to Use
 
-### For This Project (rust-config)
+### For This Project (rs-config)
 
 The configuration is already set up. CircleCI will automatically:
-1. Detect it's in the `rust-config` directory
+1. Detect it's in the `rs-config` directory
 2. Use the package name from `Cargo.toml`
 3. Run all checks from the project root
 

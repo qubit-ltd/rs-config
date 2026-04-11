@@ -31,8 +31,8 @@
 在项目的 `README.md` 中添加：
 
 ```markdown
-[![CircleCI](https://circleci.com/gh/qubit-ltd/rust-config.svg?style=svg)](https://circleci.com/gh/qubit-ltd/rust-config)
-[![Coverage Status](https://coveralls.io/repos/github/qubit-ltd/rust-config/badge.svg?branch=main)](https://coveralls.io/github/qubit-ltd/rust-config?branch=main)
+[![CircleCI](https://circleci.com/gh/qubit-ltd/rs-config.svg?style=svg)](https://circleci.com/gh/qubit-ltd/rs-config)
+[![Coverage Status](https://coveralls.io/repos/github/qubit-ltd/rs-config/badge.svg?branch=main)](https://coveralls.io/github/qubit-ltd/rs-config?branch=main)
 ```
 
 ### 4. 本地测试（3 分钟）
@@ -40,7 +40,7 @@
 在提交前运行本地检查：
 
 ```bash
-cd rust-config
+cd rs-config
 ./ci-check.sh
 ```
 
@@ -69,7 +69,7 @@ cd rust-config
 
 ```bash
 # 快速检查（推荐）
-cd rust-config
+cd rs-config
 ./ci-check.sh
 
 # 或分步检查
@@ -80,7 +80,7 @@ cargo test             # 运行测试
 
 ### 查看构建状态
 
-- 在线查看：https://app.circleci.com/pipelines/github/qubit-ltd/rust-config
+- 在线查看：https://app.circleci.com/pipelines/github/qubit-ltd/rs-config
 - PR 页面会显示检查状态
 - 失败时会收到邮件通知（如已配置）
 
@@ -162,8 +162,8 @@ git commit -m "docs: 更新文档 [ci skip]"
 ## 🔗 重要链接
 
 - 📖 [完整文档](README.zh_CN.md)
-- 🏠 [CircleCI 仪表板](https://app.circleci.com/pipelines/github/qubit-ltd/rust-config)
-- 📚 [项目文档](https://github.com/qubit-ltd/rust-config)
+- 🏠 [CircleCI 仪表板](https://app.circleci.com/pipelines/github/qubit-ltd/rs-config)
+- 📚 [项目文档](https://github.com/qubit-ltd/rs-config)
 
 ## 💡 最佳实践
 
@@ -176,8 +176,8 @@ git commit -m "docs: 更新文档 [ci skip]"
 ## 🆘 需要帮助？
 
 - 📧 starfish.hu@gmail.com
-- 🐛 [提交 Issue](https://github.com/qubit-ltd/rust-config/issues)
-- 💬 [讨论区](https://github.com/qubit-ltd/rust-config/discussions)
+- 🐛 [提交 Issue](https://github.com/qubit-ltd/rs-config/issues)
+- 💬 [讨论区](https://github.com/qubit-ltd/rs-config/discussions)
 
 ---
 
