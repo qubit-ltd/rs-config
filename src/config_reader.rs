@@ -223,6 +223,25 @@ pub trait ConfigReader {
     /// [`crate::Config`].
     fn prefix_view(&self, prefix: &str) -> ConfigPrefixView<'_>;
 
+    /// Resolves `name` into the canonical key path against the root
+    /// [`crate::Config`].
+    ///
+    /// For a root [`crate::Config`], this returns `name` unchanged. For a
+    /// [`crate::ConfigPrefixView`], this prepends the effective view prefix so
+    /// callers can report root-relative key paths in diagnostics.
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Relative or absolute key in the current reader scope.
+    ///
+    /// # Returns
+    ///
+    /// Root-relative key path string.
+    #[inline]
+    fn resolve_key(&self, name: &str) -> String {
+        name.to_string()
+    }
+
     /// Gets a string value, applying variable substitution when enabled.
     ///
     /// # Parameters
