@@ -90,7 +90,20 @@ impl<'a> ConfigPrefixView<'a> {
         }
     }
 
-    fn resolve_key<'b>(&'b self, name: &'b str) -> Cow<'b, str> {
+    /// Maps a caller-supplied key to the storage key used on the underlying
+    /// [`Config`].
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Relative or already-qualified property key.
+    ///
+    /// # Returns
+    ///
+    /// [`Cow::Borrowed`] when `name` needs no rewrite (empty
+    /// [`Self::prefix`], empty `name`, `name` equal to the view prefix, or
+    /// `name` already starts with `{prefix}.`); otherwise [`Cow::Owned`] with
+    /// `{prefix}.{name}`.
+    fn resolve_key_cow<'b>(&'b self, name: &'b str) -> Cow<'b, str> {
         if self.prefix.is_empty() || name.is_empty() {
             return Cow::Borrowed(name);
         }
@@ -156,7 +169,7 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
     }
 
     fn get_property(&self, name: &str) -> Option<&Property> {
-        let key = self.resolve_key(name);
+        let key = self.resolve_key_cow(name);
         self.config.get_property(key.as_ref())
     }
 
@@ -173,7 +186,7 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
     }
 
     fn contains(&self, name: &str) -> bool {
-        let key = self.resolve_key(name);
+        let key = self.resolve_key_cow(name);
         self.config.contains(key.as_ref())
     }
 
@@ -181,7 +194,7 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
     where
         MultiValues: MultiValuesFirstGetter<T>,
     {
-        let key = self.resolve_key(name);
+        let key = self.resolve_key_cow(name);
         self.config.get(key.as_ref())
     }
 
@@ -189,7 +202,7 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
     where
         MultiValues: MultiValuesGetter<T>,
     {
-        let key = self.resolve_key(name);
+        let key = self.resolve_key_cow(name);
         self.config.get_list(key.as_ref())
     }
 
@@ -197,7 +210,7 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
     where
         MultiValues: MultiValuesFirstGetter<T>,
     {
-        let key = self.resolve_key(name);
+        let key = self.resolve_key_cow(name);
         self.config.get_optional(key.as_ref())
     }
 
@@ -205,7 +218,7 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
     where
         MultiValues: MultiValuesGetter<T>,
     {
-        let key = self.resolve_key(name);
+        let key = self.resolve_key_cow(name);
         self.config.get_optional_list(key.as_ref())
     }
 
@@ -228,7 +241,7 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
     }
 
     fn is_null(&self, name: &str) -> bool {
-        let key = self.resolve_key(name);
+        let key = self.resolve_key_cow(name);
         self.config.is_null(key.as_ref())
     }
 
@@ -248,5 +261,12 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
     #[inline]
     fn prefix_view(&self, prefix: &str) -> ConfigPrefixView<'a> {
         ConfigPrefixView::prefix_view(self, prefix)
+    }
+
+    fn resolve_key(&self, name: &str) -> String {
+        if name.is_empty() {
+            return self.prefix.clone();
+        }
+        self.resolve_key_cow(name).into_owned()
     }
 }

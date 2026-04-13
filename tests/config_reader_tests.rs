@@ -236,6 +236,35 @@ mod test_config_reader_extended_surface {
     }
 
     #[test]
+    fn resolve_key_returns_root_relative_paths() {
+        let mut config = Config::new();
+        config.set("http.proxy.host", "proxy").unwrap();
+
+        assert_eq!(<Config as ConfigReader>::resolve_key(&config, "k"), "k");
+        assert_eq!(<Config as ConfigReader>::resolve_key(&config, ""), "");
+
+        let http = config.prefix_view("http");
+        assert_eq!(
+            <ConfigPrefixView<'_> as ConfigReader>::resolve_key(&http, "proxy.host"),
+            "http.proxy.host"
+        );
+        assert_eq!(
+            <ConfigPrefixView<'_> as ConfigReader>::resolve_key(&http, ""),
+            "http"
+        );
+
+        let proxy = http.prefix_view("proxy");
+        assert_eq!(
+            <ConfigPrefixView<'_> as ConfigReader>::resolve_key(&proxy, "host"),
+            "http.proxy.host"
+        );
+        assert_eq!(
+            <ConfigPrefixView<'_> as ConfigReader>::resolve_key(&proxy, ""),
+            "http.proxy"
+        );
+    }
+
+    #[test]
     fn get_property_len_keys_iter_get_or_is_null_and_optional_string_empty() {
         let mut config = Config::new();
         config.set("k", 1i32).unwrap();
