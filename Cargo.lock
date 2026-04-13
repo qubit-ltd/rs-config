@@ -485,7 +485,7 @@ dependencies = [
 
 [[package]]
 name = "qubit-config"
-version = "0.8.2"
+version = "0.8.3"
 dependencies = [
  "bigdecimal",
  "chrono",
