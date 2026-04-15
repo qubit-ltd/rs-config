@@ -1,6 +1,6 @@
 [package]
 name = "qubit-config"
-version = "0.8.3"
+version = "0.8.4"
 edition = "2021"
 rust-version = "1.70"
 authors = ["Haixing Hu <starfish.hu@gmail.com>"]
@@ -27,20 +27,20 @@ name = "qubit_config"
 doctest = false
 
 [dependencies]
-qubit-common = "0.5.3"
-qubit-value = "0.3.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-thiserror = "2.0.17"
+thiserror = "2.0"
 tracing = "0.1"
 chrono = { version = "0.4", features = ["serde"] }
-regex = "1.10"
+regex = "1.12"
 url = "2.5"
 num-bigint = { version = "0.4", features = ["serde"] }
 bigdecimal = { version = "0.4", features = ["serde"] }
-toml = { version = "1.1.2", features = ["parse"] }
+toml = { version = "1.1", features = ["parse"] }
 serde_yaml = "0.9"
 dotenvy = "0.15"
+qubit-common = "0.5.3"
+qubit-value = "0.3.3"
 
 [dev-dependencies]
 tempfile = "3"
