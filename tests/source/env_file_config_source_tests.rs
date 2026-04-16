@@ -9,8 +9,8 @@
 //! # `EnvFileConfigSource` tests
 
 use qubit_config::{
-    source::{ConfigSource, EnvFileConfigSource},
     Config, ConfigError,
+    source::{ConfigSource, EnvFileConfigSource},
 };
 
 use std::path::PathBuf;

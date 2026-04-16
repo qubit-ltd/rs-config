@@ -9,8 +9,8 @@
 //! # `YamlConfigSource` tests
 
 use qubit_config::{
-    source::{ConfigSource, YamlConfigSource},
     Config, ConfigError,
+    source::{ConfigSource, YamlConfigSource},
 };
 
 use std::path::PathBuf;

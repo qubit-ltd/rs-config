@@ -34,4 +34,3 @@ pub use configured::Configured;
 pub use error::{ConfigError, ConfigResult};
 pub use property::Property;
 pub use source::ConfigSource;
-pub use utils::substitute_variables;

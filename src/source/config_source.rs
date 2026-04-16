@@ -15,7 +15,7 @@ use crate::{Config, ConfigResult};
 ///
 /// # Examples
 ///
-/// ```rust,ignore
+/// ```rust
 /// use qubit_config::{Config, source::ConfigSource};
 ///
 /// struct MySource;

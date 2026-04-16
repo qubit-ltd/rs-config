@@ -25,7 +25,7 @@ use qubit_value::ValueError;
 ///
 /// # Examples
 ///
-/// ```rust,ignore
+/// ```rust
 /// use qubit_config::{Config, ConfigError, ConfigResult};
 /// fn get_port(config: &Config) -> ConfigResult<i32> { unimplemented!() }
 /// ```

@@ -34,7 +34,7 @@ use super::ConfigSource;
 ///
 /// # Examples
 ///
-/// ```rust,ignore
+/// ```rust
 /// use qubit_config::source::{EnvConfigSource, ConfigSource};
 /// use qubit_config::Config;
 ///
@@ -146,12 +146,11 @@ impl EnvConfigSource {
     fn transform_key(&self, key: &str) -> String {
         let mut result = key.to_string();
 
-        if self.strip_prefix {
-            if let Some(prefix) = &self.prefix {
-                if result.starts_with(prefix.as_str()) {
-                    result = result[prefix.len()..].to_string();
-                }
-            }
+        if self.strip_prefix
+            && let Some(prefix) = &self.prefix
+            && result.starts_with(prefix.as_str())
+        {
+            result = result[prefix.len()..].to_string();
         }
 
         if self.lowercase_keys {
@@ -177,10 +176,10 @@ impl ConfigSource for EnvConfigSource {
     fn load(&self, config: &mut Config) -> ConfigResult<()> {
         for (key, value) in std::env::vars() {
             // Filter by prefix if set
-            if let Some(prefix) = &self.prefix {
-                if !key.starts_with(prefix.as_str()) {
-                    continue;
-                }
+            if let Some(prefix) = &self.prefix
+                && !key.starts_with(prefix.as_str())
+            {
+                continue;
             }
 
             let transformed_key = self.transform_key(&key);

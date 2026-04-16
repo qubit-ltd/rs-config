@@ -9,8 +9,8 @@
 //! # `PropertiesConfigSource` tests
 
 use qubit_config::{
-    source::{ConfigSource, PropertiesConfigSource},
     Config, ConfigError,
+    source::{ConfigSource, PropertiesConfigSource},
 };
 
 use std::path::PathBuf;

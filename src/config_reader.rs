@@ -8,12 +8,12 @@
  ******************************************************************************/
 #![allow(private_bounds)]
 
-use qubit_value::multi_values::{MultiValuesFirstGetter, MultiValuesGetter};
 use qubit_value::MultiValues;
+use qubit_value::multi_values::{MultiValuesFirstGetter, MultiValuesGetter};
 use serde::de::DeserializeOwned;
 
 use crate::config_prefix_view::ConfigPrefixView;
-use crate::{utils, Config, ConfigResult, Property};
+use crate::{Config, ConfigResult, Property, utils};
 
 /// Read-only configuration interface.
 ///
