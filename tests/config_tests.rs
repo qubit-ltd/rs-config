@@ -1478,10 +1478,7 @@ mod test_get_and_get_list_error_mapping_additional_paths {
         ));
 
         // get_list on empty property returns empty list in current implementation.
-        config.properties_mut().insert(
-            "empty_list".to_string(),
-            Property::with_value("empty_list", MultiValues::Empty(DataType::String)),
-        );
+        config.set_null("empty_list", DataType::String).unwrap();
         let empty_values = config.get_list::<String>("empty_list").unwrap();
         assert!(empty_values.is_empty());
 
@@ -1521,10 +1518,7 @@ mod test_is_null {
     #[test]
     fn test_is_null_empty_property_returns_true() {
         let mut config = Config::new();
-        config.properties_mut().insert(
-            "nullable".to_string(),
-            Property::with_value("nullable", MultiValues::Empty(DataType::String)),
-        );
+        config.set_null("nullable", DataType::String).unwrap();
         assert!(config.is_null("nullable"));
     }
 
@@ -1563,10 +1557,7 @@ mod test_get_optional {
     #[test]
     fn test_get_optional_null_property_returns_none() {
         let mut config = Config::new();
-        config.properties_mut().insert(
-            "nullable".to_string(),
-            Property::with_value("nullable", MultiValues::Empty(DataType::String)),
-        );
+        config.set_null("nullable", DataType::String).unwrap();
         let result: Option<String> = config.get_optional("nullable").unwrap();
         assert_eq!(result, None);
     }
@@ -1628,10 +1619,7 @@ mod test_get_optional_list {
     #[test]
     fn test_get_optional_list_null_property_returns_none() {
         let mut config = Config::new();
-        config.properties_mut().insert(
-            "nullable".to_string(),
-            Property::with_value("nullable", MultiValues::Empty(DataType::Int32)),
-        );
+        config.set_null("nullable", DataType::Int32).unwrap();
         let result: Option<Vec<i32>> = config.get_optional_list("nullable").unwrap();
         assert_eq!(result, None);
     }
@@ -1676,20 +1664,14 @@ mod test_get_optional_string {
     #[test]
     fn test_get_optional_string_null_returns_none() {
         let mut config = Config::new();
-        config.properties_mut().insert(
-            "n".to_string(),
-            Property::with_value("n", MultiValues::Empty(DataType::String)),
-        );
+        config.set_null("n", DataType::String).unwrap();
         assert_eq!(config.get_optional_string("n").unwrap(), None);
     }
 
     #[test]
     fn test_get_optional_string_null_non_string_empty_still_none() {
         let mut config = Config::new();
-        config.properties_mut().insert(
-            "nullable".to_string(),
-            Property::with_value("nullable", MultiValues::Empty(DataType::Int32)),
-        );
+        config.set_null("nullable", DataType::Int32).unwrap();
         assert_eq!(config.get_optional_string("nullable").unwrap(), None);
     }
 
@@ -1782,10 +1764,7 @@ mod test_get_optional_string {
     #[test]
     fn test_get_optional_string_list_null_returns_none() {
         let mut config = Config::new();
-        config.properties_mut().insert(
-            "nullable".to_string(),
-            Property::with_value("nullable", MultiValues::Empty(DataType::String)),
-        );
+        config.set_null("nullable", DataType::String).unwrap();
         assert_eq!(config.get_optional_string_list("nullable").unwrap(), None);
     }
 
@@ -1998,10 +1977,7 @@ mod test_deserialize {
         let mut config = Config::new();
         config.set("srv.host", "localhost").unwrap();
         // Insert null for port
-        config.properties_mut().insert(
-            "srv.port".to_string(),
-            Property::with_value("srv.port", MultiValues::Empty(DataType::Int32)),
-        );
+        config.set_null("srv.port", DataType::Int32).unwrap();
 
         let result: WithOptionals = config.deserialize("srv").unwrap();
         assert_eq!(result.host, "localhost");
@@ -2102,10 +2078,7 @@ mod test_enhanced_errors {
     #[test]
     fn test_get_property_has_no_value_carries_key() {
         let mut config = Config::new();
-        config.properties_mut().insert(
-            "empty.key".to_string(),
-            Property::with_value("empty.key", MultiValues::Empty(DataType::String)),
-        );
+        config.set_null("empty.key", DataType::String).unwrap();
         let result: Result<String, _> = config.get("empty.key");
         assert!(result.is_err());
         match result.unwrap_err() {
@@ -2501,8 +2474,8 @@ mod test_property_to_json_value_coverage {
     fn config_with_mv(key: &str, mv: MultiValues) -> Config {
         let mut config = Config::new();
         config
-            .properties_mut()
-            .insert(key.to_string(), Property::with_value(key, mv));
+            .insert_property(key, Property::with_value(key, mv))
+            .unwrap();
         config
     }
 
@@ -2775,32 +2748,54 @@ mod test_property_to_json_value_coverage {
 }
 
 // ============================================================================
-// properties_mut() Tests
+// insert_property() / set_null() Tests
 // ============================================================================
 
 #[cfg(test)]
-mod test_properties_mut {
+mod test_property_insertion_api {
     use super::*;
 
     #[test]
-    fn test_properties_mut_insert_directly() {
+    fn test_insert_property_success() {
         let mut config = Config::new();
-        config.properties_mut().insert(
-            "direct".to_string(),
-            Property::with_value("direct", MultiValues::String(vec!["hello".to_string()])),
-        );
+        config
+            .insert_property(
+                "direct",
+                Property::with_value("direct", MultiValues::String(vec!["hello".to_string()])),
+            )
+            .unwrap();
         assert_eq!(config.get_string("direct").unwrap(), "hello");
     }
 
     #[test]
-    fn test_properties_mut_insert_null() {
+    fn test_set_null_success() {
         let mut config = Config::new();
-        config.properties_mut().insert(
-            "null_key".to_string(),
-            Property::with_value("null_key", MultiValues::Empty(DataType::String)),
-        );
+        config.set_null("null_key", DataType::String).unwrap();
         assert!(config.is_null("null_key"));
         assert!(config.contains("null_key"));
+    }
+
+    #[test]
+    fn test_insert_property_name_mismatch_returns_error() {
+        let mut config = Config::new();
+        let result = config.insert_property(
+            "expected.key",
+            Property::with_value("actual.key", MultiValues::String(vec!["hello".to_string()])),
+        );
+        assert!(matches!(result, Err(ConfigError::MergeError(_))));
+    }
+
+    #[test]
+    fn test_insert_property_on_final_key_returns_error() {
+        let mut config = Config::new();
+        config.set("final.key", "v1").unwrap();
+        config.get_property_mut("final.key").unwrap().set_final(true);
+
+        let result = config.insert_property(
+            "final.key",
+            Property::with_value("final.key", MultiValues::String(vec!["v2".to_string()])),
+        );
+        assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
     }
 }
 
@@ -2816,10 +2811,7 @@ mod test_config_error_branches {
     #[test]
     fn test_get_list_on_empty_property_returns_empty_vec() {
         let mut config = Config::new();
-        config.properties_mut().insert(
-            "empty".to_string(),
-            Property::with_value("empty", MultiValues::Empty(DataType::Int32)),
-        );
+        config.set_null("empty", DataType::Int32).unwrap();
         let result: Vec<i32> = config.get_list("empty").unwrap();
         assert!(result.is_empty());
     }
@@ -2856,10 +2848,7 @@ mod test_config_error_branches {
     #[test]
     fn test_get_on_empty_property_returns_has_no_value() {
         let mut config = Config::new();
-        config.properties_mut().insert(
-            "empty_str".to_string(),
-            Property::with_value("empty_str", MultiValues::Empty(DataType::String)),
-        );
+        config.set_null("empty_str", DataType::String).unwrap();
         let err = config.get::<String>("empty_str").unwrap_err();
         match err {
             ConfigError::PropertyHasNoValue(key) => {

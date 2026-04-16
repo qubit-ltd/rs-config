@@ -123,16 +123,10 @@ pub(crate) fn flatten_yaml_value(
         }
         YamlValue::Null => {
             // Null values are stored as empty properties to preserve null semantics.
-            // Use properties_mut() to insert an empty property directly.
-            use crate::Property;
             use qubit_common::DataType;
-            use qubit_value::MultiValues;
-            config
-                .properties_mut()
-                .entry(prefix.to_string())
-                .or_insert_with(|| {
-                    Property::with_value(prefix, MultiValues::Empty(DataType::String))
-                });
+            if !config.contains(prefix) {
+                config.set_null(prefix, DataType::String)?;
+            }
         }
         YamlValue::Bool(b) => {
             config.set(prefix, *b)?;

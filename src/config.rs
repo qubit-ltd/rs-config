@@ -1039,18 +1039,11 @@ impl Config {
     /// # Examples
     ///
     /// ```rust,ignore
-    /// use qubit_config::{Config, Property};
-    /// use qubit_value::MultiValues;
+    /// use qubit_config::Config;
     /// use qubit_common::DataType;
     ///
     /// let mut config = Config::new();
-    /// config.properties_mut().insert(
-    ///     "nullable".to_string(),
-    ///     Property::with_value(
-    ///         "nullable",
-    ///         MultiValues::Empty(DataType::String),
-    ///     ),
-    /// );
+    /// config.set_null("nullable", DataType::String)?;
     ///
     /// assert!(config.is_null("nullable"));
     /// assert!(!config.is_null("missing"));
@@ -1302,18 +1295,66 @@ impl Config {
         })
     }
 
-    /// Returns a mutable reference to the internal properties map.
+    /// Inserts or replaces a property using an explicit [`Property`] object.
     ///
-    /// For advanced use cases, e.g. inserting null/empty properties that
-    /// [`Self::set`] cannot represent alone.
+    /// This method enforces two invariants:
+    ///
+    /// - `name` must exactly match `property.name()`
+    /// - existing final properties cannot be overridden
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Target key in this config.
+    /// * `property` - Property to store under `name`.
     ///
     /// # Returns
     ///
-    /// A mutable reference to the backing [`HashMap`].
-    #[inline]
-    pub fn properties_mut(&mut self) -> &mut HashMap<String, Property> {
-        &mut self.properties
+    /// `Ok(())` on success.
+    ///
+    /// # Errors
+    ///
+    /// - [`ConfigError::MergeError`] when `name` and `property.name()` differ.
+    /// - [`ConfigError::PropertyIsFinal`] when trying to override a final
+    ///   property.
+    pub fn insert_property(&mut self, name: &str, property: Property) -> ConfigResult<()> {
+        if property.name() != name {
+            return Err(ConfigError::MergeError(format!(
+                "Property name mismatch: key '{name}' != property '{}'",
+                property.name()
+            )));
+        }
+        if let Some(existing) = self.properties.get(name) {
+            if existing.is_final() {
+                return Err(ConfigError::PropertyIsFinal(name.to_string()));
+            }
+        }
+        self.properties.insert(name.to_string(), property);
+        Ok(())
     }
+
+    /// Sets a key to a typed null/empty value.
+    ///
+    /// This is the preferred public API for representing null/empty values
+    /// without exposing raw mutable access to the internal map.
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Configuration item name.
+    /// * `data_type` - Data type metadata for the empty value.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` on success.
+    ///
+    /// # Errors
+    ///
+    /// - [`ConfigError::PropertyIsFinal`] when trying to override a final
+    ///   property.
+    #[inline]
+    pub fn set_null(&mut self, name: &str, data_type: qubit_common::DataType) -> ConfigResult<()> {
+        self.insert_property(name, Property::with_value(name, MultiValues::Empty(data_type)))
+    }
+
 }
 
 impl ConfigReader for Config {

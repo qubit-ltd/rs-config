@@ -9,8 +9,7 @@
 //! [`qubit_config::ConfigReader`] tests.
 
 use qubit_common::DataType;
-use qubit_config::{Config, ConfigPrefixView, ConfigReader, Property};
-use qubit_value::MultiValues;
+use qubit_config::{Config, ConfigPrefixView, ConfigReader};
 use serde::Deserialize;
 
 fn create_test_config() -> Config {
@@ -268,10 +267,7 @@ mod test_config_reader_extended_surface {
     fn get_property_len_keys_iter_get_or_is_null_and_optional_string_empty() {
         let mut config = Config::new();
         config.set("k", 1i32).unwrap();
-        config.properties_mut().insert(
-            "nullish".to_string(),
-            Property::with_value("nullish", MultiValues::Empty(DataType::Int32)),
-        );
+        config.set_null("nullish", DataType::Int32).unwrap();
 
         assert!(<Config as ConfigReader>::get_property(&config, "k").is_some());
         assert!(<Config as ConfigReader>::get_property(&config, "nullish").is_some());
@@ -306,10 +302,7 @@ mod test_config_reader_extended_surface {
         config.set("a.x", 1i32).unwrap();
         config.set("a.y", 2i32).unwrap();
         config.set("b.z", 3i32).unwrap();
-        config.properties_mut().insert(
-            "a.empty".to_string(),
-            Property::with_value("a.empty", MultiValues::Empty(DataType::String)),
-        );
+        config.set_null("a.empty", DataType::String).unwrap();
 
         let view = config.prefix_view("a");
         assert_eq!(<ConfigPrefixView<'_> as ConfigReader>::len(&view), 3);
