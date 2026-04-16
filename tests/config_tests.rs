@@ -2468,11 +2468,14 @@ mod test_yaml_type_faithful {
     }
 
     #[test]
-    fn test_yaml_nested_sequence_falls_back_to_string() {
-        // Nested sequences (sequence of sequences) fall back to string
-        let config = load_yaml("matrix:\n  - [1, 2]\n  - [3, 4]\n");
-        // Should not panic; nested sequences produce empty strings
-        assert!(config.contains("matrix") || !config.contains("matrix"));
+    fn test_yaml_nested_sequence_returns_parse_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("nested_seq.yaml");
+        std::fs::write(&path, "matrix:\n  - [1, 2]\n  - [3, 4]\n").unwrap();
+        let source = YamlConfigSource::from_file(&path);
+        let mut config = Config::new();
+        let result = source.load(&mut config);
+        assert!(matches!(result, Err(ConfigError::ParseError(_))));
     }
 }
 

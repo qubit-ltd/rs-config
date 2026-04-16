@@ -159,7 +159,10 @@ pub(crate) fn flatten_yaml_value(
 /// Flattens a YAML sequence into multi-value config entries.
 ///
 /// Homogeneous scalar sequences are stored with their native types.
-/// Mixed or nested sequences fall back to string representation.
+/// Mixed scalar sequences fall back to string representation.
+///
+/// Nested structures inside sequences (mapping/sequence/tagged) are rejected
+/// with a parse error to avoid silently losing structure information.
 fn flatten_yaml_sequence(prefix: &str, seq: &[YamlValue], config: &mut Config) -> ConfigResult<()> {
     if seq.is_empty() {
         return Ok(());
@@ -176,12 +179,8 @@ fn flatten_yaml_sequence(prefix: &str, seq: &[YamlValue], config: &mut Config) -
         YamlValue::Number(n) if n.is_i64() => SeqKind::Integer,
         YamlValue::Number(_) => SeqKind::Float,
         YamlValue::Bool(_) => SeqKind::Bool,
-        YamlValue::Mapping(_) | YamlValue::Sequence(_) => {
-            // Nested structures: fall back to string
-            for item in seq {
-                config.add(prefix, yaml_scalar_to_string(item))?;
-            }
-            return Ok(());
+        YamlValue::Mapping(_) | YamlValue::Sequence(_) | YamlValue::Tagged(_) => {
+            return Err(unsupported_yaml_sequence_element_error(prefix, &seq[0]));
         }
         _ => SeqKind::String,
     };
@@ -196,7 +195,7 @@ fn flatten_yaml_sequence(prefix: &str, seq: &[YamlValue], config: &mut Config) -
 
     if !all_same {
         for item in seq {
-            config.add(prefix, yaml_scalar_to_string(item))?;
+            config.add(prefix, yaml_scalar_to_string(item, prefix)?)?;
         }
         return Ok(());
     }
@@ -229,7 +228,7 @@ fn flatten_yaml_sequence(prefix: &str, seq: &[YamlValue], config: &mut Config) -
         }
         SeqKind::String => {
             for item in seq {
-                config.add(prefix, yaml_scalar_to_string(item))?;
+                config.add(prefix, yaml_scalar_to_string(item, prefix)?)?;
             }
         }
     }
@@ -250,15 +249,29 @@ fn yaml_key_to_string(value: &YamlValue) -> ConfigResult<String> {
     }
 }
 
-/// Converts a YAML scalar value to a string (fallback for mixed-type sequences)
-fn yaml_scalar_to_string(value: &YamlValue) -> String {
+/// Converts a YAML scalar value to a string (fallback for mixed-type
+/// sequences).
+///
+/// Nested structures are rejected to avoid silently converting them to empty
+/// strings.
+fn yaml_scalar_to_string(value: &YamlValue, key: &str) -> ConfigResult<String> {
     match value {
-        YamlValue::String(s) => s.clone(),
-        YamlValue::Number(n) => n.to_string(),
-        YamlValue::Bool(b) => b.to_string(),
-        YamlValue::Null => String::new(),
-        YamlValue::Sequence(_) | YamlValue::Mapping(_) | YamlValue::Tagged(_) => String::new(),
+        YamlValue::String(s) => Ok(s.clone()),
+        YamlValue::Number(n) => Ok(n.to_string()),
+        YamlValue::Bool(b) => Ok(b.to_string()),
+        YamlValue::Null => Ok(String::new()),
+        YamlValue::Sequence(_) | YamlValue::Mapping(_) | YamlValue::Tagged(_) => {
+            Err(unsupported_yaml_sequence_element_error(key, value))
+        }
     }
+}
+
+/// Builds a parse error for unsupported nested YAML sequence elements.
+fn unsupported_yaml_sequence_element_error(key: &str, value: &YamlValue) -> ConfigError {
+    let key = if key.is_empty() { "<root>" } else { key };
+    ConfigError::ParseError(format!(
+        "Unsupported nested YAML structure at key '{key}': {value:?}"
+    ))
 }
 
 #[cfg(test)]
@@ -285,25 +298,27 @@ mod tests {
 
     #[test]
     fn test_yaml_scalar_to_string_bool() {
-        assert_eq!(yaml_scalar_to_string(&YamlValue::Bool(false)), "false");
+        assert_eq!(
+            yaml_scalar_to_string(&YamlValue::Bool(false), "k").unwrap(),
+            "false"
+        );
     }
 
     #[test]
     fn test_yaml_scalar_to_string_null() {
-        assert_eq!(yaml_scalar_to_string(&YamlValue::Null), "");
+        assert_eq!(yaml_scalar_to_string(&YamlValue::Null, "k").unwrap(), "");
     }
 
     #[test]
-    fn test_yaml_scalar_to_string_sequence() {
-        assert_eq!(yaml_scalar_to_string(&YamlValue::Sequence(vec![])), "");
+    fn test_yaml_scalar_to_string_sequence_returns_error() {
+        let result = yaml_scalar_to_string(&YamlValue::Sequence(vec![]), "arr");
+        assert!(matches!(result, Err(ConfigError::ParseError(_))));
     }
 
     #[test]
-    fn test_yaml_scalar_to_string_mapping() {
-        assert_eq!(
-            yaml_scalar_to_string(&YamlValue::Mapping(serde_yaml::Mapping::new())),
-            ""
-        );
+    fn test_yaml_scalar_to_string_mapping_returns_error() {
+        let result = yaml_scalar_to_string(&YamlValue::Mapping(serde_yaml::Mapping::new()), "obj");
+        assert!(matches!(result, Err(ConfigError::ParseError(_))));
     }
 
     #[test]
@@ -350,6 +365,22 @@ mod tests {
         let mut config = Config::new();
         flatten_yaml_sequence("mixed", &seq, &mut config).unwrap();
         assert!(config.contains("mixed"));
+    }
+
+    #[test]
+    fn test_flatten_yaml_sequence_nested_mapping_returns_error() {
+        let seq = vec![YamlValue::Mapping(serde_yaml::Mapping::new())];
+        let mut config = Config::new();
+        let result = flatten_yaml_sequence("nested", &seq, &mut config);
+        assert!(matches!(result, Err(ConfigError::ParseError(_))));
+    }
+
+    #[test]
+    fn test_flatten_yaml_sequence_nested_sequence_returns_error() {
+        let seq = vec![YamlValue::Sequence(vec![YamlValue::Bool(true)])];
+        let mut config = Config::new();
+        let result = flatten_yaml_sequence("nested", &seq, &mut config);
+        assert!(matches!(result, Err(ConfigError::ParseError(_))));
     }
 
     #[test]

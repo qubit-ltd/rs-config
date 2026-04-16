@@ -248,4 +248,26 @@ mod test_yaml_coverage {
         // Mixed (int + null) → falls back to string
         assert!(config.contains("vals"));
     }
+
+    #[test]
+    fn test_yaml_nested_sequence_returns_parse_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("nested_seq.yaml");
+        std::fs::write(&path, "matrix:\n  - [1, 2]\n  - [3, 4]\n").unwrap();
+        let source = YamlConfigSource::from_file(&path);
+        let mut config = Config::new();
+        let result = source.load(&mut config);
+        assert!(matches!(result, Err(ConfigError::ParseError(_))));
+    }
+
+    #[test]
+    fn test_yaml_sequence_with_mapping_returns_parse_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("seq_map.yaml");
+        std::fs::write(&path, "items:\n  - name: foo\n  - name: bar\n").unwrap();
+        let source = YamlConfigSource::from_file(&path);
+        let mut config = Config::new();
+        let result = source.load(&mut config);
+        assert!(matches!(result, Err(ConfigError::ParseError(_))));
+    }
 }
