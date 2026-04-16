@@ -29,17 +29,18 @@ use super::{Config, Configurable};
 ///
 /// # Examples
 ///
-/// ```rust,ignore
-/// use qubit_config::{Config, Configured};
+/// ```rust
+/// use qubit_config::{Config, Configurable, Configured};
 ///
 /// let mut configured = Configured::new();
-/// configured.config_mut().set("port", 8080)?;
-/// let port: i32 = configured.config().get("port")?;
+/// configured.config_mut().set("port", 8080).unwrap();
+/// let port: i32 = configured.config().get("port").unwrap();
 /// assert_eq!(port, 8080);
 /// ```
 ///
-/// ```rust,ignore
+/// ```rust
 /// // Or compose it into other structures
+/// use qubit_config::{Config, Configurable, Configured};
 /// struct Server {
 ///     configured: Configured,
 ///     // Other fields...
@@ -81,8 +82,8 @@ impl Configured {
     ///
     /// # Examples
     ///
-    /// ```rust,ignore
-    /// use common_rs::util::config::Configured;
+    /// ```rust
+    /// use qubit_config::{Configurable, Configured};
     ///
     /// let configured = Configured::new();
     /// assert!(configured.config().is_empty());
@@ -106,8 +107,8 @@ impl Configured {
     ///
     /// # Examples
     ///
-    /// ```rust,ignore
-    /// use common_rs::util::config::{Config, Configured};
+    /// ```rust
+    /// use qubit_config::{Config, Configurable, Configured};
     ///
     /// let mut configured = Configured::with_config(Config::new());
     /// assert!(configured.config().is_empty());

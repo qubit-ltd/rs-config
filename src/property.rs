@@ -35,7 +35,7 @@ use qubit_value::MultiValues;
 ///
 /// # Examples
 ///
-/// ```rust,ignore
+/// ```rust
 /// use qubit_config::Property;
 ///
 /// let mut port = Property::new("port");
@@ -81,8 +81,8 @@ impl Property {
     ///
     /// # Examples
     ///
-    /// ```rust,ignore
-    /// use common_rs::util::config::Property;
+    /// ```rust
+    /// use qubit_config::Property;
     ///
     /// let prop = Property::new("server.port");
     /// assert_eq!(prop.name(), "server.port");
@@ -111,7 +111,7 @@ impl Property {
     ///
     /// # Examples
     ///
-    /// ```rust,ignore
+    /// ```rust
     /// use qubit_config::Property;
     /// use qubit_value::MultiValues;
     ///
