@@ -9,11 +9,11 @@
 //! # `CompositeConfigSource` tests
 
 use qubit_config::{
+    Config,
     source::{
         CompositeConfigSource, ConfigSource, EnvConfigSource, PropertiesConfigSource,
         TomlConfigSource,
     },
-    Config,
 };
 
 use std::path::PathBuf;
@@ -103,7 +103,9 @@ mod test_composite_config_source {
 
     #[test]
     fn test_composite_with_env_override() {
-        std::env::set_var("CTEST_HOST", "env-host");
+        unsafe {
+            std::env::set_var("CTEST_HOST", "env-host");
+        }
 
         let mut composite = CompositeConfigSource::new();
         composite.add(TomlConfigSource::from_file(fixture("basic.toml")));
@@ -117,7 +119,9 @@ mod test_composite_config_source {
         // toml-only keys still present
         assert_eq!(config.get_string("app.name").unwrap(), "MyApp");
 
-        std::env::remove_var("CTEST_HOST");
+        unsafe {
+            std::env::remove_var("CTEST_HOST");
+        }
     }
 
     #[test]

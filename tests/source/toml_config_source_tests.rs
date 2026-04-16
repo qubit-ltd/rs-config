@@ -9,8 +9,8 @@
 //! # `TomlConfigSource` tests
 
 use qubit_config::{
-    source::{ConfigSource, TomlConfigSource},
     Config, ConfigError,
+    source::{ConfigSource, TomlConfigSource},
 };
 
 use std::path::PathBuf;

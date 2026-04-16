@@ -10,8 +10,8 @@
 
 use std::borrow::Cow;
 
-use qubit_value::multi_values::{MultiValuesFirstGetter, MultiValuesGetter};
 use qubit_value::MultiValues;
+use qubit_value::multi_values::{MultiValuesFirstGetter, MultiValuesGetter};
 
 use crate::config::Config;
 use crate::config_reader::ConfigReader;

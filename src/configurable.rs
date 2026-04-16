@@ -23,7 +23,7 @@ use super::Config;
 ///
 /// # Examples
 ///
-/// ```rust,ignore
+/// ```rust
 /// use qubit_config::{Config, Configurable};
 ///
 /// struct Server { config: Config }
@@ -42,7 +42,7 @@ use super::Config;
 /// }
 /// ```
 ///
-/// ```rust,ignore
+/// ```rust
 /// use qubit_config::{ConfigResult, ConfigError};
 /// ```
 ///
