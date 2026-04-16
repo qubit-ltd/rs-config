@@ -1284,7 +1284,7 @@ impl Config {
         let mut map = Map::new();
         for (key, prop) in &sub.properties {
             let json_val = property_to_json_value(prop);
-            map.insert(key.clone(), json_val);
+            insert_deserialize_value(&mut map, key, json_val);
         }
 
         let json_obj = JsonValue::Object(map);
@@ -1355,6 +1355,79 @@ impl Config {
         self.insert_property(name, Property::with_value(name, MultiValues::Empty(data_type)))
     }
 
+}
+
+/// Inserts a value into the serde object used by [`Config::deserialize`].
+///
+/// Keys containing dots are interpreted as nested object paths (for example,
+/// `db.host` becomes `{ "db": { "host": ... } }`). If path insertion
+/// conflicts with an existing scalar/object shape, this function falls back to
+/// the original flat-key behavior (`"db.host"` as a single key) for backward
+/// compatibility.
+fn insert_deserialize_value(
+    root: &mut serde_json::Map<String, serde_json::Value>,
+    key: &str,
+    value: serde_json::Value,
+) {
+    if !key.contains('.') || key.is_empty() {
+        root.insert(key.to_string(), value);
+        return;
+    }
+
+    let fallback_value = value.clone();
+    if try_insert_nested_json_value(root, key, value).is_err() {
+        root.insert(key.to_string(), fallback_value);
+    }
+}
+
+/// Tries to insert a dotted key as a nested JSON object path.
+///
+/// Returns `Err(())` when the key is malformed (`a..b`, `.a`, `a.`) or when an
+/// insertion path conflicts with an existing non-object leaf.
+fn try_insert_nested_json_value(
+    root: &mut serde_json::Map<String, serde_json::Value>,
+    key: &str,
+    value: serde_json::Value,
+) -> Result<(), ()> {
+    use serde_json::{Map as JsonMap, Value as JsonValue};
+    use serde_json::map::Entry;
+
+    let mut current = root;
+    let mut parts = key.split('.').peekable();
+    let mut leaf_value = Some(value);
+
+    while let Some(part) = parts.next() {
+        if part.is_empty() {
+            return Err(());
+        }
+
+        if parts.peek().is_none() {
+            match current.entry(part.to_string()) {
+                Entry::Vacant(entry) => {
+                    let Some(value) = leaf_value.take() else {
+                        return Err(());
+                    };
+                    entry.insert(value);
+                    return Ok(());
+                }
+                Entry::Occupied(_) => return Err(()),
+            }
+        }
+
+        let next = match current.entry(part.to_string()) {
+            Entry::Vacant(entry) => entry.insert(JsonValue::Object(JsonMap::new())),
+            Entry::Occupied(entry) => entry.into_mut(),
+        };
+
+        match next {
+            JsonValue::Object(obj) => {
+                current = obj;
+            }
+            _ => return Err(()),
+        }
+    }
+
+    Err(())
 }
 
 impl ConfigReader for Config {

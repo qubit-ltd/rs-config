@@ -1891,6 +1891,17 @@ mod test_deserialize {
     }
 
     #[derive(Deserialize, Debug, PartialEq)]
+    struct NestedServerConfig {
+        host: String,
+        port: i32,
+    }
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct NestedAppConfig {
+        server: NestedServerConfig,
+    }
+
+    #[derive(Deserialize, Debug, PartialEq)]
     struct WithOptionals {
         host: String,
         port: Option<i32>,
@@ -1943,6 +1954,17 @@ mod test_deserialize {
         assert_eq!(app.name, "MyApp");
         assert_eq!(app.version, "1.0.0");
         assert!(app.debug);
+    }
+
+    #[test]
+    fn test_deserialize_nested_struct() {
+        let mut config = Config::new();
+        config.set("app.server.host", "localhost").unwrap();
+        config.set("app.server.port", 9090).unwrap();
+
+        let app: NestedAppConfig = config.deserialize("app").unwrap();
+        assert_eq!(app.server.host, "localhost");
+        assert_eq!(app.server.port, 9090);
     }
 
     #[test]
@@ -2001,6 +2023,21 @@ mod test_deserialize {
             headers.get("content-type"),
             Some(&"application/json".to_string())
         );
+    }
+
+    #[test]
+    fn test_deserialize_conflicting_dotted_key_falls_back_to_flat_key() {
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct CtxConfig {
+            a: i32,
+        }
+
+        let mut config = Config::new();
+        config.set("ctx.a", 1).unwrap();
+        config.set("ctx.a.b", "unexpected-but-ignored").unwrap();
+
+        let ctx: CtxConfig = config.deserialize("ctx").unwrap();
+        assert_eq!(ctx.a, 1);
     }
 
     #[test]
