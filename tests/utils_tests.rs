@@ -128,3 +128,19 @@ fn test_substitute_config_priority_over_env() {
 
     std::env::remove_var("SHARED_VAR");
 }
+
+#[test]
+fn test_substitute_does_not_fallback_to_env_on_config_type_error() {
+    std::env::set_var("STRICT_VAR", "from_env");
+
+    let mut config = Config::new();
+    config.set("STRICT_VAR", 8080i32).unwrap();
+
+    let result = substitute_variables("${STRICT_VAR}", &config, 10);
+    assert!(matches!(
+        result,
+        Err(ConfigError::TypeMismatch { .. }) | Err(ConfigError::ConversionError { .. })
+    ));
+
+    std::env::remove_var("STRICT_VAR");
+}

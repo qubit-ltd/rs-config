@@ -130,8 +130,8 @@ pub fn substitute_variables<R: ConfigReader + ?Sized>(
 
 /// Finds the value of a variable
 ///
-/// First looks in the configuration, and if not found, then in environment
-/// variables.
+/// First looks in the configuration. It falls back to environment variables
+/// only when the key is missing or explicitly empty/null in config.
 ///
 /// # Parameters
 ///
@@ -150,19 +150,17 @@ fn find_variable_value<R: ConfigReader + ?Sized>(
     var_name: &str,
     config: &R,
 ) -> ConfigResult<String> {
-    // 1. Try to get from configuration
-    if let Ok(value) = config.get::<String>(var_name) {
-        return Ok(value);
+    // 1. Try configuration first.
+    match config.get::<String>(var_name) {
+        Ok(value) => Ok(value),
+        // Only missing or empty values can fall back to env vars.
+        Err(ConfigError::PropertyNotFound(_)) | Err(ConfigError::PropertyHasNoValue(_)) => {
+            std::env::var(var_name).map_err(|_| {
+                ConfigError::SubstitutionError(format!("Cannot resolve variable: {}", var_name))
+            })
+        }
+        // Type/conversion errors in config should surface directly instead of
+        // being silently masked by environment values.
+        Err(err) => Err(err),
     }
-
-    // 2. Try to get from environment variables
-    if let Ok(value) = std::env::var(var_name) {
-        return Ok(value);
-    }
-
-    // 3. Not found in either, return error
-    Err(ConfigError::SubstitutionError(format!(
-        "Cannot resolve variable: {}",
-        var_name
-    )))
 }
