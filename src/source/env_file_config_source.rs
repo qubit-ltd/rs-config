@@ -32,13 +32,18 @@ use super::ConfigSource;
 ///
 /// # Examples
 ///
-/// ```rust,ignore
+/// ```rust
 /// use qubit_config::source::{EnvFileConfigSource, ConfigSource};
 /// use qubit_config::Config;
 ///
-/// let source = EnvFileConfigSource::from_file(".env");
+/// let temp_dir = tempfile::tempdir().unwrap();
+/// let path = temp_dir.path().join(".env");
+/// std::fs::write(&path, "PORT=8080\n").unwrap();
+/// let source = EnvFileConfigSource::from_file(path);
 /// let mut config = Config::new();
 /// source.load(&mut config).unwrap();
+/// let port = config.get::<String>("PORT").unwrap();
+/// assert_eq!(port, "8080");
 /// ```
 ///
 /// # Author

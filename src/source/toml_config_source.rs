@@ -41,13 +41,17 @@ use super::ConfigSource;
 ///
 /// # Examples
 ///
-/// ```rust,ignore
+/// ```rust
 /// use qubit_config::source::{TomlConfigSource, ConfigSource};
 /// use qubit_config::Config;
 ///
-/// let source = TomlConfigSource::from_file("config.toml");
+/// let temp_dir = tempfile::tempdir().unwrap();
+/// let path = temp_dir.path().join("config.toml");
+/// std::fs::write(&path, "server.port = 8080\n").unwrap();
+/// let source = TomlConfigSource::from_file(path);
 /// let mut config = Config::new();
 /// source.load(&mut config).unwrap();
+/// assert_eq!(config.get::<i64>("server.port").unwrap(), 8080);
 /// ```
 ///
 /// # Author

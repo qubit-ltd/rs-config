@@ -34,13 +34,18 @@ use super::ConfigSource;
 ///
 /// # Examples
 ///
-/// ```rust,ignore
+/// ```rust
 /// use qubit_config::source::{PropertiesConfigSource, ConfigSource};
 /// use qubit_config::Config;
 ///
-/// let source = PropertiesConfigSource::from_file("config.properties");
+/// let temp_dir = tempfile::tempdir().unwrap();
+/// let path = temp_dir.path().join("config.properties");
+/// std::fs::write(&path, "server.port=8080\n").unwrap();
+/// let source = PropertiesConfigSource::from_file(path);
 /// let mut config = Config::new();
 /// source.load(&mut config).unwrap();
+/// let value = config.get::<String>("server.port").unwrap();
+/// assert_eq!(value, "8080");
 /// ```
 ///
 /// # Author
@@ -160,13 +165,12 @@ fn unescape_unicode(s: &str) -> String {
                 Some('u') => {
                     chars.next(); // consume 'u'
                     let hex: String = chars.by_ref().take(4).collect();
-                    if hex.len() == 4 {
-                        if let Ok(code) = u32::from_str_radix(&hex, 16) {
-                            if let Some(unicode_char) = char::from_u32(code) {
-                                result.push(unicode_char);
-                                continue;
-                            }
-                        }
+                    if hex.len() == 4
+                        && let Ok(code) = u32::from_str_radix(&hex, 16)
+                        && let Some(unicode_char) = char::from_u32(code)
+                    {
+                        result.push(unicode_char);
+                        continue;
                     }
                     // If parsing fails, keep original
                     result.push('\\');
