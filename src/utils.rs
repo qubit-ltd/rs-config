@@ -97,18 +97,7 @@ pub fn substitute_variables<R: ConfigReader + ?Sized>(
     let mut depth = 0;
 
     loop {
-        // Find all variables and collect replacement information
-        let replacements: Vec<(String, String)> = pattern
-            .captures_iter(&result)
-            .map(|cap| {
-                let full_match = cap.get(0).unwrap().as_str().to_string();
-                let var_name = cap.get(1).unwrap().as_str();
-                let var_value = find_variable_value(var_name, config)?;
-                Ok((full_match, var_value))
-            })
-            .collect::<ConfigResult<Vec<_>>>()?;
-
-        if replacements.is_empty() {
+        if !pattern.is_match(&result) {
             // No more variables to replace
             break;
         }
@@ -117,10 +106,26 @@ pub fn substitute_variables<R: ConfigReader + ?Sized>(
             return Err(ConfigError::SubstitutionDepthExceeded(max_depth));
         }
 
-        // Perform all replacements
-        for (full_match, var_value) in replacements {
-            result = result.replace(&full_match, &var_value);
+        // Replace all placeholders in a single regex pass.
+        let mut first_error: Option<ConfigError> = None;
+        let replaced = pattern.replace_all(&result, |caps: &regex::Captures| {
+            let var_name = caps.get(1).map(|m| m.as_str()).unwrap_or_default();
+            match find_variable_value(var_name, config) {
+                Ok(v) => v,
+                Err(err) => {
+                    if first_error.is_none() {
+                        first_error = Some(err);
+                    }
+                    caps.get(0)
+                        .map(|m| m.as_str().to_string())
+                        .unwrap_or_default()
+                }
+            }
+        });
+        if let Some(err) = first_error {
+            return Err(err);
         }
+        result = replaced.into_owned();
 
         depth += 1;
     }

@@ -36,6 +36,15 @@ fn test_substitute_multiple() {
 }
 
 #[test]
+fn test_substitute_repeated_placeholder() {
+    let mut config = Config::new();
+    config.set("name", "world").unwrap();
+
+    let result = substitute_variables("${name}-${name}-${name}", &config, 10).unwrap();
+    assert_eq!(result, "world-world-world");
+}
+
+#[test]
 fn test_substitute_recursive() {
     let mut config = Config::new();
     config.set("a", "value_a").unwrap();
