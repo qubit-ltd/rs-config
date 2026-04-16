@@ -24,19 +24,22 @@
 //!
 //! # Examples
 //!
-//! ```rust,ignore
+//! ```rust
 //! use qubit_config::Config;
 //! use qubit_config::source::{
-//!     CompositeConfigSource, ConfigSource, EnvConfigSource, TomlConfigSource,
+//!     CompositeConfigSource, ConfigSource, TomlConfigSource,
 //! };
 //!
-//! // Load from TOML file with env override
+//! // Load from TOML file
 //! let mut composite = CompositeConfigSource::new();
-//! composite.add(TomlConfigSource::from_file("config.toml"));
-//! composite.add(EnvConfigSource::with_prefix("APP_"));
+//! let temp_dir = tempfile::tempdir().unwrap();
+//! let path = temp_dir.path().join("config.toml");
+//! std::fs::write(&path, "port = 8080\n").unwrap();
+//! composite.add(TomlConfigSource::from_file(path));
 //!
 //! let mut config = Config::new();
 //! config.merge_from_source(&composite).unwrap();
+//! assert_eq!(config.get::<i64>("port").unwrap(), 8080);
 //! ```
 //!
 //! # Author

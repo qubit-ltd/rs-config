@@ -15,19 +15,24 @@
 //!
 //! # Examples
 //!
-//! ```rust,ignore
+//! ```rust
 //! use qubit_config::source::{
-//!     CompositeConfigSource, ConfigSource, EnvConfigSource, TomlConfigSource,
+//!     CompositeConfigSource, ConfigSource, TomlConfigSource,
 //! };
 //! use qubit_config::Config;
 //!
 //! let mut composite = CompositeConfigSource::new();
-//! composite.add(TomlConfigSource::from_file("defaults.toml"));
-//! composite.add(TomlConfigSource::from_file("config.toml"));
-//! composite.add(EnvConfigSource::with_prefix("APP_"));
+//! let temp_dir = tempfile::tempdir().unwrap();
+//! let defaults = temp_dir.path().join("defaults.toml");
+//! let override_file = temp_dir.path().join("config.toml");
+//! std::fs::write(&defaults, "port = 80\n").unwrap();
+//! std::fs::write(&override_file, "port = 8080\n").unwrap();
+//! composite.add(TomlConfigSource::from_file(defaults));
+//! composite.add(TomlConfigSource::from_file(override_file));
 //!
 //! let mut config = Config::new();
 //! composite.load(&mut config).unwrap();
+//! assert_eq!(config.get::<i64>("port").unwrap(), 8080);
 //! ```
 //!
 //! # Author

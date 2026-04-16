@@ -41,13 +41,17 @@ use super::ConfigSource;
 ///
 /// # Examples
 ///
-/// ```rust,ignore
+/// ```rust
 /// use qubit_config::source::{YamlConfigSource, ConfigSource};
 /// use qubit_config::Config;
 ///
-/// let source = YamlConfigSource::from_file("config.yaml");
+/// let temp_dir = tempfile::tempdir().unwrap();
+/// let path = temp_dir.path().join("config.yaml");
+/// std::fs::write(&path, "server:\n  port: 8080\n").unwrap();
+/// let source = YamlConfigSource::from_file(path);
 /// let mut config = Config::new();
 /// source.load(&mut config).unwrap();
+/// assert_eq!(config.get::<i64>("server.port").unwrap(), 8080);
 /// ```
 ///
 /// # Author
@@ -197,19 +201,19 @@ fn flatten_yaml_sequence(prefix: &str, seq: &[YamlValue], config: &mut Config) -
     match kind {
         SeqKind::Integer => {
             for item in seq {
-                if let YamlValue::Number(n) = item {
-                    if let Some(i) = n.as_i64() {
-                        config.add(prefix, i)?;
-                    }
+                if let YamlValue::Number(n) = item
+                    && let Some(i) = n.as_i64()
+                {
+                    config.add(prefix, i)?;
                 }
             }
         }
         SeqKind::Float => {
             for item in seq {
-                if let YamlValue::Number(n) = item {
-                    if let Some(f) = n.as_f64() {
-                        config.add(prefix, f)?;
-                    }
+                if let YamlValue::Number(n) = item
+                    && let Some(f) = n.as_f64()
+                {
+                    config.add(prefix, f)?;
                 }
             }
         }
