@@ -66,10 +66,11 @@ impl EnvFileConfigSource {
 impl ConfigSource for EnvFileConfigSource {
     fn load(&self, config: &mut Config) -> ConfigResult<()> {
         let iter = dotenvy::from_path_iter(&self.path).map_err(|e| {
-            ConfigError::IoError(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Failed to read .env file '{}': {}", self.path.display(), e),
-            ))
+            ConfigError::IoError(std::io::Error::other(format!(
+                "Failed to read .env file '{}': {}",
+                self.path.display(),
+                e
+            )))
         })?;
 
         for item in iter {
