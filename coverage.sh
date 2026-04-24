@@ -37,9 +37,10 @@ CURRENT_CRATE_NAME=$(basename "$CURRENT_CRATE_DIR")
 WORKSPACE_ROOT=$(cd "$(dirname "$0")/.." && pwd)
 ESCAPED_WORKSPACE_ROOT=$(printf '%s\n' "$WORKSPACE_ROOT" | sed 's/[][(){}.+*?^$|\\]/\\&/g')
 
-# Create list of other workspace crates to exclude
+# Create list of other workspace crates to exclude (sibling directories under workspace root)
 OTHER_CRATES=""
-for crate_dir in "$WORKSPACE_ROOT"/rust-*/; do
+for crate_dir in "$WORKSPACE_ROOT"/*/; do
+    [ -d "$crate_dir" ] || continue
     crate_name=$(basename "$crate_dir")
     if [ "$crate_name" != "$CURRENT_CRATE_NAME" ]; then
         if [ -z "$OTHER_CRATES" ]; then
@@ -95,6 +96,9 @@ if [ "$CLEAN_FLAG" = "yes" ]; then
 else
     echo "ℹ️  Using cached build (use --clean option if you need to clean cache)"
 fi
+
+# cargo-llvm-cov does not create parent directories for --json/--lcov/--cobertura outputs
+mkdir -p target/llvm-cov
 
 # Run tests and generate coverage reports
 case "$FORMAT_ARG" in

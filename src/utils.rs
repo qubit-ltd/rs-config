@@ -20,6 +20,7 @@ use serde_json::map::Entry;
 use serde_json::{Map, Number, Value};
 use std::sync::OnceLock;
 
+use qubit_common::serde::duration_with_unit;
 use qubit_value::{MultiValues, ValueError};
 
 use super::{ConfigError, ConfigReader, ConfigResult, Property};
@@ -280,7 +281,7 @@ pub(crate) fn property_to_json_value(prop: &Property) -> Value {
         }),
         MultiValues::String(v) => scalar_or_array(v, |x| Value::String(x.clone())),
         MultiValues::Duration(v) => {
-            scalar_or_array(v, |x| Value::String(format!("{}ms", x.as_millis())))
+            scalar_or_array(v, |x| Value::String(duration_with_unit::format(x)))
         }
         MultiValues::Url(v) => scalar_or_array(v, |x| Value::String(x.to_string())),
         MultiValues::StringMap(v) => {
