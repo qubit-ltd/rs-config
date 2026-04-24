@@ -336,6 +336,53 @@ mod test_config_reader_extended_surface {
     }
 
     #[test]
+    fn test_config_reader_config_get_optional_list_and_subconfig_forwarding() {
+        let mut config = Config::new();
+        config.set("svc.ports", vec![8080i32, 8081]).unwrap();
+        config.set("other.port", 9090i32).unwrap();
+
+        assert_eq!(
+            <Config as ConfigReader>::get_optional_list::<i32>(&config, "svc.ports").unwrap(),
+            Some(vec![8080, 8081])
+        );
+        assert_eq!(
+            <Config as ConfigReader>::get_optional_list::<i32>(&config, "missing").unwrap(),
+            None
+        );
+
+        let sub = <Config as ConfigReader>::subconfig(&config, "svc", true).unwrap();
+        assert_eq!(sub.get_list::<i32>("ports").unwrap(), vec![8080, 8081]);
+        assert!(!sub.contains("other.port"));
+    }
+
+    #[test]
+    fn test_config_reader_prefix_view_empty_and_optional_list_forwarding() {
+        let mut config = Config::new();
+        config.set("svc.ports", vec![8080i32, 8081]).unwrap();
+
+        let missing = config.prefix_view("missing");
+        assert!(<ConfigPrefixView<'_> as ConfigReader>::is_empty(&missing));
+
+        let view = config.prefix_view("svc");
+        assert!(!<ConfigPrefixView<'_> as ConfigReader>::is_empty(&view));
+        assert_eq!(
+            <ConfigPrefixView<'_> as ConfigReader>::get_optional_list::<i32>(&view, "ports")
+                .unwrap(),
+            Some(vec![8080, 8081])
+        );
+        assert_eq!(
+            <ConfigPrefixView<'_> as ConfigReader>::get_optional_list::<i32>(&view, "missing")
+                .unwrap(),
+            None
+        );
+
+        let root_view = config.prefix_view("");
+        let sub =
+            <ConfigPrefixView<'_> as ConfigReader>::subconfig(&root_view, "svc", true).unwrap();
+        assert_eq!(sub.get_list::<i32>("ports").unwrap(), vec![8080, 8081]);
+    }
+
+    #[test]
     fn deserialize_via_trait_on_config_and_prefix_view() {
         let mut config = Config::new();
         config.set("srv.host", "h").unwrap();

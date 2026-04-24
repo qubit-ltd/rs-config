@@ -202,23 +202,26 @@ fn flatten_toml_array(prefix: &str, arr: &[TomlValue], config: &mut Config) -> C
     match kind {
         ArrayKind::Integer => {
             for item in arr {
-                if let TomlValue::Integer(i) = item {
-                    config.add(prefix, *i)?;
-                }
+                let value = item
+                    .as_integer()
+                    .expect("TOML integer array was validated before insertion");
+                config.add(prefix, value)?;
             }
         }
         ArrayKind::Float => {
             for item in arr {
-                if let TomlValue::Float(f) = item {
-                    config.add(prefix, *f)?;
-                }
+                let value = item
+                    .as_float()
+                    .expect("TOML float array was validated before insertion");
+                config.add(prefix, value)?;
             }
         }
         ArrayKind::Bool => {
             for item in arr {
-                if let TomlValue::Boolean(b) = item {
-                    config.add(prefix, *b)?;
-                }
+                let value = item
+                    .as_bool()
+                    .expect("TOML bool array was validated before insertion");
+                config.add(prefix, value)?;
             }
         }
         ArrayKind::String => {

@@ -210,6 +210,33 @@ mod test_toml_coverage {
         assert_eq!(tags.len(), 3);
     }
 
+    #[test]
+    fn test_toml_homogeneous_scalar_arrays_keep_native_types() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("typed_arrays.toml");
+        std::fs::write(
+            &path,
+            r#"
+ints = [1, 2, 3]
+floats = [1.25, 2.5]
+flags = [true, false]
+dates = [2026-04-09T12:00:00Z, 2026-04-10T12:00:00Z]
+"#,
+        )
+        .unwrap();
+
+        let source = TomlConfigSource::from_file(&path);
+        let mut config = Config::new();
+        source.load(&mut config).unwrap();
+
+        assert_eq!(config.get_list::<i64>("ints").unwrap(), vec![1, 2, 3]);
+        assert_eq!(config.get_list::<f64>("floats").unwrap(), vec![1.25, 2.5]);
+        assert_eq!(config.get_list::<bool>("flags").unwrap(), vec![true, false]);
+        let dates = config.get_string_list("dates").unwrap();
+        assert_eq!(dates.len(), 2);
+        assert!(dates[0].contains("2026-04-09"));
+    }
+
     // ---- toml: toml_scalar_to_string for float/bool/datetime in mixed fallback ----
     #[test]
     fn test_toml_array_of_tables_nested_error() {

@@ -116,6 +116,12 @@ mod test_properties_config_source {
     }
 
     #[test]
+    fn test_parse_whitespace_only_content() {
+        let pairs = PropertiesConfigSource::parse_content("   \n\t\n");
+        assert!(pairs.is_empty());
+    }
+
+    #[test]
     fn test_parse_only_comments() {
         let content = "# comment1\n# comment2\n! comment3";
         let pairs = PropertiesConfigSource::parse_content(content);

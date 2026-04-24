@@ -250,6 +250,35 @@ mod test_yaml_coverage {
     }
 
     #[test]
+    fn test_yaml_homogeneous_scalar_sequences_keep_native_types() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("typed_sequences.yaml");
+        std::fs::write(
+            &path,
+            r#"
+ints:
+  - 1
+  - 2
+floats:
+  - 1.25
+  - 2.5
+flags:
+  - true
+  - false
+"#,
+        )
+        .unwrap();
+
+        let source = YamlConfigSource::from_file(&path);
+        let mut config = Config::new();
+        source.load(&mut config).unwrap();
+
+        assert_eq!(config.get_list::<i64>("ints").unwrap(), vec![1, 2]);
+        assert_eq!(config.get_list::<f64>("floats").unwrap(), vec![1.25, 2.5]);
+        assert_eq!(config.get_list::<bool>("flags").unwrap(), vec![true, false]);
+    }
+
+    #[test]
     fn test_yaml_nested_sequence_returns_parse_error() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("nested_seq.yaml");

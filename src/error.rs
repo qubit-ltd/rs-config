@@ -224,30 +224,24 @@ mod tests {
     #[test]
     fn test_conversion_error_at_creates_correct_error() {
         let err = ConfigError::conversion_error_at("my.key", "test message");
-        match err {
-            ConfigError::ConversionError { key, message } => {
-                assert_eq!(key, "my.key");
-                assert_eq!(message, "test message");
-            }
-            _ => panic!("Expected ConversionError"),
-        }
+        assert!(matches!(
+            err,
+            ConfigError::ConversionError { ref key, ref message }
+                if key == "my.key" && message == "test message"
+        ));
     }
 
     #[test]
     fn test_type_mismatch_at_creates_correct_error() {
         use qubit_common::DataType;
         let err = ConfigError::type_mismatch_at("a.b", DataType::Bool, DataType::Int32);
-        match err {
+        assert!(matches!(
+            err,
             ConfigError::TypeMismatch {
-                key,
-                expected,
-                actual,
-            } => {
-                assert_eq!(key, "a.b");
-                assert_eq!(expected, DataType::Bool);
-                assert_eq!(actual, DataType::Int32);
-            }
-            _ => panic!("Expected TypeMismatch"),
-        }
+                ref key,
+                expected: DataType::Bool,
+                actual: DataType::Int32,
+            } if key == "a.b"
+        ));
     }
 }

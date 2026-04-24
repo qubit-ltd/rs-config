@@ -201,6 +201,15 @@ mod test_deserialize {
     }
 
     #[test]
+    fn test_deserialize_malformed_dotted_key_falls_back_to_flat_key() {
+        let mut config = Config::new();
+        config.set("bad..key", "value").unwrap();
+
+        let root: HashMap<String, serde_json::Value> = config.deserialize("").unwrap();
+        assert_eq!(root.get("bad..key"), Some(&serde_json::json!("value")));
+    }
+
+    #[test]
     fn test_deserialize_multivalue_as_array() {
         #[derive(Deserialize, Debug, PartialEq)]
         struct WithList {

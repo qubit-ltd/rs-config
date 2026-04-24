@@ -125,12 +125,8 @@ fn parse_key_value(line: &str) -> Option<(&str, &str)> {
             }
         }
     }
-    // No separator found - treat the whole line as a key with empty value
-    if !line.is_empty() {
-        Some((line, ""))
-    } else {
-        None
-    }
+    // No separator found - treat the whole line as a key with empty value.
+    (!line.is_empty()).then_some((line, ""))
 }
 
 /// Returns true if the separator at `sep_pos` is escaped by a preceding odd

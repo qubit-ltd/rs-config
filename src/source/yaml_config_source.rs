@@ -138,10 +138,11 @@ pub(crate) fn flatten_yaml_value(
         YamlValue::Number(n) => {
             if let Some(i) = n.as_i64() {
                 config.set(prefix, i)?;
-            } else if let Some(f) = n.as_f64() {
-                config.set(prefix, f)?;
             } else {
-                config.set(prefix, n.to_string())?;
+                let f = n
+                    .as_f64()
+                    .expect("YAML number should be representable as i64 or f64");
+                config.set(prefix, f)?;
             }
         }
         YamlValue::String(s) => {
@@ -201,27 +202,26 @@ fn flatten_yaml_sequence(prefix: &str, seq: &[YamlValue], config: &mut Config) -
     match kind {
         SeqKind::Integer => {
             for item in seq {
-                if let YamlValue::Number(n) = item
-                    && let Some(i) = n.as_i64()
-                {
-                    config.add(prefix, i)?;
-                }
+                let value = item
+                    .as_i64()
+                    .expect("YAML integer sequence was validated before insertion");
+                config.add(prefix, value)?;
             }
         }
         SeqKind::Float => {
             for item in seq {
-                if let YamlValue::Number(n) = item
-                    && let Some(f) = n.as_f64()
-                {
-                    config.add(prefix, f)?;
-                }
+                let value = item
+                    .as_f64()
+                    .expect("YAML float sequence was validated before insertion");
+                config.add(prefix, value)?;
             }
         }
         SeqKind::Bool => {
             for item in seq {
-                if let YamlValue::Bool(b) = item {
-                    config.add(prefix, *b)?;
-                }
+                let value = item
+                    .as_bool()
+                    .expect("YAML bool sequence was validated before insertion");
+                config.add(prefix, value)?;
             }
         }
         SeqKind::String => {

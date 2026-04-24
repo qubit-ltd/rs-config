@@ -199,28 +199,16 @@ fn try_insert_nested_json_value(
     key: &str,
     value: Value,
 ) -> Result<(), ()> {
+    let parts: Vec<&str> = key.split('.').collect();
+    if parts.iter().any(|part| part.is_empty()) {
+        return Err(());
+    }
+    let (leaf, parents) = parts
+        .split_last()
+        .expect("split on a string always returns at least one segment");
+
     let mut current = root;
-    let mut parts = key.split('.').peekable();
-    let mut leaf_value = Some(value);
-
-    while let Some(part) = parts.next() {
-        if part.is_empty() {
-            return Err(());
-        }
-
-        if parts.peek().is_none() {
-            match current.entry(part.to_string()) {
-                Entry::Vacant(entry) => {
-                    let Some(value) = leaf_value.take() else {
-                        return Err(());
-                    };
-                    entry.insert(value);
-                    return Ok(());
-                }
-                Entry::Occupied(_) => return Err(()),
-            }
-        }
-
+    for part in parents {
         let next = match current.entry(part.to_string()) {
             Entry::Vacant(entry) => entry.insert(Value::Object(Map::new())),
             Entry::Occupied(entry) => entry.into_mut(),
@@ -234,7 +222,13 @@ fn try_insert_nested_json_value(
         }
     }
 
-    Err(())
+    match current.entry((*leaf).to_string()) {
+        Entry::Vacant(entry) => {
+            entry.insert(value);
+            Ok(())
+        }
+        Entry::Occupied(_) => Err(()),
+    }
 }
 
 /// Converts a [`Property`] into [`serde_json::Value`] (for
@@ -348,8 +342,79 @@ where
 
 #[cfg(test)]
 mod substitute_variable_tests {
-    use super::substitute_variables;
+    use super::{insert_deserialize_value, map_value_error, substitute_variables};
     use crate::{Config, ConfigError};
+    use qubit_common::DataType;
+    use qubit_value::ValueError;
+    use serde_json::{Map, json};
+
+    #[test]
+    fn test_map_value_error_additional_variants() {
+        let conversion_failed = map_value_error(
+            "port",
+            ValueError::ConversionFailed {
+                from: DataType::String,
+                to: DataType::Int32,
+            },
+        );
+        assert!(matches!(
+            conversion_failed,
+            ConfigError::ConversionError { ref key, ref message }
+                if key == "port" && message.contains("From")
+        ));
+
+        let conversion_error =
+            map_value_error("port", ValueError::ConversionError("bad int".to_string()));
+        assert!(matches!(
+            conversion_error,
+            ConfigError::ConversionError { ref key, ref message }
+                if key == "port" && message == "bad int"
+        ));
+
+        let out_of_bounds =
+            map_value_error("items", ValueError::IndexOutOfBounds { index: 3, len: 2 });
+        assert!(matches!(
+            out_of_bounds,
+            ConfigError::IndexOutOfBounds { index: 3, len: 2 }
+        ));
+
+        let json_serialization = map_value_error(
+            "payload",
+            ValueError::JsonSerializationError("serializer failed".to_string()),
+        );
+        assert!(matches!(
+            json_serialization,
+            ConfigError::ConversionError { ref key, ref message }
+                if key == "payload" && message.contains("JSON serialization error")
+        ));
+
+        let json_deserialization = map_value_error(
+            "payload",
+            ValueError::JsonDeserializationError("parser failed".to_string()),
+        );
+        assert!(matches!(
+            json_deserialization,
+            ConfigError::ConversionError { ref key, ref message }
+                if key == "payload" && message.contains("JSON deserialization error")
+        ));
+    }
+
+    #[test]
+    fn test_insert_deserialize_value_fallback_branches() {
+        let mut malformed = Map::new();
+        insert_deserialize_value(&mut malformed, "bad..key", json!("value"));
+        assert_eq!(malformed.get("bad..key"), Some(&json!("value")));
+
+        let mut occupied_leaf = Map::new();
+        insert_deserialize_value(&mut occupied_leaf, "a.b", json!(1));
+        insert_deserialize_value(&mut occupied_leaf, "a.b", json!(2));
+        assert_eq!(occupied_leaf.get("a.b"), Some(&json!(2)));
+
+        let mut scalar_parent = Map::new();
+        insert_deserialize_value(&mut scalar_parent, "a", json!(1));
+        insert_deserialize_value(&mut scalar_parent, "a.b", json!(2));
+        assert_eq!(scalar_parent.get("a.b"), Some(&json!(2)));
+    }
 
     #[test]
     fn test_substitute_simple() {
@@ -438,9 +503,8 @@ mod substitute_variable_tests {
         let result = substitute_variables("${NONEXISTENT_VAR}", &config, 10);
         assert!(matches!(result, Err(ConfigError::SubstitutionError(_))));
 
-        if let Err(ConfigError::SubstitutionError(msg)) = result {
-            assert!(msg.contains("Cannot resolve variable: NONEXISTENT_VAR"));
-        }
+        let err = result.expect_err("unresolved variable should return an error");
+        assert!(err.to_string().contains("NONEXISTENT_VAR"));
     }
 
     #[test]
