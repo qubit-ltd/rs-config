@@ -1565,8 +1565,11 @@ impl Config {
     {
         let sub = self.subconfig(prefix, true)?;
 
+        let mut properties = sub.properties.iter().collect::<Vec<_>>();
+        properties.sort_by_key(|(left_key, _)| *left_key);
+
         let mut map = Map::new();
-        for (key, prop) in &sub.properties {
+        for (key, prop) in properties {
             let mut json_val = utils::property_to_json_value(prop);
             utils::substitute_json_strings(&mut json_val, &sub)?;
             utils::insert_deserialize_value(&mut map, key, json_val);
