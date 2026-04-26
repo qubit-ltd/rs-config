@@ -89,7 +89,7 @@ config.set("database.port", 5432)?;
 
 ### ConfigReader 与 ConfigPrefixView（只读接口与前缀视图）
 
-[`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) 是配置的只读抽象：仅需读取时，API 可接受 `&impl ConfigReader`（或 `&dyn ConfigReader`），而不必暴露完整的 `&Config`。除 `get` / `get_list`、`contains`、`contains_prefix`、`iter_prefix` 外，trait 还提供带默认实现的字符串相关方法，如 `get_string`、`get_string_or`、`get_string_list`、`get_optional_string` 及其列表变体，并与所属 `Config` 的变量替换开关、最大深度保持一致。另提供 `resolve_key`，可把当前 reader 作用域下的键转换为相对于根配置的路径。
+[`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) 是配置的只读抽象：仅需读取时，函数或类型可接受 `&impl ConfigReader`（或泛型 `R: ConfigReader`），而不必暴露完整的 `&Config`，同一套 API 可用于完整 [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) 或带作用域的前缀视图。`ConfigReader` 包含泛型类型读取方法，因此不是 object-safe，不能用作 `dyn ConfigReader`。除 `get` / `get_list`、`contains`、`contains_prefix`、`iter_prefix` 外，trait 还提供带默认实现的字符串相关方法，如 `get_string`、`get_string_or`、`get_string_list`、`get_optional_string` 及其列表变体，并与所属 `Config` 的变量替换开关、最大深度保持一致。另提供 `resolve_key`，可把当前 reader 作用域下的键转换为相对于根配置的路径。
 
 [`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html) 表示对 `Config` 的零拷贝借用，并带有一个逻辑键前缀；类型名明确表示「前缀视图」，便于日后增加其他种类的视图而不与泛称冲突。通过 [`Config::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.prefix_view) 创建；传入的键名会在该前缀下解析（例如前缀 `db`、键 `host` 对应存储键 `db.host`）。使用 [`ConfigPrefixView::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html#method.prefix_view) 可得到嵌套前缀视图。`iter_prefix` 与 `contains_prefix` 仅针对当前视图下「相对键」可见的项。
 
