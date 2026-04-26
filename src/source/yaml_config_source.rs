@@ -194,43 +194,54 @@ fn flatten_yaml_sequence(prefix: &str, seq: &[YamlValue], config: &mut Config) -
     });
 
     if !all_same {
-        for item in seq {
-            config.add(prefix, yaml_scalar_to_string(item, prefix)?)?;
-        }
+        let values = seq
+            .iter()
+            .map(|item| yaml_scalar_to_string(item, prefix))
+            .collect::<ConfigResult<Vec<_>>>()?;
+        config.set(prefix, values)?;
         return Ok(());
     }
 
     match kind {
         SeqKind::Integer => {
-            for item in seq {
-                let value = item
-                    .as_i64()
-                    .expect("YAML integer sequence was validated before insertion");
-                config.add(prefix, value)?;
-            }
+            let values = seq
+                .iter()
+                .map(|item| {
+                    item.as_i64()
+                        .expect("YAML integer sequence was validated before insertion")
+                })
+                .collect::<Vec<_>>();
+            config.set(prefix, values)?;
         }
         SeqKind::Float => {
-            for item in seq {
-                let value = item
-                    .as_f64()
-                    .expect("YAML float sequence was validated before insertion");
-                config.add(prefix, value)?;
-            }
+            let values = seq
+                .iter()
+                .map(|item| {
+                    item.as_f64()
+                        .expect("YAML float sequence was validated before insertion")
+                })
+                .collect::<Vec<_>>();
+            config.set(prefix, values)?;
         }
         SeqKind::Bool => {
-            for item in seq {
-                let value = item
-                    .as_bool()
-                    .expect("YAML bool sequence was validated before insertion");
-                config.add(prefix, value)?;
-            }
+            let values = seq
+                .iter()
+                .map(|item| {
+                    item.as_bool()
+                        .expect("YAML bool sequence was validated before insertion")
+                })
+                .collect::<Vec<_>>();
+            config.set(prefix, values)?;
         }
         SeqKind::String => {
-            for item in seq {
-                let value = yaml_scalar_to_string(item, prefix)
-                    .expect("YAML string sequence was validated before insertion");
-                config.add(prefix, value)?;
-            }
+            let values = seq
+                .iter()
+                .map(|item| {
+                    yaml_scalar_to_string(item, prefix)
+                        .expect("YAML string sequence was validated before insertion")
+                })
+                .collect::<Vec<_>>();
+            config.set(prefix, values)?;
         }
     }
 

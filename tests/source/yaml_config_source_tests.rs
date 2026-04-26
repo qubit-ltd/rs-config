@@ -229,6 +229,21 @@ db:
     }
 
     #[test]
+    fn test_load_yaml_non_empty_sequence_overrides_existing_list() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("sequence_override.yaml");
+        std::fs::write(&path, "ports:\n  - 9000\n  - 9001\n").unwrap();
+
+        let source = YamlConfigSource::from_file(&path);
+        let mut config = Config::new();
+        config.set("ports", vec![8080i64, 8081]).unwrap();
+
+        source.load(&mut config).unwrap();
+
+        assert_eq!(config.get_list::<i64>("ports").unwrap(), vec![9000, 9001]);
+    }
+
+    #[test]
     fn test_load_yaml_empty_sequence_deserializes_as_empty_vec() {
         #[derive(serde::Deserialize)]
         struct Service {
