@@ -196,6 +196,76 @@ db:
     }
 
     #[test]
+    fn test_load_yaml_empty_sequence_is_empty_list() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("empty_sequence.yaml");
+        std::fs::write(&path, "empty: []\n").unwrap();
+
+        let source = YamlConfigSource::from_file(&path);
+        let mut config = Config::new();
+        source.load(&mut config).unwrap();
+
+        assert!(config.contains("empty"));
+        assert_eq!(
+            config.get_string_list("empty").unwrap(),
+            Vec::<String>::new()
+        );
+        assert_eq!(config.get_list::<i64>("empty").unwrap(), Vec::<i64>::new());
+    }
+
+    #[test]
+    fn test_load_yaml_empty_sequence_overrides_existing_list() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("empty_override.yaml");
+        std::fs::write(&path, "ports: []\n").unwrap();
+
+        let source = YamlConfigSource::from_file(&path);
+        let mut config = Config::new();
+        config.set("ports", vec![8080i64, 8081]).unwrap();
+
+        source.load(&mut config).unwrap();
+
+        assert_eq!(config.get_list::<i64>("ports").unwrap(), Vec::<i64>::new());
+    }
+
+    #[test]
+    fn test_load_yaml_empty_sequence_deserializes_as_empty_vec() {
+        #[derive(serde::Deserialize)]
+        struct Service {
+            ports: Vec<i64>,
+        }
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("empty_deserialize.yaml");
+        std::fs::write(&path, "service:\n  ports: []\n").unwrap();
+
+        let source = YamlConfigSource::from_file(&path);
+        let mut config = Config::new();
+
+        source.load(&mut config).unwrap();
+        let service: Service = config.deserialize("service").unwrap();
+
+        assert_eq!(service.ports, Vec::<i64>::new());
+    }
+
+    #[test]
+    fn test_load_yaml_empty_sequence_respects_final_property() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("empty_final.yaml");
+        std::fs::write(&path, "locked: []\n").unwrap();
+
+        let source = YamlConfigSource::from_file(&path);
+        let mut config = Config::new();
+        config.set("locked", vec!["old"]).unwrap();
+        config.get_property_mut("locked").unwrap().set_final(true);
+
+        let result = source.load(&mut config);
+
+        assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
+        assert_eq!(config.get_string_list("locked").unwrap(), vec!["old"]);
+    }
+
+    #[test]
     fn test_load_yaml_complex_keys_returns_error() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("complex_key.yaml");

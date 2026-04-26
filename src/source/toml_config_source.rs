@@ -145,10 +145,12 @@ pub(crate) fn flatten_toml_value(
 
 /// Flattens a TOML array into multi-value config entries.
 ///
-/// Homogeneous scalar arrays are stored with their native types.
-/// Mixed or nested arrays fall back to string representation.
+/// Homogeneous scalar arrays are stored with their native types. Empty arrays
+/// are stored as explicit empty string lists because TOML carries no element
+/// type for them. Mixed or nested arrays fall back to string representation.
 fn flatten_toml_array(prefix: &str, arr: &[TomlValue], config: &mut Config) -> ConfigResult<()> {
     if arr.is_empty() {
+        config.set(prefix, Vec::<String>::new())?;
         return Ok(());
     }
 
@@ -381,6 +383,7 @@ mod tests {
     #[test]
     fn test_flatten_toml_array_respects_final_property() {
         let cases = [
+            Vec::new(),
             vec![TomlValue::Integer(1), TomlValue::Integer(2)],
             vec![TomlValue::Float(1.5), TomlValue::Float(2.5)],
             vec![TomlValue::Boolean(true), TomlValue::Boolean(false)],

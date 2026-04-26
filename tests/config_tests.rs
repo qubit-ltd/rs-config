@@ -2277,10 +2277,12 @@ mod test_yaml_type_faithful {
     #[test]
     fn test_yaml_empty_sequence() {
         let config = load_yaml("empty: []\n");
-        // Empty sequence should not create any entry (or create empty)
-        // The key may or may not exist depending on implementation
-        // Just verify it doesn't panic
-        let _ = config.get_optional_list::<String>("empty");
+        assert!(config.contains("empty"));
+        assert_eq!(
+            config.get_list::<String>("empty").unwrap(),
+            Vec::<String>::new()
+        );
+        assert_eq!(config.get_list::<i64>("empty").unwrap(), Vec::<i64>::new());
     }
 
     #[test]

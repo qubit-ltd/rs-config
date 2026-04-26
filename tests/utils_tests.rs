@@ -500,6 +500,13 @@ mod test_property_to_json_value_coverage {
     }
 
     #[test]
+    fn test_deserialize_empty_string_multivalue_is_array() {
+        let config = config_with_mv("x.val", MultiValues::String(Vec::new()));
+        let s: AnyStruct = config.deserialize("x").unwrap();
+        assert_eq!(s.val, serde_json::json!([]));
+    }
+
+    #[test]
     fn test_deserialize_multi_int32_array() {
         let config = config_with_mv("x.val", MultiValues::Int32(vec![1, 2, 3]));
         let s: AnyStruct = config.deserialize("x").unwrap();

@@ -155,13 +155,16 @@ pub(crate) fn flatten_yaml_value(
 
 /// Flattens a YAML sequence into multi-value config entries.
 ///
-/// Homogeneous scalar sequences are stored with their native types.
-/// Mixed scalar sequences fall back to string representation.
+/// Homogeneous scalar sequences are stored with their native types. Empty
+/// sequences are stored as explicit empty string lists because YAML carries no
+/// element type for them. Mixed scalar sequences fall back to string
+/// representation.
 ///
 /// Nested structures inside sequences (mapping/sequence/tagged) are rejected
 /// with a parse error to avoid silently losing structure information.
 fn flatten_yaml_sequence(prefix: &str, seq: &[YamlValue], config: &mut Config) -> ConfigResult<()> {
     if seq.is_empty() {
+        config.set(prefix, Vec::<String>::new())?;
         return Ok(());
     }
 
@@ -505,6 +508,7 @@ mod tests {
     #[test]
     fn test_flatten_yaml_sequence_respects_final_property() {
         let cases = [
+            Vec::new(),
             vec![
                 YamlValue::Number(serde_yaml::Number::from(1i64)),
                 YamlValue::Number(serde_yaml::Number::from(2i64)),
