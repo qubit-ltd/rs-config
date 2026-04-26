@@ -1571,7 +1571,7 @@ impl Config {
         let mut map = Map::new();
         for (key, prop) in properties {
             let mut json_val = utils::property_to_json_value(prop);
-            utils::substitute_json_strings(&mut json_val, &sub)?;
+            utils::substitute_json_strings_with_fallback(&mut json_val, &sub, self)?;
             utils::insert_deserialize_value(&mut map, key, json_val);
         }
 

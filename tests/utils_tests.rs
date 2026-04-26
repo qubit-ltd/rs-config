@@ -268,6 +268,42 @@ mod test_deserialize {
     }
 
     #[test]
+    fn test_deserialize_substitutes_root_scope_fallback() {
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct ServiceConfig {
+            url: String,
+        }
+
+        let mut config = Config::new();
+        config.set("base_url", "http://example.test").unwrap();
+        config.set("svc.url", "${base_url}/v1").unwrap();
+
+        let svc: ServiceConfig = config.deserialize("svc").unwrap();
+
+        assert_eq!(svc.url, "http://example.test/v1");
+    }
+
+    #[test]
+    fn test_deserialize_substitution_local_type_error_not_masked_by_root() {
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct ServiceConfig {
+            url: String,
+        }
+
+        let mut config = Config::new();
+        config.set("base_url", "http://example.test").unwrap();
+        config.set("svc.base_url", 123i32).unwrap();
+        config.set("svc.url", "${base_url}/v1").unwrap();
+
+        let result = config.deserialize::<ServiceConfig>("svc");
+
+        assert!(matches!(
+            result,
+            Err(ConfigError::TypeMismatch { .. }) | Err(ConfigError::ConversionError { .. })
+        ));
+    }
+
+    #[test]
     fn test_deserialize_substitutes_nested_json_strings() {
         #[derive(Deserialize, Debug, PartialEq)]
         struct ServiceConfig {

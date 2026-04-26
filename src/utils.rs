@@ -89,6 +89,36 @@ pub(crate) fn substitute_variables<R: ConfigReader + ?Sized>(
     config: &R,
     max_depth: usize,
 ) -> ConfigResult<String> {
+    substitute_variables_by(value, max_depth, |var_name| {
+        find_variable_value(var_name, config)
+    })
+}
+
+/// Replaces variables using a primary reader and a fallback reader.
+///
+/// The primary reader is checked first. Missing or empty values fall back to
+/// the fallback reader, then to environment variables. Type and conversion
+/// errors in the primary reader are returned directly.
+pub(crate) fn substitute_variables_with_fallback<
+    P: ConfigReader + ?Sized,
+    F: ConfigReader + ?Sized,
+>(
+    value: &str,
+    primary: &P,
+    fallback: &F,
+    max_depth: usize,
+) -> ConfigResult<String> {
+    substitute_variables_by(value, max_depth, |var_name| {
+        find_variable_value_with_fallback(var_name, primary, fallback)
+    })
+}
+
+/// Replaces variables in `value` by repeatedly applying `resolve`.
+fn substitute_variables_by(
+    value: &str,
+    max_depth: usize,
+    mut resolve: impl FnMut(&str) -> ConfigResult<String>,
+) -> ConfigResult<String> {
     if value.is_empty() {
         return Ok(value.to_string());
     }
@@ -111,7 +141,7 @@ pub(crate) fn substitute_variables<R: ConfigReader + ?Sized>(
         let mut first_error: Option<ConfigError> = None;
         let replaced = pattern.replace_all(&result, |caps: &regex::Captures| {
             let var_name = caps.get(1).map(|m| m.as_str()).unwrap_or_default();
-            match find_variable_value(var_name, config) {
+            match resolve(var_name) {
                 Ok(v) => v,
                 Err(err) => {
                     if first_error.is_none() {
@@ -167,6 +197,25 @@ fn find_variable_value<R: ConfigReader + ?Sized>(
         }
         // Type/conversion errors in config should surface directly instead of
         // being silently masked by environment values.
+        Err(err) => Err(err),
+    }
+}
+
+/// Finds a variable value from `primary`, then `fallback`.
+///
+/// Missing or empty values in `primary` are looked up in `fallback`. Other
+/// errors from `primary` are returned directly so fallback values do not mask
+/// invalid local configuration.
+fn find_variable_value_with_fallback<P: ConfigReader + ?Sized, F: ConfigReader + ?Sized>(
+    var_name: &str,
+    primary: &P,
+    fallback: &F,
+) -> ConfigResult<String> {
+    match primary.get::<String>(var_name) {
+        Ok(value) => Ok(value),
+        Err(ConfigError::PropertyNotFound(_)) | Err(ConfigError::PropertyHasNoValue(_)) => {
+            find_variable_value(var_name, fallback)
+        }
         Err(err) => Err(err),
     }
 }
@@ -318,31 +367,39 @@ pub(crate) fn property_to_json_value(prop: &Property) -> Value {
     }
 }
 
-/// Applies variable substitution to every JSON string leaf.
+/// Applies variable substitution to every JSON string leaf with fallback scope.
 ///
-/// This keeps [`crate::Config::deserialize`] consistent with
-/// [`crate::Config::get_string`] and [`crate::Config::get_string_list`] while
-/// preserving the original JSON shape used by serde.
-pub(crate) fn substitute_json_strings<R: ConfigReader + ?Sized>(
+/// Used by [`crate::Config::deserialize`] so a deserialized subtree can resolve
+/// both relative keys in the subtree and absolute keys from the root config.
+pub(crate) fn substitute_json_strings_with_fallback<
+    P: ConfigReader + ?Sized,
+    F: ConfigReader + ?Sized,
+>(
     value: &mut Value,
-    config: &R,
+    primary: &P,
+    fallback: &F,
 ) -> ConfigResult<()> {
-    if !config.is_enable_variable_substitution() {
+    if !primary.is_enable_variable_substitution() {
         return Ok(());
     }
 
     match value {
         Value::String(s) => {
-            *s = substitute_variables(s, config, config.max_substitution_depth())?;
+            *s = substitute_variables_with_fallback(
+                s,
+                primary,
+                fallback,
+                primary.max_substitution_depth(),
+            )?;
         }
         Value::Array(values) => {
             for value in values {
-                substitute_json_strings(value, config)?;
+                substitute_json_strings_with_fallback(value, primary, fallback)?;
             }
         }
         Value::Object(map) => {
             for value in map.values_mut() {
-                substitute_json_strings(value, config)?;
+                substitute_json_strings_with_fallback(value, primary, fallback)?;
             }
         }
         _ => {}
