@@ -21,7 +21,7 @@
 //!   port: 8080
 //! ```
 //!
-//! becomes `server.host = "localhost"` and `server.port = "8080"`.
+//! becomes `server.host = "localhost"` and `server.port = 8080`.
 //!
 //! Arrays are stored as multi-value properties.
 //!

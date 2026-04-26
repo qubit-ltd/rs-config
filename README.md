@@ -29,7 +29,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-qubit-config = "0.2"
+qubit-config = "0.9.2"
 ```
 
 ## Quick Start
