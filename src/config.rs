@@ -17,6 +17,7 @@
 #![allow(private_bounds)]
 
 use std::collections::HashMap;
+use std::ops::Deref;
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -96,6 +97,222 @@ pub struct Config {
     enable_variable_substitution: bool,
     /// Maximum depth for variable substitution
     max_substitution_depth: usize,
+}
+
+/// Guarded mutable access to a non-final [`Property`] stored in a [`Config`].
+///
+/// This wrapper deliberately exposes read-only deref to [`Property`], but not
+/// `DerefMut`. Value-changing operations re-check the property's final flag on
+/// every call, so setting a property final through the guard immediately blocks
+/// subsequent mutation through the same guard.
+pub struct ConfigPropertyMut<'a> {
+    property: &'a mut Property,
+}
+
+impl<'a> ConfigPropertyMut<'a> {
+    /// Creates a guarded mutable property reference.
+    ///
+    /// # Parameters
+    ///
+    /// * `property` - The property to guard.
+    ///
+    /// # Returns
+    ///
+    /// A mutable guard for `property`.
+    #[inline]
+    fn new(property: &'a mut Property) -> Self {
+        Self { property }
+    }
+
+    /// Returns the underlying property as a read-only reference.
+    ///
+    /// # Returns
+    ///
+    /// The guarded property.
+    #[inline]
+    pub fn as_property(&self) -> &Property {
+        self.property
+    }
+
+    /// Sets the property description when the property is not final.
+    ///
+    /// # Parameters
+    ///
+    /// * `description` - New property description.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` on success.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::PropertyIsFinal`] if the property has already
+    /// been marked final.
+    #[inline]
+    pub fn set_description(&mut self, description: Option<String>) -> ConfigResult<()> {
+        self.ensure_not_final()?;
+        self.property.set_description(description);
+        Ok(())
+    }
+
+    /// Sets whether the property is final.
+    ///
+    /// Marking a non-final property as final succeeds. A property that is
+    /// already final may be marked final again, but cannot be unset through
+    /// this guard.
+    ///
+    /// # Parameters
+    ///
+    /// * `is_final` - Whether the property should be final.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` on success.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::PropertyIsFinal`] when trying to unset an
+    /// already-final property.
+    #[inline]
+    pub fn set_final(&mut self, is_final: bool) -> ConfigResult<()> {
+        if self.property.is_final() && !is_final {
+            return Err(ConfigError::PropertyIsFinal(
+                self.property.name().to_string(),
+            ));
+        }
+        self.property.set_final(is_final);
+        Ok(())
+    }
+
+    /// Replaces the property value when the property is not final.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - New property value.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` on success.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::PropertyIsFinal`] if the property has already
+    /// been marked final.
+    #[inline]
+    pub fn set_value(&mut self, value: MultiValues) -> ConfigResult<()> {
+        self.ensure_not_final()?;
+        self.property.set_value(value);
+        Ok(())
+    }
+
+    /// Replaces the property value using the generic [`MultiValues`] setter.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `S` - Input accepted by [`MultiValues`] setter traits.
+    ///
+    /// # Parameters
+    ///
+    /// * `values` - New value or values.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` on success.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::PropertyIsFinal`] if the property has already
+    /// been marked final, or a converted value error if setting fails.
+    pub fn set<S>(&mut self, values: S) -> ConfigResult<()>
+    where
+        S: for<'b> MultiValuesSetArg<'b>,
+        <S as MultiValuesSetArg<'static>>::Item: Clone,
+        MultiValues: MultiValuesSetter<<S as MultiValuesSetArg<'static>>::Item>
+            + MultiValuesSetterSlice<<S as MultiValuesSetArg<'static>>::Item>
+            + MultiValuesSingleSetter<<S as MultiValuesSetArg<'static>>::Item>,
+    {
+        self.ensure_not_final()?;
+        self.property.set(values).map_err(ConfigError::from)
+    }
+
+    /// Appends values using the generic [`MultiValues`] adder.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `S` - Input accepted by [`MultiValues`] adder traits.
+    ///
+    /// # Parameters
+    ///
+    /// * `values` - Value or values to append.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` on success.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::PropertyIsFinal`] if the property has already
+    /// been marked final, or a converted value error if appending fails.
+    pub fn add<S>(&mut self, values: S) -> ConfigResult<()>
+    where
+        S: for<'b> MultiValuesAddArg<'b, Item = <S as MultiValuesSetArg<'static>>::Item>
+            + for<'b> MultiValuesSetArg<'b>,
+        <S as MultiValuesSetArg<'static>>::Item: Clone,
+        MultiValues: MultiValuesAdder<<S as MultiValuesSetArg<'static>>::Item>
+            + MultiValuesMultiAdder<<S as MultiValuesSetArg<'static>>::Item>
+            + MultiValuesSetter<<S as MultiValuesSetArg<'static>>::Item>
+            + MultiValuesSetterSlice<<S as MultiValuesSetArg<'static>>::Item>
+            + MultiValuesSingleSetter<<S as MultiValuesSetArg<'static>>::Item>,
+    {
+        self.ensure_not_final()?;
+        self.property.add(values).map_err(ConfigError::from)
+    }
+
+    /// Clears the property value when the property is not final.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` on success.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::PropertyIsFinal`] if the property has already
+    /// been marked final.
+    #[inline]
+    pub fn clear(&mut self) -> ConfigResult<()> {
+        self.ensure_not_final()?;
+        self.property.clear();
+        Ok(())
+    }
+
+    /// Ensures the guarded property has not been marked final.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if the property is mutable.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::PropertyIsFinal`] if the property is final.
+    #[inline]
+    fn ensure_not_final(&self) -> ConfigResult<()> {
+        if self.property.is_final() {
+            return Err(ConfigError::PropertyIsFinal(
+                self.property.name().to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl Deref for ConfigPropertyMut<'_> {
+    type Target = Property;
+
+    /// Dereferences to the guarded property for read-only access.
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        self.property
+    }
 }
 
 impl Config {
@@ -299,7 +516,7 @@ impl Config {
         self.properties.get(name)
     }
 
-    /// Gets a mutable reference to a non-final configuration item.
+    /// Gets guarded mutable access to a non-final configuration item.
     ///
     /// # Parameters
     ///
@@ -309,11 +526,43 @@ impl Config {
     ///
     /// Returns `Ok(Some(_))` for an existing non-final property, `Ok(None)`
     /// for a missing property, or [`ConfigError::PropertyIsFinal`] for an
-    /// existing final property.
+    /// existing final property. The returned guard re-checks final state before
+    /// each value-changing operation.
     #[inline]
-    pub fn get_property_mut(&mut self, name: &str) -> ConfigResult<Option<&mut Property>> {
+    pub fn get_property_mut(&mut self, name: &str) -> ConfigResult<Option<ConfigPropertyMut<'_>>> {
         self.ensure_property_not_final(name)?;
-        Ok(self.properties.get_mut(name))
+        Ok(self.properties.get_mut(name).map(ConfigPropertyMut::new))
+    }
+
+    /// Sets the final flag of an existing configuration item.
+    ///
+    /// A non-final property can be marked final. A property that is already
+    /// final may be marked final again, but cannot be unset through this API.
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Configuration item name.
+    /// * `is_final` - Whether the property should be final.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` on success.
+    ///
+    /// # Errors
+    ///
+    /// - [`ConfigError::PropertyNotFound`] if the key does not exist.
+    /// - [`ConfigError::PropertyIsFinal`] when trying to unset a final
+    ///   property.
+    pub fn set_final(&mut self, name: &str, is_final: bool) -> ConfigResult<()> {
+        let property = self
+            .properties
+            .get_mut(name)
+            .ok_or_else(|| ConfigError::PropertyNotFound(name.to_string()))?;
+        if property.is_final() && !is_final {
+            return Err(ConfigError::PropertyIsFinal(name.to_string()));
+        }
+        property.set_final(is_final);
+        Ok(())
     }
 
     /// Removes a non-final configuration item.

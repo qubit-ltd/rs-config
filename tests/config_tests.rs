@@ -220,14 +220,73 @@ mod test_get_property_mut {
     fn test_get_property_mut_returns_error_for_final_property() {
         let mut config = Config::new();
         config.set("test", "value").unwrap();
-        config
-            .get_property_mut("test")
-            .unwrap()
-            .unwrap()
-            .set_final(true);
+        config.set_final("test", true).unwrap();
 
         let result = config.get_property_mut("test");
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
+    }
+
+    #[test]
+    fn test_property_mut_guard_rechecks_final_after_set_final() {
+        let mut config = Config::new();
+        config.set("test", "value").unwrap();
+
+        {
+            let mut property = config.get_property_mut("test").unwrap().unwrap();
+            property.set_final(true).unwrap();
+
+            let desc_result = property.set_description(Some("blocked".to_string()));
+            assert!(matches!(desc_result, Err(ConfigError::PropertyIsFinal(_))));
+
+            let set_result = property.set_value(MultiValues::String(vec!["new-value".to_string()]));
+            assert!(matches!(set_result, Err(ConfigError::PropertyIsFinal(_))));
+
+            let generic_set_result = property.set("new-value");
+            assert!(matches!(
+                generic_set_result,
+                Err(ConfigError::PropertyIsFinal(_))
+            ));
+
+            let add_result = property.add("new-value");
+            assert!(matches!(add_result, Err(ConfigError::PropertyIsFinal(_))));
+
+            let clear_result = property.clear();
+            assert!(matches!(clear_result, Err(ConfigError::PropertyIsFinal(_))));
+
+            let unset_result = property.set_final(false);
+            assert!(matches!(unset_result, Err(ConfigError::PropertyIsFinal(_))));
+        }
+
+        assert_eq!(config.get_string("test").unwrap(), "value");
+    }
+
+    #[test]
+    fn test_property_mut_guard_allows_mutation_before_final() {
+        let mut config = Config::new();
+        config.set("test", "value").unwrap();
+
+        {
+            let mut property = config.get_property_mut("test").unwrap().unwrap();
+            assert_eq!(property.name(), "test");
+            assert_eq!(property.as_property().name(), "test");
+            property
+                .set_description(Some("updated description".to_string()))
+                .unwrap();
+            property
+                .set_value(MultiValues::String(vec!["first".to_string()]))
+                .unwrap();
+            property.set("second").unwrap();
+            property.add("third").unwrap();
+        }
+
+        assert_eq!(
+            config.get_string_list("test").unwrap(),
+            vec!["second".to_string(), "third".to_string()],
+        );
+        assert_eq!(
+            config.get_property("test").unwrap().description(),
+            Some("updated description"),
+        );
     }
 }
 
@@ -256,11 +315,7 @@ mod test_remove {
     fn test_remove_final_property_returns_error_and_keeps_value() {
         let mut config = Config::new();
         config.set("test", "value").unwrap();
-        config
-            .get_property_mut("test")
-            .unwrap()
-            .unwrap()
-            .set_final(true);
+        config.set_final("test", true).unwrap();
 
         let result = config.remove("test");
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
@@ -293,11 +348,7 @@ mod test_clear {
     #[test]
     fn test_clear_with_final_property_returns_error_and_keeps_values() {
         let mut config = create_test_config();
-        config
-            .get_property_mut("string_value")
-            .unwrap()
-            .unwrap()
-            .set_final(true);
+        config.set_final("string_value", true).unwrap();
 
         let result = config.clear();
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
@@ -1144,10 +1195,7 @@ mod test_final_property {
         // Set initial value
         config.set("immutable_key", "initial_value").unwrap();
 
-        // Mark as final
-        if let Some(prop) = config.get_property_mut("immutable_key").unwrap() {
-            prop.set_final(true);
-        }
+        config.set_final("immutable_key", true).unwrap();
 
         // Try to set again - should fail
         let result = config.set("immutable_key", "new_value");
@@ -1172,10 +1220,7 @@ mod test_final_property {
             .set("immutable_list", vec!["value1", "value2"])
             .unwrap();
 
-        // Mark as final
-        if let Some(prop) = config.get_property_mut("immutable_list").unwrap() {
-            prop.set_final(true);
-        }
+        config.set_final("immutable_list", true).unwrap();
 
         // Try to add - should fail
         let result = config.add("immutable_list", "value3");
@@ -1206,6 +1251,26 @@ mod test_final_property {
     }
 
     #[test]
+    fn test_set_final_missing_property_returns_error() {
+        let mut config = Config::new();
+        let result = config.set_final("missing", true);
+        assert!(matches!(result, Err(ConfigError::PropertyNotFound(_))));
+    }
+
+    #[test]
+    fn test_set_final_cannot_unset_final_property() {
+        let mut config = Config::new();
+        config.set("key", "value").unwrap();
+        config.set_final("key", false).unwrap();
+        config.set_final("key", true).unwrap();
+        config.set_final("key", true).unwrap();
+
+        let result = config.set_final("key", false);
+        assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
+        assert_eq!(config.get_string("key").unwrap(), "value");
+    }
+
+    #[test]
     fn test_add_to_non_final_property_succeeds() {
         let mut config = Config::new();
 
@@ -1225,23 +1290,17 @@ mod test_final_property {
 
         // Test with integer
         config.set("final_int", 42).unwrap();
-        if let Some(prop) = config.get_property_mut("final_int").unwrap() {
-            prop.set_final(true);
-        }
+        config.set_final("final_int", true).unwrap();
         assert!(config.set("final_int", 100).is_err());
 
         // Test with boolean
         config.set("final_bool", true).unwrap();
-        if let Some(prop) = config.get_property_mut("final_bool").unwrap() {
-            prop.set_final(true);
-        }
+        config.set_final("final_bool", true).unwrap();
         assert!(config.set("final_bool", false).is_err());
 
         // Test with float
         config.set("final_float", 3.15).unwrap();
-        if let Some(prop) = config.get_property_mut("final_float").unwrap() {
-            prop.set_final(true);
-        }
+        config.set_final("final_float", true).unwrap();
         assert!(config.set("final_float", 2.72).is_err());
     }
 }
@@ -1570,7 +1629,12 @@ mod test_is_null {
     fn test_is_null_after_clear() {
         let mut config = Config::new();
         config.set("host", "localhost").unwrap();
-        config.get_property_mut("host").unwrap().unwrap().clear();
+        config
+            .get_property_mut("host")
+            .unwrap()
+            .unwrap()
+            .clear()
+            .unwrap();
         assert!(config.is_null("host"));
     }
 }
@@ -2384,11 +2448,7 @@ mod test_property_insertion_api {
     fn test_insert_property_on_final_key_returns_error() {
         let mut config = Config::new();
         config.set("final.key", "v1").unwrap();
-        config
-            .get_property_mut("final.key")
-            .unwrap()
-            .unwrap()
-            .set_final(true);
+        config.set_final("final.key", true).unwrap();
 
         let result = config.insert_property(
             "final.key",
@@ -2570,9 +2630,7 @@ mod test_merge_from_source {
     fn test_merge_from_source_preserves_final_property() {
         let mut config = Config::new();
         config.set("host", "final-host").unwrap();
-        if let Some(prop) = config.get_property_mut("host").unwrap() {
-            prop.set_final(true);
-        }
+        config.set_final("host", true).unwrap();
 
         let source = TomlConfigSource::from_file(fixture("basic.toml"));
         let result = config.merge_from_source(&source);
