@@ -246,6 +246,15 @@ mod test_properties_coverage {
         assert_eq!(pairs[0].1, "value");
     }
 
+    #[test]
+    fn test_properties_even_trailing_backslashes_do_not_continue() {
+        let content = "path=C:\\\\\nnext=value";
+        let pairs = PropertiesConfigSource::parse_content(content);
+        assert_eq!(pairs.len(), 2);
+        assert_eq!(pairs[0], ("path".to_string(), "C:\\".to_string()));
+        assert_eq!(pairs[1], ("next".to_string(), "value".to_string()));
+    }
+
     // ---- properties: invalid unicode escape (partial) ----
     #[test]
     fn test_properties_invalid_unicode_escape_kept_as_is() {
@@ -266,6 +275,14 @@ mod test_properties_coverage {
         assert_eq!(pairs[0].1, "line1\rline2");
     }
 
+    #[test]
+    fn test_properties_form_feed_escape() {
+        let content = "key=left\\fright";
+        let pairs = PropertiesConfigSource::parse_content(content);
+        assert_eq!(pairs.len(), 1);
+        assert_eq!(pairs[0].1, "left\u{000C}right");
+    }
+
     // ---- properties: unknown escape sequence ----
     #[test]
     fn test_properties_unknown_escape_kept_as_backslash() {
@@ -282,7 +299,18 @@ mod test_properties_coverage {
         let content = r"key\=name=value";
         let pairs = PropertiesConfigSource::parse_content(content);
         assert_eq!(pairs.len(), 1);
-        // The escaped '=' in the key is not treated as separator
-        assert!(pairs[0].0.contains("key"));
+        assert_eq!(pairs[0], ("key=name".to_string(), "value".to_string()));
+    }
+
+    #[test]
+    fn test_properties_escaped_separator_and_space_are_unescaped() {
+        let content = "path\\:home:some\\ value\nhash\\#key=bang\\!value";
+        let pairs = PropertiesConfigSource::parse_content(content);
+        assert_eq!(pairs.len(), 2);
+        assert_eq!(
+            pairs[0],
+            ("path:home".to_string(), "some value".to_string()),
+        );
+        assert_eq!(pairs[1], ("hash#key".to_string(), "bang!value".to_string()),);
     }
 }

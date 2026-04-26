@@ -17,8 +17,8 @@
 //! - `key: value` assignments (colon separator)
 //! - `# comment` and `! comment` lines
 //! - Blank lines (ignored)
-//! - Line continuation with `\` at end of line
-//! - Unicode escape sequences (`\uXXXX`)
+//! - Line continuation with an odd number of `\` characters at end of line
+//! - Java properties escape sequences (`\uXXXX`, `\=`, `\:`, `\ `, etc.)
 //!
 //! # Author
 //!
@@ -92,7 +92,7 @@ impl PropertiesConfigSource {
 
             // Handle line continuation
             let mut full_line = trimmed.to_string();
-            while full_line.ends_with('\\') {
+            while has_line_continuation(&full_line) {
                 full_line.pop(); // remove trailing backslash
                 if let Some(next) = lines.next() {
                     full_line.push_str(next.trim());
@@ -103,8 +103,8 @@ impl PropertiesConfigSource {
 
             // Parse key=value or key: value
             if let Some((key, value)) = parse_key_value(&full_line) {
-                let key = unescape_unicode(key.trim());
-                let value = unescape_unicode(value.trim());
+                let key = unescape_properties(key.trim());
+                let value = unescape_properties(value.trim());
                 result.push((key, value));
             }
         }
@@ -150,8 +150,43 @@ fn is_escaped_separator(line: &str, sep_pos: usize) -> bool {
     slash_count % 2 == 1
 }
 
-/// Processes Unicode escape sequences (`\uXXXX`) in a string
-fn unescape_unicode(s: &str) -> String {
+/// Returns true if a physical line continues on the next line.
+///
+/// Java-style properties only treat an odd number of trailing backslashes as a
+/// continuation marker; an even number represents escaped literal backslashes.
+///
+/// # Parameters
+///
+/// * `line` - Physical properties line after outer whitespace trimming.
+///
+/// # Returns
+///
+/// `true` when the line should be joined with the next physical line.
+#[inline]
+fn has_line_continuation(line: &str) -> bool {
+    count_trailing_backslashes(line) % 2 == 1
+}
+
+/// Counts consecutive trailing backslashes in a string.
+///
+/// # Parameters
+///
+/// * `line` - Source line or key/value segment.
+///
+/// # Returns
+///
+/// Number of trailing `\` bytes.
+#[inline]
+fn count_trailing_backslashes(line: &str) -> usize {
+    line.as_bytes()
+        .iter()
+        .rev()
+        .take_while(|&&b| b == b'\\')
+        .count()
+}
+
+/// Processes Java properties escape sequences in a string.
+fn unescape_properties(s: &str) -> String {
     let mut result = String::with_capacity(s.len());
     let mut chars = s.chars().peekable();
 
@@ -185,9 +220,19 @@ fn unescape_unicode(s: &str) -> String {
                     chars.next();
                     result.push('\r');
                 }
+                Some('f') => {
+                    chars.next();
+                    result.push('\u{000C}');
+                }
                 Some('\\') => {
                     chars.next();
                     result.push('\\');
+                }
+                Some('=') | Some(':') | Some(' ') | Some('#') | Some('!') => {
+                    let escaped = chars
+                        .next()
+                        .expect("peeked escaped properties character should exist");
+                    result.push(escaped);
                 }
                 _ => {
                     result.push(ch);
