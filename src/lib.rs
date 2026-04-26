@@ -26,7 +26,7 @@ mod property;
 pub mod source;
 mod utils;
 
-pub use config::Config;
+pub use config::{Config, ConfigPropertyMut};
 pub use config_prefix_view::ConfigPrefixView;
 pub use config_reader::ConfigReader;
 pub use configurable::Configurable;
