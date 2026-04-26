@@ -51,6 +51,31 @@ mod test_properties_config_source {
     }
 
     #[test]
+    fn test_parse_whitespace_separator() {
+        let content = "server.port 8080\nhost\tlocalhost";
+        let pairs = PropertiesConfigSource::parse_content(content);
+        assert_eq!(pairs.len(), 2);
+        assert_eq!(pairs[0], ("server.port".to_string(), "8080".to_string()));
+        assert_eq!(pairs[1], ("host".to_string(), "localhost".to_string()));
+    }
+
+    #[test]
+    fn test_parse_whitespace_before_colon_separator() {
+        let content = "key   :   value";
+        let pairs = PropertiesConfigSource::parse_content(content);
+        assert_eq!(pairs.len(), 1);
+        assert_eq!(pairs[0], ("key".to_string(), "value".to_string()));
+    }
+
+    #[test]
+    fn test_parse_escaped_space_in_key_not_separator() {
+        let content = "key\\ name=value";
+        let pairs = PropertiesConfigSource::parse_content(content);
+        assert_eq!(pairs.len(), 1);
+        assert_eq!(pairs[0], ("key name".to_string(), "value".to_string()));
+    }
+
+    #[test]
     fn test_parse_skips_hash_comments() {
         let content = "# This is a comment\nkey=value";
         let pairs = PropertiesConfigSource::parse_content(content);
@@ -253,6 +278,23 @@ mod test_properties_coverage {
         assert_eq!(pairs.len(), 2);
         assert_eq!(pairs[0], ("path".to_string(), "C:\\".to_string()));
         assert_eq!(pairs[1], ("next".to_string(), "value".to_string()));
+    }
+
+    #[test]
+    fn test_properties_escaped_trailing_space_preserved_without_continuation() {
+        let content = "key=value\\ \nnext=ok";
+        let pairs = PropertiesConfigSource::parse_content(content);
+        assert_eq!(pairs.len(), 2);
+        assert_eq!(pairs[0], ("key".to_string(), "value ".to_string()));
+        assert_eq!(pairs[1], ("next".to_string(), "ok".to_string()));
+    }
+
+    #[test]
+    fn test_properties_key_followed_by_trailing_whitespace_has_empty_value() {
+        let content = "standalone_key   ";
+        let pairs = PropertiesConfigSource::parse_content(content);
+        assert_eq!(pairs.len(), 1);
+        assert_eq!(pairs[0], ("standalone_key".to_string(), "".to_string()));
     }
 
     // ---- properties: invalid unicode escape (partial) ----
