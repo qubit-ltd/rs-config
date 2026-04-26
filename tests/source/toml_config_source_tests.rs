@@ -182,17 +182,70 @@ mod test_toml_coverage {
         assert!(val.contains("2026"));
     }
 
-    // ---- toml: empty array ----
     #[test]
-    fn test_toml_empty_array_no_entry() {
+    fn test_toml_empty_array_is_empty_list() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("empty_arr.toml");
         std::fs::write(&path, "empty = []\n").unwrap();
         let source = TomlConfigSource::from_file(&path);
         let mut config = Config::new();
         source.load(&mut config).unwrap();
-        // Empty array: no entry created
-        assert!(!config.contains("empty"));
+
+        assert!(config.contains("empty"));
+        assert_eq!(
+            config.get_string_list("empty").unwrap(),
+            Vec::<String>::new()
+        );
+        assert_eq!(config.get_list::<i64>("empty").unwrap(), Vec::<i64>::new());
+    }
+
+    #[test]
+    fn test_toml_empty_array_overrides_existing_list() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("empty_override.toml");
+        std::fs::write(&path, "ports = []\n").unwrap();
+        let source = TomlConfigSource::from_file(&path);
+        let mut config = Config::new();
+        config.set("ports", vec![8080i64, 8081]).unwrap();
+
+        source.load(&mut config).unwrap();
+
+        assert_eq!(config.get_list::<i64>("ports").unwrap(), Vec::<i64>::new());
+    }
+
+    #[test]
+    fn test_toml_empty_array_deserializes_as_empty_vec() {
+        #[derive(serde::Deserialize)]
+        struct Service {
+            ports: Vec<i64>,
+        }
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("empty_deserialize.toml");
+        std::fs::write(&path, "[service]\nports = []\n").unwrap();
+        let source = TomlConfigSource::from_file(&path);
+        let mut config = Config::new();
+
+        source.load(&mut config).unwrap();
+        let service: Service = config.deserialize("service").unwrap();
+
+        assert_eq!(service.ports, Vec::<i64>::new());
+    }
+
+    #[test]
+    fn test_toml_empty_array_respects_final_property() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("empty_final.toml");
+        std::fs::write(&path, "locked = []\n").unwrap();
+        let source = TomlConfigSource::from_file(&path);
+        let mut config = Config::new();
+        config.set("locked", vec!["old"]).unwrap();
+        config.get_property_mut("locked").unwrap().set_final(true);
+
+        let result = source.load(&mut config);
+
+        assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
+        assert_eq!(config.get_string_list("locked").unwrap(), vec!["old"]);
     }
 
     // ---- toml: mixed array (int + string) falls back to string ----

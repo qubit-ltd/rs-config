@@ -611,6 +611,9 @@ impl Config {
         MultiValues: MultiValuesGetter<T>,
     {
         let property = self.get_property_by_name(name)?;
+        if property.is_empty() {
+            return Ok(Vec::new());
+        }
 
         property
             .get::<T>()
