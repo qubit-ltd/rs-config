@@ -15,6 +15,7 @@
 //! The `.properties` format supports:
 //! - `key=value` assignments
 //! - `key: value` assignments (colon separator)
+//! - `key value` assignments (whitespace separator)
 //! - `# comment` and `! comment` lines
 //! - Blank lines (ignored)
 //! - Line continuation with an odd number of `\` characters at end of line
@@ -83,7 +84,7 @@ impl PropertiesConfigSource {
         let mut lines = content.lines().peekable();
 
         while let Some(line) = lines.next() {
-            let trimmed = line.trim();
+            let trimmed = line.trim_start();
 
             // Skip blank lines and comments
             if trimmed.is_empty() || trimmed.starts_with('#') || trimmed.starts_with('!') {
@@ -95,16 +96,16 @@ impl PropertiesConfigSource {
             while has_line_continuation(&full_line) {
                 full_line.pop(); // remove trailing backslash
                 if let Some(next) = lines.next() {
-                    full_line.push_str(next.trim());
+                    full_line.push_str(next.trim_start());
                 } else {
                     break;
                 }
             }
 
-            // Parse key=value or key: value
+            // Parse key/value pairs using Java properties separators.
             if let Some((key, value)) = parse_key_value(&full_line) {
-                let key = unescape_properties(key.trim());
-                let value = unescape_properties(value.trim());
+                let key = unescape_properties(key);
+                let value = unescape_properties(value);
                 result.push((key, value));
             }
         }
@@ -113,20 +114,74 @@ impl PropertiesConfigSource {
     }
 }
 
-/// Parses a single `key=value` or `key: value` line
+/// Parses a single `key=value`, `key: value`, or `key value` line.
 fn parse_key_value(line: &str) -> Option<(&str, &str)> {
-    // Find the first '=' or ':' that is not preceded by '\'
-    let chars = line.char_indices();
-    for (i, ch) in chars {
+    let line = line.trim_start();
+
+    for (i, ch) in line.char_indices() {
         if ch == '=' || ch == ':' {
             // Separator is escaped only if there is an odd number of trailing backslashes.
             if !is_escaped_separator(line, i) {
-                return Some((&line[..i], &line[i + ch.len_utf8()..]));
+                let value_start = skip_properties_whitespace(line, i + ch.len_utf8());
+                return Some((&line[..i], &line[value_start..]));
             }
+        }
+        if ch.is_whitespace() && !is_escaped_separator(line, i) {
+            let mut value_start = skip_properties_whitespace(line, i);
+            if let Some((sep, sep_len)) = char_at(line, value_start)
+                && (sep == '=' || sep == ':')
+                && !is_escaped_separator(line, value_start)
+            {
+                value_start = skip_properties_whitespace(line, value_start + sep_len);
+            }
+            return Some((&line[..i], &line[value_start..]));
         }
     }
     // No separator found - treat the whole line as a key with empty value.
     (!line.is_empty()).then_some((line, ""))
+}
+
+/// Returns the character and byte width at `index`.
+///
+/// # Parameters
+///
+/// * `line` - Source properties line.
+/// * `index` - Byte index to inspect.
+///
+/// # Returns
+///
+/// `Some((ch, len))` if `index` points to a character boundary inside `line`,
+/// otherwise `None`.
+#[inline]
+fn char_at(line: &str, index: usize) -> Option<(char, usize)> {
+    if index == line.len() {
+        return None;
+    }
+    let ch = line[index..]
+        .chars()
+        .next()
+        .expect("index below line length should point to a character");
+    Some((ch, ch.len_utf8()))
+}
+
+/// Skips Java properties whitespace from a byte index.
+///
+/// # Parameters
+///
+/// * `line` - Source properties line.
+/// * `start` - Byte index to start scanning from.
+///
+/// # Returns
+///
+/// The first byte index at or after `start` that is not whitespace, or the end
+/// of `line`.
+fn skip_properties_whitespace(line: &str, start: usize) -> usize {
+    for (offset, ch) in line[start..].char_indices() {
+        if !ch.is_whitespace() {
+            return start + offset;
+        }
+    }
+    line.len()
 }
 
 /// Returns true if the separator at `sep_pos` is escaped by a preceding odd
