@@ -240,7 +240,11 @@ mod test_toml_coverage {
         let source = TomlConfigSource::from_file(&path);
         let mut config = Config::new();
         config.set("locked", vec!["old"]).unwrap();
-        config.get_property_mut("locked").unwrap().set_final(true);
+        config
+            .get_property_mut("locked")
+            .unwrap()
+            .unwrap()
+            .set_final(true);
 
         let result = source.load(&mut config);
 

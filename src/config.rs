@@ -299,7 +299,7 @@ impl Config {
         self.properties.get(name)
     }
 
-    /// Gets a mutable reference to a configuration item
+    /// Gets a mutable reference to a non-final configuration item.
     ///
     /// # Parameters
     ///
@@ -307,13 +307,16 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// Returns mutable Option containing the configuration item
+    /// Returns `Ok(Some(_))` for an existing non-final property, `Ok(None)`
+    /// for a missing property, or [`ConfigError::PropertyIsFinal`] for an
+    /// existing final property.
     #[inline]
-    pub fn get_property_mut(&mut self, name: &str) -> Option<&mut Property> {
-        self.properties.get_mut(name)
+    pub fn get_property_mut(&mut self, name: &str) -> ConfigResult<Option<&mut Property>> {
+        self.ensure_property_not_final(name)?;
+        Ok(self.properties.get_mut(name))
     }
 
-    /// Removes a configuration item
+    /// Removes a non-final configuration item.
     ///
     /// # Parameters
     ///
@@ -331,16 +334,17 @@ impl Config {
     /// let mut config = Config::new();
     /// config.set("port", 8080).unwrap();
     ///
-    /// let removed = config.remove("port");
+    /// let removed = config.remove("port").unwrap();
     /// assert!(removed.is_some());
     /// assert!(!config.contains("port"));
     /// ```
     #[inline]
-    pub fn remove(&mut self, name: &str) -> Option<Property> {
-        self.properties.remove(name)
+    pub fn remove(&mut self, name: &str) -> ConfigResult<Option<Property>> {
+        self.ensure_property_not_final(name)?;
+        Ok(self.properties.remove(name))
     }
 
-    /// Clears all configuration items
+    /// Clears all configuration items if none of them are final.
     ///
     /// # Examples
     ///
@@ -351,16 +355,18 @@ impl Config {
     /// config.set("port", 8080).unwrap();
     /// config.set("host", "localhost").unwrap();
     ///
-    /// config.clear();
+    /// config.clear().unwrap();
     /// assert!(config.is_empty());
     /// ```
     ///
     /// # Returns
     ///
-    /// Nothing.
+    /// `Ok(())` when all properties were removed.
     #[inline]
-    pub fn clear(&mut self) {
+    pub fn clear(&mut self) -> ConfigResult<()> {
+        self.ensure_no_final_properties()?;
         self.properties.clear();
+        Ok(())
     }
 
     /// Gets the number of configuration items
@@ -442,6 +448,15 @@ impl Config {
             && prop.is_final()
         {
             return Err(ConfigError::PropertyIsFinal(name.to_string()));
+        }
+        Ok(())
+    }
+
+    /// Ensures no property is final before a bulk destructive operation.
+    #[inline]
+    fn ensure_no_final_properties(&self) -> ConfigResult<()> {
+        if let Some((name, _)) = self.properties.iter().find(|(_, prop)| prop.is_final()) {
+            return Err(ConfigError::PropertyIsFinal(name.clone()));
         }
         Ok(())
     }

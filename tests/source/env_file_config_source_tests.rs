@@ -90,7 +90,11 @@ mod test_env_file_config_source {
         let source = EnvFileConfigSource::from_file(&path);
         let mut config = Config::new();
         config.set("LOCKED", "old").unwrap();
-        config.get_property_mut("LOCKED").unwrap().set_final(true);
+        config
+            .get_property_mut("LOCKED")
+            .unwrap()
+            .unwrap()
+            .set_final(true);
 
         let result = source.load(&mut config);
 

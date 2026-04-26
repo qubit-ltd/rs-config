@@ -189,7 +189,7 @@ mod test_config_mut {
         configured.config_mut().set("test", "value").unwrap();
         assert!(configured.config().contains("test"));
 
-        configured.config_mut().remove("test");
+        configured.config_mut().remove("test").unwrap();
         assert!(!configured.config().contains("test"));
     }
 
@@ -200,7 +200,7 @@ mod test_config_mut {
         configured.config_mut().set("key2", "value2").unwrap();
         assert_eq!(configured.config().len(), 2);
 
-        configured.config_mut().clear();
+        configured.config_mut().clear().unwrap();
         assert!(configured.config().is_empty());
         assert_eq!(configured.config().len(), 0);
     }
@@ -465,7 +465,7 @@ mod integration_tests {
         assert_eq!(configured.config().len(), 4);
 
         // Remove configuration
-        configured.config_mut().remove("server.debug");
+        configured.config_mut().remove("server.debug").unwrap();
         assert_eq!(configured.config().len(), 3);
         assert!(!configured.config().contains("server.debug"));
 

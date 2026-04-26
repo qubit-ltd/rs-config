@@ -205,15 +205,29 @@ mod test_get_property_mut {
     #[test]
     fn test_get_property_mut_returns_none_for_nonexistent_property() {
         let mut config = Config::new();
-        assert!(config.get_property_mut("nonexistent").is_none());
+        assert!(config.get_property_mut("nonexistent").unwrap().is_none());
     }
 
     #[test]
     fn test_get_property_mut_returns_some_for_existing_property() {
         let mut config = Config::new();
         config.set("test", "value").unwrap();
-        let property = config.get_property_mut("test");
+        let property = config.get_property_mut("test").unwrap();
         assert!(property.is_some());
+    }
+
+    #[test]
+    fn test_get_property_mut_returns_error_for_final_property() {
+        let mut config = Config::new();
+        config.set("test", "value").unwrap();
+        config
+            .get_property_mut("test")
+            .unwrap()
+            .unwrap()
+            .set_final(true);
+
+        let result = config.get_property_mut("test");
+        assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
     }
 }
 
@@ -224,7 +238,7 @@ mod test_remove {
     #[test]
     fn test_remove_returns_none_for_nonexistent_property() {
         let mut config = Config::new();
-        assert!(config.remove("nonexistent").is_none());
+        assert!(config.remove("nonexistent").unwrap().is_none());
     }
 
     #[test]
@@ -233,9 +247,25 @@ mod test_remove {
         config.set("test", "value").unwrap();
         assert!(config.contains("test"));
 
-        let removed = config.remove("test");
+        let removed = config.remove("test").unwrap();
         assert!(removed.is_some());
         assert!(!config.contains("test"));
+    }
+
+    #[test]
+    fn test_remove_final_property_returns_error_and_keeps_value() {
+        let mut config = Config::new();
+        config.set("test", "value").unwrap();
+        config
+            .get_property_mut("test")
+            .unwrap()
+            .unwrap()
+            .set_final(true);
+
+        let result = config.remove("test");
+        assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
+        assert!(config.contains("test"));
+        assert_eq!(config.get_string("test").unwrap(), "value");
     }
 }
 
@@ -246,7 +276,7 @@ mod test_clear {
     #[test]
     fn test_clear_does_nothing_on_empty_config() {
         let mut config = Config::new();
-        config.clear();
+        config.clear().unwrap();
         assert!(config.is_empty());
     }
 
@@ -255,9 +285,24 @@ mod test_clear {
         let mut config = create_test_config();
         assert!(!config.is_empty());
 
-        config.clear();
+        config.clear().unwrap();
         assert!(config.is_empty());
         assert_eq!(config.len(), 0);
+    }
+
+    #[test]
+    fn test_clear_with_final_property_returns_error_and_keeps_values() {
+        let mut config = create_test_config();
+        config
+            .get_property_mut("string_value")
+            .unwrap()
+            .unwrap()
+            .set_final(true);
+
+        let result = config.clear();
+        assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
+        assert_eq!(config.len(), 4);
+        assert_eq!(config.get_string("string_value").unwrap(), "test");
     }
 }
 
@@ -1100,7 +1145,7 @@ mod test_final_property {
         config.set("immutable_key", "initial_value").unwrap();
 
         // Mark as final
-        if let Some(prop) = config.get_property_mut("immutable_key") {
+        if let Some(prop) = config.get_property_mut("immutable_key").unwrap() {
             prop.set_final(true);
         }
 
@@ -1128,7 +1173,7 @@ mod test_final_property {
             .unwrap();
 
         // Mark as final
-        if let Some(prop) = config.get_property_mut("immutable_list") {
+        if let Some(prop) = config.get_property_mut("immutable_list").unwrap() {
             prop.set_final(true);
         }
 
@@ -1180,21 +1225,21 @@ mod test_final_property {
 
         // Test with integer
         config.set("final_int", 42).unwrap();
-        if let Some(prop) = config.get_property_mut("final_int") {
+        if let Some(prop) = config.get_property_mut("final_int").unwrap() {
             prop.set_final(true);
         }
         assert!(config.set("final_int", 100).is_err());
 
         // Test with boolean
         config.set("final_bool", true).unwrap();
-        if let Some(prop) = config.get_property_mut("final_bool") {
+        if let Some(prop) = config.get_property_mut("final_bool").unwrap() {
             prop.set_final(true);
         }
         assert!(config.set("final_bool", false).is_err());
 
         // Test with float
         config.set("final_float", 3.15).unwrap();
-        if let Some(prop) = config.get_property_mut("final_float") {
+        if let Some(prop) = config.get_property_mut("final_float").unwrap() {
             prop.set_final(true);
         }
         assert!(config.set("final_float", 2.72).is_err());
@@ -1525,7 +1570,7 @@ mod test_is_null {
     fn test_is_null_after_clear() {
         let mut config = Config::new();
         config.set("host", "localhost").unwrap();
-        config.get_property_mut("host").unwrap().clear();
+        config.get_property_mut("host").unwrap().unwrap().clear();
         assert!(config.is_null("host"));
     }
 }
@@ -2342,6 +2387,7 @@ mod test_property_insertion_api {
         config
             .get_property_mut("final.key")
             .unwrap()
+            .unwrap()
             .set_final(true);
 
         let result = config.insert_property(
@@ -2524,7 +2570,7 @@ mod test_merge_from_source {
     fn test_merge_from_source_preserves_final_property() {
         let mut config = Config::new();
         config.set("host", "final-host").unwrap();
-        if let Some(prop) = config.get_property_mut("host") {
+        if let Some(prop) = config.get_property_mut("host").unwrap() {
             prop.set_final(true);
         }
 

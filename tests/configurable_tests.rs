@@ -135,7 +135,7 @@ mod test_config_mut {
         obj.config_mut().set("key1", "value1").unwrap();
         obj.config_mut().set("key2", "value2").unwrap();
 
-        obj.config_mut().remove("key1");
+        obj.config_mut().remove("key1").unwrap();
 
         assert_eq!(obj.config().len(), 1);
         assert!(obj.config().contains("key2"));
