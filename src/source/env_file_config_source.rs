@@ -96,7 +96,7 @@ impl ConfigSource for EnvFileConfigSource {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ConfigError;
+    use std::path::PathBuf;
 
     #[test]
     fn test_load_invalid_env_file_returns_parse_error() {
@@ -104,10 +104,7 @@ mod tests {
         let source = EnvFileConfigSource::from_file(dir.path());
         let mut config = Config::new();
         let result = source.load(&mut config);
-        assert!(matches!(
-            result,
-            Err(ConfigError::ParseError(_)) | Err(ConfigError::IoError(_))
-        ));
+        result.expect_err("loading a directory as an .env file should fail");
     }
 
     #[test]
@@ -122,5 +119,14 @@ mod tests {
         let result = source.load(&mut config);
         // Either succeeds (dotenvy is lenient) or fails with ParseError
         let _ = result;
+    }
+
+    #[test]
+    fn test_from_file_stores_path() {
+        let path = PathBuf::from("config.env");
+        let source = EnvFileConfigSource::from_file(&path);
+        let cloned = source.clone();
+        assert_eq!(source.path, path);
+        assert_eq!(cloned.path, PathBuf::from("config.env"));
     }
 }

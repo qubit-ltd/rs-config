@@ -128,9 +128,7 @@ pub(crate) fn flatten_yaml_value(
         YamlValue::Null => {
             // Null values are stored as empty properties to preserve null semantics.
             use qubit_common::DataType;
-            if !config.contains(prefix) {
-                config.set_null(prefix, DataType::String)?;
-            }
+            config.set_null(prefix, DataType::String)?;
         }
         YamlValue::Bool(b) => {
             config.set(prefix, *b)?;
@@ -226,7 +224,9 @@ fn flatten_yaml_sequence(prefix: &str, seq: &[YamlValue], config: &mut Config) -
         }
         SeqKind::String => {
             for item in seq {
-                config.add(prefix, yaml_scalar_to_string(item, prefix)?)?;
+                let value = yaml_scalar_to_string(item, prefix)
+                    .expect("YAML string sequence was validated before insertion");
+                config.add(prefix, value)?;
             }
         }
     }
@@ -275,6 +275,73 @@ fn unsupported_yaml_sequence_element_error(key: &str, value: &YamlValue) -> Conf
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Property;
+    use std::path::PathBuf;
+
+    use qubit_value::MultiValues;
+
+    fn config_with_final_property(name: &str) -> Config {
+        let mut config = Config::new();
+        let mut property = Property::with_value(name, MultiValues::String(vec!["old".to_string()]));
+        property.set_final(true);
+        config.insert_property(name, property).unwrap();
+        config
+    }
+
+    fn expect_final_error(result: ConfigResult<()>, name: &str) {
+        let err = result.expect_err("writing a final YAML property should fail");
+        assert_eq!(
+            err.to_string(),
+            format!("Property '{name}' is final and cannot be overridden"),
+        );
+    }
+
+    #[test]
+    fn test_from_file_stores_path() {
+        let path = PathBuf::from("config.yaml");
+        let source = YamlConfigSource::from_file(&path);
+        let cloned = source.clone();
+        assert_eq!(source.path, path);
+        assert_eq!(cloned.path, PathBuf::from("config.yaml"));
+    }
+
+    #[test]
+    fn test_load_yaml_file_success() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.yaml");
+        std::fs::write(&path, "server:\n  port: 8080\n").unwrap();
+
+        let source = YamlConfigSource::from_file(&path);
+        let mut config = Config::new();
+
+        source.load(&mut config).unwrap();
+
+        assert_eq!(config.get::<i64>("server.port").unwrap(), 8080);
+    }
+
+    #[test]
+    fn test_load_missing_yaml_file_returns_io_error() {
+        let source = YamlConfigSource::from_file("missing.yaml");
+        let mut config = Config::new();
+
+        source
+            .load(&mut config)
+            .expect_err("missing YAML file should fail");
+    }
+
+    #[test]
+    fn test_load_invalid_yaml_file_returns_parse_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("invalid.yaml");
+        std::fs::write(&path, "key: [unterminated\n").unwrap();
+
+        let source = YamlConfigSource::from_file(&path);
+        let mut config = Config::new();
+
+        source
+            .load(&mut config)
+            .expect_err("invalid YAML file should fail");
+    }
 
     #[test]
     fn test_yaml_key_to_string_number() {
@@ -309,14 +376,14 @@ mod tests {
 
     #[test]
     fn test_yaml_scalar_to_string_sequence_returns_error() {
-        let result = yaml_scalar_to_string(&YamlValue::Sequence(vec![]), "arr");
-        assert!(matches!(result, Err(ConfigError::ParseError(_))));
+        yaml_scalar_to_string(&YamlValue::Sequence(vec![]), "arr")
+            .expect_err("nested YAML sequence should fail scalar conversion");
     }
 
     #[test]
     fn test_yaml_scalar_to_string_mapping_returns_error() {
-        let result = yaml_scalar_to_string(&YamlValue::Mapping(serde_yaml::Mapping::new()), "obj");
-        assert!(matches!(result, Err(ConfigError::ParseError(_))));
+        yaml_scalar_to_string(&YamlValue::Mapping(serde_yaml::Mapping::new()), "obj")
+            .expect_err("nested YAML mapping should fail scalar conversion");
     }
 
     #[test]
@@ -366,19 +433,30 @@ mod tests {
     }
 
     #[test]
+    fn test_flatten_yaml_sequence_mixed_nested_value_returns_error() {
+        let seq = vec![
+            YamlValue::Number(serde_yaml::Number::from(1i64)),
+            YamlValue::Mapping(serde_yaml::Mapping::new()),
+        ];
+        let mut config = Config::new();
+        flatten_yaml_sequence("mixed", &seq, &mut config)
+            .expect_err("mixed YAML sequence with a nested value should fail");
+    }
+
+    #[test]
     fn test_flatten_yaml_sequence_nested_mapping_returns_error() {
         let seq = vec![YamlValue::Mapping(serde_yaml::Mapping::new())];
         let mut config = Config::new();
-        let result = flatten_yaml_sequence("nested", &seq, &mut config);
-        assert!(matches!(result, Err(ConfigError::ParseError(_))));
+        flatten_yaml_sequence("nested", &seq, &mut config)
+            .expect_err("nested YAML mapping should fail sequence flattening");
     }
 
     #[test]
     fn test_flatten_yaml_sequence_nested_sequence_returns_error() {
         let seq = vec![YamlValue::Sequence(vec![YamlValue::Bool(true)])];
         let mut config = Config::new();
-        let result = flatten_yaml_sequence("nested", &seq, &mut config);
-        assert!(matches!(result, Err(ConfigError::ParseError(_))));
+        flatten_yaml_sequence("nested", &seq, &mut config)
+            .expect_err("nested YAML sequence should fail sequence flattening");
     }
 
     #[test]
@@ -402,5 +480,65 @@ mod tests {
         let mut config = Config::new();
         flatten_yaml_value("key", &val, &mut config).unwrap();
         assert!(config.contains("key"));
+    }
+
+    #[test]
+    fn test_flatten_yaml_scalar_respects_final_property() {
+        let cases = [
+            YamlValue::Null,
+            YamlValue::Bool(true),
+            YamlValue::Number(serde_yaml::Number::from(1i64)),
+            YamlValue::Number(serde_yaml::Number::from(1.5f64)),
+            YamlValue::String("value".to_string()),
+            YamlValue::Tagged(Box::new(serde_yaml::value::TaggedValue {
+                tag: serde_yaml::value::Tag::new("!!str"),
+                value: YamlValue::String("tagged".to_string()),
+            })),
+        ];
+
+        for value in cases {
+            let mut config = config_with_final_property("locked");
+            expect_final_error(flatten_yaml_value("locked", &value, &mut config), "locked");
+        }
+    }
+
+    #[test]
+    fn test_flatten_yaml_sequence_respects_final_property() {
+        let cases = [
+            vec![
+                YamlValue::Number(serde_yaml::Number::from(1i64)),
+                YamlValue::Number(serde_yaml::Number::from(2i64)),
+            ],
+            vec![
+                YamlValue::Number(serde_yaml::Number::from(1.5f64)),
+                YamlValue::Number(serde_yaml::Number::from(2.5f64)),
+            ],
+            vec![YamlValue::Bool(true), YamlValue::Bool(false)],
+            vec![
+                YamlValue::String("one".to_string()),
+                YamlValue::String("two".to_string()),
+            ],
+            vec![
+                YamlValue::Number(serde_yaml::Number::from(1i64)),
+                YamlValue::Null,
+            ],
+        ];
+
+        for values in cases {
+            let mut config = config_with_final_property("locked");
+            expect_final_error(
+                flatten_yaml_sequence("locked", &values, &mut config),
+                "locked",
+            );
+        }
+    }
+
+    #[test]
+    fn test_unsupported_yaml_sequence_element_error_uses_root_label() {
+        let seq = vec![YamlValue::Mapping(serde_yaml::Mapping::new())];
+        let mut config = Config::new();
+        let err = flatten_yaml_sequence("", &seq, &mut config)
+            .expect_err("nested YAML sequence at root should be rejected");
+        assert!(err.to_string().contains("<root>"));
     }
 }

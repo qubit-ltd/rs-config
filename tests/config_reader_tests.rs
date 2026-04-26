@@ -268,6 +268,7 @@ mod test_config_reader_extended_surface {
         let mut config = Config::new();
         config.set("k", 1i32).unwrap();
         config.set_null("nullish", DataType::Int32).unwrap();
+        config.set_null("empty.names", DataType::String).unwrap();
 
         assert!(<Config as ConfigReader>::get_property(&config, "k").is_some());
         assert!(<Config as ConfigReader>::get_property(&config, "nullish").is_some());
@@ -275,14 +276,21 @@ mod test_config_reader_extended_surface {
         assert!(!<Config as ConfigReader>::is_null(&config, "k"));
         assert!(!<Config as ConfigReader>::is_null(&config, "missing"));
 
-        assert_eq!(<Config as ConfigReader>::len(&config), 2);
+        assert_eq!(<Config as ConfigReader>::len(&config), 3);
         assert!(!<Config as ConfigReader>::is_empty(&config));
 
         let mut keys = <Config as ConfigReader>::keys(&config);
         keys.sort();
-        assert_eq!(keys, vec!["k".to_string(), "nullish".to_string()]);
+        assert_eq!(
+            keys,
+            vec![
+                "empty.names".to_string(),
+                "k".to_string(),
+                "nullish".to_string(),
+            ],
+        );
 
-        assert_eq!(<Config as ConfigReader>::iter(&config).count(), 2);
+        assert_eq!(<Config as ConfigReader>::iter(&config).count(), 3);
 
         assert_eq!(<Config as ConfigReader>::get_or(&config, "k", 0i32), 1);
         assert_eq!(
@@ -292,6 +300,10 @@ mod test_config_reader_extended_surface {
 
         assert_eq!(
             <Config as ConfigReader>::get_optional_string(&config, "nullish").unwrap(),
+            None
+        );
+        assert_eq!(
+            <Config as ConfigReader>::get_optional_string_list(&config, "empty.names").unwrap(),
             None
         );
     }

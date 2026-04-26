@@ -226,7 +226,9 @@ fn flatten_toml_array(prefix: &str, arr: &[TomlValue], config: &mut Config) -> C
         }
         ArrayKind::String => {
             for item in arr {
-                config.add(prefix, toml_scalar_to_string(item, prefix)?)?;
+                let value = toml_scalar_to_string(item, prefix)
+                    .expect("TOML string array was validated before insertion");
+                config.add(prefix, value)?;
             }
         }
     }
@@ -255,6 +257,24 @@ fn toml_scalar_to_string(value: &TomlValue, key: &str) -> ConfigResult<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Property;
+    use qubit_value::MultiValues;
+
+    fn config_with_final_property(name: &str) -> Config {
+        let mut config = Config::new();
+        let mut property = Property::with_value(name, MultiValues::String(vec!["old".to_string()]));
+        property.set_final(true);
+        config.insert_property(name, property).unwrap();
+        config
+    }
+
+    fn expect_final_error(result: ConfigResult<()>, name: &str) {
+        let err = result.expect_err("writing a final TOML property should fail");
+        assert_eq!(
+            err.to_string(),
+            format!("Property '{name}' is final and cannot be overridden"),
+        );
+    }
 
     #[test]
     fn test_toml_scalar_to_string_float() {
@@ -266,6 +286,19 @@ mod tests {
     fn test_toml_scalar_to_string_bool() {
         let val = TomlValue::Boolean(true);
         assert_eq!(toml_scalar_to_string(&val, "key").unwrap(), "true");
+    }
+
+    #[test]
+    fn test_toml_scalar_to_string_datetime() {
+        let val = TomlValue::Datetime(
+            "1979-05-27T07:32:00Z"
+                .parse()
+                .expect("test TOML datetime should parse"),
+        );
+        assert_eq!(
+            toml_scalar_to_string(&val, "key").unwrap(),
+            "1979-05-27T07:32:00Z",
+        );
     }
 
     #[test]
@@ -317,5 +350,50 @@ mod tests {
         flatten_toml_array("mixed", &arr, &mut config).unwrap();
         let vals: Vec<String> = config.get_list("mixed").unwrap();
         assert_eq!(vals.len(), 2);
+    }
+
+    #[test]
+    fn test_flatten_toml_array_mixed_nested_value_returns_error() {
+        let arr = vec![TomlValue::Integer(1), TomlValue::Array(vec![])];
+        let mut config = Config::new();
+        flatten_toml_array("mixed", &arr, &mut config)
+            .expect_err("mixed TOML array with a nested value should fail");
+    }
+
+    #[test]
+    fn test_flatten_toml_scalar_respects_final_property() {
+        let datetime = "1979-05-27T07:32:00Z"
+            .parse()
+            .expect("test TOML datetime should parse");
+        let cases = [
+            TomlValue::Integer(1),
+            TomlValue::Float(1.5),
+            TomlValue::Boolean(true),
+            TomlValue::Datetime(datetime),
+        ];
+
+        for value in cases {
+            let mut config = config_with_final_property("locked");
+            expect_final_error(flatten_toml_value("locked", &value, &mut config), "locked");
+        }
+    }
+
+    #[test]
+    fn test_flatten_toml_array_respects_final_property() {
+        let cases = [
+            vec![TomlValue::Integer(1), TomlValue::Integer(2)],
+            vec![TomlValue::Float(1.5), TomlValue::Float(2.5)],
+            vec![TomlValue::Boolean(true), TomlValue::Boolean(false)],
+            vec![
+                TomlValue::String("one".to_string()),
+                TomlValue::String("two".to_string()),
+            ],
+            vec![TomlValue::Integer(1), TomlValue::String("two".to_string())],
+        ];
+
+        for values in cases {
+            let mut config = config_with_final_property("locked");
+            expect_final_error(flatten_toml_array("locked", &values, &mut config), "locked");
+        }
     }
 }

@@ -9,9 +9,10 @@
 //! # `YamlConfigSource` tests
 
 use qubit_config::{
-    Config, ConfigError,
+    Config, ConfigError, Property,
     source::{ConfigSource, YamlConfigSource},
 };
+use qubit_value::MultiValues;
 
 use std::path::PathBuf;
 
@@ -155,6 +156,43 @@ db:
         let val: Option<String> = config.get_optional("key").unwrap();
         assert_eq!(val, None);
         assert_eq!(config.get_string("other").unwrap(), "value");
+    }
+
+    #[test]
+    fn test_load_yaml_null_overrides_existing_value() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("null_override.yaml");
+        std::fs::write(&path, "key: null\n").unwrap();
+
+        let source = YamlConfigSource::from_file(&path);
+        let mut config = Config::new();
+        config.set("key", "old").unwrap();
+
+        source.load(&mut config).unwrap();
+
+        assert!(config.contains("key"));
+        assert!(config.is_null("key"));
+        let value: Option<String> = config.get_optional("key").unwrap();
+        assert_eq!(value, None);
+    }
+
+    #[test]
+    fn test_load_yaml_null_respects_final_property() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("null_final.yaml");
+        std::fs::write(&path, "locked: null\n").unwrap();
+
+        let source = YamlConfigSource::from_file(&path);
+        let mut config = Config::new();
+        let mut property =
+            Property::with_value("locked", MultiValues::String(vec!["old".to_string()]));
+        property.set_final(true);
+        config.insert_property("locked", property).unwrap();
+
+        let result = source.load(&mut config);
+
+        assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
+        assert_eq!(config.get_string("locked").unwrap(), "old");
     }
 
     #[test]

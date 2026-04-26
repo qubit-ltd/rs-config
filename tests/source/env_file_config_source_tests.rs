@@ -82,6 +82,23 @@ mod test_env_file_config_source {
     }
 
     #[test]
+    fn test_load_env_file_respects_final_property() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("final.env");
+        std::fs::write(&path, "LOCKED=new\n").unwrap();
+
+        let source = EnvFileConfigSource::from_file(&path);
+        let mut config = Config::new();
+        config.set("LOCKED", "old").unwrap();
+        config.get_property_mut("LOCKED").unwrap().set_final(true);
+
+        let result = source.load(&mut config);
+
+        assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
+        assert_eq!(config.get_string("LOCKED").unwrap(), "old");
+    }
+
+    #[test]
     fn test_merge_from_env_file_config_source() {
         let source = EnvFileConfigSource::from_file(fixture("basic.env"));
         let mut config = Config::new();
