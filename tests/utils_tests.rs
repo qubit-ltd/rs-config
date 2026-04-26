@@ -201,6 +201,18 @@ mod test_deserialize {
     }
 
     #[test]
+    fn test_deserialize_conflicting_dotted_key_is_stable() {
+        let mut config = Config::new();
+        config.set("ctx.a", 1).unwrap();
+        config.set("ctx.a.b", "kept-as-flat-key").unwrap();
+
+        let ctx: HashMap<String, serde_json::Value> = config.deserialize("ctx").unwrap();
+
+        assert_eq!(ctx.get("a"), Some(&serde_json::json!(1)));
+        assert_eq!(ctx.get("a.b"), Some(&serde_json::json!("kept-as-flat-key")),);
+    }
+
+    #[test]
     fn test_deserialize_malformed_dotted_key_falls_back_to_flat_key() {
         let mut config = Config::new();
         config.set("bad..key", "value").unwrap();
