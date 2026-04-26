@@ -195,43 +195,54 @@ fn flatten_toml_array(prefix: &str, arr: &[TomlValue], config: &mut Config) -> C
 
     if !all_same {
         // Mixed types → fall back to string
-        for item in arr {
-            config.add(prefix, toml_scalar_to_string(item, prefix)?)?;
-        }
+        let values = arr
+            .iter()
+            .map(|item| toml_scalar_to_string(item, prefix))
+            .collect::<ConfigResult<Vec<_>>>()?;
+        config.set(prefix, values)?;
         return Ok(());
     }
 
     match kind {
         ArrayKind::Integer => {
-            for item in arr {
-                let value = item
-                    .as_integer()
-                    .expect("TOML integer array was validated before insertion");
-                config.add(prefix, value)?;
-            }
+            let values = arr
+                .iter()
+                .map(|item| {
+                    item.as_integer()
+                        .expect("TOML integer array was validated before insertion")
+                })
+                .collect::<Vec<_>>();
+            config.set(prefix, values)?;
         }
         ArrayKind::Float => {
-            for item in arr {
-                let value = item
-                    .as_float()
-                    .expect("TOML float array was validated before insertion");
-                config.add(prefix, value)?;
-            }
+            let values = arr
+                .iter()
+                .map(|item| {
+                    item.as_float()
+                        .expect("TOML float array was validated before insertion")
+                })
+                .collect::<Vec<_>>();
+            config.set(prefix, values)?;
         }
         ArrayKind::Bool => {
-            for item in arr {
-                let value = item
-                    .as_bool()
-                    .expect("TOML bool array was validated before insertion");
-                config.add(prefix, value)?;
-            }
+            let values = arr
+                .iter()
+                .map(|item| {
+                    item.as_bool()
+                        .expect("TOML bool array was validated before insertion")
+                })
+                .collect::<Vec<_>>();
+            config.set(prefix, values)?;
         }
         ArrayKind::String => {
-            for item in arr {
-                let value = toml_scalar_to_string(item, prefix)
-                    .expect("TOML string array was validated before insertion");
-                config.add(prefix, value)?;
-            }
+            let values = arr
+                .iter()
+                .map(|item| {
+                    toml_scalar_to_string(item, prefix)
+                        .expect("TOML string array was validated before insertion")
+                })
+                .collect::<Vec<_>>();
+            config.set(prefix, values)?;
         }
     }
 

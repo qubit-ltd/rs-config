@@ -214,6 +214,20 @@ mod test_toml_coverage {
     }
 
     #[test]
+    fn test_toml_non_empty_array_overrides_existing_list() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("array_override.toml");
+        std::fs::write(&path, "ports = [9000, 9001]\n").unwrap();
+        let source = TomlConfigSource::from_file(&path);
+        let mut config = Config::new();
+        config.set("ports", vec![8080i64, 8081]).unwrap();
+
+        source.load(&mut config).unwrap();
+
+        assert_eq!(config.get_list::<i64>("ports").unwrap(), vec![9000, 9001]);
+    }
+
+    #[test]
     fn test_toml_empty_array_deserializes_as_empty_vec() {
         #[derive(serde::Deserialize)]
         struct Service {
