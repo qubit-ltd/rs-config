@@ -222,6 +222,112 @@ mod test_deserialize {
         let svc: WithList = config.deserialize("svc").unwrap();
         assert_eq!(svc.ports, vec![8080, 8081, 8082]);
     }
+
+    #[test]
+    fn test_deserialize_substitutes_string_fields_and_lists() {
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct ServiceConfig {
+            base_url: String,
+            endpoints: Vec<String>,
+        }
+
+        let mut config = Config::new();
+        config.set("svc.host", "localhost").unwrap();
+        config.set("svc.port", "8080").unwrap();
+        config
+            .set("svc.base_url", "http://${host}:${port}")
+            .unwrap();
+        config
+            .set(
+                "svc.endpoints",
+                vec!["${base_url}/users", "${base_url}/health"],
+            )
+            .unwrap();
+
+        let svc: ServiceConfig = config.deserialize("svc").unwrap();
+        assert_eq!(svc.base_url, "http://localhost:8080");
+        assert_eq!(
+            svc.endpoints,
+            vec![
+                "http://localhost:8080/users".to_string(),
+                "http://localhost:8080/health".to_string(),
+            ],
+        );
+    }
+
+    #[test]
+    fn test_deserialize_substitutes_nested_json_strings() {
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct ServiceConfig {
+            meta: serde_json::Value,
+        }
+
+        let mut config = Config::new();
+        config.set("svc.host", "localhost").unwrap();
+        config.set("svc.base_url", "http://${host}").unwrap();
+        config
+            .insert_property(
+                "svc.meta",
+                Property::with_value(
+                    "svc.meta",
+                    MultiValues::Json(vec![serde_json::json!({
+                        "enabled": true,
+                        "tags": ["${host}", "static"],
+                        "url": "${base_url}/v1",
+                    })]),
+                ),
+            )
+            .unwrap();
+
+        let svc: ServiceConfig = config.deserialize("svc").unwrap();
+        assert_eq!(
+            svc.meta,
+            serde_json::json!({
+                "enabled": true,
+                "tags": ["localhost", "static"],
+                "url": "http://localhost/v1",
+            }),
+        );
+    }
+
+    #[test]
+    fn test_deserialize_respects_substitution_disabled() {
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct ServiceConfig {
+            url: String,
+        }
+
+        let mut config = Config::new();
+        config.set_enable_variable_substitution(false);
+        config.set("svc.host", "localhost").unwrap();
+        config.set("svc.url", "http://${host}").unwrap();
+
+        let svc: ServiceConfig = config.deserialize("svc").unwrap();
+        assert_eq!(svc.url, "http://${host}");
+    }
+
+    #[test]
+    fn test_deserialize_unresolved_variable_returns_substitution_error() {
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct ServiceConfig {
+            url: String,
+        }
+
+        let mut config = Config::new();
+        config
+            .set("svc.url", "${QUBIT_CONFIG_UNSET_DESERIALIZE_VAR_12345}")
+            .unwrap();
+
+        let err = config
+            .deserialize::<ServiceConfig>("svc")
+            .expect_err("unresolved variable should fail before serde deserialization");
+        match err {
+            ConfigError::SubstitutionError(msg) => {
+                assert!(msg.contains("QUBIT_CONFIG_UNSET_DESERIALIZE_VAR_12345"));
+            }
+            other => panic!("Expected SubstitutionError, got {:?}", other),
+        }
+    }
 }
 
 // ============================================================================

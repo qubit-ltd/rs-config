@@ -318,6 +318,39 @@ pub(crate) fn property_to_json_value(prop: &Property) -> Value {
     }
 }
 
+/// Applies variable substitution to every JSON string leaf.
+///
+/// This keeps [`crate::Config::deserialize`] consistent with
+/// [`crate::Config::get_string`] and [`crate::Config::get_string_list`] while
+/// preserving the original JSON shape used by serde.
+pub(crate) fn substitute_json_strings<R: ConfigReader + ?Sized>(
+    value: &mut Value,
+    config: &R,
+) -> ConfigResult<()> {
+    if !config.is_enable_variable_substitution() {
+        return Ok(());
+    }
+
+    match value {
+        Value::String(s) => {
+            *s = substitute_variables(s, config, config.max_substitution_depth())?;
+        }
+        Value::Array(values) => {
+            for value in values {
+                substitute_json_strings(value, config)?;
+            }
+        }
+        Value::Object(map) => {
+            for value in map.values_mut() {
+                substitute_json_strings(value, config)?;
+            }
+        }
+        _ => {}
+    }
+
+    Ok(())
+}
+
 /// If `v` has one element, returns `f(&v[0])`; otherwise a JSON array of `f`
 /// applied to each item.
 ///

@@ -1245,6 +1245,9 @@ impl Config {
     // ========================================================================
 
     /// Deserializes the subtree at `prefix` into `T` using `serde`.
+    /// String values inside the generated serde value apply the same
+    /// `${...}` substitution rules as [`Self::get_string`] and
+    /// [`Self::get_string_list`] when substitution is enabled.
     ///
     /// Keys under `prefix` (prefix and trailing dot removed) form a flat map
     /// for `serde`, for example:
@@ -1300,7 +1303,8 @@ impl Config {
 
         let mut map = Map::new();
         for (key, prop) in &sub.properties {
-            let json_val = utils::property_to_json_value(prop);
+            let mut json_val = utils::property_to_json_value(prop);
+            utils::substitute_json_strings(&mut json_val, &sub)?;
             utils::insert_deserialize_value(&mut map, key, json_val);
         }
 
