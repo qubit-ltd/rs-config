@@ -42,8 +42,8 @@ pub trait ConfigReader {
     /// # Returns
     ///
     /// Maximum substitution depth (see
-    /// [`crate::constants::DEFAULT_MAX_SUBSTITUTION_DEPTH`] for the default
-    /// used by [`crate::Config`]).
+    /// `DEFAULT_MAX_SUBSTITUTION_DEPTH` for the default used by
+    /// [`crate::Config`]).
     fn max_substitution_depth(&self) -> usize;
 
     /// Returns the optional human-readable description attached to this

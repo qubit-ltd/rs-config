@@ -26,7 +26,9 @@
 //!
 //! Haixing Hu
 
-use crate::{Config, ConfigResult};
+use std::ffi::{OsStr, OsString};
+
+use crate::{Config, ConfigError, ConfigResult};
 
 use super::ConfigSource;
 
@@ -163,6 +165,83 @@ impl EnvConfigSource {
 
         result
     }
+
+    /// Checks whether an environment variable key matches a UTF-8 prefix.
+    ///
+    /// # Parameters
+    ///
+    /// * `key` - Environment variable key from [`std::env::vars_os`].
+    /// * `prefix` - UTF-8 prefix configured on this source.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the key starts with `prefix`. On Unix, non-Unicode keys are
+    /// compared as bytes so unrelated invalid keys can still be skipped by a
+    /// prefixed source.
+    fn env_key_matches_prefix(key: &OsStr, prefix: &str) -> bool {
+        key.to_str().map_or_else(
+            || Self::non_unicode_env_key_matches_prefix(key, prefix),
+            |key| key.starts_with(prefix),
+        )
+    }
+
+    /// Checks a non-Unicode environment key against a UTF-8 prefix.
+    ///
+    /// # Parameters
+    ///
+    /// * `key` - Non-Unicode environment variable key.
+    /// * `prefix` - UTF-8 prefix configured on this source.
+    ///
+    /// # Returns
+    ///
+    /// `true` on Unix when the raw key bytes start with the UTF-8 prefix bytes;
+    /// `false` on platforms where raw environment bytes are unavailable.
+    #[cfg(unix)]
+    fn non_unicode_env_key_matches_prefix(key: &OsStr, prefix: &str) -> bool {
+        use std::os::unix::ffi::OsStrExt;
+
+        key.as_bytes().starts_with(prefix.as_bytes())
+    }
+
+    /// Checks a non-Unicode environment key against a UTF-8 prefix.
+    ///
+    /// # Parameters
+    ///
+    /// * `_key` - Non-Unicode environment variable key.
+    /// * `_prefix` - UTF-8 prefix configured on this source.
+    ///
+    /// # Returns
+    ///
+    /// Always `false` on non-Unix platforms because raw environment bytes are not
+    /// available through the standard library.
+    #[cfg(not(unix))]
+    fn non_unicode_env_key_matches_prefix(_key: &OsStr, _prefix: &str) -> bool {
+        false
+    }
+
+    /// Converts an OS environment string to UTF-8.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - Environment key or value returned by [`std::env::vars_os`].
+    /// * `label` - Human-readable label included in parse errors.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(String)` when `value` is valid UTF-8.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::ParseError`] when `value` is not valid Unicode,
+    /// preserving a lossy representation in the diagnostic message.
+    fn env_os_string_to_string(value: OsString, label: &str) -> ConfigResult<String> {
+        value.into_string().map_err(|value| {
+            ConfigError::ParseError(format!(
+                "{label} is not valid Unicode: {}",
+                value.to_string_lossy(),
+            ))
+        })
+    }
 }
 
 impl Default for EnvConfigSource {
@@ -174,14 +253,19 @@ impl Default for EnvConfigSource {
 
 impl ConfigSource for EnvConfigSource {
     fn load(&self, config: &mut Config) -> ConfigResult<()> {
-        for (key, value) in std::env::vars() {
+        for (key_os, value_os) in std::env::vars_os() {
             // Filter by prefix if set
             if let Some(prefix) = &self.prefix
-                && !key.starts_with(prefix.as_str())
+                && !Self::env_key_matches_prefix(&key_os, prefix)
             {
                 continue;
             }
 
+            let key = Self::env_os_string_to_string(key_os, "Environment variable key")?;
+            let value = Self::env_os_string_to_string(
+                value_os,
+                &format!("Value for environment variable '{key}'"),
+            )?;
             let transformed_key = self.transform_key(&key);
             config.set(&transformed_key, value)?;
         }
