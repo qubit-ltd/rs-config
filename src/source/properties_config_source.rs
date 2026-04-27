@@ -247,9 +247,9 @@ fn unescape_properties(s: &str) -> String {
 
     while let Some(ch) = chars.next() {
         if ch == '\\' {
-            match chars.peek() {
-                Some('u') => {
-                    chars.next(); // consume 'u'
+            let escaped = chars.next().unwrap_or('\\');
+            match escaped {
+                'u' => {
                     let hex: String = chars.by_ref().take(4).collect();
                     if hex.len() == 4
                         && let Ok(code) = u32::from_str_radix(&hex, 16)
@@ -263,34 +263,26 @@ fn unescape_properties(s: &str) -> String {
                     result.push('u');
                     result.push_str(&hex);
                 }
-                Some('n') => {
-                    chars.next();
+                'n' => {
                     result.push('\n');
                 }
-                Some('t') => {
-                    chars.next();
+                't' => {
                     result.push('\t');
                 }
-                Some('r') => {
-                    chars.next();
+                'r' => {
                     result.push('\r');
                 }
-                Some('f') => {
-                    chars.next();
+                'f' => {
                     result.push('\u{000C}');
                 }
-                Some('\\') => {
-                    chars.next();
+                '\\' => {
                     result.push('\\');
                 }
-                Some('=') | Some(':') | Some(' ') | Some('#') | Some('!') => {
-                    let escaped = chars
-                        .next()
-                        .expect("peeked escaped properties character should exist");
+                '=' | ':' | ' ' | '#' | '!' => {
                     result.push(escaped);
                 }
                 _ => {
-                    result.push(ch);
+                    result.push(escaped);
                 }
             }
         } else {

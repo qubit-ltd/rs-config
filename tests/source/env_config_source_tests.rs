@@ -9,9 +9,18 @@
 //! # `EnvConfigSource` tests
 
 use qubit_config::{
-    Config,
+    Config, ConfigError,
     source::{ConfigSource, EnvConfigSource},
 };
+use std::sync::{Mutex, MutexGuard, OnceLock};
+
+/// Serializes tests that mutate or read process environment variables.
+fn env_test_lock() -> MutexGuard<'static, ()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+        .lock()
+        .expect("environment test lock should not be poisoned")
+}
 
 // ============================================================================
 // EnvConfigSource Tests
@@ -23,6 +32,7 @@ mod test_env_config_source {
 
     #[test]
     fn test_load_all_env_vars() {
+        let _guard = env_test_lock();
         // Set a unique test env var to verify it's loaded
         unsafe {
             std::env::set_var("QUBIT_TEST_UNIQUE_KEY_12345", "test_value");
@@ -44,6 +54,7 @@ mod test_env_config_source {
 
     #[test]
     fn test_load_with_prefix_filters_vars() {
+        let _guard = env_test_lock();
         unsafe {
             std::env::set_var("QTEST_HOST", "myhost");
             std::env::set_var("QTEST_PORT", "9999");
@@ -71,6 +82,7 @@ mod test_env_config_source {
 
     #[test]
     fn test_load_with_prefix_strips_prefix() {
+        let _guard = env_test_lock();
         unsafe {
             std::env::set_var("MYAPP_SERVER_HOST", "app-host");
         }
@@ -90,6 +102,7 @@ mod test_env_config_source {
 
     #[test]
     fn test_load_with_prefix_converts_underscores_to_dots() {
+        let _guard = env_test_lock();
         unsafe {
             std::env::set_var("TAPP_DB_POOL_SIZE", "10");
         }
@@ -107,6 +120,7 @@ mod test_env_config_source {
 
     #[test]
     fn test_load_with_prefix_lowercases_keys() {
+        let _guard = env_test_lock();
         unsafe {
             std::env::set_var("LAPP_MY_KEY", "val");
         }
@@ -124,6 +138,7 @@ mod test_env_config_source {
 
     #[test]
     fn test_default_creates_plain_source() {
+        let _guard = env_test_lock();
         let source = EnvConfigSource::default();
         let mut config = Config::new();
         // Should not panic
@@ -132,6 +147,7 @@ mod test_env_config_source {
 
     #[test]
     fn test_with_options_no_strip_no_convert() {
+        let _guard = env_test_lock();
         unsafe {
             std::env::set_var("RAWAPP_MY_KEY", "raw_val");
         }
@@ -150,6 +166,7 @@ mod test_env_config_source {
 
     #[test]
     fn test_merge_from_env_config_source() {
+        let _guard = env_test_lock();
         unsafe {
             std::env::set_var("MERGETEST_KEY", "merge_value");
         }
@@ -164,6 +181,63 @@ mod test_env_config_source {
             std::env::remove_var("MERGETEST_KEY");
         }
     }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_load_with_prefix_rejects_non_unicode_env_value() {
+        let _guard = env_test_lock();
+        use std::ffi::OsString;
+        use std::os::unix::ffi::OsStringExt;
+
+        let key = "QUNICODE_BAD_VALUE";
+        unsafe {
+            std::env::set_var(key, OsString::from_vec(vec![b'o', 0xFF, b'k']));
+        }
+
+        let source = EnvConfigSource::with_prefix("QUNICODE_");
+        let mut config = Config::new();
+        let result = source.load(&mut config);
+
+        unsafe {
+            std::env::remove_var(key);
+        }
+
+        assert!(matches!(
+            result,
+            Err(ConfigError::ParseError(message))
+                if message.contains(key) && message.contains("not valid Unicode")
+        ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_load_with_prefix_rejects_matching_non_unicode_env_key() {
+        let _guard = env_test_lock();
+        use std::ffi::OsString;
+        use std::os::unix::ffi::OsStringExt;
+
+        let key = OsString::from_vec(vec![
+            b'Q', b'U', b'N', b'I', b'C', b'O', b'D', b'E', b'_', 0xFF,
+        ]);
+        unsafe {
+            std::env::set_var(&key, "value");
+        }
+
+        let source = EnvConfigSource::with_prefix("QUNICODE_");
+        let mut config = Config::new();
+        let result = source.load(&mut config);
+
+        unsafe {
+            std::env::remove_var(&key);
+        }
+
+        assert!(matches!(
+            result,
+            Err(ConfigError::ParseError(message))
+                if message.contains("Environment variable key")
+                    && message.contains("not valid Unicode")
+        ));
+    }
 }
 
 #[cfg(test)]
@@ -173,6 +247,7 @@ mod test_env_coverage {
     // ---- env: transform_key without strip_prefix ----
     #[test]
     fn test_env_config_source_with_options_no_strip() {
+        let _guard = env_test_lock();
         use qubit_config::source::EnvConfigSource;
         unsafe {
             std::env::set_var("COVTEST_FOO", "bar");

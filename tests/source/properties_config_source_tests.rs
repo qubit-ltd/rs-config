@@ -327,12 +327,11 @@ mod test_properties_coverage {
 
     // ---- properties: unknown escape sequence ----
     #[test]
-    fn test_properties_unknown_escape_kept_as_backslash() {
+    fn test_properties_unknown_escape_drops_backslash() {
         let content = "key=hello\\xworld";
         let pairs = PropertiesConfigSource::parse_content(content);
         assert_eq!(pairs.len(), 1);
-        // Unknown escape: backslash kept
-        assert!(pairs[0].1.contains("\\x") || pairs[0].1.contains('\\'));
+        assert_eq!(pairs[0].1, "helloxworld");
     }
 
     // ---- properties: escaped separator ----
