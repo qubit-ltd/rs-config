@@ -99,6 +99,16 @@ mod test_env_file_config_source {
     }
 
     #[test]
+    fn test_from_file_clone_keeps_debug_path() {
+        let path = PathBuf::from("config.env");
+        let source = EnvFileConfigSource::from_file(&path);
+        let cloned = source.clone();
+
+        assert_eq!(format!("{source:?}"), format!("{cloned:?}"));
+        assert!(format!("{source:?}").contains("config.env"));
+    }
+
+    #[test]
     fn test_merge_from_env_file_config_source() {
         let source = EnvFileConfigSource::from_file(fixture("basic.env"));
         let mut config = Config::new();
@@ -137,5 +147,16 @@ mod test_env_file_coverage {
         // Either succeeds (dotenvy is lenient) or fails with ParseError
         // We just verify it doesn't panic
         let _ = result;
+    }
+
+    #[test]
+    fn test_env_file_directory_path_returns_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = EnvFileConfigSource::from_file(dir.path());
+        let mut config = Config::new();
+
+        source
+            .load(&mut config)
+            .expect_err("loading a directory as an .env file should fail");
     }
 }

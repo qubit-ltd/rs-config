@@ -16,7 +16,9 @@
 //! Haixing Hu
 
 mod config;
+mod config_error;
 mod config_prefix_view;
+mod config_property_mut;
 mod config_reader;
 mod configurable;
 mod configured;
@@ -26,8 +28,9 @@ mod property;
 pub mod source;
 mod utils;
 
-pub use config::{Config, ConfigPropertyMut};
+pub use config::Config;
 pub use config_prefix_view::ConfigPrefixView;
+pub use config_property_mut::ConfigPropertyMut;
 pub use config_reader::ConfigReader;
 pub use configurable::Configurable;
 pub use configured::Configured;
