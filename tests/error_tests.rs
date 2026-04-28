@@ -11,7 +11,7 @@
 //! Tests all error types and conversions of the ConfigError enum.
 
 use qubit_common::DataType;
-use qubit_config::ConfigError;
+use qubit_config::{Config, ConfigError};
 use qubit_value::ValueError;
 use std::io;
 
@@ -202,6 +202,144 @@ fn test_from_value_error_index_out_of_bounds() {
         }
         _ => panic!("Expected IndexOutOfBounds error"),
     }
+}
+
+#[test]
+fn test_from_keyed_value_error_no_value() {
+    let config_err = ConfigError::from(("server.port", ValueError::NoValue));
+
+    match config_err {
+        ConfigError::PropertyHasNoValue(key) => assert_eq!(key, "server.port"),
+        _ => panic!("Expected PropertyHasNoValue error"),
+    }
+}
+
+#[test]
+fn test_from_keyed_value_error_type_mismatch() {
+    let value_err = ValueError::TypeMismatch {
+        expected: DataType::Int32,
+        actual: DataType::String,
+    };
+    let config_err = ConfigError::from(("server.port", value_err));
+
+    match config_err {
+        ConfigError::TypeMismatch {
+            key,
+            expected,
+            actual,
+        } => {
+            assert_eq!(key, "server.port");
+            assert_eq!(expected, DataType::Int32);
+            assert_eq!(actual, DataType::String);
+        }
+        _ => panic!("Expected TypeMismatch error"),
+    }
+}
+
+#[test]
+fn test_from_keyed_value_error_conversion_failed() {
+    let value_err = ValueError::ConversionFailed {
+        from: DataType::String,
+        to: DataType::Float64,
+    };
+    let config_err = ConfigError::from(("server.timeout", value_err));
+
+    match config_err {
+        ConfigError::ConversionError { key, message } => {
+            assert_eq!(key, "server.timeout");
+            assert!(message.contains("From") && message.contains("to"));
+        }
+        _ => panic!("Expected ConversionError"),
+    }
+}
+
+#[test]
+fn test_from_keyed_value_error_conversion_error() {
+    let value_err = ValueError::ConversionError("invalid value".to_string());
+    let config_err = ConfigError::from(("server.timeout", value_err));
+
+    match config_err {
+        ConfigError::ConversionError { key, message } => {
+            assert_eq!(key, "server.timeout");
+            assert_eq!(message, "invalid value");
+        }
+        _ => panic!("Expected ConversionError"),
+    }
+}
+
+#[test]
+fn test_from_keyed_value_error_index_out_of_bounds() {
+    let value_err = ValueError::IndexOutOfBounds { index: 3, len: 1 };
+    let config_err = ConfigError::from(("items", value_err));
+
+    match config_err {
+        ConfigError::IndexOutOfBounds { index, len } => {
+            assert_eq!(index, 3);
+            assert_eq!(len, 1);
+        }
+        _ => panic!("Expected IndexOutOfBounds error"),
+    }
+}
+
+#[test]
+fn test_from_keyed_value_error_json_serialization_error() {
+    let value_err = ValueError::JsonSerializationError("unsupported".to_string());
+    let config_err = ConfigError::from(("payload", value_err));
+
+    match config_err {
+        ConfigError::ConversionError { key, message } => {
+            assert_eq!(key, "payload");
+            assert!(message.contains("JSON serialization error"));
+            assert!(message.contains("unsupported"));
+        }
+        _ => panic!("Expected ConversionError"),
+    }
+}
+
+#[test]
+fn test_from_keyed_value_error_json_deserialization_error() {
+    let value_err = ValueError::JsonDeserializationError("invalid json".to_string());
+    let config_err = ConfigError::from(("payload", value_err));
+
+    match config_err {
+        ConfigError::ConversionError { key, message } => {
+            assert_eq!(key, "payload");
+            assert!(message.contains("JSON deserialization error"));
+            assert!(message.contains("invalid json"));
+        }
+        _ => panic!("Expected ConversionError"),
+    }
+}
+
+#[test]
+fn test_get_conversion_or_type_error_carries_key() {
+    let mut config = Config::new();
+    config.set("my.key", "not-an-int").unwrap();
+
+    let result: Result<i32, _> = config.get("my.key");
+
+    assert!(matches!(
+        result,
+        Err(ConfigError::ConversionError { ref key, .. })
+            | Err(ConfigError::TypeMismatch { ref key, .. }) if key == "my.key"
+    ));
+}
+
+#[test]
+fn test_get_type_mismatch_error_carries_key() {
+    let mut config = Config::new();
+    config.set("a.b", true).unwrap();
+
+    let result: Result<i32, _> = config.get("a.b");
+
+    assert!(matches!(
+        result,
+        Err(ConfigError::TypeMismatch {
+            ref key,
+            expected: DataType::Int32,
+            actual: DataType::Bool,
+        }) if key == "a.b"
+    ));
 }
 
 // ============================================================================

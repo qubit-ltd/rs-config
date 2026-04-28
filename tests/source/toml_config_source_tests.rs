@@ -162,6 +162,16 @@ port = 2
         let result = source.load(&mut config);
         assert!(matches!(result, Err(ConfigError::ParseError(_))));
     }
+
+    #[test]
+    fn test_from_file_clone_keeps_debug_path() {
+        let path = PathBuf::from("config.toml");
+        let source = TomlConfigSource::from_file(&path);
+        let cloned = source.clone();
+
+        assert_eq!(format!("{source:?}"), format!("{cloned:?}"));
+        assert!(format!("{source:?}").contains("config.toml"));
+    }
 }
 
 #[cfg(test)]
@@ -267,14 +277,29 @@ mod test_toml_coverage {
     fn test_toml_mixed_type_array_fallback() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("mixed.toml");
-        // TOML spec actually disallows mixed arrays, but let's test the fallback
-        // by using a valid TOML with all strings
-        std::fs::write(&path, "tags = [\"a\", \"b\", \"c\"]\n").unwrap();
+        std::fs::write(
+            &path,
+            "tags = [1, 2.5, true, \"a\", 2026-04-09T12:00:00Z]\n",
+        )
+        .unwrap();
         let source = TomlConfigSource::from_file(&path);
         let mut config = Config::new();
         source.load(&mut config).unwrap();
         let tags: Vec<String> = config.get_list("tags").unwrap();
-        assert_eq!(tags.len(), 3);
+        assert_eq!(tags, vec!["1", "2.5", "true", "a", "2026-04-09T12:00:00Z"]);
+    }
+
+    #[test]
+    fn test_toml_mixed_nested_array_returns_parse_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("mixed_nested.toml");
+        std::fs::write(&path, "values = [1, [2]]\n").unwrap();
+        let source = TomlConfigSource::from_file(&path);
+        let mut config = Config::new();
+
+        let result = source.load(&mut config);
+
+        assert!(matches!(result, Err(ConfigError::ParseError(_))));
     }
 
     #[test]
@@ -318,5 +343,73 @@ dates = [2026-04-09T12:00:00Z, 2026-04-10T12:00:00Z]
         let mut config = Config::new();
         let result = source.load(&mut config);
         assert!(matches!(result, Err(ConfigError::ParseError(_))));
+    }
+
+    #[test]
+    fn test_toml_scalar_values_respect_final_property() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("scalar_final.toml");
+        std::fs::write(
+            &path,
+            r#"
+locked_int = 1
+locked_float = 1.5
+locked_bool = true
+locked_datetime = 1979-05-27T07:32:00Z
+"#,
+        )
+        .unwrap();
+
+        for key in [
+            "locked_int",
+            "locked_float",
+            "locked_bool",
+            "locked_datetime",
+        ] {
+            let source = TomlConfigSource::from_file(&path);
+            let mut config = Config::new();
+            config.set(key, "old").unwrap();
+            config.set_final(key, true).unwrap();
+
+            let result = source.load(&mut config);
+
+            assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
+            assert_eq!(config.get_string(key).unwrap(), "old");
+        }
+    }
+
+    #[test]
+    fn test_toml_arrays_respect_final_property() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("array_final.toml");
+        std::fs::write(
+            &path,
+            r#"
+locked_empty = []
+locked_ints = [1, 2]
+locked_floats = [1.5, 2.5]
+locked_bools = [true, false]
+locked_strings = ["one", "two"]
+"#,
+        )
+        .unwrap();
+
+        for key in [
+            "locked_empty",
+            "locked_ints",
+            "locked_floats",
+            "locked_bools",
+            "locked_strings",
+        ] {
+            let source = TomlConfigSource::from_file(&path);
+            let mut config = Config::new();
+            config.set(key, vec!["old"]).unwrap();
+            config.set_final(key, true).unwrap();
+
+            let result = source.load(&mut config);
+
+            assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
+            assert_eq!(config.get_string_list(key).unwrap(), vec!["old"]);
+        }
     }
 }

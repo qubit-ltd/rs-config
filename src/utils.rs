@@ -56,23 +56,7 @@ fn get_variable_pattern() -> &'static Regex {
 /// Haixing Hu
 ///
 pub(crate) fn map_value_error(key: &str, err: ValueError) -> ConfigError {
-    match err {
-        ValueError::NoValue => ConfigError::PropertyHasNoValue(key.to_string()),
-        ValueError::TypeMismatch { expected, actual } => {
-            ConfigError::type_mismatch_at(key, expected, actual)
-        }
-        ValueError::ConversionFailed { from, to } => {
-            ConfigError::conversion_error_at(key, format!("From {from} to {to}"))
-        }
-        ValueError::ConversionError(msg) => ConfigError::conversion_error_at(key, msg),
-        ValueError::IndexOutOfBounds { index, len } => ConfigError::IndexOutOfBounds { index, len },
-        ValueError::JsonSerializationError(msg) => {
-            ConfigError::conversion_error_at(key, format!("JSON serialization error: {msg}"))
-        }
-        ValueError::JsonDeserializationError(msg) => {
-            ConfigError::conversion_error_at(key, format!("JSON deserialization error: {msg}"))
-        }
-    }
+    ConfigError::from((key, err))
 }
 
 /// Replaces variables in a string (`${name}`).
@@ -224,8 +208,8 @@ fn find_variable_value_with_fallback<P: ConfigReader + ?Sized, F: ConfigReader +
 ///
 /// Keys containing dots are interpreted as nested object paths (for example,
 /// `db.host` becomes `{ "db": { "host": ... } }`). If path insertion
-/// conflicts with an existing scalar/object shape, this function falls back to
-/// the original flat-key behavior (`"db.host"` as a single key) for backward
+/// conflicts with an existing non-object parent, this function falls back to the
+/// original flat-key behavior (`"db.host"` as a single key) for backward
 /// compatibility.
 pub(crate) fn insert_deserialize_value(root: &mut Map<String, Value>, key: &str, value: Value) {
     if !key.contains('.') || key.is_empty() {
@@ -242,7 +226,7 @@ pub(crate) fn insert_deserialize_value(root: &mut Map<String, Value>, key: &str,
 /// Tries to insert a dotted key as a nested JSON object path.
 ///
 /// Returns `Err(())` when the key is malformed (`a..b`, `.a`, `a.`) or when an
-/// insertion path conflicts with an existing non-object leaf.
+/// insertion path conflicts with an existing non-object parent.
 fn try_insert_nested_json_value(
     root: &mut Map<String, Value>,
     key: &str,
@@ -271,13 +255,8 @@ fn try_insert_nested_json_value(
         }
     }
 
-    match current.entry((*leaf).to_string()) {
-        Entry::Vacant(entry) => {
-            entry.insert(value);
-            Ok(())
-        }
-        Entry::Occupied(_) => Err(()),
-    }
+    current.insert((*leaf).to_string(), value);
+    Ok(())
 }
 
 /// Converts a [`Property`] into [`serde_json::Value`] (for
@@ -427,234 +406,5 @@ where
         f(&v[0])
     } else {
         Value::Array(v.iter().map(f).collect())
-    }
-}
-
-#[cfg(test)]
-mod substitute_variable_tests {
-    use super::{insert_deserialize_value, map_value_error, substitute_variables};
-    use crate::{Config, ConfigError};
-    use qubit_common::DataType;
-    use qubit_value::ValueError;
-    use serde_json::{Map, json};
-
-    #[test]
-    fn test_map_value_error_additional_variants() {
-        let conversion_failed = map_value_error(
-            "port",
-            ValueError::ConversionFailed {
-                from: DataType::String,
-                to: DataType::Int32,
-            },
-        );
-        assert!(matches!(
-            conversion_failed,
-            ConfigError::ConversionError { ref key, ref message }
-                if key == "port" && message.contains("From")
-        ));
-
-        let conversion_error =
-            map_value_error("port", ValueError::ConversionError("bad int".to_string()));
-        assert!(matches!(
-            conversion_error,
-            ConfigError::ConversionError { ref key, ref message }
-                if key == "port" && message == "bad int"
-        ));
-
-        let out_of_bounds =
-            map_value_error("items", ValueError::IndexOutOfBounds { index: 3, len: 2 });
-        assert!(matches!(
-            out_of_bounds,
-            ConfigError::IndexOutOfBounds { index: 3, len: 2 }
-        ));
-
-        let json_serialization = map_value_error(
-            "payload",
-            ValueError::JsonSerializationError("serializer failed".to_string()),
-        );
-        assert!(matches!(
-            json_serialization,
-            ConfigError::ConversionError { ref key, ref message }
-                if key == "payload" && message.contains("JSON serialization error")
-        ));
-
-        let json_deserialization = map_value_error(
-            "payload",
-            ValueError::JsonDeserializationError("parser failed".to_string()),
-        );
-        assert!(matches!(
-            json_deserialization,
-            ConfigError::ConversionError { ref key, ref message }
-                if key == "payload" && message.contains("JSON deserialization error")
-        ));
-    }
-
-    #[test]
-    fn test_insert_deserialize_value_fallback_branches() {
-        let mut malformed = Map::new();
-        insert_deserialize_value(&mut malformed, "bad..key", json!("value"));
-        assert_eq!(malformed.get("bad..key"), Some(&json!("value")));
-
-        let mut occupied_leaf = Map::new();
-        insert_deserialize_value(&mut occupied_leaf, "a.b", json!(1));
-        insert_deserialize_value(&mut occupied_leaf, "a.b", json!(2));
-        assert_eq!(occupied_leaf.get("a.b"), Some(&json!(2)));
-
-        let mut scalar_parent = Map::new();
-        insert_deserialize_value(&mut scalar_parent, "a", json!(1));
-        insert_deserialize_value(&mut scalar_parent, "a.b", json!(2));
-        assert_eq!(scalar_parent.get("a.b"), Some(&json!(2)));
-    }
-
-    #[test]
-    fn test_substitute_simple() {
-        let mut config = Config::new();
-        config.set("name", "world").unwrap();
-
-        let result = substitute_variables("Hello, ${name}!", &config, 10).unwrap();
-        assert_eq!(result, "Hello, world!");
-    }
-
-    #[test]
-    fn test_substitute_multiple() {
-        let mut config = Config::new();
-        config.set("host", "localhost").unwrap();
-        config.set("port", "8080").unwrap();
-
-        let result = substitute_variables("http://${host}:${port}/api", &config, 10).unwrap();
-        assert_eq!(result, "http://localhost:8080/api");
-    }
-
-    #[test]
-    fn test_substitute_repeated_placeholder() {
-        let mut config = Config::new();
-        config.set("name", "world").unwrap();
-
-        let result = substitute_variables("${name}-${name}-${name}", &config, 10).unwrap();
-        assert_eq!(result, "world-world-world");
-    }
-
-    #[test]
-    fn test_substitute_recursive() {
-        let mut config = Config::new();
-        config.set("a", "value_a").unwrap();
-        config.set("b", "${a}_b").unwrap();
-        config.set("c", "${b}_c").unwrap();
-
-        let result = substitute_variables("${c}", &config, 10).unwrap();
-        assert_eq!(result, "value_a_b_c");
-    }
-
-    #[test]
-    fn test_substitute_depth_exceeded() {
-        let mut config = Config::new();
-        config.set("a", "${b}").unwrap();
-        config.set("b", "${a}").unwrap();
-
-        let result = substitute_variables("${a}", &config, 5);
-        assert!(matches!(
-            result,
-            Err(ConfigError::SubstitutionDepthExceeded(5))
-        ));
-    }
-
-    #[test]
-    fn test_substitute_env_var() {
-        unsafe {
-            std::env::set_var("TEST_VAR", "test_value");
-        }
-
-        let config = Config::new();
-        let result = substitute_variables("Value: ${TEST_VAR}", &config, 10).unwrap();
-        assert_eq!(result, "Value: test_value");
-
-        unsafe {
-            std::env::remove_var("TEST_VAR");
-        }
-    }
-
-    #[test]
-    fn test_substitute_empty_string() {
-        let config = Config::new();
-        let result = substitute_variables("", &config, 10).unwrap();
-        assert_eq!(result, "");
-    }
-
-    #[test]
-    fn test_substitute_zero_depth_without_placeholders_should_succeed() {
-        let config = Config::new();
-        let result = substitute_variables("plain text", &config, 0).unwrap();
-        assert_eq!(result, "plain text");
-    }
-
-    #[test]
-    fn test_substitute_variable_not_found() {
-        let config = Config::new();
-        let result = substitute_variables("${NONEXISTENT_VAR}", &config, 10);
-        assert!(matches!(result, Err(ConfigError::SubstitutionError(_))));
-
-        let err = result.expect_err("unresolved variable should return an error");
-        assert!(err.to_string().contains("NONEXISTENT_VAR"));
-    }
-
-    #[test]
-    fn test_substitute_no_variables() {
-        let config = Config::new();
-        let result = substitute_variables("Plain text with no variables", &config, 10).unwrap();
-        assert_eq!(result, "Plain text with no variables");
-    }
-
-    #[test]
-    fn test_substitute_mixed_sources() {
-        unsafe {
-            std::env::set_var("ENV_VAR", "from_env");
-        }
-
-        let mut config = Config::new();
-        config.set("CONFIG_VAR", "from_config").unwrap();
-
-        let result = substitute_variables("${CONFIG_VAR} and ${ENV_VAR}", &config, 10).unwrap();
-        assert_eq!(result, "from_config and from_env");
-
-        unsafe {
-            std::env::remove_var("ENV_VAR");
-        }
-    }
-
-    #[test]
-    fn test_substitute_config_priority_over_env() {
-        unsafe {
-            std::env::set_var("SHARED_VAR", "from_env");
-        }
-
-        let mut config = Config::new();
-        config.set("SHARED_VAR", "from_config").unwrap();
-
-        let result = substitute_variables("${SHARED_VAR}", &config, 10).unwrap();
-        assert_eq!(result, "from_config");
-
-        unsafe {
-            std::env::remove_var("SHARED_VAR");
-        }
-    }
-
-    #[test]
-    fn test_substitute_does_not_fallback_to_env_on_config_type_error() {
-        unsafe {
-            std::env::set_var("STRICT_VAR", "from_env");
-        }
-
-        let mut config = Config::new();
-        config.set("STRICT_VAR", 8080i32).unwrap();
-
-        let result = substitute_variables("${STRICT_VAR}", &config, 10);
-        assert!(matches!(
-            result,
-            Err(ConfigError::TypeMismatch { .. }) | Err(ConfigError::ConversionError { .. })
-        ));
-
-        unsafe {
-            std::env::remove_var("STRICT_VAR");
-        }
     }
 }

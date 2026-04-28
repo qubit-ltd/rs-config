@@ -379,6 +379,203 @@ mod test_deserialize {
 }
 
 // ============================================================================
+// Variable substitution coverage through public Config readers
+// ============================================================================
+
+#[cfg(test)]
+mod test_variable_substitution {
+    use super::*;
+
+    #[test]
+    fn test_get_string_substitutes_simple_placeholder() {
+        let mut config = Config::new();
+        config.set("name", "world").unwrap();
+        config.set("greeting", "Hello, ${name}!").unwrap();
+
+        assert_eq!(config.get_string("greeting").unwrap(), "Hello, world!");
+    }
+
+    #[test]
+    fn test_get_string_substitutes_multiple_placeholders() {
+        let mut config = Config::new();
+        config.set("host", "localhost").unwrap();
+        config.set("port", "8080").unwrap();
+        config.set("url", "http://${host}:${port}/api").unwrap();
+
+        assert_eq!(
+            config.get_string("url").unwrap(),
+            "http://localhost:8080/api"
+        );
+    }
+
+    #[test]
+    fn test_get_string_substitutes_repeated_placeholder() {
+        let mut config = Config::new();
+        config.set("name", "world").unwrap();
+        config.set("value", "${name}-${name}-${name}").unwrap();
+
+        assert_eq!(config.get_string("value").unwrap(), "world-world-world");
+    }
+
+    #[test]
+    fn test_get_string_substitutes_recursively() {
+        let mut config = Config::new();
+        config.set("a", "value_a").unwrap();
+        config.set("b", "${a}_b").unwrap();
+        config.set("c", "${b}_c").unwrap();
+
+        assert_eq!(config.get_string("c").unwrap(), "value_a_b_c");
+    }
+
+    #[test]
+    fn test_get_string_substitution_depth_exceeded() {
+        let mut config = Config::new();
+        config.set_max_substitution_depth(5);
+        config.set("a", "${b}").unwrap();
+        config.set("b", "${a}").unwrap();
+
+        let result = config.get_string("a");
+
+        assert!(matches!(
+            result,
+            Err(ConfigError::SubstitutionDepthExceeded(5))
+        ));
+    }
+
+    #[test]
+    fn test_get_string_uses_environment_fallback() {
+        unsafe {
+            std::env::set_var("QUBIT_CONFIG_TEST_ENV_VAR", "test_value");
+        }
+        let mut config = Config::new();
+        config
+            .set("value", "Value: ${QUBIT_CONFIG_TEST_ENV_VAR}")
+            .unwrap();
+
+        let result = config.get_string("value");
+
+        unsafe {
+            std::env::remove_var("QUBIT_CONFIG_TEST_ENV_VAR");
+        }
+        assert_eq!(result.unwrap(), "Value: test_value");
+    }
+
+    #[test]
+    fn test_get_string_empty_string_succeeds() {
+        let mut config = Config::new();
+        config.set("empty", "").unwrap();
+
+        assert_eq!(config.get_string("empty").unwrap(), "");
+    }
+
+    #[test]
+    fn test_get_string_zero_depth_without_placeholders_succeeds() {
+        let mut config = Config::new();
+        config.set_max_substitution_depth(0);
+        config.set("plain", "plain text").unwrap();
+
+        assert_eq!(config.get_string("plain").unwrap(), "plain text");
+    }
+
+    #[test]
+    fn test_get_string_unresolved_variable_returns_error() {
+        let mut config = Config::new();
+        config
+            .set(
+                "missing",
+                "${QUBIT_CONFIG_TEST_VAR_THAT_MUST_NOT_EXIST_001}",
+            )
+            .unwrap();
+
+        let err = config
+            .get_string("missing")
+            .expect_err("unresolved variable should return an error");
+
+        assert!(matches!(err, ConfigError::SubstitutionError(_)));
+        assert!(
+            err.to_string()
+                .contains("QUBIT_CONFIG_TEST_VAR_THAT_MUST_NOT_EXIST_001")
+        );
+    }
+
+    #[test]
+    fn test_get_string_without_variables_returns_original_value() {
+        let mut config = Config::new();
+        config.set("plain", "Plain text with no variables").unwrap();
+
+        assert_eq!(
+            config.get_string("plain").unwrap(),
+            "Plain text with no variables"
+        );
+    }
+
+    #[test]
+    fn test_get_string_uses_config_and_environment_sources() {
+        unsafe {
+            std::env::set_var("QUBIT_CONFIG_TEST_ENV_SOURCE", "from_env");
+        }
+        let mut config = Config::new();
+        config.set("CONFIG_SOURCE", "from_config").unwrap();
+        config
+            .set(
+                "combined",
+                "${CONFIG_SOURCE} and ${QUBIT_CONFIG_TEST_ENV_SOURCE}",
+            )
+            .unwrap();
+
+        let result = config.get_string("combined");
+
+        unsafe {
+            std::env::remove_var("QUBIT_CONFIG_TEST_ENV_SOURCE");
+        }
+        assert_eq!(result.unwrap(), "from_config and from_env");
+    }
+
+    #[test]
+    fn test_get_string_config_value_has_priority_over_environment() {
+        unsafe {
+            std::env::set_var("QUBIT_CONFIG_TEST_SHARED_VAR", "from_env");
+        }
+        let mut config = Config::new();
+        config
+            .set("QUBIT_CONFIG_TEST_SHARED_VAR", "from_config")
+            .unwrap();
+        config
+            .set("value", "${QUBIT_CONFIG_TEST_SHARED_VAR}")
+            .unwrap();
+
+        let result = config.get_string("value");
+
+        unsafe {
+            std::env::remove_var("QUBIT_CONFIG_TEST_SHARED_VAR");
+        }
+        assert_eq!(result.unwrap(), "from_config");
+    }
+
+    #[test]
+    fn test_get_string_does_not_use_environment_when_config_type_is_invalid() {
+        unsafe {
+            std::env::set_var("QUBIT_CONFIG_TEST_STRICT_VAR", "from_env");
+        }
+        let mut config = Config::new();
+        config.set("QUBIT_CONFIG_TEST_STRICT_VAR", 8080i32).unwrap();
+        config
+            .set("value", "${QUBIT_CONFIG_TEST_STRICT_VAR}")
+            .unwrap();
+
+        let result = config.get_string("value");
+
+        unsafe {
+            std::env::remove_var("QUBIT_CONFIG_TEST_STRICT_VAR");
+        }
+        assert!(matches!(
+            result,
+            Err(ConfigError::TypeMismatch { .. }) | Err(ConfigError::ConversionError { .. })
+        ));
+    }
+}
+
+// ============================================================================
 // property_to_json_value coverage: various MultiValues types via deserialize
 // ============================================================================
 

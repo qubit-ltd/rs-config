@@ -291,6 +291,16 @@ db:
         let result = source.load(&mut config);
         assert!(matches!(result, Err(ConfigError::ParseError(_))));
     }
+
+    #[test]
+    fn test_from_file_clone_keeps_debug_path() {
+        let path = PathBuf::from("config.yaml");
+        let source = YamlConfigSource::from_file(&path);
+        let cloned = source.clone();
+
+        assert_eq!(format!("{source:?}"), format!("{cloned:?}"));
+        assert!(format!("{source:?}").contains("config.yaml"));
+    }
 }
 
 #[cfg(test)]
@@ -421,5 +431,102 @@ flags:
         let mut config = Config::new();
         let result = source.load(&mut config);
         assert!(matches!(result, Err(ConfigError::ParseError(_))));
+    }
+
+    #[test]
+    fn test_yaml_tagged_value_loads_inner_value() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("tagged.yaml");
+        std::fs::write(&path, "key: !custom hello\n").unwrap();
+        let source = YamlConfigSource::from_file(&path);
+        let mut config = Config::new();
+
+        source.load(&mut config).unwrap();
+
+        assert_eq!(config.get_string("key").unwrap(), "hello");
+    }
+
+    #[test]
+    fn test_yaml_scalar_values_respect_final_property() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("scalar_final.yaml");
+        std::fs::write(
+            &path,
+            r#"
+locked_null: null
+locked_bool: true
+locked_int: 1
+locked_float: 1.5
+locked_string: value
+locked_tagged: !custom tagged
+"#,
+        )
+        .unwrap();
+
+        for key in [
+            "locked_null",
+            "locked_bool",
+            "locked_int",
+            "locked_float",
+            "locked_string",
+            "locked_tagged",
+        ] {
+            let source = YamlConfigSource::from_file(&path);
+            let mut config = Config::new();
+            config.set(key, "old").unwrap();
+            config.set_final(key, true).unwrap();
+
+            let result = source.load(&mut config);
+
+            assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
+            assert_eq!(config.get_string(key).unwrap(), "old");
+        }
+    }
+
+    #[test]
+    fn test_yaml_sequences_respect_final_property() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("sequence_final.yaml");
+        std::fs::write(
+            &path,
+            r#"
+locked_empty: []
+locked_ints:
+  - 1
+  - 2
+locked_floats:
+  - 1.5
+  - 2.5
+locked_bools:
+  - true
+  - false
+locked_strings:
+  - one
+  - two
+locked_mixed:
+  - 1
+  - null
+"#,
+        )
+        .unwrap();
+
+        for key in [
+            "locked_empty",
+            "locked_ints",
+            "locked_floats",
+            "locked_bools",
+            "locked_strings",
+            "locked_mixed",
+        ] {
+            let source = YamlConfigSource::from_file(&path);
+            let mut config = Config::new();
+            config.set(key, vec!["old"]).unwrap();
+            config.set_final(key, true).unwrap();
+
+            let result = source.load(&mut config);
+
+            assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
+            assert_eq!(config.get_string_list(key).unwrap(), vec!["old"]);
+        }
     }
 }
