@@ -42,8 +42,6 @@ print_usage() {
     echo ""
     echo "Options:"
     echo "  --clean    Clean old coverage data before running"
-    echo "  --print-exclude-pattern"
-    echo "             Print the generated exclude regex and exit"
     echo ""
     echo "Environment:"
     echo "  MIN_FUNCTION_COVERAGE=${MIN_FUNCTION_COVERAGE}"
@@ -231,14 +229,10 @@ maybe_check_json_coverage() {
 
 CLEAN_FLAG=""
 FORMAT_ARG=""
-PRINT_EXCLUDE_PATTERN=""
 for arg in "$@"; do
     case "$arg" in
         --clean)
             CLEAN_FLAG="yes"
-            ;;
-        --print-exclude-pattern)
-            PRINT_EXCLUDE_PATTERN="yes"
             ;;
         help|--help|-h)
             print_usage
@@ -255,6 +249,23 @@ for arg in "$@"; do
     esac
 done
 FORMAT_ARG="${FORMAT_ARG:-html}"
+
+case "$FORMAT_ARG" in
+    html|text|lcov|json|cobertura|all)
+        ;;
+    *)
+        echo "error: unknown format '$FORMAT_ARG'" >&2
+        print_usage
+        exit 1
+        ;;
+esac
+
+if [ "$FORMAT_ARG" = "json" ] || [ "$FORMAT_ARG" = "all" ]; then
+    require_command jq
+fi
+
+require_command cargo
+require_command cargo-llvm-cov
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 PROJECT_ROOT="${RS_CI_PROJECT_ROOT:-$SCRIPT_DIR}"
@@ -276,28 +287,6 @@ CURRENT_CRATE_NAME=$(basename "$CURRENT_CRATE_DIR")
 WORKSPACE_ROOT=$(cd "$PROJECT_ROOT/.." && pwd)
 EXCLUDE_PATTERN=$(build_exclude_pattern "$CURRENT_CRATE_NAME" "$WORKSPACE_ROOT")
 SOURCE_PREFIX="$CURRENT_CRATE_DIR/$COVERAGE_SOURCE_DIR/"
-
-if [ "$PRINT_EXCLUDE_PATTERN" = "yes" ]; then
-    printf '%s\n' "$EXCLUDE_PATTERN"
-    exit 0
-fi
-
-case "$FORMAT_ARG" in
-    html|text|lcov|json|cobertura|all)
-        ;;
-    *)
-        echo "error: unknown format '$FORMAT_ARG'" >&2
-        print_usage
-        exit 1
-        ;;
-esac
-
-if [ "$FORMAT_ARG" = "json" ] || [ "$FORMAT_ARG" = "all" ]; then
-    require_command jq
-fi
-
-require_command cargo
-require_command cargo-llvm-cov
 
 echo "Starting code coverage testing"
 echo "Package: $PACKAGE_NAME"
