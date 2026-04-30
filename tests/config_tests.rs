@@ -2684,3 +2684,137 @@ api_url = "${base_url}/api"
         );
     }
 }
+
+// ============================================================================
+// Source-backed constructors (`Config` API)
+// ============================================================================
+
+#[cfg(test)]
+mod test_source_backed_constructors {
+    use super::Config;
+    use qubit_config::source::TomlConfigSource;
+    use std::path::PathBuf;
+    use std::sync::{Mutex, MutexGuard, OnceLock};
+
+    fn fixture(name: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join(name)
+    }
+
+    /// Serializes constructor tests that mutate process environment variables.
+    fn env_test_lock() -> MutexGuard<'static, ()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+            .lock()
+            .expect("environment test lock should not be poisoned")
+    }
+
+    #[test]
+    fn test_from_source_loads_config_source_into_new_config() {
+        let source = TomlConfigSource::from_file(fixture("basic.toml"));
+
+        let config = Config::from_source(&source).unwrap();
+
+        assert_eq!(config.get_string("host").unwrap(), "localhost");
+        assert_eq!(config.get::<i64>("server.port").unwrap(), 9090);
+    }
+
+    #[test]
+    fn test_from_toml_file_loads_toml_config() {
+        let config = Config::from_toml_file(fixture("basic.toml")).unwrap();
+
+        assert_eq!(config.get_string("app.name").unwrap(), "MyApp");
+        assert_eq!(config.get::<i64>("port").unwrap(), 8080);
+    }
+
+    #[test]
+    fn test_from_yaml_file_loads_yaml_config() {
+        let config = Config::from_yaml_file(fixture("basic.yaml")).unwrap();
+
+        assert_eq!(config.get_string("app.name").unwrap(), "MyApp");
+        assert_eq!(config.get::<i64>("server.port").unwrap(), 9090);
+    }
+
+    #[test]
+    fn test_from_properties_file_loads_properties_config() {
+        let config = Config::from_properties_file(fixture("basic.properties")).unwrap();
+
+        assert_eq!(config.get_string("host").unwrap(), "localhost");
+        assert_eq!(config.get_string("app.version").unwrap(), "1.0.0");
+    }
+
+    #[test]
+    fn test_from_env_file_loads_dotenv_config() {
+        let config = Config::from_env_file(fixture("basic.env")).unwrap();
+
+        assert_eq!(config.get_string("HOST").unwrap(), "localhost");
+        assert_eq!(config.get_string("APP_NAME").unwrap(), "MyApp");
+    }
+
+    #[test]
+    fn test_from_env_loads_process_environment() {
+        let _guard = env_test_lock();
+        unsafe {
+            std::env::set_var("QUBIT_CONFIG_FROM_ENV_TEST_KEY", "from-env");
+        }
+
+        let config = Config::from_env().unwrap();
+
+        assert_eq!(
+            config.get_string("QUBIT_CONFIG_FROM_ENV_TEST_KEY").unwrap(),
+            "from-env"
+        );
+
+        unsafe {
+            std::env::remove_var("QUBIT_CONFIG_FROM_ENV_TEST_KEY");
+        }
+    }
+
+    #[test]
+    fn test_from_env_prefix_loads_and_normalizes_matching_vars() {
+        let _guard = env_test_lock();
+        unsafe {
+            std::env::set_var("QCFG_SERVER_HOST", "env-host");
+            std::env::set_var("QCFG_SERVER_PORT", "9091");
+            std::env::set_var("OTHER_QCFG_SERVER_HOST", "ignored");
+        }
+
+        let config = Config::from_env_prefix("QCFG_").unwrap();
+
+        assert_eq!(config.get_string("server.host").unwrap(), "env-host");
+        assert_eq!(config.get_string("server.port").unwrap(), "9091");
+        assert!(!config.contains("OTHER_QCFG_SERVER_HOST"));
+
+        unsafe {
+            std::env::remove_var("QCFG_SERVER_HOST");
+            std::env::remove_var("QCFG_SERVER_PORT");
+            std::env::remove_var("OTHER_QCFG_SERVER_HOST");
+        }
+    }
+
+    #[test]
+    fn test_from_env_options_respects_explicit_key_transform_options() {
+        let _guard = env_test_lock();
+        unsafe {
+            std::env::set_var("QOPTS_MY_KEY", "raw-value");
+        }
+
+        let config = Config::from_env_options("QOPTS_", false, false, false).unwrap();
+
+        assert_eq!(config.get_string("QOPTS_MY_KEY").unwrap(), "raw-value");
+        assert!(!config.contains("my.key"));
+
+        unsafe {
+            std::env::remove_var("QOPTS_MY_KEY");
+        }
+    }
+
+    #[test]
+    fn test_from_toml_file_returns_error_for_missing_file() {
+        let result = Config::from_toml_file("/nonexistent/path.toml");
+
+        assert!(result.is_err());
+    }
+}

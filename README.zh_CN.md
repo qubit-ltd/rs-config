@@ -31,7 +31,7 @@
 
 ```toml
 [dependencies]
-qubit-config = "0.9.2"
+qubit-config = "0.10.0"
 ```
 
 ## 快速开始
@@ -107,7 +107,7 @@ let port: i32 = db.get("port")?;
 
 ### 配置来源（Configuration sources）
 
-[`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) 的实现负责把外部设置写入 [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html)。可调用 [`merge_from_source`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.merge_from_source)，或在持有 `&mut Config` 时对具体来源调用 `load`。
+[`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) 的实现负责把外部设置写入 [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html)。可调用 [`merge_from_source`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.merge_from_source)，或在持有 `&mut Config` 时对具体来源调用 `load`。如果不需要在加载前定制目标 `Config`，可以直接使用 [`Config::from_toml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_toml_file)、[`Config::from_yaml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_yaml_file)、[`Config::from_properties_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_properties_file)、[`Config::from_env_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_file)、[`Config::from_env`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env) 或 [`Config::from_env_prefix`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_prefix) 等便捷构造方法。
 
 | 类型 | 作用 |
 |------|------|
@@ -129,6 +129,13 @@ composite
     .add(TomlConfigSource::from_file("config.toml"))
     .add(EnvConfigSource::with_prefix("APP_"));
 config.merge_from_source(&composite)?;
+```
+
+```rust
+use qubit_config::Config;
+
+let config = Config::from_toml_file("config.toml")?;
+let env_config = Config::from_env_prefix("APP_")?;
 ```
 
 ## 使用示例
