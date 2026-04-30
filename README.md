@@ -29,7 +29,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-qubit-config = "0.9.2"
+qubit-config = "0.10.0"
 ```
 
 ## Quick Start
@@ -87,7 +87,7 @@ A type-safe container that can hold multiple values of the same data type.
 
 ### ConfigReader and ConfigPrefixView
 
-[`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) is the read-only configuration surface. Functions or types that only need to read settings can take `&impl ConfigReader` (or a generic `R: ConfigReader`) instead of `&Config`, and the same API works for a full [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) or a scoped prefix view. `ConfigReader` has generic typed read methods, so it is not object-safe and should not be used as `dyn ConfigReader`. Besides `get` / `get_list`, `contains`, `contains_prefix`, and `iter_prefix`, the trait provides default helpers such as `get_string`, `get_string_or`, `get_string_list`, `get_optional_string`, and list variants, all consistent with the owning config’s variable substitution settings. It also provides `resolve_key`, which converts a key in the current reader scope into a root-relative key path.
+[`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) is the read-only configuration surface. Functions or types that only need to read settings can take `&impl ConfigReader` (or a generic `R: ConfigReader`) instead of `&Config`, and the same API works for a full [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) or a scoped prefix view. `ConfigReader` has generic typed read methods, so it is not object-safe and should not be used as `dyn ConfigReader`. `get` / `get_list` use `qubit_value` conversions, while `get_strict` / `get_list_strict` keep exact stored-type reads. Besides these methods, `contains`, `contains_prefix`, and `iter_prefix`, the trait provides default helpers such as `get_string`, `get_string_or`, `get_string_list`, `get_optional_string`, and list variants, all consistent with the owning config’s variable substitution settings. It also provides `resolve_key`, which converts a key in the current reader scope into a root-relative key path.
 
 [`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html) is a zero-copy borrow of a `Config` with a logical key prefix (distinctly named so other view kinds can be added later). Use [`Config::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.prefix_view) to create it; keys you pass are resolved under that prefix (for example, prefix `db` and key `host` reads `db.host`). Use [`ConfigPrefixView::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html#method.prefix_view) to obtain a nested prefix view. `iter_prefix` and `contains_prefix` only see keys exposed relative to the view’s prefix.
 
@@ -105,7 +105,7 @@ let port: i32 = db.get("port")?;
 
 ### Configuration sources
 
-Implementations of [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) load external settings into a [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html). Call [`merge_from_source`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.merge_from_source) (or `load` on the source with a `&mut Config`) to apply them.
+Implementations of [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) load external settings into a [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html). Call [`merge_from_source`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.merge_from_source) (or `load` on the source with a `&mut Config`) to apply them. When no pre-load customization is needed, use the convenience constructors such as [`Config::from_toml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_toml_file), [`Config::from_yaml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_yaml_file), [`Config::from_properties_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_properties_file), [`Config::from_env_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_file), [`Config::from_env`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env), or [`Config::from_env_prefix`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_prefix).
 
 | Type | Role |
 |------|------|
@@ -129,6 +129,13 @@ composite
 config.merge_from_source(&composite)?;
 ```
 
+```rust
+use qubit_config::Config;
+
+let config = Config::from_toml_file("config.toml")?;
+let env_config = Config::from_env_prefix("APP_")?;
+```
+
 ## Usage Examples
 
 ### Basic Configuration
@@ -143,11 +150,16 @@ config.set("port", 8080)?;
 config.set("host", "localhost")?;
 config.set("debug", true)?;
 config.set("timeout", 30.5)?;
+config.set("is_use_prefix", "0")?;
 
-// Get values with type inference
+// Get values with type inference and conversion
 let port: i32 = config.get("port")?;
 let host: String = config.get("host")?;
 let debug: bool = config.get("debug")?;
+let is_use_prefix: bool = config.get("is_use_prefix")?;
+
+// Exact stored-type reads remain available when needed
+assert!(config.get_strict::<bool>("is_use_prefix").is_err());
 ```
 
 ### Multi-Value Configuration
@@ -248,7 +260,7 @@ app.config_mut().set("port", 3000)?;
 
 | Rust Type | Description | Example |
 |-----------|-------------|---------|
-| `bool` | Boolean value | `true`, `false` |
+| `bool` | Boolean value; string inputs also accept `0`, `1`, and case-insensitive `true` / `false` when read via `get` / `get_list` | `true`, `false`, `"0"`, `"1"` |
 | `char` | Character | `'a'`, `'中'` |
 | `i8`, `i16`, `i32`, `i64`, `i128` | Signed integers | `42`, `-100` |
 | `u8`, `u16`, `u32`, `u64`, `u128` | Unsigned integers | `255`, `1000` |
@@ -262,7 +274,7 @@ app.config_mut().set("port", 3000)?;
 
 ## Extending with Custom Types
 
-To support custom types in the configuration system, you need to implement the necessary traits from `qubit_value`. The configuration system uses the `MultiValues` infrastructure for type-safe storage and retrieval.
+To support custom types in the configuration system, implement the necessary conversion traits from `qubit_value`. The configuration system stores values through the `MultiValues` infrastructure and reads them through `ValueConverter` for `get` / `get_list`. Implement `MultiValuesFirstGetter` / `MultiValuesGetter` only when you need exact stored-type support for `get_strict` / `get_list_strict`.
 
 Here's an example of how to work with custom types:
 
@@ -303,7 +315,7 @@ let port = Port::new(config.get_or("port", 8080u16))
     .map_err(|e| ConfigError::ConversionError(e))?;
 ```
 
-For more advanced type conversions, you can implement the traits from `qubit_value` (`MultiValuesFirstGetter`, `MultiValuesSetter`, etc.). See the `qubit_value` documentation for details on implementing these traits for custom types.
+For more advanced type conversions, implement the conversion traits from `qubit_value` (`ValueConverter`, `MultiValuesSetter`, etc.). See the `qubit_value` documentation for details on implementing these traits for custom types.
 
 ## API Design Philosophy
 

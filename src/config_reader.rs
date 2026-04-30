@@ -10,6 +10,7 @@
 
 use qubit_value::MultiValues;
 use qubit_value::multi_values::{MultiValuesFirstGetter, MultiValuesGetter};
+use qubit_value::{Value as QubitValue, ValueConverter};
 use serde::de::DeserializeOwned;
 
 use crate::config_prefix_view::ConfigPrefixView;
@@ -83,8 +84,8 @@ pub trait ConfigReader {
     ///
     /// # Type parameters
     ///
-    /// * `T` - Target type; requires `MultiValues` to implement
-    ///   `MultiValuesFirstGetter` for `T`.
+    /// * `T` - Target type; requires [`qubit_value::Value`] to implement
+    ///   [`qubit_value::ValueConverter`] for `T`.
     ///
     /// # Parameters
     ///
@@ -96,14 +97,33 @@ pub trait ConfigReader {
     /// is missing, empty, or not convertible.
     fn get<T>(&self, name: &str) -> ConfigResult<T>
     where
+        QubitValue: ValueConverter<T>;
+
+    /// Reads the first stored value for `name` without cross-type conversion.
+    ///
+    /// # Type parameters
+    ///
+    /// * `T` - Exact target type; requires `MultiValues` to implement
+    ///   `MultiValuesFirstGetter` for `T`.
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Configuration key.
+    ///
+    /// # Returns
+    ///
+    /// The exact stored value on success, or a [`crate::ConfigError`] if the
+    /// key is missing, empty, or has a different stored type.
+    fn get_strict<T>(&self, name: &str) -> ConfigResult<T>
+    where
         MultiValues: MultiValuesFirstGetter<T>;
 
     /// Reads all stored values for `name` and converts each element to `T`.
     ///
     /// # Type parameters
     ///
-    /// * `T` - Element type; requires `MultiValues` to implement
-    ///   `MultiValuesGetter` for `T`.
+    /// * `T` - Element type; requires [`qubit_value::Value`] to implement
+    ///   [`qubit_value::ValueConverter`] for `T`.
     ///
     /// # Parameters
     ///
@@ -114,6 +134,25 @@ pub trait ConfigReader {
     /// A vector of values on success, or a [`crate::ConfigError`] on failure.
     fn get_list<T>(&self, name: &str) -> ConfigResult<Vec<T>>
     where
+        QubitValue: ValueConverter<T>;
+
+    /// Reads all stored values for `name` without cross-type conversion.
+    ///
+    /// # Type parameters
+    ///
+    /// * `T` - Exact element type; requires `MultiValues` to implement
+    ///   `MultiValuesGetter` for `T`.
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Configuration key.
+    ///
+    /// # Returns
+    ///
+    /// A vector of exact stored values on success, or a
+    /// [`crate::ConfigError`] on failure.
+    fn get_list_strict<T>(&self, name: &str) -> ConfigResult<Vec<T>>
+    where
         MultiValues: MultiValuesGetter<T>;
 
     /// Gets a value or `default` if the key is missing or conversion fails (same
@@ -121,7 +160,7 @@ pub trait ConfigReader {
     #[inline]
     fn get_or<T>(&self, name: &str, default: T) -> T
     where
-        MultiValues: MultiValuesFirstGetter<T>,
+        QubitValue: ValueConverter<T>,
     {
         self.get(name).unwrap_or(default)
     }
@@ -130,8 +169,8 @@ pub trait ConfigReader {
     ///
     /// # Type parameters
     ///
-    /// * `T` - Target type; requires `MultiValues` to implement
-    ///   `MultiValuesFirstGetter` for `T`.
+    /// * `T` - Target type; requires [`qubit_value::Value`] to implement
+    ///   [`qubit_value::ValueConverter`] for `T`.
     ///
     /// # Parameters
     ///
@@ -142,13 +181,14 @@ pub trait ConfigReader {
     /// `Ok(Some(v))`, `Ok(None)` when missing or empty, or `Err` on conversion failure.
     fn get_optional<T>(&self, name: &str) -> ConfigResult<Option<T>>
     where
-        MultiValues: MultiValuesFirstGetter<T>;
+        QubitValue: ValueConverter<T>;
 
     /// Gets an optional list with the same semantics as [`crate::Config::get_optional_list`].
     ///
     /// # Type parameters
     ///
-    /// * `T` - Element type; requires `MultiValues` to implement `MultiValuesGetter` for `T`.
+    /// * `T` - Element type; requires [`qubit_value::Value`] to implement
+    ///   [`qubit_value::ValueConverter`] for `T`.
     ///
     /// # Parameters
     ///
@@ -159,7 +199,7 @@ pub trait ConfigReader {
     /// `Ok(Some(vec))`, `Ok(None)` when missing or empty, or `Err` on failure.
     fn get_optional_list<T>(&self, name: &str) -> ConfigResult<Option<Vec<T>>>
     where
-        MultiValues: MultiValuesGetter<T>;
+        QubitValue: ValueConverter<T>;
 
     /// Returns whether any key visible to this reader starts with `prefix`.
     ///

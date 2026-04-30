@@ -193,6 +193,35 @@ mod test_config_reader {
     }
 
     #[test]
+    fn test_config_reader_uses_conversion_and_exposes_strict_reads() {
+        let mut config = Config::new();
+        config.set("http.enabled", "1").unwrap();
+        config.set("http.flags", vec!["true", "0"]).unwrap();
+
+        assert!(<Config as ConfigReader>::get::<bool>(&config, "http.enabled").unwrap());
+        assert_eq!(
+            <Config as ConfigReader>::get_list::<bool>(&config, "http.flags").unwrap(),
+            vec![true, false]
+        );
+        assert!(<Config as ConfigReader>::get_strict::<bool>(&config, "http.enabled").is_err());
+        assert!(<Config as ConfigReader>::get_list_strict::<bool>(&config, "http.flags").is_err());
+
+        let http = config.prefix_view("http");
+        assert!(<ConfigPrefixView<'_> as ConfigReader>::get::<bool>(&http, "enabled").unwrap());
+        assert_eq!(
+            <ConfigPrefixView<'_> as ConfigReader>::get_list::<bool>(&http, "flags").unwrap(),
+            vec![true, false]
+        );
+        assert!(
+            <ConfigPrefixView<'_> as ConfigReader>::get_strict::<bool>(&http, "enabled").is_err()
+        );
+        assert!(
+            <ConfigPrefixView<'_> as ConfigReader>::get_list_strict::<bool>(&http, "flags")
+                .is_err()
+        );
+    }
+
+    #[test]
     fn test_config_reader_forwarding_for_config_impl() {
         let mut config = Config::new();
         config.set("db.host", "127.0.0.1").unwrap();

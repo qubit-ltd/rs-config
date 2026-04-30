@@ -284,7 +284,7 @@ mod test_deserialize {
     }
 
     #[test]
-    fn test_deserialize_substitution_local_type_error_not_masked_by_root() {
+    fn test_deserialize_substitution_local_conversion_has_priority_over_root() {
         #[derive(Deserialize, Debug, PartialEq)]
         struct ServiceConfig {
             url: String,
@@ -295,12 +295,9 @@ mod test_deserialize {
         config.set("svc.base_url", 123i32).unwrap();
         config.set("svc.url", "${base_url}/v1").unwrap();
 
-        let result = config.deserialize::<ServiceConfig>("svc");
+        let svc = config.deserialize::<ServiceConfig>("svc").unwrap();
 
-        assert!(matches!(
-            result,
-            Err(ConfigError::TypeMismatch { .. }) | Err(ConfigError::ConversionError { .. })
-        ));
+        assert_eq!(svc.url, "123/v1");
     }
 
     #[test]
@@ -553,7 +550,7 @@ mod test_variable_substitution {
     }
 
     #[test]
-    fn test_get_string_does_not_use_environment_when_config_type_is_invalid() {
+    fn test_get_string_converts_config_value_instead_of_environment() {
         unsafe {
             std::env::set_var("QUBIT_CONFIG_TEST_STRICT_VAR", "from_env");
         }
@@ -568,10 +565,7 @@ mod test_variable_substitution {
         unsafe {
             std::env::remove_var("QUBIT_CONFIG_TEST_STRICT_VAR");
         }
-        assert!(matches!(
-            result,
-            Err(ConfigError::TypeMismatch { .. }) | Err(ConfigError::ConversionError { .. })
-        ));
+        assert_eq!(result.unwrap(), "8080");
     }
 }
 
