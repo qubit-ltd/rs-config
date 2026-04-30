@@ -53,6 +53,24 @@ mod test_env_config_source {
     }
 
     #[test]
+    fn test_load_env_var_bool_zero_can_be_read_as_bool() {
+        let _guard = env_test_lock();
+        unsafe {
+            std::env::set_var("IS_USE_PREFIX", "0");
+        }
+
+        let source = EnvConfigSource::new();
+        let mut config = Config::new();
+        source.load(&mut config).unwrap();
+
+        assert!(!config.get::<bool>("IS_USE_PREFIX").unwrap());
+
+        unsafe {
+            std::env::remove_var("IS_USE_PREFIX");
+        }
+    }
+
+    #[test]
     fn test_load_with_prefix_filters_vars() {
         let _guard = env_test_lock();
         unsafe {

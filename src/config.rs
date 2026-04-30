@@ -18,7 +18,7 @@
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value, from_value};
+use serde_json::{Map, Value as JsonValue, from_value};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -33,12 +33,12 @@ use crate::source::{
 use crate::utils;
 use crate::{ConfigError, ConfigResult, Property};
 use qubit_common::DataType;
-use qubit_value::MultiValues;
 use qubit_value::multi_values::{
     MultiValuesAddArg, MultiValuesAdder, MultiValuesFirstGetter, MultiValuesGetter,
     MultiValuesMultiAdder, MultiValuesSetArg, MultiValuesSetter, MultiValuesSetterSlice,
     MultiValuesSingleSetter,
 };
+use qubit_value::{MultiValues, Value as QubitValue, ValueConverter};
 
 /// Configuration Manager
 ///
@@ -533,7 +533,7 @@ impl Config {
     // Core Generic Methods
     // ========================================================================
 
-    /// Gets a configuration value.
+    /// Gets a configuration value, converting the stored first value to `T`.
     ///
     /// Core read API with type inference.
     ///
@@ -544,7 +544,7 @@ impl Config {
     ///
     /// # Type Parameters
     ///
-    /// * `T` - Target type, must implement `FromPropertyValue` trait
+    /// * `T` - Target type supported by [`qubit_value::ValueConverter`]
     ///
     /// # Parameters
     ///
@@ -559,7 +559,8 @@ impl Config {
     ///
     /// - [`ConfigError::PropertyNotFound`] if the key does not exist
     /// - [`ConfigError::PropertyHasNoValue`] if the property has no value
-    /// - [`ConfigError::TypeMismatch`] if the type does not match
+    /// - [`ConfigError::ConversionError`] if the stored value cannot be
+    ///   converted to `T`
     ///
     /// # Examples
     ///
@@ -584,6 +585,37 @@ impl Config {
     /// ```
     pub fn get<T>(&self, name: &str) -> ConfigResult<T>
     where
+        QubitValue: ValueConverter<T>,
+    {
+        let property = self.get_property_by_name(name)?;
+
+        property
+            .value()
+            .to::<T>()
+            .map_err(|e| utils::map_value_error(name, e))
+    }
+
+    /// Gets a configuration value only when the stored value already has the
+    /// exact requested type.
+    ///
+    /// Unlike [`Self::get`], this method preserves the pre-conversion read
+    /// semantics. For example, a stored string `"1"` can be read as `bool` by
+    /// [`Self::get`], but [`Self::get_strict`] returns
+    /// [`ConfigError::TypeMismatch`].
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Exact target type supported by [`MultiValuesFirstGetter`]
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Configuration item name
+    ///
+    /// # Returns
+    ///
+    /// The exact typed value on success, or a [`ConfigError`] on failure.
+    pub fn get_strict<T>(&self, name: &str) -> ConfigResult<T>
+    where
         MultiValues: MultiValuesFirstGetter<T>,
     {
         let property = self.get_property_by_name(name)?;
@@ -599,7 +631,7 @@ impl Config {
     ///
     /// # Type Parameters
     ///
-    /// * `T` - Target type, must implement `FromPropertyValue` trait
+    /// * `T` - Target type supported by [`qubit_value::ValueConverter`]
     ///
     /// # Parameters
     ///
@@ -625,18 +657,19 @@ impl Config {
     /// ```
     pub fn get_or<T>(&self, name: &str, default: T) -> T
     where
-        MultiValues: MultiValuesFirstGetter<T>,
+        QubitValue: ValueConverter<T>,
     {
         self.get(name).unwrap_or(default)
     }
 
-    /// Gets a list of configuration values
+    /// Gets a list of configuration values, converting each stored element to
+    /// `T`.
     ///
     /// Gets all values of a configuration item (multi-value configuration).
     ///
     /// # Type Parameters
     ///
-    /// * `T` - Target type, must implement `FromPropertyValue` trait
+    /// * `T` - Target type supported by [`qubit_value::ValueConverter`]
     ///
     /// # Parameters
     ///
@@ -658,6 +691,38 @@ impl Config {
     /// assert_eq!(ports, vec![8080, 8081, 8082]);
     /// ```
     pub fn get_list<T>(&self, name: &str) -> ConfigResult<Vec<T>>
+    where
+        QubitValue: ValueConverter<T>,
+    {
+        let property = self.get_property_by_name(name)?;
+
+        property
+            .value()
+            .to_list::<T>()
+            .map_err(|e| utils::map_value_error(name, e))
+    }
+
+    /// Gets all configuration values only when the stored values already have
+    /// the exact requested element type.
+    ///
+    /// Unlike [`Self::get_list`], this method preserves the pre-conversion
+    /// list read semantics. It returns an empty vector for empty properties and
+    /// [`ConfigError::TypeMismatch`] for non-empty values of another stored
+    /// type.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Exact element type supported by [`MultiValuesGetter`]
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Configuration item name
+    ///
+    /// # Returns
+    ///
+    /// A vector of exact typed values on success, or a [`ConfigError`] on
+    /// failure.
+    pub fn get_list_strict<T>(&self, name: &str) -> ConfigResult<Vec<T>>
     where
         MultiValues: MultiValuesGetter<T>,
     {
@@ -1361,7 +1426,7 @@ impl Config {
     /// ```
     pub fn get_optional<T>(&self, name: &str) -> ConfigResult<Option<T>>
     where
-        MultiValues: MultiValuesFirstGetter<T>,
+        QubitValue: ValueConverter<T>,
     {
         self.get_optional_when_present(name, |c| c.get(name))
     }
@@ -1404,7 +1469,7 @@ impl Config {
     /// ```
     pub fn get_optional_list<T>(&self, name: &str) -> ConfigResult<Option<Vec<T>>>
     where
-        MultiValues: MultiValuesGetter<T>,
+        QubitValue: ValueConverter<T>,
     {
         self.get_optional_when_present(name, |c| c.get_list(name))
     }
@@ -1547,7 +1612,7 @@ impl Config {
             utils::insert_deserialize_value(&mut map, key, json_val);
         }
 
-        let json_obj = Value::Object(map);
+        let json_obj = JsonValue::Object(map);
 
         from_value(json_obj).map_err(|e| ConfigError::DeserializeError {
             path: prefix.to_string(),
@@ -1659,23 +1724,39 @@ impl ConfigReader for Config {
     #[inline]
     fn get<T>(&self, name: &str) -> ConfigResult<T>
     where
-        MultiValues: MultiValuesFirstGetter<T>,
+        QubitValue: ValueConverter<T>,
     {
         Config::get(self, name)
     }
 
     #[inline]
+    fn get_strict<T>(&self, name: &str) -> ConfigResult<T>
+    where
+        MultiValues: MultiValuesFirstGetter<T>,
+    {
+        Config::get_strict(self, name)
+    }
+
+    #[inline]
     fn get_list<T>(&self, name: &str) -> ConfigResult<Vec<T>>
     where
-        MultiValues: MultiValuesGetter<T>,
+        QubitValue: ValueConverter<T>,
     {
         Config::get_list(self, name)
     }
 
     #[inline]
+    fn get_list_strict<T>(&self, name: &str) -> ConfigResult<Vec<T>>
+    where
+        MultiValues: MultiValuesGetter<T>,
+    {
+        Config::get_list_strict(self, name)
+    }
+
+    #[inline]
     fn get_optional<T>(&self, name: &str) -> ConfigResult<Option<T>>
     where
-        MultiValues: MultiValuesFirstGetter<T>,
+        QubitValue: ValueConverter<T>,
     {
         Config::get_optional(self, name)
     }
@@ -1683,7 +1764,7 @@ impl ConfigReader for Config {
     #[inline]
     fn get_optional_list<T>(&self, name: &str) -> ConfigResult<Option<Vec<T>>>
     where
-        MultiValues: MultiValuesGetter<T>,
+        QubitValue: ValueConverter<T>,
     {
         Config::get_optional_list(self, name)
     }

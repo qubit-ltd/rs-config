@@ -89,7 +89,7 @@ config.set("database.port", 5432)?;
 
 ### ConfigReader 与 ConfigPrefixView（只读接口与前缀视图）
 
-[`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) 是配置的只读抽象：仅需读取时，函数或类型可接受 `&impl ConfigReader`（或泛型 `R: ConfigReader`），而不必暴露完整的 `&Config`，同一套 API 可用于完整 [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) 或带作用域的前缀视图。`ConfigReader` 包含泛型类型读取方法，因此不是 object-safe，不能用作 `dyn ConfigReader`。除 `get` / `get_list`、`contains`、`contains_prefix`、`iter_prefix` 外，trait 还提供带默认实现的字符串相关方法，如 `get_string`、`get_string_or`、`get_string_list`、`get_optional_string` 及其列表变体，并与所属 `Config` 的变量替换开关、最大深度保持一致。另提供 `resolve_key`，可把当前 reader 作用域下的键转换为相对于根配置的路径。
+[`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) 是配置的只读抽象：仅需读取时，函数或类型可接受 `&impl ConfigReader`（或泛型 `R: ConfigReader`），而不必暴露完整的 `&Config`，同一套 API 可用于完整 [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) 或带作用域的前缀视图。`ConfigReader` 包含泛型类型读取方法，因此不是 object-safe，不能用作 `dyn ConfigReader`。`get` / `get_list` 使用 `qubit_value` 的转换语义读取，`get_strict` / `get_list_strict` 保留精确存储类型读取。除这些方法、`contains`、`contains_prefix`、`iter_prefix` 外，trait 还提供带默认实现的字符串相关方法，如 `get_string`、`get_string_or`、`get_string_list`、`get_optional_string` 及其列表变体，并与所属 `Config` 的变量替换开关、最大深度保持一致。另提供 `resolve_key`，可把当前 reader 作用域下的键转换为相对于根配置的路径。
 
 [`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html) 表示对 `Config` 的零拷贝借用，并带有一个逻辑键前缀；类型名明确表示「前缀视图」，便于日后增加其他种类的视图而不与泛称冲突。通过 [`Config::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.prefix_view) 创建；传入的键名会在该前缀下解析（例如前缀 `db`、键 `host` 对应存储键 `db.host`）。使用 [`ConfigPrefixView::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html#method.prefix_view) 可得到嵌套前缀视图。`iter_prefix` 与 `contains_prefix` 仅针对当前视图下「相对键」可见的项。
 
@@ -152,11 +152,16 @@ config.set("port", 8080)?;
 config.set("host", "localhost")?;
 config.set("debug", true)?;
 config.set("timeout", 30.5)?;
+config.set("is_use_prefix", "0")?;
 
-// 使用类型推断获取值
+// 使用类型推断和转换语义获取值
 let port: i32 = config.get("port")?;
 let host: String = config.get("host")?;
 let debug: bool = config.get("debug")?;
+let is_use_prefix: bool = config.get("is_use_prefix")?;
+
+// 需要精确存储类型时仍可使用 strict 读取
+assert!(config.get_strict::<bool>("is_use_prefix").is_err());
 ```
 
 ### 多值配置
@@ -257,7 +262,7 @@ app.config_mut().set("port", 3000)?;
 
 | Rust 类型 | 说明 | 示例 |
 |----------|------|------|
-| `bool` | 布尔值 | `true`, `false` |
+| `bool` | 布尔值；通过 `get` / `get_list` 读取字符串时还接受 `0`、`1`、大小写不敏感的 `true` / `false` | `true`, `false`, `"0"`, `"1"` |
 | `char` | 字符 | `'a'`, `'中'` |
 | `i8`, `i16`, `i32`, `i64`, `i128` | 有符号整数 | `42`, `-100` |
 | `u8`, `u16`, `u32`, `u64`, `u128` | 无符号整数 | `255`, `1000` |
@@ -271,7 +276,7 @@ app.config_mut().set("port", 3000)?;
 
 ## 扩展自定义类型
 
-要在配置系统中支持自定义类型，您需要实现 `qubit_value` 中的必要 trait。配置系统使用 `MultiValues` 基础设施进行类型安全的存储和检索。
+要在配置系统中支持自定义类型，需要实现 `qubit_value` 中必要的转换 trait。配置系统通过 `MultiValues` 存储值，并通过 `ValueConverter` 支撑 `get` / `get_list` 的转换式读取。只有在需要 `get_strict` / `get_list_strict` 的精确存储类型支持时，才需要实现 `MultiValuesFirstGetter` / `MultiValuesGetter`。
 
 以下是如何使用自定义类型的示例：
 
@@ -312,7 +317,7 @@ let port = Port::new(config.get_or("port", 8080u16))
     .map_err(|e| ConfigError::ConversionError(e))?;
 ```
 
-对于更高级的类型转换，您可以实现 `qubit_value` 中的 trait（`MultiValuesFirstGetter`、`MultiValuesSetter` 等）。有关为自定义类型实现这些 trait 的详细信息，请参阅 `qubit_value` 文档。
+对于更高级的类型转换，您可以实现 `qubit_value` 中的 trait（`ValueConverter`、`MultiValuesSetter` 等）。有关为自定义类型实现这些 trait 的详细信息，请参阅 `qubit_value` 文档。
 
 ## API 设计哲学
 
