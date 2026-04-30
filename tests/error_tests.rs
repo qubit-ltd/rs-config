@@ -330,7 +330,7 @@ fn test_get_type_mismatch_error_carries_key() {
     let mut config = Config::new();
     config.set("a.b", true).unwrap();
 
-    let result: Result<i32, _> = config.get("a.b");
+    let result: Result<i32, _> = config.get_strict("a.b");
 
     assert!(matches!(
         result,

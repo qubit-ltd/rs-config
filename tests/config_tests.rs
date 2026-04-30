@@ -580,6 +580,37 @@ mod test_get {
         assert!(!value);
     }
 
+    #[test]
+    fn test_get_bool_from_string_values() {
+        let mut config = Config::new();
+        config.set("flag_one", "1").unwrap();
+        config.set("flag_zero", "0").unwrap();
+        config.set("flag_true", "TRUE").unwrap();
+        config.set("flag_false", "False").unwrap();
+
+        assert!(config.get::<bool>("flag_one").unwrap());
+        assert!(!config.get::<bool>("flag_zero").unwrap());
+        assert!(config.get::<bool>("flag_true").unwrap());
+        assert!(!config.get::<bool>("flag_false").unwrap());
+    }
+
+    #[test]
+    fn test_get_number_from_string_value() {
+        let mut config = Config::new();
+        config.set("port", "8080").unwrap();
+
+        assert_eq!(config.get::<u16>("port").unwrap(), 8080u16);
+    }
+
+    #[test]
+    fn test_get_strict_preserves_exact_type_checking() {
+        let mut config = Config::new();
+        config.set("flag", "1").unwrap();
+
+        let err = config.get_strict::<bool>("flag").unwrap_err();
+        assert!(matches!(err, ConfigError::TypeMismatch { .. }));
+    }
+
     // Character type tests
     #[test]
     fn test_get_char() {
@@ -638,7 +669,7 @@ mod test_get {
         config.set("test", "string").unwrap();
         let result: Result<i32, _> = config.get("test");
         assert!(result.is_err());
-        assert!(matches!(result, Err(ConfigError::TypeMismatch { .. })));
+        assert!(matches!(result, Err(ConfigError::ConversionError { .. })));
     }
 }
 
@@ -694,6 +725,15 @@ mod test_get_or {
         let value = config.get_or("nonexistent", true);
         assert!(value);
     }
+
+    #[test]
+    fn test_get_or_uses_conversion_before_default() {
+        let mut config = Config::new();
+        config.set("test", "0").unwrap();
+
+        let value = config.get_or("test", true);
+        assert!(!value);
+    }
 }
 
 // ============================================================================
@@ -738,6 +778,24 @@ mod test_get_list {
     }
 
     #[test]
+    fn test_get_list_bool_from_string_values() {
+        let mut config = Config::new();
+        config.set("test", vec!["1", "0", "true", "FALSE"]).unwrap();
+
+        let values: Vec<bool> = config.get_list("test").unwrap();
+        assert_eq!(values, vec![true, false, true, false]);
+    }
+
+    #[test]
+    fn test_get_list_strict_preserves_exact_type_checking() {
+        let mut config = Config::new();
+        config.set("test", vec!["1", "0"]).unwrap();
+
+        let err = config.get_list_strict::<bool>("test").unwrap_err();
+        assert!(matches!(err, ConfigError::TypeMismatch { .. }));
+    }
+
+    #[test]
     fn test_get_list_not_found() {
         let config = Config::new();
         let result: Result<Vec<String>, _> = config.get_list("nonexistent");
@@ -751,7 +809,7 @@ mod test_get_list {
         config.set("test", "string").unwrap();
         let result: Result<Vec<i32>, _> = config.get_list("test");
         assert!(result.is_err());
-        assert!(matches!(result, Err(ConfigError::TypeMismatch { .. })));
+        assert!(matches!(result, Err(ConfigError::ConversionError { .. })));
     }
 }
 
@@ -974,9 +1032,8 @@ mod test_get_string {
     fn test_get_string_type_mismatch() {
         let mut config = Config::new();
         config.set("test", 42).unwrap();
-        let result = config.get_string("test");
-        assert!(result.is_err());
-        assert!(matches!(result, Err(ConfigError::TypeMismatch { .. })));
+        let value = config.get_string("test").unwrap();
+        assert_eq!(value, "42");
     }
 
     #[test]
@@ -1013,7 +1070,7 @@ mod test_get_string_or {
         let mut config = Config::new();
         config.set("test", 42).unwrap();
         let value = config.get_string_or("test", "default");
-        assert_eq!(value, "default");
+        assert_eq!(value, "42");
     }
 }
 
@@ -1082,9 +1139,8 @@ mod test_get_string_list {
     fn test_get_string_list_type_mismatch() {
         let mut config = Config::new();
         config.set("test", vec![1, 2, 3]).unwrap();
-        let result = config.get_string_list("test");
-        assert!(result.is_err());
-        assert!(matches!(result, Err(ConfigError::TypeMismatch { .. })));
+        let values = config.get_string_list("test").unwrap();
+        assert_eq!(values, vec!["1", "2", "3"]);
     }
 
     #[test]
@@ -1124,7 +1180,7 @@ mod test_get_string_list_or {
         let mut config = Config::new();
         config.set("test", vec![1, 2, 3]).unwrap();
         let values = config.get_string_list_or("test", &["default"]);
-        assert_eq!(values, vec!["default"]);
+        assert_eq!(values, vec!["1", "2", "3"]);
     }
 
     #[test]
@@ -1689,14 +1745,14 @@ mod test_get_optional {
     #[test]
     fn test_get_optional_type_mismatch_returns_error() {
         let mut config = Config::new();
-        config.set("port", 8080).unwrap();
+        config.set("port", "not-a-bool").unwrap();
         let result: Result<Option<bool>, _> = config.get_optional("port");
         assert!(result.is_err());
         match result.unwrap_err() {
-            ConfigError::TypeMismatch { key, .. } => {
+            ConfigError::ConversionError { key, .. } => {
                 assert_eq!(key, "port");
             }
-            e => panic!("Expected TypeMismatch, got {:?}", e),
+            e => panic!("Expected ConversionError, got {:?}", e),
         }
     }
 }
@@ -1743,14 +1799,14 @@ mod test_get_optional_list {
     #[test]
     fn test_get_optional_list_type_mismatch_returns_error() {
         let mut config = Config::new();
-        config.set("ports", vec![8080, 8081]).unwrap();
+        config.set("ports", vec!["yes", "no"]).unwrap();
         let result: Result<Option<Vec<bool>>, _> = config.get_optional_list("ports");
         assert!(result.is_err());
         match result.unwrap_err() {
-            ConfigError::TypeMismatch { key, .. } => {
+            ConfigError::ConversionError { key, .. } => {
                 assert_eq!(key, "ports");
             }
-            e => panic!("Expected TypeMismatch, got {:?}", e),
+            e => panic!("Expected ConversionError, got {:?}", e),
         }
     }
 }
@@ -1829,12 +1885,10 @@ mod test_get_optional_string {
     fn test_get_optional_string_type_mismatch_returns_error() {
         let mut config = Config::new();
         config.set("port", 8080i32).unwrap();
-        let result = config.get_optional_string("port");
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            ConfigError::TypeMismatch { key, .. } => assert_eq!(key, "port"),
-            e => panic!("Expected TypeMismatch, got {:?}", e),
-        }
+        assert_eq!(
+            config.get_optional_string("port").unwrap(),
+            Some("8080".to_string())
+        );
     }
 
     #[test]
@@ -1932,12 +1986,10 @@ mod test_get_optional_string {
     fn test_get_optional_string_list_type_mismatch_returns_error() {
         let mut config = Config::new();
         config.set("ports", vec![1i32, 2i32]).unwrap();
-        let result = config.get_optional_string_list("ports");
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            ConfigError::TypeMismatch { key, .. } => assert_eq!(key, "ports"),
-            e => panic!("Expected TypeMismatch, got {:?}", e),
-        }
+        assert_eq!(
+            config.get_optional_string_list("ports").unwrap(),
+            Some(vec!["1".to_string(), "2".to_string()])
+        );
     }
 
     #[test]
@@ -1983,7 +2035,7 @@ mod test_enhanced_errors {
         let mut config = Config::new();
         config.set("server.port", 8080).unwrap();
 
-        let result: Result<bool, _> = config.get("server.port");
+        let result: Result<bool, _> = config.get_strict("server.port");
         assert!(result.is_err());
         match result.unwrap_err() {
             ConfigError::TypeMismatch {
@@ -2004,7 +2056,7 @@ mod test_enhanced_errors {
         let mut config = Config::new();
         config.set("ports", vec![8080, 8081]).unwrap();
 
-        let result: Result<Vec<bool>, _> = config.get_list("ports");
+        let result: Result<Vec<bool>, _> = config.get_list_strict("ports");
         assert!(result.is_err());
         match result.unwrap_err() {
             ConfigError::TypeMismatch { key, .. } => {
@@ -2103,7 +2155,7 @@ mod test_enhanced_errors {
     fn test_type_mismatch_from_get_has_key() {
         let mut config = Config::new();
         config.set("my.key", 42).unwrap();
-        let result: Result<bool, _> = config.get("my.key");
+        let result: Result<bool, _> = config.get_strict("my.key");
         match result.unwrap_err() {
             ConfigError::TypeMismatch { key, .. } => {
                 assert_eq!(key, "my.key");
@@ -2480,7 +2532,7 @@ mod test_config_error_branches {
     fn test_get_type_mismatch_with_key_in_error() {
         let mut config = Config::new();
         config.set("http.port", 8080).unwrap();
-        let err = config.get::<String>("http.port").unwrap_err();
+        let err = config.get_strict::<String>("http.port").unwrap_err();
         match err {
             ConfigError::TypeMismatch { key, .. } => {
                 assert_eq!(key, "http.port");
@@ -2494,7 +2546,7 @@ mod test_config_error_branches {
     fn test_get_list_type_mismatch_with_key_in_error() {
         let mut config = Config::new();
         config.set("ports", vec![8080i32, 8081]).unwrap();
-        let err = config.get_list::<String>("ports").unwrap_err();
+        let err = config.get_list_strict::<String>("ports").unwrap_err();
         match err {
             ConfigError::TypeMismatch { key, .. } => {
                 assert_eq!(key, "ports");
@@ -2682,5 +2734,139 @@ api_url = "${base_url}/api"
             config.get_string("api_url").unwrap(),
             "http://localhost:8080/api"
         );
+    }
+}
+
+// ============================================================================
+// Source-backed constructors (`Config` API)
+// ============================================================================
+
+#[cfg(test)]
+mod test_source_backed_constructors {
+    use super::Config;
+    use qubit_config::source::TomlConfigSource;
+    use std::path::PathBuf;
+    use std::sync::{Mutex, MutexGuard, OnceLock};
+
+    fn fixture(name: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join(name)
+    }
+
+    /// Serializes constructor tests that mutate process environment variables.
+    fn env_test_lock() -> MutexGuard<'static, ()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+            .lock()
+            .expect("environment test lock should not be poisoned")
+    }
+
+    #[test]
+    fn test_from_source_loads_config_source_into_new_config() {
+        let source = TomlConfigSource::from_file(fixture("basic.toml"));
+
+        let config = Config::from_source(&source).unwrap();
+
+        assert_eq!(config.get_string("host").unwrap(), "localhost");
+        assert_eq!(config.get::<i64>("server.port").unwrap(), 9090);
+    }
+
+    #[test]
+    fn test_from_toml_file_loads_toml_config() {
+        let config = Config::from_toml_file(fixture("basic.toml")).unwrap();
+
+        assert_eq!(config.get_string("app.name").unwrap(), "MyApp");
+        assert_eq!(config.get::<i64>("port").unwrap(), 8080);
+    }
+
+    #[test]
+    fn test_from_yaml_file_loads_yaml_config() {
+        let config = Config::from_yaml_file(fixture("basic.yaml")).unwrap();
+
+        assert_eq!(config.get_string("app.name").unwrap(), "MyApp");
+        assert_eq!(config.get::<i64>("server.port").unwrap(), 9090);
+    }
+
+    #[test]
+    fn test_from_properties_file_loads_properties_config() {
+        let config = Config::from_properties_file(fixture("basic.properties")).unwrap();
+
+        assert_eq!(config.get_string("host").unwrap(), "localhost");
+        assert_eq!(config.get_string("app.version").unwrap(), "1.0.0");
+    }
+
+    #[test]
+    fn test_from_env_file_loads_dotenv_config() {
+        let config = Config::from_env_file(fixture("basic.env")).unwrap();
+
+        assert_eq!(config.get_string("HOST").unwrap(), "localhost");
+        assert_eq!(config.get_string("APP_NAME").unwrap(), "MyApp");
+    }
+
+    #[test]
+    fn test_from_env_loads_process_environment() {
+        let _guard = env_test_lock();
+        unsafe {
+            std::env::set_var("QUBIT_CONFIG_FROM_ENV_TEST_KEY", "from-env");
+        }
+
+        let config = Config::from_env().unwrap();
+
+        assert_eq!(
+            config.get_string("QUBIT_CONFIG_FROM_ENV_TEST_KEY").unwrap(),
+            "from-env"
+        );
+
+        unsafe {
+            std::env::remove_var("QUBIT_CONFIG_FROM_ENV_TEST_KEY");
+        }
+    }
+
+    #[test]
+    fn test_from_env_prefix_loads_and_normalizes_matching_vars() {
+        let _guard = env_test_lock();
+        unsafe {
+            std::env::set_var("QCFG_SERVER_HOST", "env-host");
+            std::env::set_var("QCFG_SERVER_PORT", "9091");
+            std::env::set_var("OTHER_QCFG_SERVER_HOST", "ignored");
+        }
+
+        let config = Config::from_env_prefix("QCFG_").unwrap();
+
+        assert_eq!(config.get_string("server.host").unwrap(), "env-host");
+        assert_eq!(config.get_string("server.port").unwrap(), "9091");
+        assert!(!config.contains("OTHER_QCFG_SERVER_HOST"));
+
+        unsafe {
+            std::env::remove_var("QCFG_SERVER_HOST");
+            std::env::remove_var("QCFG_SERVER_PORT");
+            std::env::remove_var("OTHER_QCFG_SERVER_HOST");
+        }
+    }
+
+    #[test]
+    fn test_from_env_options_respects_explicit_key_transform_options() {
+        let _guard = env_test_lock();
+        unsafe {
+            std::env::set_var("QOPTS_MY_KEY", "raw-value");
+        }
+
+        let config = Config::from_env_options("QOPTS_", false, false, false).unwrap();
+
+        assert_eq!(config.get_string("QOPTS_MY_KEY").unwrap(), "raw-value");
+        assert!(!config.contains("my.key"));
+
+        unsafe {
+            std::env::remove_var("QOPTS_MY_KEY");
+        }
+    }
+
+    #[test]
+    fn test_from_toml_file_returns_error_for_missing_file() {
+        let result = Config::from_toml_file("/nonexistent/path.toml");
+
+        assert!(result.is_err());
     }
 }

@@ -18,23 +18,27 @@
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value, from_value};
+use serde_json::{Map, Value as JsonValue, from_value};
 use std::collections::HashMap;
+use std::path::Path;
 
 use crate::ConfigPropertyMut;
 use crate::config_prefix_view::ConfigPrefixView;
 use crate::config_reader::ConfigReader;
 use crate::constants::DEFAULT_MAX_SUBSTITUTION_DEPTH;
-use crate::source::ConfigSource;
+use crate::source::{
+    ConfigSource, EnvConfigSource, EnvFileConfigSource, PropertiesConfigSource, TomlConfigSource,
+    YamlConfigSource,
+};
 use crate::utils;
 use crate::{ConfigError, ConfigResult, Property};
 use qubit_common::DataType;
-use qubit_value::MultiValues;
 use qubit_value::multi_values::{
     MultiValuesAddArg, MultiValuesAdder, MultiValuesFirstGetter, MultiValuesGetter,
     MultiValuesMultiAdder, MultiValuesSetArg, MultiValuesSetter, MultiValuesSetterSlice,
     MultiValuesSingleSetter,
 };
+use qubit_value::{MultiValues, Value as QubitValue, ValueConverter};
 
 /// Configuration Manager
 ///
@@ -529,7 +533,7 @@ impl Config {
     // Core Generic Methods
     // ========================================================================
 
-    /// Gets a configuration value.
+    /// Gets a configuration value, converting the stored first value to `T`.
     ///
     /// Core read API with type inference.
     ///
@@ -540,7 +544,7 @@ impl Config {
     ///
     /// # Type Parameters
     ///
-    /// * `T` - Target type, must implement `FromPropertyValue` trait
+    /// * `T` - Target type supported by [`qubit_value::ValueConverter`]
     ///
     /// # Parameters
     ///
@@ -555,7 +559,8 @@ impl Config {
     ///
     /// - [`ConfigError::PropertyNotFound`] if the key does not exist
     /// - [`ConfigError::PropertyHasNoValue`] if the property has no value
-    /// - [`ConfigError::TypeMismatch`] if the type does not match
+    /// - [`ConfigError::ConversionError`] if the stored value cannot be
+    ///   converted to `T`
     ///
     /// # Examples
     ///
@@ -580,6 +585,37 @@ impl Config {
     /// ```
     pub fn get<T>(&self, name: &str) -> ConfigResult<T>
     where
+        QubitValue: ValueConverter<T>,
+    {
+        let property = self.get_property_by_name(name)?;
+
+        property
+            .value()
+            .to::<T>()
+            .map_err(|e| utils::map_value_error(name, e))
+    }
+
+    /// Gets a configuration value only when the stored value already has the
+    /// exact requested type.
+    ///
+    /// Unlike [`Self::get`], this method preserves the pre-conversion read
+    /// semantics. For example, a stored string `"1"` can be read as `bool` by
+    /// [`Self::get`], but [`Self::get_strict`] returns
+    /// [`ConfigError::TypeMismatch`].
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Exact target type supported by [`MultiValuesFirstGetter`]
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Configuration item name
+    ///
+    /// # Returns
+    ///
+    /// The exact typed value on success, or a [`ConfigError`] on failure.
+    pub fn get_strict<T>(&self, name: &str) -> ConfigResult<T>
+    where
         MultiValues: MultiValuesFirstGetter<T>,
     {
         let property = self.get_property_by_name(name)?;
@@ -595,7 +631,7 @@ impl Config {
     ///
     /// # Type Parameters
     ///
-    /// * `T` - Target type, must implement `FromPropertyValue` trait
+    /// * `T` - Target type supported by [`qubit_value::ValueConverter`]
     ///
     /// # Parameters
     ///
@@ -621,18 +657,19 @@ impl Config {
     /// ```
     pub fn get_or<T>(&self, name: &str, default: T) -> T
     where
-        MultiValues: MultiValuesFirstGetter<T>,
+        QubitValue: ValueConverter<T>,
     {
         self.get(name).unwrap_or(default)
     }
 
-    /// Gets a list of configuration values
+    /// Gets a list of configuration values, converting each stored element to
+    /// `T`.
     ///
     /// Gets all values of a configuration item (multi-value configuration).
     ///
     /// # Type Parameters
     ///
-    /// * `T` - Target type, must implement `FromPropertyValue` trait
+    /// * `T` - Target type supported by [`qubit_value::ValueConverter`]
     ///
     /// # Parameters
     ///
@@ -654,6 +691,38 @@ impl Config {
     /// assert_eq!(ports, vec![8080, 8081, 8082]);
     /// ```
     pub fn get_list<T>(&self, name: &str) -> ConfigResult<Vec<T>>
+    where
+        QubitValue: ValueConverter<T>,
+    {
+        let property = self.get_property_by_name(name)?;
+
+        property
+            .value()
+            .to_list::<T>()
+            .map_err(|e| utils::map_value_error(name, e))
+    }
+
+    /// Gets all configuration values only when the stored values already have
+    /// the exact requested element type.
+    ///
+    /// Unlike [`Self::get_list`], this method preserves the pre-conversion
+    /// list read semantics. It returns an empty vector for empty properties and
+    /// [`ConfigError::TypeMismatch`] for non-empty values of another stored
+    /// type.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Exact element type supported by [`MultiValuesGetter`]
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Configuration item name
+    ///
+    /// # Returns
+    ///
+    /// A vector of exact typed values on success, or a [`ConfigError`] on
+    /// failure.
+    pub fn get_list_strict<T>(&self, name: &str) -> ConfigResult<Vec<T>>
     where
         MultiValues: MultiValuesGetter<T>,
     {
@@ -909,6 +978,191 @@ impl Config {
     // ========================================================================
     // Configuration Source Integration
     // ========================================================================
+
+    /// Creates a new configuration by loading a [`ConfigSource`].
+    ///
+    /// The returned configuration starts empty and is populated by the given
+    /// source. This is a convenience constructor for callers that do not need
+    /// to customize the target [`Config`] before loading.
+    ///
+    /// # Parameters
+    ///
+    /// * `source` - The configuration source to load from.
+    ///
+    /// # Returns
+    ///
+    /// A populated configuration.
+    ///
+    /// # Errors
+    ///
+    /// Returns any [`ConfigError`] produced by the source while loading or by
+    /// the underlying config mutation methods.
+    #[inline]
+    pub fn from_source(source: &dyn ConfigSource) -> ConfigResult<Self> {
+        let mut config = Self::new();
+        source.load(&mut config)?;
+        Ok(config)
+    }
+
+    /// Creates a configuration from all current process environment variables.
+    ///
+    /// Environment variable names are loaded as-is. Use
+    /// [`Self::from_env_prefix`] when the application uses a dedicated prefix
+    /// and wants normalized dot-separated keys.
+    ///
+    /// # Returns
+    ///
+    /// A configuration populated from the process environment.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError`] if a matching environment key or value is not
+    /// valid Unicode, or if setting a loaded property fails.
+    #[inline]
+    pub fn from_env() -> ConfigResult<Self> {
+        let source = EnvConfigSource::new();
+        Self::from_source(&source)
+    }
+
+    /// Creates a configuration from environment variables with a prefix.
+    ///
+    /// Only variables starting with `prefix` are loaded. The prefix is stripped,
+    /// the remaining key is lowercased, and underscores are converted to dots.
+    ///
+    /// # Parameters
+    ///
+    /// * `prefix` - Prefix used to select environment variables.
+    ///
+    /// # Returns
+    ///
+    /// A configuration populated from matching environment variables.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError`] if a matching environment key or value is not
+    /// valid Unicode, or if setting a loaded property fails.
+    #[inline]
+    pub fn from_env_prefix(prefix: &str) -> ConfigResult<Self> {
+        let source = EnvConfigSource::with_prefix(prefix);
+        Self::from_source(&source)
+    }
+
+    /// Creates a configuration from environment variables with explicit key
+    /// transformation options.
+    ///
+    /// # Parameters
+    ///
+    /// * `prefix` - Prefix used to select environment variables.
+    /// * `strip_prefix` - Whether to strip the prefix from loaded keys.
+    /// * `convert_underscores` - Whether to convert underscores to dots.
+    /// * `lowercase_keys` - Whether to lowercase loaded keys.
+    ///
+    /// # Returns
+    ///
+    /// A configuration populated from matching environment variables.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError`] if a matching environment key or value is not
+    /// valid Unicode, or if setting a loaded property fails.
+    #[inline]
+    pub fn from_env_options(
+        prefix: &str,
+        strip_prefix: bool,
+        convert_underscores: bool,
+        lowercase_keys: bool,
+    ) -> ConfigResult<Self> {
+        let source = EnvConfigSource::with_options(
+            prefix,
+            strip_prefix,
+            convert_underscores,
+            lowercase_keys,
+        );
+        Self::from_source(&source)
+    }
+
+    /// Creates a configuration from a TOML file.
+    ///
+    /// # Parameters
+    ///
+    /// * `path` - Path to the TOML file.
+    ///
+    /// # Returns
+    ///
+    /// A configuration populated from the TOML file.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::IoError`] if the file cannot be read,
+    /// [`ConfigError::ParseError`] if the TOML cannot be parsed, or another
+    /// [`ConfigError`] if setting a loaded property fails.
+    #[inline]
+    pub fn from_toml_file<P: AsRef<Path>>(path: P) -> ConfigResult<Self> {
+        let source = TomlConfigSource::from_file(path);
+        Self::from_source(&source)
+    }
+
+    /// Creates a configuration from a YAML file.
+    ///
+    /// # Parameters
+    ///
+    /// * `path` - Path to the YAML file.
+    ///
+    /// # Returns
+    ///
+    /// A configuration populated from the YAML file.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::IoError`] if the file cannot be read,
+    /// [`ConfigError::ParseError`] if the YAML cannot be parsed, or another
+    /// [`ConfigError`] if setting a loaded property fails.
+    #[inline]
+    pub fn from_yaml_file<P: AsRef<Path>>(path: P) -> ConfigResult<Self> {
+        let source = YamlConfigSource::from_file(path);
+        Self::from_source(&source)
+    }
+
+    /// Creates a configuration from a Java `.properties` file.
+    ///
+    /// # Parameters
+    ///
+    /// * `path` - Path to the `.properties` file.
+    ///
+    /// # Returns
+    ///
+    /// A configuration populated from the `.properties` file.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::IoError`] if the file cannot be read, or another
+    /// [`ConfigError`] if setting a loaded property fails.
+    #[inline]
+    pub fn from_properties_file<P: AsRef<Path>>(path: P) -> ConfigResult<Self> {
+        let source = PropertiesConfigSource::from_file(path);
+        Self::from_source(&source)
+    }
+
+    /// Creates a configuration from a `.env` file.
+    ///
+    /// # Parameters
+    ///
+    /// * `path` - Path to the `.env` file.
+    ///
+    /// # Returns
+    ///
+    /// A configuration populated from the `.env` file.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::IoError`] if the file cannot be read,
+    /// [`ConfigError::ParseError`] if dotenv parsing fails, or another
+    /// [`ConfigError`] if setting a loaded property fails.
+    #[inline]
+    pub fn from_env_file<P: AsRef<Path>>(path: P) -> ConfigResult<Self> {
+        let source = EnvFileConfigSource::from_file(path);
+        Self::from_source(&source)
+    }
 
     /// Merges configuration from a `ConfigSource`
     ///
@@ -1172,7 +1426,7 @@ impl Config {
     /// ```
     pub fn get_optional<T>(&self, name: &str) -> ConfigResult<Option<T>>
     where
-        MultiValues: MultiValuesFirstGetter<T>,
+        QubitValue: ValueConverter<T>,
     {
         self.get_optional_when_present(name, |c| c.get(name))
     }
@@ -1215,7 +1469,7 @@ impl Config {
     /// ```
     pub fn get_optional_list<T>(&self, name: &str) -> ConfigResult<Option<Vec<T>>>
     where
-        MultiValues: MultiValuesGetter<T>,
+        QubitValue: ValueConverter<T>,
     {
         self.get_optional_when_present(name, |c| c.get_list(name))
     }
@@ -1358,7 +1612,7 @@ impl Config {
             utils::insert_deserialize_value(&mut map, key, json_val);
         }
 
-        let json_obj = Value::Object(map);
+        let json_obj = JsonValue::Object(map);
 
         from_value(json_obj).map_err(|e| ConfigError::DeserializeError {
             path: prefix.to_string(),
@@ -1470,23 +1724,39 @@ impl ConfigReader for Config {
     #[inline]
     fn get<T>(&self, name: &str) -> ConfigResult<T>
     where
-        MultiValues: MultiValuesFirstGetter<T>,
+        QubitValue: ValueConverter<T>,
     {
         Config::get(self, name)
     }
 
     #[inline]
+    fn get_strict<T>(&self, name: &str) -> ConfigResult<T>
+    where
+        MultiValues: MultiValuesFirstGetter<T>,
+    {
+        Config::get_strict(self, name)
+    }
+
+    #[inline]
     fn get_list<T>(&self, name: &str) -> ConfigResult<Vec<T>>
     where
-        MultiValues: MultiValuesGetter<T>,
+        QubitValue: ValueConverter<T>,
     {
         Config::get_list(self, name)
     }
 
     #[inline]
+    fn get_list_strict<T>(&self, name: &str) -> ConfigResult<Vec<T>>
+    where
+        MultiValues: MultiValuesGetter<T>,
+    {
+        Config::get_list_strict(self, name)
+    }
+
+    #[inline]
     fn get_optional<T>(&self, name: &str) -> ConfigResult<Option<T>>
     where
-        MultiValues: MultiValuesFirstGetter<T>,
+        QubitValue: ValueConverter<T>,
     {
         Config::get_optional(self, name)
     }
@@ -1494,7 +1764,7 @@ impl ConfigReader for Config {
     #[inline]
     fn get_optional_list<T>(&self, name: &str) -> ConfigResult<Option<Vec<T>>>
     where
-        MultiValues: MultiValuesGetter<T>,
+        QubitValue: ValueConverter<T>,
     {
         Config::get_optional_list(self, name)
     }

@@ -12,6 +12,7 @@ use std::borrow::Cow;
 
 use qubit_value::MultiValues;
 use qubit_value::multi_values::{MultiValuesFirstGetter, MultiValuesGetter};
+use qubit_value::{Value as QubitValue, ValueConverter};
 
 use crate::config::Config;
 use crate::config_reader::ConfigReader;
@@ -192,23 +193,39 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
 
     fn get<T>(&self, name: &str) -> ConfigResult<T>
     where
-        MultiValues: MultiValuesFirstGetter<T>,
+        QubitValue: ValueConverter<T>,
     {
         let key = self.resolve_key_cow(name);
         self.config.get(key.as_ref())
     }
 
+    fn get_strict<T>(&self, name: &str) -> ConfigResult<T>
+    where
+        MultiValues: MultiValuesFirstGetter<T>,
+    {
+        let key = self.resolve_key_cow(name);
+        self.config.get_strict(key.as_ref())
+    }
+
     fn get_list<T>(&self, name: &str) -> ConfigResult<Vec<T>>
     where
-        MultiValues: MultiValuesGetter<T>,
+        QubitValue: ValueConverter<T>,
     {
         let key = self.resolve_key_cow(name);
         self.config.get_list(key.as_ref())
     }
 
+    fn get_list_strict<T>(&self, name: &str) -> ConfigResult<Vec<T>>
+    where
+        MultiValues: MultiValuesGetter<T>,
+    {
+        let key = self.resolve_key_cow(name);
+        self.config.get_list_strict(key.as_ref())
+    }
+
     fn get_optional<T>(&self, name: &str) -> ConfigResult<Option<T>>
     where
-        MultiValues: MultiValuesFirstGetter<T>,
+        QubitValue: ValueConverter<T>,
     {
         let key = self.resolve_key_cow(name);
         self.config.get_optional(key.as_ref())
@@ -216,7 +233,7 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
 
     fn get_optional_list<T>(&self, name: &str) -> ConfigResult<Option<Vec<T>>>
     where
-        MultiValues: MultiValuesGetter<T>,
+        QubitValue: ValueConverter<T>,
     {
         let key = self.resolve_key_cow(name);
         self.config.get_optional_list(key.as_ref())
