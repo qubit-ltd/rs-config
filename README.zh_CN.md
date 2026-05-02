@@ -122,6 +122,18 @@ let invalid = config.get_or("worker.threads", 4u16);
 assert!(matches!(invalid, Err(ConfigError::ConversionError { .. })));
 ```
 
+`get_or`、`get_any_or`、`get_any_or_with` 等带 default value 的读取接口现在支持更方便的默认值传法。标量默认值仍直接使用目标类型；字符串默认值可以直接传 `&str`；字符串列表默认值可以使用数组、切片或借用的 `Vec<String>`。
+
+```rust
+let host = config.get_or::<String>("server.host", "localhost")?;
+let paths = config.get_or::<Vec<String>>("server.paths", ["bin", "lib"])?;
+
+let paths = config.get_any_or::<Vec<String>>(
+    &["server.paths", "SERVER_PATHS"],
+    ["cache", "tmp"],
+)?;
+```
+
 ### ConfigPrefixView（前缀视图）
 
 [`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html) 表示对 `Config` 的零拷贝借用，并带有一个逻辑键前缀。通过 [`Config::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.prefix_view) 创建；传入的键名会在该前缀下解析。例如前缀 `db`、键 `host` 对应存储键 `db.host`。使用 [`ConfigPrefixView::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html#method.prefix_view) 可得到嵌套前缀视图。

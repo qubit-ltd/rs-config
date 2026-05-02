@@ -120,6 +120,18 @@ let invalid = config.get_or("worker.threads", 4u16);
 assert!(matches!(invalid, Err(ConfigError::ConversionError { .. })));
 ```
 
+Defaulted reads such as `get_or`, `get_any_or`, and `get_any_or_with` accept convenient fallback values. Scalar defaults still use the target type directly, while string defaults can use borrowed literals and string-list defaults can use arrays, slices, or borrowed vectors.
+
+```rust
+let host = config.get_or::<String>("server.host", "localhost")?;
+let paths = config.get_or::<Vec<String>>("server.paths", ["bin", "lib"])?;
+
+let paths = config.get_any_or::<Vec<String>>(
+    &["server.paths", "SERVER_PATHS"],
+    ["cache", "tmp"],
+)?;
+```
+
 ### ConfigPrefixView
 
 [`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html) is a zero-copy borrow of a `Config` with a logical key prefix. Use [`Config::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.prefix_view) to create it; keys passed to the view are resolved under that prefix. For example, prefix `db` and key `host` read the stored key `db.host`. Use [`ConfigPrefixView::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html#method.prefix_view) for nested views.
