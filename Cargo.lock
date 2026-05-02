@@ -494,7 +494,7 @@ dependencies = [
 
 [[package]]
 name = "qubit-config"
-version = "0.10.1"
+version = "0.11.0"
 dependencies = [
  "bigdecimal",
  "chrono",
@@ -516,6 +516,8 @@ dependencies = [
 [[package]]
 name = "qubit-datatype"
 version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "125bd60aeaf759c0ac4794131d033c20f69e2389494629c9368b9d944126a071"
 dependencies = [
  "bigdecimal",
  "chrono",
@@ -528,8 +530,11 @@ dependencies = [
 
 [[package]]
 name = "qubit-serde"
-version = "0.1.1"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa79ad1fb88f4edef0d927cf809a9cb043355c1bdd46b58d39c4fe16f3b4a683"
 dependencies = [
+ "qubit-datatype",
  "serde",
  "serde_json",
 ]
