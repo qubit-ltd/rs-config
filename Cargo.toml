@@ -41,7 +41,7 @@ dotenvy = "0.15"
 
 qubit-datatype = "0.2"
 qubit-serde = "0.2"
-qubit-value = { version = "0.6", path = "../rs-value" }
+qubit-value = "0.6"
 
 [dev-dependencies]
 tempfile = "3"
