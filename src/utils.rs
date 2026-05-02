@@ -170,18 +170,14 @@ fn find_variable_value<R: ConfigReader + ?Sized>(
     var_name: &str,
     config: &R,
 ) -> ConfigResult<String> {
-    // 1. Try configuration first.
-    match config.get::<String>(var_name) {
-        Ok(value) => Ok(value),
-        // Only missing or empty values can fall back to env vars.
-        Err(ConfigError::PropertyNotFound(_)) | Err(ConfigError::PropertyHasNoValue(_)) => {
-            std::env::var(var_name).map_err(|_| {
-                ConfigError::SubstitutionError(format!("Cannot resolve variable: {}", var_name))
-            })
-        }
-        // Type/conversion errors in config should surface directly instead of
-        // being silently masked by environment values.
-        Err(err) => Err(err),
+    match config.get_property(var_name) {
+        Some(property) if !property.is_empty() => match property.value().to::<String>() {
+            Ok(value) => Ok(value),
+            Err(error) => Err(map_value_error(var_name, error)),
+        },
+        Some(_) | None => std::env::var(var_name).map_err(|_| {
+            ConfigError::SubstitutionError(format!("Cannot resolve variable: {}", var_name))
+        }),
     }
 }
 
@@ -195,12 +191,12 @@ fn find_variable_value_with_fallback<P: ConfigReader + ?Sized, F: ConfigReader +
     primary: &P,
     fallback: &F,
 ) -> ConfigResult<String> {
-    match primary.get::<String>(var_name) {
-        Ok(value) => Ok(value),
-        Err(ConfigError::PropertyNotFound(_)) | Err(ConfigError::PropertyHasNoValue(_)) => {
-            find_variable_value(var_name, fallback)
-        }
-        Err(err) => Err(err),
+    match primary.get_property(var_name) {
+        Some(property) if !property.is_empty() => match property.value().to::<String>() {
+            Ok(value) => Ok(value),
+            Err(error) => Err(map_value_error(var_name, error)),
+        },
+        Some(_) | None => find_variable_value(var_name, fallback),
     }
 }
 

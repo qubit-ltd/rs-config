@@ -31,6 +31,10 @@ use crate::{ConfigError, ConfigResult, Property};
 /// `DerefMut`. Value-changing operations re-check the property's final flag on
 /// every call, so setting a property final through the guard immediately blocks
 /// subsequent mutation through the same guard.
+///
+/// # Author
+///
+/// Haixing Hu
 pub struct ConfigPropertyMut<'a> {
     property: &'a mut Property,
 }

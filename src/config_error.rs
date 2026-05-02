@@ -17,6 +17,7 @@
 use thiserror::Error;
 
 use qubit_common::DataType;
+use qubit_common::lang::DataConversionError;
 use qubit_value::ValueError;
 
 /// Configuration error type
@@ -146,6 +147,40 @@ impl ConfigError {
         ConfigError::ConversionError {
             key: String::new(),
             message: message.into(),
+        }
+    }
+
+    /// Maps a common data conversion error to a keyed configuration error.
+    ///
+    /// # Parameters
+    ///
+    /// * `key` - Configuration key that was being parsed.
+    /// * `err` - Error returned by the common conversion layer.
+    ///
+    /// # Returns
+    ///
+    /// A [`ConfigError`] carrying the supplied key.
+    pub fn from_data_conversion_error(key: &str, err: DataConversionError) -> Self {
+        match err {
+            DataConversionError::NoValue => ConfigError::PropertyHasNoValue(key.to_string()),
+            DataConversionError::ConversionFailed { from, to } => ConfigError::ConversionError {
+                key: key.to_string(),
+                message: format!("From {from} to {to}"),
+            },
+            DataConversionError::ConversionError(message) => ConfigError::ConversionError {
+                key: key.to_string(),
+                message,
+            },
+            DataConversionError::JsonSerializationError(message) => ConfigError::ConversionError {
+                key: key.to_string(),
+                message: format!("JSON serialization error: {message}"),
+            },
+            DataConversionError::JsonDeserializationError(message) => {
+                ConfigError::ConversionError {
+                    key: key.to_string(),
+                    message: format!("JSON deserialization error: {message}"),
+                }
+            }
         }
     }
 }

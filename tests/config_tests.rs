@@ -685,14 +685,14 @@ mod test_get_or {
     fn test_get_or_returns_value_when_property_exists() {
         let mut config = Config::new();
         config.set("test", 42).unwrap();
-        let value = config.get_or("test", 0);
+        let value = config.get_or("test", 0).unwrap();
         assert_eq!(value, 42);
     }
 
     #[test]
     fn test_get_or_returns_default_when_property_not_exists() {
         let config = Config::new();
-        let value = config.get_or("nonexistent", 42);
+        let value = config.get_or("nonexistent", 42).unwrap();
         assert_eq!(value, 42);
     }
 
@@ -700,14 +700,14 @@ mod test_get_or {
     fn test_get_or_with_string() {
         let mut config = Config::new();
         config.set("test", "value").unwrap();
-        let value = config.get_or("test", "default".to_string());
+        let value = config.get_or("test", "default".to_string()).unwrap();
         assert_eq!(value, "value");
     }
 
     #[test]
     fn test_get_or_with_string_default() {
         let config = Config::new();
-        let value = config.get_or("nonexistent", "default".to_string());
+        let value = config.get_or("nonexistent", "default".to_string()).unwrap();
         assert_eq!(value, "default");
     }
 
@@ -715,14 +715,14 @@ mod test_get_or {
     fn test_get_or_with_bool() {
         let mut config = Config::new();
         config.set("test", true).unwrap();
-        let value = config.get_or("test", false);
+        let value = config.get_or("test", false).unwrap();
         assert!(value);
     }
 
     #[test]
     fn test_get_or_with_bool_default() {
         let config = Config::new();
-        let value = config.get_or("nonexistent", true);
+        let value = config.get_or("nonexistent", true).unwrap();
         assert!(value);
     }
 
@@ -731,7 +731,7 @@ mod test_get_or {
         let mut config = Config::new();
         config.set("test", "0").unwrap();
 
-        let value = config.get_or("test", true);
+        let value = config.get_or("test", true).unwrap();
         assert!(!value);
     }
 }
@@ -1054,22 +1054,22 @@ mod test_get_string_or {
     fn test_get_string_or_returns_value_when_property_exists() {
         let mut config = Config::new();
         config.set("test", "value").unwrap();
-        let value = config.get_string_or("test", "default");
+        let value = config.get_string_or("test", "default").unwrap();
         assert_eq!(value, "value");
     }
 
     #[test]
     fn test_get_string_or_returns_default_when_property_not_exists() {
         let config = Config::new();
-        let value = config.get_string_or("nonexistent", "default");
+        let value = config.get_string_or("nonexistent", "default").unwrap();
         assert_eq!(value, "default");
     }
 
     #[test]
-    fn test_get_string_or_returns_default_when_type_mismatch() {
+    fn test_get_string_or_converts_non_string_value() {
         let mut config = Config::new();
         config.set("test", 42).unwrap();
-        let value = config.get_string_or("test", "default");
+        let value = config.get_string_or("test", "default").unwrap();
         assert_eq!(value, "42");
     }
 }
@@ -1164,22 +1164,24 @@ mod test_get_string_list_or {
     fn test_get_string_list_or_returns_value_when_property_exists() {
         let mut config = Config::new();
         config.set("test", vec!["value1", "value2"]).unwrap();
-        let values = config.get_string_list_or("test", &["default"]);
+        let values = config.get_string_list_or("test", &["default"]).unwrap();
         assert_eq!(values, vec!["value1", "value2"]);
     }
 
     #[test]
     fn test_get_string_list_or_returns_default_when_property_not_exists() {
         let config = Config::new();
-        let values = config.get_string_list_or("nonexistent", &["default"]);
+        let values = config
+            .get_string_list_or("nonexistent", &["default"])
+            .unwrap();
         assert_eq!(values, vec!["default"]);
     }
 
     #[test]
-    fn test_get_string_list_or_returns_default_when_type_mismatch() {
+    fn test_get_string_list_or_converts_non_string_values() {
         let mut config = Config::new();
         config.set("test", vec![1, 2, 3]).unwrap();
-        let values = config.get_string_list_or("test", &["default"]);
+        let values = config.get_string_list_or("test", &["default"]).unwrap();
         assert_eq!(values, vec!["1", "2", "3"]);
     }
 
@@ -1190,14 +1192,16 @@ mod test_get_string_list_or {
         config
             .set("urls", vec!["${base}/api", "${base}/admin"])
             .unwrap();
-        let urls = config.get_string_list_or("urls", &["default"]);
+        let urls = config.get_string_list_or("urls", &["default"]).unwrap();
         assert_eq!(urls, vec!["http://localhost/api", "http://localhost/admin"]);
     }
 
     #[test]
     fn test_get_string_list_or_with_array_default() {
         let config = Config::new();
-        let values = config.get_string_list_or("nonexistent", &["default1", "default2"]);
+        let values = config
+            .get_string_list_or("nonexistent", &["default1", "default2"])
+            .unwrap();
         assert_eq!(values, vec!["default1", "default2"]);
     }
 
@@ -1205,7 +1209,9 @@ mod test_get_string_list_or {
     fn test_get_string_list_or_with_vec_default() {
         let config = Config::new();
         let default_vec = vec!["vec1", "vec2", "vec3"];
-        let values = config.get_string_list_or("nonexistent", &default_vec);
+        let values = config
+            .get_string_list_or("nonexistent", &default_vec)
+            .unwrap();
         assert_eq!(values, vec!["vec1", "vec2", "vec3"]);
     }
 }

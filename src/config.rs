@@ -26,6 +26,9 @@ use crate::ConfigPropertyMut;
 use crate::config_prefix_view::ConfigPrefixView;
 use crate::config_reader::ConfigReader;
 use crate::constants::DEFAULT_MAX_SUBSTITUTION_DEPTH;
+use crate::field::ConfigField;
+use crate::from::FromConfig;
+use crate::options::ConfigReadOptions;
 use crate::source::{
     ConfigSource, EnvConfigSource, EnvFileConfigSource, PropertiesConfigSource, TomlConfigSource,
     YamlConfigSource,
@@ -33,12 +36,12 @@ use crate::source::{
 use crate::utils;
 use crate::{ConfigError, ConfigResult, Property};
 use qubit_common::DataType;
+use qubit_value::MultiValues;
 use qubit_value::multi_values::{
     MultiValuesAddArg, MultiValuesAdder, MultiValuesFirstGetter, MultiValuesGetter,
     MultiValuesMultiAdder, MultiValuesSetArg, MultiValuesSetter, MultiValuesSetterSlice,
     MultiValuesSingleSetter,
 };
-use qubit_value::{MultiValues, Value as QubitValue, ValueConverter};
 
 /// Configuration Manager
 ///
@@ -83,7 +86,7 @@ use qubit_value::{MultiValues, Value as QubitValue, ValueConverter};
 /// let port = config.get::<i32>("port").unwrap();
 ///
 /// // Read configuration value or use default
-/// let timeout: u64 = config.get_or("timeout", 30);
+/// let timeout: u64 = config.get_or("timeout", 30).unwrap();
 /// ```
 ///
 /// # Author
@@ -100,6 +103,9 @@ pub struct Config {
     enable_variable_substitution: bool,
     /// Maximum depth for variable substitution
     max_substitution_depth: usize,
+    /// Runtime read parsing options
+    #[serde(skip, default)]
+    read_options: ConfigReadOptions,
 }
 
 impl Config {
@@ -124,6 +130,7 @@ impl Config {
             properties: HashMap::new(),
             enable_variable_substitution: true,
             max_substitution_depth: DEFAULT_MAX_SUBSTITUTION_DEPTH,
+            read_options: ConfigReadOptions::default(),
         }
     }
 
@@ -152,6 +159,7 @@ impl Config {
             properties: HashMap::new(),
             enable_variable_substitution: true,
             max_substitution_depth: DEFAULT_MAX_SUBSTITUTION_DEPTH,
+            read_options: ConfigReadOptions::default(),
         }
     }
 
@@ -215,6 +223,48 @@ impl Config {
     #[inline]
     pub fn max_substitution_depth(&self) -> usize {
         self.max_substitution_depth
+    }
+
+    /// Gets the global read parsing options.
+    ///
+    /// # Returns
+    ///
+    /// The options used by `get`, `get_any`, and field reads when no
+    /// field-level override is provided.
+    #[inline]
+    pub fn read_options(&self) -> &ConfigReadOptions {
+        &self.read_options
+    }
+
+    /// Sets the global read parsing options.
+    ///
+    /// # Parameters
+    ///
+    /// * `read_options` - New read parsing options.
+    ///
+    /// # Returns
+    ///
+    /// Mutable reference to this configuration for chaining.
+    #[inline]
+    pub fn set_read_options(&mut self, read_options: ConfigReadOptions) -> &mut Self {
+        self.read_options = read_options;
+        self
+    }
+
+    /// Returns a cloned configuration with different read parsing options.
+    ///
+    /// # Parameters
+    ///
+    /// * `read_options` - Read options for the returned configuration.
+    ///
+    /// # Returns
+    ///
+    /// A cloned [`Config`] using `read_options`.
+    #[must_use]
+    pub fn with_read_options(&self, read_options: ConfigReadOptions) -> Self {
+        let mut config = self.clone();
+        config.read_options = read_options;
+        config
     }
 
     /// Creates a read-only prefix view using [`ConfigPrefixView`].
@@ -544,7 +594,7 @@ impl Config {
     ///
     /// # Type Parameters
     ///
-    /// * `T` - Target type supported by [`qubit_value::ValueConverter`]
+    /// * `T` - Target type supported by [`FromConfig`]
     ///
     /// # Parameters
     ///
@@ -585,14 +635,9 @@ impl Config {
     /// ```
     pub fn get<T>(&self, name: &str) -> ConfigResult<T>
     where
-        QubitValue: ValueConverter<T>,
+        T: FromConfig,
     {
-        let property = self.get_property_by_name(name)?;
-
-        property
-            .value()
-            .to::<T>()
-            .map_err(|e| utils::map_value_error(name, e))
+        <Self as ConfigReader>::get(self, name)
     }
 
     /// Gets a configuration value only when the stored value already has the
@@ -625,13 +670,14 @@ impl Config {
             .map_err(|e| utils::map_value_error(name, e))
     }
 
-    /// Gets a configuration value or returns a default value
+    /// Gets a configuration value or returns a default value.
     ///
-    /// Returns `default` if the key is missing or if reading the value fails.
+    /// Returns `default` only if the key is missing or explicitly empty.
+    /// Conversion and substitution errors are returned.
     ///
     /// # Type Parameters
     ///
-    /// * `T` - Target type supported by [`qubit_value::ValueConverter`]
+    /// * `T` - Target type supported by [`FromConfig`]
     ///
     /// # Parameters
     ///
@@ -640,7 +686,8 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// Returns the configuration value or default value
+    /// Returns the configuration value or default value. Conversion and
+    /// substitution errors are returned instead of being hidden by the default.
     ///
     /// # Examples
     ///
@@ -649,17 +696,99 @@ impl Config {
     ///
     /// let config = Config::new();
     ///
-    /// let port: i32 = config.get_or("port", 8080);
-    /// let host: String = config.get_or("host", "localhost".to_string());
+    /// let port: i32 = config.get_or("port", 8080).unwrap();
+    /// let host: String = config.get_or("host", "localhost".to_string()).unwrap();
     ///
     /// assert_eq!(port, 8080);
     /// assert_eq!(host, "localhost");
     /// ```
-    pub fn get_or<T>(&self, name: &str, default: T) -> T
+    pub fn get_or<T>(&self, name: &str, default: T) -> ConfigResult<T>
     where
-        QubitValue: ValueConverter<T>,
+        T: FromConfig,
     {
-        self.get(name).unwrap_or(default)
+        <Self as ConfigReader>::get_or(self, name, default)
+    }
+
+    /// Gets the first configured value from `names`.
+    ///
+    /// # Parameters
+    ///
+    /// * `names` - Candidate keys checked in priority order.
+    ///
+    /// # Returns
+    ///
+    /// Parsed value from the first present and non-empty key.
+    pub fn get_any<T>(&self, names: &[&str]) -> ConfigResult<T>
+    where
+        T: FromConfig,
+    {
+        <Self as ConfigReader>::get_any(self, names)
+    }
+
+    /// Gets an optional value from the first configured key.
+    ///
+    /// # Parameters
+    ///
+    /// * `names` - Candidate keys checked in priority order.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(None)` when all keys are missing or empty.
+    pub fn get_optional_any<T>(&self, names: &[&str]) -> ConfigResult<Option<T>>
+    where
+        T: FromConfig,
+    {
+        <Self as ConfigReader>::get_optional_any(self, names)
+    }
+
+    /// Gets the first configured value from `names`, or `default` when absent.
+    ///
+    /// # Parameters
+    ///
+    /// * `names` - Candidate keys checked in priority order.
+    /// * `default` - Fallback used only when all keys are missing or empty.
+    ///
+    /// # Returns
+    ///
+    /// Parsed value or `default`; conversion errors are returned.
+    pub fn get_any_or<T>(&self, names: &[&str], default: T) -> ConfigResult<T>
+    where
+        T: FromConfig,
+    {
+        <Self as ConfigReader>::get_any_or(self, names, default)
+    }
+
+    /// Reads a declared configuration field.
+    ///
+    /// # Parameters
+    ///
+    /// * `field` - Field declaration with name, aliases, defaults, and optional
+    ///   read options.
+    ///
+    /// # Returns
+    ///
+    /// Parsed field value or default.
+    pub fn read<T>(&self, field: ConfigField<T>) -> ConfigResult<T>
+    where
+        T: FromConfig,
+    {
+        <Self as ConfigReader>::read(self, field)
+    }
+
+    /// Reads an optional declared configuration field.
+    ///
+    /// # Parameters
+    ///
+    /// * `field` - Field declaration.
+    ///
+    /// # Returns
+    ///
+    /// Parsed field value, default, or `None`.
+    pub fn read_optional<T>(&self, field: ConfigField<T>) -> ConfigResult<Option<T>>
+    where
+        T: FromConfig,
+    {
+        <Self as ConfigReader>::read_optional(self, field)
     }
 
     /// Gets a list of configuration values, converting each stored element to
@@ -669,7 +798,7 @@ impl Config {
     ///
     /// # Type Parameters
     ///
-    /// * `T` - Target type supported by [`qubit_value::ValueConverter`]
+    /// * `T` - Target type supported by [`FromConfig`]
     ///
     /// # Parameters
     ///
@@ -692,14 +821,9 @@ impl Config {
     /// ```
     pub fn get_list<T>(&self, name: &str) -> ConfigResult<Vec<T>>
     where
-        QubitValue: ValueConverter<T>,
+        T: FromConfig,
     {
-        let property = self.get_property_by_name(name)?;
-
-        property
-            .value()
-            .to_list::<T>()
-            .map_err(|e| utils::map_value_error(name, e))
+        <Self as ConfigReader>::get(self, name)
     }
 
     /// Gets all configuration values only when the stored values already have
@@ -882,15 +1006,53 @@ impl Config {
     /// assert_eq!(api_url, "http://localhost/api");
     /// ```
     pub fn get_string(&self, name: &str) -> ConfigResult<String> {
-        let value: String = self.get(name)?;
-        if self.enable_variable_substitution {
-            utils::substitute_variables(&value, self, self.max_substitution_depth)
-        } else {
-            Ok(value)
-        }
+        <Self as ConfigReader>::get_string(self, name)
     }
 
-    /// Gets a string with substitution, or `default` if reading fails.
+    /// Gets a string value from the first present and non-empty key in `names`.
+    ///
+    /// # Parameters
+    ///
+    /// * `names` - Candidate keys checked in priority order.
+    ///
+    /// # Returns
+    ///
+    /// Returns the string value on success, or an error on failure.
+    pub fn get_string_any(&self, names: &[&str]) -> ConfigResult<String> {
+        <Self as ConfigReader>::get_string_any(self, names)
+    }
+
+    /// Gets an optional string value from the first present and non-empty key.
+    ///
+    /// # Parameters
+    ///
+    /// * `names` - Candidate keys checked in priority order.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(None)` when all keys are missing or empty.
+    pub fn get_optional_string_any(&self, names: &[&str]) -> ConfigResult<Option<String>> {
+        <Self as ConfigReader>::get_optional_string_any(self, names)
+    }
+
+    /// Gets a string from any key, or `default` when all keys are missing or
+    /// empty.
+    ///
+    /// # Parameters
+    ///
+    /// * `names` - Candidate keys checked in priority order.
+    /// * `default` - Fallback used only when all keys are missing or empty.
+    ///
+    /// # Returns
+    ///
+    /// Returns the string value or default value. Substitution errors are
+    /// returned instead of being hidden by the default.
+    pub fn get_string_any_or(&self, names: &[&str], default: &str) -> ConfigResult<String> {
+        <Self as ConfigReader>::get_string_any_or(self, names, default)
+    }
+
+    /// Gets a string with substitution, or `default` if the key is absent or
+    /// empty.
     ///
     /// # Parameters
     ///
@@ -899,11 +1061,11 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// Returns the string value or default value
+    /// Returns the string value or default value. Substitution errors are
+    /// returned instead of being hidden by the default.
     ///
-    pub fn get_string_or(&self, name: &str, default: &str) -> String {
-        self.get_string(name)
-            .unwrap_or_else(|_| default.to_string())
+    pub fn get_string_or(&self, name: &str, default: &str) -> ConfigResult<String> {
+        self.get_or(name, default.to_string())
     }
 
     /// Gets a list of string configuration values (with variable substitution)
@@ -932,15 +1094,7 @@ impl Config {
     /// assert_eq!(paths, vec!["/opt/app/bin", "/opt/app/lib"]);
     /// ```
     pub fn get_string_list(&self, name: &str) -> ConfigResult<Vec<String>> {
-        let values: Vec<String> = self.get_list(name)?;
-        if self.enable_variable_substitution {
-            values
-                .into_iter()
-                .map(|v| utils::substitute_variables(&v, self, self.max_substitution_depth))
-                .collect()
-        } else {
-            Ok(values)
-        }
+        self.get(name)
     }
 
     /// Gets a list of string configuration values or returns a default value
@@ -953,7 +1107,8 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// Returns the list of strings or default value
+    /// Returns the list of strings or default value. Substitution and parsing
+    /// errors are returned instead of being hidden by the default.
     ///
     /// # Examples
     ///
@@ -963,16 +1118,15 @@ impl Config {
     /// let config = Config::new();
     ///
     /// // Using array slice
-    /// let paths = config.get_string_list_or("paths", &["/default/path"]);
+    /// let paths = config.get_string_list_or("paths", &["/default/path"]).unwrap();
     /// assert_eq!(paths, vec!["/default/path"]);
     ///
     /// // Using vec
-    /// let paths = config.get_string_list_or("paths", &vec!["path1", "path2"]);
+    /// let paths = config.get_string_list_or("paths", &vec!["path1", "path2"]).unwrap();
     /// assert_eq!(paths, vec!["path1", "path2"]);
     /// ```
-    pub fn get_string_list_or(&self, name: &str, default: &[&str]) -> Vec<String> {
-        self.get_string_list(name)
-            .unwrap_or_else(|_| default.iter().map(|s| s.to_string()).collect())
+    pub fn get_string_list_or(&self, name: &str, default: &[&str]) -> ConfigResult<Vec<String>> {
+        self.get_or(name, default.iter().map(|s| s.to_string()).collect())
     }
 
     // ========================================================================
@@ -1426,9 +1580,9 @@ impl Config {
     /// ```
     pub fn get_optional<T>(&self, name: &str) -> ConfigResult<Option<T>>
     where
-        QubitValue: ValueConverter<T>,
+        T: FromConfig,
     {
-        self.get_optional_when_present(name, |c| c.get(name))
+        <Self as ConfigReader>::get_optional(self, name)
     }
 
     /// Gets an optional list of configuration values.
@@ -1443,7 +1597,7 @@ impl Config {
     ///
     /// # Type Parameters
     ///
-    /// * `T` - Target element type
+    /// * `T` - Target element type supported by [`FromConfig`]
     ///
     /// # Parameters
     ///
@@ -1469,9 +1623,9 @@ impl Config {
     /// ```
     pub fn get_optional_list<T>(&self, name: &str) -> ConfigResult<Option<Vec<T>>>
     where
-        QubitValue: ValueConverter<T>,
+        T: FromConfig,
     {
-        self.get_optional_when_present(name, |c| c.get_list(name))
+        <Self as ConfigReader>::get_optional(self, name)
     }
 
     /// Gets an optional string (with variable substitution when enabled).
@@ -1692,6 +1846,11 @@ impl ConfigReader for Config {
     }
 
     #[inline]
+    fn read_options(&self) -> &ConfigReadOptions {
+        Config::read_options(self)
+    }
+
+    #[inline]
     fn description(&self) -> Option<&str> {
         Config::description(self)
     }
@@ -1722,14 +1881,6 @@ impl ConfigReader for Config {
     }
 
     #[inline]
-    fn get<T>(&self, name: &str) -> ConfigResult<T>
-    where
-        QubitValue: ValueConverter<T>,
-    {
-        Config::get(self, name)
-    }
-
-    #[inline]
     fn get_strict<T>(&self, name: &str) -> ConfigResult<T>
     where
         MultiValues: MultiValuesFirstGetter<T>,
@@ -1740,7 +1891,7 @@ impl ConfigReader for Config {
     #[inline]
     fn get_list<T>(&self, name: &str) -> ConfigResult<Vec<T>>
     where
-        QubitValue: ValueConverter<T>,
+        T: FromConfig,
     {
         Config::get_list(self, name)
     }
@@ -1754,17 +1905,9 @@ impl ConfigReader for Config {
     }
 
     #[inline]
-    fn get_optional<T>(&self, name: &str) -> ConfigResult<Option<T>>
-    where
-        QubitValue: ValueConverter<T>,
-    {
-        Config::get_optional(self, name)
-    }
-
-    #[inline]
     fn get_optional_list<T>(&self, name: &str) -> ConfigResult<Option<Vec<T>>>
     where
-        QubitValue: ValueConverter<T>,
+        T: FromConfig,
     {
         Config::get_optional_list(self, name)
     }

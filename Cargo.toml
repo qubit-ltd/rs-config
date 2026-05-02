@@ -39,8 +39,8 @@ toml = { version = "1.1", features = ["parse"] }
 serde_yaml = "0.9"
 dotenvy = "0.15"
 
-qubit-common = "0.6"
-qubit-value = "0.6.0"
+qubit-common = { path = "../rs-common" }
+qubit-value = { path = "../rs-value" }
 
 [dev-dependencies]
 tempfile = "3"
@@ -48,6 +48,14 @@ tempfile = "3"
 [[test]]
 name = "composite_config_source_tests"
 path = "tests/source/composite_config_source_tests.rs"
+
+[[test]]
+name = "config_field_tests"
+path = "tests/field/config_field_tests.rs"
+
+[[test]]
+name = "config_read_options_tests"
+path = "tests/options/config_read_options_tests.rs"
 
 [[test]]
 name = "env_config_source_tests"
