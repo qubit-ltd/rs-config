@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 //! [`qubit_config::ConfigPrefixView`] tests.
@@ -12,7 +13,8 @@ use qubit_config::{Config, ConfigReader};
 
 #[cfg(test)]
 mod test_config_prefix_view_smoke {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{Config, ConfigReader};
 
     #[test]
     fn config_prefix_view_reads_relative_key() {
@@ -25,7 +27,8 @@ mod test_config_prefix_view_smoke {
 
 #[cfg(test)]
 mod test_config_prefix_view {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{Config, ConfigReader};
 
     #[test]
     fn test_view_reads_relative_keys_without_copy() {

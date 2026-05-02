@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 #![allow(private_bounds)]
@@ -12,10 +13,11 @@ use std::borrow::Cow;
 
 use qubit_value::MultiValues;
 use qubit_value::multi_values::{MultiValuesFirstGetter, MultiValuesGetter};
-use qubit_value::{Value as QubitValue, ValueConverter};
 
 use crate::config::Config;
 use crate::config_reader::ConfigReader;
+use crate::from::FromConfig;
+use crate::options::ConfigReadOptions;
 use crate::{ConfigResult, Property};
 
 /// Read-only **prefix** view over a [`Config`]: key lookups use a logical key
@@ -26,6 +28,7 @@ use crate::{ConfigResult, Property};
 ///
 /// Lookups rewrite keys by prepending `prefix`, while exposing keys relative to
 /// that prefix.
+///
 #[derive(Debug, Clone)]
 pub struct ConfigPrefixView<'a> {
     config: &'a Config,
@@ -165,6 +168,11 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
     }
 
     #[inline]
+    fn read_options(&self) -> &ConfigReadOptions {
+        self.config.read_options()
+    }
+
+    #[inline]
     fn description(&self) -> Option<&str> {
         self.config.description()
     }
@@ -191,14 +199,6 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
         self.config.contains(key.as_ref())
     }
 
-    fn get<T>(&self, name: &str) -> ConfigResult<T>
-    where
-        QubitValue: ValueConverter<T>,
-    {
-        let key = self.resolve_key_cow(name);
-        self.config.get(key.as_ref())
-    }
-
     fn get_strict<T>(&self, name: &str) -> ConfigResult<T>
     where
         MultiValues: MultiValuesFirstGetter<T>,
@@ -209,7 +209,7 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
 
     fn get_list<T>(&self, name: &str) -> ConfigResult<Vec<T>>
     where
-        QubitValue: ValueConverter<T>,
+        T: FromConfig,
     {
         let key = self.resolve_key_cow(name);
         self.config.get_list(key.as_ref())
@@ -223,17 +223,9 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
         self.config.get_list_strict(key.as_ref())
     }
 
-    fn get_optional<T>(&self, name: &str) -> ConfigResult<Option<T>>
-    where
-        QubitValue: ValueConverter<T>,
-    {
-        let key = self.resolve_key_cow(name);
-        self.config.get_optional(key.as_ref())
-    }
-
     fn get_optional_list<T>(&self, name: &str) -> ConfigResult<Option<Vec<T>>>
     where
-        QubitValue: ValueConverter<T>,
+        T: FromConfig,
     {
         let key = self.resolve_key_cow(name);
         self.config.get_optional_list(key.as_ref())

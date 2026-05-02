@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 //! # Configuration Utility Function Tests
@@ -12,12 +13,9 @@
 //! dotted-key insertion). Variable substitution is covered by unit tests in
 //! `src/utils.rs`.
 //!
-//! # Author
-//!
-//! Haixing Hu
 
-use qubit_common::DataType;
 use qubit_config::{Config, ConfigError, Property};
+use qubit_datatype::DataType;
 use qubit_value::MultiValues;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -28,7 +26,8 @@ use std::collections::HashMap;
 
 #[cfg(test)]
 mod test_deserialize {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{Config, ConfigError, DataType, Deserialize, HashMap, MultiValues, Property};
 
     #[derive(Deserialize, Debug, PartialEq)]
     struct ServerConfig {
@@ -381,7 +380,8 @@ mod test_deserialize {
 
 #[cfg(test)]
 mod test_variable_substitution {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{Config, ConfigError, DataType, Deserialize, HashMap, MultiValues, Property};
 
     #[test]
     fn test_get_string_substitutes_simple_placeholder() {
@@ -575,7 +575,8 @@ mod test_variable_substitution {
 
 #[cfg(test)]
 mod test_property_to_json_value_coverage {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{Config, ConfigError, DataType, Deserialize, HashMap, MultiValues, Property};
     use bigdecimal::BigDecimal;
     use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
     use num_bigint::BigInt;

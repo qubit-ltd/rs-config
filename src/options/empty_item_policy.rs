@@ -8,10 +8,7 @@
  *
  ******************************************************************************/
 
-/// Default maximum recursion depth when resolving `${...}` variable references
-/// in strings.
+/// Controls how empty collection items are interpreted after splitting a
+/// scalar string.
 ///
-/// # Returns
-///
-/// The numeric constant `64`.
-pub const DEFAULT_MAX_SUBSTITUTION_DEPTH: usize = 64;
+pub type EmptyItemPolicy = qubit_datatype::EmptyItemPolicy;

@@ -8,10 +8,13 @@
  *
  ******************************************************************************/
 
-/// Default maximum recursion depth when resolving `${...}` variable references
-/// in strings.
-///
-/// # Returns
-///
-/// The numeric constant `64`.
-pub const DEFAULT_MAX_SUBSTITUTION_DEPTH: usize = 64;
+//! Parsing support for typed configuration reads.
+
+mod config_parse_context;
+mod from_config;
+mod helpers;
+
+pub use config_parse_context::ConfigParseContext;
+pub use from_config::FromConfig;
+
+pub(crate) use helpers::{is_effectively_missing, parse_property_from_reader};

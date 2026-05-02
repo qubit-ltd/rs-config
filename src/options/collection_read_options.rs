@@ -8,10 +8,6 @@
  *
  ******************************************************************************/
 
-/// Default maximum recursion depth when resolving `${...}` variable references
-/// in strings.
+/// Collection parsing options used by configuration reads.
 ///
-/// # Returns
-///
-/// The numeric constant `64`.
-pub const DEFAULT_MAX_SUBSTITUTION_DEPTH: usize = 64;
+pub type CollectionReadOptions = qubit_datatype::CollectionConversionOptions;

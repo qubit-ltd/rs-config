@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 //! # [`qubit_config::Config`] unit tests
@@ -11,8 +12,8 @@
 //! Covers the public `Config` API (including APIs introduced in v0.4.0).
 
 pub(crate) use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
-pub(crate) use qubit_common::DataType;
 pub(crate) use qubit_config::{Config, ConfigError, Property};
+pub(crate) use qubit_datatype::DataType;
 pub(crate) use qubit_value::MultiValues;
 pub(crate) use serde::Deserialize;
 
@@ -38,7 +39,12 @@ pub(crate) fn create_test_config_with_description() -> Config {
 
 #[cfg(test)]
 mod test_new {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_new_creates_empty_config() {
@@ -60,7 +66,12 @@ mod test_new {
 
 #[cfg(test)]
 mod test_with_description {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_with_description_creates_config_with_description() {
@@ -89,7 +100,12 @@ mod test_with_description {
 
 #[cfg(test)]
 mod test_description {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_description_returns_none_for_new_config() {
@@ -127,7 +143,12 @@ mod test_description {
 
 #[cfg(test)]
 mod test_variable_substitution {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_is_enable_variable_substitution_returns_true_by_default() {
@@ -156,7 +177,12 @@ mod test_variable_substitution {
 
 #[cfg(test)]
 mod test_contains {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_contains_returns_false_for_empty_config() {
@@ -181,7 +207,12 @@ mod test_contains {
 
 #[cfg(test)]
 mod test_get_property {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_get_property_returns_none_for_nonexistent_property() {
@@ -200,7 +231,12 @@ mod test_get_property {
 
 #[cfg(test)]
 mod test_get_property_mut {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_get_property_mut_returns_none_for_nonexistent_property() {
@@ -292,7 +328,12 @@ mod test_get_property_mut {
 
 #[cfg(test)]
 mod test_remove {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_remove_returns_none_for_nonexistent_property() {
@@ -326,7 +367,12 @@ mod test_remove {
 
 #[cfg(test)]
 mod test_clear {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_clear_does_nothing_on_empty_config() {
@@ -359,7 +405,12 @@ mod test_clear {
 
 #[cfg(test)]
 mod test_len {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_len_returns_zero_for_empty_config() {
@@ -379,7 +430,12 @@ mod test_len {
 
 #[cfg(test)]
 mod test_is_empty {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_is_empty_returns_true_for_empty_config() {
@@ -397,7 +453,12 @@ mod test_is_empty {
 
 #[cfg(test)]
 mod test_keys {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_keys_returns_empty_vec_for_empty_config() {
@@ -427,7 +488,12 @@ mod test_keys {
 
 #[cfg(test)]
 mod test_get {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     // String type tests
     #[test]
@@ -679,20 +745,25 @@ mod test_get {
 
 #[cfg(test)]
 mod test_get_or {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_get_or_returns_value_when_property_exists() {
         let mut config = Config::new();
         config.set("test", 42).unwrap();
-        let value = config.get_or("test", 0);
+        let value = config.get_or("test", 0).unwrap();
         assert_eq!(value, 42);
     }
 
     #[test]
     fn test_get_or_returns_default_when_property_not_exists() {
         let config = Config::new();
-        let value = config.get_or("nonexistent", 42);
+        let value = config.get_or("nonexistent", 42).unwrap();
         assert_eq!(value, 42);
     }
 
@@ -700,14 +771,14 @@ mod test_get_or {
     fn test_get_or_with_string() {
         let mut config = Config::new();
         config.set("test", "value").unwrap();
-        let value = config.get_or("test", "default".to_string());
+        let value = config.get_or("test", "default".to_string()).unwrap();
         assert_eq!(value, "value");
     }
 
     #[test]
     fn test_get_or_with_string_default() {
         let config = Config::new();
-        let value = config.get_or("nonexistent", "default".to_string());
+        let value = config.get_or("nonexistent", "default".to_string()).unwrap();
         assert_eq!(value, "default");
     }
 
@@ -715,14 +786,14 @@ mod test_get_or {
     fn test_get_or_with_bool() {
         let mut config = Config::new();
         config.set("test", true).unwrap();
-        let value = config.get_or("test", false);
+        let value = config.get_or("test", false).unwrap();
         assert!(value);
     }
 
     #[test]
     fn test_get_or_with_bool_default() {
         let config = Config::new();
-        let value = config.get_or("nonexistent", true);
+        let value = config.get_or("nonexistent", true).unwrap();
         assert!(value);
     }
 
@@ -731,7 +802,7 @@ mod test_get_or {
         let mut config = Config::new();
         config.set("test", "0").unwrap();
 
-        let value = config.get_or("test", true);
+        let value = config.get_or("test", true).unwrap();
         assert!(!value);
     }
 }
@@ -742,7 +813,12 @@ mod test_get_or {
 
 #[cfg(test)]
 mod test_get_list {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_get_list_string() {
@@ -819,7 +895,12 @@ mod test_get_list {
 
 #[cfg(test)]
 mod test_set {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_set_string() {
@@ -956,7 +1037,12 @@ mod test_set {
 
 #[cfg(test)]
 mod test_add {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_add_creates_new_property() {
@@ -1010,7 +1096,12 @@ mod test_add {
 
 #[cfg(test)]
 mod test_get_string {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_get_string_returns_string_value() {
@@ -1048,28 +1139,33 @@ mod test_get_string {
 
 #[cfg(test)]
 mod test_get_string_or {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_get_string_or_returns_value_when_property_exists() {
         let mut config = Config::new();
         config.set("test", "value").unwrap();
-        let value = config.get_string_or("test", "default");
+        let value = config.get_string_or("test", "default").unwrap();
         assert_eq!(value, "value");
     }
 
     #[test]
     fn test_get_string_or_returns_default_when_property_not_exists() {
         let config = Config::new();
-        let value = config.get_string_or("nonexistent", "default");
+        let value = config.get_string_or("nonexistent", "default").unwrap();
         assert_eq!(value, "default");
     }
 
     #[test]
-    fn test_get_string_or_returns_default_when_type_mismatch() {
+    fn test_get_string_or_converts_non_string_value() {
         let mut config = Config::new();
         config.set("test", 42).unwrap();
-        let value = config.get_string_or("test", "default");
+        let value = config.get_string_or("test", "default").unwrap();
         assert_eq!(value, "42");
     }
 }
@@ -1080,7 +1176,12 @@ mod test_get_string_or {
 
 #[cfg(test)]
 mod test_get_string_list {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_get_string_list_returns_string_list() {
@@ -1158,28 +1259,35 @@ mod test_get_string_list {
 
 #[cfg(test)]
 mod test_get_string_list_or {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_get_string_list_or_returns_value_when_property_exists() {
         let mut config = Config::new();
         config.set("test", vec!["value1", "value2"]).unwrap();
-        let values = config.get_string_list_or("test", &["default"]);
+        let values = config.get_string_list_or("test", &["default"]).unwrap();
         assert_eq!(values, vec!["value1", "value2"]);
     }
 
     #[test]
     fn test_get_string_list_or_returns_default_when_property_not_exists() {
         let config = Config::new();
-        let values = config.get_string_list_or("nonexistent", &["default"]);
+        let values = config
+            .get_string_list_or("nonexistent", &["default"])
+            .unwrap();
         assert_eq!(values, vec!["default"]);
     }
 
     #[test]
-    fn test_get_string_list_or_returns_default_when_type_mismatch() {
+    fn test_get_string_list_or_converts_non_string_values() {
         let mut config = Config::new();
         config.set("test", vec![1, 2, 3]).unwrap();
-        let values = config.get_string_list_or("test", &["default"]);
+        let values = config.get_string_list_or("test", &["default"]).unwrap();
         assert_eq!(values, vec!["1", "2", "3"]);
     }
 
@@ -1190,14 +1298,16 @@ mod test_get_string_list_or {
         config
             .set("urls", vec!["${base}/api", "${base}/admin"])
             .unwrap();
-        let urls = config.get_string_list_or("urls", &["default"]);
+        let urls = config.get_string_list_or("urls", &["default"]).unwrap();
         assert_eq!(urls, vec!["http://localhost/api", "http://localhost/admin"]);
     }
 
     #[test]
     fn test_get_string_list_or_with_array_default() {
         let config = Config::new();
-        let values = config.get_string_list_or("nonexistent", &["default1", "default2"]);
+        let values = config
+            .get_string_list_or("nonexistent", &["default1", "default2"])
+            .unwrap();
         assert_eq!(values, vec!["default1", "default2"]);
     }
 
@@ -1205,7 +1315,9 @@ mod test_get_string_list_or {
     fn test_get_string_list_or_with_vec_default() {
         let config = Config::new();
         let default_vec = vec!["vec1", "vec2", "vec3"];
-        let values = config.get_string_list_or("nonexistent", &default_vec);
+        let values = config
+            .get_string_list_or("nonexistent", &default_vec)
+            .unwrap();
         assert_eq!(values, vec!["vec1", "vec2", "vec3"]);
     }
 }
@@ -1216,7 +1328,12 @@ mod test_get_string_list_or {
 
 #[cfg(test)]
 mod test_default {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_default_creates_empty_config() {
@@ -1242,7 +1359,12 @@ mod test_default {
 
 #[cfg(test)]
 mod test_final_property {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_set_final_property_fails() {
@@ -1363,7 +1485,12 @@ mod test_final_property {
 
 #[cfg(test)]
 mod test_iter {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_iter_empty_config() {
@@ -1412,7 +1539,12 @@ mod test_iter {
 
 #[cfg(test)]
 mod test_iter_prefix {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_iter_prefix_empty_config() {
@@ -1471,7 +1603,12 @@ mod test_iter_prefix {
 
 #[cfg(test)]
 mod test_contains_prefix {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_contains_prefix_empty_config() {
@@ -1518,7 +1655,12 @@ mod test_contains_prefix {
 
 #[cfg(test)]
 mod test_subconfig {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_subconfig_strip_prefix_true() {
@@ -1601,7 +1743,12 @@ mod test_subconfig {
 
 #[cfg(test)]
 mod test_get_and_get_list_error_mapping_additional_paths {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_get_and_get_list_error_mapping_additional_paths() {
@@ -1659,7 +1806,12 @@ mod test_get_and_get_list_error_mapping_additional_paths {
 
 #[cfg(test)]
 mod test_is_null {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_is_null_missing_key_returns_false() {
@@ -1701,7 +1853,12 @@ mod test_is_null {
 
 #[cfg(test)]
 mod test_get_optional {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_get_optional_missing_key_returns_none() {
@@ -1763,7 +1920,12 @@ mod test_get_optional {
 
 #[cfg(test)]
 mod test_get_optional_list {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_get_optional_list_missing_key_returns_none() {
@@ -1817,7 +1979,12 @@ mod test_get_optional_list {
 
 #[cfg(test)]
 mod test_get_optional_string {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_get_optional_string_missing_returns_none() {
@@ -2028,7 +2195,12 @@ mod test_get_optional_string {
 
 #[cfg(test)]
 mod test_enhanced_errors {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_get_type_mismatch_carries_key() {
@@ -2230,7 +2402,12 @@ mod test_enhanced_errors {
 mod test_toml_type_faithful {
     use qubit_config::source::{ConfigSource, TomlConfigSource};
 
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     fn load_toml(content: &str) -> Config {
         let dir = tempfile::tempdir().unwrap();
@@ -2334,7 +2511,12 @@ mod test_toml_type_faithful {
 mod test_yaml_type_faithful {
     use qubit_config::source::{ConfigSource, YamlConfigSource};
 
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     fn load_yaml(content: &str) -> Config {
         let dir = tempfile::tempdir().unwrap();
@@ -2464,7 +2646,12 @@ mod test_yaml_type_faithful {
 
 #[cfg(test)]
 mod test_property_insertion_api {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[test]
     fn test_insert_property_success() {
@@ -2516,7 +2703,12 @@ mod test_property_insertion_api {
 
 #[cfg(test)]
 mod test_config_error_branches {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     // Test that get_list on an empty property returns empty vec (not error)
     #[test]
@@ -2576,7 +2768,12 @@ mod test_config_error_branches {
 
 #[cfg(test)]
 mod test_subconfig_deserialize_integration {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
+        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        create_test_config_with_description,
+    };
 
     #[derive(Deserialize, Debug, PartialEq)]
     struct HttpOptions {

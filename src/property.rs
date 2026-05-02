@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 //! # Configuration Property
@@ -11,14 +12,11 @@
 //! Defines the property structure for configuration items, including name,
 //! value, description, and other information.
 //!
-//! # Author
-//!
-//! Haixing Hu
 
 use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
 
-use qubit_common::DataType;
+use qubit_datatype::DataType;
 use qubit_value::MultiValues;
 
 /// Configuration Property
@@ -50,9 +48,6 @@ use qubit_value::MultiValues;
 /// assert_eq!(code.count(), 2);
 /// ```
 ///
-/// # Author
-///
-/// Haixing Hu
 ///
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Property {

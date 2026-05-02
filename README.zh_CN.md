@@ -13,7 +13,7 @@
 
 ## 特性
 
-- ✅ **纯泛型 API** - 使用 `get<T>()` 和 `set<T>()` 泛型方法，支持完整的类型推断
+- ✅ **纯泛型 API** - 使用 `get<T>()`、`read(ConfigField<T>)` 和 `set<T>()` 泛型方法，支持完整的类型推断
 - ✅ **丰富的数据类型** - 支持所有基本类型、时间类型、字符串、字节数组等
 - ✅ **多值属性** - 每个配置项可以包含多个值，支持列表操作
 - ✅ **变量替换** - 支持 `${var_name}` 形式的变量替换，可从配置或环境变量中获取
@@ -21,7 +21,8 @@
 - ✅ **序列化支持** - 完整的 serde 支持，可序列化和反序列化
 - ✅ **可扩展** - 基于 trait 的设计，易于支持自定义类型
 - ✅ **配置来源（ConfigSource）** - 提供 [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) trait 与多种内置实现：TOML、YAML、Java 风格 `.properties`、`.env` 文件、进程环境变量（可选前缀与键名规范化），以及按顺序合并多个来源的 [`CompositeConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.CompositeConfigSource.html)（后加载的来源覆盖同名键）；通过 [`Config::merge_from_source`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.merge_from_source) 将外部配置载入 `Config`
-- ✅ **只读访问（ConfigReader）** - [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) trait 提供无需修改配置的泛型读取；[`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) 与 [`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html) 均实现该 trait，并包含 `get_string`、`get_string_or`、可选值与列表等辅助方法，行为与底层配置的变量替换设置一致
+- ✅ **只读访问（ConfigReader）** - [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) trait 提供无需修改配置的泛型读取；[`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) 与 [`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html) 均实现该 trait，并包含字符串辅助方法、多 key 读取和字段声明读取
+- ✅ **可配置解析** - [`ConfigReadOptions`](https://docs.rs/qubit-config/latest/qubit_config/options/struct.ConfigReadOptions.html) 可在全局或单个字段上控制字符串 trim、空白值处理、布尔字面量和标量字符串拆分列表
 - ✅ **前缀视图（ConfigPrefixView）** - [`Config::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.prefix_view) 返回绑定逻辑键前缀的 [`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html)（相对键解析为 `前缀.键`）；可通过 [`ConfigPrefixView::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html#method.prefix_view) 嵌套子前缀
 - ✅ **零成本抽象** - 使用枚举而非 trait object，避免动态分发开销
 
@@ -31,7 +32,7 @@
 
 ```toml
 [dependencies]
-qubit-config = "0.10.0"
+qubit-config = "0.11"
 ```
 
 ## 快速开始
@@ -56,7 +57,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let port = config.get::<i32>("port")?;
 
     // 使用默认值
-    let timeout: u64 = config.get_or("timeout", 30);
+    let timeout: u64 = config.get_or("timeout", 30)?;
 
     println!("服务器运行在 {}:{}", host, port);
     Ok(())
@@ -87,11 +88,42 @@ config.set("database.port", 5432)?;
 
 一个类型安全的容器，可以保存相同数据类型的多个值。
 
-### ConfigReader 与 ConfigPrefixView（只读接口与前缀视图）
+### ConfigReader（只读接口）
 
-[`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) 是配置的只读抽象：仅需读取时，函数或类型可接受 `&impl ConfigReader`（或泛型 `R: ConfigReader`），而不必暴露完整的 `&Config`，同一套 API 可用于完整 [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) 或带作用域的前缀视图。`ConfigReader` 包含泛型类型读取方法，因此不是 object-safe，不能用作 `dyn ConfigReader`。`get` / `get_list` 使用 `qubit_value` 的转换语义读取，`get_strict` / `get_list_strict` 保留精确存储类型读取。除这些方法、`contains`、`contains_prefix`、`iter_prefix` 外，trait 还提供带默认实现的字符串相关方法，如 `get_string`、`get_string_or`、`get_string_list`、`get_optional_string` 及其列表变体，并与所属 `Config` 的变量替换开关、最大深度保持一致。另提供 `resolve_key`，可把当前 reader 作用域下的键转换为相对于根配置的路径。
+[`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) 是配置的只读抽象。仅需读取配置时，函数或类型可以接受 `&impl ConfigReader`（或泛型 `R: ConfigReader`），而不必暴露完整的 `&Config`；同一套 API 可用于完整 [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) 和 [`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html)。`ConfigReader` 包含泛型类型读取方法，因此不是 object-safe，不能用作 `dyn ConfigReader`。
 
-[`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html) 表示对 `Config` 的零拷贝借用，并带有一个逻辑键前缀；类型名明确表示「前缀视图」，便于日后增加其他种类的视图而不与泛称冲突。通过 [`Config::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.prefix_view) 创建；传入的键名会在该前缀下解析（例如前缀 `db`、键 `host` 对应存储键 `db.host`）。使用 [`ConfigPrefixView::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html#method.prefix_view) 可得到嵌套前缀视图。`iter_prefix` 与 `contains_prefix` 仅针对当前视图下「相对键」可见的项。
+主要读取 API 如下：
+
+| API | 行为 |
+|-----|------|
+| `get<T>(name)` | 通过 `FromConfig` 读取必填值。 |
+| `get_optional<T>(name)` | key 缺失或为空时返回 `Ok(None)`。 |
+| `get_or<T>(name, default)` | 仅在 key 缺失或为空时使用默认值。 |
+| `get_any<T>(&[names])` | 按顺序读取第一个存在且非空的 key。 |
+| `get_optional_any<T>(&[names])` | 多 key 可选读取。 |
+| `get_any_or<T>(&[names], default)` | 多 key 默认值读取。 |
+| `get_string`、`get_string_any`、`get_string_any_or` | 带变量替换的字符串读取。 |
+| `read(ConfigField<T>)` | 通过字段声明读取，支持 name、alias、default 和字段级解析选项。 |
+| `get_strict` / `get_list_strict` | 精确存储类型读取，不做跨类型转换。 |
+
+默认值不会隐藏错误配置。如果 key 存在，但值解析、类型转换或变量替换失败，会直接返回错误，不会回退到默认值，也不会继续尝试后面的 alias。
+
+```rust
+use qubit_config::{Config, ConfigError};
+
+let mut config = Config::new();
+config.set("worker.threads", "abc")?;
+
+let missing = config.get_or("missing.threads", 4u16)?;
+assert_eq!(missing, 4);
+
+let invalid = config.get_or("worker.threads", 4u16);
+assert!(matches!(invalid, Err(ConfigError::ConversionError { .. })));
+```
+
+### ConfigPrefixView（前缀视图）
+
+[`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html) 表示对 `Config` 的零拷贝借用，并带有一个逻辑键前缀。通过 [`Config::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.prefix_view) 创建；传入的键名会在该前缀下解析。例如前缀 `db`、键 `host` 对应存储键 `db.host`。使用 [`ConfigPrefixView::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html#method.prefix_view) 可得到嵌套前缀视图。
 
 ```rust
 use qubit_config::{Config, ConfigReader};
@@ -104,6 +136,111 @@ let db = config.prefix_view("db");
 let host: String = db.get_string("host")?;
 let port: i32 = db.get("port")?;
 ```
+
+### ConfigReadOptions（读取解析选项）
+
+`ConfigReadOptions` 控制配置值如何被解析。它可以设置在 `Config` 全局上，也可以附加到单个 `ConfigField<T>` 上。
+
+| 选项组 | 控制内容 |
+|--------|----------|
+| `StringReadOptions` | 字符串 trim，以及空白字符串的处理方式：保留、当作缺失、或拒绝。 |
+| `BooleanReadOptions` | 可接受的布尔字面量和大小写敏感性。 |
+| `CollectionReadOptions` | 是否把标量字符串拆成列表、分隔符、元素 trim，以及空元素策略。 |
+
+`ConfigReadOptions::env_friendly()` 适合环境变量风格配置：会 trim 字符串，把空白标量字符串当作缺失，布尔值接受 `true/false`、`1/0`、`yes/no`、`on/off`，并在读取 `Vec<T>` 时按逗号拆分标量字符串、跳过空元素。
+
+```rust
+use qubit_config::{Config, options::ConfigReadOptions};
+
+let mut config = Config::new().with_read_options(ConfigReadOptions::env_friendly());
+config.set("HTTP_ENABLED", "yes")?;
+config.set("HTTP_PORTS", "8080, 8081,,8082")?;
+
+let enabled: bool = config.get("HTTP_ENABLED")?;
+let ports: Vec<u16> = config.get("HTTP_PORTS")?;
+
+assert!(enabled);
+assert_eq!(ports, vec![8080, 8081, 8082]);
+```
+
+也可以用 builder 风格方法构造更严格或更贴合业务的解析选项：
+
+```rust
+use qubit_config::{
+    Config,
+    options::{
+        BooleanReadOptions, CollectionReadOptions, ConfigReadOptions, EmptyItemPolicy,
+    },
+};
+
+let options = ConfigReadOptions::default()
+    .with_boolean_options(
+        BooleanReadOptions::strict()
+            .with_true_literal("enabled")
+            .with_false_literal("disabled"),
+    )
+    .with_collection_options(
+        CollectionReadOptions::default()
+            .with_split_scalar_strings(true)
+            .with_delimiters([',', ';'])
+            .with_trim_items(true)
+            .with_empty_item_policy(EmptyItemPolicy::Reject),
+    );
+
+let mut config = Config::new().with_read_options(options);
+config.set("feature", "enabled")?;
+config.set("ports", "8080; 8081")?;
+
+let feature: bool = config.get("feature")?;
+let ports: Vec<u16> = config.get("ports")?;
+```
+
+### ConfigField（字段声明读取）
+
+当一个逻辑配置项有别名、默认值或字段级解析规则时，使用 `ConfigField<T>`。这样迁移 key、旧 key 和环境变量风格 key 都可以留在配置声明里，而不是散落到业务代码中。
+
+```rust
+use qubit_config::{Config, field::ConfigField, options::ConfigReadOptions};
+
+let mut config = Config::new();
+config.set("MIME_DETECTOR_ENABLE_PRECISE_DETECTION", "yes")?;
+
+let enabled = config.read(
+    ConfigField::<bool>::builder()
+        .name("mime.enable_precise_detection")
+        .alias("MIME_DETECTOR_ENABLE_PRECISE_DETECTION")
+        .alias("ANOTHER_MIME_DETECTOR_ENABLE_PRECISE_DETECTION_PROPERTY")
+        .default(false)
+        .read_options(ConfigReadOptions::env_friendly())
+        .build(),
+)?;
+
+assert!(enabled);
+```
+
+builder 会强制主 key 明确出现：只有调用 `name(...)` 后，才可以调用 `build()` 生成 `ConfigField<T>`。
+
+### 多 Key 读取
+
+当完整的 `ConfigField<T>` 显得过重时，可以使用 `get_any`、`get_optional_any` 和 `get_any_or` 做轻量 alias 读取。
+
+```rust
+use qubit_config::{Config, options::ConfigReadOptions};
+
+let mut config = Config::new().with_read_options(ConfigReadOptions::env_friendly());
+config.set("SERVICE_URL", "http://localhost:8080")?;
+config.set("SERVER_TIMEOUT", "30")?;
+
+let url = config.get_string_any(&["service.url", "SERVICE_URL"])?;
+let timeout = config.get_any_or(&["server.timeout", "SERVER_TIMEOUT"], 10u64)?;
+let optional_port = config.get_optional_any::<u16>(&["server.port", "SERVER_PORT"])?;
+
+assert_eq!(url, "http://localhost:8080");
+assert_eq!(timeout, 30);
+assert_eq!(optional_port, None);
+```
+
+多 key 读取会按顺序扫描 key。缺失和空值会被跳过；第一个存在且非空的值会被解析。如果这个值无效，会直接返回错误，不会继续尝试后面的 key。
 
 ### 配置来源（Configuration sources）
 
@@ -262,13 +399,13 @@ app.config_mut().set("port", 3000)?;
 
 | Rust 类型 | 说明 | 示例 |
 |----------|------|------|
-| `bool` | 布尔值；通过 `get` / `get_list` 读取字符串时还接受 `0`、`1`、大小写不敏感的 `true` / `false` | `true`, `false`, `"0"`, `"1"` |
+| `bool` | 布尔值；字符串读取默认接受 `true` / `false` 和 `1` / `0`；`ConfigReadOptions::env_friendly()` 还接受 `yes` / `no` 和 `on` / `off` | `true`, `false`, `"0"`, `"yes"` |
 | `char` | 字符 | `'a'`, `'中'` |
 | `i8`, `i16`, `i32`, `i64`, `i128` | 有符号整数 | `42`, `-100` |
 | `u8`, `u16`, `u32`, `u64`, `u128` | 无符号整数 | `255`, `1000` |
 | `f32`, `f64` | 浮点数 | `3.14`, `2.718` |
 | `String` | 字符串 | `"hello"`, `"世界"` |
-| `Vec<u8>` | 字节数组 | `[1, 2, 3, 4]` |
+| `Vec<T>` | 列表值；配合集合读取选项时，可把标量字符串拆成列表元素 | `[1, 2, 3]`, `"a,b,c"` |
 | `chrono::NaiveDate` | 日期 | `2025-01-01` |
 | `chrono::NaiveTime` | 时间 | `12:30:45` |
 | `chrono::NaiveDateTime` | 日期时间 | `2025-01-01 12:30:45` |
@@ -276,18 +413,15 @@ app.config_mut().set("port", 3000)?;
 
 ## 扩展自定义类型
 
-要在配置系统中支持自定义类型，需要实现 `qubit_value` 中必要的转换 trait。配置系统通过 `MultiValues` 存储值，并通过 `ValueConverter` 支撑 `get` / `get_list` 的转换式读取。只有在需要 `get_strict` / `get_list_strict` 的精确存储类型支持时，才需要实现 `MultiValuesFirstGetter` / `MultiValuesGetter`。
-
-以下是如何使用自定义类型的示例：
+要支持业务特定的配置读取，为目标类型实现 `FromConfig`。实现中可以复用内置的 `FromConfig` 解析，再叠加业务校验；调用方仍然使用 `config.get::<T>()`、`config.get_or::<T>()` 或 `config.read(ConfigField::<T>)`，不需要在每个调用点手写 parse 代码。
 
 ```rust
-use qubit_config::Config;
+use qubit_config::{Config, ConfigError, ConfigResult, Property};
+use qubit_config::from::{ConfigParseContext, FromConfig};
 
-// 定义自定义类型
 #[derive(Debug, Clone, PartialEq)]
 struct Port(u16);
 
-// 您可以将配置系统与可以转换为/从基本类型转换的类型一起使用
 impl Port {
     fn new(value: u16) -> Result<Self, String> {
         if value < 1024 {
@@ -302,28 +436,30 @@ impl Port {
     }
 }
 
-// 在配置系统中使用
+impl FromConfig for Port {
+    fn from_config(property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<Self> {
+        let value = u16::from_config(property, ctx)?;
+        Port::new(value).map_err(|message| ConfigError::ConversionError {
+            key: ctx.key().to_string(),
+            message,
+        })
+    }
+}
+
 let mut config = Config::new();
+config.set("port", "8080")?;
 
-// 以基本类型存储端口
-config.set("port", 8080u16)?;
-
-// 检索并包装在自定义类型中
-let port_value: u16 = config.get("port")?;
-let port = Port::new(port_value).map_err(|e| ConfigError::ConversionError(e))?;
-
-// 或使用 get_or 并进行验证
-let port = Port::new(config.get_or("port", 8080u16))
-    .map_err(|e| ConfigError::ConversionError(e))?;
+let port: Port = config.get("port")?;
+let fallback = config.get_or("fallback_port", Port::new(8080).unwrap())?;
 ```
 
-对于更高级的类型转换，您可以实现 `qubit_value` 中的 trait（`ValueConverter`、`MultiValuesSetter` 等）。有关为自定义类型实现这些 trait 的详细信息，请参阅 `qubit_value` 文档。
+只有当你还需要直接存储自定义类型，或需要通过 `get_strict` / `get_list_strict` 做精确存储类型读取时，才需要实现更底层的 `qubit_value` trait。
 
 ## API 设计哲学
 
 ### 为什么选择纯泛型 API？
 
-我们采用纯泛型方案（只提供 `get<T>()`, `set<T>()`, `get_or<T>()` 核心方法），而不是为每个类型提供专门的方法（如 `get_i32()`, `get_string()` 等），原因如下：
+我们采用纯泛型方案（如 `get<T>()`、`set<T>()`、`get_or<T>()`、`read(ConfigField<T>)`），而不是为每个类型提供专门的方法（如 `get_i32()`、`get_bool()` 等），原因如下：
 
 1. **通用性强** - 泛型方法可以处理任何实现了相应 trait 的类型，包括自定义类型
 2. **代码简洁** - 避免大量重复的类型特定方法
@@ -356,8 +492,8 @@ let server = Server {
 pub enum ConfigError {
     PropertyNotFound(String),           // 配置项不存在
     PropertyHasNoValue(String),         // 配置项没有值
-    TypeMismatch { expected: DataType, actual: DataType }, // 类型不匹配
-    ConversionError(String),            // 类型转换失败
+    TypeMismatch { key: String, expected: DataType, actual: DataType }, // 类型不匹配
+    ConversionError { key: String, message: String }, // 类型转换失败
     IndexOutOfBounds { index: usize, len: usize }, // 索引越界
     SubstitutionError(String),          // 变量替换失败
     SubstitutionDepthExceeded(usize),   // 变量替换深度超限
@@ -398,7 +534,7 @@ cargo test
 
 ## 依赖项
 
-- `qubit-common` - 核心工具和数据类型定义
+- `qubit-datatype` - 核心工具和数据类型定义
 - `qubit-value` - 值处理框架
 - `serde` - 序列化框架
 - `chrono` - 日期和时间处理
