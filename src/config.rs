@@ -25,7 +25,7 @@ use crate::config_prefix_view::ConfigPrefixView;
 use crate::config_reader::ConfigReader;
 use crate::constants::DEFAULT_MAX_SUBSTITUTION_DEPTH;
 use crate::field::ConfigField;
-use crate::from::FromConfig;
+use crate::from::{FromConfig, IntoConfigDefault};
 use crate::options::ConfigReadOptions;
 use crate::source::{
     ConfigSource, EnvConfigSource, EnvFileConfigSource, PropertiesConfigSource, TomlConfigSource,
@@ -692,12 +692,12 @@ impl Config {
     /// let config = Config::new();
     ///
     /// let port: i32 = config.get_or("port", 8080).unwrap();
-    /// let host: String = config.get_or("host", "localhost".to_string()).unwrap();
+    /// let host: String = config.get_or("host", "localhost").unwrap();
     ///
     /// assert_eq!(port, 8080);
     /// assert_eq!(host, "localhost");
     /// ```
-    pub fn get_or<T>(&self, name: &str, default: T) -> ConfigResult<T>
+    pub fn get_or<T>(&self, name: &str, default: impl IntoConfigDefault<T>) -> ConfigResult<T>
     where
         T: FromConfig,
     {
@@ -746,7 +746,11 @@ impl Config {
     /// # Returns
     ///
     /// Parsed value or `default`; conversion errors are returned.
-    pub fn get_any_or<T>(&self, names: &[&str], default: T) -> ConfigResult<T>
+    pub fn get_any_or<T>(
+        &self,
+        names: &[&str],
+        default: impl IntoConfigDefault<T>,
+    ) -> ConfigResult<T>
     where
         T: FromConfig,
     {
@@ -768,7 +772,7 @@ impl Config {
     pub fn get_any_or_with<T>(
         &self,
         names: &[&str],
-        default: T,
+        default: impl IntoConfigDefault<T>,
         read_options: &ConfigReadOptions,
     ) -> ConfigResult<T>
     where
@@ -1084,7 +1088,7 @@ impl Config {
     /// returned instead of being hidden by the default.
     ///
     pub fn get_string_or(&self, name: &str, default: &str) -> ConfigResult<String> {
-        self.get_or(name, default.to_string())
+        self.get_or(name, default)
     }
 
     /// Gets a list of string configuration values (with variable substitution)
@@ -1145,7 +1149,7 @@ impl Config {
     /// assert_eq!(paths, vec!["path1", "path2"]);
     /// ```
     pub fn get_string_list_or(&self, name: &str, default: &[&str]) -> ConfigResult<Vec<String>> {
-        self.get_or(name, default.iter().map(|s| s.to_string()).collect())
+        self.get_or(name, default)
     }
 
     // ========================================================================

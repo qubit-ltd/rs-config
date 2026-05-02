@@ -783,6 +783,50 @@ mod test_get_or {
     }
 
     #[test]
+    fn test_get_or_with_str_default_for_string() {
+        let config = Config::new();
+
+        let value = config.get_or::<String>("nonexistent", "default").unwrap();
+
+        assert_eq!(value, "default");
+    }
+
+    #[test]
+    fn test_get_or_with_str_array_default_for_string_list() {
+        let config = Config::new();
+
+        let values = config
+            .get_or::<Vec<String>>("nonexistent", ["default1", "default2"])
+            .unwrap();
+
+        assert_eq!(values, vec!["default1".to_string(), "default2".to_string()]);
+    }
+
+    #[test]
+    fn test_get_or_with_str_slice_default_for_string_list() {
+        let config = Config::new();
+        let defaults = ["default1", "default2"];
+
+        let values = config
+            .get_or::<Vec<String>>("nonexistent", defaults.as_slice())
+            .unwrap();
+
+        assert_eq!(values, vec!["default1".to_string(), "default2".to_string()]);
+    }
+
+    #[test]
+    fn test_get_or_with_string_vec_ref_default_for_string_list() {
+        let config = Config::new();
+        let defaults = vec!["default1".to_string(), "default2".to_string()];
+
+        let values = config
+            .get_or::<Vec<String>>("nonexistent", &defaults)
+            .unwrap();
+
+        assert_eq!(values, defaults);
+    }
+
+    #[test]
     fn test_get_or_with_bool() {
         let mut config = Config::new();
         config.set("test", true).unwrap();
@@ -804,6 +848,68 @@ mod test_get_or {
 
         let value = config.get_or("test", true).unwrap();
         assert!(!value);
+    }
+}
+
+// ============================================================================
+// IntoConfigDefault Tests
+// ============================================================================
+
+#[cfg(test)]
+mod test_into_config_default {
+    use qubit_config::from::IntoConfigDefault;
+
+    #[test]
+    fn test_identity_default_conversion() {
+        let value: i64 = 42_i64.into_config_default();
+
+        assert_eq!(value, 42);
+    }
+
+    #[test]
+    fn test_string_default_conversions() {
+        let borrowed: String = "default".into_config_default();
+        let owned = "owned".to_string();
+        let cloned: String = (&owned).into_config_default();
+
+        assert_eq!(borrowed, "default");
+        assert_eq!(cloned, "owned");
+    }
+
+    #[test]
+    fn test_vec_default_conversions() {
+        let slice_source = [1, 2, 3];
+        let vec_source = vec![4, 5, 6];
+        let array_ref_source = [7, 8, 9];
+
+        let from_slice: Vec<i32> = slice_source.as_slice().into_config_default();
+        let from_vec_ref: Vec<i32> = (&vec_source).into_config_default();
+        let from_array: Vec<i32> = [10, 11, 12].into_config_default();
+        let from_array_ref: Vec<i32> = (&array_ref_source).into_config_default();
+
+        assert_eq!(from_slice, vec![1, 2, 3]);
+        assert_eq!(from_vec_ref, vec![4, 5, 6]);
+        assert_eq!(from_array, vec![10, 11, 12]);
+        assert_eq!(from_array_ref, vec![7, 8, 9]);
+    }
+
+    #[test]
+    fn test_string_vec_default_conversions() {
+        let slice_source: &[&str] = &["a", "b"];
+        let vec_ref_source = vec!["c", "d"];
+        let array_ref_source = ["g", "h"];
+
+        let from_slice: Vec<String> = slice_source.into_config_default();
+        let from_vec_ref: Vec<String> = (&vec_ref_source).into_config_default();
+        let from_vec: Vec<String> = vec!["e", "f"].into_config_default();
+        let from_array: Vec<String> = ["i", "j"].into_config_default();
+        let from_array_ref: Vec<String> = (&array_ref_source).into_config_default();
+
+        assert_eq!(from_slice, vec!["a".to_string(), "b".to_string()]);
+        assert_eq!(from_vec_ref, vec!["c".to_string(), "d".to_string()]);
+        assert_eq!(from_vec, vec!["e".to_string(), "f".to_string()]);
+        assert_eq!(from_array, vec!["i".to_string(), "j".to_string()]);
+        assert_eq!(from_array_ref, vec!["g".to_string(), "h".to_string()]);
     }
 }
 

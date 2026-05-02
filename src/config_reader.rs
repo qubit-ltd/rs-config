@@ -16,7 +16,9 @@ use serde::de::DeserializeOwned;
 
 use crate::config_prefix_view::ConfigPrefixView;
 use crate::field::ConfigField;
-use crate::from::{FromConfig, is_effectively_missing, parse_property_from_reader};
+use crate::from::{
+    FromConfig, IntoConfigDefault, is_effectively_missing, parse_property_from_reader,
+};
 use crate::options::ConfigReadOptions;
 use crate::{Config, ConfigError, ConfigResult, Property};
 
@@ -173,12 +175,12 @@ pub trait ConfigReader {
     /// Conversion and substitution errors are returned instead of being hidden by
     /// the default.
     #[inline]
-    fn get_or<T>(&self, name: &str, default: T) -> ConfigResult<T>
+    fn get_or<T>(&self, name: &str, default: impl IntoConfigDefault<T>) -> ConfigResult<T>
     where
         T: FromConfig,
     {
         self.get_optional(name)
-            .map(|value| value.unwrap_or(default))
+            .map(|value| value.unwrap_or_else(|| default.into_config_default()))
     }
 
     /// Gets an optional value with the same semantics as [`crate::Config::get_optional`].
@@ -264,12 +266,12 @@ pub trait ConfigReader {
     /// # Returns
     ///
     /// Parsed value or `default`; parsing errors are never swallowed.
-    fn get_any_or<T>(&self, names: &[&str], default: T) -> ConfigResult<T>
+    fn get_any_or<T>(&self, names: &[&str], default: impl IntoConfigDefault<T>) -> ConfigResult<T>
     where
         T: FromConfig,
     {
         self.get_optional_any(names)
-            .map(|value| value.unwrap_or(default))
+            .map(|value| value.unwrap_or_else(|| default.into_config_default()))
     }
 
     /// Reads a value from any key with explicit read options, using `default`
@@ -287,14 +289,14 @@ pub trait ConfigReader {
     fn get_any_or_with<T>(
         &self,
         names: &[&str],
-        default: T,
+        default: impl IntoConfigDefault<T>,
         read_options: &ConfigReadOptions,
     ) -> ConfigResult<T>
     where
         T: FromConfig,
     {
         self.get_optional_any_with_options(names, read_options)
-            .map(|value| value.unwrap_or(default))
+            .map(|value| value.unwrap_or_else(|| default.into_config_default()))
     }
 
     /// Reads a declared field.
@@ -529,7 +531,7 @@ pub trait ConfigReader {
     /// returned.
     #[inline]
     fn get_string_any_or(&self, names: &[&str], default: &str) -> ConfigResult<String> {
-        self.get_any_or(names, default.to_string())
+        self.get_any_or(names, default)
     }
 
     /// Gets a string value with substitution, or `default` if the key is
@@ -546,7 +548,7 @@ pub trait ConfigReader {
     /// errors are returned.
     #[inline]
     fn get_string_or(&self, name: &str, default: &str) -> ConfigResult<String> {
-        self.get_or(name, default.to_string())
+        self.get_or(name, default)
     }
 
     /// Gets all string values for `name`, applying substitution to each element
@@ -578,7 +580,7 @@ pub trait ConfigReader {
     /// substitution errors are returned.
     #[inline]
     fn get_string_list_or(&self, name: &str, default: &[&str]) -> ConfigResult<Vec<String>> {
-        self.get_or(name, default.iter().map(|s| s.to_string()).collect())
+        self.get_or(name, default)
     }
 
     /// Gets an optional string with the same three-way semantics as

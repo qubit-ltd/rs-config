@@ -13,8 +13,10 @@
 mod config_parse_context;
 mod from_config;
 mod helpers;
+mod into_config_default;
 
 pub use config_parse_context::ConfigParseContext;
 pub use from_config::FromConfig;
+pub use into_config_default::IntoConfigDefault;
 
 pub(crate) use helpers::{is_effectively_missing, parse_property_from_reader};

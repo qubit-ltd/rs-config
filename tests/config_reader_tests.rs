@@ -486,6 +486,33 @@ mod test_config_reader_alias_reads {
     }
 
     #[test]
+    fn test_get_any_or_accepts_str_array_default_for_string_list() {
+        let config = Config::new();
+
+        let value = config
+            .get_any_or::<Vec<String>>(&["new.paths", "old.paths"], ["bin", "lib"])
+            .expect("missing aliases should use string list default");
+
+        assert_eq!(value, vec!["bin".to_string(), "lib".to_string()]);
+    }
+
+    #[test]
+    fn test_get_any_or_with_accepts_str_slice_default_for_string_list() {
+        let config = Config::new();
+        let defaults = ["bin", "lib"];
+
+        let value = config
+            .get_any_or_with::<Vec<String>>(
+                &["new.paths", "old.paths"],
+                defaults.as_slice(),
+                &ConfigReadOptions::default(),
+            )
+            .expect("missing aliases should use string slice default");
+
+        assert_eq!(value, vec!["bin".to_string(), "lib".to_string()]);
+    }
+
+    #[test]
     fn test_get_any_and_get_optional_any_use_alias_order() {
         let mut config = Config::new();
         config
