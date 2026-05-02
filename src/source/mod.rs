@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 //! # Configuration Source Module
@@ -42,9 +43,6 @@
 //! assert_eq!(config.get::<i64>("port").unwrap(), 8080);
 //! ```
 //!
-//! # Author
-//!
-//! Haixing Hu
 
 mod composite_config_source;
 mod config_source;

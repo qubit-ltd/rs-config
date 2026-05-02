@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 //! # Configurable Interface
@@ -11,9 +12,6 @@
 //! Provides the `Configurable` trait for types to have unified configuration
 //! access and change callback interfaces.
 //!
-//! # Author
-//!
-//! Haixing Hu
 
 use super::Config;
 
@@ -46,9 +44,6 @@ use super::Config;
 /// use qubit_config::{ConfigResult, ConfigError};
 /// ```
 ///
-/// # Author
-///
-/// Haixing Hu
 pub trait Configurable {
     /// Gets a reference to the configuration
     ///
@@ -56,9 +51,6 @@ pub trait Configurable {
     ///
     /// Returns an immutable reference to the configuration
     ///
-    /// # Author
-    ///
-    /// Haixing Hu
     fn config(&self) -> &Config;
 
     /// Gets a mutable reference to the configuration
@@ -67,9 +59,6 @@ pub trait Configurable {
     ///
     /// Returns a mutable reference to the configuration
     ///
-    /// # Author
-    ///
-    /// Haixing Hu
     fn config_mut(&mut self) -> &mut Config;
 
     /// Sets the configuration
@@ -82,9 +71,6 @@ pub trait Configurable {
     ///
     /// Nothing.
     ///
-    /// # Author
-    ///
-    /// Haixing Hu
     fn set_config(&mut self, config: Config);
 
     /// Callback after configuration changes
@@ -96,9 +82,6 @@ pub trait Configurable {
     ///
     /// Nothing.
     ///
-    /// # Author
-    ///
-    /// Haixing Hu
     #[inline]
     fn on_config_changed(&mut self) {
         // Default implementation is empty

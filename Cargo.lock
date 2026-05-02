@@ -493,28 +493,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "qubit-common"
-version = "0.7.0"
-dependencies = [
- "bigdecimal",
- "chrono",
- "num-bigint",
- "num-traits",
- "regex",
- "serde",
- "serde_json",
- "url",
-]
-
-[[package]]
 name = "qubit-config"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "bigdecimal",
  "chrono",
  "dotenvy",
  "num-bigint",
- "qubit-common",
+ "qubit-datatype",
+ "qubit-serde",
  "qubit-value",
  "regex",
  "serde",
@@ -527,13 +514,34 @@ dependencies = [
 ]
 
 [[package]]
-name = "qubit-value"
-version = "0.6.0"
+name = "qubit-datatype"
+version = "0.2.0"
 dependencies = [
  "bigdecimal",
  "chrono",
  "num-bigint",
- "qubit-common",
+ "num-traits",
+ "serde",
+ "serde_json",
+ "url",
+]
+
+[[package]]
+name = "qubit-serde"
+version = "0.1.1"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "qubit-value"
+version = "0.6.1"
+dependencies = [
+ "bigdecimal",
+ "chrono",
+ "num-bigint",
+ "qubit-datatype",
  "serde",
  "serde_json",
  "thiserror",

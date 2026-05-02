@@ -1,18 +1,16 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 //! # Mutable Configuration Property Guard
 //!
 //! Provides guarded mutable access to non-final configuration properties.
 //!
-//! # Author
-//!
-//! Haixing Hu
 
 use std::ops::Deref;
 
@@ -32,9 +30,6 @@ use crate::{ConfigError, ConfigResult, Property};
 /// every call, so setting a property final through the guard immediately blocks
 /// subsequent mutation through the same guard.
 ///
-/// # Author
-///
-/// Haixing Hu
 pub struct ConfigPropertyMut<'a> {
     property: &'a mut Property,
 }

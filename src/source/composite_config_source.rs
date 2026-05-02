@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 //! # Composite Configuration Source
@@ -35,9 +36,6 @@
 //! assert_eq!(config.get::<i64>("port").unwrap(), 8080);
 //! ```
 //!
-//! # Author
-//!
-//! Haixing Hu
 
 use crate::{Config, ConfigResult};
 
@@ -45,9 +43,6 @@ use super::ConfigSource;
 
 /// Configuration source that merges multiple sources in order
 ///
-/// # Author
-///
-/// Haixing Hu
 pub struct CompositeConfigSource {
     sources: Vec<Box<dyn ConfigSource>>,
 }

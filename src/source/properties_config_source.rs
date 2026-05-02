@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 //! # Properties File Configuration Source
@@ -21,9 +22,6 @@
 //! - Line continuation with an odd number of `\` characters at end of line
 //! - Java properties escape sequences (`\uXXXX`, `\=`, `\:`, `\ `, etc.)
 //!
-//! # Author
-//!
-//! Haixing Hu
 
 use std::path::{Path, PathBuf};
 
@@ -49,9 +47,6 @@ use super::ConfigSource;
 /// assert_eq!(value, "8080");
 /// ```
 ///
-/// # Author
-///
-/// Haixing Hu
 #[derive(Debug, Clone)]
 pub struct PropertiesConfigSource {
     path: PathBuf,

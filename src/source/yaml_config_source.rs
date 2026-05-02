@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 //! # YAML File Configuration Source
@@ -25,9 +26,6 @@
 //!
 //! Arrays are stored as multi-value properties.
 //!
-//! # Author
-//!
-//! Haixing Hu
 
 use std::path::{Path, PathBuf};
 
@@ -54,9 +52,6 @@ use super::ConfigSource;
 /// assert_eq!(config.get::<i64>("server.port").unwrap(), 8080);
 /// ```
 ///
-/// # Author
-///
-/// Haixing Hu
 #[derive(Debug, Clone)]
 pub struct YamlConfigSource {
     path: PathBuf,
@@ -127,7 +122,7 @@ pub(crate) fn flatten_yaml_value(
         }
         YamlValue::Null => {
             // Null values are stored as empty properties to preserve null semantics.
-            use qubit_common::DataType;
+            use qubit_datatype::DataType;
             config.set_null(prefix, DataType::String)?;
         }
         YamlValue::Bool(b) => {

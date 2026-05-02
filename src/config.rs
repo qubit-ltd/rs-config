@@ -1,18 +1,16 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 //! # Configuration Manager
 //!
 //! Provides storage, retrieval, and management of configurations.
 //!
-//! # Author
-//!
-//! Haixing Hu
 
 #![allow(private_bounds)]
 
@@ -35,7 +33,7 @@ use crate::source::{
 };
 use crate::utils;
 use crate::{ConfigError, ConfigResult, Property};
-use qubit_common::DataType;
+use qubit_datatype::DataType;
 use qubit_value::MultiValues;
 use qubit_value::multi_values::{
     MultiValuesAddArg, MultiValuesAdder, MultiValuesFirstGetter, MultiValuesGetter,
@@ -89,9 +87,6 @@ use qubit_value::multi_values::{
 /// let timeout: u64 = config.get_or("timeout", 30).unwrap();
 /// ```
 ///
-/// # Author
-///
-/// Haixing Hu
 ///
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Config {
@@ -1530,7 +1525,7 @@ impl Config {
     ///
     /// ```rust
     /// use qubit_config::Config;
-    /// use qubit_common::DataType;
+    /// use qubit_datatype::DataType;
     ///
     /// let mut config = Config::new();
     /// config.set_null("nullable", DataType::String).unwrap();

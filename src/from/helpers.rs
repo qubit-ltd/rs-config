@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 
@@ -77,7 +78,7 @@ pub(crate) fn is_effectively_missing<R: ConfigReader + ?Sized>(
     let value = ctx.substitute_string(value)?;
     match options.string.normalize(&value) {
         Ok(_) => Ok(false),
-        Err(qubit_common::lang::DataConversionError::NoValue) => Ok(true),
+        Err(qubit_datatype::DataConversionError::NoValue) => Ok(true),
         Err(_) => Ok(false),
     }
 }

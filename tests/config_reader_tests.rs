@@ -1,17 +1,18 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 //! [`qubit_config::ConfigReader`] tests.
 
-use qubit_common::DataType;
 use qubit_config::field::ConfigField;
 use qubit_config::options::{BlankStringPolicy, ConfigReadOptions};
 use qubit_config::{Config, ConfigError, ConfigPrefixView, ConfigReader};
+use qubit_datatype::DataType;
 use serde::Deserialize;
 
 fn create_test_config() -> Config {
@@ -25,7 +26,11 @@ fn create_test_config() -> Config {
 
 #[cfg(test)]
 mod test_config_reader_smoke {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        BlankStringPolicy, Config, ConfigError, ConfigField, ConfigPrefixView, ConfigReadOptions,
+        ConfigReader, DataType, Deserialize, create_test_config,
+    };
 
     #[test]
     fn config_exposes_config_reader_string_api() {
@@ -39,7 +44,11 @@ mod test_config_reader_smoke {
 
 #[cfg(test)]
 mod test_config_reader {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        BlankStringPolicy, Config, ConfigError, ConfigField, ConfigPrefixView, ConfigReadOptions,
+        ConfigReader, DataType, Deserialize, create_test_config,
+    };
 
     fn read_host(reader: &impl ConfigReader) -> String {
         reader.get_string("host").unwrap()
@@ -250,7 +259,11 @@ mod test_config_reader {
 /// Exercises [`ConfigReader`] methods added to mirror [`Config`]'s read-only API.
 #[cfg(test)]
 mod test_config_reader_extended_surface {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        BlankStringPolicy, Config, ConfigError, ConfigField, ConfigPrefixView, ConfigReadOptions,
+        ConfigReader, DataType, Deserialize, create_test_config,
+    };
 
     #[derive(Deserialize, Debug, PartialEq, Eq)]
     struct Server {
@@ -455,7 +468,11 @@ mod test_config_reader_extended_surface {
 
 #[cfg(test)]
 mod test_config_reader_alias_reads {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        BlankStringPolicy, Config, ConfigError, ConfigField, ConfigPrefixView, ConfigReadOptions,
+        ConfigReader, DataType, Deserialize, create_test_config,
+    };
 
     #[test]
     fn test_get_any_or_uses_default_only_when_all_names_missing_or_empty() {

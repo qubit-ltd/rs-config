@@ -1,23 +1,21 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 //! # Configuration Error Type
 //!
 //! Defines all possible error scenarios in the configuration system.
 //!
-//! # Author
-//!
-//! Haixing Hu
 
 use thiserror::Error;
 
-use qubit_common::DataType;
-use qubit_common::lang::DataConversionError;
+use qubit_datatype::DataConversionError;
+use qubit_datatype::DataType;
 use qubit_value::ValueError;
 
 /// Configuration error type
@@ -31,9 +29,6 @@ use qubit_value::ValueError;
 /// fn get_port(config: &Config) -> ConfigResult<i32> { unimplemented!() }
 /// ```
 ///
-/// # Author
-///
-/// Haixing Hu
 ///
 #[derive(Debug, Error)]
 pub enum ConfigError {

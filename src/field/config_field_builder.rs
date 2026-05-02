@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 
@@ -13,9 +14,6 @@ use super::config_field::ConfigField;
 
 /// Builder state after the field name is provided.
 ///
-/// # Author
-///
-/// Haixing Hu
 pub struct ConfigFieldBuilder<T> {
     /// The primary field name.
     pub(crate) name: String,

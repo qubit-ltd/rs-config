@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 //! [`qubit_config::constants`] behavior via [`qubit_config::Config`] (`DEFAULT_MAX_SUBSTITUTION_DEPTH`).
@@ -12,7 +13,8 @@ use qubit_config::Config;
 
 #[cfg(test)]
 mod test_max_substitution_depth {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::Config;
 
     #[test]
     fn test_max_substitution_depth_returns_default_value() {

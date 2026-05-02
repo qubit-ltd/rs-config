@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 //! # Configuration Management Module
@@ -11,9 +12,6 @@
 //! Provides flexible configuration management with support for multiple data
 //! types and variable substitution.
 //!
-//! # Author
-//!
-//! Haixing Hu
 
 mod config;
 mod config_error;

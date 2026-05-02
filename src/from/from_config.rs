@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 
@@ -13,7 +14,7 @@ use std::time::Duration;
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use num_bigint::BigInt;
-use qubit_common::lang::{DataConvertTo, DataConverter};
+use qubit_datatype::{DataConvertTo, DataConverter};
 use qubit_value::{MultiValues, Value as QubitValue};
 use serde_json::Value as JsonValue;
 use url::Url;
@@ -25,9 +26,6 @@ use super::helpers::first_scalar_string;
 
 /// Parses a configuration [`Property`] into a target Rust type.
 ///
-/// # Author
-///
-/// Haixing Hu
 pub trait FromConfig: Sized {
     /// Parses `property` using `ctx`.
     ///
@@ -53,9 +51,6 @@ pub trait FromConfig: Sized {
 ///
 /// The converted value, or a [`ConfigError`] with key context.
 ///
-/// # Author
-///
-/// Haixing Hu
 fn convert_first<T>(property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<T>
 where
     for<'a> DataConverter<'a>: DataConvertTo<T>,
@@ -108,9 +103,6 @@ fn substituted_values(
 ///
 /// * `($($ty:ty),+ $(,)?)` - The list of types to implement the trait for.
 ///
-/// # Author
-///
-/// Haixing Hu
 macro_rules! impl_from_config_via_value {
     ($($ty:ty),+ $(,)?) => {
         $(

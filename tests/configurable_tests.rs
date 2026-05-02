@@ -1,18 +1,16 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 //! # Configurable Trait Tests
 //!
 //! Tests for the Configurable trait implementation.
 //!
-//! # Author
-//!
-//! Haixing Hu
 
 use qubit_config::{Config, Configurable};
 
@@ -56,7 +54,8 @@ impl Configurable for TestConfigurable {
 
 #[cfg(test)]
 mod test_config {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{Config, Configurable, TestConfigurable};
 
     #[test]
     fn test_config_returns_reference() {
@@ -94,7 +93,8 @@ mod test_config {
 
 #[cfg(test)]
 mod test_config_mut {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{Config, Configurable, TestConfigurable};
 
     #[test]
     fn test_config_mut_returns_mutable_reference() {
@@ -145,7 +145,8 @@ mod test_config_mut {
 
 #[cfg(test)]
 mod test_set_config {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{Config, Configurable, TestConfigurable};
 
     #[test]
     fn test_set_config_replaces_config() {
@@ -218,7 +219,8 @@ mod test_set_config {
 
 #[cfg(test)]
 mod test_on_config_changed {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{Config, Configurable, TestConfigurable};
 
     #[test]
     fn test_on_config_changed_default_implementation() {
@@ -311,7 +313,8 @@ mod test_on_config_changed {
 
 #[cfg(test)]
 mod integration_tests {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{Config, Configurable, TestConfigurable};
 
     #[test]
     fn test_full_configurable_workflow() {

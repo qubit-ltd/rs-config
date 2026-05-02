@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 #![allow(private_bounds)]
@@ -28,9 +29,6 @@ use crate::{ConfigResult, Property};
 /// Lookups rewrite keys by prepending `prefix`, while exposing keys relative to
 /// that prefix.
 ///
-/// # Author
-///
-/// Haixing Hu
 #[derive(Debug, Clone)]
 pub struct ConfigPrefixView<'a> {
     config: &'a Config,

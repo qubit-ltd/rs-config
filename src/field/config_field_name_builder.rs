@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 
@@ -15,9 +16,6 @@ use super::config_field_builder::ConfigFieldBuilder;
 
 /// Builder state before the field name is provided.
 ///
-/// # Author
-///
-/// Haixing Hu
 pub struct ConfigFieldNameBuilder<T> {
     /// The fallback aliases.
     pub(crate) aliases: Vec<String>,

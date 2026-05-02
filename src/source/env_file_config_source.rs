@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 //! # `.env` File Configuration Source
@@ -18,9 +19,6 @@
 //! - Quoted values: `KEY="value with spaces"` or `KEY='value'`
 //! - Export prefix: `export KEY=VALUE` (the `export` keyword is ignored)
 //!
-//! # Author
-//!
-//! Haixing Hu
 
 use std::path::{Path, PathBuf};
 
@@ -46,9 +44,6 @@ use super::ConfigSource;
 /// assert_eq!(port, "8080");
 /// ```
 ///
-/// # Author
-///
-/// Haixing Hu
 #[derive(Debug, Clone)]
 pub struct EnvFileConfigSource {
     path: PathBuf,

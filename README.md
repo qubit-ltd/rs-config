@@ -532,7 +532,7 @@ For internal design documentation (Chinese), see [src/README.md](src/README.md).
 
 ## Dependencies
 
-- `qubit-common` - Core utilities and data type definitions
+- `qubit-datatype` - Core utilities and data type definitions
 - `qubit-value` - Value handling framework
 - `serde` - Serialization framework
 - `chrono` - Date and time handling

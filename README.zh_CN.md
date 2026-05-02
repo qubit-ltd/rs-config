@@ -534,7 +534,7 @@ cargo test
 
 ## 依赖项
 
-- `qubit-common` - 核心工具和数据类型定义
+- `qubit-datatype` - 核心工具和数据类型定义
 - `qubit-value` - 值处理框架
 - `serde` - 序列化框架
 - `chrono` - 日期和时间处理
