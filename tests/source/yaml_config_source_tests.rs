@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 //! # `YamlConfigSource` tests
@@ -29,7 +30,11 @@ fn fixture(name: &str) -> PathBuf {
 
 #[cfg(test)]
 mod test_yaml_config_source {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, ConfigSource, MultiValues, PathBuf, Property, YamlConfigSource,
+        fixture,
+    };
 
     #[test]
     fn test_load_basic_yaml_file() {
@@ -305,7 +310,11 @@ db:
 
 #[cfg(test)]
 mod test_yaml_coverage {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, ConfigSource, MultiValues, PathBuf, Property, YamlConfigSource,
+        fixture,
+    };
 
     // ---- yaml: number without integer representation ----
     #[test]

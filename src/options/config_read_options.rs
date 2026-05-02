@@ -8,10 +8,6 @@
  *
  ******************************************************************************/
 
-/// Default maximum recursion depth when resolving `${...}` variable references
-/// in strings.
+/// Runtime options that control how configuration values are read and parsed.
 ///
-/// # Returns
-///
-/// The numeric constant `64`.
-pub const DEFAULT_MAX_SUBSTITUTION_DEPTH: usize = 64;
+pub type ConfigReadOptions = qubit_datatype::DataConversionOptions;

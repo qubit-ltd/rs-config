@@ -1,22 +1,21 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 //! # Configuration Error Type
 //!
 //! Defines all possible error scenarios in the configuration system.
 //!
-//! # Author
-//!
-//! Haixing Hu
 
 use thiserror::Error;
 
-use qubit_common::DataType;
+use qubit_datatype::DataConversionError;
+use qubit_datatype::DataType;
 use qubit_value::ValueError;
 
 /// Configuration error type
@@ -30,9 +29,6 @@ use qubit_value::ValueError;
 /// fn get_port(config: &Config) -> ConfigResult<i32> { unimplemented!() }
 /// ```
 ///
-/// # Author
-///
-/// Haixing Hu
 ///
 #[derive(Debug, Error)]
 pub enum ConfigError {
@@ -146,6 +142,40 @@ impl ConfigError {
         ConfigError::ConversionError {
             key: String::new(),
             message: message.into(),
+        }
+    }
+
+    /// Maps a common data conversion error to a keyed configuration error.
+    ///
+    /// # Parameters
+    ///
+    /// * `key` - Configuration key that was being parsed.
+    /// * `err` - Error returned by the common conversion layer.
+    ///
+    /// # Returns
+    ///
+    /// A [`ConfigError`] carrying the supplied key.
+    pub fn from_data_conversion_error(key: &str, err: DataConversionError) -> Self {
+        match err {
+            DataConversionError::NoValue => ConfigError::PropertyHasNoValue(key.to_string()),
+            DataConversionError::ConversionFailed { from, to } => ConfigError::ConversionError {
+                key: key.to_string(),
+                message: format!("From {from} to {to}"),
+            },
+            DataConversionError::ConversionError(message) => ConfigError::ConversionError {
+                key: key.to_string(),
+                message,
+            },
+            DataConversionError::JsonSerializationError(message) => ConfigError::ConversionError {
+                key: key.to_string(),
+                message: format!("JSON serialization error: {message}"),
+            },
+            DataConversionError::JsonDeserializationError(message) => {
+                ConfigError::ConversionError {
+                    key: key.to_string(),
+                    message: format!("JSON deserialization error: {message}"),
+                }
+            }
         }
     }
 }

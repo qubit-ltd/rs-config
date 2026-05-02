@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 //! # `CompositeConfigSource` tests
@@ -31,7 +32,11 @@ fn fixture(name: &str) -> PathBuf {
 
 #[cfg(test)]
 mod test_composite_config_source {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        CompositeConfigSource, Config, ConfigSource, EnvConfigSource, PathBuf,
+        PropertiesConfigSource, TomlConfigSource, fixture,
+    };
 
     #[test]
     fn test_new_composite_is_empty() {

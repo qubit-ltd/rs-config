@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 //! # System Environment Variable Configuration Source
@@ -22,9 +23,6 @@
 //!
 //! Without a prefix, all environment variables are loaded as-is.
 //!
-//! # Author
-//!
-//! Haixing Hu
 
 use std::ffi::{OsStr, OsString};
 
@@ -50,9 +48,6 @@ use super::ConfigSource;
 /// source.load(&mut config).unwrap();
 /// ```
 ///
-/// # Author
-///
-/// Haixing Hu
 #[derive(Debug, Clone)]
 pub struct EnvConfigSource {
     /// Optional prefix filter; only variables with this prefix are loaded

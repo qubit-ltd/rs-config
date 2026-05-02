@@ -1,15 +1,18 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 //! [`qubit_config::ConfigReader`] tests.
 
-use qubit_common::DataType;
-use qubit_config::{Config, ConfigPrefixView, ConfigReader};
+use qubit_config::field::ConfigField;
+use qubit_config::options::{BlankStringPolicy, ConfigReadOptions};
+use qubit_config::{Config, ConfigError, ConfigPrefixView, ConfigReader};
+use qubit_datatype::DataType;
 use serde::Deserialize;
 
 fn create_test_config() -> Config {
@@ -23,7 +26,11 @@ fn create_test_config() -> Config {
 
 #[cfg(test)]
 mod test_config_reader_smoke {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        BlankStringPolicy, Config, ConfigError, ConfigField, ConfigPrefixView, ConfigReadOptions,
+        ConfigReader, DataType, Deserialize, create_test_config,
+    };
 
     #[test]
     fn config_exposes_config_reader_string_api() {
@@ -37,7 +44,11 @@ mod test_config_reader_smoke {
 
 #[cfg(test)]
 mod test_config_reader {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        BlankStringPolicy, Config, ConfigError, ConfigField, ConfigPrefixView, ConfigReadOptions,
+        ConfigReader, DataType, Deserialize, create_test_config,
+    };
 
     fn read_host(reader: &impl ConfigReader) -> String {
         reader.get_string("host").unwrap()
@@ -88,11 +99,12 @@ mod test_config_reader {
 
         let reader = &config;
         assert_eq!(
-            <Config as ConfigReader>::get_string_or(reader, "missing", "fallback"),
+            <Config as ConfigReader>::get_string_or(reader, "missing", "fallback").unwrap(),
             "fallback"
         );
         assert_eq!(
-            <Config as ConfigReader>::get_string_list_or(reader, "missing.list", &["x", "y"]),
+            <Config as ConfigReader>::get_string_list_or(reader, "missing.list", &["x", "y"])
+                .unwrap(),
             vec!["x".to_string(), "y".to_string()]
         );
         assert_eq!(
@@ -112,7 +124,7 @@ mod test_config_reader {
             None
         );
         assert_eq!(
-            <Config as ConfigReader>::get_string_or(reader, "url", "fallback"),
+            <Config as ConfigReader>::get_string_or(reader, "url", "fallback").unwrap(),
             "http://alice"
         );
     }
@@ -127,11 +139,13 @@ mod test_config_reader {
 
         let view = config.prefix_view("http");
         assert_eq!(
-            <ConfigPrefixView<'_> as ConfigReader>::get_string_or(&view, "missing", "fallback"),
+            <ConfigPrefixView<'_> as ConfigReader>::get_string_or(&view, "missing", "fallback")
+                .unwrap(),
             "fallback"
         );
         assert_eq!(
-            <ConfigPrefixView<'_> as ConfigReader>::get_string_list_or(&view, "missing", &["m"]),
+            <ConfigPrefixView<'_> as ConfigReader>::get_string_list_or(&view, "missing", &["m"])
+                .unwrap(),
             vec!["m".to_string()]
         );
         assert_eq!(
@@ -156,7 +170,8 @@ mod test_config_reader {
             .collect();
         assert_eq!(keys, vec!["host"]);
         assert_eq!(
-            <ConfigPrefixView<'_> as ConfigReader>::get_string_or(&view, "url", "fallback"),
+            <ConfigPrefixView<'_> as ConfigReader>::get_string_or(&view, "url", "fallback")
+                .unwrap(),
             "http://localhost"
         );
     }
@@ -244,7 +259,11 @@ mod test_config_reader {
 /// Exercises [`ConfigReader`] methods added to mirror [`Config`]'s read-only API.
 #[cfg(test)]
 mod test_config_reader_extended_surface {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        BlankStringPolicy, Config, ConfigError, ConfigField, ConfigPrefixView, ConfigReadOptions,
+        ConfigReader, DataType, Deserialize, create_test_config,
+    };
 
     #[derive(Deserialize, Debug, PartialEq, Eq)]
     struct Server {
@@ -321,9 +340,12 @@ mod test_config_reader_extended_surface {
 
         assert_eq!(<Config as ConfigReader>::iter(&config).count(), 3);
 
-        assert_eq!(<Config as ConfigReader>::get_or(&config, "k", 0i32), 1);
         assert_eq!(
-            <Config as ConfigReader>::get_or(&config, "missing", 99i32),
+            <Config as ConfigReader>::get_or(&config, "k", 0i32).unwrap(),
+            1
+        );
+        assert_eq!(
+            <Config as ConfigReader>::get_or(&config, "missing", 99i32).unwrap(),
             99
         );
 
@@ -441,5 +463,256 @@ mod test_config_reader_extended_surface {
         let view = config.prefix_view("srv");
         let again: Server = <ConfigPrefixView<'_> as ConfigReader>::deserialize(&view, "").unwrap();
         assert_eq!(again, server);
+    }
+}
+
+#[cfg(test)]
+mod test_config_reader_alias_reads {
+    #[allow(unused_imports)]
+    use super::{
+        BlankStringPolicy, Config, ConfigError, ConfigField, ConfigPrefixView, ConfigReadOptions,
+        ConfigReader, DataType, Deserialize, create_test_config,
+    };
+
+    #[test]
+    fn test_get_any_or_uses_default_only_when_all_names_missing_or_empty() {
+        let config = Config::new();
+
+        let value = config
+            .get_any_or::<i32>(&["new.port", "old.port"], 8080)
+            .expect("missing aliases should use default");
+
+        assert_eq!(value, 8080);
+    }
+
+    #[test]
+    fn test_get_any_and_get_optional_any_use_alias_order() {
+        let mut config = Config::new();
+        config
+            .set("PORT", "8080")
+            .expect("setting alias value should succeed");
+
+        let value = config
+            .get_any::<u16>(&["server.port", "PORT"])
+            .expect("alias value should parse");
+        let optional = config
+            .get_optional_any::<u16>(&["server.port", "PORT"])
+            .expect("optional alias value should parse");
+        let missing = config.get_any::<u16>(&["server.host", "HOST"]);
+
+        assert_eq!(value, 8080);
+        assert_eq!(optional, Some(8080));
+        assert!(matches!(missing, Err(ConfigError::PropertyNotFound(_))));
+    }
+
+    #[test]
+    fn test_get_any_or_returns_error_for_present_invalid_value_before_default() {
+        let mut config = Config::new();
+        config
+            .set("feature.enabled", "maybe")
+            .expect("setting test config should succeed");
+        config
+            .set("FEATURE_ENABLED", "true")
+            .expect("setting fallback config should succeed");
+
+        let result = config
+            .with_read_options(ConfigReadOptions::env_friendly())
+            .get_any_or::<bool>(&["feature.enabled", "FEATURE_ENABLED"], false);
+
+        assert!(matches!(
+            result,
+            Err(ConfigError::ConversionError { key, .. }) if key == "feature.enabled"
+        ));
+    }
+
+    #[test]
+    fn test_get_reports_missing_for_blank_string_when_policy_treats_missing() {
+        let mut config = Config::new();
+        config
+            .set("server.host", "   ")
+            .expect("setting blank value should succeed");
+
+        let result = config
+            .with_read_options(
+                ConfigReadOptions::default()
+                    .with_blank_string_policy(BlankStringPolicy::TreatAsMissing),
+            )
+            .get::<String>("server.host");
+
+        assert!(matches!(
+            result,
+            Err(ConfigError::PropertyHasNoValue(key)) if key == "server.host"
+        ));
+    }
+
+    #[test]
+    fn test_get_optional_reports_rejected_blank_string() {
+        let mut config = Config::new();
+        config
+            .set("server.host", "   ")
+            .expect("setting blank value should succeed");
+
+        let result = config
+            .with_read_options(
+                ConfigReadOptions::default().with_blank_string_policy(BlankStringPolicy::Reject),
+            )
+            .get_optional::<String>("server.host");
+
+        assert!(matches!(
+            result,
+            Err(ConfigError::ConversionError { key, message })
+                if key == "server.host" && message == "blank string is not allowed"
+        ));
+    }
+
+    #[test]
+    fn test_get_or_returns_error_for_present_invalid_value() {
+        let mut config = Config::new();
+        config
+            .set("server.port", "invalid")
+            .expect("setting invalid value should succeed");
+
+        let result = config.get_or::<u16>("server.port", 8080);
+
+        assert!(matches!(
+            result,
+            Err(ConfigError::ConversionError { key, .. }) if key == "server.port"
+        ));
+    }
+
+    #[test]
+    fn test_read_optional_uses_alias_and_default() {
+        let mut config = Config::new();
+        config
+            .set("APP_PORT", "8080")
+            .expect("setting alias value should succeed");
+
+        let alias_value = config
+            .read_optional(
+                ConfigField::<u16>::builder()
+                    .name("server.port")
+                    .alias("APP_PORT")
+                    .build(),
+            )
+            .expect("optional alias field should parse");
+        let default_value = config
+            .read_optional(
+                ConfigField::<u16>::builder()
+                    .name("server.timeout")
+                    .default(30)
+                    .build(),
+            )
+            .expect("optional field default should parse");
+
+        assert_eq!(alias_value, Some(8080));
+        assert_eq!(default_value, Some(30));
+    }
+
+    #[test]
+    fn test_read_uses_global_options_and_reports_missing_field() {
+        let mut config = Config::new();
+        config
+            .set_read_options(ConfigReadOptions::env_friendly())
+            .set("FEATURE_ENABLED", "yes")
+            .expect("setting alias value should succeed");
+
+        let enabled = config
+            .read(
+                ConfigField::<bool>::builder()
+                    .name("feature.enabled")
+                    .alias("FEATURE_ENABLED")
+                    .build(),
+            )
+            .expect("field should use global read options");
+        let missing = config.read(
+            ConfigField::<u16>::builder()
+                .name("server.port")
+                .alias("PORT")
+                .build(),
+        );
+
+        assert!(enabled);
+        assert!(matches!(missing, Err(ConfigError::PropertyNotFound(_))));
+    }
+
+    #[test]
+    fn test_get_string_any_or_applies_alias_order_and_substitution() {
+        let mut config = Config::new();
+        config
+            .set("host", "localhost")
+            .expect("setting host should succeed");
+        config
+            .set("SERVICE_URL", "http://${host}:8080")
+            .expect("setting alias value should succeed");
+
+        let value = config
+            .get_string_any_or(&["service.url", "SERVICE_URL"], "http://fallback")
+            .expect("string alias should resolve");
+
+        assert_eq!(value, "http://localhost:8080");
+    }
+
+    #[test]
+    fn test_get_string_any_and_optional_string_any_use_alias_order() {
+        let mut config = Config::new();
+        config
+            .set("host", "localhost")
+            .expect("setting host should succeed");
+        config
+            .set("SERVICE_URL", "http://${host}:8080")
+            .expect("setting alias value should succeed");
+
+        let value = config
+            .get_string_any(&["service.url", "SERVICE_URL"])
+            .expect("string alias should resolve");
+        let optional = config
+            .get_optional_string_any(&["service.url", "SERVICE_URL"])
+            .expect("optional string alias should resolve");
+        let missing = config
+            .get_optional_string_any(&["server.url", "SERVER_URL"])
+            .expect("missing optional string aliases should not fail");
+
+        assert_eq!(value, "http://localhost:8080");
+        assert_eq!(optional.as_deref(), Some("http://localhost:8080"));
+        assert_eq!(missing, None);
+    }
+
+    #[test]
+    fn test_get_list_strict_returns_empty_vector_for_null_property() {
+        let mut config = Config::new();
+        config
+            .set_null("empty.list", DataType::String)
+            .expect("setting null value should succeed");
+
+        let values = config
+            .get_list_strict::<String>("empty.list")
+            .expect("null list should parse as empty vector");
+
+        assert!(values.is_empty());
+    }
+
+    #[test]
+    fn test_get_list_strict_reports_missing_key() {
+        let config = Config::new();
+
+        let result = config.get_list_strict::<String>("missing.list");
+
+        assert!(matches!(result, Err(ConfigError::PropertyNotFound(key)) if key == "missing.list"));
+    }
+
+    #[test]
+    fn test_prefix_view_optional_error_uses_root_relative_key() {
+        let mut config = Config::new();
+        config
+            .set("db.port", "invalid")
+            .expect("setting invalid value should succeed");
+
+        let db = config.prefix_view("db");
+        let result = db.get_optional::<u16>("port");
+
+        assert!(matches!(
+            result,
+            Err(ConfigError::ConversionError { key, .. }) if key == "db.port"
+        ));
     }
 }

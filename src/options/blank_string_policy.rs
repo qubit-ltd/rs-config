@@ -8,10 +8,6 @@
  *
  ******************************************************************************/
 
-/// Default maximum recursion depth when resolving `${...}` variable references
-/// in strings.
+/// Controls how scalar blank strings are interpreted by read APIs.
 ///
-/// # Returns
-///
-/// The numeric constant `64`.
-pub const DEFAULT_MAX_SUBSTITUTION_DEPTH: usize = 64;
+pub type BlankStringPolicy = qubit_datatype::BlankStringPolicy;

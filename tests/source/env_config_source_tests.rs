@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 //! # `EnvConfigSource` tests
@@ -28,7 +29,11 @@ fn env_test_lock() -> MutexGuard<'static, ()> {
 
 #[cfg(test)]
 mod test_env_config_source {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, ConfigSource, EnvConfigSource, Mutex, MutexGuard, OnceLock,
+        env_test_lock,
+    };
 
     #[test]
     fn test_load_all_env_vars() {
@@ -260,7 +265,11 @@ mod test_env_config_source {
 
 #[cfg(test)]
 mod test_env_coverage {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, ConfigError, ConfigSource, EnvConfigSource, Mutex, MutexGuard, OnceLock,
+        env_test_lock,
+    };
 
     // ---- env: transform_key without strip_prefix ----
     #[test]

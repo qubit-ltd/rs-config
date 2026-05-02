@@ -1,20 +1,24 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
+
 #![allow(private_bounds)]
 
 use qubit_value::MultiValues;
 use qubit_value::multi_values::{MultiValuesFirstGetter, MultiValuesGetter};
-use qubit_value::{Value as QubitValue, ValueConverter};
 use serde::de::DeserializeOwned;
 
 use crate::config_prefix_view::ConfigPrefixView;
-use crate::{Config, ConfigResult, Property, utils};
+use crate::field::ConfigField;
+use crate::from::{FromConfig, is_effectively_missing, parse_property_from_reader};
+use crate::options::ConfigReadOptions;
+use crate::{Config, ConfigError, ConfigResult, Property};
 
 /// Read-only configuration interface.
 ///
@@ -27,7 +31,6 @@ use crate::{Config, ConfigResult, Property, utils};
 /// deserialization), with prefix views resolving keys relative to their
 /// logical prefix.
 ///
-/// Author: Haixing Hu
 pub trait ConfigReader {
     /// Returns whether `${...}` variable substitution is applied when reading
     /// string values.
@@ -84,8 +87,7 @@ pub trait ConfigReader {
     ///
     /// # Type parameters
     ///
-    /// * `T` - Target type; requires [`qubit_value::Value`] to implement
-    ///   [`qubit_value::ValueConverter`] for `T`.
+    /// * `T` - Target type parsed by [`FromConfig`].
     ///
     /// # Parameters
     ///
@@ -97,7 +99,19 @@ pub trait ConfigReader {
     /// is missing, empty, or not convertible.
     fn get<T>(&self, name: &str) -> ConfigResult<T>
     where
-        QubitValue: ValueConverter<T>;
+        T: FromConfig,
+    {
+        let resolved = self.resolve_key(name);
+        let property = self
+            .get_property(name)
+            .ok_or_else(|| ConfigError::PropertyNotFound(resolved.clone()))?;
+        if !property.is_empty()
+            && is_effectively_missing(self, &resolved, property, self.read_options())?
+        {
+            return Err(ConfigError::PropertyHasNoValue(resolved));
+        }
+        parse_property_from_reader(self, &resolved, property, self.read_options())
+    }
 
     /// Reads the first stored value for `name` without cross-type conversion.
     ///
@@ -122,8 +136,7 @@ pub trait ConfigReader {
     ///
     /// # Type parameters
     ///
-    /// * `T` - Element type; requires [`qubit_value::Value`] to implement
-    ///   [`qubit_value::ValueConverter`] for `T`.
+    /// * `T` - Element type supported by the shared conversion layer.
     ///
     /// # Parameters
     ///
@@ -134,7 +147,7 @@ pub trait ConfigReader {
     /// A vector of values on success, or a [`crate::ConfigError`] on failure.
     fn get_list<T>(&self, name: &str) -> ConfigResult<Vec<T>>
     where
-        QubitValue: ValueConverter<T>;
+        T: FromConfig;
 
     /// Reads all stored values for `name` without cross-type conversion.
     ///
@@ -155,22 +168,24 @@ pub trait ConfigReader {
     where
         MultiValues: MultiValuesGetter<T>;
 
-    /// Gets a value or `default` if the key is missing or conversion fails (same
-    /// as [`crate::Config::get_or`]).
+    /// Gets a value or `default` if the key is missing or empty.
+    ///
+    /// Conversion and substitution errors are returned instead of being hidden by
+    /// the default.
     #[inline]
-    fn get_or<T>(&self, name: &str, default: T) -> T
+    fn get_or<T>(&self, name: &str, default: T) -> ConfigResult<T>
     where
-        QubitValue: ValueConverter<T>,
+        T: FromConfig,
     {
-        self.get(name).unwrap_or(default)
+        self.get_optional(name)
+            .map(|value| value.unwrap_or(default))
     }
 
     /// Gets an optional value with the same semantics as [`crate::Config::get_optional`].
     ///
     /// # Type parameters
     ///
-    /// * `T` - Target type; requires [`qubit_value::Value`] to implement
-    ///   [`qubit_value::ValueConverter`] for `T`.
+    /// * `T` - Target type parsed by [`FromConfig`].
     ///
     /// # Parameters
     ///
@@ -181,14 +196,165 @@ pub trait ConfigReader {
     /// `Ok(Some(v))`, `Ok(None)` when missing or empty, or `Err` on conversion failure.
     fn get_optional<T>(&self, name: &str) -> ConfigResult<Option<T>>
     where
-        QubitValue: ValueConverter<T>;
+        T: FromConfig,
+    {
+        let resolved = self.resolve_key(name);
+        match self.get_property(name) {
+            None => Ok(None),
+            Some(property)
+                if is_effectively_missing(self, &resolved, property, self.read_options())? =>
+            {
+                Ok(None)
+            }
+            Some(property) => {
+                parse_property_from_reader(self, &resolved, property, self.read_options()).map(Some)
+            }
+        }
+    }
+
+    /// Gets the read options active for this reader.
+    ///
+    /// # Returns
+    ///
+    /// Global read options inherited by field-less reads.
+    fn read_options(&self) -> &ConfigReadOptions;
+
+    /// Reads a value from the first present and non-empty key in `names`.
+    ///
+    /// # Parameters
+    ///
+    /// * `names` - Candidate keys in priority order.
+    ///
+    /// # Returns
+    ///
+    /// Parsed value from the first configured key. Conversion errors stop the
+    /// search and are returned directly.
+    fn get_any<T>(&self, names: &[&str]) -> ConfigResult<T>
+    where
+        T: FromConfig,
+    {
+        self.get_optional_any(names)?
+            .ok_or_else(|| ConfigError::PropertyNotFound(format!("one of: {}", names.join(", "))))
+    }
+
+    /// Reads an optional value from the first present and non-empty key.
+    ///
+    /// # Parameters
+    ///
+    /// * `names` - Candidate keys in priority order.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(None)` only when all keys are missing or empty.
+    fn get_optional_any<T>(&self, names: &[&str]) -> ConfigResult<Option<T>>
+    where
+        T: FromConfig,
+    {
+        self.get_optional_any_with_options(names, self.read_options())
+    }
+
+    /// Reads a value from any key, using `default` only when all keys are
+    /// absent or empty.
+    ///
+    /// # Parameters
+    ///
+    /// * `names` - Candidate keys in priority order.
+    /// * `default` - Fallback when no candidate is configured.
+    ///
+    /// # Returns
+    ///
+    /// Parsed value or `default`; parsing errors are never swallowed.
+    fn get_any_or<T>(&self, names: &[&str], default: T) -> ConfigResult<T>
+    where
+        T: FromConfig,
+    {
+        self.get_optional_any(names)
+            .map(|value| value.unwrap_or(default))
+    }
+
+    /// Reads a declared field.
+    ///
+    /// # Parameters
+    ///
+    /// * `field` - Field declaration containing name, aliases, defaults, and
+    ///   optional field-level read options.
+    ///
+    /// # Returns
+    ///
+    /// Parsed field value or its default.
+    fn read<T>(&self, field: ConfigField<T>) -> ConfigResult<T>
+    where
+        T: FromConfig,
+    {
+        let ConfigField {
+            name,
+            aliases,
+            default,
+            read_options,
+        } = field;
+        let options = read_options.as_ref().unwrap_or_else(|| self.read_options());
+        let mut names = Vec::with_capacity(1 + aliases.len());
+        names.push(name.as_str());
+        names.extend(aliases.iter().map(String::as_str));
+        self.get_optional_any_with_options(&names, options)?
+            .or(default)
+            .ok_or_else(|| ConfigError::PropertyNotFound(format!("one of: {}", names.join(", "))))
+    }
+
+    /// Reads an optional declared field.
+    ///
+    /// # Parameters
+    ///
+    /// * `field` - Field declaration.
+    ///
+    /// # Returns
+    ///
+    /// Parsed field value, its default, or `None`.
+    fn read_optional<T>(&self, field: ConfigField<T>) -> ConfigResult<Option<T>>
+    where
+        T: FromConfig,
+    {
+        let ConfigField {
+            name,
+            aliases,
+            default,
+            read_options,
+        } = field;
+        let options = read_options.as_ref().unwrap_or_else(|| self.read_options());
+        let mut names = Vec::with_capacity(1 + aliases.len());
+        names.push(name.as_str());
+        names.extend(aliases.iter().map(String::as_str));
+        self.get_optional_any_with_options(&names, options)
+            .map(|value| value.or(default))
+    }
+
+    /// Shared implementation for field-level and global multi-key reads.
+    fn get_optional_any_with_options<T>(
+        &self,
+        names: &[&str],
+        options: &ConfigReadOptions,
+    ) -> ConfigResult<Option<T>>
+    where
+        T: FromConfig,
+    {
+        for name in names {
+            let Some(property) = self.get_property(name) else {
+                continue;
+            };
+            let resolved = self.resolve_key(name);
+            if is_effectively_missing(self, &resolved, property, options)? {
+                continue;
+            }
+            return parse_property_from_reader(self, &resolved, property, options).map(Some);
+        }
+        Ok(None)
+    }
 
     /// Gets an optional list with the same semantics as [`crate::Config::get_optional_list`].
     ///
     /// # Type parameters
     ///
-    /// * `T` - Element type; requires [`qubit_value::Value`] to implement
-    ///   [`qubit_value::ValueConverter`] for `T`.
+    /// * `T` - Element type supported by the shared conversion layer.
     ///
     /// # Parameters
     ///
@@ -199,7 +365,7 @@ pub trait ConfigReader {
     /// `Ok(Some(vec))`, `Ok(None)` when missing or empty, or `Err` on failure.
     fn get_optional_list<T>(&self, name: &str) -> ConfigResult<Option<Vec<T>>>
     where
-        QubitValue: ValueConverter<T>;
+        T: FromConfig;
 
     /// Returns whether any key visible to this reader starts with `prefix`.
     ///
@@ -292,29 +458,70 @@ pub trait ConfigReader {
     ///
     /// The string after `${...}` resolution, or a [`crate::ConfigError`].
     fn get_string(&self, name: &str) -> ConfigResult<String> {
-        let value: String = self.get(name)?;
-        if self.is_enable_variable_substitution() {
-            utils::substitute_variables(&value, self, self.max_substitution_depth())
-        } else {
-            Ok(value)
-        }
+        self.get(name)
     }
 
-    /// Gets a string value with substitution, or `default` if lookup or
-    /// substitution fails.
+    /// Gets a string value from the first present and non-empty key in `names`.
+    ///
+    /// # Parameters
+    ///
+    /// * `names` - Candidate keys in priority order.
+    ///
+    /// # Returns
+    ///
+    /// The resolved string from the first configured key.
+    #[inline]
+    fn get_string_any(&self, names: &[&str]) -> ConfigResult<String> {
+        self.get_any(names)
+    }
+
+    /// Gets an optional string value from the first present and non-empty key.
+    ///
+    /// # Parameters
+    ///
+    /// * `names` - Candidate keys in priority order.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(None)` only when all keys are missing or empty.
+    #[inline]
+    fn get_optional_string_any(&self, names: &[&str]) -> ConfigResult<Option<String>> {
+        self.get_optional_any(names)
+    }
+
+    /// Gets a string from any key, or `default` when all keys are missing or
+    /// empty.
+    ///
+    /// # Parameters
+    ///
+    /// * `names` - Candidate keys in priority order.
+    /// * `default` - Fallback string used only when every key is missing or
+    ///   empty.
+    ///
+    /// # Returns
+    ///
+    /// The resolved string or a clone of `default`; substitution errors are
+    /// returned.
+    #[inline]
+    fn get_string_any_or(&self, names: &[&str], default: &str) -> ConfigResult<String> {
+        self.get_any_or(names, default.to_string())
+    }
+
+    /// Gets a string value with substitution, or `default` if the key is
+    /// missing or empty.
     ///
     /// # Parameters
     ///
     /// * `name` - Configuration key.
-    /// * `default` - Fallback string when [`Self::get_string`] would error.
+    /// * `default` - Fallback string used only when the key is missing or empty.
     ///
     /// # Returns
     ///
-    /// The resolved string or a clone of `default`.
+    /// The resolved string or a clone of `default`; parsing and substitution
+    /// errors are returned.
     #[inline]
-    fn get_string_or(&self, name: &str, default: &str) -> String {
-        self.get_string(name)
-            .unwrap_or_else(|_| default.to_string())
+    fn get_string_or(&self, name: &str, default: &str) -> ConfigResult<String> {
+        self.get_or(name, default.to_string())
     }
 
     /// Gets all string values for `name`, applying substitution to each element
@@ -328,33 +535,25 @@ pub trait ConfigReader {
     ///
     /// A vector of resolved strings, or a [`crate::ConfigError`].
     fn get_string_list(&self, name: &str) -> ConfigResult<Vec<String>> {
-        let values: Vec<String> = self.get_list(name)?;
-        if self.is_enable_variable_substitution() {
-            values
-                .into_iter()
-                .map(|v| utils::substitute_variables(&v, self, self.max_substitution_depth()))
-                .collect()
-        } else {
-            Ok(values)
-        }
+        self.get(name)
     }
 
-    /// Gets a string list with substitution, or copies `default` if lookup
-    /// fails.
+    /// Gets a string list with substitution, or copies `default` if the key is
+    /// missing or empty.
     ///
     /// # Parameters
     ///
     /// * `name` - Configuration key.
-    /// * `default` - Fallback string slices when [`Self::get_string_list`]
-    ///   would error.
+    /// * `default` - Fallback string slices used only when the key is missing or
+    ///   empty.
     ///
     /// # Returns
     ///
-    /// The resolved list or `default` converted to owned `String`s.
+    /// The resolved list or `default` converted to owned `String`s`; parsing and
+    /// substitution errors are returned.
     #[inline]
-    fn get_string_list_or(&self, name: &str, default: &[&str]) -> Vec<String> {
-        self.get_string_list(name)
-            .unwrap_or_else(|_| default.iter().map(|s| s.to_string()).collect())
+    fn get_string_list_or(&self, name: &str, default: &[&str]) -> ConfigResult<Vec<String>> {
+        self.get_or(name, default.iter().map(|s| s.to_string()).collect())
     }
 
     /// Gets an optional string with the same three-way semantics as

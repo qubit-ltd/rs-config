@@ -1,18 +1,16 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 //! # Base Implementation of Configurable Objects
 //!
 //! Provides a base structure that implements the `Configurable` trait.
 //!
-//! # Author
-//!
-//! Haixing Hu
 
 use super::{Config, Configurable};
 
@@ -63,9 +61,6 @@ use super::{Config, Configurable};
 /// }
 /// ```
 ///
-/// # Author
-///
-/// Haixing Hu
 ///
 #[derive(Debug, Clone, PartialEq)]
 pub struct Configured {

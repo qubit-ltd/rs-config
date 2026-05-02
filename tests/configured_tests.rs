@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 //! # Configured Class Unit Tests
@@ -38,7 +39,10 @@ fn create_test_config_with_description() -> Config {
 
 #[cfg(test)]
 mod test_new {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, Configurable, Configured, create_test_config, create_test_config_with_description,
+    };
 
     #[test]
     fn test_new_creates_empty_configured() {
@@ -59,7 +63,10 @@ mod test_new {
 
 #[cfg(test)]
 mod test_with_config {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, Configurable, Configured, create_test_config, create_test_config_with_description,
+    };
 
     #[test]
     fn test_with_config_creates_configured_with_given_config() {
@@ -113,7 +120,10 @@ mod test_with_config {
 
 #[cfg(test)]
 mod test_config {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, Configurable, Configured, create_test_config, create_test_config_with_description,
+    };
 
     #[test]
     fn test_config_returns_reference_to_config() {
@@ -146,7 +156,10 @@ mod test_config {
 
 #[cfg(test)]
 mod test_config_mut {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, Configurable, Configured, create_test_config, create_test_config_with_description,
+    };
 
     #[test]
     fn test_config_mut_returns_mutable_reference() {
@@ -250,7 +263,10 @@ mod test_config_mut {
 
 #[cfg(test)]
 mod test_set_config {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, Configurable, Configured, create_test_config, create_test_config_with_description,
+    };
 
     #[test]
     fn test_set_config_replaces_config() {
@@ -339,7 +355,10 @@ mod test_set_config {
 
 #[cfg(test)]
 mod test_on_config_changed {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, Configurable, Configured, create_test_config, create_test_config_with_description,
+    };
 
     #[test]
     fn test_on_config_changed_default_implementation() {
@@ -394,7 +413,10 @@ mod test_on_config_changed {
 
 #[cfg(test)]
 mod test_default {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, Configurable, Configured, create_test_config, create_test_config_with_description,
+    };
 
     #[test]
     fn test_default_creates_empty_configured() {
@@ -426,7 +448,10 @@ mod test_default {
 
 #[cfg(test)]
 mod integration_tests {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{
+        Config, Configurable, Configured, create_test_config, create_test_config_with_description,
+    };
 
     #[test]
     fn test_configured_full_workflow() {

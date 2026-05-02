@@ -1,17 +1,19 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 //! # ConfigError Unit Tests
 //!
 //! Tests all error types and conversions of the ConfigError enum.
 
-use qubit_common::DataType;
 use qubit_config::{Config, ConfigError};
+use qubit_datatype::DataConversionError;
+use qubit_datatype::DataType;
 use qubit_value::ValueError;
 use std::io;
 
@@ -59,6 +61,79 @@ fn test_conversion_error() {
     assert!(error_msg.contains("Type conversion failed"));
     assert!(error_msg.contains("Cannot convert to integer"));
     assert!(error_msg.contains("db.timeout"));
+}
+
+#[test]
+fn test_from_data_conversion_error_maps_no_value() {
+    let error =
+        ConfigError::from_data_conversion_error("server.host", DataConversionError::NoValue);
+
+    assert!(matches!(
+        error,
+        ConfigError::PropertyHasNoValue(key) if key == "server.host"
+    ));
+}
+
+#[test]
+fn test_from_data_conversion_error_maps_conversion_failed() {
+    let error = ConfigError::from_data_conversion_error(
+        "server.enabled",
+        DataConversionError::ConversionFailed {
+            from: DataType::String,
+            to: DataType::Bool,
+        },
+    );
+
+    assert!(matches!(
+        error,
+        ConfigError::ConversionError { key, message }
+            if key == "server.enabled"
+                && message.contains("From string to bool")
+    ));
+}
+
+#[test]
+fn test_from_data_conversion_error_maps_conversion_message() {
+    let error = ConfigError::from_data_conversion_error(
+        "server.enabled",
+        DataConversionError::ConversionError("invalid boolean".to_string()),
+    );
+
+    assert!(matches!(
+        error,
+        ConfigError::ConversionError { key, message }
+            if key == "server.enabled" && message == "invalid boolean"
+    ));
+}
+
+#[test]
+fn test_from_data_conversion_error_maps_json_serialization() {
+    let error = ConfigError::from_data_conversion_error(
+        "payload",
+        DataConversionError::JsonSerializationError("unsupported value".to_string()),
+    );
+
+    assert!(matches!(
+        error,
+        ConfigError::ConversionError { key, message }
+            if key == "payload"
+                && message == "JSON serialization error: unsupported value"
+    ));
+}
+
+#[test]
+fn test_from_data_conversion_error_maps_json_deserialization() {
+    let error = ConfigError::from_data_conversion_error(
+        "payload",
+        DataConversionError::JsonDeserializationError("invalid json".to_string()),
+    );
+
+    assert!(matches!(
+        error,
+        ConfigError::ConversionError { key, message }
+            if key == "payload"
+                && message == "JSON deserialization error: invalid json"
+    ));
 }
 
 #[test]

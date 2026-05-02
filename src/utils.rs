@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 //! # Configuration Utility Functions
@@ -11,16 +12,13 @@
 //! Provides configuration-related utility functions, such as variable
 //! substitution and JSON map construction for [`crate::Config::deserialize`].
 //!
-//! # Author
-//!
-//! Haixing Hu
 
 use regex::Regex;
 use serde_json::map::Entry;
 use serde_json::{Map, Number, Value};
 use std::sync::OnceLock;
 
-use qubit_common::serde::duration_with_unit;
+use qubit_serde::serde::duration_with_unit;
 use qubit_value::{MultiValues, ValueError};
 
 use super::{ConfigError, ConfigReader, ConfigResult, Property};
@@ -29,17 +27,11 @@ use super::{ConfigError, ConfigReader, ConfigResult, Property};
 ///
 /// Matches variables in `${variable_name}` format
 ///
-/// # Author
-///
-/// Haixing Hu
 ///
 static VARIABLE_PATTERN: OnceLock<Regex> = OnceLock::new();
 
 /// Gets the regular expression pattern for variables
 ///
-/// # Author
-///
-/// Haixing Hu
 ///
 #[inline]
 fn get_variable_pattern() -> &'static Regex {
@@ -51,9 +43,6 @@ fn get_variable_pattern() -> &'static Regex {
 /// Maps a [`ValueError`] from typed property access to [`ConfigError`], using
 /// `key` as the configuration path for type and conversion errors.
 ///
-/// # Author
-///
-/// Haixing Hu
 ///
 pub(crate) fn map_value_error(key: &str, err: ValueError) -> ConfigError {
     ConfigError::from((key, err))
@@ -64,9 +53,6 @@ pub(crate) fn map_value_error(key: &str, err: ValueError) -> ConfigError {
 /// Used internally by [`crate::Config`] and [`crate::ConfigReader`] when
 /// variable substitution is enabled.
 ///
-/// # Author
-///
-/// Haixing Hu
 ///
 pub(crate) fn substitute_variables<R: ConfigReader + ?Sized>(
     value: &str,
@@ -162,26 +148,19 @@ fn substitute_variables_by(
 ///
 /// Returns the variable value on success, or an error on failure
 ///
-/// # Author
-///
-/// Haixing Hu
 ///
 fn find_variable_value<R: ConfigReader + ?Sized>(
     var_name: &str,
     config: &R,
 ) -> ConfigResult<String> {
-    // 1. Try configuration first.
-    match config.get::<String>(var_name) {
-        Ok(value) => Ok(value),
-        // Only missing or empty values can fall back to env vars.
-        Err(ConfigError::PropertyNotFound(_)) | Err(ConfigError::PropertyHasNoValue(_)) => {
-            std::env::var(var_name).map_err(|_| {
-                ConfigError::SubstitutionError(format!("Cannot resolve variable: {}", var_name))
-            })
-        }
-        // Type/conversion errors in config should surface directly instead of
-        // being silently masked by environment values.
-        Err(err) => Err(err),
+    match config.get_property(var_name) {
+        Some(property) if !property.is_empty() => match property.value().to::<String>() {
+            Ok(value) => Ok(value),
+            Err(error) => Err(map_value_error(var_name, error)),
+        },
+        Some(_) | None => std::env::var(var_name).map_err(|_| {
+            ConfigError::SubstitutionError(format!("Cannot resolve variable: {}", var_name))
+        }),
     }
 }
 
@@ -195,12 +174,12 @@ fn find_variable_value_with_fallback<P: ConfigReader + ?Sized, F: ConfigReader +
     primary: &P,
     fallback: &F,
 ) -> ConfigResult<String> {
-    match primary.get::<String>(var_name) {
-        Ok(value) => Ok(value),
-        Err(ConfigError::PropertyNotFound(_)) | Err(ConfigError::PropertyHasNoValue(_)) => {
-            find_variable_value(var_name, fallback)
-        }
-        Err(err) => Err(err),
+    match primary.get_property(var_name) {
+        Some(property) if !property.is_empty() => match property.value().to::<String>() {
+            Ok(value) => Ok(value),
+            Err(error) => Err(map_value_error(var_name, error)),
+        },
+        Some(_) | None => find_variable_value(var_name, fallback),
     }
 }
 

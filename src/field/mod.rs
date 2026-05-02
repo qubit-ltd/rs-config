@@ -8,10 +8,12 @@
  *
  ******************************************************************************/
 
-/// Default maximum recursion depth when resolving `${...}` variable references
-/// in strings.
-///
-/// # Returns
-///
-/// The numeric constant `64`.
-pub const DEFAULT_MAX_SUBSTITUTION_DEPTH: usize = 64;
+//! Field declarations used by typed configuration reads.
+
+mod config_field;
+mod config_field_builder;
+mod config_field_name_builder;
+
+pub use config_field::ConfigField;
+pub use config_field_builder::ConfigFieldBuilder;
+pub use config_field_name_builder::ConfigFieldNameBuilder;

@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 //! # `PropertiesConfigSource` tests
@@ -28,7 +29,8 @@ fn fixture(name: &str) -> PathBuf {
 
 #[cfg(test)]
 mod test_properties_config_source {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{Config, ConfigError, ConfigSource, PathBuf, PropertiesConfigSource, fixture};
 
     // ---- parse_content unit tests ----
 
@@ -250,7 +252,8 @@ mod test_properties_config_source {
 
 #[cfg(test)]
 mod test_properties_coverage {
-    use super::*;
+    #[allow(unused_imports)]
+    use super::{Config, ConfigError, ConfigSource, PathBuf, PropertiesConfigSource, fixture};
 
     #[test]
     fn test_properties_key_only_line() {
