@@ -526,6 +526,25 @@ mod test_config_reader_alias_reads {
     }
 
     #[test]
+    fn test_get_any_or_with_uses_explicit_read_options() {
+        let mut config = Config::new();
+        config
+            .set("server.port", "   ")
+            .expect("setting blank value should succeed");
+
+        let value = config
+            .get_any_or_with::<u16>(
+                &["server.port", "SERVER_PORT"],
+                8080,
+                &ConfigReadOptions::default()
+                    .with_blank_string_policy(BlankStringPolicy::TreatAsMissing),
+            )
+            .expect("blank value should use default with explicit options");
+
+        assert_eq!(value, 8080);
+    }
+
+    #[test]
     fn test_get_reports_missing_for_blank_string_when_policy_treats_missing() {
         let mut config = Config::new();
         config

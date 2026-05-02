@@ -272,6 +272,31 @@ pub trait ConfigReader {
             .map(|value| value.unwrap_or(default))
     }
 
+    /// Reads a value from any key with explicit read options, using `default`
+    /// only when all keys are absent or empty.
+    ///
+    /// # Parameters
+    ///
+    /// * `names` - Candidate keys in priority order.
+    /// * `default` - Fallback when no candidate is configured.
+    /// * `read_options` - Parsing options for this read.
+    ///
+    /// # Returns
+    ///
+    /// Parsed value or `default`; parsing errors are never swallowed.
+    fn get_any_or_with<T>(
+        &self,
+        names: &[&str],
+        default: T,
+        read_options: &ConfigReadOptions,
+    ) -> ConfigResult<T>
+    where
+        T: FromConfig,
+    {
+        self.get_optional_any_with_options(names, read_options)
+            .map(|value| value.unwrap_or(default))
+    }
+
     /// Reads a declared field.
     ///
     /// # Parameters

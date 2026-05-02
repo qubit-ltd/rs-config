@@ -753,6 +753,30 @@ impl Config {
         <Self as ConfigReader>::get_any_or(self, names, default)
     }
 
+    /// Gets the first configured value from `names` with explicit read options,
+    /// or `default` when absent.
+    ///
+    /// # Parameters
+    ///
+    /// * `names` - Candidate keys checked in priority order.
+    /// * `default` - Fallback used only when all keys are missing or empty.
+    /// * `read_options` - Parsing options for this read.
+    ///
+    /// # Returns
+    ///
+    /// Parsed value or `default`; conversion errors are returned.
+    pub fn get_any_or_with<T>(
+        &self,
+        names: &[&str],
+        default: T,
+        read_options: &ConfigReadOptions,
+    ) -> ConfigResult<T>
+    where
+        T: FromConfig,
+    {
+        <Self as ConfigReader>::get_any_or_with(self, names, default, read_options)
+    }
+
     /// Reads a declared configuration field.
     ///
     /// # Parameters

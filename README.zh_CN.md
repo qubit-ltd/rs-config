@@ -102,6 +102,7 @@ config.set("database.port", 5432)?;
 | `get_any<T>(&[names])` | 按顺序读取第一个存在且非空的 key。 |
 | `get_optional_any<T>(&[names])` | 多 key 可选读取。 |
 | `get_any_or<T>(&[names], default)` | 多 key 默认值读取。 |
+| `get_any_or_with<T>(&[names], default, options)` | 使用显式读取选项的多 key 默认值读取。 |
 | `get_string`、`get_string_any`、`get_string_any_or` | 带变量替换的字符串读取。 |
 | `read(ConfigField<T>)` | 通过字段声明读取，支持 name、alias、default 和字段级解析选项。 |
 | `get_strict` / `get_list_strict` | 精确存储类型读取，不做跨类型转换。 |
@@ -222,7 +223,7 @@ builder 会强制主 key 明确出现：只有调用 `name(...)` 后，才可以
 
 ### 多 Key 读取
 
-当完整的 `ConfigField<T>` 显得过重时，可以使用 `get_any`、`get_optional_any` 和 `get_any_or` 做轻量 alias 读取。
+当完整的 `ConfigField<T>` 显得过重时，可以使用 `get_any`、`get_optional_any`、`get_any_or` 和 `get_any_or_with` 做轻量 alias 读取。
 
 ```rust
 use qubit_config::{Config, options::ConfigReadOptions};
@@ -234,10 +235,16 @@ config.set("SERVER_TIMEOUT", "30")?;
 let url = config.get_string_any(&["service.url", "SERVICE_URL"])?;
 let timeout = config.get_any_or(&["server.timeout", "SERVER_TIMEOUT"], 10u64)?;
 let optional_port = config.get_optional_any::<u16>(&["server.port", "SERVER_PORT"])?;
+let retries = config.get_any_or_with(
+    &["server.retries", "SERVER_RETRIES"],
+    3u8,
+    &ConfigReadOptions::env_friendly(),
+)?;
 
 assert_eq!(url, "http://localhost:8080");
 assert_eq!(timeout, 30);
 assert_eq!(optional_port, None);
+assert_eq!(retries, 3);
 ```
 
 多 key 读取会按顺序扫描 key。缺失和空值会被跳过；第一个存在且非空的值会被解析。如果这个值无效，会直接返回错误，不会继续尝试后面的 key。

@@ -100,6 +100,7 @@ The main read APIs are:
 | `get_any<T>(&[names])` | Read the first present and non-empty key in order. |
 | `get_optional_any<T>(&[names])` | Multi-key optional read. |
 | `get_any_or<T>(&[names], default)` | Multi-key defaulted read. |
+| `get_any_or_with<T>(&[names], default, options)` | Multi-key defaulted read with explicit read options. |
 | `get_string`, `get_string_any`, `get_string_any_or` | String helpers with variable substitution. |
 | `read(ConfigField<T>)` | Field declaration with name, aliases, default, and field-level read options. |
 | `get_strict` / `get_list_strict` | Exact stored-type reads without cross-type conversion. |
@@ -220,7 +221,7 @@ The builder makes the primary name explicit: `build()` is available only after `
 
 ### Multi-Key Reads
 
-Use `get_any`, `get_optional_any`, and `get_any_or` for lightweight alias reads when a full `ConfigField<T>` would be too verbose.
+Use `get_any`, `get_optional_any`, `get_any_or`, and `get_any_or_with` for lightweight alias reads when a full `ConfigField<T>` would be too verbose.
 
 ```rust
 use qubit_config::{Config, options::ConfigReadOptions};
@@ -232,10 +233,16 @@ config.set("SERVER_TIMEOUT", "30")?;
 let url = config.get_string_any(&["service.url", "SERVICE_URL"])?;
 let timeout = config.get_any_or(&["server.timeout", "SERVER_TIMEOUT"], 10u64)?;
 let optional_port = config.get_optional_any::<u16>(&["server.port", "SERVER_PORT"])?;
+let retries = config.get_any_or_with(
+    &["server.retries", "SERVER_RETRIES"],
+    3u8,
+    &ConfigReadOptions::env_friendly(),
+)?;
 
 assert_eq!(url, "http://localhost:8080");
 assert_eq!(timeout, 30);
 assert_eq!(optional_port, None);
+assert_eq!(retries, 3);
 ```
 
 Multi-key reads scan keys in order. Missing and empty values are skipped; the first configured non-empty value is parsed. If that value is invalid, the error is returned and later keys are not tried.
