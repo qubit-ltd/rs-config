@@ -122,14 +122,14 @@ let invalid = config.get_or("worker.threads", 4u16);
 assert!(matches!(invalid, Err(ConfigError::ConversionError { .. })));
 ```
 
-`get_or`、`get_any_or`、`get_any_or_with` 等带 default value 的读取接口现在支持更方便的默认值传法。标量默认值仍直接使用目标类型；字符串默认值可以直接传 `&str`；字符串列表默认值可以使用数组、切片或借用的 `Vec<String>`。
+`get_or`、`get_any_or`、`get_any_or_with` 等带 default value 的读取接口现在支持更方便的默认值传法。标量默认值仍直接使用目标类型；字符串默认值可以直接传 `&str`；字符串列表默认值可以使用数组、切片或借用的 `Vec<String>`。单 key 和多 key 参数也支持直接传数组、切片、vector 和借用的 vector。
 
 ```rust
 let host = config.get_or::<String>("server.host", "localhost")?;
 let paths = config.get_or::<Vec<String>>("server.paths", ["bin", "lib"])?;
 
 let paths = config.get_any_or::<Vec<String>>(
-    &["server.paths", "SERVER_PATHS"],
+    ["server.paths", "SERVER_PATHS"],
     ["cache", "tmp"],
 )?;
 ```
@@ -244,11 +244,11 @@ let mut config = Config::new().with_read_options(ConfigReadOptions::env_friendly
 config.set("SERVICE_URL", "http://localhost:8080")?;
 config.set("SERVER_TIMEOUT", "30")?;
 
-let url = config.get_string_any(&["service.url", "SERVICE_URL"])?;
-let timeout = config.get_any_or(&["server.timeout", "SERVER_TIMEOUT"], 10u64)?;
-let optional_port = config.get_optional_any::<u16>(&["server.port", "SERVER_PORT"])?;
+let url = config.get_string_any(["service.url", "SERVICE_URL"])?;
+let timeout = config.get_any_or(["server.timeout", "SERVER_TIMEOUT"], 10u64)?;
+let optional_port = config.get_optional_any::<u16>(["server.port", "SERVER_PORT"])?;
 let retries = config.get_any_or_with(
-    &["server.retries", "SERVER_RETRIES"],
+    ["server.retries", "SERVER_RETRIES"],
     3u8,
     &ConfigReadOptions::env_friendly(),
 )?;

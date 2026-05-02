@@ -792,6 +792,20 @@ mod test_get_or {
     }
 
     #[test]
+    fn test_get_or_accepts_owned_and_borrowed_names() {
+        let mut config = Config::new();
+        config.set("server.port", "8080").unwrap();
+
+        let owned = "server.port".to_string();
+        let value = config.get_or::<u16>(owned, 9000).unwrap();
+        assert_eq!(value, 8080);
+
+        let borrowed = "missing.port".to_string();
+        let value = config.get_or::<u16>(&borrowed, 9000).unwrap();
+        assert_eq!(value, 9000);
+    }
+
+    #[test]
     fn test_get_or_with_str_array_default_for_string_list() {
         let config = Config::new();
 

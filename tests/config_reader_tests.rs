@@ -490,10 +490,80 @@ mod test_config_reader_alias_reads {
         let config = Config::new();
 
         let value = config
-            .get_any_or::<Vec<String>>(&["new.paths", "old.paths"], ["bin", "lib"])
+            .get_any_or::<Vec<String>>(["new.paths", "old.paths"], ["bin", "lib"])
             .expect("missing aliases should use string list default");
 
         assert_eq!(value, vec!["bin".to_string(), "lib".to_string()]);
+    }
+
+    #[test]
+    fn test_any_reads_accept_convenient_name_lists() {
+        let mut config = Config::new();
+        config
+            .set("server.port", "8080")
+            .expect("setting value should succeed");
+
+        let direct_array = config
+            .get_any_or::<u16>(["missing.port", "server.port"], 9000)
+            .expect("array names should be accepted directly");
+        assert_eq!(direct_array, 8080);
+
+        let array_ref = config
+            .get_any_or::<u16>(&["missing.port", "server.port"], 9000)
+            .expect("array references should be accepted directly");
+        assert_eq!(array_ref, 8080);
+
+        let str_slice_names = ["missing.port", "server.port"];
+        let str_slice = config
+            .get_any_or::<u16>(str_slice_names.as_slice(), 9000)
+            .expect("string slices should be accepted directly");
+        assert_eq!(str_slice, 8080);
+
+        let str_vec_names = vec!["missing.port", "server.port"];
+        let str_vec = config
+            .get_any_or::<u16>(str_vec_names.clone(), 9000)
+            .expect("borrowed string vectors should be accepted by value");
+        assert_eq!(str_vec, 8080);
+
+        let str_vec_ref = config
+            .get_any_or::<u16>(&str_vec_names, 9000)
+            .expect("borrowed string vectors should be accepted by reference");
+        assert_eq!(str_vec_ref, 8080);
+
+        let owned_vec_names = vec!["missing.port".to_string(), "server.port".to_string()];
+        let owned_vec = config
+            .get_any_or::<u16>(owned_vec_names.clone(), 9000)
+            .expect("owned name vectors should be accepted by value");
+        assert_eq!(owned_vec, 8080);
+
+        let owned_vec_ref = config
+            .get_any_or::<u16>(&owned_vec_names, 9000)
+            .expect("owned name vectors should be accepted by reference");
+        assert_eq!(owned_vec_ref, 8080);
+
+        let owned_slice = config
+            .get_any_or::<u16>(owned_vec_names.as_slice(), 9000)
+            .expect("owned name slices should be accepted directly");
+        assert_eq!(owned_slice, 8080);
+
+        let owned_array = ["missing.port".to_string(), "server.port".to_string()];
+        let owned_array_value = config
+            .get_any_or::<u16>(owned_array.clone(), 9000)
+            .expect("owned name arrays should be accepted directly");
+        assert_eq!(owned_array_value, 8080);
+
+        let owned_array_ref = config
+            .get_any_or::<u16>(&owned_array, 9000)
+            .expect("owned name array references should be accepted directly");
+        assert_eq!(owned_array_ref, 8080);
+
+        let trait_call = <Config as ConfigReader>::get_any_or::<Vec<String>>(
+            &config,
+            ["missing.paths", "legacy.paths"],
+            ["cache", "tmp"],
+        )
+        .expect("ConfigReader should accept direct arrays for names and defaults");
+        assert_eq!(trait_call, vec!["cache".to_string(), "tmp".to_string()]);
     }
 
     #[test]
@@ -692,7 +762,7 @@ mod test_config_reader_alias_reads {
             .expect("setting alias value should succeed");
 
         let value = config
-            .get_string_any_or(&["service.url", "SERVICE_URL"], "http://fallback")
+            .get_string_any_or(["service.url", "SERVICE_URL"], "http://fallback")
             .expect("string alias should resolve");
 
         assert_eq!(value, "http://localhost:8080");
@@ -709,13 +779,13 @@ mod test_config_reader_alias_reads {
             .expect("setting alias value should succeed");
 
         let value = config
-            .get_string_any(&["service.url", "SERVICE_URL"])
+            .get_string_any(["service.url", "SERVICE_URL"])
             .expect("string alias should resolve");
         let optional = config
-            .get_optional_string_any(&["service.url", "SERVICE_URL"])
+            .get_optional_string_any(["service.url", "SERVICE_URL"])
             .expect("optional string alias should resolve");
         let missing = config
-            .get_optional_string_any(&["server.url", "SERVER_URL"])
+            .get_optional_string_any(["server.url", "SERVER_URL"])
             .expect("missing optional string aliases should not fail");
 
         assert_eq!(value, "http://localhost:8080");

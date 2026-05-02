@@ -32,7 +32,7 @@ use crate::source::{
     YamlConfigSource,
 };
 use crate::utils;
-use crate::{ConfigError, ConfigResult, Property};
+use crate::{ConfigError, ConfigName, ConfigNames, ConfigResult, Property};
 use qubit_datatype::DataType;
 use qubit_value::MultiValues;
 use qubit_value::multi_values::{
@@ -330,8 +330,8 @@ impl Config {
     /// assert!(!config.contains("host"));
     /// ```
     #[inline]
-    pub fn contains(&self, name: &str) -> bool {
-        self.properties.contains_key(name)
+    pub fn contains(&self, name: impl ConfigName) -> bool {
+        name.with_config_name(|name| self.properties.contains_key(name))
     }
 
     /// Gets a reference to a configuration item
@@ -344,8 +344,8 @@ impl Config {
     ///
     /// Returns Option containing the configuration item
     #[inline]
-    pub fn get_property(&self, name: &str) -> Option<&Property> {
-        self.properties.get(name)
+    pub fn get_property(&self, name: impl ConfigName) -> Option<&Property> {
+        name.with_config_name(|name| self.properties.get(name))
     }
 
     /// Gets guarded mutable access to a non-final configuration item.
@@ -361,9 +361,14 @@ impl Config {
     /// existing final property. The returned guard re-checks final state before
     /// each value-changing operation.
     #[inline]
-    pub fn get_property_mut(&mut self, name: &str) -> ConfigResult<Option<ConfigPropertyMut<'_>>> {
-        self.ensure_property_not_final(name)?;
-        Ok(self.properties.get_mut(name).map(ConfigPropertyMut::new))
+    pub fn get_property_mut(
+        &mut self,
+        name: impl ConfigName,
+    ) -> ConfigResult<Option<ConfigPropertyMut<'_>>> {
+        name.with_config_name(|name| {
+            self.ensure_property_not_final(name)?;
+            Ok(self.properties.get_mut(name).map(ConfigPropertyMut::new))
+        })
     }
 
     /// Sets the final flag of an existing configuration item.
@@ -385,16 +390,18 @@ impl Config {
     /// - [`ConfigError::PropertyNotFound`] if the key does not exist.
     /// - [`ConfigError::PropertyIsFinal`] when trying to unset a final
     ///   property.
-    pub fn set_final(&mut self, name: &str, is_final: bool) -> ConfigResult<()> {
-        let property = self
-            .properties
-            .get_mut(name)
-            .ok_or_else(|| ConfigError::PropertyNotFound(name.to_string()))?;
-        if property.is_final() && !is_final {
-            return Err(ConfigError::PropertyIsFinal(name.to_string()));
-        }
-        property.set_final(is_final);
-        Ok(())
+    pub fn set_final(&mut self, name: impl ConfigName, is_final: bool) -> ConfigResult<()> {
+        name.with_config_name(|name| {
+            let property = self
+                .properties
+                .get_mut(name)
+                .ok_or_else(|| ConfigError::PropertyNotFound(name.to_string()))?;
+            if property.is_final() && !is_final {
+                return Err(ConfigError::PropertyIsFinal(name.to_string()));
+            }
+            property.set_final(is_final);
+            Ok(())
+        })
     }
 
     /// Removes a non-final configuration item.
@@ -420,9 +427,11 @@ impl Config {
     /// assert!(!config.contains("port"));
     /// ```
     #[inline]
-    pub fn remove(&mut self, name: &str) -> ConfigResult<Option<Property>> {
-        self.ensure_property_not_final(name)?;
-        Ok(self.properties.remove(name))
+    pub fn remove(&mut self, name: impl ConfigName) -> ConfigResult<Option<Property>> {
+        name.with_config_name(|name| {
+            self.ensure_property_not_final(name)?;
+            Ok(self.properties.remove(name))
+        })
     }
 
     /// Clears all configuration items if none of them are final.
@@ -628,7 +637,7 @@ impl Config {
     /// fn start_server(port: i32, host: String) { }
     /// start_server(config.get("port").unwrap(), config.get("host").unwrap());
     /// ```
-    pub fn get<T>(&self, name: &str) -> ConfigResult<T>
+    pub fn get<T>(&self, name: impl ConfigName) -> ConfigResult<T>
     where
         T: FromConfig,
     {
@@ -654,15 +663,17 @@ impl Config {
     /// # Returns
     ///
     /// The exact typed value on success, or a [`ConfigError`] on failure.
-    pub fn get_strict<T>(&self, name: &str) -> ConfigResult<T>
+    pub fn get_strict<T>(&self, name: impl ConfigName) -> ConfigResult<T>
     where
         MultiValues: MultiValuesFirstGetter<T>,
     {
-        let property = self.get_property_by_name(name)?;
+        name.with_config_name(|name| {
+            let property = self.get_property_by_name(name)?;
 
-        property
-            .get_first::<T>()
-            .map_err(|e| utils::map_value_error(name, e))
+            property
+                .get_first::<T>()
+                .map_err(|e| utils::map_value_error(name, e))
+        })
     }
 
     /// Gets a configuration value or returns a default value.
@@ -697,7 +708,11 @@ impl Config {
     /// assert_eq!(port, 8080);
     /// assert_eq!(host, "localhost");
     /// ```
-    pub fn get_or<T>(&self, name: &str, default: impl IntoConfigDefault<T>) -> ConfigResult<T>
+    pub fn get_or<T>(
+        &self,
+        name: impl ConfigName,
+        default: impl IntoConfigDefault<T>,
+    ) -> ConfigResult<T>
     where
         T: FromConfig,
     {
@@ -713,7 +728,7 @@ impl Config {
     /// # Returns
     ///
     /// Parsed value from the first present and non-empty key.
-    pub fn get_any<T>(&self, names: &[&str]) -> ConfigResult<T>
+    pub fn get_any<T>(&self, names: impl ConfigNames) -> ConfigResult<T>
     where
         T: FromConfig,
     {
@@ -729,7 +744,7 @@ impl Config {
     /// # Returns
     ///
     /// `Ok(None)` when all keys are missing or empty.
-    pub fn get_optional_any<T>(&self, names: &[&str]) -> ConfigResult<Option<T>>
+    pub fn get_optional_any<T>(&self, names: impl ConfigNames) -> ConfigResult<Option<T>>
     where
         T: FromConfig,
     {
@@ -748,7 +763,7 @@ impl Config {
     /// Parsed value or `default`; conversion errors are returned.
     pub fn get_any_or<T>(
         &self,
-        names: &[&str],
+        names: impl ConfigNames,
         default: impl IntoConfigDefault<T>,
     ) -> ConfigResult<T>
     where
@@ -771,7 +786,7 @@ impl Config {
     /// Parsed value or `default`; conversion errors are returned.
     pub fn get_any_or_with<T>(
         &self,
-        names: &[&str],
+        names: impl ConfigNames,
         default: impl IntoConfigDefault<T>,
         read_options: &ConfigReadOptions,
     ) -> ConfigResult<T>
@@ -842,7 +857,7 @@ impl Config {
     /// let ports: Vec<i32> = config.get_list("ports").unwrap();
     /// assert_eq!(ports, vec![8080, 8081, 8082]);
     /// ```
-    pub fn get_list<T>(&self, name: &str) -> ConfigResult<Vec<T>>
+    pub fn get_list<T>(&self, name: impl ConfigName) -> ConfigResult<Vec<T>>
     where
         T: FromConfig,
     {
@@ -869,18 +884,20 @@ impl Config {
     ///
     /// A vector of exact typed values on success, or a [`ConfigError`] on
     /// failure.
-    pub fn get_list_strict<T>(&self, name: &str) -> ConfigResult<Vec<T>>
+    pub fn get_list_strict<T>(&self, name: impl ConfigName) -> ConfigResult<Vec<T>>
     where
         MultiValues: MultiValuesGetter<T>,
     {
-        let property = self.get_property_by_name(name)?;
-        if property.is_empty() {
-            return Ok(Vec::new());
-        }
+        name.with_config_name(|name| {
+            let property = self.get_property_by_name(name)?;
+            if property.is_empty() {
+                return Ok(Vec::new());
+            }
 
-        property
-            .get::<T>()
-            .map_err(|e| utils::map_value_error(name, e))
+            property
+                .get::<T>()
+                .map_err(|e| utils::map_value_error(name, e))
+        })
     }
 
     /// Sets a configuration value
@@ -925,7 +942,7 @@ impl Config {
     /// config.set("hosts", vec!["host1", "host2"]).unwrap();
     /// // T inferred as &str (then converted)
     /// ```
-    pub fn set<S>(&mut self, name: &str, values: S) -> ConfigResult<()>
+    pub fn set<S>(&mut self, name: impl ConfigName, values: S) -> ConfigResult<()>
     where
         S: for<'a> MultiValuesSetArg<'a>,
         <S as MultiValuesSetArg<'static>>::Item: Clone,
@@ -933,13 +950,15 @@ impl Config {
             + MultiValuesSetterSlice<<S as MultiValuesSetArg<'static>>::Item>
             + MultiValuesSingleSetter<<S as MultiValuesSetArg<'static>>::Item>,
     {
-        self.ensure_property_not_final(name)?;
-        let property = self
-            .properties
-            .entry(name.to_string())
-            .or_insert_with(|| Property::new(name));
+        name.with_config_name(|name| {
+            self.ensure_property_not_final(name)?;
+            let property = self
+                .properties
+                .entry(name.to_string())
+                .or_insert_with(|| Property::new(name));
 
-        property.set(values).map_err(ConfigError::from)
+            property.set(values).map_err(ConfigError::from)
+        })
     }
 
     /// Adds configuration values
@@ -973,7 +992,7 @@ impl Config {
     /// let ports: Vec<i32> = config.get_list("port").unwrap();
     /// assert_eq!(ports, vec![8080, 8081, 8082, 8083, 8084, 8085]);
     /// ```
-    pub fn add<S>(&mut self, name: &str, values: S) -> ConfigResult<()>
+    pub fn add<S>(&mut self, name: impl ConfigName, values: S) -> ConfigResult<()>
     where
         S: for<'a> MultiValuesAddArg<'a, Item = <S as MultiValuesSetArg<'static>>::Item>
             + for<'a> MultiValuesSetArg<'a>,
@@ -984,19 +1003,21 @@ impl Config {
             + MultiValuesSetterSlice<<S as MultiValuesSetArg<'static>>::Item>
             + MultiValuesSingleSetter<<S as MultiValuesSetArg<'static>>::Item>,
     {
-        self.ensure_property_not_final(name)?;
+        name.with_config_name(|name| {
+            self.ensure_property_not_final(name)?;
 
-        if let Some(property) = self.properties.get_mut(name) {
-            property.add(values).map_err(ConfigError::from)
-        } else {
-            let mut property = Property::new(name);
-            // Note: property.set() always returns Ok(()) in current MultiValues implementation,
-            // as it unconditionally replaces the entire value without any validation.
-            // We explicitly ignore the result to improve code coverage and avoid unreachable error paths.
-            let _ = property.set(values);
-            self.properties.insert(name.to_string(), property);
-            Ok(())
-        }
+            if let Some(property) = self.properties.get_mut(name) {
+                property.add(values).map_err(ConfigError::from)
+            } else {
+                let mut property = Property::new(name);
+                // Note: property.set() always returns Ok(()) in current MultiValues implementation,
+                // as it unconditionally replaces the entire value without any validation.
+                // We explicitly ignore the result to improve code coverage and avoid unreachable error paths.
+                let _ = property.set(values);
+                self.properties.insert(name.to_string(), property);
+                Ok(())
+            }
+        })
     }
 
     // ========================================================================
@@ -1028,7 +1049,7 @@ impl Config {
     /// let api_url = config.get_string("api_url").unwrap();
     /// assert_eq!(api_url, "http://localhost/api");
     /// ```
-    pub fn get_string(&self, name: &str) -> ConfigResult<String> {
+    pub fn get_string(&self, name: impl ConfigName) -> ConfigResult<String> {
         <Self as ConfigReader>::get_string(self, name)
     }
 
@@ -1041,7 +1062,7 @@ impl Config {
     /// # Returns
     ///
     /// Returns the string value on success, or an error on failure.
-    pub fn get_string_any(&self, names: &[&str]) -> ConfigResult<String> {
+    pub fn get_string_any(&self, names: impl ConfigNames) -> ConfigResult<String> {
         <Self as ConfigReader>::get_string_any(self, names)
     }
 
@@ -1054,7 +1075,7 @@ impl Config {
     /// # Returns
     ///
     /// `Ok(None)` when all keys are missing or empty.
-    pub fn get_optional_string_any(&self, names: &[&str]) -> ConfigResult<Option<String>> {
+    pub fn get_optional_string_any(&self, names: impl ConfigNames) -> ConfigResult<Option<String>> {
         <Self as ConfigReader>::get_optional_string_any(self, names)
     }
 
@@ -1070,7 +1091,11 @@ impl Config {
     ///
     /// Returns the string value or default value. Substitution errors are
     /// returned instead of being hidden by the default.
-    pub fn get_string_any_or(&self, names: &[&str], default: &str) -> ConfigResult<String> {
+    pub fn get_string_any_or(
+        &self,
+        names: impl ConfigNames,
+        default: &str,
+    ) -> ConfigResult<String> {
         <Self as ConfigReader>::get_string_any_or(self, names, default)
     }
 
@@ -1087,7 +1112,7 @@ impl Config {
     /// Returns the string value or default value. Substitution errors are
     /// returned instead of being hidden by the default.
     ///
-    pub fn get_string_or(&self, name: &str, default: &str) -> ConfigResult<String> {
+    pub fn get_string_or(&self, name: impl ConfigName, default: &str) -> ConfigResult<String> {
         self.get_or(name, default)
     }
 
@@ -1116,7 +1141,7 @@ impl Config {
     /// let paths = config.get_string_list("paths").unwrap();
     /// assert_eq!(paths, vec!["/opt/app/bin", "/opt/app/lib"]);
     /// ```
-    pub fn get_string_list(&self, name: &str) -> ConfigResult<Vec<String>> {
+    pub fn get_string_list(&self, name: impl ConfigName) -> ConfigResult<Vec<String>> {
         self.get(name)
     }
 
@@ -1148,7 +1173,11 @@ impl Config {
     /// let paths = config.get_string_list_or("paths", &vec!["path1", "path2"]).unwrap();
     /// assert_eq!(paths, vec!["path1", "path2"]);
     /// ```
-    pub fn get_string_list_or(&self, name: &str, default: &[&str]) -> ConfigResult<Vec<String>> {
+    pub fn get_string_list_or(
+        &self,
+        name: impl ConfigName,
+        default: &[&str],
+    ) -> ConfigResult<Vec<String>> {
         self.get_or(name, default)
     }
 
@@ -1561,11 +1590,13 @@ impl Config {
     /// assert!(config.is_null("nullable"));
     /// assert!(!config.is_null("missing"));
     /// ```
-    pub fn is_null(&self, name: &str) -> bool {
-        self.properties
-            .get(name)
-            .map(|p| p.is_empty())
-            .unwrap_or(false)
+    pub fn is_null(&self, name: impl ConfigName) -> bool {
+        name.with_config_name(|name| {
+            self.properties
+                .get(name)
+                .map(|p| p.is_empty())
+                .unwrap_or(false)
+        })
     }
 
     /// Gets an optional configuration value.
@@ -1601,7 +1632,7 @@ impl Config {
     /// let missing: Option<i32> = config.get_optional("missing").unwrap();
     /// assert_eq!(missing, None);
     /// ```
-    pub fn get_optional<T>(&self, name: &str) -> ConfigResult<Option<T>>
+    pub fn get_optional<T>(&self, name: impl ConfigName) -> ConfigResult<Option<T>>
     where
         T: FromConfig,
     {
@@ -1644,7 +1675,7 @@ impl Config {
     /// let missing: Option<Vec<i32>> = config.get_optional_list("missing").unwrap();
     /// assert_eq!(missing, None);
     /// ```
-    pub fn get_optional_list<T>(&self, name: &str) -> ConfigResult<Option<Vec<T>>>
+    pub fn get_optional_list<T>(&self, name: impl ConfigName) -> ConfigResult<Option<Vec<T>>>
     where
         T: FromConfig,
     {
@@ -1679,8 +1710,8 @@ impl Config {
     /// let missing = config.get_optional_string("missing").unwrap();
     /// assert_eq!(missing, None);
     /// ```
-    pub fn get_optional_string(&self, name: &str) -> ConfigResult<Option<String>> {
-        self.get_optional_when_present(name, |c| c.get_string(name))
+    pub fn get_optional_string(&self, name: impl ConfigName) -> ConfigResult<Option<String>> {
+        name.with_config_name(|name| self.get_optional_when_present(name, |c| c.get_string(name)))
     }
 
     /// Gets an optional string list (substitution per element when enabled).
@@ -1714,8 +1745,13 @@ impl Config {
     ///     ]),
     /// );
     /// ```
-    pub fn get_optional_string_list(&self, name: &str) -> ConfigResult<Option<Vec<String>>> {
-        self.get_optional_when_present(name, |c| c.get_string_list(name))
+    pub fn get_optional_string_list(
+        &self,
+        name: impl ConfigName,
+    ) -> ConfigResult<Option<Vec<String>>> {
+        name.with_config_name(|name| {
+            self.get_optional_when_present(name, |c| c.get_string_list(name))
+        })
     }
 
     // ========================================================================
@@ -1818,16 +1854,22 @@ impl Config {
     /// - [`ConfigError::MergeError`] when `name` and `property.name()` differ.
     /// - [`ConfigError::PropertyIsFinal`] when trying to override a final
     ///   property.
-    pub fn insert_property(&mut self, name: &str, property: Property) -> ConfigResult<()> {
-        if property.name() != name {
-            return Err(ConfigError::MergeError(format!(
-                "Property name mismatch: key '{name}' != property '{}'",
-                property.name()
-            )));
-        }
-        self.ensure_property_not_final(name)?;
-        self.properties.insert(name.to_string(), property);
-        Ok(())
+    pub fn insert_property(
+        &mut self,
+        name: impl ConfigName,
+        property: Property,
+    ) -> ConfigResult<()> {
+        name.with_config_name(|name| {
+            if property.name() != name {
+                return Err(ConfigError::MergeError(format!(
+                    "Property name mismatch: key '{name}' != property '{}'",
+                    property.name()
+                )));
+            }
+            self.ensure_property_not_final(name)?;
+            self.properties.insert(name.to_string(), property);
+            Ok(())
+        })
     }
 
     /// Sets a key to a typed null/empty value.
@@ -1849,11 +1891,13 @@ impl Config {
     /// - [`ConfigError::PropertyIsFinal`] when trying to override a final
     ///   property.
     #[inline]
-    pub fn set_null(&mut self, name: &str, data_type: DataType) -> ConfigResult<()> {
-        self.insert_property(
-            name,
-            Property::with_value(name, MultiValues::Empty(data_type)),
-        )
+    pub fn set_null(&mut self, name: impl ConfigName, data_type: DataType) -> ConfigResult<()> {
+        name.with_config_name(|name| {
+            self.insert_property(
+                name,
+                Property::with_value(name, MultiValues::Empty(data_type)),
+            )
+        })
     }
 }
 
@@ -1879,7 +1923,7 @@ impl ConfigReader for Config {
     }
 
     #[inline]
-    fn get_property(&self, name: &str) -> Option<&Property> {
+    fn get_property(&self, name: impl ConfigName) -> Option<&Property> {
         Config::get_property(self, name)
     }
 
@@ -1899,12 +1943,12 @@ impl ConfigReader for Config {
     }
 
     #[inline]
-    fn contains(&self, name: &str) -> bool {
+    fn contains(&self, name: impl ConfigName) -> bool {
         Config::contains(self, name)
     }
 
     #[inline]
-    fn get_strict<T>(&self, name: &str) -> ConfigResult<T>
+    fn get_strict<T>(&self, name: impl ConfigName) -> ConfigResult<T>
     where
         MultiValues: MultiValuesFirstGetter<T>,
     {
@@ -1912,7 +1956,7 @@ impl ConfigReader for Config {
     }
 
     #[inline]
-    fn get_list<T>(&self, name: &str) -> ConfigResult<Vec<T>>
+    fn get_list<T>(&self, name: impl ConfigName) -> ConfigResult<Vec<T>>
     where
         T: FromConfig,
     {
@@ -1920,7 +1964,7 @@ impl ConfigReader for Config {
     }
 
     #[inline]
-    fn get_list_strict<T>(&self, name: &str) -> ConfigResult<Vec<T>>
+    fn get_list_strict<T>(&self, name: impl ConfigName) -> ConfigResult<Vec<T>>
     where
         MultiValues: MultiValuesGetter<T>,
     {
@@ -1928,7 +1972,7 @@ impl ConfigReader for Config {
     }
 
     #[inline]
-    fn get_optional_list<T>(&self, name: &str) -> ConfigResult<Option<Vec<T>>>
+    fn get_optional_list<T>(&self, name: impl ConfigName) -> ConfigResult<Option<Vec<T>>>
     where
         T: FromConfig,
     {
@@ -1954,7 +1998,7 @@ impl ConfigReader for Config {
     }
 
     #[inline]
-    fn is_null(&self, name: &str) -> bool {
+    fn is_null(&self, name: impl ConfigName) -> bool {
         Config::is_null(self, name)
     }
 

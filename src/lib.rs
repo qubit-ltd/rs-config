@@ -15,6 +15,8 @@
 
 mod config;
 mod config_error;
+mod config_name;
+mod config_names;
 mod config_prefix_view;
 mod config_property_mut;
 mod config_reader;
@@ -30,6 +32,8 @@ pub mod source;
 mod utils;
 
 pub use config::Config;
+pub use config_name::ConfigName;
+pub use config_names::ConfigNames;
 pub use config_prefix_view::ConfigPrefixView;
 pub use config_property_mut::ConfigPropertyMut;
 pub use config_reader::ConfigReader;

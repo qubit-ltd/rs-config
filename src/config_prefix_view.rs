@@ -18,7 +18,7 @@ use crate::config::Config;
 use crate::config_reader::ConfigReader;
 use crate::from::FromConfig;
 use crate::options::ConfigReadOptions;
-use crate::{ConfigResult, Property};
+use crate::{ConfigName, ConfigResult, Property};
 
 /// Read-only **prefix** view over a [`Config`]: key lookups use a logical key
 /// prefix.
@@ -177,9 +177,11 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
         self.config.description()
     }
 
-    fn get_property(&self, name: &str) -> Option<&Property> {
-        let key = self.resolve_key_cow(name);
-        self.config.get_property(key.as_ref())
+    fn get_property(&self, name: impl ConfigName) -> Option<&Property> {
+        name.with_config_name(|name| {
+            let key = self.resolve_key_cow(name);
+            self.config.get_property(key.as_ref())
+        })
     }
 
     fn len(&self) -> usize {
@@ -194,41 +196,51 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
         self.visible_entries().map(|(k, _)| k.to_string()).collect()
     }
 
-    fn contains(&self, name: &str) -> bool {
-        let key = self.resolve_key_cow(name);
-        self.config.contains(key.as_ref())
+    fn contains(&self, name: impl ConfigName) -> bool {
+        name.with_config_name(|name| {
+            let key = self.resolve_key_cow(name);
+            self.config.contains(key.as_ref())
+        })
     }
 
-    fn get_strict<T>(&self, name: &str) -> ConfigResult<T>
+    fn get_strict<T>(&self, name: impl ConfigName) -> ConfigResult<T>
     where
         MultiValues: MultiValuesFirstGetter<T>,
     {
-        let key = self.resolve_key_cow(name);
-        self.config.get_strict(key.as_ref())
+        name.with_config_name(|name| {
+            let key = self.resolve_key_cow(name);
+            self.config.get_strict(key.as_ref())
+        })
     }
 
-    fn get_list<T>(&self, name: &str) -> ConfigResult<Vec<T>>
+    fn get_list<T>(&self, name: impl ConfigName) -> ConfigResult<Vec<T>>
     where
         T: FromConfig,
     {
-        let key = self.resolve_key_cow(name);
-        self.config.get_list(key.as_ref())
+        name.with_config_name(|name| {
+            let key = self.resolve_key_cow(name);
+            self.config.get_list(key.as_ref())
+        })
     }
 
-    fn get_list_strict<T>(&self, name: &str) -> ConfigResult<Vec<T>>
+    fn get_list_strict<T>(&self, name: impl ConfigName) -> ConfigResult<Vec<T>>
     where
         MultiValues: MultiValuesGetter<T>,
     {
-        let key = self.resolve_key_cow(name);
-        self.config.get_list_strict(key.as_ref())
+        name.with_config_name(|name| {
+            let key = self.resolve_key_cow(name);
+            self.config.get_list_strict(key.as_ref())
+        })
     }
 
-    fn get_optional_list<T>(&self, name: &str) -> ConfigResult<Option<Vec<T>>>
+    fn get_optional_list<T>(&self, name: impl ConfigName) -> ConfigResult<Option<Vec<T>>>
     where
         T: FromConfig,
     {
-        let key = self.resolve_key_cow(name);
-        self.config.get_optional_list(key.as_ref())
+        name.with_config_name(|name| {
+            let key = self.resolve_key_cow(name);
+            self.config.get_optional_list(key.as_ref())
+        })
     }
 
     fn contains_prefix(&self, prefix: &str) -> bool {
@@ -249,9 +261,11 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
         self.visible_entries()
     }
 
-    fn is_null(&self, name: &str) -> bool {
-        let key = self.resolve_key_cow(name);
-        self.config.is_null(key.as_ref())
+    fn is_null(&self, name: impl ConfigName) -> bool {
+        name.with_config_name(|name| {
+            let key = self.resolve_key_cow(name);
+            self.config.is_null(key.as_ref())
+        })
     }
 
     fn subconfig(&self, prefix: &str, strip_prefix: bool) -> ConfigResult<Config> {
@@ -272,10 +286,12 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
         ConfigPrefixView::prefix_view(self, prefix)
     }
 
-    fn resolve_key(&self, name: &str) -> String {
-        if name.is_empty() {
-            return self.prefix.clone();
-        }
-        self.resolve_key_cow(name).into_owned()
+    fn resolve_key(&self, name: impl ConfigName) -> String {
+        name.with_config_name(|name| {
+            if name.is_empty() {
+                return self.prefix.clone();
+            }
+            self.resolve_key_cow(name).into_owned()
+        })
     }
 }

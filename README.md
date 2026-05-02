@@ -120,14 +120,14 @@ let invalid = config.get_or("worker.threads", 4u16);
 assert!(matches!(invalid, Err(ConfigError::ConversionError { .. })));
 ```
 
-Defaulted reads such as `get_or`, `get_any_or`, and `get_any_or_with` accept convenient fallback values. Scalar defaults still use the target type directly, while string defaults can use borrowed literals and string-list defaults can use arrays, slices, or borrowed vectors.
+Defaulted reads such as `get_or`, `get_any_or`, and `get_any_or_with` accept convenient fallback values. Scalar defaults still use the target type directly, while string defaults can use borrowed literals and string-list defaults can use arrays, slices, or borrowed vectors. Single-key and multi-key arguments also accept direct arrays, slices, vectors, and borrowed vectors.
 
 ```rust
 let host = config.get_or::<String>("server.host", "localhost")?;
 let paths = config.get_or::<Vec<String>>("server.paths", ["bin", "lib"])?;
 
 let paths = config.get_any_or::<Vec<String>>(
-    &["server.paths", "SERVER_PATHS"],
+    ["server.paths", "SERVER_PATHS"],
     ["cache", "tmp"],
 )?;
 ```
@@ -242,11 +242,11 @@ let mut config = Config::new().with_read_options(ConfigReadOptions::env_friendly
 config.set("SERVICE_URL", "http://localhost:8080")?;
 config.set("SERVER_TIMEOUT", "30")?;
 
-let url = config.get_string_any(&["service.url", "SERVICE_URL"])?;
-let timeout = config.get_any_or(&["server.timeout", "SERVER_TIMEOUT"], 10u64)?;
-let optional_port = config.get_optional_any::<u16>(&["server.port", "SERVER_PORT"])?;
+let url = config.get_string_any(["service.url", "SERVICE_URL"])?;
+let timeout = config.get_any_or(["server.timeout", "SERVER_TIMEOUT"], 10u64)?;
+let optional_port = config.get_optional_any::<u16>(["server.port", "SERVER_PORT"])?;
 let retries = config.get_any_or_with(
-    &["server.retries", "SERVER_RETRIES"],
+    ["server.retries", "SERVER_RETRIES"],
     3u8,
     &ConfigReadOptions::env_friendly(),
 )?;
