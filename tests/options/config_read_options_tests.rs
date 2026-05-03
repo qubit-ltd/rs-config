@@ -189,9 +189,18 @@ fn test_config_read_options_serde_defaults_are_readable() {
         }
     }))
     .expect("nested empty options should use defaults");
+    let missing_boolean_defaults: ConfigReadOptions = serde_json::from_value(serde_json::json!({
+        "conversion": {
+            "string": {},
+            "collection": {},
+            "duration": {}
+        }
+    }))
+    .expect("omitted boolean options should use defaults");
 
     assert_eq!(default_options, ConfigReadOptions::default());
     assert_eq!(nested_defaults, ConfigReadOptions::default());
+    assert_eq!(missing_boolean_defaults, ConfigReadOptions::default());
 }
 
 #[test]
@@ -290,10 +299,4 @@ fn test_config_read_options_serde_boolean_literals_and_errors() {
 
     assert!(serde_json::from_value::<ConfigReadOptions>(bad_true).is_err());
     assert!(serde_json::from_value::<ConfigReadOptions>(bad_false).is_err());
-}
-
-#[cfg(coverage)]
-#[test]
-fn test_coverage_touches_read_option_serde_defaults() {
-    qubit_config::options::coverage_touch_config_read_option_serde_defaults();
 }

@@ -7,7 +7,7 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-//! Integration coverage for the custom serde deserializer.
+//! Integration tests for the custom serde deserializer.
 
 use std::collections::HashMap;
 use std::fmt;

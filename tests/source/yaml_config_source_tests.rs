@@ -309,7 +309,7 @@ db:
 }
 
 #[cfg(test)]
-mod test_yaml_coverage {
+mod test_yaml_edge_cases {
     #[allow(unused_imports)]
     use super::{
         Config, ConfigError, ConfigSource, MultiValues, PathBuf, Property, YamlConfigSource,

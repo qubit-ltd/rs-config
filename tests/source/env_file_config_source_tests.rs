@@ -122,7 +122,7 @@ mod test_env_file_config_source {
 }
 
 #[cfg(test)]
-mod test_env_file_coverage {
+mod test_env_file_edge_cases {
     #[allow(unused_imports)]
     use super::{Config, ConfigError, ConfigSource, EnvFileConfigSource, PathBuf, fixture};
 

@@ -2864,7 +2864,7 @@ mod test_property_insertion_api {
 }
 
 // ============================================================================
-// Additional coverage for config.rs error branches
+// Additional behavior checks for config.rs error branches
 // ============================================================================
 
 #[cfg(test)]

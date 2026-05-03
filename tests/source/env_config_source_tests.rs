@@ -264,7 +264,7 @@ mod test_env_config_source {
 }
 
 #[cfg(test)]
-mod test_env_coverage {
+mod test_env_edge_cases {
     #[allow(unused_imports)]
     use super::{
         Config, ConfigError, ConfigSource, EnvConfigSource, Mutex, MutexGuard, OnceLock,

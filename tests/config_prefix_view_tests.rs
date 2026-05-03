@@ -118,7 +118,7 @@ mod test_config_prefix_view {
         assert_eq!(port, 8080);
     }
     #[test]
-    fn test_view_branch_coverage_for_nested_building_and_key_resolution() {
+    fn test_view_nested_building_and_key_resolution() {
         let mut config = Config::new();
         config.set("http.host", "localhost").unwrap();
         config.set("http.full", "http://${http.host}").unwrap();

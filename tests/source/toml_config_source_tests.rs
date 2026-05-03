@@ -177,7 +177,7 @@ port = 2
 }
 
 #[cfg(test)]
-mod test_toml_coverage {
+mod test_toml_edge_cases {
     #[allow(unused_imports)]
     use super::{Config, ConfigError, ConfigSource, PathBuf, TomlConfigSource, fixture};
 

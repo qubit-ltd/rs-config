@@ -268,7 +268,7 @@ mod test_properties_config_source {
 }
 
 #[cfg(test)]
-mod test_properties_coverage {
+mod test_properties_edge_cases {
     #[allow(unused_imports)]
     use super::{Config, ConfigError, ConfigSource, PathBuf, PropertiesConfigSource, fixture};
 

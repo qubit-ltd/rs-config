@@ -10,8 +10,7 @@
 //! # Configuration Utility Function Tests
 //!
 //! Integration tests for deserialize JSON building (`property_to_json_value` /
-//! dotted-key insertion). Variable substitution is covered by unit tests in
-//! `src/utils.rs`.
+//! dotted-key insertion) and variable substitution behavior.
 //!
 
 use qubit_config::{Config, ConfigError, Property, options::ConfigReadOptions};
@@ -241,6 +240,81 @@ mod test_deserialize {
             result,
             Err(ConfigError::KeyConflict { path, .. }) if path == "a"
         ));
+    }
+
+    #[test]
+    fn test_deserialize_dotted_parent_conflict_reports_scalar_kinds() {
+        let cases = [
+            (
+                MultiValues::Empty(DataType::String),
+                "null",
+                "null parent should not be treated as an object",
+            ),
+            (
+                MultiValues::Bool(vec![true]),
+                "boolean",
+                "boolean parent should not be treated as an object",
+            ),
+            (
+                MultiValues::String(vec!["root".to_string()]),
+                "string",
+                "string parent should not be treated as an object",
+            ),
+            (
+                MultiValues::Int32(vec![1, 2]),
+                "array",
+                "array parent should not be treated as an object",
+            ),
+        ];
+
+        for (parent_value, expected_kind, message) in cases {
+            let mut config = Config::new();
+            config
+                .insert_property("ctx.a", Property::with_value("ctx.a", parent_value))
+                .unwrap();
+            config.set("ctx.a.b", "conflict").unwrap();
+
+            let result = config.deserialize::<HashMap<String, serde_json::Value>>("ctx");
+
+            assert!(
+                matches!(
+                    result,
+                    Err(ConfigError::KeyConflict { path, existing, .. })
+                        if path == "a" && existing == expected_kind
+                ),
+                "{message}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_deserialize_dotted_child_overrides_same_shape_json_field() {
+        let mut config = Config::new();
+        config
+            .insert_property(
+                "ctx.a",
+                Property::with_value(
+                    "ctx.a",
+                    MultiValues::Json(vec![serde_json::json!({
+                        "b": "from-object",
+                        "other": true,
+                    })]),
+                ),
+            )
+            .unwrap();
+        config.set("ctx.a.b", "from-dotted").unwrap();
+
+        let actual = config
+            .deserialize::<HashMap<String, serde_json::Value>>("ctx")
+            .unwrap();
+
+        assert_eq!(
+            actual.get("a"),
+            Some(&serde_json::json!({
+                "b": "from-dotted",
+                "other": true,
+            }))
+        );
     }
 
     #[test]
@@ -509,10 +583,42 @@ mod test_deserialize {
             other => panic!("Expected SubstitutionError, got {:?}", other),
         }
     }
+
+    #[test]
+    fn test_deserialize_unresolved_variable_in_json_leaf_returns_substitution_error() {
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct ServiceConfig {
+            meta: serde_json::Value,
+        }
+
+        let mut config = Config::new();
+        config
+            .insert_property(
+                "svc.meta",
+                Property::with_value(
+                    "svc.meta",
+                    MultiValues::Json(vec![serde_json::json!({
+                        "url": "${QUBIT_CONFIG_UNSET_JSON_LEAF_VAR_12345}/v1",
+                    })]),
+                ),
+            )
+            .unwrap();
+
+        let err = config
+            .deserialize::<ServiceConfig>("svc")
+            .expect_err("unresolved JSON leaf variable should fail before serde deserialization");
+
+        match err {
+            ConfigError::SubstitutionError(msg) => {
+                assert!(msg.contains("QUBIT_CONFIG_UNSET_JSON_LEAF_VAR_12345"));
+            }
+            other => panic!("Expected SubstitutionError, got {:?}", other),
+        }
+    }
 }
 
 // ============================================================================
-// Variable substitution coverage through public Config readers
+// Variable substitution behavior through public Config readers
 // ============================================================================
 
 #[cfg(test)]
@@ -662,6 +768,27 @@ mod test_variable_substitution {
     }
 
     #[test]
+    fn test_get_string_list_unresolved_variable_returns_error() {
+        let mut config = Config::new();
+        config
+            .set(
+                "values",
+                "${QUBIT_CONFIG_TEST_LIST_VAR_THAT_MUST_NOT_EXIST_001}",
+            )
+            .unwrap();
+
+        let err = config
+            .get_string_list("values")
+            .expect_err("unresolved variable in list read should return an error");
+
+        assert!(matches!(err, ConfigError::SubstitutionError(_)));
+        assert!(
+            err.to_string()
+                .contains("QUBIT_CONFIG_TEST_LIST_VAR_THAT_MUST_NOT_EXIST_001")
+        );
+    }
+
+    #[test]
     fn test_get_string_without_variables_returns_original_value() {
         let mut config = Config::new();
         config.set("plain", "Plain text with no variables").unwrap();
@@ -779,18 +906,12 @@ mod test_variable_substitution {
     }
 }
 
-#[cfg(coverage)]
-#[test]
-fn test_coverage_touches_utils_defensive_branches() {
-    qubit_config::__coverage_touch_utils_defensive_branches();
-}
-
 // ============================================================================
-// property_to_json_value coverage: various MultiValues types via deserialize
+// property_to_json_value behavior for MultiValues types via deserialize
 // ============================================================================
 
 #[cfg(test)]
-mod test_property_to_json_value_coverage {
+mod test_property_to_json_value_deserialize_behavior {
     #[allow(unused_imports)]
     use super::{Config, ConfigError, DataType, Deserialize, HashMap, MultiValues, Property};
     use bigdecimal::BigDecimal;

@@ -228,13 +228,6 @@ struct ConfigReadOptionsSerde {
     env_variable_substitution_enabled: bool,
 }
 
-impl Default for ConfigReadOptionsSerde {
-    /// Creates the serde representation of default read options.
-    fn default() -> Self {
-        Self::from(&ConfigReadOptions::default())
-    }
-}
-
 impl From<&ConfigReadOptions> for ConfigReadOptionsSerde {
     /// Converts read options to their serde representation.
     fn from(options: &ConfigReadOptions) -> Self {
@@ -677,13 +670,4 @@ fn ensure_literal_prefix(
         ));
     }
     Ok(())
-}
-
-/// Exercises serde default implementations that are otherwise only present for
-/// forward-compatible schema defaults.
-#[cfg(coverage)]
-#[doc(hidden)]
-pub fn coverage_touch_config_read_option_serde_defaults() {
-    let _ = ConfigReadOptionsSerde::default();
-    let _ = BooleanConversionOptionsSerde::default();
 }

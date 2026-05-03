@@ -17,7 +17,7 @@
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value as JsonValue};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::Path;
 
 use crate::ConfigPropertyMut;
@@ -61,19 +61,6 @@ fn is_child_key(key: &str, prefix: &str) -> bool {
     key.len() > prefix.len()
         && key.starts_with(prefix)
         && key.as_bytes().get(prefix.len()) == Some(&b'.')
-}
-
-/// Finds an explicitly configured ancestor key for a dotted path.
-fn explicit_ancestor_key(key: &str, keys: &HashSet<&str>) -> Option<String> {
-    let mut index = key.find('.')?;
-    loop {
-        let ancestor = &key[..index];
-        if keys.contains(ancestor) {
-            return Some(ancestor.to_string());
-        }
-        let next = key[index + 1..].find('.')?;
-        index += 1 + next;
-    }
 }
 
 /// Returns whether a scalar string property is missing under deserialization options.
@@ -1043,10 +1030,7 @@ impl Config {
                 property.add(values).map_err(ConfigError::from)
             } else {
                 let mut property = Property::new(name);
-                // Note: property.set() always returns Ok(()) in current MultiValues implementation,
-                // as it unconditionally replaces the entire value without any validation.
-                // We explicitly ignore the result to improve code coverage and avoid unreachable error paths.
-                let _ = property.set(values);
+                property.set(values).map_err(ConfigError::from)?;
                 self.properties.insert(name.to_string(), property);
                 Ok(())
             }
@@ -1930,23 +1914,12 @@ impl Config {
 
         let mut properties = sub.properties.iter().collect::<Vec<_>>();
         properties.sort_by_key(|(left_key, _)| *left_key);
-        let explicit_keys = properties
-            .iter()
-            .map(|(key, _)| key.as_str())
-            .collect::<HashSet<_>>();
 
         let mut map = Map::new();
         for (key, prop) in properties {
             if scalar_string_is_missing_for_deserialize(&sub, self, key, prop, self.read_options())?
             {
                 continue;
-            }
-            if let Some(ancestor) = explicit_ancestor_key(key, &explicit_keys) {
-                return Err(ConfigError::KeyConflict {
-                    path: ancestor,
-                    existing: "exact value".to_string(),
-                    incoming: format!("nested key '{key}'"),
-                });
             }
 
             let mut json_val = utils::property_to_json_value(prop);
