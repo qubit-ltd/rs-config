@@ -11,18 +11,31 @@
 #![allow(private_bounds)]
 
 use qubit_value::MultiValues;
-use qubit_value::multi_values::{MultiValuesFirstGetter, MultiValuesGetter};
+use qubit_value::multi_values::{
+    MultiValuesFirstGetter,
+    MultiValuesGetter,
+};
 use serde::de::DeserializeOwned;
 
 use crate::config_prefix_view::ConfigPrefixView;
 use crate::field::ConfigField;
 use crate::from::{
-    FromConfig, IntoConfigDefault, is_effectively_missing,
-    is_effectively_missing_with_substitution, parse_property_from_reader,
+    FromConfig,
+    IntoConfigDefault,
+    is_effectively_missing,
+    is_effectively_missing_with_substitution,
+    parse_property_from_reader,
     parse_property_from_reader_with_substitution,
 };
 use crate::options::ConfigReadOptions;
-use crate::{Config, ConfigError, ConfigName, ConfigNames, ConfigResult, Property};
+use crate::{
+    Config,
+    ConfigError,
+    ConfigName,
+    ConfigNames,
+    ConfigResult,
+    Property,
+};
 
 /// Read-only configuration interface.
 ///

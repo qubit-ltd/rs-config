@@ -41,6 +41,9 @@ pub use config_property_mut::ConfigPropertyMut;
 pub use config_reader::ConfigReader;
 pub use configurable::Configurable;
 pub use configured::Configured;
-pub use error::{ConfigError, ConfigResult};
+pub use error::{
+    ConfigError,
+    ConfigResult,
+};
 pub use property::Property;
 pub use source::ConfigSource;

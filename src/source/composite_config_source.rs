@@ -37,7 +37,10 @@
 //! ```
 //!
 
-use crate::{Config, ConfigResult};
+use crate::{
+    Config,
+    ConfigResult,
+};
 
 use super::ConfigSource;
 

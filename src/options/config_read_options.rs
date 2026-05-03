@@ -9,12 +9,22 @@
  ******************************************************************************/
 
 use qubit_datatype::{
-    BlankStringPolicy, BooleanConversionOptions, CollectionConversionOptions,
-    DataConversionOptions, DurationConversionOptions, DurationUnit, EmptyItemPolicy,
+    BlankStringPolicy,
+    BooleanConversionOptions,
+    CollectionConversionOptions,
+    DataConversionOptions,
+    DurationConversionOptions,
+    DurationUnit,
+    EmptyItemPolicy,
     StringConversionOptions,
 };
 use serde::de::Error as DeError;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{
+    Deserialize,
+    Deserializer,
+    Serialize,
+    Serializer,
+};
 
 /// Runtime options that control how configuration values are read and parsed.
 ///

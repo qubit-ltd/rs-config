@@ -12,7 +12,10 @@
 //! Tests for the Configurable trait implementation.
 //!
 
-use qubit_config::{Config, Configurable};
+use qubit_config::{
+    Config,
+    Configurable,
+};
 
 // Test implementation of Configurable trait
 struct TestConfigurable {
@@ -55,7 +58,11 @@ impl Configurable for TestConfigurable {
 #[cfg(test)]
 mod test_config {
     #[allow(unused_imports)]
-    use super::{Config, Configurable, TestConfigurable};
+    use super::{
+        Config,
+        Configurable,
+        TestConfigurable,
+    };
 
     #[test]
     fn test_config_returns_reference() {
@@ -94,7 +101,11 @@ mod test_config {
 #[cfg(test)]
 mod test_config_mut {
     #[allow(unused_imports)]
-    use super::{Config, Configurable, TestConfigurable};
+    use super::{
+        Config,
+        Configurable,
+        TestConfigurable,
+    };
 
     #[test]
     fn test_config_mut_returns_mutable_reference() {
@@ -146,7 +157,11 @@ mod test_config_mut {
 #[cfg(test)]
 mod test_set_config {
     #[allow(unused_imports)]
-    use super::{Config, Configurable, TestConfigurable};
+    use super::{
+        Config,
+        Configurable,
+        TestConfigurable,
+    };
 
     #[test]
     fn test_set_config_replaces_config() {
@@ -220,7 +235,11 @@ mod test_set_config {
 #[cfg(test)]
 mod test_on_config_changed {
     #[allow(unused_imports)]
-    use super::{Config, Configurable, TestConfigurable};
+    use super::{
+        Config,
+        Configurable,
+        TestConfigurable,
+    };
 
     #[test]
     fn test_on_config_changed_default_implementation() {
@@ -314,7 +333,11 @@ mod test_on_config_changed {
 #[cfg(test)]
 mod integration_tests {
     #[allow(unused_imports)]
-    use super::{Config, Configurable, TestConfigurable};
+    use super::{
+        Config,
+        Configurable,
+        TestConfigurable,
+    };
 
     #[test]
     fn test_full_configurable_workflow() {

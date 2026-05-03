@@ -13,13 +13,25 @@ use std::collections::HashMap;
 use std::fmt;
 
 use qubit_config::{
-    Config, ConfigResult, Property,
-    options::{BlankStringPolicy, ConfigReadOptions, EmptyItemPolicy},
+    Config,
+    ConfigResult,
+    Property,
+    options::{
+        BlankStringPolicy,
+        ConfigReadOptions,
+        EmptyItemPolicy,
+    },
 };
 use qubit_datatype::DataType;
 use qubit_value::MultiValues;
-use serde::de::{self, Visitor};
-use serde::{Deserialize, Deserializer};
+use serde::de::{
+    self,
+    Visitor,
+};
+use serde::{
+    Deserialize,
+    Deserializer,
+};
 
 #[derive(Debug, Deserialize, PartialEq)]
 struct SignedScalars {

@@ -10,8 +10,13 @@
 //! # `YamlConfigSource` tests
 
 use qubit_config::{
-    Config, ConfigError, Property,
-    source::{ConfigSource, YamlConfigSource},
+    Config,
+    ConfigError,
+    Property,
+    source::{
+        ConfigSource,
+        YamlConfigSource,
+    },
 };
 use qubit_value::MultiValues;
 
@@ -32,7 +37,13 @@ fn fixture(name: &str) -> PathBuf {
 mod test_yaml_config_source {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, ConfigSource, MultiValues, PathBuf, Property, YamlConfigSource,
+        Config,
+        ConfigError,
+        ConfigSource,
+        MultiValues,
+        PathBuf,
+        Property,
+        YamlConfigSource,
         fixture,
     };
 
@@ -312,7 +323,13 @@ db:
 mod test_yaml_edge_cases {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, ConfigSource, MultiValues, PathBuf, Property, YamlConfigSource,
+        Config,
+        ConfigError,
+        ConfigSource,
+        MultiValues,
+        PathBuf,
+        Property,
+        YamlConfigSource,
         fixture,
     };
 

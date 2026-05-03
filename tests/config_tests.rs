@@ -11,10 +11,21 @@
 //!
 //! Covers the public `Config` API (including APIs introduced in v0.4.0).
 
-pub(crate) use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
+pub(crate) use chrono::{
+    DateTime,
+    NaiveDate,
+    NaiveDateTime,
+    NaiveTime,
+    Utc,
+};
 pub(crate) use qubit_config::{
-    Config, ConfigError, Property,
-    options::{BlankStringPolicy, ConfigReadOptions},
+    Config,
+    ConfigError,
+    Property,
+    options::{
+        BlankStringPolicy,
+        ConfigReadOptions,
+    },
 };
 pub(crate) use qubit_datatype::DataType;
 pub(crate) use qubit_value::MultiValues;
@@ -44,8 +55,20 @@ pub(crate) fn create_test_config_with_description() -> Config {
 mod test_new {
     #[allow(unused_imports)]
     use super::{
-        BlankStringPolicy, Config, ConfigError, ConfigReadOptions, DataType, DateTime, Deserialize,
-        MultiValues, NaiveDate, NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        BlankStringPolicy,
+        Config,
+        ConfigError,
+        ConfigReadOptions,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -71,8 +94,20 @@ mod test_new {
 mod test_with_description {
     #[allow(unused_imports)]
     use super::{
-        BlankStringPolicy, Config, ConfigError, ConfigReadOptions, DataType, DateTime, Deserialize,
-        MultiValues, NaiveDate, NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        BlankStringPolicy,
+        Config,
+        ConfigError,
+        ConfigReadOptions,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -105,8 +140,20 @@ mod test_with_description {
 mod test_description {
     #[allow(unused_imports)]
     use super::{
-        BlankStringPolicy, Config, ConfigError, ConfigReadOptions, DataType, DateTime, Deserialize,
-        MultiValues, NaiveDate, NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        BlankStringPolicy,
+        Config,
+        ConfigError,
+        ConfigReadOptions,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -148,8 +195,18 @@ mod test_description {
 mod test_variable_substitution {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -204,8 +261,18 @@ mod test_variable_substitution {
 mod test_contains {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -234,8 +301,18 @@ mod test_contains {
 mod test_get_property {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -258,8 +335,18 @@ mod test_get_property {
 mod test_get_property_mut {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -355,8 +442,18 @@ mod test_get_property_mut {
 mod test_remove {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -394,8 +491,18 @@ mod test_remove {
 mod test_clear {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -432,8 +539,18 @@ mod test_clear {
 mod test_len {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -457,8 +574,18 @@ mod test_len {
 mod test_is_empty {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -480,8 +607,18 @@ mod test_is_empty {
 mod test_keys {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -515,8 +652,18 @@ mod test_keys {
 mod test_get {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -772,8 +919,18 @@ mod test_get {
 mod test_get_or {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -960,8 +1117,18 @@ mod test_into_config_default {
 mod test_get_list {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -1042,8 +1209,18 @@ mod test_get_list {
 mod test_set {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -1184,8 +1361,18 @@ mod test_set {
 mod test_add {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -1243,8 +1430,18 @@ mod test_add {
 mod test_get_string {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -1286,8 +1483,18 @@ mod test_get_string {
 mod test_get_string_or {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -1323,8 +1530,18 @@ mod test_get_string_or {
 mod test_get_string_list {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -1406,8 +1623,18 @@ mod test_get_string_list {
 mod test_get_string_list_or {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -1475,8 +1702,18 @@ mod test_get_string_list_or {
 mod test_default {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -1506,8 +1743,18 @@ mod test_default {
 mod test_final_property {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -1632,8 +1879,18 @@ mod test_final_property {
 mod test_iter {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -1686,8 +1943,18 @@ mod test_iter {
 mod test_iter_prefix {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -1750,8 +2017,18 @@ mod test_iter_prefix {
 mod test_contains_prefix {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -1802,8 +2079,20 @@ mod test_contains_prefix {
 mod test_subconfig {
     #[allow(unused_imports)]
     use super::{
-        BlankStringPolicy, Config, ConfigError, ConfigReadOptions, DataType, DateTime, Deserialize,
-        MultiValues, NaiveDate, NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        BlankStringPolicy,
+        Config,
+        ConfigError,
+        ConfigReadOptions,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -1910,8 +2199,18 @@ mod test_subconfig {
 mod test_get_and_get_list_error_mapping_additional_paths {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -1973,8 +2272,18 @@ mod test_get_and_get_list_error_mapping_additional_paths {
 mod test_is_null {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -2020,8 +2329,18 @@ mod test_is_null {
 mod test_get_optional {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -2087,8 +2406,18 @@ mod test_get_optional {
 mod test_get_optional_list {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -2146,8 +2475,18 @@ mod test_get_optional_list {
 mod test_get_optional_string {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -2362,8 +2701,18 @@ mod test_get_optional_string {
 mod test_enhanced_errors {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -2566,12 +2915,25 @@ mod test_enhanced_errors {
 
 #[cfg(test)]
 mod test_toml_type_faithful {
-    use qubit_config::source::{ConfigSource, TomlConfigSource};
+    use qubit_config::source::{
+        ConfigSource,
+        TomlConfigSource,
+    };
 
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -2675,12 +3037,25 @@ mod test_toml_type_faithful {
 
 #[cfg(test)]
 mod test_yaml_type_faithful {
-    use qubit_config::source::{ConfigSource, YamlConfigSource};
+    use qubit_config::source::{
+        ConfigSource,
+        YamlConfigSource,
+    };
 
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -2814,8 +3189,18 @@ mod test_yaml_type_faithful {
 mod test_property_insertion_api {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -2871,8 +3256,18 @@ mod test_property_insertion_api {
 mod test_config_error_branches {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -2936,8 +3331,18 @@ mod test_config_error_branches {
 mod test_subconfig_deserialize_integration {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -3009,7 +3414,10 @@ mod test_subconfig_deserialize_integration {
 
 #[cfg(test)]
 mod test_merge_from_source {
-    use super::{Config, ConfigError};
+    use super::{
+        Config,
+        ConfigError,
+    };
     use qubit_config::source::TomlConfigSource;
     use std::path::PathBuf;
 
@@ -3109,7 +3517,11 @@ mod test_source_backed_constructors {
     use super::Config;
     use qubit_config::source::TomlConfigSource;
     use std::path::PathBuf;
-    use std::sync::{Mutex, MutexGuard, OnceLock};
+    use std::sync::{
+        Mutex,
+        MutexGuard,
+        OnceLock,
+    };
 
     fn fixture(name: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))

@@ -16,11 +16,20 @@ use std::ops::Deref;
 
 use qubit_value::MultiValues;
 use qubit_value::multi_values::{
-    MultiValuesAddArg, MultiValuesAdder, MultiValuesMultiAdder, MultiValuesSetArg,
-    MultiValuesSetter, MultiValuesSetterSlice, MultiValuesSingleSetter,
+    MultiValuesAddArg,
+    MultiValuesAdder,
+    MultiValuesMultiAdder,
+    MultiValuesSetArg,
+    MultiValuesSetter,
+    MultiValuesSetterSlice,
+    MultiValuesSingleSetter,
 };
 
-use crate::{ConfigError, ConfigResult, Property};
+use crate::{
+    ConfigError,
+    ConfigResult,
+    Property,
+};
 
 /// Guarded mutable access to a non-final [`Property`] stored in a
 /// [`crate::Config`].

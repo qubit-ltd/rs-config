@@ -11,7 +11,11 @@
 //!
 //! Tests all public methods of the Configured class, including Configurable trait implementation.
 
-use qubit_config::{Config, Configurable, Configured};
+use qubit_config::{
+    Config,
+    Configurable,
+    Configured,
+};
 
 // ============================================================================
 // Test Helper Functions
@@ -41,7 +45,11 @@ fn create_test_config_with_description() -> Config {
 mod test_new {
     #[allow(unused_imports)]
     use super::{
-        Config, Configurable, Configured, create_test_config, create_test_config_with_description,
+        Config,
+        Configurable,
+        Configured,
+        create_test_config,
+        create_test_config_with_description,
     };
 
     #[test]
@@ -65,7 +73,11 @@ mod test_new {
 mod test_with_config {
     #[allow(unused_imports)]
     use super::{
-        Config, Configurable, Configured, create_test_config, create_test_config_with_description,
+        Config,
+        Configurable,
+        Configured,
+        create_test_config,
+        create_test_config_with_description,
     };
 
     #[test]
@@ -122,7 +134,11 @@ mod test_with_config {
 mod test_config {
     #[allow(unused_imports)]
     use super::{
-        Config, Configurable, Configured, create_test_config, create_test_config_with_description,
+        Config,
+        Configurable,
+        Configured,
+        create_test_config,
+        create_test_config_with_description,
     };
 
     #[test]
@@ -158,7 +174,11 @@ mod test_config {
 mod test_config_mut {
     #[allow(unused_imports)]
     use super::{
-        Config, Configurable, Configured, create_test_config, create_test_config_with_description,
+        Config,
+        Configurable,
+        Configured,
+        create_test_config,
+        create_test_config_with_description,
     };
 
     #[test]
@@ -265,7 +285,11 @@ mod test_config_mut {
 mod test_set_config {
     #[allow(unused_imports)]
     use super::{
-        Config, Configurable, Configured, create_test_config, create_test_config_with_description,
+        Config,
+        Configurable,
+        Configured,
+        create_test_config,
+        create_test_config_with_description,
     };
 
     #[test]
@@ -357,7 +381,11 @@ mod test_set_config {
 mod test_on_config_changed {
     #[allow(unused_imports)]
     use super::{
-        Config, Configurable, Configured, create_test_config, create_test_config_with_description,
+        Config,
+        Configurable,
+        Configured,
+        create_test_config,
+        create_test_config_with_description,
     };
 
     #[test]
@@ -415,7 +443,11 @@ mod test_on_config_changed {
 mod test_default {
     #[allow(unused_imports)]
     use super::{
-        Config, Configurable, Configured, create_test_config, create_test_config_with_description,
+        Config,
+        Configurable,
+        Configured,
+        create_test_config,
+        create_test_config_with_description,
     };
 
     #[test]
@@ -450,7 +482,11 @@ mod test_default {
 mod integration_tests {
     #[allow(unused_imports)]
     use super::{
-        Config, Configurable, Configured, create_test_config, create_test_config_with_description,
+        Config,
+        Configurable,
+        Configured,
+        create_test_config,
+        create_test_config_with_description,
     };
 
     #[test]

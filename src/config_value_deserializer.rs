@@ -11,10 +11,20 @@
 
 use qubit_value::Value as QubitValue;
 use serde::de::{
-    self, DeserializeSeed, EnumAccess, IntoDeserializer, MapAccess, SeqAccess, VariantAccess,
-    Visitor, value::StringDeserializer,
+    self,
+    DeserializeSeed,
+    EnumAccess,
+    IntoDeserializer,
+    MapAccess,
+    SeqAccess,
+    VariantAccess,
+    Visitor,
+    value::StringDeserializer,
 };
-use serde_json::{Map, Value};
+use serde_json::{
+    Map,
+    Value,
+};
 
 use crate::ConfigError;
 use crate::config_deserialize_error::ConfigDeserializeError;

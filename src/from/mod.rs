@@ -20,6 +20,8 @@ pub use from_config::FromConfig;
 pub use into_config_default::IntoConfigDefault;
 
 pub(crate) use helpers::{
-    is_effectively_missing, is_effectively_missing_with_substitution, parse_property_from_reader,
+    is_effectively_missing,
+    is_effectively_missing_with_substitution,
+    parse_property_from_reader,
     parse_property_from_reader_with_substitution,
 };

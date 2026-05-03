@@ -12,7 +12,11 @@ use qubit_value::MultiValues;
 
 use crate::config_reader::ConfigReader;
 use crate::options::ConfigReadOptions;
-use crate::{ConfigResult, Property, utils};
+use crate::{
+    ConfigResult,
+    Property,
+    utils,
+};
 
 use super::config_parse_context::ConfigParseContext;
 use super::from_config::FromConfig;

@@ -10,8 +10,16 @@
 //! [`qubit_config::ConfigReader`] tests.
 
 use qubit_config::field::ConfigField;
-use qubit_config::options::{BlankStringPolicy, ConfigReadOptions};
-use qubit_config::{Config, ConfigError, ConfigPrefixView, ConfigReader};
+use qubit_config::options::{
+    BlankStringPolicy,
+    ConfigReadOptions,
+};
+use qubit_config::{
+    Config,
+    ConfigError,
+    ConfigPrefixView,
+    ConfigReader,
+};
 use qubit_datatype::DataType;
 use serde::Deserialize;
 
@@ -28,8 +36,16 @@ fn create_test_config() -> Config {
 mod test_config_reader_smoke {
     #[allow(unused_imports)]
     use super::{
-        BlankStringPolicy, Config, ConfigError, ConfigField, ConfigPrefixView, ConfigReadOptions,
-        ConfigReader, DataType, Deserialize, create_test_config,
+        BlankStringPolicy,
+        Config,
+        ConfigError,
+        ConfigField,
+        ConfigPrefixView,
+        ConfigReadOptions,
+        ConfigReader,
+        DataType,
+        Deserialize,
+        create_test_config,
     };
 
     #[test]
@@ -46,8 +62,16 @@ mod test_config_reader_smoke {
 mod test_config_reader {
     #[allow(unused_imports)]
     use super::{
-        BlankStringPolicy, Config, ConfigError, ConfigField, ConfigPrefixView, ConfigReadOptions,
-        ConfigReader, DataType, Deserialize, create_test_config,
+        BlankStringPolicy,
+        Config,
+        ConfigError,
+        ConfigField,
+        ConfigPrefixView,
+        ConfigReadOptions,
+        ConfigReader,
+        DataType,
+        Deserialize,
+        create_test_config,
     };
 
     fn read_host(reader: &impl ConfigReader) -> String {
@@ -261,8 +285,16 @@ mod test_config_reader {
 mod test_config_reader_extended_surface {
     #[allow(unused_imports)]
     use super::{
-        BlankStringPolicy, Config, ConfigError, ConfigField, ConfigPrefixView, ConfigReadOptions,
-        ConfigReader, DataType, Deserialize, create_test_config,
+        BlankStringPolicy,
+        Config,
+        ConfigError,
+        ConfigField,
+        ConfigPrefixView,
+        ConfigReadOptions,
+        ConfigReader,
+        DataType,
+        Deserialize,
+        create_test_config,
     };
 
     #[derive(Deserialize, Debug, PartialEq, Eq)]
@@ -470,8 +502,16 @@ mod test_config_reader_extended_surface {
 mod test_config_reader_alias_reads {
     #[allow(unused_imports)]
     use super::{
-        BlankStringPolicy, Config, ConfigError, ConfigField, ConfigPrefixView, ConfigReadOptions,
-        ConfigReader, DataType, Deserialize, create_test_config,
+        BlankStringPolicy,
+        Config,
+        ConfigError,
+        ConfigField,
+        ConfigPrefixView,
+        ConfigReadOptions,
+        ConfigReader,
+        DataType,
+        Deserialize,
+        create_test_config,
     };
 
     #[test]

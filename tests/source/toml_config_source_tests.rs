@@ -10,8 +10,12 @@
 //! # `TomlConfigSource` tests
 
 use qubit_config::{
-    Config, ConfigError,
-    source::{ConfigSource, TomlConfigSource},
+    Config,
+    ConfigError,
+    source::{
+        ConfigSource,
+        TomlConfigSource,
+    },
 };
 
 use std::path::PathBuf;
@@ -30,7 +34,14 @@ fn fixture(name: &str) -> PathBuf {
 #[cfg(test)]
 mod test_toml_config_source {
     #[allow(unused_imports)]
-    use super::{Config, ConfigError, ConfigSource, PathBuf, TomlConfigSource, fixture};
+    use super::{
+        Config,
+        ConfigError,
+        ConfigSource,
+        PathBuf,
+        TomlConfigSource,
+        fixture,
+    };
 
     #[test]
     fn test_load_basic_toml_file() {
@@ -179,7 +190,14 @@ port = 2
 #[cfg(test)]
 mod test_toml_edge_cases {
     #[allow(unused_imports)]
-    use super::{Config, ConfigError, ConfigSource, PathBuf, TomlConfigSource, fixture};
+    use super::{
+        Config,
+        ConfigError,
+        ConfigSource,
+        PathBuf,
+        TomlConfigSource,
+        fixture,
+    };
 
     // ---- toml: datetime value ----
     #[test]

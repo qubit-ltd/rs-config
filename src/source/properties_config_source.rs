@@ -24,10 +24,17 @@
 //!
 
 use std::iter::Peekable;
-use std::path::{Path, PathBuf};
+use std::path::{
+    Path,
+    PathBuf,
+};
 use std::str::Chars;
 
-use crate::{Config, ConfigError, ConfigResult};
+use crate::{
+    Config,
+    ConfigError,
+    ConfigResult,
+};
 
 use super::ConfigSource;
 

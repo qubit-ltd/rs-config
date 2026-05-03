@@ -12,14 +12,30 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use bigdecimal::BigDecimal;
-use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
+use chrono::{
+    DateTime,
+    NaiveDate,
+    NaiveDateTime,
+    NaiveTime,
+    Utc,
+};
 use num_bigint::BigInt;
-use qubit_datatype::{DataConvertTo, DataConverter};
-use qubit_value::{MultiValues, Value as QubitValue};
+use qubit_datatype::{
+    DataConvertTo,
+    DataConverter,
+};
+use qubit_value::{
+    MultiValues,
+    Value as QubitValue,
+};
 use serde_json::Value as JsonValue;
 use url::Url;
 
-use crate::{ConfigResult, Property, utils};
+use crate::{
+    ConfigResult,
+    Property,
+    utils,
+};
 
 use super::config_parse_context::ConfigParseContext;
 use super::helpers::first_scalar_string;

@@ -12,13 +12,20 @@
 use std::borrow::Cow;
 
 use qubit_value::MultiValues;
-use qubit_value::multi_values::{MultiValuesFirstGetter, MultiValuesGetter};
+use qubit_value::multi_values::{
+    MultiValuesFirstGetter,
+    MultiValuesGetter,
+};
 
 use crate::config::Config;
 use crate::config_reader::ConfigReader;
 use crate::from::FromConfig;
 use crate::options::ConfigReadOptions;
-use crate::{ConfigName, ConfigResult, Property};
+use crate::{
+    ConfigName,
+    ConfigResult,
+    Property,
+};
 
 /// Read-only **prefix** view over a [`Config`]: key lookups use a logical key
 /// prefix.

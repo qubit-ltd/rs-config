@@ -10,8 +10,12 @@
 //! # `PropertiesConfigSource` tests
 
 use qubit_config::{
-    Config, ConfigError,
-    source::{ConfigSource, PropertiesConfigSource},
+    Config,
+    ConfigError,
+    source::{
+        ConfigSource,
+        PropertiesConfigSource,
+    },
 };
 
 use std::path::PathBuf;
@@ -30,7 +34,14 @@ fn fixture(name: &str) -> PathBuf {
 #[cfg(test)]
 mod test_properties_config_source {
     #[allow(unused_imports)]
-    use super::{Config, ConfigError, ConfigSource, PathBuf, PropertiesConfigSource, fixture};
+    use super::{
+        Config,
+        ConfigError,
+        ConfigSource,
+        PathBuf,
+        PropertiesConfigSource,
+        fixture,
+    };
 
     // ---- parse_content unit tests ----
 
@@ -270,7 +281,14 @@ mod test_properties_config_source {
 #[cfg(test)]
 mod test_properties_edge_cases {
     #[allow(unused_imports)]
-    use super::{Config, ConfigError, ConfigSource, PathBuf, PropertiesConfigSource, fixture};
+    use super::{
+        Config,
+        ConfigError,
+        ConfigSource,
+        PathBuf,
+        PropertiesConfigSource,
+        fixture,
+    };
 
     #[test]
     fn test_properties_key_only_line() {

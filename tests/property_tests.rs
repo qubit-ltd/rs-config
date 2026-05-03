@@ -13,7 +13,11 @@
 //!
 
 use bigdecimal::BigDecimal;
-use chrono::{DateTime, NaiveDate, NaiveTime};
+use chrono::{
+    DateTime,
+    NaiveDate,
+    NaiveTime,
+};
 use num_bigint::BigInt;
 use qubit_config::Property;
 use qubit_datatype::DataType;

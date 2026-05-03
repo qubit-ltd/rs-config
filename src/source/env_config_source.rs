@@ -24,9 +24,16 @@
 //! Without a prefix, all environment variables are loaded as-is.
 //!
 
-use std::ffi::{OsStr, OsString};
+use std::ffi::{
+    OsStr,
+    OsString,
+};
 
-use crate::{Config, ConfigError, ConfigResult};
+use crate::{
+    Config,
+    ConfigError,
+    ConfigResult,
+};
 
 use super::ConfigSource;
 

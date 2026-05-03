@@ -9,12 +9,18 @@
  ******************************************************************************/
 //! [`qubit_config::ConfigPrefixView`] tests.
 
-use qubit_config::{Config, ConfigReader};
+use qubit_config::{
+    Config,
+    ConfigReader,
+};
 
 #[cfg(test)]
 mod test_config_prefix_view_smoke {
     #[allow(unused_imports)]
-    use super::{Config, ConfigReader};
+    use super::{
+        Config,
+        ConfigReader,
+    };
 
     #[test]
     fn config_prefix_view_reads_relative_key() {
@@ -28,7 +34,10 @@ mod test_config_prefix_view_smoke {
 #[cfg(test)]
 mod test_config_prefix_view {
     #[allow(unused_imports)]
-    use super::{Config, ConfigReader};
+    use super::{
+        Config,
+        ConfigReader,
+    };
 
     #[test]
     fn test_view_reads_relative_keys_without_copy() {

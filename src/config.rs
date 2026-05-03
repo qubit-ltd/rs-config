@@ -15,8 +15,14 @@
 #![allow(private_bounds)]
 
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value as JsonValue};
+use serde::{
+    Deserialize,
+    Serialize,
+};
+use serde_json::{
+    Map,
+    Value as JsonValue,
+};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -26,21 +32,47 @@ use crate::config_reader::ConfigReader;
 use crate::config_value_deserializer::ConfigValueDeserializer;
 use crate::constants::DEFAULT_MAX_SUBSTITUTION_DEPTH;
 use crate::field::ConfigField;
-use crate::from::{FromConfig, IntoConfigDefault};
+use crate::from::{
+    FromConfig,
+    IntoConfigDefault,
+};
 use crate::options::ConfigReadOptions;
 use crate::source::{
-    ConfigSource, EnvConfigSource, EnvFileConfigSource, PropertiesConfigSource, TomlConfigSource,
+    ConfigSource,
+    EnvConfigSource,
+    EnvFileConfigSource,
+    PropertiesConfigSource,
+    TomlConfigSource,
     YamlConfigSource,
 };
 use crate::utils;
-use crate::{ConfigError, ConfigName, ConfigNames, ConfigResult, Property};
-use qubit_datatype::{DataConvertTo, DataConverter, DataType};
+use crate::{
+    ConfigError,
+    ConfigName,
+    ConfigNames,
+    ConfigResult,
+    Property,
+};
+use qubit_datatype::{
+    DataConvertTo,
+    DataConverter,
+    DataType,
+};
 use qubit_value::multi_values::{
-    MultiValuesAddArg, MultiValuesAdder, MultiValuesFirstGetter, MultiValuesGetter,
-    MultiValuesMultiAdder, MultiValuesSetArg, MultiValuesSetter, MultiValuesSetterSlice,
+    MultiValuesAddArg,
+    MultiValuesAdder,
+    MultiValuesFirstGetter,
+    MultiValuesGetter,
+    MultiValuesMultiAdder,
+    MultiValuesSetArg,
+    MultiValuesSetter,
+    MultiValuesSetterSlice,
     MultiValuesSingleSetter,
 };
-use qubit_value::{MultiValues, Value as QubitValue};
+use qubit_value::{
+    MultiValues,
+    Value as QubitValue,
+};
 
 pub(crate) fn convert_deserialize_number<T>(
     key: &str,

@@ -27,11 +27,21 @@
 //! Arrays are stored as multi-value properties.
 //!
 
-use std::path::{Path, PathBuf};
+use std::path::{
+    Path,
+    PathBuf,
+};
 
-use toml::{Table as TomlTable, Value as TomlValue};
+use toml::{
+    Table as TomlTable,
+    Value as TomlValue,
+};
 
-use crate::{Config, ConfigError, ConfigResult};
+use crate::{
+    Config,
+    ConfigError,
+    ConfigResult,
+};
 
 use super::ConfigSource;
 

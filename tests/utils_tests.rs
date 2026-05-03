@@ -13,7 +13,12 @@
 //! dotted-key insertion) and variable substitution behavior.
 //!
 
-use qubit_config::{Config, ConfigError, Property, options::ConfigReadOptions};
+use qubit_config::{
+    Config,
+    ConfigError,
+    Property,
+    options::ConfigReadOptions,
+};
 use qubit_datatype::DataType;
 use qubit_value::MultiValues;
 use serde::Deserialize;
@@ -27,7 +32,13 @@ use std::collections::HashMap;
 mod test_deserialize {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, ConfigReadOptions, DataType, Deserialize, HashMap, MultiValues,
+        Config,
+        ConfigError,
+        ConfigReadOptions,
+        DataType,
+        Deserialize,
+        HashMap,
+        MultiValues,
         Property,
     };
 
@@ -625,7 +636,13 @@ mod test_deserialize {
 mod test_variable_substitution {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, ConfigReadOptions, DataType, Deserialize, HashMap, MultiValues,
+        Config,
+        ConfigError,
+        ConfigReadOptions,
+        DataType,
+        Deserialize,
+        HashMap,
+        MultiValues,
         Property,
     };
 
@@ -913,9 +930,23 @@ mod test_variable_substitution {
 #[cfg(test)]
 mod test_property_to_json_value_deserialize_behavior {
     #[allow(unused_imports)]
-    use super::{Config, ConfigError, DataType, Deserialize, HashMap, MultiValues, Property};
+    use super::{
+        Config,
+        ConfigError,
+        DataType,
+        Deserialize,
+        HashMap,
+        MultiValues,
+        Property,
+    };
     use bigdecimal::BigDecimal;
-    use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
+    use chrono::{
+        DateTime,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Utc,
+    };
     use num_bigint::BigInt;
     use std::str::FromStr;
     use std::time::Duration;

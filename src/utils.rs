@@ -15,13 +15,25 @@
 
 use regex::Regex;
 use serde_json::map::Entry;
-use serde_json::{Map, Number, Value};
+use serde_json::{
+    Map,
+    Number,
+    Value,
+};
 use std::sync::OnceLock;
 
 use qubit_serde::serde::duration_with_unit;
-use qubit_value::{MultiValues, ValueError};
+use qubit_value::{
+    MultiValues,
+    ValueError,
+};
 
-use super::{ConfigError, ConfigReader, ConfigResult, Property};
+use super::{
+    ConfigError,
+    ConfigReader,
+    ConfigResult,
+    Property,
+};
 
 /// Regular expression pattern for variables
 ///

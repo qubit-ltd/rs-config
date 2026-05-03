@@ -10,15 +10,23 @@
 //! Tests for configurable read parsing behavior.
 
 use qubit_config::{
-    Config, ConfigError,
+    Config,
+    ConfigError,
     field::ConfigField,
     options::{
-        BlankStringPolicy, BooleanReadOptions, CollectionReadOptions, ConfigReadOptions,
-        EmptyItemPolicy, StringReadOptions,
+        BlankStringPolicy,
+        BooleanReadOptions,
+        CollectionReadOptions,
+        ConfigReadOptions,
+        EmptyItemPolicy,
+        StringReadOptions,
     },
 };
 use qubit_datatype::{
-    BooleanConversionOptions, DataConversionOptions, DurationConversionOptions, DurationUnit,
+    BooleanConversionOptions,
+    DataConversionOptions,
+    DurationConversionOptions,
+    DurationUnit,
 };
 
 #[test]

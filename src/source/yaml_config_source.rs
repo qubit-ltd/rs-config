@@ -27,12 +27,19 @@
 //! Arrays are stored as multi-value properties.
 //!
 
-use std::path::{Path, PathBuf};
+use std::path::{
+    Path,
+    PathBuf,
+};
 
 use serde_norway as yaml_backend;
 use yaml_backend::Value as YamlValue;
 
-use crate::{Config, ConfigError, ConfigResult};
+use crate::{
+    Config,
+    ConfigError,
+    ConfigResult,
+};
 
 use super::ConfigSource;
 

@@ -11,7 +11,10 @@
 //!
 //! Tests all error types and conversions of the ConfigError enum.
 
-use qubit_config::{Config, ConfigError};
+use qubit_config::{
+    Config,
+    ConfigError,
+};
 use qubit_datatype::DataConversionError;
 use qubit_datatype::DataType;
 use qubit_value::ValueError;

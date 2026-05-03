@@ -13,8 +13,14 @@
 //! value, description, and other information.
 //!
 
-use serde::{Deserialize, Serialize};
-use std::ops::{Deref, DerefMut};
+use serde::{
+    Deserialize,
+    Serialize,
+};
+use std::ops::{
+    Deref,
+    DerefMut,
+};
 
 use qubit_datatype::DataType;
 use qubit_value::MultiValues;

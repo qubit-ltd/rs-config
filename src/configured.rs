@@ -12,7 +12,10 @@
 //! Provides a base structure that implements the `Configurable` trait.
 //!
 
-use super::{Config, Configurable};
+use super::{
+    Config,
+    Configurable,
+};
 
 /// Base implementation of configurable objects
 ///

@@ -10,10 +10,18 @@
 //! # `EnvConfigSource` tests
 
 use qubit_config::{
-    Config, ConfigError,
-    source::{ConfigSource, EnvConfigSource},
+    Config,
+    ConfigError,
+    source::{
+        ConfigSource,
+        EnvConfigSource,
+    },
 };
-use std::sync::{Mutex, MutexGuard, OnceLock};
+use std::sync::{
+    Mutex,
+    MutexGuard,
+    OnceLock,
+};
 
 /// Serializes tests that mutate or read process environment variables.
 fn env_test_lock() -> MutexGuard<'static, ()> {
@@ -31,7 +39,13 @@ fn env_test_lock() -> MutexGuard<'static, ()> {
 mod test_env_config_source {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, ConfigSource, EnvConfigSource, Mutex, MutexGuard, OnceLock,
+        Config,
+        ConfigError,
+        ConfigSource,
+        EnvConfigSource,
+        Mutex,
+        MutexGuard,
+        OnceLock,
         env_test_lock,
     };
 
@@ -267,7 +281,13 @@ mod test_env_config_source {
 mod test_env_edge_cases {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, ConfigSource, EnvConfigSource, Mutex, MutexGuard, OnceLock,
+        Config,
+        ConfigError,
+        ConfigSource,
+        EnvConfigSource,
+        Mutex,
+        MutexGuard,
+        OnceLock,
         env_test_lock,
     };
 
