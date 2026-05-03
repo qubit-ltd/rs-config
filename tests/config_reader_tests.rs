@@ -783,8 +783,12 @@ mod test_config_reader_alias_reads {
         let value = config
             .get_string_any_or(["service.url", "SERVICE_URL"], "http://fallback")
             .expect("string alias should resolve");
+        let fallback = config
+            .get_string_any_or(["missing.url", "MISSING_URL"], "http://fallback")
+            .expect("missing aliases should use fallback");
 
         assert_eq!(value, "http://localhost:8080");
+        assert_eq!(fallback, "http://fallback");
     }
 
     #[test]
@@ -810,6 +814,51 @@ mod test_config_reader_alias_reads {
         assert_eq!(value, "http://localhost:8080");
         assert_eq!(optional.as_deref(), Some("http://localhost:8080"));
         assert_eq!(missing, None);
+    }
+
+    #[test]
+    fn test_string_helpers_cover_missing_after_substitution() {
+        let mut config = Config::new();
+        config
+            .set_read_options(
+                ConfigReadOptions::default()
+                    .with_blank_string_policy(BlankStringPolicy::TreatAsMissing),
+            )
+            .set("empty.string", "${blank}")
+            .expect("setting empty string should succeed");
+        config
+            .set("empty.list", vec!["${blank}"])
+            .expect("setting empty string list should succeed");
+        config
+            .set("blank", "")
+            .expect("setting blank source should succeed");
+        config
+            .set("fallback", "value")
+            .expect("setting fallback should succeed");
+
+        let missing_string = config
+            .get_string("empty.string")
+            .expect_err("blank substitution should be treated as no value");
+        let missing_list = config
+            .get_string_list("empty.list")
+            .expect_err("blank list substitution should be treated as no value");
+        let first_present = config
+            .get_string_any(["missing", "empty.string", "fallback"])
+            .expect("alias reader should skip effectively missing values");
+        let missing_any = config
+            .get_string_any(["missing", "also.missing"])
+            .expect_err("all missing aliases should report not found");
+
+        assert!(
+            matches!(missing_string, ConfigError::PropertyHasNoValue(key) if key == "empty.string")
+        );
+        assert!(
+            matches!(missing_list, ConfigError::PropertyHasNoValue(key) if key == "empty.list")
+        );
+        assert_eq!(first_present, "value");
+        assert!(
+            matches!(missing_any, ConfigError::PropertyNotFound(message) if message == "one of: missing, also.missing")
+        );
     }
 
     #[test]

@@ -71,6 +71,14 @@ enum Mode {
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+enum Tagged {
+    Unit,
+    Code(u16),
+    Pair(u8, u8),
+    Record { id: u8 },
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
 struct DirectEntryPoints {
     string_from_bool: String,
     string_from_number: String,
@@ -367,6 +375,114 @@ fn deserialize_enum_string_uses_config_read_options() -> ConfigResult<()> {
     let actual = config.deserialize::<OneField<Mode>>("mode")?;
 
     assert_eq!(actual.value, Mode::Fast);
+    Ok(())
+}
+
+#[test]
+fn deserialize_externally_tagged_enum_variants() -> ConfigResult<()> {
+    let mut unit_config = Config::new();
+    unit_config.set_null("case.value.Unit", DataType::String)?;
+    let unit = unit_config.deserialize::<OneField<Tagged>>("case")?;
+
+    let mut root_unit_config = Config::new();
+    root_unit_config.set_null("Unit", DataType::String)?;
+    let root_unit = root_unit_config.deserialize::<Tagged>("")?;
+
+    let mut newtype_config = Config::new();
+    newtype_config.set_read_options(ConfigReadOptions::env_friendly());
+    newtype_config.set("case.value.Code", " 200 ")?;
+    let newtype = newtype_config.deserialize::<OneField<Tagged>>("case")?;
+
+    let mut tuple_config = Config::new();
+    tuple_config.set("case.value.Pair", vec![1u8, 2u8])?;
+    let tuple = tuple_config.deserialize::<OneField<Tagged>>("case")?;
+
+    let mut struct_config = Config::new();
+    struct_config.set_read_options(ConfigReadOptions::env_friendly());
+    struct_config.set("case.value.Record.id", " 7 ")?;
+    let record = struct_config.deserialize::<OneField<Tagged>>("case")?;
+
+    assert_eq!(unit.value, Tagged::Unit);
+    assert_eq!(root_unit, Tagged::Unit);
+    assert_eq!(newtype.value, Tagged::Code(200));
+    assert_eq!(tuple.value, Tagged::Pair(1, 2));
+    assert_eq!(record.value, Tagged::Record { id: 7 });
+    Ok(())
+}
+
+#[test]
+fn deserialize_enum_reports_invalid_shapes() -> ConfigResult<()> {
+    let mut empty_object = Config::new();
+    empty_object.insert_property(
+        "case.value",
+        Property::with_value("case.value", MultiValues::Json(vec![serde_json::json!({})])),
+    )?;
+    assert!(
+        empty_object
+            .deserialize::<OneField<Tagged>>("case")
+            .is_err()
+    );
+
+    let mut multiple_variants = Config::new();
+    multiple_variants.insert_property(
+        "case.value",
+        Property::with_value(
+            "case.value",
+            MultiValues::Json(vec![serde_json::json!({
+                "Unit": null,
+                "Code": 200
+            })]),
+        ),
+    )?;
+    assert!(
+        multiple_variants
+            .deserialize::<OneField<Tagged>>("case")
+            .is_err()
+    );
+
+    let mut scalar = Config::new();
+    scalar.set("case.value", 1u8)?;
+    assert!(scalar.deserialize::<OneField<Tagged>>("case").is_err());
+
+    let mut bad_unit_payload = Config::new();
+    bad_unit_payload.insert_property(
+        "case.value",
+        Property::with_value(
+            "case.value",
+            MultiValues::Json(vec![serde_json::json!({
+                "Unit": { "extra": true }
+            })]),
+        ),
+    )?;
+    assert!(
+        bad_unit_payload
+            .deserialize::<OneField<Tagged>>("case")
+            .is_err()
+    );
+
+    let mut missing_newtype = Config::new();
+    missing_newtype.set("case.value", "Code")?;
+    assert!(
+        missing_newtype
+            .deserialize::<OneField<Tagged>>("case")
+            .is_err()
+    );
+
+    let mut missing_tuple = Config::new();
+    missing_tuple.set("case.value", "Pair")?;
+    assert!(
+        missing_tuple
+            .deserialize::<OneField<Tagged>>("case")
+            .is_err()
+    );
+
+    let mut missing_struct = Config::new();
+    missing_struct.set("case.value", "Record")?;
+    assert!(
+        missing_struct
+            .deserialize::<OneField<Tagged>>("case")
+            .is_err()
+    );
     Ok(())
 }
 

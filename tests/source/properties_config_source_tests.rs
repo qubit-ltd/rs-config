@@ -126,6 +126,15 @@ mod test_properties_config_source {
     }
 
     #[test]
+    fn test_parse_invalid_unicode_surrogates_are_preserved() {
+        let content = "high=\\uD83D\\u0041\nlow=\\uDE00";
+        let pairs = PropertiesConfigSource::parse_content(content);
+        assert_eq!(pairs.len(), 2);
+        assert_eq!(pairs[0], ("high".to_string(), "\\uD83DA".to_string()));
+        assert_eq!(pairs[1], ("low".to_string(), "\\uDE00".to_string()));
+    }
+
+    #[test]
     fn test_parse_empty_value() {
         let content = "empty=";
         let pairs = PropertiesConfigSource::parse_content(content);

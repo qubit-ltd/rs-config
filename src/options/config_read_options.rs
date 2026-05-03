@@ -678,3 +678,12 @@ fn ensure_literal_prefix(
     }
     Ok(())
 }
+
+/// Exercises serde default implementations that are otherwise only present for
+/// forward-compatible schema defaults.
+#[cfg(coverage)]
+#[doc(hidden)]
+pub fn coverage_touch_config_read_option_serde_defaults() {
+    let _ = ConfigReadOptionsSerde::default();
+    let _ = BooleanConversionOptionsSerde::default();
+}

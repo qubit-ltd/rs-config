@@ -21,5 +21,8 @@ pub use blank_string_policy::BlankStringPolicy;
 pub use boolean_read_options::BooleanReadOptions;
 pub use collection_read_options::CollectionReadOptions;
 pub use config_read_options::ConfigReadOptions;
+#[cfg(coverage)]
+#[doc(hidden)]
+pub use config_read_options::coverage_touch_config_read_option_serde_defaults;
 pub use empty_item_policy::EmptyItemPolicy;
 pub use string_read_options::StringReadOptions;

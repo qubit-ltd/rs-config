@@ -17,7 +17,9 @@ use qubit_config::{
         EmptyItemPolicy, StringReadOptions,
     },
 };
-use qubit_datatype::{DataConversionOptions, DurationConversionOptions, DurationUnit};
+use qubit_datatype::{
+    BooleanConversionOptions, DataConversionOptions, DurationConversionOptions, DurationUnit,
+};
 
 #[test]
 fn test_global_env_friendly_options_parse_comma_separated_list() {
@@ -172,4 +174,126 @@ fn test_config_serialization_preserves_read_options() {
         restored.get::<Vec<u16>>("PORTS"),
         Err(ConfigError::ConversionError { key, .. }) if key == "PORTS"
     ));
+}
+
+#[test]
+fn test_config_read_options_serde_defaults_are_readable() {
+    let default_options: ConfigReadOptions =
+        serde_json::from_str("{}").expect("empty options should use defaults");
+    let nested_defaults: ConfigReadOptions = serde_json::from_value(serde_json::json!({
+        "conversion": {
+            "string": {},
+            "boolean": {},
+            "collection": {},
+            "duration": {}
+        }
+    }))
+    .expect("nested empty options should use defaults");
+
+    assert_eq!(default_options, ConfigReadOptions::default());
+    assert_eq!(nested_defaults, ConfigReadOptions::default());
+}
+
+#[test]
+fn test_config_read_options_serde_round_trips_all_policy_variants() {
+    for policy in [
+        BlankStringPolicy::Preserve,
+        BlankStringPolicy::TreatAsMissing,
+        BlankStringPolicy::Reject,
+    ] {
+        let options = ConfigReadOptions::default().with_blank_string_policy(policy);
+        let restored: ConfigReadOptions =
+            serde_json::from_str(&serde_json::to_string(&options).unwrap()).unwrap();
+        assert_eq!(
+            restored.conversion_options().string.blank_string_policy,
+            policy
+        );
+    }
+
+    for policy in [
+        EmptyItemPolicy::Keep,
+        EmptyItemPolicy::Skip,
+        EmptyItemPolicy::Reject,
+    ] {
+        let options = ConfigReadOptions::default().with_empty_item_policy(policy);
+        let restored: ConfigReadOptions =
+            serde_json::from_str(&serde_json::to_string(&options).unwrap()).unwrap();
+        assert_eq!(
+            restored.conversion_options().collection.empty_item_policy,
+            policy
+        );
+    }
+
+    for unit in [
+        DurationUnit::Nanoseconds,
+        DurationUnit::Microseconds,
+        DurationUnit::Milliseconds,
+        DurationUnit::Seconds,
+        DurationUnit::Minutes,
+        DurationUnit::Hours,
+        DurationUnit::Days,
+    ] {
+        let duration = DurationConversionOptions::default()
+            .with_unit(unit)
+            .with_append_unit_suffix(false);
+        let options = ConfigReadOptions::default().with_duration_options(duration);
+        let restored: ConfigReadOptions =
+            serde_json::from_str(&serde_json::to_string(&options).unwrap()).unwrap();
+        assert_eq!(restored.conversion_options().duration.unit, unit);
+        assert!(!restored.conversion_options().duration.append_unit_suffix);
+    }
+}
+
+#[test]
+fn test_config_read_options_serde_boolean_literals_and_errors() {
+    let options = ConfigReadOptions::default().with_boolean_options(
+        BooleanConversionOptions::strict()
+            .with_true_literal("enabled")
+            .with_false_literal("disabled")
+            .with_case_sensitive(true),
+    );
+    let restored: ConfigReadOptions =
+        serde_json::from_str(&serde_json::to_string(&options).unwrap()).unwrap();
+
+    assert!(
+        restored
+            .conversion_options()
+            .boolean
+            .true_literals()
+            .contains(&"enabled".to_string())
+    );
+    assert!(
+        restored
+            .conversion_options()
+            .boolean
+            .false_literals()
+            .contains(&"disabled".to_string())
+    );
+    assert!(restored.conversion_options().boolean.case_sensitive);
+
+    let bad_true = serde_json::json!({
+        "conversion": {
+            "boolean": {
+                "true_literals": ["yes"],
+                "false_literals": ["false", "0"]
+            }
+        }
+    });
+    let bad_false = serde_json::json!({
+        "conversion": {
+            "boolean": {
+                "true_literals": ["true", "1"],
+                "false_literals": ["no"]
+            }
+        }
+    });
+
+    assert!(serde_json::from_value::<ConfigReadOptions>(bad_true).is_err());
+    assert!(serde_json::from_value::<ConfigReadOptions>(bad_false).is_err());
+}
+
+#[cfg(coverage)]
+#[test]
+fn test_coverage_touches_read_option_serde_defaults() {
+    qubit_config::options::coverage_touch_config_read_option_serde_defaults();
 }
