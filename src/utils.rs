@@ -67,7 +67,8 @@ pub(crate) fn substitute_variables<R: ConfigReader + ?Sized>(
 /// Replaces variables using a primary reader and a fallback reader.
 ///
 /// The primary reader is checked first. Missing or empty values fall back to
-/// the fallback reader, then to environment variables. Type and conversion
+/// the fallback reader, then to environment variables only when the active
+/// read options explicitly enable environment fallback. Type and conversion
 /// errors in the primary reader are returned directly.
 pub(crate) fn substitute_variables_with_fallback<
     P: ConfigReader + ?Sized,
@@ -89,55 +90,58 @@ fn substitute_variables_by(
     max_depth: usize,
     mut resolve: impl FnMut(&str) -> ConfigResult<String>,
 ) -> ConfigResult<String> {
-    if value.is_empty() {
+    let pattern = get_variable_pattern();
+    let mut stack = Vec::new();
+    substitute_variables_recursive(value, max_depth, pattern, &mut stack, &mut resolve)
+}
+
+/// Recursively expands variables while tracking the active variable chain.
+fn substitute_variables_recursive(
+    value: &str,
+    max_depth: usize,
+    pattern: &Regex,
+    stack: &mut Vec<String>,
+    resolve: &mut impl FnMut(&str) -> ConfigResult<String>,
+) -> ConfigResult<String> {
+    if value.is_empty() || !pattern.is_match(value) {
         return Ok(value.to_string());
     }
-
-    let pattern = get_variable_pattern();
-    let mut result = value.to_string();
-    let mut depth = 0;
-
-    loop {
-        if !pattern.is_match(&result) {
-            // No more variables to replace
-            break;
-        }
-
-        if depth >= max_depth {
-            return Err(ConfigError::SubstitutionDepthExceeded(max_depth));
-        }
-
-        // Replace all placeholders in a single regex pass.
-        let mut first_error: Option<ConfigError> = None;
-        let replaced = pattern.replace_all(&result, |caps: &regex::Captures| {
-            let var_name = caps.get(1).map(|m| m.as_str()).unwrap_or_default();
-            match resolve(var_name) {
-                Ok(v) => v,
-                Err(err) => {
-                    if first_error.is_none() {
-                        first_error = Some(err);
-                    }
-                    caps.get(0)
-                        .map(|m| m.as_str().to_string())
-                        .unwrap_or_default()
-                }
-            }
-        });
-        if let Some(err) = first_error {
-            return Err(err);
-        }
-        result = replaced.into_owned();
-
-        depth += 1;
+    if stack.len() >= max_depth {
+        return Err(ConfigError::SubstitutionDepthExceeded(max_depth));
     }
 
+    let mut result = String::with_capacity(value.len());
+    let mut last_end = 0;
+    for caps in pattern.captures_iter(value) {
+        let full_match = caps
+            .get(0)
+            .expect("regex capture group 0 must be present for a match");
+        result.push_str(&value[last_end..full_match.start()]);
+
+        let var_name = caps.get(1).map(|m| m.as_str()).unwrap_or_default();
+        if let Some(index) = stack.iter().position(|name| name == var_name) {
+            let mut chain = stack[index..].to_vec();
+            chain.push(var_name.to_string());
+            return Err(ConfigError::SubstitutionCycle { chain });
+        }
+
+        stack.push(var_name.to_string());
+        let raw_value = resolve(var_name)?;
+        let expanded =
+            substitute_variables_recursive(&raw_value, max_depth, pattern, stack, resolve)?;
+        stack.pop();
+        result.push_str(&expanded);
+        last_end = full_match.end();
+    }
+    result.push_str(&value[last_end..]);
     Ok(result)
 }
 
 /// Finds the value of a variable
 ///
 /// First looks in the configuration. It falls back to environment variables
-/// only when the key is missing or explicitly empty/null in config.
+/// only when the key is missing or explicitly empty/null in config and the
+/// active read options explicitly enable environment fallback.
 ///
 /// # Parameters
 ///
@@ -158,9 +162,15 @@ fn find_variable_value<R: ConfigReader + ?Sized>(
             Ok(value) => Ok(value),
             Err(error) => Err(map_value_error(var_name, error)),
         },
-        Some(_) | None => std::env::var(var_name).map_err(|_| {
-            ConfigError::SubstitutionError(format!("Cannot resolve variable: {}", var_name))
-        }),
+        Some(_) | None if config.read_options().is_env_variable_substitution_enabled() => {
+            std::env::var(var_name).map_err(|_| {
+                ConfigError::SubstitutionError(format!("Cannot resolve variable: {}", var_name))
+            })
+        }
+        Some(_) | None => Err(ConfigError::SubstitutionError(format!(
+            "Cannot resolve variable from config: {}",
+            var_name
+        ))),
     }
 }
 

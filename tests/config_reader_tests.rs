@@ -682,6 +682,25 @@ mod test_config_reader_alias_reads {
     }
 
     #[test]
+    fn test_optional_string_uses_same_missing_semantics_as_optional_get() {
+        let mut config = Config::new();
+        config
+            .set_read_options(
+                ConfigReadOptions::default()
+                    .with_blank_string_policy(BlankStringPolicy::TreatAsMissing),
+            )
+            .set("svc.name", "   ")
+            .expect("setting blank value should succeed");
+
+        assert_eq!(config.get_optional::<String>("svc.name").unwrap(), None);
+        assert_eq!(config.get_optional_string("svc.name").unwrap(), None);
+
+        let svc = config.prefix_view("svc");
+        assert_eq!(svc.get_optional::<String>("name").unwrap(), None);
+        assert_eq!(svc.get_optional_string("name").unwrap(), None);
+    }
+
+    #[test]
     fn test_get_or_returns_error_for_present_invalid_value() {
         let mut config = Config::new();
         config

@@ -24,7 +24,6 @@ exclude = [
 
 [lib]
 name = "qubit_config"
-doctest = false
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }

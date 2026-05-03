@@ -73,6 +73,7 @@ impl ConfigSource for EnvFileConfigSource {
             )))
         })?;
 
+        let mut staged = config.clone();
         for item in iter {
             let (key, value) = item.map_err(|e| {
                 ConfigError::ParseError(format!(
@@ -81,9 +82,10 @@ impl ConfigSource for EnvFileConfigSource {
                     e
                 ))
             })?;
-            config.set(&key, value)?;
+            staged.set(&key, value)?;
         }
 
+        *config = staged;
         Ok(())
     }
 }

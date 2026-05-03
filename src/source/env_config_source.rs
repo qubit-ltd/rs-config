@@ -248,6 +248,7 @@ impl Default for EnvConfigSource {
 
 impl ConfigSource for EnvConfigSource {
     fn load(&self, config: &mut Config) -> ConfigResult<()> {
+        let mut staged = config.clone();
         for (key_os, value_os) in std::env::vars_os() {
             // Filter by prefix if set
             if let Some(prefix) = &self.prefix
@@ -262,9 +263,10 @@ impl ConfigSource for EnvConfigSource {
                 &format!("Value for environment variable '{key}'"),
             )?;
             let transformed_key = self.transform_key(&key);
-            config.set(&transformed_key, value)?;
+            staged.set(&transformed_key, value)?;
         }
 
+        *config = staged;
         Ok(())
     }
 }

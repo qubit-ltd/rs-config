@@ -88,7 +88,10 @@ impl ConfigSource for TomlConfigSource {
             ))
         })?;
 
-        flatten_toml_value("", &TomlValue::Table(table), config)
+        let mut staged = config.clone();
+        flatten_toml_value("", &TomlValue::Table(table), &mut staged)?;
+        *config = staged;
+        Ok(())
     }
 }
 

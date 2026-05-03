@@ -16,11 +16,11 @@
 - ✅ **纯泛型 API** - 使用 `get<T>()`、`read(ConfigField<T>)` 和 `set<T>()` 泛型方法，支持完整的类型推断
 - ✅ **丰富的数据类型** - 支持所有基本类型、时间类型、字符串、字节数组等
 - ✅ **多值属性** - 每个配置项可以包含多个值，支持列表操作
-- ✅ **变量替换** - 支持 `${var_name}` 形式的变量替换，可从配置或环境变量中获取
+- ✅ **变量替换** - 支持 `${var_name}` 形式的配置变量替换；如需回退到进程环境变量，必须显式开启
 - ✅ **类型安全** - 编译期类型检查，避免运行时类型错误
 - ✅ **序列化支持** - 完整的 serde 支持，可序列化和反序列化
 - ✅ **可扩展** - 基于 trait 的设计，易于支持自定义类型
-- ✅ **配置来源（ConfigSource）** - 提供 [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) trait 与多种内置实现：TOML、YAML、Java 风格 `.properties`、`.env` 文件、进程环境变量（可选前缀与键名规范化），以及按顺序合并多个来源的 [`CompositeConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.CompositeConfigSource.html)（后加载的来源覆盖同名键）；通过 [`Config::merge_from_source`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.merge_from_source) 将外部配置载入 `Config`
+- ✅ **配置来源（ConfigSource）** - 提供 [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) trait 与多种内置实现：TOML、YAML、Java 风格 `.properties`、`.env` 文件、进程环境变量（可选前缀与键名规范化），以及按顺序合并多个来源的 [`CompositeConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.CompositeConfigSource.html)（后加载的来源覆盖同名键）；内置来源按事务语义加载，失败时目标 `Config` 保持原状态
 - ✅ **只读访问（ConfigReader）** - [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) trait 提供无需修改配置的泛型读取；[`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) 与 [`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html) 均实现该 trait，并包含字符串辅助方法、多 key 读取和字段声明读取
 - ✅ **可配置解析** - [`ConfigReadOptions`](https://docs.rs/qubit-config/latest/qubit_config/options/struct.ConfigReadOptions.html) 可在全局或单个字段上控制字符串 trim、空白值处理、布尔字面量和标量字符串拆分列表
 - ✅ **前缀视图（ConfigPrefixView）** - [`Config::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.prefix_view) 返回绑定逻辑键前缀的 [`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html)（相对键解析为 `前缀.键`）；可通过 [`ConfigPrefixView::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html#method.prefix_view) 嵌套子前缀
@@ -159,8 +159,11 @@ let port: i32 = db.get("port")?;
 | `StringReadOptions` | 字符串 trim，以及空白字符串的处理方式：保留、当作缺失、或拒绝。 |
 | `BooleanReadOptions` | 可接受的布尔字面量和大小写敏感性。 |
 | `CollectionReadOptions` | 是否把标量字符串拆成列表、分隔符、元素 trim，以及空元素策略。 |
+| 环境变量替换 | 未解析的 `${...}` 占位符是否可以回退读取进程环境变量。默认关闭。 |
 
 `ConfigReadOptions::env_friendly()` 适合环境变量风格配置：会 trim 字符串，把空白标量字符串当作缺失，布尔值接受 `true/false`、`1/0`、`yes/no`、`on/off`，并在读取 `Vec<T>` 时按逗号拆分标量字符串、跳过空元素。
+
+`${...}` 替换回退读取进程环境变量默认关闭，`ConfigReadOptions::env_friendly()` 也不会自动开启，以避免进程环境值带来意外注入。仅在可信配置链路中用 `with_env_variable_substitution_enabled(true)` 显式开启。
 
 ```rust
 use qubit_config::{Config, options::ConfigReadOptions};
@@ -265,6 +268,8 @@ assert_eq!(retries, 3);
 
 [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) 的实现负责把外部设置写入 [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html)。可调用 [`merge_from_source`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.merge_from_source)，或在持有 `&mut Config` 时对具体来源调用 `load`。如果不需要在加载前定制目标 `Config`，可以直接使用 [`Config::from_toml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_toml_file)、[`Config::from_yaml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_yaml_file)、[`Config::from_properties_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_properties_file)、[`Config::from_env_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_file)、[`Config::from_env`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env) 或 [`Config::from_env_prefix`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_prefix) 等便捷构造方法。
 
+内置来源和 `Config::merge_from_source` 都按事务语义加载：如果解析或合并失败，目标 `Config` 会保留加载前的状态。
+
 | 类型 | 作用 |
 |------|------|
 | [`TomlConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.TomlConfigSource.html) | 读取 TOML 文件；嵌套表展平为点号分隔键 |
@@ -348,7 +353,11 @@ config.set("url", "http://${host}:${port}/api")?;
 let url = config.get_string("url")?;
 // 结果: "http://localhost:8080/api"
 
-// 也支持环境变量
+// 回退读取环境变量需要显式开启，因为进程环境值在某些部署中可能被外部影响。
+config.set_read_options(
+    qubit_config::options::ConfigReadOptions::default()
+        .with_env_variable_substitution_enabled(true),
+);
 std::env::set_var("APP_ENV", "production");
 config.set("env", "${APP_ENV}")?;
 let env = config.get_string("env")?;
@@ -357,7 +366,11 @@ let env = config.get_string("env")?;
 
 ### 结构化配置
 
+`deserialize()` 使用与泛型 `get` 读取一致的读取选项。例如，`ConfigReadOptions::env_friendly()` 可在反序列化 serde 结构时解析数字字符串、布尔别名和逗号分隔的标量字符串列表。
+
 ```rust
+use qubit_config::{Config, options::ConfigReadOptions};
+
 #[derive(Debug)]
 struct DatabaseConfig {
     host: String,
@@ -516,6 +529,7 @@ pub enum ConfigError {
     IndexOutOfBounds { index: usize, len: usize }, // 索引越界
     SubstitutionError(String),          // 变量替换失败
     SubstitutionDepthExceeded(usize),   // 变量替换深度超限
+    SubstitutionCycle { chain: Vec<String> }, // 检测到变量替换环
     MergeError(String),                 // 配置合并失败
     PropertyIsFinal(String),            // 配置项是最终的，不能被覆盖
     IoError(std::io::Error),            // IO 错误

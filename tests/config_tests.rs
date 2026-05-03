@@ -12,7 +12,10 @@
 //! Covers the public `Config` API (including APIs introduced in v0.4.0).
 
 pub(crate) use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
-pub(crate) use qubit_config::{Config, ConfigError, Property};
+pub(crate) use qubit_config::{
+    Config, ConfigError, Property,
+    options::{BlankStringPolicy, ConfigReadOptions},
+};
 pub(crate) use qubit_datatype::DataType;
 pub(crate) use qubit_value::MultiValues;
 pub(crate) use serde::Deserialize;
@@ -41,8 +44,8 @@ pub(crate) fn create_test_config_with_description() -> Config {
 mod test_new {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        BlankStringPolicy, Config, ConfigError, ConfigReadOptions, DataType, DateTime, Deserialize,
+        MultiValues, NaiveDate, NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
         create_test_config_with_description,
     };
 
@@ -68,8 +71,8 @@ mod test_new {
 mod test_with_description {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        BlankStringPolicy, Config, ConfigError, ConfigReadOptions, DataType, DateTime, Deserialize,
+        MultiValues, NaiveDate, NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
         create_test_config_with_description,
     };
 
@@ -102,8 +105,8 @@ mod test_with_description {
 mod test_description {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        BlankStringPolicy, Config, ConfigError, ConfigReadOptions, DataType, DateTime, Deserialize,
+        MultiValues, NaiveDate, NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
         create_test_config_with_description,
     };
 
@@ -1777,8 +1780,8 @@ mod test_contains_prefix {
 mod test_subconfig {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        BlankStringPolicy, Config, ConfigError, ConfigReadOptions, DataType, DateTime, Deserialize,
+        MultiValues, NaiveDate, NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
         create_test_config_with_description,
     };
 
@@ -1841,6 +1844,26 @@ mod test_subconfig {
         let sub = config.subconfig("http", true).unwrap();
         assert!(!sub.is_enable_variable_substitution());
         assert_eq!(sub.max_substitution_depth(), 10);
+    }
+
+    #[test]
+    fn test_subconfig_preserves_read_options_and_description() {
+        let mut config = Config::with_description("root config");
+        config.set_read_options(
+            ConfigReadOptions::default()
+                .with_blank_string_policy(BlankStringPolicy::TreatAsMissing),
+        );
+        config.set("http.host", "   ").unwrap();
+        config.set("http.fallback", "localhost").unwrap();
+
+        let sub = config.subconfig("http", true).unwrap();
+
+        assert_eq!(sub.description(), Some("root config"));
+        assert_eq!(sub.get_optional_string("host").unwrap(), None);
+        assert_eq!(
+            sub.get_any::<String>(["host", "fallback"]).unwrap(),
+            "localhost"
+        );
     }
 
     #[test]

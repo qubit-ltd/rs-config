@@ -88,7 +88,10 @@ impl ConfigSource for YamlConfigSource {
             ))
         })?;
 
-        flatten_yaml_value("", &value, config)
+        let mut staged = config.clone();
+        flatten_yaml_value("", &value, &mut staged)?;
+        *config = staged;
+        Ok(())
     }
 }
 

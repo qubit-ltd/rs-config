@@ -625,11 +625,7 @@ pub trait ConfigReader {
     /// a string.
     #[inline]
     fn get_optional_string(&self, name: impl ConfigName) -> ConfigResult<Option<String>> {
-        name.with_config_name(|name| match self.get_property(name) {
-            None => Ok(None),
-            Some(prop) if prop.is_empty() => Ok(None),
-            Some(_) => self.get_string(name).map(Some),
-        })
+        self.get_optional(name)
     }
 
     /// Gets an optional string list with per-element substitution when enabled.
@@ -644,10 +640,6 @@ pub trait ConfigReader {
     /// `Err` on conversion/substitution failure.
     #[inline]
     fn get_optional_string_list(&self, name: impl ConfigName) -> ConfigResult<Option<Vec<String>>> {
-        name.with_config_name(|name| match self.get_property(name) {
-            None => Ok(None),
-            Some(prop) if prop.is_empty() => Ok(None),
-            Some(_) => self.get_string_list(name).map(Some),
-        })
+        self.get_optional(name)
     }
 }

@@ -14,11 +14,11 @@ A powerful, type-safe configuration management system for Rust, providing flexib
 - ✅ **Pure Generic API** - Use `get<T>()`, `read(ConfigField<T>)`, and `set<T>()` generic methods with full type inference support
 - ✅ **Rich Data Types** - Support for all primitive types, temporal types, strings, byte arrays, and more
 - ✅ **Multi-Value Properties** - Each configuration property can contain multiple values with list operations
-- ✅ **Variable Substitution** - Support for `${var_name}` style variable substitution from config or environment
+- ✅ **Variable Substitution** - Support for `${var_name}` style variable substitution from config, with explicit opt-in fallback to process environment variables
 - ✅ **Type Safety** - Compile-time type checking to prevent runtime type errors
 - ✅ **Serialization Support** - Full serde support for serialization and deserialization
 - ✅ **Extensible** - Trait-based design for easy custom type support
-- ✅ **Configuration sources** - [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) trait with built-in loaders: TOML, YAML, Java-style `.properties`, `.env` files, process environment variables (with optional prefix / key normalization), and [`CompositeConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.CompositeConfigSource.html) to merge several sources in order (later entries override earlier ones for the same key); use [`Config::merge_from_source`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.merge_from_source) to populate a `Config`
+- ✅ **Configuration sources** - [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) trait with built-in loaders: TOML, YAML, Java-style `.properties`, `.env` files, process environment variables (with optional prefix / key normalization), and [`CompositeConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.CompositeConfigSource.html) to merge several sources in order (later entries override earlier ones for the same key); built-in sources load transactionally, so failed loads leave the target `Config` unchanged
 - ✅ **Read-only API** - [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) trait for typed reads without mutation; implemented by [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) and [`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html), with string helpers, multi-key reads, and field declarations that respect variable substitution
 - ✅ **Configurable parsing** - [`ConfigReadOptions`](https://docs.rs/qubit-config/latest/qubit_config/options/struct.ConfigReadOptions.html) controls string trimming, blank handling, boolean literals, and scalar-string collection splitting globally or per field
 - ✅ **Prefix views** - [`Config::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.prefix_view) returns a [`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html) scoped to a logical key prefix (relative keys map to `prefix.key`); nest with [`ConfigPrefixView::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html#method.prefix_view)
@@ -157,8 +157,11 @@ let port: i32 = db.get("port")?;
 | `StringReadOptions` | Trimming and blank-string handling: preserve, treat as missing, or reject. |
 | `BooleanReadOptions` | Accepted boolean literals and case sensitivity. |
 | `CollectionReadOptions` | Splitting scalar strings into lists, delimiters, per-item trimming, and empty-item policy. |
+| Environment variable substitution | Whether unresolved `${...}` placeholders may fall back to process environment variables. This is disabled by default. |
 
 `ConfigReadOptions::env_friendly()` is useful for environment-variable style values: it trims strings, treats blank scalar strings as missing, accepts `true/false`, `1/0`, `yes/no`, and `on/off`, and splits scalar strings on commas for `Vec<T>` reads while skipping empty items.
+
+Environment-variable fallback for `${...}` substitution is disabled by default, including in `ConfigReadOptions::env_friendly()`, to avoid accidental injection from the process environment. Enable it explicitly only for trusted configuration flows with `with_env_variable_substitution_enabled(true)`.
 
 ```rust
 use qubit_config::{Config, options::ConfigReadOptions};
@@ -263,6 +266,8 @@ Multi-key reads scan keys in order. Missing and empty values are skipped; the fi
 
 Implementations of [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) load external settings into a [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html). Call [`merge_from_source`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.merge_from_source) (or `load` on the source with a `&mut Config`) to apply them. When no pre-load customization is needed, use the convenience constructors such as [`Config::from_toml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_toml_file), [`Config::from_yaml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_yaml_file), [`Config::from_properties_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_properties_file), [`Config::from_env_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_file), [`Config::from_env`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env), or [`Config::from_env_prefix`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_prefix).
 
+Built-in sources and `Config::merge_from_source` are transactional: if parsing or merging fails, the target `Config` keeps its previous state.
+
 | Type | Role |
 |------|------|
 | [`TomlConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.TomlConfigSource.html) | TOML files; nested tables are flattened to dot-separated keys |
@@ -346,7 +351,12 @@ config.set("url", "http://${host}:${port}/api")?;
 let url = config.get_string("url")?;
 // Result: "http://localhost:8080/api"
 
-// Environment variables are also supported
+// Environment fallback is opt-in because process environment values can be
+// attacker-controlled in some deployments.
+config.set_read_options(
+    qubit_config::options::ConfigReadOptions::default()
+        .with_env_variable_substitution_enabled(true),
+);
 std::env::set_var("APP_ENV", "production");
 config.set("env", "${APP_ENV}")?;
 let env = config.get_string("env")?;
@@ -355,7 +365,11 @@ let env = config.get_string("env")?;
 
 ### Structured Configuration
 
+`deserialize()` uses the same read options as typed `get` reads. For example, `ConfigReadOptions::env_friendly()` can parse numeric strings, boolean aliases, and comma-separated scalar strings while building a serde struct.
+
 ```rust
+use qubit_config::{Config, options::ConfigReadOptions};
+
 #[derive(Debug)]
 struct DatabaseConfig {
     host: String,
@@ -514,6 +528,7 @@ pub enum ConfigError {
     IndexOutOfBounds { index: usize, len: usize }, // Index out of bounds
     SubstitutionError(String),          // Variable substitution failed
     SubstitutionDepthExceeded(usize),   // Variable substitution depth exceeded
+    SubstitutionCycle { chain: Vec<String> }, // Variable substitution cycle detected
     MergeError(String),                 // Configuration merge failed
     PropertyIsFinal(String),            // Property is final and cannot be overwritten
     IoError(std::io::Error),            // IO error

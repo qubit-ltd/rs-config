@@ -14,7 +14,7 @@
 //! `src/utils.rs`.
 //!
 
-use qubit_config::{Config, ConfigError, Property};
+use qubit_config::{Config, ConfigError, Property, options::ConfigReadOptions};
 use qubit_datatype::DataType;
 use qubit_value::MultiValues;
 use serde::Deserialize;
@@ -27,7 +27,10 @@ use std::collections::HashMap;
 #[cfg(test)]
 mod test_deserialize {
     #[allow(unused_imports)]
-    use super::{Config, ConfigError, DataType, Deserialize, HashMap, MultiValues, Property};
+    use super::{
+        Config, ConfigError, ConfigReadOptions, DataType, Deserialize, HashMap, MultiValues,
+        Property,
+    };
 
     #[derive(Deserialize, Debug, PartialEq)]
     struct ServerConfig {
@@ -300,6 +303,53 @@ mod test_deserialize {
     }
 
     #[test]
+    fn test_deserialize_uses_config_conversion_for_string_scalars() {
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct ServiceConfig {
+            port: u16,
+            enabled: bool,
+        }
+
+        let mut config = Config::new();
+        config.set("svc.port", "8080").unwrap();
+        config.set("svc.enabled", "1").unwrap();
+
+        let svc = config.deserialize::<ServiceConfig>("svc").unwrap();
+
+        assert_eq!(
+            svc,
+            ServiceConfig {
+                port: 8080,
+                enabled: true,
+            }
+        );
+    }
+
+    #[test]
+    fn test_deserialize_uses_read_options_for_env_style_values() {
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct ServiceConfig {
+            enabled: bool,
+            ports: Vec<u16>,
+        }
+
+        let mut config = Config::new();
+        config.set_read_options(ConfigReadOptions::env_friendly());
+        config.set("svc.enabled", "yes").unwrap();
+        config.set("svc.ports", "8080, 8081,,8082").unwrap();
+
+        let svc = config.deserialize::<ServiceConfig>("svc").unwrap();
+
+        assert_eq!(
+            svc,
+            ServiceConfig {
+                enabled: true,
+                ports: vec![8080, 8081, 8082],
+            }
+        );
+    }
+
+    #[test]
     fn test_deserialize_substitutes_nested_json_strings() {
         #[derive(Deserialize, Debug, PartialEq)]
         struct ServiceConfig {
@@ -381,7 +431,10 @@ mod test_deserialize {
 #[cfg(test)]
 mod test_variable_substitution {
     #[allow(unused_imports)]
-    use super::{Config, ConfigError, DataType, Deserialize, HashMap, MultiValues, Property};
+    use super::{
+        Config, ConfigError, ConfigReadOptions, DataType, Deserialize, HashMap, MultiValues,
+        Property,
+    };
 
     #[test]
     fn test_get_string_substitutes_simple_placeholder() {
@@ -429,7 +482,12 @@ mod test_variable_substitution {
         let mut config = Config::new();
         config.set_max_substitution_depth(5);
         config.set("a", "${b}").unwrap();
-        config.set("b", "${a}").unwrap();
+        config.set("b", "${c}").unwrap();
+        config.set("c", "${d}").unwrap();
+        config.set("d", "${e}").unwrap();
+        config.set("e", "${f}").unwrap();
+        config.set("f", "${g}").unwrap();
+        config.set("g", "done").unwrap();
 
         let result = config.get_string("a");
 
@@ -445,6 +503,9 @@ mod test_variable_substitution {
             std::env::set_var("QUBIT_CONFIG_TEST_ENV_VAR", "test_value");
         }
         let mut config = Config::new();
+        config.set_read_options(
+            ConfigReadOptions::default().with_env_variable_substitution_enabled(true),
+        );
         config
             .set("value", "Value: ${QUBIT_CONFIG_TEST_ENV_VAR}")
             .unwrap();
@@ -455,6 +516,24 @@ mod test_variable_substitution {
             std::env::remove_var("QUBIT_CONFIG_TEST_ENV_VAR");
         }
         assert_eq!(result.unwrap(), "Value: test_value");
+    }
+
+    #[test]
+    fn test_get_string_does_not_use_environment_fallback_by_default() {
+        unsafe {
+            std::env::set_var("QUBIT_CONFIG_TEST_ENV_DISABLED", "from_env");
+        }
+        let mut config = Config::new();
+        config
+            .set("value", "${QUBIT_CONFIG_TEST_ENV_DISABLED}")
+            .unwrap();
+
+        let result = config.get_string("value");
+
+        unsafe {
+            std::env::remove_var("QUBIT_CONFIG_TEST_ENV_DISABLED");
+        }
+        assert!(matches!(result, Err(ConfigError::SubstitutionError(_))));
     }
 
     #[test]
@@ -512,6 +591,9 @@ mod test_variable_substitution {
             std::env::set_var("QUBIT_CONFIG_TEST_ENV_SOURCE", "from_env");
         }
         let mut config = Config::new();
+        config.set_read_options(
+            ConfigReadOptions::default().with_env_variable_substitution_enabled(true),
+        );
         config.set("CONFIG_SOURCE", "from_config").unwrap();
         config
             .set(
@@ -534,6 +616,9 @@ mod test_variable_substitution {
             std::env::set_var("QUBIT_CONFIG_TEST_SHARED_VAR", "from_env");
         }
         let mut config = Config::new();
+        config.set_read_options(
+            ConfigReadOptions::default().with_env_variable_substitution_enabled(true),
+        );
         config
             .set("QUBIT_CONFIG_TEST_SHARED_VAR", "from_config")
             .unwrap();
@@ -555,6 +640,9 @@ mod test_variable_substitution {
             std::env::set_var("QUBIT_CONFIG_TEST_STRICT_VAR", "from_env");
         }
         let mut config = Config::new();
+        config.set_read_options(
+            ConfigReadOptions::default().with_env_variable_substitution_enabled(true),
+        );
         config.set("QUBIT_CONFIG_TEST_STRICT_VAR", 8080i32).unwrap();
         config
             .set("value", "${QUBIT_CONFIG_TEST_STRICT_VAR}")
@@ -566,6 +654,41 @@ mod test_variable_substitution {
             std::env::remove_var("QUBIT_CONFIG_TEST_STRICT_VAR");
         }
         assert_eq!(result.unwrap(), "8080");
+    }
+
+    #[test]
+    fn test_get_string_environment_fallback_reports_missing_env_var() {
+        let mut config = Config::new();
+        config.set_read_options(
+            ConfigReadOptions::default().with_env_variable_substitution_enabled(true),
+        );
+        config
+            .set("value", "${QUBIT_CONFIG_TEST_ENV_MISSING_FOR_FALLBACK}")
+            .unwrap();
+
+        let result = config.get_string("value");
+
+        assert!(matches!(
+            result,
+            Err(ConfigError::SubstitutionError(message))
+                if message.contains("QUBIT_CONFIG_TEST_ENV_MISSING_FOR_FALLBACK")
+        ));
+    }
+
+    #[test]
+    fn test_get_string_substitution_cycle_reports_variable_chain() {
+        let mut config = Config::new();
+        config.set("a", "${b}").unwrap();
+        config.set("b", "${c}").unwrap();
+        config.set("c", "${b}").unwrap();
+
+        let result = config.get_string("a");
+
+        assert!(matches!(
+            result,
+            Err(ConfigError::SubstitutionCycle { chain })
+                if chain == vec!["b".to_string(), "c".to_string(), "b".to_string()]
+        ));
     }
 }
 

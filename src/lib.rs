@@ -14,12 +14,14 @@
 //!
 
 mod config;
+mod config_deserialize_error;
 mod config_error;
 mod config_name;
 mod config_names;
 mod config_prefix_view;
 mod config_property_mut;
 mod config_reader;
+mod config_value_deserializer;
 mod configurable;
 mod configured;
 mod constants;

@@ -10,7 +10,7 @@
 //! # `CompositeConfigSource` tests
 
 use qubit_config::{
-    Config,
+    Config, ConfigError,
     source::{
         CompositeConfigSource, ConfigSource, EnvConfigSource, PropertiesConfigSource,
         TomlConfigSource,
@@ -34,7 +34,7 @@ fn fixture(name: &str) -> PathBuf {
 mod test_composite_config_source {
     #[allow(unused_imports)]
     use super::{
-        CompositeConfigSource, Config, ConfigSource, EnvConfigSource, PathBuf,
+        CompositeConfigSource, Config, ConfigError, ConfigSource, EnvConfigSource, PathBuf,
         PropertiesConfigSource, TomlConfigSource, fixture,
     };
 
@@ -150,5 +150,28 @@ mod test_composite_config_source {
             .add(TomlConfigSource::from_file(fixture("override.toml")));
 
         assert_eq!(composite.len(), 2);
+    }
+
+    #[test]
+    fn test_composite_load_is_transactional_when_later_source_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let defaults = dir.path().join("defaults.toml");
+        let overrides = dir.path().join("overrides.toml");
+        std::fs::write(&defaults, "new_key = \"new\"\n").unwrap();
+        std::fs::write(&overrides, "locked = \"attempted\"\n").unwrap();
+
+        let mut composite = CompositeConfigSource::new();
+        composite.add(TomlConfigSource::from_file(&defaults));
+        composite.add(TomlConfigSource::from_file(&overrides));
+
+        let mut config = Config::new();
+        config.set("locked", "old").unwrap();
+        config.set_final("locked", true).unwrap();
+
+        let result = composite.load(&mut config);
+
+        assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
+        assert_eq!(config.get_string("locked").unwrap(), "old");
+        assert!(!config.contains("new_key"));
     }
 }

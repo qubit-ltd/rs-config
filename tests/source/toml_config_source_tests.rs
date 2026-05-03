@@ -415,4 +415,28 @@ locked_strings = ["one", "two"]
             assert_eq!(config.get_string_list(key).unwrap(), vec!["old"]);
         }
     }
+
+    #[test]
+    fn test_toml_load_is_transactional_when_final_property_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("transactional.toml");
+        std::fs::write(
+            &path,
+            r#"
+new_key = "new"
+locked = "attempted"
+"#,
+        )
+        .unwrap();
+        let source = TomlConfigSource::from_file(&path);
+        let mut config = Config::new();
+        config.set("locked", "old").unwrap();
+        config.set_final("locked", true).unwrap();
+
+        let result = source.load(&mut config);
+
+        assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
+        assert_eq!(config.get_string("locked").unwrap(), "old");
+        assert!(!config.contains("new_key"));
+    }
 }

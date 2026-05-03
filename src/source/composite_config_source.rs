@@ -108,9 +108,11 @@ impl Default for CompositeConfigSource {
 
 impl ConfigSource for CompositeConfigSource {
     fn load(&self, config: &mut Config) -> ConfigResult<()> {
+        let mut staged = config.clone();
         for source in &self.sources {
-            source.load(config)?;
+            source.load(&mut staged)?;
         }
+        *config = staged;
         Ok(())
     }
 }

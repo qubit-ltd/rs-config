@@ -301,10 +301,12 @@ impl ConfigSource for PropertiesConfigSource {
             ))
         })?;
 
+        let mut staged = config.clone();
         for (key, value) in Self::parse_content(&content) {
-            config.set(&key, value)?;
+            staged.set(&key, value)?;
         }
 
+        *config = staged;
         Ok(())
     }
 }

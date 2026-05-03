@@ -77,6 +77,13 @@ pub enum ConfigError {
     #[error("Variable substitution depth exceeded maximum limit: {0}")]
     SubstitutionDepthExceeded(usize),
 
+    /// Variable substitution cycle detected
+    #[error("Variable substitution cycle detected: {}", chain.join(" -> "))]
+    SubstitutionCycle {
+        /// Variable chain that forms the cycle
+        chain: Vec<String>,
+    },
+
     /// Configuration merge failed
     #[error("Configuration merge failed: {0}")]
     MergeError(String),

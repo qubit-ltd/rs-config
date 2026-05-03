@@ -12,8 +12,12 @@
 use qubit_config::{
     Config, ConfigError,
     field::ConfigField,
-    options::{BlankStringPolicy, BooleanReadOptions, ConfigReadOptions, EmptyItemPolicy},
+    options::{
+        BlankStringPolicy, BooleanReadOptions, CollectionReadOptions, ConfigReadOptions,
+        EmptyItemPolicy, StringReadOptions,
+    },
 };
+use qubit_datatype::{DurationConversionOptions, DurationUnit};
 
 #[test]
 fn test_global_env_friendly_options_parse_comma_separated_list() {
@@ -92,4 +96,42 @@ fn test_collection_options_can_reject_empty_items() {
     let result = config.get::<Vec<u16>>("PORTS");
 
     assert!(matches!(result, Err(ConfigError::ConversionError { key, .. }) if key == "PORTS"));
+}
+
+#[test]
+fn test_env_variable_substitution_option_is_explicit() {
+    let default_options = ConfigReadOptions::default();
+    let enabled_options = default_options
+        .clone()
+        .with_env_variable_substitution_enabled(true);
+    let disabled_options = enabled_options
+        .clone()
+        .with_env_variable_substitution_enabled(false);
+
+    assert!(!default_options.is_env_variable_substitution_enabled());
+    assert!(enabled_options.is_env_variable_substitution_enabled());
+    assert!(!disabled_options.is_env_variable_substitution_enabled());
+    assert!(!ConfigReadOptions::env_friendly().is_env_variable_substitution_enabled());
+}
+
+#[test]
+fn test_string_and_duration_options_are_delegated_to_conversion_options() {
+    let string_options = StringReadOptions::default().with_trim(true);
+    let duration_options =
+        DurationConversionOptions::default().with_unit(DurationUnit::Milliseconds);
+    let options = ConfigReadOptions::default()
+        .with_string_options(string_options.clone())
+        .with_duration_options(duration_options.clone());
+
+    assert_eq!(options.conversion_options().string, string_options);
+    assert_eq!(options.conversion_options().duration, duration_options);
+    assert_eq!(options.string, options.conversion_options().string);
+}
+
+#[test]
+fn test_collection_options_builder_is_exposed_directly() {
+    let collection_options = CollectionReadOptions::default().with_split_scalar_strings(true);
+    let options = ConfigReadOptions::default().with_collection_options(collection_options.clone());
+
+    assert_eq!(options.conversion_options().collection, collection_options);
 }

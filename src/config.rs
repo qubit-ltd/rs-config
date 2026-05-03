@@ -16,13 +16,14 @@
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value as JsonValue, from_value};
+use serde_json::{Map, Value as JsonValue};
 use std::collections::HashMap;
 use std::path::Path;
 
 use crate::ConfigPropertyMut;
 use crate::config_prefix_view::ConfigPrefixView;
 use crate::config_reader::ConfigReader;
+use crate::config_value_deserializer::ConfigValueDeserializer;
 use crate::constants::DEFAULT_MAX_SUBSTITUTION_DEPTH;
 use crate::field::ConfigField;
 use crate::from::{FromConfig, IntoConfigDefault};
@@ -33,13 +34,27 @@ use crate::source::{
 };
 use crate::utils;
 use crate::{ConfigError, ConfigName, ConfigNames, ConfigResult, Property};
-use qubit_datatype::DataType;
-use qubit_value::MultiValues;
+use qubit_datatype::{DataConvertTo, DataConverter, DataType};
 use qubit_value::multi_values::{
     MultiValuesAddArg, MultiValuesAdder, MultiValuesFirstGetter, MultiValuesGetter,
     MultiValuesMultiAdder, MultiValuesSetArg, MultiValuesSetter, MultiValuesSetterSlice,
     MultiValuesSingleSetter,
 };
+use qubit_value::{MultiValues, Value as QubitValue};
+
+pub(crate) fn convert_deserialize_number<T>(
+    key: &str,
+    options: &ConfigReadOptions,
+    value: String,
+) -> ConfigResult<T>
+where
+    for<'a> DataConverter<'a>: DataConvertTo<T>,
+{
+    match QubitValue::String(value).to_with::<T>(options.conversion_options()) {
+        Ok(value) => Ok(value),
+        Err(error) => Err(ConfigError::from((key, error))),
+    }
+}
 
 /// Configuration Manager
 ///
@@ -84,7 +99,7 @@ use qubit_value::multi_values::{
 /// let port = config.get::<i32>("port").unwrap();
 ///
 /// // Read configuration value or use default
-/// let timeout: u64 = config.get_or("timeout", 30).unwrap();
+/// let timeout: f64 = config.get_or("timeout", 30.0).unwrap();
 /// ```
 ///
 ///
@@ -549,38 +564,6 @@ impl Config {
             return Err(ConfigError::PropertyIsFinal(name.clone()));
         }
         Ok(())
-    }
-
-    /// Shared "optional get" semantics: treat missing or empty properties as
-    /// `None`, otherwise run `read` and wrap the result in `Some`.
-    ///
-    /// Used by [`Self::get_optional`], [`Self::get_optional_list`],
-    /// [`Self::get_optional_string`], and [`Self::get_optional_string_list`].
-    ///
-    /// # Type Parameters
-    ///
-    /// * `T` - Value type produced by `read`
-    ///
-    /// # Parameters
-    ///
-    /// * `name` - Configuration key
-    /// * `read` - Loads `T` when the key exists and is non-empty (typically
-    ///   delegates to [`Self::get`], [`Self::get_list`], etc.)
-    ///
-    /// # Returns
-    ///
-    /// `Ok(None)` if the key is missing or the property has no values;
-    /// `Ok(Some(value))` on success; or the error from `read` on failure.
-    fn get_optional_when_present<T>(
-        &self,
-        name: &str,
-        read: impl FnOnce(&Self) -> ConfigResult<T>,
-    ) -> ConfigResult<Option<T>> {
-        match self.properties.get(name) {
-            None => Ok(None),
-            Some(prop) if prop.is_empty() => Ok(None),
-            Some(_) => read(self).map(Some),
-        }
     }
 
     // ========================================================================
@@ -1409,7 +1392,10 @@ impl Config {
     /// ```
     #[inline]
     pub fn merge_from_source(&mut self, source: &dyn ConfigSource) -> ConfigResult<()> {
-        source.load(self)
+        let mut staged = self.clone();
+        source.load(&mut staged)?;
+        *self = staged;
+        Ok(())
     }
 
     // ========================================================================
@@ -1529,8 +1515,10 @@ impl Config {
     /// ```
     pub fn subconfig(&self, prefix: &str, strip_prefix: bool) -> ConfigResult<Config> {
         let mut sub = Config::new();
+        sub.description = self.description.clone();
         sub.enable_variable_substitution = self.enable_variable_substitution;
         sub.max_substitution_depth = self.max_substitution_depth;
+        sub.read_options = self.read_options.clone();
 
         // Empty prefix means "all keys"
         if prefix.is_empty() {
@@ -1711,7 +1699,7 @@ impl Config {
     /// assert_eq!(missing, None);
     /// ```
     pub fn get_optional_string(&self, name: impl ConfigName) -> ConfigResult<Option<String>> {
-        name.with_config_name(|name| self.get_optional_when_present(name, |c| c.get_string(name)))
+        <Self as ConfigReader>::get_optional_string(self, name)
     }
 
     /// Gets an optional string list (substitution per element when enabled).
@@ -1749,9 +1737,7 @@ impl Config {
         &self,
         name: impl ConfigName,
     ) -> ConfigResult<Option<Vec<String>>> {
-        name.with_config_name(|name| {
-            self.get_optional_when_present(name, |c| c.get_string_list(name))
-        })
+        <Self as ConfigReader>::get_optional_string_list(self, name)
     }
 
     // ========================================================================
@@ -1761,7 +1747,10 @@ impl Config {
     /// Deserializes the subtree at `prefix` into `T` using `serde`.
     /// String values inside the generated serde value apply the same
     /// `${...}` substitution rules as [`Self::get_string`] and
-    /// [`Self::get_string_list`] when substitution is enabled.
+    /// [`Self::get_string_list`] when substitution is enabled. Scalar strings
+    /// are then parsed with this config's [`ConfigReadOptions`], so
+    /// environment-style booleans, numeric strings, and scalar string lists
+    /// behave consistently with typed `get` reads.
     ///
     /// Keys under `prefix` (prefix and trailing dot removed) form a flat map
     /// for `serde`, for example:
@@ -1825,12 +1814,17 @@ impl Config {
             utils::insert_deserialize_value(&mut map, key, json_val);
         }
 
-        let json_obj = JsonValue::Object(map);
-
-        from_value(json_obj).map_err(|e| ConfigError::DeserializeError {
-            path: prefix.to_string(),
-            message: e.to_string(),
-        })
+        match T::deserialize(ConfigValueDeserializer::new(
+            JsonValue::Object(map),
+            prefix.to_string(),
+            self.read_options(),
+        )) {
+            Ok(value) => Ok(value),
+            Err(error) => Err(ConfigError::DeserializeError {
+                path: prefix.to_string(),
+                message: error.to_string(),
+            }),
+        }
     }
 
     /// Inserts or replaces a property using an explicit [`Property`] object.
