@@ -165,7 +165,7 @@ pub struct Config {
     /// Maximum depth for variable substitution
     max_substitution_depth: usize,
     /// Runtime read parsing options
-    #[serde(skip, default)]
+    #[serde(default)]
     read_options: ConfigReadOptions,
 }
 
@@ -625,10 +625,9 @@ impl Config {
     ///
     /// Core read API with type inference.
     ///
-    /// # Note
-    ///
-    /// This method does not perform variable substitution for string types. If
-    /// you need variable substitution, use [`Self::get_string`].
+    /// This method does not perform `${...}` variable substitution. Use
+    /// [`Self::get_string`], [`Self::get_string_list`], or
+    /// [`Self::deserialize`] when placeholders should be resolved while reading.
     ///
     /// # Type Parameters
     ///
@@ -1147,7 +1146,7 @@ impl Config {
     /// returned instead of being hidden by the default.
     ///
     pub fn get_string_or(&self, name: impl ConfigName, default: &str) -> ConfigResult<String> {
-        self.get_or(name, default)
+        <Self as ConfigReader>::get_string_or(self, name, default)
     }
 
     /// Gets a list of string configuration values (with variable substitution)
@@ -1176,7 +1175,7 @@ impl Config {
     /// assert_eq!(paths, vec!["/opt/app/bin", "/opt/app/lib"]);
     /// ```
     pub fn get_string_list(&self, name: impl ConfigName) -> ConfigResult<Vec<String>> {
-        self.get(name)
+        <Self as ConfigReader>::get_string_list(self, name)
     }
 
     /// Gets a list of string configuration values or returns a default value
@@ -1212,7 +1211,7 @@ impl Config {
         name: impl ConfigName,
         default: &[&str],
     ) -> ConfigResult<Vec<String>> {
-        self.get_or(name, default)
+        <Self as ConfigReader>::get_string_list_or(self, name, default)
     }
 
     // ========================================================================

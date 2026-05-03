@@ -118,6 +118,14 @@ mod test_properties_config_source {
     }
 
     #[test]
+    fn test_parse_unicode_surrogate_pair_escape() {
+        let content = "emoji=\\uD83D\\uDE00";
+        let pairs = PropertiesConfigSource::parse_content(content);
+        assert_eq!(pairs.len(), 1);
+        assert_eq!(pairs[0], ("emoji".to_string(), "😀".to_string()));
+    }
+
+    #[test]
     fn test_parse_empty_value() {
         let content = "empty=";
         let pairs = PropertiesConfigSource::parse_content(content);

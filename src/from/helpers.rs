@@ -61,26 +61,7 @@ pub(crate) fn is_effectively_missing<R: ConfigReader + ?Sized>(
     property: &Property,
     options: &ConfigReadOptions,
 ) -> ConfigResult<bool> {
-    if property.is_empty() {
-        return Ok(true);
-    }
-    let Some(value) = first_scalar_string(property) else {
-        return Ok(false);
-    };
-    let substitute = |value: &str| {
-        if reader.is_enable_variable_substitution() {
-            utils::substitute_variables(value, reader, reader.max_substitution_depth())
-        } else {
-            Ok(value.to_string())
-        }
-    };
-    let ctx = ConfigParseContext::new(name, options, &substitute);
-    let value = ctx.substitute_string(value)?;
-    match options.conversion_options().string.normalize(&value) {
-        Ok(_) => Ok(false),
-        Err(qubit_datatype::DataConversionError::NoValue) => Ok(true),
-        Err(_) => Ok(false),
-    }
+    is_effectively_missing_by(reader, name, property, options, false)
 }
 
 /// Parses a property through a reader-created parsing context.
@@ -114,13 +95,88 @@ where
     R: ConfigReader + ?Sized,
     T: FromConfig,
 {
-    let substitute = |value: &str| {
-        if reader.is_enable_variable_substitution() {
-            utils::substitute_variables(value, reader, reader.max_substitution_depth())
-        } else {
-            Ok(value.to_string())
-        }
+    parse_property_from_reader_by(reader, name, property, options, false)
+}
+
+/// Checks whether a property is missing after applying variable substitution.
+pub(crate) fn is_effectively_missing_with_substitution<R: ConfigReader + ?Sized>(
+    reader: &R,
+    name: &str,
+    property: &Property,
+    options: &ConfigReadOptions,
+) -> ConfigResult<bool> {
+    is_effectively_missing_by(reader, name, property, options, true)
+}
+
+/// Parses a property and applies variable substitution to string values.
+pub(crate) fn parse_property_from_reader_with_substitution<R, T>(
+    reader: &R,
+    name: &str,
+    property: &Property,
+    options: &ConfigReadOptions,
+) -> ConfigResult<T>
+where
+    R: ConfigReader + ?Sized,
+    T: FromConfig,
+{
+    parse_property_from_reader_by(reader, name, property, options, true)
+}
+
+/// Checks whether a property is effectively missing, optionally substituting strings first.
+fn is_effectively_missing_by<R: ConfigReader + ?Sized>(
+    reader: &R,
+    name: &str,
+    property: &Property,
+    options: &ConfigReadOptions,
+    apply_substitution: bool,
+) -> ConfigResult<bool> {
+    if property.is_empty() {
+        return Ok(true);
+    }
+    let Some(value) = first_scalar_string(property) else {
+        return Ok(false);
     };
+    let substitute = |value: &str| substitute_for_reader(reader, value, apply_substitution);
+    let ctx = ConfigParseContext::new(name, options, &substitute);
+    let value = ctx.substitute_string(value)?;
+    match options.conversion_options().string.normalize(&value) {
+        Ok(_) => Ok(false),
+        Err(qubit_datatype::DataConversionError::NoValue) => Ok(true),
+        Err(_) => Ok(false),
+    }
+}
+
+/// Parses a property through a reader context, optionally substituting strings first.
+fn parse_property_from_reader_by<R, T>(
+    reader: &R,
+    name: &str,
+    property: &Property,
+    options: &ConfigReadOptions,
+    apply_substitution: bool,
+) -> ConfigResult<T>
+where
+    R: ConfigReader + ?Sized,
+    T: FromConfig,
+{
+    let substitute = |value: &str| substitute_for_reader(reader, value, apply_substitution);
     let ctx = ConfigParseContext::new(name, options, &substitute);
     T::from_config(property, &ctx)
+}
+
+/// Applies variable substitution for explicit string reads.
+fn substitute_for_reader<R: ConfigReader + ?Sized>(
+    reader: &R,
+    value: &str,
+    apply_substitution: bool,
+) -> ConfigResult<String> {
+    if apply_substitution && reader.is_enable_variable_substitution() {
+        utils::substitute_variables(value, reader, reader.max_substitution_depth())
+    } else {
+        no_substitution(value)
+    }
+}
+
+/// Returns `value` unchanged as an owned string.
+fn no_substitution(value: &str) -> ConfigResult<String> {
+    Ok(value.to_string())
 }

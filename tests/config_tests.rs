@@ -172,6 +172,28 @@ mod test_variable_substitution {
         config.set_enable_variable_substitution(false);
         assert!(!config.is_enable_variable_substitution());
     }
+
+    #[test]
+    fn test_generic_get_string_does_not_apply_variable_substitution() {
+        let mut config = Config::new();
+        config.set("host", "localhost").unwrap();
+        config.set("url", "http://${host}/api").unwrap();
+
+        let url: String = config.get("url").unwrap();
+
+        assert_eq!(url, "http://${host}/api");
+    }
+
+    #[test]
+    fn test_get_string_explicitly_applies_variable_substitution() {
+        let mut config = Config::new();
+        config.set("host", "localhost").unwrap();
+        config.set("url", "http://${host}/api").unwrap();
+
+        let url = config.get_string("url").unwrap();
+
+        assert_eq!(url, "http://localhost/api");
+    }
 }
 
 // ============================================================================

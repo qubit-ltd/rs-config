@@ -359,6 +359,18 @@ fn deserialize_derived_shapes() -> ConfigResult<()> {
 }
 
 #[test]
+fn deserialize_enum_string_uses_config_read_options() -> ConfigResult<()> {
+    let mut config = Config::new();
+    config.set_read_options(ConfigReadOptions::env_friendly());
+    config.set("mode.value", " Fast ")?;
+
+    let actual = config.deserialize::<OneField<Mode>>("mode")?;
+
+    assert_eq!(actual.value, Mode::Fast);
+    Ok(())
+}
+
+#[test]
 fn deserialize_direct_scalar_entry_points() -> ConfigResult<()> {
     let mut config = Config::new();
     config.set("direct.string_from_bool", true)?;

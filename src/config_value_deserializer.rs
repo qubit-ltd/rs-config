@@ -10,7 +10,10 @@
 //! Serde deserializer that applies configuration read conversion semantics.
 
 use qubit_value::Value as QubitValue;
-use serde::de::{self, IntoDeserializer, MapAccess, SeqAccess, Visitor, value::StringDeserializer};
+use serde::de::{
+    self, DeserializeSeed, EnumAccess, IntoDeserializer, MapAccess, SeqAccess, VariantAccess,
+    Visitor, value::StringDeserializer,
+};
 use serde_json::{Map, Value};
 
 use crate::ConfigError;
@@ -376,19 +379,46 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
         self.deserialize_map(visitor)
     }
 
-    /// Deserializes an enum using serde_json-compatible semantics.
+    /// Deserializes an enum using config string conversion semantics.
     fn deserialize_enum<V>(
         self,
-        name: &'static str,
-        variants: &'static [&'static str],
+        _name: &'static str,
+        _variants: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
-        match self.value.deserialize_enum(name, variants, visitor) {
-            Ok(value) => Ok(value),
-            Err(error) => Err(de::Error::custom(error.to_string())),
+        match self.value {
+            Value::String(value) => {
+                let variant = convert_string_value(&self.key, self.options, &value)?;
+                visitor.visit_enum(ConfigEnumAccess::new(variant, None, self.key, self.options))
+            }
+            Value::Object(values) => {
+                let mut entries = values.into_iter();
+                let Some((variant, value)) = entries.next() else {
+                    return Err(de::Error::invalid_value(
+                        de::Unexpected::Map,
+                        &"an enum object with exactly one variant",
+                    ));
+                };
+                if entries.next().is_some() {
+                    return Err(de::Error::invalid_value(
+                        de::Unexpected::Map,
+                        &"an enum object with exactly one variant",
+                    ));
+                }
+                visitor.visit_enum(ConfigEnumAccess::new(
+                    variant,
+                    Some(value),
+                    self.key,
+                    self.options,
+                ))
+            }
+            other => Err(de::Error::invalid_type(
+                unexpected_value(&other),
+                &"a string enum variant or externally tagged enum object",
+            )),
         }
     }
 
@@ -406,6 +436,128 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
         V: Visitor<'de>,
     {
         visitor.visit_unit()
+    }
+}
+
+/// Enum access over a configuration value.
+struct ConfigEnumAccess<'a> {
+    variant: String,
+    value: Option<Value>,
+    key: String,
+    options: &'a ConfigReadOptions,
+}
+
+impl<'a> ConfigEnumAccess<'a> {
+    /// Creates enum access for a variant and optional payload.
+    fn new(
+        variant: String,
+        value: Option<Value>,
+        key: String,
+        options: &'a ConfigReadOptions,
+    ) -> Self {
+        Self {
+            variant,
+            value,
+            key,
+            options,
+        }
+    }
+}
+
+impl<'de, 'a> EnumAccess<'de> for ConfigEnumAccess<'a> {
+    type Error = ConfigDeserializeError;
+    type Variant = ConfigVariantAccess<'a>;
+
+    /// Deserializes the enum variant identifier.
+    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), Self::Error>
+    where
+        V: DeserializeSeed<'de>,
+    {
+        let child_key = if self.key.is_empty() {
+            self.variant.clone()
+        } else {
+            format!("{}.{}", self.key, self.variant)
+        };
+        let variant_deserializer: StringDeserializer<Self::Error> =
+            self.variant.into_deserializer();
+        let variant = seed.deserialize(variant_deserializer)?;
+        Ok((
+            variant,
+            ConfigVariantAccess {
+                value: self.value,
+                key: child_key,
+                options: self.options,
+            },
+        ))
+    }
+}
+
+/// Variant access over a configuration enum payload.
+struct ConfigVariantAccess<'a> {
+    value: Option<Value>,
+    key: String,
+    options: &'a ConfigReadOptions,
+}
+
+impl<'de> VariantAccess<'de> for ConfigVariantAccess<'_> {
+    type Error = ConfigDeserializeError;
+
+    /// Deserializes a unit variant.
+    fn unit_variant(self) -> Result<(), Self::Error> {
+        match self.value {
+            None | Some(Value::Null) => Ok(()),
+            Some(value) => serde::Deserialize::deserialize(ConfigValueDeserializer::new(
+                value,
+                self.key,
+                self.options,
+            )),
+        }
+    }
+
+    /// Deserializes a newtype variant payload.
+    fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value, Self::Error>
+    where
+        T: DeserializeSeed<'de>,
+    {
+        let value = self.value.ok_or_else(|| {
+            de::Error::invalid_type(de::Unexpected::UnitVariant, &"newtype variant payload")
+        })?;
+        seed.deserialize(ConfigValueDeserializer::new(value, self.key, self.options))
+    }
+
+    /// Deserializes a tuple variant payload.
+    fn tuple_variant<V>(self, len: usize, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        let value = self.value.ok_or_else(|| {
+            de::Error::invalid_type(de::Unexpected::UnitVariant, &"tuple variant payload")
+        })?;
+        de::Deserializer::deserialize_tuple(
+            ConfigValueDeserializer::new(value, self.key, self.options),
+            len,
+            visitor,
+        )
+    }
+
+    /// Deserializes a struct variant payload.
+    fn struct_variant<V>(
+        self,
+        fields: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        let value = self.value.ok_or_else(|| {
+            de::Error::invalid_type(de::Unexpected::UnitVariant, &"struct variant payload")
+        })?;
+        de::Deserializer::deserialize_struct(
+            ConfigValueDeserializer::new(value, self.key, self.options),
+            "",
+            fields,
+            visitor,
+        )
     }
 }
 

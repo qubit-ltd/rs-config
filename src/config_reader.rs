@@ -17,7 +17,9 @@ use serde::de::DeserializeOwned;
 use crate::config_prefix_view::ConfigPrefixView;
 use crate::field::ConfigField;
 use crate::from::{
-    FromConfig, IntoConfigDefault, is_effectively_missing, parse_property_from_reader,
+    FromConfig, IntoConfigDefault, is_effectively_missing,
+    is_effectively_missing_with_substitution, parse_property_from_reader,
+    parse_property_from_reader_with_substitution,
 };
 use crate::options::ConfigReadOptions;
 use crate::{Config, ConfigError, ConfigName, ConfigNames, ConfigResult, Property};
@@ -509,7 +511,28 @@ pub trait ConfigReader {
     ///
     /// The string after `${...}` resolution, or a [`crate::ConfigError`].
     fn get_string(&self, name: impl ConfigName) -> ConfigResult<String> {
-        self.get(name)
+        name.with_config_name(|name| {
+            let resolved = self.resolve_key(name);
+            let property = self
+                .get_property(name)
+                .ok_or_else(|| ConfigError::PropertyNotFound(resolved.clone()))?;
+            if !property.is_empty()
+                && is_effectively_missing_with_substitution(
+                    self,
+                    &resolved,
+                    property,
+                    self.read_options(),
+                )?
+            {
+                return Err(ConfigError::PropertyHasNoValue(resolved));
+            }
+            parse_property_from_reader_with_substitution(
+                self,
+                &resolved,
+                property,
+                self.read_options(),
+            )
+        })
     }
 
     /// Gets a string value from the first present and non-empty key in `names`.
@@ -523,7 +546,11 @@ pub trait ConfigReader {
     /// The resolved string from the first configured key.
     #[inline]
     fn get_string_any(&self, names: impl ConfigNames) -> ConfigResult<String> {
-        self.get_any(names)
+        names.with_config_names(|names| {
+            self.get_optional_string_any(names)?.ok_or_else(|| {
+                ConfigError::PropertyNotFound(format!("one of: {}", names.join(", ")))
+            })
+        })
     }
 
     /// Gets an optional string value from the first present and non-empty key.
@@ -537,7 +564,9 @@ pub trait ConfigReader {
     /// `Ok(None)` only when all keys are missing or empty.
     #[inline]
     fn get_optional_string_any(&self, names: impl ConfigNames) -> ConfigResult<Option<String>> {
-        self.get_optional_any(names)
+        names.with_config_names(|names| {
+            self.get_optional_any_with_options_and_substitution(names, self.read_options())
+        })
     }
 
     /// Gets a string from any key, or `default` when all keys are missing or
@@ -555,7 +584,10 @@ pub trait ConfigReader {
     /// returned.
     #[inline]
     fn get_string_any_or(&self, names: impl ConfigNames, default: &str) -> ConfigResult<String> {
-        self.get_any_or(names, default)
+        names.with_config_names(|names| {
+            self.get_optional_any_with_options_and_substitution(names, self.read_options())
+                .map(|value| value.unwrap_or_else(|| default.to_string()))
+        })
     }
 
     /// Gets a string value with substitution, or `default` if the key is
@@ -572,7 +604,8 @@ pub trait ConfigReader {
     /// errors are returned.
     #[inline]
     fn get_string_or(&self, name: impl ConfigName, default: &str) -> ConfigResult<String> {
-        self.get_or(name, default)
+        self.get_optional_string(name)
+            .map(|value| value.unwrap_or_else(|| default.to_string()))
     }
 
     /// Gets all string values for `name`, applying substitution to each element
@@ -586,7 +619,28 @@ pub trait ConfigReader {
     ///
     /// A vector of resolved strings, or a [`crate::ConfigError`].
     fn get_string_list(&self, name: impl ConfigName) -> ConfigResult<Vec<String>> {
-        self.get(name)
+        name.with_config_name(|name| {
+            let resolved = self.resolve_key(name);
+            let property = self
+                .get_property(name)
+                .ok_or_else(|| ConfigError::PropertyNotFound(resolved.clone()))?;
+            if !property.is_empty()
+                && is_effectively_missing_with_substitution(
+                    self,
+                    &resolved,
+                    property,
+                    self.read_options(),
+                )?
+            {
+                return Err(ConfigError::PropertyHasNoValue(resolved));
+            }
+            parse_property_from_reader_with_substitution(
+                self,
+                &resolved,
+                property,
+                self.read_options(),
+            )
+        })
     }
 
     /// Gets a string list with substitution, or copies `default` if the key is
@@ -608,7 +662,9 @@ pub trait ConfigReader {
         name: impl ConfigName,
         default: &[&str],
     ) -> ConfigResult<Vec<String>> {
-        self.get_or(name, default)
+        self.get_optional_string_list(name).map(|value| {
+            value.unwrap_or_else(|| default.iter().map(|item| (*item).to_string()).collect())
+        })
     }
 
     /// Gets an optional string with the same three-way semantics as
@@ -625,7 +681,29 @@ pub trait ConfigReader {
     /// a string.
     #[inline]
     fn get_optional_string(&self, name: impl ConfigName) -> ConfigResult<Option<String>> {
-        self.get_optional(name)
+        name.with_config_name(|name| {
+            let resolved = self.resolve_key(name);
+            match self.get_property(name) {
+                None => Ok(None),
+                Some(property)
+                    if is_effectively_missing_with_substitution(
+                        self,
+                        &resolved,
+                        property,
+                        self.read_options(),
+                    )? =>
+                {
+                    Ok(None)
+                }
+                Some(property) => parse_property_from_reader_with_substitution(
+                    self,
+                    &resolved,
+                    property,
+                    self.read_options(),
+                )
+                .map(Some),
+            }
+        })
     }
 
     /// Gets an optional string list with per-element substitution when enabled.
@@ -640,6 +718,55 @@ pub trait ConfigReader {
     /// `Err` on conversion/substitution failure.
     #[inline]
     fn get_optional_string_list(&self, name: impl ConfigName) -> ConfigResult<Option<Vec<String>>> {
-        self.get_optional(name)
+        name.with_config_name(|name| {
+            let resolved = self.resolve_key(name);
+            match self.get_property(name) {
+                None => Ok(None),
+                Some(property)
+                    if is_effectively_missing_with_substitution(
+                        self,
+                        &resolved,
+                        property,
+                        self.read_options(),
+                    )? =>
+                {
+                    Ok(None)
+                }
+                Some(property) => parse_property_from_reader_with_substitution(
+                    self,
+                    &resolved,
+                    property,
+                    self.read_options(),
+                )
+                .map(Some),
+            }
+        })
+    }
+
+    /// Shared implementation for string helper multi-key reads.
+    fn get_optional_any_with_options_and_substitution<T>(
+        &self,
+        names: impl ConfigNames,
+        options: &ConfigReadOptions,
+    ) -> ConfigResult<Option<T>>
+    where
+        T: FromConfig,
+    {
+        names.with_config_names(|names| {
+            for name in names {
+                let Some(property) = self.get_property(*name) else {
+                    continue;
+                };
+                let resolved = self.resolve_key(*name);
+                if is_effectively_missing_with_substitution(self, &resolved, property, options)? {
+                    continue;
+                }
+                return parse_property_from_reader_with_substitution(
+                    self, &resolved, property, options,
+                )
+                .map(Some);
+            }
+            Ok(None)
+        })
     }
 }

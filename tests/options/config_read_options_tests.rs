@@ -145,3 +145,31 @@ fn test_from_and_as_ref_preserve_conversion_options() {
     assert_eq!(options.conversion_options(), &conversion);
     assert_eq!(as_ref, &conversion);
 }
+
+#[test]
+fn test_config_serialization_preserves_read_options() {
+    let mut config = Config::new();
+    config
+        .set_read_options(
+            ConfigReadOptions::env_friendly()
+                .with_empty_item_policy(EmptyItemPolicy::Reject)
+                .with_env_variable_substitution_enabled(true),
+        )
+        .set("PORTS", "8080,,8081")
+        .expect("setting test config should succeed");
+
+    let json = serde_json::to_string(&config).expect("serializing config should succeed");
+    let restored: Config =
+        serde_json::from_str(&json).expect("deserializing config should succeed");
+
+    assert_eq!(restored.read_options(), config.read_options());
+    assert!(
+        restored
+            .read_options()
+            .is_env_variable_substitution_enabled()
+    );
+    assert!(matches!(
+        restored.get::<Vec<u16>>("PORTS"),
+        Err(ConfigError::ConversionError { key, .. }) if key == "PORTS"
+    ));
+}

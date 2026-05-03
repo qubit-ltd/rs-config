@@ -23,7 +23,9 @@
 //! - Java properties escape sequences (`\uXXXX`, `\=`, `\:`, `\ `, etc.)
 //!
 
+use std::iter::Peekable;
 use std::path::{Path, PathBuf};
+use std::str::Chars;
 
 use crate::{Config, ConfigError, ConfigResult};
 
@@ -248,7 +250,7 @@ fn unescape_properties(s: &str) -> String {
                     let hex: String = chars.by_ref().take(4).collect();
                     if hex.len() == 4
                         && let Ok(code) = u32::from_str_radix(&hex, 16)
-                        && let Some(unicode_char) = char::from_u32(code)
+                        && let Some(unicode_char) = decode_unicode_escape(code, &mut chars)
                     {
                         result.push(unicode_char);
                         continue;
@@ -286,6 +288,46 @@ fn unescape_properties(s: &str) -> String {
     }
 
     result
+}
+
+/// Decodes a Java properties `\uXXXX` escape, including UTF-16 surrogate pairs.
+fn decode_unicode_escape(code: u32, chars: &mut Peekable<Chars<'_>>) -> Option<char> {
+    if is_high_surrogate(code) {
+        let mut lookahead = chars.clone();
+        if lookahead.next() == Some('\\') && lookahead.next() == Some('u') {
+            let low_hex: String = lookahead.by_ref().take(4).collect();
+            if low_hex.len() == 4
+                && let Ok(low) = u32::from_str_radix(&low_hex, 16)
+                && is_low_surrogate(low)
+            {
+                *chars = lookahead;
+                return decode_surrogate_pair(code, low);
+            }
+        }
+        None
+    } else if is_low_surrogate(code) {
+        None
+    } else {
+        char::from_u32(code)
+    }
+}
+
+/// Returns whether `code` is a UTF-16 high surrogate.
+#[inline]
+fn is_high_surrogate(code: u32) -> bool {
+    (0xD800..=0xDBFF).contains(&code)
+}
+
+/// Returns whether `code` is a UTF-16 low surrogate.
+#[inline]
+fn is_low_surrogate(code: u32) -> bool {
+    (0xDC00..=0xDFFF).contains(&code)
+}
+
+/// Decodes a UTF-16 surrogate pair to a Unicode scalar value.
+fn decode_surrogate_pair(high: u32, low: u32) -> Option<char> {
+    let scalar = 0x10000 + ((high - 0xD800) << 10) + (low - 0xDC00);
+    char::from_u32(scalar)
 }
 
 impl ConfigSource for PropertiesConfigSource {
