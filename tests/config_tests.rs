@@ -1828,9 +1828,9 @@ mod test_subconfig {
         config.set("http.host", "localhost").unwrap();
 
         let sub = config.subconfig("http", true).unwrap();
-        // "http" itself matches (kept as "http" when strip_prefix=true)
-        assert!(sub.contains("http"));
-        // "http.host" matches and becomes "host"
+        // "http" itself is an exact value, not part of the "http.*" subtree.
+        assert!(!sub.contains("http"));
+        // "http.host" belongs to the subtree and becomes "host".
         assert!(sub.contains("host"));
     }
 
@@ -2437,6 +2437,7 @@ mod test_enhanced_errors {
         let error = ConfigError::DeserializeError {
             path: "http.server".to_string(),
             message: "missing field `port`".to_string(),
+            source: None,
         };
         let msg = format!("{}", error);
         assert!(msg.contains("http.server"));
@@ -2756,7 +2757,7 @@ mod test_yaml_type_faithful {
     fn test_yaml_tagged_value() {
         // Tagged values should be unwrapped
         let config = load_yaml("key: !!str 42\n");
-        // serde_yaml treats !!str 42 as a string
+        // The YAML backend treats !!str 42 as a string.
         assert!(config.contains("key"));
     }
 

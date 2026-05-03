@@ -17,7 +17,7 @@
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value as JsonValue};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use crate::ConfigPropertyMut;
@@ -53,6 +53,57 @@ where
     match QubitValue::String(value).to_with::<T>(options.conversion_options()) {
         Ok(value) => Ok(value),
         Err(error) => Err(ConfigError::from((key, error))),
+    }
+}
+
+/// Returns `true` when `key` is strictly below `prefix`.
+fn is_child_key(key: &str, prefix: &str) -> bool {
+    key.len() > prefix.len()
+        && key.starts_with(prefix)
+        && key.as_bytes().get(prefix.len()) == Some(&b'.')
+}
+
+/// Finds an explicitly configured ancestor key for a dotted path.
+fn explicit_ancestor_key(key: &str, keys: &HashSet<&str>) -> Option<String> {
+    let mut index = key.find('.')?;
+    loop {
+        let ancestor = &key[..index];
+        if keys.contains(ancestor) {
+            return Some(ancestor.to_string());
+        }
+        let next = key[index + 1..].find('.')?;
+        index += 1 + next;
+    }
+}
+
+/// Returns whether a scalar string property is missing under deserialization options.
+fn scalar_string_is_missing_for_deserialize(
+    primary: &impl ConfigReader,
+    fallback: &impl ConfigReader,
+    key: &str,
+    property: &Property,
+    options: &ConfigReadOptions,
+) -> ConfigResult<bool> {
+    let MultiValues::String(values) = property.value() else {
+        return Ok(false);
+    };
+    let [value] = values.as_slice() else {
+        return Ok(false);
+    };
+    let value = if primary.is_enable_variable_substitution() {
+        utils::substitute_variables_with_fallback(
+            value,
+            primary,
+            fallback,
+            primary.max_substitution_depth(),
+        )?
+    } else {
+        value.to_string()
+    };
+    match options.conversion_options().string.normalize(&value) {
+        Ok(_) => Ok(false),
+        Err(qubit_datatype::DataConversionError::NoValue) => Ok(true),
+        Err(error) => Err(ConfigError::from_data_conversion_error(key, error)),
     }
 }
 
@@ -1486,7 +1537,11 @@ impl Config {
         self.properties.keys().any(|k| k.starts_with(prefix))
     }
 
-    /// Extracts a sub-configuration for keys matching `prefix`.
+    /// Extracts a sub-configuration for child keys below `prefix`.
+    ///
+    /// An exact key equal to `prefix` is treated as a value, not as part of the
+    /// extracted subtree. For example, `subconfig("http", true)` includes
+    /// `http.host` as `host`, but does not include an exact `http` property.
     ///
     /// # Parameters
     ///
@@ -1496,7 +1551,7 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// A new `Config` containing only the matching entries.
+    /// A new `Config` containing only child entries below `prefix`.
     ///
     /// # Examples
     ///
@@ -1531,13 +1586,9 @@ impl Config {
         let full_prefix = format!("{prefix}.");
 
         for (k, v) in &self.properties {
-            if k == prefix || k.starts_with(&full_prefix) {
+            if k.starts_with(&full_prefix) {
                 let new_key = if strip_prefix {
-                    if k == prefix {
-                        prefix.to_string()
-                    } else {
-                        k[full_prefix.len()..].to_string()
-                    }
+                    k[full_prefix.len()..].to_string()
                 } else {
                     k.clone()
                 };
@@ -1744,7 +1795,7 @@ impl Config {
     // Structured Config Deserialization (v0.4.0)
     // ========================================================================
 
-    /// Deserializes the subtree at `prefix` into `T` using `serde`.
+    /// Deserializes a config value or subtree at `prefix` into `T` using `serde`.
     /// String values inside the generated serde value apply the same
     /// `${...}` substitution rules as [`Self::get_string`] and
     /// [`Self::get_string_list`] when substitution is enabled. Scalar strings
@@ -1752,8 +1803,10 @@ impl Config {
     /// environment-style booleans, numeric strings, and scalar string lists
     /// behave consistently with typed `get` reads.
     ///
-    /// Keys under `prefix` (prefix and trailing dot removed) form a flat map
-    /// for `serde`, for example:
+    /// When `prefix` is non-empty, an exact property named `prefix` is
+    /// deserialized as the root value. If no exact property exists, child keys
+    /// under `prefix` (prefix and trailing dot removed) form an object for
+    /// `serde`, for example:
     ///
     /// ```rust
     /// #[derive(serde::Deserialize)]
@@ -1764,7 +1817,9 @@ impl Config {
     /// ```
     ///
     /// can be populated from config keys `http.host` and `http.port` by calling
-    /// `config.deserialize::<HttpOptions>("http")`.
+    /// `config.deserialize::<HttpOptions>("http")`. Defining both `http` and
+    /// `http.*` is a [`ConfigError::KeyConflict`], as are ambiguous dotted paths
+    /// such as `a` and `a.b` inside the same deserialized object.
     ///
     /// # Type Parameters
     ///
@@ -1776,7 +1831,14 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// The deserialized `T`, or a [`ConfigError::DeserializeError`] on failure.
+    /// The deserialized `T`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::KeyConflict`] for ambiguous key shapes,
+    /// substitution/conversion errors while preparing string values, or
+    /// [`ConfigError::DeserializeError`] when serde cannot deserialize the
+    /// prepared value into `T`.
     ///
     /// # Examples
     ///
@@ -1802,29 +1864,97 @@ impl Config {
     where
         T: DeserializeOwned,
     {
-        let sub = self.subconfig(prefix, true)?;
-
-        let mut properties = sub.properties.iter().collect::<Vec<_>>();
-        properties.sort_by_key(|(left_key, _)| *left_key);
-
-        let mut map = Map::new();
-        for (key, prop) in properties {
-            let mut json_val = utils::property_to_json_value(prop);
-            utils::substitute_json_strings_with_fallback(&mut json_val, &sub, self)?;
-            utils::insert_deserialize_value(&mut map, key, json_val);
-        }
+        let value = self.deserialize_root_value(prefix)?;
 
         match T::deserialize(ConfigValueDeserializer::new(
-            JsonValue::Object(map),
+            value,
             prefix.to_string(),
             self.read_options(),
         )) {
             Ok(value) => Ok(value),
-            Err(error) => Err(ConfigError::DeserializeError {
-                path: prefix.to_string(),
-                message: error.to_string(),
-            }),
+            Err(error) => Err(error.into_config_error(prefix)),
         }
+    }
+
+    /// Builds the JSON root consumed by structured serde deserialization.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::KeyConflict`] when `prefix` has both an exact value
+    /// and child keys, or when dotted child keys cannot form an unambiguous object
+    /// tree. Returns substitution/conversion errors if configured string handling
+    /// fails before deserialization starts.
+    fn deserialize_root_value(&self, prefix: &str) -> ConfigResult<JsonValue> {
+        if prefix.is_empty() {
+            return self.deserialize_subtree_value(prefix);
+        }
+
+        let exact = self.properties.get(prefix);
+        let has_children = self.properties.keys().any(|key| is_child_key(key, prefix));
+        match (exact, has_children) {
+            (Some(_), true) => Err(ConfigError::KeyConflict {
+                path: prefix.to_string(),
+                existing: "exact value".to_string(),
+                incoming: "nested child keys".to_string(),
+            }),
+            (Some(property), false) => self.deserialize_exact_value(prefix, property),
+            (None, _) => self.deserialize_subtree_value(prefix),
+        }
+    }
+
+    /// Builds a JSON value from a single exact property for deserialization.
+    ///
+    /// # Errors
+    ///
+    /// Returns substitution errors when string leaves contain unresolved
+    /// placeholders, or `JsonValue::Null` when the exact property is effectively
+    /// missing under the active read options.
+    fn deserialize_exact_value(&self, key: &str, property: &Property) -> ConfigResult<JsonValue> {
+        if scalar_string_is_missing_for_deserialize(self, self, key, property, self.read_options())?
+        {
+            return Ok(JsonValue::Null);
+        }
+
+        let mut value = utils::property_to_json_value(property);
+        utils::substitute_json_strings_with_fallback(&mut value, self, self)?;
+        Ok(value)
+    }
+
+    /// Builds a JSON object from keys under `prefix` for deserialization.
+    ///
+    /// # Errors
+    ///
+    /// Returns key-conflict errors for ambiguous dotted paths, and propagates
+    /// substitution/conversion errors from active read options.
+    fn deserialize_subtree_value(&self, prefix: &str) -> ConfigResult<JsonValue> {
+        let sub = self.subconfig(prefix, true)?;
+
+        let mut properties = sub.properties.iter().collect::<Vec<_>>();
+        properties.sort_by_key(|(left_key, _)| *left_key);
+        let explicit_keys = properties
+            .iter()
+            .map(|(key, _)| key.as_str())
+            .collect::<HashSet<_>>();
+
+        let mut map = Map::new();
+        for (key, prop) in properties {
+            if scalar_string_is_missing_for_deserialize(&sub, self, key, prop, self.read_options())?
+            {
+                continue;
+            }
+            if let Some(ancestor) = explicit_ancestor_key(key, &explicit_keys) {
+                return Err(ConfigError::KeyConflict {
+                    path: ancestor,
+                    existing: "exact value".to_string(),
+                    incoming: format!("nested key '{key}'"),
+                });
+            }
+
+            let mut json_val = utils::property_to_json_value(prop);
+            utils::substitute_json_strings_with_fallback(&mut json_val, &sub, self)?;
+            utils::insert_deserialize_value(&mut map, key, json_val)?;
+        }
+        Ok(JsonValue::Object(map))
     }
 
     /// Inserts or replaces a property using an explicit [`Property`] object.

@@ -17,7 +17,7 @@ use qubit_config::{
         EmptyItemPolicy, StringReadOptions,
     },
 };
-use qubit_datatype::{DurationConversionOptions, DurationUnit};
+use qubit_datatype::{DataConversionOptions, DurationConversionOptions, DurationUnit};
 
 #[test]
 fn test_global_env_friendly_options_parse_comma_separated_list() {
@@ -125,7 +125,6 @@ fn test_string_and_duration_options_are_delegated_to_conversion_options() {
 
     assert_eq!(options.conversion_options().string, string_options);
     assert_eq!(options.conversion_options().duration, duration_options);
-    assert_eq!(options.string, options.conversion_options().string);
 }
 
 #[test]
@@ -134,4 +133,15 @@ fn test_collection_options_builder_is_exposed_directly() {
     let options = ConfigReadOptions::default().with_collection_options(collection_options.clone());
 
     assert_eq!(options.conversion_options().collection, collection_options);
+}
+
+#[test]
+fn test_from_and_as_ref_preserve_conversion_options() {
+    let conversion = DataConversionOptions::env_friendly();
+
+    let options = ConfigReadOptions::from(conversion.clone());
+    let as_ref: &DataConversionOptions = options.as_ref();
+
+    assert_eq!(options.conversion_options(), &conversion);
+    assert_eq!(as_ref, &conversion);
 }

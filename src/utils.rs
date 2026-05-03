@@ -196,41 +196,56 @@ fn find_variable_value_with_fallback<P: ConfigReader + ?Sized, F: ConfigReader +
 /// Inserts a value into the serde object used by [`crate::Config::deserialize`].
 ///
 /// Keys containing dots are interpreted as nested object paths (for example,
-/// `db.host` becomes `{ "db": { "host": ... } }`). If path insertion
-/// conflicts with an existing non-object parent, this function falls back to the
-/// original flat-key behavior (`"db.host"` as a single key) for backward
-/// compatibility.
-pub(crate) fn insert_deserialize_value(root: &mut Map<String, Value>, key: &str, value: Value) {
+/// `db.host` becomes `{ "db": { "host": ... } }`).
+///
+/// # Errors
+///
+/// Returns [`ConfigError::KeyConflict`] when the dotted path is malformed or
+/// conflicts with an existing scalar/object shape.
+pub(crate) fn insert_deserialize_value(
+    root: &mut Map<String, Value>,
+    key: &str,
+    value: Value,
+) -> ConfigResult<()> {
     if !key.contains('.') || key.is_empty() {
         root.insert(key.to_string(), value);
-        return;
+        return Ok(());
     }
 
-    let fallback_value = value.clone();
-    if try_insert_nested_json_value(root, key, value).is_err() {
-        root.insert(key.to_string(), fallback_value);
-    }
+    try_insert_nested_json_value(root, key, value)
 }
 
 /// Tries to insert a dotted key as a nested JSON object path.
 ///
-/// Returns `Err(())` when the key is malformed (`a..b`, `.a`, `a.`) or when an
-/// insertion path conflicts with an existing non-object parent.
+/// Returns [`ConfigError::KeyConflict`] when the key is malformed (`a..b`,
+/// `.a`, `a.`) or when an insertion path conflicts with an existing non-object
+/// parent.
 fn try_insert_nested_json_value(
     root: &mut Map<String, Value>,
     key: &str,
     value: Value,
-) -> Result<(), ()> {
+) -> ConfigResult<()> {
     let parts: Vec<&str> = key.split('.').collect();
     if parts.iter().any(|part| part.is_empty()) {
-        return Err(());
+        return Err(ConfigError::KeyConflict {
+            path: key.to_string(),
+            existing: "valid dotted key path".to_string(),
+            incoming: "malformed dotted key path".to_string(),
+        });
     }
     let (leaf, parents) = parts
         .split_last()
         .expect("split on a string always returns at least one segment");
 
     let mut current = root;
+    let mut path = String::new();
     for part in parents {
+        if path.is_empty() {
+            path.push_str(part);
+        } else {
+            path.push('.');
+            path.push_str(part);
+        }
         let next = match current.entry(part.to_string()) {
             Entry::Vacant(entry) => entry.insert(Value::Object(Map::new())),
             Entry::Occupied(entry) => entry.into_mut(),
@@ -240,12 +255,45 @@ fn try_insert_nested_json_value(
             Value::Object(obj) => {
                 current = obj;
             }
-            _ => return Err(()),
+            other => {
+                return Err(ConfigError::KeyConflict {
+                    path,
+                    existing: json_value_kind(other).to_string(),
+                    incoming: format!("object required by dotted key '{key}'"),
+                });
+            }
         }
+    }
+
+    if let Some(existing) = current.get(*leaf)
+        && existing.is_object() != value.is_object()
+    {
+        let path = if parents.is_empty() {
+            (*leaf).to_string()
+        } else {
+            format!("{}.{}", parents.join("."), leaf)
+        };
+        return Err(ConfigError::KeyConflict {
+            path,
+            existing: json_value_kind(existing).to_string(),
+            incoming: json_value_kind(&value).to_string(),
+        });
     }
 
     current.insert((*leaf).to_string(), value);
     Ok(())
+}
+
+/// Returns a short diagnostic name for a JSON value kind.
+fn json_value_kind(value: &Value) -> &'static str {
+    match value {
+        Value::Null => "null",
+        Value::Bool(_) => "boolean",
+        Value::Number(_) => "number",
+        Value::String(_) => "string",
+        Value::Array(_) => "array",
+        Value::Object(_) => "object",
+    }
 }
 
 /// Converts a [`Property`] into [`serde_json::Value`] (for

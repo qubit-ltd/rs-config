@@ -92,6 +92,17 @@ pub enum ConfigError {
     #[error("Property '{0}' is final and cannot be overridden")]
     PropertyIsFinal(String),
 
+    /// Configuration key path cannot be represented without ambiguity
+    #[error("Configuration key conflict at '{path}': existing {existing}, incoming {incoming}")]
+    KeyConflict {
+        /// The conflicting configuration key/path
+        path: String,
+        /// Existing value or path shape
+        existing: String,
+        /// Incoming value or path shape
+        incoming: String,
+    },
+
     /// IO error
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
@@ -107,6 +118,9 @@ pub enum ConfigError {
         path: String,
         /// Error message
         message: String,
+        /// Original structured error when it came from config parsing
+        #[source]
+        source: Option<Box<ConfigError>>,
     },
 
     /// Other error

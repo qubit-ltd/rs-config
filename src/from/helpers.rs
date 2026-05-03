@@ -76,7 +76,7 @@ pub(crate) fn is_effectively_missing<R: ConfigReader + ?Sized>(
     };
     let ctx = ConfigParseContext::new(name, options, &substitute);
     let value = ctx.substitute_string(value)?;
-    match options.string.normalize(&value) {
+    match options.conversion_options().string.normalize(&value) {
         Ok(_) => Ok(false),
         Err(qubit_datatype::DataConversionError::NoValue) => Ok(true),
         Err(_) => Ok(false),

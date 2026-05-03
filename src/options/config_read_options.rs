@@ -8,8 +8,6 @@
  *
  ******************************************************************************/
 
-use std::ops::Deref;
-
 use qubit_datatype::{
     BlankStringPolicy, BooleanConversionOptions, CollectionConversionOptions,
     DataConversionOptions, DurationConversionOptions, EmptyItemPolicy, StringConversionOptions,
@@ -173,12 +171,23 @@ impl ConfigReadOptions {
     }
 }
 
-impl Deref for ConfigReadOptions {
-    type Target = DataConversionOptions;
-
-    /// Dereferences to the underlying data conversion options.
+impl AsRef<DataConversionOptions> for ConfigReadOptions {
+    /// Borrows the underlying data conversion options.
     #[inline]
-    fn deref(&self) -> &Self::Target {
+    fn as_ref(&self) -> &DataConversionOptions {
         &self.conversion
+    }
+}
+
+impl From<DataConversionOptions> for ConfigReadOptions {
+    /// Creates config read options from data conversion options.
+    ///
+    /// Environment-variable fallback for `${...}` substitution remains disabled.
+    #[inline]
+    fn from(conversion: DataConversionOptions) -> Self {
+        Self {
+            conversion,
+            env_variable_substitution_enabled: false,
+        }
     }
 }

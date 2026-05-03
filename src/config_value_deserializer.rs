@@ -64,7 +64,9 @@ fn convert_string_value(
 ) -> Result<String, ConfigDeserializeError> {
     match QubitValue::String(value.to_string()).to_with::<String>(options.conversion_options()) {
         Ok(value) => Ok(value),
-        Err(error) => Err(de::Error::custom(ConfigError::from((key, error)))),
+        Err(error) => Err(ConfigDeserializeError::from_config(ConfigError::from((
+            key, error,
+        )))),
     }
 }
 
@@ -76,7 +78,9 @@ fn convert_bool_value(
 ) -> Result<bool, ConfigDeserializeError> {
     match QubitValue::String(value.to_string()).to_with::<bool>(options.conversion_options()) {
         Ok(value) => Ok(value),
-        Err(error) => Err(de::Error::custom(ConfigError::from((key, error)))),
+        Err(error) => Err(ConfigDeserializeError::from_config(ConfigError::from((
+            key, error,
+        )))),
     }
 }
 
@@ -102,7 +106,7 @@ macro_rules! deserialize_number {
             let value = number_scalar_text(self.value, stringify!($ty))?;
             let value =
                 crate::config::convert_deserialize_number::<$ty>(&self.key, self.options, value)
-                    .map_err(de::Error::custom)?;
+                    .map_err(ConfigDeserializeError::from_config)?;
             visitor.$visit(value)
         }
     };
@@ -289,17 +293,29 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
                 visitor.visit_seq(ConfigSeqAccess::new(values, self.key, self.options))
             }
             Value::String(value) => {
-                let normalized = match self.options.string.normalize(&value) {
+                let normalized = match self.options.conversion_options().string.normalize(&value) {
                     Ok(value) => value,
                     Err(error) => {
-                        return Err(de::Error::custom(ConfigError::from_data_conversion_error(
-                            &self.key, error,
-                        )));
+                        return Err(ConfigDeserializeError::from_config(
+                            ConfigError::from_data_conversion_error(&self.key, error),
+                        ));
                     }
                 };
-                let values = match self.options.collection.scalar_items(&normalized) {
+                let values = match self
+                    .options
+                    .conversion_options()
+                    .collection
+                    .scalar_items(&normalized)
+                {
                     Ok(values) => values,
-                    Err(error) => return Err(de::Error::custom(error.to_string())),
+                    Err(error) => {
+                        return Err(ConfigDeserializeError::from_config(
+                            ConfigError::ConversionError {
+                                key: self.key.clone(),
+                                message: error.to_string(),
+                            },
+                        ));
+                    }
                 }
                 .into_iter()
                 .map(Value::String)

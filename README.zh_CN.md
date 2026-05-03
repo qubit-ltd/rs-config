@@ -366,7 +366,9 @@ let env = config.get_string("env")?;
 
 ### 结构化配置
 
-`deserialize()` 使用与泛型 `get` 读取一致的读取选项。例如，`ConfigReadOptions::env_friendly()` 可在反序列化 serde 结构时解析数字字符串、布尔别名和逗号分隔的标量字符串列表。
+`deserialize()` 使用与泛型 `get` 读取一致的读取选项。例如，`ConfigReadOptions::env_friendly()` 可在反序列化 serde 结构时解析数字字符串、布尔别名、逗号分隔的标量字符串列表，并把空白字符串按缺失值处理。
+
+当 `prefix` 非空时，`deserialize(prefix)` 使用严格的根选择语义：如果存在精确的 `prefix` 属性，就把该属性作为反序列化根值；否则用 `prefix.*` 子键组成根对象。同时定义 `prefix` 和 `prefix.*` 会返回 key conflict。带点号的键也必须能组成无歧义对象树，例如同一反序列化对象中不能同时存在 `a` 和 `a.b`。
 
 ```rust
 use qubit_config::{Config, options::ConfigReadOptions};
@@ -532,8 +534,10 @@ pub enum ConfigError {
     SubstitutionCycle { chain: Vec<String> }, // 检测到变量替换环
     MergeError(String),                 // 配置合并失败
     PropertyIsFinal(String),            // 配置项是最终的，不能被覆盖
+    KeyConflict { path: String, existing: String, incoming: String }, // key 结构有歧义
     IoError(std::io::Error),            // IO 错误
     ParseError(String),                 // 解析错误
+    DeserializeError { path: String, message: String, source: Option<Box<ConfigError>> },
     Other(String),                      // 其他错误
 }
 ```
@@ -573,7 +577,7 @@ cargo test
 - `chrono` - 日期和时间处理
 - `regex` - 正则表达式支持
 - `toml` - 解析 TOML，供 `TomlConfigSource` 使用
-- `serde_yaml` - 解析 YAML，供 `YamlConfigSource` 使用
+- `serde_norway` - 解析 YAML，供 `YamlConfigSource` 使用
 - `dotenvy` - 解析 `.env` 文件，供 `EnvFileConfigSource` 使用
 
 ## 发展路线图

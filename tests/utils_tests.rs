@@ -69,6 +69,18 @@ mod test_deserialize {
         port: Option<i32>,
     }
 
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct WithDefault {
+        host: String,
+        #[serde(default = "default_port")]
+        port: i32,
+    }
+
+    /// Returns the default port used by serde default tests.
+    fn default_port() -> i32 {
+        8080
+    }
+
     #[test]
     fn test_deserialize_basic_struct() {
         let mut config = Config::new();
@@ -169,6 +181,19 @@ mod test_deserialize {
     }
 
     #[test]
+    fn test_deserialize_blank_field_with_missing_policy_behaves_as_absent() {
+        let mut config = Config::new().with_read_options(ConfigReadOptions::env_friendly());
+        config.set("srv.host", "localhost").unwrap();
+        config.set("srv.port", "   ").unwrap();
+
+        let optional: WithOptionals = config.deserialize("srv").unwrap();
+        assert_eq!(optional.port, None);
+
+        let defaulted: WithDefault = config.deserialize("srv").unwrap();
+        assert_eq!(defaulted.port, 8080);
+    }
+
+    #[test]
     fn test_deserialize_hashmap() {
         let mut config = Config::new();
         config.set("headers.authorization", "Bearer token").unwrap();
@@ -188,7 +213,7 @@ mod test_deserialize {
     }
 
     #[test]
-    fn test_deserialize_conflicting_dotted_key_falls_back_to_flat_key() {
+    fn test_deserialize_conflicting_dotted_key_returns_key_conflict() {
         #[derive(Deserialize, Debug, PartialEq)]
         struct CtxConfig {
             a: i32,
@@ -196,31 +221,79 @@ mod test_deserialize {
 
         let mut config = Config::new();
         config.set("ctx.a", 1).unwrap();
-        config.set("ctx.a.b", "unexpected-but-ignored").unwrap();
+        config.set("ctx.a.b", "conflict").unwrap();
 
-        let ctx: CtxConfig = config.deserialize("ctx").unwrap();
-        assert_eq!(ctx.a, 1);
+        let result = config.deserialize::<CtxConfig>("ctx");
+        assert!(matches!(
+            result,
+            Err(ConfigError::KeyConflict { path, .. }) if path == "a"
+        ));
     }
 
     #[test]
-    fn test_deserialize_conflicting_dotted_key_is_stable() {
+    fn test_deserialize_conflicting_dotted_key_does_not_keep_flat_fallback() {
         let mut config = Config::new();
         config.set("ctx.a", 1).unwrap();
-        config.set("ctx.a.b", "kept-as-flat-key").unwrap();
+        config.set("ctx.a.b", "conflict").unwrap();
 
-        let ctx: HashMap<String, serde_json::Value> = config.deserialize("ctx").unwrap();
-
-        assert_eq!(ctx.get("a"), Some(&serde_json::json!(1)));
-        assert_eq!(ctx.get("a.b"), Some(&serde_json::json!("kept-as-flat-key")),);
+        let result = config.deserialize::<HashMap<String, serde_json::Value>>("ctx");
+        assert!(matches!(
+            result,
+            Err(ConfigError::KeyConflict { path, .. }) if path == "a"
+        ));
     }
 
     #[test]
-    fn test_deserialize_malformed_dotted_key_falls_back_to_flat_key() {
+    fn test_deserialize_malformed_dotted_key_returns_key_conflict() {
         let mut config = Config::new();
         config.set("bad..key", "value").unwrap();
 
-        let root: HashMap<String, serde_json::Value> = config.deserialize("").unwrap();
-        assert_eq!(root.get("bad..key"), Some(&serde_json::json!("value")));
+        let result = config.deserialize::<HashMap<String, serde_json::Value>>("");
+        assert!(matches!(
+            result,
+            Err(ConfigError::KeyConflict { path, .. }) if path == "bad..key"
+        ));
+    }
+
+    #[test]
+    fn test_deserialize_exact_json_property_as_root_value() {
+        let mut config = Config::new();
+        config
+            .insert_property(
+                "server",
+                Property::with_value(
+                    "server",
+                    MultiValues::Json(vec![serde_json::json!({
+                        "host": "localhost",
+                        "port": "8080",
+                    })]),
+                ),
+            )
+            .unwrap();
+
+        let server: ServerConfig = config.deserialize("server").unwrap();
+
+        assert_eq!(
+            server,
+            ServerConfig {
+                host: "localhost".to_string(),
+                port: 8080,
+            }
+        );
+    }
+
+    #[test]
+    fn test_deserialize_exact_key_and_subtree_returns_key_conflict() {
+        let mut config = Config::new();
+        config.set("server", "root").unwrap();
+        config.set("server.host", "localhost").unwrap();
+
+        let result = config.deserialize::<ServerConfig>("server");
+
+        assert!(matches!(
+            result,
+            Err(ConfigError::KeyConflict { path, .. }) if path == "server"
+        ));
     }
 
     #[test]

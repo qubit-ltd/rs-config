@@ -29,7 +29,8 @@
 
 use std::path::{Path, PathBuf};
 
-use serde_yaml::Value as YamlValue;
+use serde_norway as yaml_backend;
+use yaml_backend::Value as YamlValue;
 
 use crate::{Config, ConfigError, ConfigResult};
 
@@ -80,7 +81,7 @@ impl ConfigSource for YamlConfigSource {
             ))
         })?;
 
-        let value: YamlValue = serde_yaml::from_str(&content).map_err(|e| {
+        let value: YamlValue = yaml_backend::from_str(&content).map_err(|e| {
             ConfigError::ParseError(format!(
                 "Failed to parse YAML file '{}': {}",
                 self.path.display(),

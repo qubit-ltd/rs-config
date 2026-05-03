@@ -365,7 +365,13 @@ let env = config.get_string("env")?;
 
 ### Structured Configuration
 
-`deserialize()` uses the same read options as typed `get` reads. For example, `ConfigReadOptions::env_friendly()` can parse numeric strings, boolean aliases, and comma-separated scalar strings while building a serde struct.
+`deserialize()` uses the same read options as typed `get` reads. For example, `ConfigReadOptions::env_friendly()` can parse numeric strings, boolean aliases, comma-separated scalar string lists, and blank strings treated as missing while building a serde struct.
+
+When `prefix` is non-empty, `deserialize(prefix)` uses strict root selection:
+an exact `prefix` property is deserialized as the root value, otherwise
+`prefix.*` child keys form the root object. Defining both `prefix` and
+`prefix.*` is a key conflict. Dotted keys must form an unambiguous object tree;
+for example, `a` and `a.b` cannot both appear in the same deserialized object.
 
 ```rust
 use qubit_config::{Config, options::ConfigReadOptions};
@@ -531,8 +537,10 @@ pub enum ConfigError {
     SubstitutionCycle { chain: Vec<String> }, // Variable substitution cycle detected
     MergeError(String),                 // Configuration merge failed
     PropertyIsFinal(String),            // Property is final and cannot be overwritten
+    KeyConflict { path: String, existing: String, incoming: String }, // Ambiguous key shape
     IoError(std::io::Error),            // IO error
     ParseError(String),                 // Parse error
+    DeserializeError { path: String, message: String, source: Option<Box<ConfigError>> },
     Other(String),                      // Other errors
 }
 ```
@@ -572,7 +580,7 @@ For internal design documentation (Chinese), see [src/README.md](src/README.md).
 - `chrono` - Date and time handling
 - `regex` - Regular expression support
 - `toml` - TOML parsing for `TomlConfigSource`
-- `serde_yaml` - YAML parsing for `YamlConfigSource`
+- `serde_norway` - YAML parsing for `YamlConfigSource`
 - `dotenvy` - `.env` file parsing for `EnvFileConfigSource`
 
 ## Roadmap
