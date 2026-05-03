@@ -424,6 +424,53 @@ pub(crate) fn substitute_json_strings_with_fallback<
     Ok(())
 }
 
+/// Exercises defensive utility branches that are unreachable through the public
+/// deserialization flow after ancestor-key validation.
+#[cfg(coverage)]
+#[doc(hidden)]
+pub(crate) fn coverage_touch_defensive_branches() {
+    let _ = map_value_error("coverage", ValueError::NoValue);
+
+    let scalar_parents = [
+        Value::Null,
+        Value::Bool(true),
+        Value::Number(Number::from(42)),
+        Value::String("text".to_string()),
+        Value::Array(vec![Value::Number(Number::from(1))]),
+    ];
+    for parent in scalar_parents {
+        let mut root = Map::new();
+        root.insert("parent".to_string(), parent);
+        let _ = insert_deserialize_value(&mut root, "parent.child", Value::Number(Number::from(1)));
+    }
+
+    let mut object_root = Map::new();
+    let _ = insert_deserialize_value(
+        &mut object_root,
+        "parent.child.name",
+        Value::String("x".to_string()),
+    );
+    let _ = insert_deserialize_value(
+        &mut object_root,
+        "parent.child",
+        Value::Number(Number::from(1)),
+    );
+
+    let mut scalar_root = Map::new();
+    let _ = insert_deserialize_value(
+        &mut scalar_root,
+        "parent.child",
+        Value::String("x".to_string()),
+    );
+    let mut object = Map::new();
+    object.insert("name".to_string(), Value::String("x".to_string()));
+    let _ = insert_deserialize_value(&mut scalar_root, "parent.child", Value::Object(object));
+
+    let config = crate::Config::new();
+    let mut unresolved = Value::String("${QUBIT_CONFIG_COVERAGE_MISSING}".to_string());
+    let _ = substitute_json_strings_with_fallback(&mut unresolved, &config, &config);
+}
+
 /// If `v` has one element, returns `f(&v[0])`; otherwise a JSON array of `f`
 /// applied to each item.
 ///

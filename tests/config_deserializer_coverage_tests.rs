@@ -13,10 +13,11 @@ use std::collections::HashMap;
 use std::fmt;
 
 use qubit_config::{
-    Config, ConfigResult,
+    Config, ConfigResult, Property,
     options::{BlankStringPolicy, ConfigReadOptions, EmptyItemPolicy},
 };
 use qubit_datatype::DataType;
+use qubit_value::MultiValues;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer};
 
@@ -210,6 +211,25 @@ impl<'de> Deserialize<'de> for IdentifierOnly {
 struct OneField<T> {
     #[allow(dead_code)]
     value: T,
+}
+
+#[derive(Debug, PartialEq)]
+struct StringErrorProbe;
+
+impl<'de> Deserialize<'de> for StringErrorProbe {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        match String::deserialize(deserializer) {
+            Ok(_) => Ok(Self),
+            Err(error) => {
+                let _ = error.to_string();
+                let _ = std::error::Error::source(&error);
+                Err(error)
+            }
+        }
+    }
 }
 
 #[test]
@@ -703,6 +723,107 @@ fn deserialize_read_option_error_branches() -> ConfigResult<()> {
     assert!(
         list_config
             .deserialize::<OneField<Vec<String>>>("bad_list")
+            .is_err()
+    );
+    Ok(())
+}
+
+#[test]
+fn deserialize_json_string_conversion_errors_use_config_read_options() -> ConfigResult<()> {
+    let mut config = Config::new();
+    config.set_read_options(
+        ConfigReadOptions::default().with_blank_string_policy(BlankStringPolicy::Reject),
+    );
+    config.insert_property(
+        "string_value",
+        Property::with_value(
+            "string_value",
+            MultiValues::Json(vec![serde_json::json!(" ")]),
+        ),
+    )?;
+    config.insert_property(
+        "bool_value",
+        Property::with_value(
+            "bool_value",
+            MultiValues::Json(vec![serde_json::json!(" ")]),
+        ),
+    )?;
+    config.insert_property(
+        "list_value",
+        Property::with_value(
+            "list_value",
+            MultiValues::Json(vec![serde_json::json!(" ")]),
+        ),
+    )?;
+    config.insert_property(
+        "any_value",
+        Property::with_value("any_value", MultiValues::Json(vec![serde_json::json!(" ")])),
+    )?;
+    config.insert_property(
+        "char_value",
+        Property::with_value(
+            "char_value",
+            MultiValues::Json(vec![serde_json::json!(" ")]),
+        ),
+    )?;
+    config.insert_property(
+        "str_value",
+        Property::with_value("str_value", MultiValues::Json(vec![serde_json::json!(" ")])),
+    )?;
+    config.insert_property(
+        "bytes_value",
+        Property::with_value(
+            "bytes_value",
+            MultiValues::Json(vec![serde_json::json!(" ")]),
+        ),
+    )?;
+    config.insert_property(
+        "byte_buf_value",
+        Property::with_value(
+            "byte_buf_value",
+            MultiValues::Json(vec![serde_json::json!(" ")]),
+        ),
+    )?;
+
+    assert!(config.deserialize::<String>("string_value").is_err());
+    assert!(config.deserialize::<bool>("bool_value").is_err());
+    assert!(config.deserialize::<Vec<String>>("list_value").is_err());
+    assert!(
+        config
+            .deserialize::<serde_json::Value>("any_value")
+            .is_err()
+    );
+    assert!(config.deserialize::<char>("char_value").is_err());
+    assert!(config.deserialize::<StrOnly>("str_value").is_err());
+    assert!(config.deserialize::<BytesOnly>("bytes_value").is_err());
+    assert!(config.deserialize::<ByteBufOnly>("byte_buf_value").is_err());
+    Ok(())
+}
+
+#[test]
+fn deserialize_error_wrapper_formats_message_and_config_sources() -> ConfigResult<()> {
+    let mut config_error = Config::new();
+    config_error.set_read_options(
+        ConfigReadOptions::default().with_blank_string_policy(BlankStringPolicy::Reject),
+    );
+    config_error.insert_property(
+        "config_error",
+        Property::with_value(
+            "config_error",
+            MultiValues::Json(vec![serde_json::json!(" ")]),
+        ),
+    )?;
+    assert!(
+        config_error
+            .deserialize::<StringErrorProbe>("config_error")
+            .is_err()
+    );
+
+    let mut message_error = Config::new();
+    message_error.set_null("message_error", DataType::String)?;
+    assert!(
+        message_error
+            .deserialize::<StringErrorProbe>("message_error")
             .is_err()
     );
     Ok(())

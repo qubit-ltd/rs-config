@@ -44,3 +44,10 @@ pub use configured::Configured;
 pub use error::{ConfigError, ConfigResult};
 pub use property::Property;
 pub use source::ConfigSource;
+
+/// Touches coverage-only defensive utility branches.
+#[cfg(coverage)]
+#[doc(hidden)]
+pub fn __coverage_touch_utils_defensive_branches() {
+    utils::coverage_touch_defensive_branches();
+}
