@@ -57,6 +57,14 @@ name = "config_field_tests"
 path = "tests/field/config_field_tests.rs"
 
 [[test]]
+name = "config_field_builder_tests"
+path = "tests/field/config_field_builder_tests.rs"
+
+[[test]]
+name = "config_field_name_builder_tests"
+path = "tests/field/config_field_name_builder_tests.rs"
+
+[[test]]
 name = "config_read_options_tests"
 path = "tests/options/config_read_options_tests.rs"
 
@@ -67,6 +75,26 @@ path = "tests/source/env_config_source_tests.rs"
 [[test]]
 name = "env_file_config_source_tests"
 path = "tests/source/env_file_config_source_tests.rs"
+
+[[test]]
+name = "config_parse_context_tests"
+path = "tests/from/config_parse_context_tests.rs"
+
+[[test]]
+name = "config_source_tests"
+path = "tests/source/config_source_tests.rs"
+
+[[test]]
+name = "from_config_tests"
+path = "tests/from/from_config_tests.rs"
+
+[[test]]
+name = "helpers_tests"
+path = "tests/from/helpers_tests.rs"
+
+[[test]]
+name = "into_config_default_tests"
+path = "tests/from/into_config_default_tests.rs"
 
 [[test]]
 name = "properties_config_source_tests"
