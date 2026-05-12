@@ -1,6 +1,6 @@
 # qubit-config
 
-[![CircleCI](https://circleci.com/gh/qubit-ltd/rs-config.svg?style=shield)](https://circleci.com/gh/qubit-ltd/rs-config)
+[![Rust CI](https://github.com/qubit-ltd/rs-config/actions/workflows/ci.yml/badge.svg)](https://github.com/qubit-ltd/rs-config/actions/workflows/ci.yml)
 [![Coverage Status](https://coveralls.io/repos/github/qubit-ltd/rs-config/badge.svg?branch=main)](https://coveralls.io/github/qubit-ltd/rs-config?branch=main)
 [![Crates.io](https://img.shields.io/crates/v/qubit-config.svg?color=blue)](https://crates.io/crates/qubit-config)
 [![Rust](https://img.shields.io/badge/rust-1.94%2B-blue.svg?logo=rust)](https://www.rust-lang.org)
