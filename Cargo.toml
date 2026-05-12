@@ -1,6 +1,6 @@
 [package]
 name = "qubit-config"
-version = "0.12.2"
+version = "0.13.0"
 edition = "2024"
 rust-version = "1.94"
 authors = ["Haixing Hu <starfish.hu@gmail.com>"]
@@ -13,11 +13,12 @@ readme = "README.md"
 keywords = ["config", "configuration", "settings", "properties", "qubit"]
 categories = ["config", "development-tools"]
 exclude = [
-    "coverage.sh",
-    "COVERAGE.md",
-    "COVERAGE.zh_CN.md",
-    ".circleci/*",
+    "align-ci.sh",
     "ci-check.sh",
+    "coverage.sh",
+    "style-check.sh",
+    "update-submodule.sh",
+    ".github/*",
     ".llvm-cov.toml",
     ".cargo-audit.toml.example",
 ]
@@ -37,7 +38,7 @@ regex = "1.12"
 url = "2.5"
 num-bigint = { version = "0.4", features = ["serde"] }
 bigdecimal = { version = "0.4", features = ["serde"] }
-toml = { version = "1.1", features = ["parse"] }
+toml = { version = "0.9", features = ["parse"] }
 serde_norway = "0.9"
 dotenvy = "0.15"
 
@@ -46,7 +47,7 @@ qubit-serde = "0.2"
 qubit-value = "0.7"
 
 [dev-dependencies]
-tempfile = "3"
+tempfile = "3.27"
 
 [[test]]
 name = "composite_config_source_tests"
