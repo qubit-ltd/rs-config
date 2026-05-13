@@ -494,7 +494,7 @@ dependencies = [
 
 [[package]]
 name = "qubit-config"
-version = "0.13.1"
+version = "0.13.2"
 dependencies = [
  "bigdecimal",
  "chrono",
@@ -515,9 +515,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-datatype"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eee27a248b4d18e4b72f9cd7c306d33d2f406194f3448da34c1478b9dfb7942c"
+checksum = "2576201f805d003a3ccb7e0e5f52ef478ae84ead478c48ddc4fa1b91f7c850ac"
 dependencies = [
  "bigdecimal",
  "chrono",
@@ -530,9 +530,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-serde"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3bb1366c9e6473a401c1c6f629066a648aa09dcf9ccf53c5be4b357d48b2ee64"
+checksum = "642a080c6b1bf3e655c6050711741a7c8db0dcf5a2c70c399cc66053a956877b"
 dependencies = [
  "qubit-datatype",
  "serde",
@@ -541,9 +541,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-value"
-version = "0.7.5"
+version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f573113950028a2a95dc7ddfd73d69c305c59aa3bae993ce88c569f821718a56"
+checksum = "b68405ad54d634c17d1fe002b79c0a7321e97a9fb4b2140bab8b1a2b4909b2fb"
 dependencies = [
  "bigdecimal",
  "chrono",
