@@ -32,7 +32,7 @@
 
 ```toml
 [dependencies]
-qubit-config = "0.13.2"
+qubit-config = "0.13.3"
 ```
 
 ## 快速开始
