@@ -27,6 +27,7 @@
 //! Arrays are stored as multi-value properties.
 //!
 
+use std::collections::HashSet;
 use std::path::{
     Path,
     PathBuf,
@@ -39,9 +40,13 @@ use crate::{
     Config,
     ConfigError,
     ConfigResult,
+    utils,
 };
 
-use super::ConfigSource;
+use super::{
+    ConfigSource,
+    config_source::load_transactionally,
+};
 
 /// Configuration source that loads from YAML format files
 ///
@@ -81,6 +86,10 @@ impl YamlConfigSource {
 
 impl ConfigSource for YamlConfigSource {
     fn load(&self, config: &mut Config) -> ConfigResult<()> {
+        load_transactionally(self, config)
+    }
+
+    fn load_into(&self, config: &mut Config) -> ConfigResult<()> {
         let content = std::fs::read_to_string(&self.path).map_err(|e| {
             ConfigError::IoError(std::io::Error::new(
                 e.kind(),
@@ -96,9 +105,8 @@ impl ConfigSource for YamlConfigSource {
             ))
         })?;
 
-        let mut staged = config.clone();
-        flatten_yaml_value("", &value, &mut staged)?;
-        *config = staged;
+        let mut seen = HashSet::new();
+        flatten_yaml_value("", &value, config, &mut seen)?;
         Ok(())
     }
 }
@@ -115,6 +123,7 @@ pub(crate) fn flatten_yaml_value(
     prefix: &str,
     value: &YamlValue,
     config: &mut Config,
+    seen: &mut HashSet<String>,
 ) -> ConfigResult<()> {
     match value {
         YamlValue::Mapping(map) => {
@@ -125,21 +134,25 @@ pub(crate) fn flatten_yaml_value(
                 } else {
                     format!("{}.{}", prefix, key_str)
                 };
-                flatten_yaml_value(&key, v, config)?;
+                flatten_yaml_value(&key, v, config, seen)?;
             }
         }
         YamlValue::Sequence(seq) => {
+            utils::ensure_unique_flattened_key(seen, prefix)?;
             flatten_yaml_sequence(prefix, seq, config)?;
         }
         YamlValue::Null => {
             // Null values are stored as empty properties to preserve null semantics.
             use qubit_datatype::DataType;
+            utils::ensure_unique_flattened_key(seen, prefix)?;
             config.set_null(prefix, DataType::String)?;
         }
         YamlValue::Bool(b) => {
+            utils::ensure_unique_flattened_key(seen, prefix)?;
             config.set(prefix, *b)?;
         }
         YamlValue::Number(n) => {
+            utils::ensure_unique_flattened_key(seen, prefix)?;
             if let Some(i) = n.as_i64() {
                 config.set(prefix, i)?;
             } else {
@@ -150,10 +163,11 @@ pub(crate) fn flatten_yaml_value(
             }
         }
         YamlValue::String(s) => {
+            utils::ensure_unique_flattened_key(seen, prefix)?;
             config.set(prefix, s.clone())?;
         }
         YamlValue::Tagged(tagged) => {
-            flatten_yaml_value(prefix, &tagged.value, config)?;
+            flatten_yaml_value(prefix, &tagged.value, config, seen)?;
         }
     }
     Ok(())

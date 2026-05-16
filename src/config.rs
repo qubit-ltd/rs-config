@@ -37,13 +37,16 @@ use crate::from::{
     IntoConfigDefault,
 };
 use crate::options::ConfigReadOptions;
+#[cfg(feature = "source-env-file")]
+use crate::source::EnvFileConfigSource;
+#[cfg(feature = "source-toml")]
+use crate::source::TomlConfigSource;
+#[cfg(feature = "source-yaml")]
+use crate::source::YamlConfigSource;
 use crate::source::{
     ConfigSource,
     EnvConfigSource,
-    EnvFileConfigSource,
     PropertiesConfigSource,
-    TomlConfigSource,
-    YamlConfigSource,
 };
 use crate::utils;
 use crate::{
@@ -1351,6 +1354,7 @@ impl Config {
     /// Returns [`ConfigError::IoError`] if the file cannot be read,
     /// [`ConfigError::ParseError`] if the TOML cannot be parsed, or another
     /// [`ConfigError`] if setting a loaded property fails.
+    #[cfg(feature = "source-toml")]
     #[inline]
     pub fn from_toml_file<P: AsRef<Path>>(path: P) -> ConfigResult<Self> {
         let source = TomlConfigSource::from_file(path);
@@ -1372,6 +1376,7 @@ impl Config {
     /// Returns [`ConfigError::IoError`] if the file cannot be read,
     /// [`ConfigError::ParseError`] if the YAML cannot be parsed, or another
     /// [`ConfigError`] if setting a loaded property fails.
+    #[cfg(feature = "source-yaml")]
     #[inline]
     pub fn from_yaml_file<P: AsRef<Path>>(path: P) -> ConfigResult<Self> {
         let source = YamlConfigSource::from_file(path);
@@ -1413,6 +1418,7 @@ impl Config {
     /// Returns [`ConfigError::IoError`] if the file cannot be read,
     /// [`ConfigError::ParseError`] if dotenv parsing fails, or another
     /// [`ConfigError`] if setting a loaded property fails.
+    #[cfg(feature = "source-env-file")]
     #[inline]
     pub fn from_env_file<P: AsRef<Path>>(path: P) -> ConfigResult<Self> {
         let source = EnvFileConfigSource::from_file(path);
@@ -1459,7 +1465,7 @@ impl Config {
     #[inline]
     pub fn merge_from_source(&mut self, source: &dyn ConfigSource) -> ConfigResult<()> {
         let mut staged = self.clone();
-        source.load(&mut staged)?;
+        source.load_into(&mut staged)?;
         *self = staged;
         Ok(())
     }

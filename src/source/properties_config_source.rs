@@ -36,7 +36,10 @@ use crate::{
     ConfigResult,
 };
 
-use super::ConfigSource;
+use super::{
+    ConfigSource,
+    config_source::load_transactionally,
+};
 
 /// Configuration source that loads from Java `.properties` format files
 ///
@@ -339,6 +342,10 @@ fn decode_surrogate_pair(high: u32, low: u32) -> Option<char> {
 
 impl ConfigSource for PropertiesConfigSource {
     fn load(&self, config: &mut Config) -> ConfigResult<()> {
+        load_transactionally(self, config)
+    }
+
+    fn load_into(&self, config: &mut Config) -> ConfigResult<()> {
         let content = std::fs::read_to_string(&self.path).map_err(|e| {
             ConfigError::IoError(std::io::Error::new(
                 e.kind(),
@@ -350,12 +357,10 @@ impl ConfigSource for PropertiesConfigSource {
             ))
         })?;
 
-        let mut staged = config.clone();
         for (key, value) in Self::parse_content(&content) {
-            staged.set(&key, value)?;
+            config.set(&key, value)?;
         }
 
-        *config = staged;
         Ok(())
     }
 }

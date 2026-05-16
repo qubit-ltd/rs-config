@@ -275,6 +275,57 @@ mod test_env_config_source {
                     && message.contains("not valid Unicode")
         ));
     }
+
+    #[test]
+    fn test_load_with_prefix_rejects_empty_normalized_key() {
+        let _guard = env_test_lock();
+        unsafe {
+            std::env::set_var("QEMPTY_", "value");
+        }
+
+        let source = EnvConfigSource::with_prefix("QEMPTY_");
+        let mut config = Config::new();
+        config.set("existing", "old").unwrap();
+        let result = source.load(&mut config);
+
+        unsafe {
+            std::env::remove_var("QEMPTY_");
+        }
+
+        assert!(matches!(
+            result,
+            Err(ConfigError::KeyConflict { path, .. }) if path.is_empty()
+        ));
+        assert_eq!(config.get_string("existing").unwrap(), "old");
+        assert_eq!(config.len(), 1);
+    }
+
+    #[test]
+    fn test_load_with_prefix_rejects_malformed_normalized_dotted_key() {
+        let _guard = env_test_lock();
+        unsafe {
+            std::env::set_var("QMAL__LEADING", "leading");
+            std::env::set_var("QMAL_DB__HOST", "middle");
+            std::env::set_var("QMAL_DB_", "trailing");
+        }
+
+        let source = EnvConfigSource::with_prefix("QMAL_");
+        let mut config = Config::new();
+        let result = source.load(&mut config);
+
+        unsafe {
+            std::env::remove_var("QMAL__LEADING");
+            std::env::remove_var("QMAL_DB__HOST");
+            std::env::remove_var("QMAL_DB_");
+        }
+
+        assert!(matches!(
+            result,
+            Err(ConfigError::KeyConflict { path, .. })
+                if path == ".leading" || path == "db..host" || path == "db."
+        ));
+        assert!(config.is_empty());
+    }
 }
 
 #[cfg(test)]

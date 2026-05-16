@@ -11,7 +11,9 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
+#[cfg(feature = "rich-types")]
 use bigdecimal::BigDecimal;
+#[cfg(feature = "rich-types")]
 use chrono::{
     DateTime,
     NaiveDate,
@@ -19,6 +21,7 @@ use chrono::{
     NaiveTime,
     Utc,
 };
+#[cfg(feature = "rich-types")]
 use num_bigint::BigInt;
 use qubit_datatype::{
     DataConvertTo,
@@ -29,6 +32,7 @@ use qubit_value::{
     Value as QubitValue,
 };
 use serde_json::Value as JsonValue;
+#[cfg(feature = "rich-types")]
 use url::Url;
 
 use crate::{
@@ -151,16 +155,20 @@ impl_from_config_via_value!(
     f32,
     f64,
     char,
+    Duration,
+    JsonValue,
+    HashMap<String, String>,
+);
+
+#[cfg(feature = "rich-types")]
+impl_from_config_via_value!(
     NaiveDate,
     NaiveTime,
     NaiveDateTime,
     DateTime<Utc>,
-    Duration,
     Url,
     BigInt,
     BigDecimal,
-    JsonValue,
-    HashMap<String, String>,
 );
 
 impl FromConfig for String {
