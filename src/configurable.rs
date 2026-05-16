@@ -80,12 +80,13 @@ pub trait Configurable {
     ///
     fn set_config(&mut self, config: Config);
 
-    /// Updates the configuration through a closure and triggers the callback.
+    /// Updates a staged copy of the configuration through a closure.
     ///
-    /// The closure receives the same mutable configuration returned by
-    /// [`Self::config_mut`]. The callback is called exactly once after the
-    /// closure returns `Ok(())`; if the closure returns an error, the callback
-    /// is not called.
+    /// The closure receives a cloned configuration. The staged copy is
+    /// committed to [`Self::config_mut`] only after the closure returns
+    /// `Ok(())`. The callback is then called exactly once. If the closure
+    /// returns an error, the original configuration is left unchanged and the
+    /// callback is not called.
     ///
     /// # Parameters
     ///
@@ -103,7 +104,9 @@ pub trait Configurable {
         Self: Sized,
         F: FnOnce(&mut Config) -> ConfigResult<()>,
     {
-        update(self.config_mut())?;
+        let mut staged = self.config().clone();
+        update(&mut staged)?;
+        *self.config_mut() = staged;
         self.on_config_changed();
         Ok(())
     }

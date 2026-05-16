@@ -17,15 +17,20 @@
 //!
 //! - [`PropertiesConfigSource`]: Loads configuration from Java `.properties`
 //!   format files
-//! - [`TomlConfigSource`]: Loads configuration from TOML format files
-//! - [`YamlConfigSource`]: Loads configuration from YAML format files
-//! - [`EnvFileConfigSource`]: Loads configuration from `.env` format files
+//! - `TomlConfigSource`: Loads configuration from TOML format files when the
+//!   `source-toml` feature is enabled
+//! - `YamlConfigSource`: Loads configuration from YAML format files when the
+//!   `source-yaml` feature is enabled
+//! - `EnvFileConfigSource`: Loads configuration from `.env` format files when
+//!   the `source-env-file` feature is enabled
 //! - [`EnvConfigSource`]: Loads configuration from system environment variables
 //! - [`CompositeConfigSource`]: Merges configuration from multiple sources
 //!
 //! # Examples
 //!
 //! ```rust
+//! # #[cfg(feature = "source-toml")]
+//! # {
 //! use qubit_config::Config;
 //! use qubit_config::source::{
 //!     CompositeConfigSource, ConfigSource, TomlConfigSource,
@@ -41,6 +46,7 @@
 //! let mut config = Config::new();
 //! config.merge_from_source(&composite).unwrap();
 //! assert_eq!(config.get::<i64>("port").unwrap(), 8080);
+//! # }
 //! ```
 //!
 

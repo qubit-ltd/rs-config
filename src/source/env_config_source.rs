@@ -24,9 +24,12 @@
 //! Without a prefix, all environment variables are loaded as-is.
 //!
 
-use std::ffi::{
-    OsStr,
-    OsString,
+use std::{
+    collections::HashMap,
+    ffi::{
+        OsStr,
+        OsString,
+    },
 };
 
 use crate::{
@@ -172,6 +175,17 @@ impl EnvConfigSource {
         result
     }
 
+    /// Returns whether source key transformations can merge distinct names.
+    ///
+    /// # Returns
+    ///
+    /// `true` when the source should reject duplicate normalized keys emitted
+    /// by a single load operation.
+    #[inline]
+    fn can_collapse_distinct_keys(&self) -> bool {
+        self.strip_prefix || self.convert_underscores || self.lowercase_keys
+    }
+
     /// Checks whether an environment variable key matches a UTF-8 prefix.
     ///
     /// # Parameters
@@ -263,6 +277,8 @@ impl ConfigSource for EnvConfigSource {
     }
 
     fn load_into(&self, config: &mut Config) -> ConfigResult<()> {
+        let mut normalized_keys = HashMap::new();
+
         for (key_os, value_os) in std::env::vars_os() {
             // Filter by prefix if set
             if let Some(prefix) = &self.prefix
@@ -279,6 +295,15 @@ impl ConfigSource for EnvConfigSource {
             let transformed_key = self.transform_key(&key);
             if self.strip_prefix || self.convert_underscores {
                 utils::validate_normalized_config_key(&transformed_key, &key)?;
+            }
+            if self.can_collapse_distinct_keys()
+                && let Some(existing) = normalized_keys.insert(transformed_key.clone(), key.clone())
+            {
+                return Err(ConfigError::KeyConflict {
+                    path: transformed_key,
+                    existing: format!("environment variable '{existing}'"),
+                    incoming: format!("environment variable '{key}'"),
+                });
             }
             config.set(&transformed_key, value)?;
         }

@@ -17,6 +17,8 @@
 //! # Examples
 //!
 //! ```rust
+//! # #[cfg(feature = "source-toml")]
+//! # {
 //! use qubit_config::source::{
 //!     CompositeConfigSource, ConfigSource, TomlConfigSource,
 //! };
@@ -34,6 +36,7 @@
 //! let mut config = Config::new();
 //! composite.load(&mut config).unwrap();
 //! assert_eq!(config.get::<i64>("port").unwrap(), 8080);
+//! # }
 //! ```
 //!
 

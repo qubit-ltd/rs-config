@@ -1443,6 +1443,8 @@ impl Config {
     /// # Examples
     ///
     /// ```rust
+    /// # #[cfg(feature = "source-toml")]
+    /// # {
     /// use qubit_config::Config;
     /// use qubit_config::source::{
     ///     CompositeConfigSource, ConfigSource,
@@ -1461,6 +1463,7 @@ impl Config {
     /// let mut config = Config::new();
     /// config.merge_from_source(&composite).unwrap();
     /// std::fs::remove_file(&path).unwrap();
+    /// # }
     /// ```
     #[inline]
     pub fn merge_from_source(&mut self, source: &dyn ConfigSource) -> ConfigResult<()> {

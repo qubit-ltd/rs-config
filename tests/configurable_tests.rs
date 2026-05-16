@@ -258,6 +258,23 @@ mod test_set_config {
         assert!(matches!(result, Err(ConfigError::Other(message)) if message == "update failed"));
         assert_eq!(obj.changed_count(), 1);
     }
+
+    #[test]
+    fn test_update_config_rolls_back_partial_changes_on_error() {
+        let mut obj = TestConfigurable::new();
+        obj.config_mut().set("host", "old-host").unwrap();
+
+        let result = obj.update_config(|config| {
+            config.set("host", "new-host")?;
+            config.set("port", 8080)?;
+            Err(ConfigError::Other("update failed".to_string()))
+        });
+
+        assert!(matches!(result, Err(ConfigError::Other(message)) if message == "update failed"));
+        assert_eq!(obj.changed_count(), 0);
+        assert_eq!(obj.config().get_string("host").unwrap(), "old-host");
+        assert!(!obj.config().contains("port"));
+    }
 }
 
 #[cfg(test)]

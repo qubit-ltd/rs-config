@@ -326,6 +326,31 @@ mod test_env_config_source {
         ));
         assert!(config.is_empty());
     }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_load_with_prefix_rejects_duplicate_normalized_key() {
+        let _guard = env_test_lock();
+        unsafe {
+            std::env::set_var("QDUP_KEY", "one");
+            std::env::set_var("QDUP_key", "two");
+        }
+
+        let source = EnvConfigSource::with_prefix("QDUP_");
+        let mut config = Config::new();
+        let result = source.load(&mut config);
+
+        unsafe {
+            std::env::remove_var("QDUP_KEY");
+            std::env::remove_var("QDUP_key");
+        }
+
+        assert!(matches!(
+            result,
+            Err(ConfigError::KeyConflict { path, .. }) if path == "key"
+        ));
+        assert!(config.is_empty());
+    }
 }
 
 #[cfg(test)]

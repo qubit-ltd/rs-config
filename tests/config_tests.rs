@@ -859,6 +859,7 @@ mod test_get {
     }
 
     // Date and time type tests
+    #[cfg(feature = "rich-types")]
     #[test]
     fn test_get_naive_date() {
         let mut config = Config::new();
@@ -868,6 +869,7 @@ mod test_get {
         assert_eq!(value, date);
     }
 
+    #[cfg(feature = "rich-types")]
     #[test]
     fn test_get_naive_time() {
         let mut config = Config::new();
@@ -877,6 +879,7 @@ mod test_get {
         assert_eq!(value, time);
     }
 
+    #[cfg(feature = "rich-types")]
     #[test]
     fn test_get_naive_datetime() {
         let mut config = Config::new();
@@ -888,6 +891,7 @@ mod test_get {
         assert_eq!(value, datetime);
     }
 
+    #[cfg(feature = "rich-types")]
     #[test]
     fn test_get_datetime_utc() {
         let mut config = Config::new();
@@ -1319,6 +1323,7 @@ mod test_set {
         assert_eq!(config.get::<f64>("f64").unwrap(), 3.5);
     }
 
+    #[cfg(feature = "rich-types")]
     #[test]
     fn test_set_all_other_types() {
         let mut config = Config::new();
@@ -2913,7 +2918,7 @@ mod test_enhanced_errors {
 // TOML Type-Faithful Loading Tests
 // ============================================================================
 
-#[cfg(test)]
+#[cfg(all(test, feature = "source-toml"))]
 mod test_toml_type_faithful {
     use qubit_config::source::{
         ConfigSource,
@@ -3035,7 +3040,7 @@ mod test_toml_type_faithful {
 // YAML Type-Faithful Loading Tests
 // ============================================================================
 
-#[cfg(test)]
+#[cfg(all(test, feature = "source-yaml"))]
 mod test_yaml_type_faithful {
     use qubit_config::source::{
         ConfigSource,
@@ -3412,7 +3417,7 @@ mod test_subconfig_deserialize_integration {
 // merge_from_source (`Config` API)
 // ============================================================================
 
-#[cfg(test)]
+#[cfg(all(test, feature = "source-toml"))]
 mod test_merge_from_source {
     use super::{
         Config,
@@ -3512,7 +3517,12 @@ api_url = "${base_url}/api"
 // Source-backed constructors (`Config` API)
 // ============================================================================
 
-#[cfg(test)]
+#[cfg(all(
+    test,
+    feature = "source-env-file",
+    feature = "source-toml",
+    feature = "source-yaml"
+))]
 mod test_source_backed_constructors {
     use super::Config;
     use qubit_config::source::TomlConfigSource;

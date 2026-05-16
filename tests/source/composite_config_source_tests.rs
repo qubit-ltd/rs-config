@@ -7,6 +7,8 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
+#![cfg(feature = "source-toml")]
+
 //! # `CompositeConfigSource` tests
 
 use qubit_config::{
