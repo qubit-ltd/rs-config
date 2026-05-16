@@ -32,19 +32,19 @@
 
 ```toml
 [dependencies]
-qubit-config = "0.13.3"
+qubit-config = "0.13"
 ```
 
 默认 features 会保留完整 API：
 
 ```toml
-qubit-config = { version = "0.13.3", default-features = true }
+qubit-config = { version = "0.13", default-features = true }
 ```
 
 如果只需要轻量能力，可以关闭默认 features，再按需启用具体 source：
 
 ```toml
-qubit-config = { version = "0.13.3", default-features = false, features = ["source-toml"] }
+qubit-config = { version = "0.13", default-features = false, features = ["source-toml"] }
 ```
 
 可用 feature flags：

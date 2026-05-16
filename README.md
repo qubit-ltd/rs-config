@@ -30,20 +30,20 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-qubit-config = "0.13.3"
+qubit-config = "0.13"
 ```
 
 Default features preserve the full API:
 
 ```toml
-qubit-config = { version = "0.13.3", default-features = true }
+qubit-config = { version = "0.13", default-features = true }
 ```
 
 For lighter builds, disable defaults and opt into only the source loaders you
 need:
 
 ```toml
-qubit-config = { version = "0.13.3", default-features = false, features = ["source-toml"] }
+qubit-config = { version = "0.13", default-features = false, features = ["source-toml"] }
 ```
 
 Available feature flags:
