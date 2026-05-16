@@ -1,6 +1,6 @@
 [package]
 name = "qubit-config"
-version = "0.13.3"
+version = "0.13.4"
 edition = "2024"
 rust-version = "1.94"
 authors = ["Haixing Hu <starfish.hu@gmail.com>"]
@@ -12,15 +12,15 @@ documentation = "https://docs.rs/qubit-config"
 readme = "README.md"
 keywords = ["config", "configuration", "settings", "properties", "qubit"]
 categories = ["config", "development-tools"]
-exclude = [
-    "align-ci.sh",
-    "ci-check.sh",
-    "coverage.sh",
-    "style-check.sh",
-    "update-submodule.sh",
-    ".github/*",
-    ".llvm-cov.toml",
-    ".cargo-audit.toml.example",
+include = [
+    "/Cargo.toml",
+    "/LICENSE",
+    "/README.md",
+    "/README.zh_CN.md",
+    "/doc/**/user_guide*.md",
+    "/examples/**",
+    "/src/**",
+    "/tests/**",
 ]
 
 [lib]
@@ -49,9 +49,9 @@ toml = { version = "0.9", features = ["parse"], optional = true }
 serde_norway = { version = "0.9", optional = true }
 dotenvy = { version = "0.15", optional = true }
 
-qubit-datatype = "0.2.3"
-qubit-serde = "0.2.3"
-qubit-value = "0.7.6"
+qubit-datatype = "0.2"
+qubit-serde = "0.2"
+qubit-value = "0.7"
 
 [dev-dependencies]
 bigdecimal = "0.4"
