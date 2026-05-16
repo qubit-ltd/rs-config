@@ -61,20 +61,10 @@ use qubit_datatype::{
     DataConverter,
     DataType,
 };
-use qubit_value::multi_values::{
-    MultiValuesAddArg,
-    MultiValuesAdder,
-    MultiValuesFirstGetter,
-    MultiValuesGetter,
-    MultiValuesMultiAdder,
-    MultiValuesSetArg,
-    MultiValuesSetter,
-    MultiValuesSetterSlice,
-    MultiValuesSingleSetter,
-};
 use qubit_value::{
     MultiValues,
     Value as QubitValue,
+    ValueError,
 };
 
 pub(crate) fn convert_deserialize_number<T>(
@@ -709,7 +699,7 @@ impl Config {
     ///
     /// # Type Parameters
     ///
-    /// * `T` - Exact target type supported by [`MultiValuesFirstGetter`]
+    /// * `T` - Exact target type supported by `TryFrom<&MultiValues>`.
     ///
     /// # Parameters
     ///
@@ -720,7 +710,7 @@ impl Config {
     /// The exact typed value on success, or a [`ConfigError`] on failure.
     pub fn get_strict<T>(&self, name: impl ConfigName) -> ConfigResult<T>
     where
-        MultiValues: MultiValuesFirstGetter<T>,
+        for<'a> T: TryFrom<&'a MultiValues, Error = ValueError>,
     {
         name.with_config_name(|name| {
             let property = self.get_property_by_name(name)?;
@@ -929,7 +919,7 @@ impl Config {
     ///
     /// # Type Parameters
     ///
-    /// * `T` - Exact element type supported by [`MultiValuesGetter`]
+    /// * `T` - Exact element type supported by `TryFrom<&MultiValues>`.
     ///
     /// # Parameters
     ///
@@ -941,7 +931,7 @@ impl Config {
     /// failure.
     pub fn get_list_strict<T>(&self, name: impl ConfigName) -> ConfigResult<Vec<T>>
     where
-        MultiValues: MultiValuesGetter<T>,
+        for<'a> Vec<T>: TryFrom<&'a MultiValues, Error = ValueError>,
     {
         name.with_config_name(|name| {
             let property = self.get_property_by_name(name)?;
@@ -999,11 +989,7 @@ impl Config {
     /// ```
     pub fn set<S>(&mut self, name: impl ConfigName, values: S) -> ConfigResult<()>
     where
-        S: for<'a> MultiValuesSetArg<'a>,
-        <S as MultiValuesSetArg<'static>>::Item: Clone,
-        MultiValues: MultiValuesSetter<<S as MultiValuesSetArg<'static>>::Item>
-            + MultiValuesSetterSlice<<S as MultiValuesSetArg<'static>>::Item>
-            + MultiValuesSingleSetter<<S as MultiValuesSetArg<'static>>::Item>,
+        S: Into<MultiValues>,
     {
         name.with_config_name(|name| {
             self.ensure_property_not_final(name)?;
@@ -1049,14 +1035,7 @@ impl Config {
     /// ```
     pub fn add<S>(&mut self, name: impl ConfigName, values: S) -> ConfigResult<()>
     where
-        S: for<'a> MultiValuesAddArg<'a, Item = <S as MultiValuesSetArg<'static>>::Item>
-            + for<'a> MultiValuesSetArg<'a>,
-        <S as MultiValuesSetArg<'static>>::Item: Clone,
-        MultiValues: MultiValuesAdder<<S as MultiValuesSetArg<'static>>::Item>
-            + MultiValuesMultiAdder<<S as MultiValuesSetArg<'static>>::Item>
-            + MultiValuesSetter<<S as MultiValuesSetArg<'static>>::Item>
-            + MultiValuesSetterSlice<<S as MultiValuesSetArg<'static>>::Item>
-            + MultiValuesSingleSetter<<S as MultiValuesSetArg<'static>>::Item>,
+        S: Into<MultiValues>,
     {
         name.with_config_name(|name| {
             self.ensure_property_not_final(name)?;
@@ -2087,7 +2066,7 @@ impl ConfigReader for Config {
     #[inline]
     fn get_strict<T>(&self, name: impl ConfigName) -> ConfigResult<T>
     where
-        MultiValues: MultiValuesFirstGetter<T>,
+        for<'a> T: TryFrom<&'a MultiValues, Error = ValueError>,
     {
         Config::get_strict(self, name)
     }
@@ -2103,7 +2082,7 @@ impl ConfigReader for Config {
     #[inline]
     fn get_list_strict<T>(&self, name: impl ConfigName) -> ConfigResult<Vec<T>>
     where
-        MultiValues: MultiValuesGetter<T>,
+        for<'a> Vec<T>: TryFrom<&'a MultiValues, Error = ValueError>,
     {
         Config::get_list_strict(self, name)
     }

@@ -15,15 +15,6 @@
 use std::ops::Deref;
 
 use qubit_value::MultiValues;
-use qubit_value::multi_values::{
-    MultiValuesAddArg,
-    MultiValuesAdder,
-    MultiValuesMultiAdder,
-    MultiValuesSetArg,
-    MultiValuesSetter,
-    MultiValuesSetterSlice,
-    MultiValuesSingleSetter,
-};
 
 use crate::{
     ConfigError,
@@ -159,11 +150,7 @@ impl<'a> ConfigPropertyMut<'a> {
     /// been marked final, or a converted value error if setting fails.
     pub fn set<S>(&mut self, values: S) -> ConfigResult<()>
     where
-        S: for<'b> MultiValuesSetArg<'b>,
-        <S as MultiValuesSetArg<'static>>::Item: Clone,
-        MultiValues: MultiValuesSetter<<S as MultiValuesSetArg<'static>>::Item>
-            + MultiValuesSetterSlice<<S as MultiValuesSetArg<'static>>::Item>
-            + MultiValuesSingleSetter<<S as MultiValuesSetArg<'static>>::Item>,
+        S: Into<MultiValues>,
     {
         self.ensure_not_final()?;
         self.property.set(values).map_err(ConfigError::from)
@@ -189,14 +176,7 @@ impl<'a> ConfigPropertyMut<'a> {
     /// been marked final, or a converted value error if appending fails.
     pub fn add<S>(&mut self, values: S) -> ConfigResult<()>
     where
-        S: for<'b> MultiValuesAddArg<'b, Item = <S as MultiValuesSetArg<'static>>::Item>
-            + for<'b> MultiValuesSetArg<'b>,
-        <S as MultiValuesSetArg<'static>>::Item: Clone,
-        MultiValues: MultiValuesAdder<<S as MultiValuesSetArg<'static>>::Item>
-            + MultiValuesMultiAdder<<S as MultiValuesSetArg<'static>>::Item>
-            + MultiValuesSetter<<S as MultiValuesSetArg<'static>>::Item>
-            + MultiValuesSetterSlice<<S as MultiValuesSetArg<'static>>::Item>
-            + MultiValuesSingleSetter<<S as MultiValuesSetArg<'static>>::Item>,
+        S: Into<MultiValues>,
     {
         self.ensure_not_final()?;
         self.property.add(values).map_err(ConfigError::from)

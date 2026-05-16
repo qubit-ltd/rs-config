@@ -11,10 +11,9 @@
 
 use std::borrow::Cow;
 
-use qubit_value::MultiValues;
-use qubit_value::multi_values::{
-    MultiValuesFirstGetter,
-    MultiValuesGetter,
+use qubit_value::{
+    MultiValues,
+    ValueError,
 };
 
 use crate::config::Config;
@@ -212,7 +211,7 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
 
     fn get_strict<T>(&self, name: impl ConfigName) -> ConfigResult<T>
     where
-        MultiValues: MultiValuesFirstGetter<T>,
+        for<'b> T: TryFrom<&'b MultiValues, Error = ValueError>,
     {
         name.with_config_name(|name| {
             let key = self.resolve_key_cow(name);
@@ -232,7 +231,7 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
 
     fn get_list_strict<T>(&self, name: impl ConfigName) -> ConfigResult<Vec<T>>
     where
-        MultiValues: MultiValuesGetter<T>,
+        for<'b> Vec<T>: TryFrom<&'b MultiValues, Error = ValueError>,
     {
         name.with_config_name(|name| {
             let key = self.resolve_key_cow(name);

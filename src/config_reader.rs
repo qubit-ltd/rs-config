@@ -10,10 +10,9 @@
 
 #![allow(private_bounds)]
 
-use qubit_value::MultiValues;
-use qubit_value::multi_values::{
-    MultiValuesFirstGetter,
-    MultiValuesGetter,
+use qubit_value::{
+    MultiValues,
+    ValueError,
 };
 use serde::de::DeserializeOwned;
 
@@ -136,8 +135,8 @@ pub trait ConfigReader {
     ///
     /// # Type parameters
     ///
-    /// * `T` - Exact target type; requires `MultiValues` to implement
-    ///   `MultiValuesFirstGetter` for `T`.
+    /// * `T` - Exact target type; requires `T` to implement
+    ///   `TryFrom<&MultiValues>`.
     ///
     /// # Parameters
     ///
@@ -149,7 +148,7 @@ pub trait ConfigReader {
     /// key is missing, empty, or has a different stored type.
     fn get_strict<T>(&self, name: impl ConfigName) -> ConfigResult<T>
     where
-        MultiValues: MultiValuesFirstGetter<T>;
+        for<'a> T: TryFrom<&'a MultiValues, Error = ValueError>;
 
     /// Reads all stored values for `name` and converts each element to `T`.
     ///
@@ -172,8 +171,8 @@ pub trait ConfigReader {
     ///
     /// # Type parameters
     ///
-    /// * `T` - Exact element type; requires `MultiValues` to implement
-    ///   `MultiValuesGetter` for `T`.
+    /// * `T` - Exact element type; requires `Vec<T>` to implement
+    ///   `TryFrom<&MultiValues>`.
     ///
     /// # Parameters
     ///
@@ -185,7 +184,7 @@ pub trait ConfigReader {
     /// [`crate::ConfigError`] on failure.
     fn get_list_strict<T>(&self, name: impl ConfigName) -> ConfigResult<Vec<T>>
     where
-        MultiValues: MultiValuesGetter<T>;
+        for<'a> Vec<T>: TryFrom<&'a MultiValues, Error = ValueError>;
 
     /// Gets a value or `default` if the key is missing or empty.
     ///
