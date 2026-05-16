@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "checks": [
+    {
+      "name": "minimal",
+      "commands": ["check", "test", "doc"],
+      "defaultFeatures": false,
+      "features": []
+    },
+    {
+      "name": "rich-types",
+      "commands": ["test", "doc"],
+      "defaultFeatures": false,
+      "features": ["rich-types"]
+    },
+    {
+      "name": "source-toml",
+      "commands": ["test", "doc"],
+      "defaultFeatures": false,
+      "features": ["source-toml"]
+    },
+    {
+      "name": "source-yaml",
+      "commands": ["test", "doc"],
+      "defaultFeatures": false,
+      "features": ["source-yaml"]
+    },
+    {
+      "name": "source-env-file",
+      "commands": ["test", "doc"],
+      "defaultFeatures": false,
+      "features": ["source-env-file"]
+    },
+    {
+      "name": "sources-without-rich-types",
+      "commands": ["test", "doc"],
+      "defaultFeatures": false,
+      "features": ["source-env-file", "source-toml", "source-yaml"]
+    }
+  ]
+}
