@@ -185,6 +185,34 @@ port = 2
         assert_eq!(format!("{source:?}"), format!("{cloned:?}"));
         assert!(format!("{source:?}").contains("config.toml"));
     }
+
+    #[test]
+    fn test_load_toml_rejects_flattened_key_collision() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("flatten_collision.toml");
+        std::fs::write(
+            &path,
+            r#"
+"server.port" = 8080
+
+[server]
+port = 9090
+"#,
+        )
+        .unwrap();
+
+        let source = TomlConfigSource::from_file(&path);
+        let mut config = Config::new();
+        config.set("existing", "old").unwrap();
+        let result = source.load(&mut config);
+
+        assert!(matches!(
+            result,
+            Err(ConfigError::KeyConflict { path, .. }) if path == "server.port"
+        ));
+        assert_eq!(config.get_string("existing").unwrap(), "old");
+        assert_eq!(config.len(), 1);
+    }
 }
 
 #[cfg(test)]

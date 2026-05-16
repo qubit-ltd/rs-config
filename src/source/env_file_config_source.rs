@@ -31,7 +31,10 @@ use crate::{
     ConfigResult,
 };
 
-use super::ConfigSource;
+use super::{
+    ConfigSource,
+    config_source::load_transactionally,
+};
 
 /// Configuration source that loads from `.env` format files
 ///
@@ -72,6 +75,10 @@ impl EnvFileConfigSource {
 
 impl ConfigSource for EnvFileConfigSource {
     fn load(&self, config: &mut Config) -> ConfigResult<()> {
+        load_transactionally(self, config)
+    }
+
+    fn load_into(&self, config: &mut Config) -> ConfigResult<()> {
         let iter = dotenvy::from_path_iter(&self.path).map_err(|e| {
             ConfigError::IoError(std::io::Error::other(format!(
                 "Failed to read .env file '{}': {}",
@@ -80,7 +87,6 @@ impl ConfigSource for EnvFileConfigSource {
             )))
         })?;
 
-        let mut staged = config.clone();
         for item in iter {
             let (key, value) = item.map_err(|e| {
                 ConfigError::ParseError(format!(
@@ -89,10 +95,9 @@ impl ConfigSource for EnvFileConfigSource {
                     e
                 ))
             })?;
-            staged.set(&key, value)?;
+            config.set(&key, value)?;
         }
 
-        *config = staged;
         Ok(())
     }
 }

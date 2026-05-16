@@ -27,6 +27,7 @@
 //! Arrays are stored as multi-value properties.
 //!
 
+use std::collections::HashSet;
 use std::path::{
     Path,
     PathBuf,
@@ -41,9 +42,13 @@ use crate::{
     Config,
     ConfigError,
     ConfigResult,
+    utils,
 };
 
-use super::ConfigSource;
+use super::{
+    ConfigSource,
+    config_source::load_transactionally,
+};
 
 /// Configuration source that loads from TOML format files
 ///
@@ -83,6 +88,10 @@ impl TomlConfigSource {
 
 impl ConfigSource for TomlConfigSource {
     fn load(&self, config: &mut Config) -> ConfigResult<()> {
+        load_transactionally(self, config)
+    }
+
+    fn load_into(&self, config: &mut Config) -> ConfigResult<()> {
         let content = std::fs::read_to_string(&self.path).map_err(|e| {
             ConfigError::IoError(std::io::Error::new(
                 e.kind(),
@@ -98,9 +107,8 @@ impl ConfigSource for TomlConfigSource {
             ))
         })?;
 
-        let mut staged = config.clone();
-        flatten_toml_value("", &TomlValue::Table(table), &mut staged)?;
-        *config = staged;
+        let mut seen = HashSet::new();
+        flatten_toml_value("", &TomlValue::Table(table), config, &mut seen)?;
         Ok(())
     }
 }
@@ -114,6 +122,7 @@ pub(crate) fn flatten_toml_value(
     prefix: &str,
     value: &TomlValue,
     config: &mut Config,
+    seen: &mut HashSet<String>,
 ) -> ConfigResult<()> {
     match value {
         TomlValue::Table(table) => {
@@ -123,28 +132,34 @@ pub(crate) fn flatten_toml_value(
                 } else {
                     format!("{}.{}", prefix, k)
                 };
-                flatten_toml_value(&key, v, config)?;
+                flatten_toml_value(&key, v, config, seen)?;
             }
         }
         TomlValue::Array(arr) => {
             // Detect the element type of the first non-table/non-array item.
             // All elements must be the same scalar type; mixed-type arrays fall
             // back to string representation to avoid silent data loss.
+            utils::ensure_unique_flattened_key(seen, prefix)?;
             flatten_toml_array(prefix, arr, config)?;
         }
         TomlValue::String(s) => {
+            utils::ensure_unique_flattened_key(seen, prefix)?;
             config.set(prefix, s.clone())?;
         }
         TomlValue::Integer(i) => {
+            utils::ensure_unique_flattened_key(seen, prefix)?;
             config.set(prefix, *i)?;
         }
         TomlValue::Float(f) => {
+            utils::ensure_unique_flattened_key(seen, prefix)?;
             config.set(prefix, *f)?;
         }
         TomlValue::Boolean(b) => {
+            utils::ensure_unique_flattened_key(seen, prefix)?;
             config.set(prefix, *b)?;
         }
         TomlValue::Datetime(dt) => {
+            utils::ensure_unique_flattened_key(seen, prefix)?;
             config.set(prefix, dt.to_string())?;
         }
     }

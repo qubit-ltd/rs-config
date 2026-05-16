@@ -14,6 +14,7 @@
 
 use qubit_config::{
     Config,
+    ConfigError,
     Configurable,
 };
 
@@ -60,6 +61,7 @@ mod test_config {
     #[allow(unused_imports)]
     use super::{
         Config,
+        ConfigError,
         Configurable,
         TestConfigurable,
     };
@@ -159,6 +161,7 @@ mod test_set_config {
     #[allow(unused_imports)]
     use super::{
         Config,
+        ConfigError,
         Configurable,
         TestConfigurable,
     };
@@ -229,6 +232,31 @@ mod test_set_config {
         assert_eq!(obj.config().get::<String>("host").unwrap(), "127.0.0.1");
         assert_eq!(obj.config().get::<i32>("port").unwrap(), 9000);
         assert_eq!(obj.config().get::<i32>("timeout").unwrap(), 30);
+    }
+
+    #[test]
+    fn test_update_config_triggers_callback_only_after_success() {
+        fn update_or_fail(config: &mut Config) -> qubit_config::ConfigResult<()> {
+            if config.contains("fail_update") {
+                return Err(ConfigError::Other("update failed".to_string()));
+            }
+            config.set("host", "localhost")?;
+            config.set("port", 8080)?;
+            Ok(())
+        }
+
+        let mut obj = TestConfigurable::new();
+
+        obj.update_config(update_or_fail).unwrap();
+        assert_eq!(obj.changed_count(), 1);
+        assert_eq!(obj.config().get::<String>("host").unwrap(), "localhost");
+        assert_eq!(obj.config().get::<i32>("port").unwrap(), 8080);
+
+        obj.config_mut().set("fail_update", true).unwrap();
+        let result = obj.update_config(update_or_fail);
+
+        assert!(matches!(result, Err(ConfigError::Other(message)) if message == "update failed"));
+        assert_eq!(obj.changed_count(), 1);
     }
 }
 

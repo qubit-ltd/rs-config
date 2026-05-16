@@ -18,11 +18,11 @@ A powerful, type-safe configuration management system for Rust, providing flexib
 - ✅ **Type Safety** - Compile-time type checking to prevent runtime type errors
 - ✅ **Serialization Support** - Full serde support for serialization and deserialization
 - ✅ **Extensible** - Trait-based design for easy custom type support
-- ✅ **Configuration sources** - [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) trait with built-in loaders: TOML, YAML, Java-style `.properties`, `.env` files, process environment variables (with optional prefix / key normalization), and [`CompositeConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.CompositeConfigSource.html) to merge several sources in order (later entries override earlier ones for the same key); built-in sources load transactionally, so failed loads leave the target `Config` unchanged
+- ✅ **Configuration sources** - [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) trait with built-in loaders: TOML, YAML, Java-style `.properties`, `.env` files, process environment variables (with optional prefix / key normalization), and [`CompositeConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.CompositeConfigSource.html) to merge several sources in order (later entries override earlier ones for the same key); built-in sources load transactionally, validate ambiguous normalized keys, and reject duplicate flattened TOML/YAML keys
 - ✅ **Read-only API** - [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) trait for typed reads without mutation; implemented by [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) and [`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html), with string helpers, multi-key reads, and field declarations that respect variable substitution
 - ✅ **Configurable parsing** - [`ConfigReadOptions`](https://docs.rs/qubit-config/latest/qubit_config/options/struct.ConfigReadOptions.html) controls string trimming, blank handling, boolean literals, and scalar-string collection splitting globally or per field
 - ✅ **Prefix views** - [`Config::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.prefix_view) returns a [`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html) scoped to a logical key prefix (relative keys map to `prefix.key`); nest with [`ConfigPrefixView::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html#method.prefix_view)
-- ✅ **Zero-Cost Abstractions** - Uses enums instead of trait objects to avoid dynamic dispatch overhead
+- ✅ **Efficient core representation** - Uses enum-backed values and staged source loading; pluggable sources can still use trait objects where dynamic composition is useful
 
 ## Installation
 
@@ -32,6 +32,28 @@ Add this to your `Cargo.toml`:
 [dependencies]
 qubit-config = "0.13.3"
 ```
+
+Default features preserve the full API:
+
+```toml
+qubit-config = { version = "0.13.3", default-features = true }
+```
+
+For lighter builds, disable defaults and opt into only the source loaders you
+need:
+
+```toml
+qubit-config = { version = "0.13.3", default-features = false, features = ["source-toml"] }
+```
+
+Available feature flags:
+
+| Feature | Enables |
+|---------|---------|
+| `rich-types` | Direct `FromConfig` support for `chrono`, `url`, `num-bigint`, and `bigdecimal` types |
+| `source-toml` | `TomlConfigSource` and `Config::from_toml_file` |
+| `source-yaml` | `YamlConfigSource` and `Config::from_yaml_file` |
+| `source-env-file` | `EnvFileConfigSource` and `Config::from_env_file` |
 
 ## Quick Start
 
@@ -264,9 +286,11 @@ Multi-key reads scan keys in order. Missing and empty values are skipped; the fi
 
 ### Configuration sources
 
-Implementations of [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) load external settings into a [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html). Call [`merge_from_source`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.merge_from_source) (or `load` on the source with a `&mut Config`) to apply them. When no pre-load customization is needed, use the convenience constructors such as [`Config::from_toml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_toml_file), [`Config::from_yaml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_yaml_file), [`Config::from_properties_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_properties_file), [`Config::from_env_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_file), [`Config::from_env`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env), or [`Config::from_env_prefix`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_prefix).
+Implementations of [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) load external settings into a [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html). Call [`merge_from_source`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.merge_from_source) (or `load` on the source with a `&mut Config`) to apply them. When no pre-load customization is needed, use the convenience constructors such as [`Config::from_toml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_toml_file), [`Config::from_yaml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_yaml_file), [`Config::from_properties_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_properties_file), [`Config::from_env_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_file), [`Config::from_env`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env), or [`Config::from_env_prefix`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_prefix). File source convenience constructors are available when their corresponding `source-*` feature is enabled.
 
 Built-in sources and `Config::merge_from_source` are transactional: if parsing or merging fails, the target `Config` keeps its previous state.
+
+Environment sources that normalize keys reject empty or malformed dotted paths such as `APP_`, `APP__DB`, and `APP_DB__HOST`. TOML and YAML sources also reject duplicate flattened keys inside one document, for example a literal `"server.port"` key colliding with a nested `server.port` mapping.
 
 | Type | Role |
 |------|------|
@@ -406,6 +430,11 @@ use qubit_config::{Configurable, Configured};
 // Use the Configured base class
 let mut configured = Configured::new();
 configured.config_mut().set("port", 3000)?;
+configured.update_config(|config| {
+    config.set("host", "localhost")?;
+    config.set("workers", 4)?;
+    Ok(())
+})?;
 
 // Custom configurable object
 struct Application {
@@ -431,6 +460,10 @@ impl Application {
 let mut app = Application::new();
 app.config_mut().set("port", 3000)?;
 ```
+
+`config_mut()` gives direct mutable access and does not trigger
+`on_config_changed()`. Use `update_config()` when changes should trigger that
+callback once after a successful closure.
 
 ## Supported Data Types
 
@@ -547,10 +580,10 @@ pub enum ConfigError {
 
 ## Performance Considerations
 
-- **Zero-Cost Abstractions** - Uses enums instead of trait objects to avoid dynamic dispatch overhead
+- **Enum-backed values** - Core property values use enums for predictable storage and conversion paths
 - **Variable Substitution Optimization** - Uses `OnceLock` to cache regex patterns, avoiding repeated compilation
 - **Efficient Storage** - Properties stored in `HashMap` with O(1) lookup time complexity
-- **Shallow Copy Optimization** - Cloning uses shallow copies when wrapped in `Arc`
+- **Staged Source Loading** - Built-in source loaders write into an already staged `Config` during composite and merge operations, preserving transaction semantics without repeated full-config clones
 
 ## Testing
 
@@ -577,11 +610,11 @@ For internal design documentation (Chinese), see [src/README.md](src/README.md).
 - `qubit-datatype` - Core utilities and data type definitions
 - `qubit-value` - Value handling framework
 - `serde` - Serialization framework
-- `chrono` - Date and time handling
 - `regex` - Regular expression support
-- `toml` - TOML parsing for `TomlConfigSource`
-- `serde_norway` - YAML parsing for `YamlConfigSource`
-- `dotenvy` - `.env` file parsing for `EnvFileConfigSource`
+- `chrono`, `url`, `num-bigint`, `bigdecimal` - direct rich-type parsing support behind the default `rich-types` feature
+- `toml` - TOML parsing behind `source-toml`
+- `serde_norway` - YAML parsing behind `source-yaml`
+- `dotenvy` - `.env` file parsing behind `source-env-file`
 
 ## Roadmap
 

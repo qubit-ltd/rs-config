@@ -42,7 +42,10 @@ use crate::{
     ConfigResult,
 };
 
-use super::ConfigSource;
+use super::{
+    ConfigSource,
+    config_source::load_transactionally,
+};
 
 /// Configuration source that merges multiple sources in order
 ///
@@ -111,11 +114,13 @@ impl Default for CompositeConfigSource {
 
 impl ConfigSource for CompositeConfigSource {
     fn load(&self, config: &mut Config) -> ConfigResult<()> {
-        let mut staged = config.clone();
+        load_transactionally(self, config)
+    }
+
+    fn load_into(&self, config: &mut Config) -> ConfigResult<()> {
         for source in &self.sources {
-            source.load(&mut staged)?;
+            source.load_into(config)?;
         }
-        *config = staged;
         Ok(())
     }
 }

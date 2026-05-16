@@ -47,15 +47,21 @@
 mod composite_config_source;
 mod config_source;
 mod env_config_source;
+#[cfg(feature = "source-env-file")]
 mod env_file_config_source;
 mod properties_config_source;
+#[cfg(feature = "source-toml")]
 mod toml_config_source;
+#[cfg(feature = "source-yaml")]
 mod yaml_config_source;
 
 pub use composite_config_source::CompositeConfigSource;
 pub use config_source::ConfigSource;
 pub use env_config_source::EnvConfigSource;
+#[cfg(feature = "source-env-file")]
 pub use env_file_config_source::EnvFileConfigSource;
 pub use properties_config_source::PropertiesConfigSource;
+#[cfg(feature = "source-toml")]
 pub use toml_config_source::TomlConfigSource;
+#[cfg(feature = "source-yaml")]
 pub use yaml_config_source::YamlConfigSource;

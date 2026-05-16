@@ -55,3 +55,18 @@ fn test_config_merge_from_source_uses_trait_implementation() {
 
     assert_eq!(config.get::<u16>("server.port").unwrap(), 8080);
 }
+
+#[test]
+fn test_config_source_default_load_into_delegates_to_load() {
+    let source = InlineSource {
+        key: "server.name",
+        value: "api",
+    };
+    let mut config = Config::new();
+
+    source
+        .load_into(&mut config)
+        .expect("default load_into should delegate to load");
+
+    assert_eq!(config.get_string("server.name").unwrap(), "api");
+}

@@ -317,6 +317,57 @@ db:
         assert_eq!(format!("{source:?}"), format!("{cloned:?}"));
         assert!(format!("{source:?}").contains("config.yaml"));
     }
+
+    #[test]
+    fn test_load_yaml_rejects_flattened_key_collision() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("flatten_collision.yaml");
+        std::fs::write(
+            &path,
+            r#"
+"server.port": 8080
+server:
+  port: 9090
+"#,
+        )
+        .unwrap();
+
+        let source = YamlConfigSource::from_file(&path);
+        let mut config = Config::new();
+        config.set("existing", "old").unwrap();
+        let result = source.load(&mut config);
+
+        assert!(matches!(
+            result,
+            Err(ConfigError::KeyConflict { path, .. }) if path == "server.port"
+        ));
+        assert_eq!(config.get_string("existing").unwrap(), "old");
+        assert_eq!(config.len(), 1);
+    }
+
+    #[test]
+    fn test_load_yaml_rejects_coerced_key_collision() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("coerced_collision.yaml");
+        std::fs::write(
+            &path,
+            r#"
+true: enabled
+"true": string
+"#,
+        )
+        .unwrap();
+
+        let source = YamlConfigSource::from_file(&path);
+        let mut config = Config::new();
+        let result = source.load(&mut config);
+
+        assert!(matches!(
+            result,
+            Err(ConfigError::KeyConflict { path, .. }) if path == "true"
+        ));
+        assert!(config.is_empty());
+    }
 }
 
 #[cfg(test)]

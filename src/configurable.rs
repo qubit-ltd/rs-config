@@ -13,7 +13,10 @@
 //! access and change callback interfaces.
 //!
 
-use super::Config;
+use super::{
+    Config,
+    ConfigResult,
+};
 
 /// Configurable trait
 ///
@@ -53,7 +56,11 @@ pub trait Configurable {
     ///
     fn config(&self) -> &Config;
 
-    /// Gets a mutable reference to the configuration
+    /// Gets a mutable reference to the configuration.
+    ///
+    /// Direct mutations through this reference do not automatically call
+    /// [`Self::on_config_changed`]. Use [`Self::update_config`] when a mutation
+    /// should trigger the callback once after a successful update.
     ///
     /// # Returns
     ///
@@ -73,10 +80,39 @@ pub trait Configurable {
     ///
     fn set_config(&mut self, config: Config);
 
-    /// Callback after configuration changes
+    /// Updates the configuration through a closure and triggers the callback.
     ///
-    /// This method is called when the configuration is modified. Implementors
-    /// may override it to run side effects after [`Self::set_config`].
+    /// The closure receives the same mutable configuration returned by
+    /// [`Self::config_mut`]. The callback is called exactly once after the
+    /// closure returns `Ok(())`; if the closure returns an error, the callback
+    /// is not called.
+    ///
+    /// # Parameters
+    ///
+    /// * `update` - Closure that mutates the configuration.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` when the update succeeds.
+    ///
+    /// # Errors
+    ///
+    /// Returns the [`crate::ConfigError`] produced by the closure.
+    fn update_config<F>(&mut self, update: F) -> ConfigResult<()>
+    where
+        Self: Sized,
+        F: FnOnce(&mut Config) -> ConfigResult<()>,
+    {
+        update(self.config_mut())?;
+        self.on_config_changed();
+        Ok(())
+    }
+
+    /// Callback after configuration replacement or controlled updates.
+    ///
+    /// This method is called by [`Self::set_config`] implementations and by
+    /// the default [`Self::update_config`] helper. Direct mutations through
+    /// [`Self::config_mut`] are intentionally not observed.
     ///
     /// # Returns
     ///

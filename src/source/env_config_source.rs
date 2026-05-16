@@ -33,9 +33,13 @@ use crate::{
     Config,
     ConfigError,
     ConfigResult,
+    utils,
 };
 
-use super::ConfigSource;
+use super::{
+    ConfigSource,
+    config_source::load_transactionally,
+};
 
 /// Configuration source that loads from system environment variables
 ///
@@ -255,7 +259,10 @@ impl Default for EnvConfigSource {
 
 impl ConfigSource for EnvConfigSource {
     fn load(&self, config: &mut Config) -> ConfigResult<()> {
-        let mut staged = config.clone();
+        load_transactionally(self, config)
+    }
+
+    fn load_into(&self, config: &mut Config) -> ConfigResult<()> {
         for (key_os, value_os) in std::env::vars_os() {
             // Filter by prefix if set
             if let Some(prefix) = &self.prefix
@@ -270,10 +277,12 @@ impl ConfigSource for EnvConfigSource {
                 &format!("Value for environment variable '{key}'"),
             )?;
             let transformed_key = self.transform_key(&key);
-            staged.set(&transformed_key, value)?;
+            if self.strip_prefix || self.convert_underscores {
+                utils::validate_normalized_config_key(&transformed_key, &key)?;
+            }
+            config.set(&transformed_key, value)?;
         }
 
-        *config = staged;
         Ok(())
     }
 }

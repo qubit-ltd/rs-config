@@ -20,11 +20,11 @@
 - ✅ **类型安全** - 编译期类型检查，避免运行时类型错误
 - ✅ **序列化支持** - 完整的 serde 支持，可序列化和反序列化
 - ✅ **可扩展** - 基于 trait 的设计，易于支持自定义类型
-- ✅ **配置来源（ConfigSource）** - 提供 [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) trait 与多种内置实现：TOML、YAML、Java 风格 `.properties`、`.env` 文件、进程环境变量（可选前缀与键名规范化），以及按顺序合并多个来源的 [`CompositeConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.CompositeConfigSource.html)（后加载的来源覆盖同名键）；内置来源按事务语义加载，失败时目标 `Config` 保持原状态
+- ✅ **配置来源（ConfigSource）** - 提供 [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) trait 与多种内置实现：TOML、YAML、Java 风格 `.properties`、`.env` 文件、进程环境变量（可选前缀与键名规范化），以及按顺序合并多个来源的 [`CompositeConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.CompositeConfigSource.html)（后加载的来源覆盖同名键）；内置来源按事务语义加载，会校验有歧义的规范化 key，并拒绝 TOML/YAML 单文档内展平后的重复 key
 - ✅ **只读访问（ConfigReader）** - [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) trait 提供无需修改配置的泛型读取；[`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) 与 [`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html) 均实现该 trait，并包含字符串辅助方法、多 key 读取和字段声明读取
 - ✅ **可配置解析** - [`ConfigReadOptions`](https://docs.rs/qubit-config/latest/qubit_config/options/struct.ConfigReadOptions.html) 可在全局或单个字段上控制字符串 trim、空白值处理、布尔字面量和标量字符串拆分列表
 - ✅ **前缀视图（ConfigPrefixView）** - [`Config::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.prefix_view) 返回绑定逻辑键前缀的 [`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html)（相对键解析为 `前缀.键`）；可通过 [`ConfigPrefixView::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html#method.prefix_view) 嵌套子前缀
-- ✅ **零成本抽象** - 使用枚举而非 trait object，避免动态分发开销
+- ✅ **高效核心表示** - 核心值使用枚举表示，并通过 staged source loading 控制合并成本；可插拔 source 在需要动态组合时仍可使用 trait object
 
 ## 安装
 
@@ -34,6 +34,27 @@
 [dependencies]
 qubit-config = "0.13.3"
 ```
+
+默认 features 会保留完整 API：
+
+```toml
+qubit-config = { version = "0.13.3", default-features = true }
+```
+
+如果只需要轻量能力，可以关闭默认 features，再按需启用具体 source：
+
+```toml
+qubit-config = { version = "0.13.3", default-features = false, features = ["source-toml"] }
+```
+
+可用 feature flags：
+
+| Feature | 启用内容 |
+|---------|----------|
+| `rich-types` | 对 `chrono`、`url`、`num-bigint`、`bigdecimal` 类型的直接 `FromConfig` 支持 |
+| `source-toml` | `TomlConfigSource` 与 `Config::from_toml_file` |
+| `source-yaml` | `YamlConfigSource` 与 `Config::from_yaml_file` |
+| `source-env-file` | `EnvFileConfigSource` 与 `Config::from_env_file` |
 
 ## 快速开始
 
@@ -266,9 +287,11 @@ assert_eq!(retries, 3);
 
 ### 配置来源（Configuration sources）
 
-[`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) 的实现负责把外部设置写入 [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html)。可调用 [`merge_from_source`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.merge_from_source)，或在持有 `&mut Config` 时对具体来源调用 `load`。如果不需要在加载前定制目标 `Config`，可以直接使用 [`Config::from_toml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_toml_file)、[`Config::from_yaml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_yaml_file)、[`Config::from_properties_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_properties_file)、[`Config::from_env_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_file)、[`Config::from_env`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env) 或 [`Config::from_env_prefix`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_prefix) 等便捷构造方法。
+[`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) 的实现负责把外部设置写入 [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html)。可调用 [`merge_from_source`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.merge_from_source)，或在持有 `&mut Config` 时对具体来源调用 `load`。如果不需要在加载前定制目标 `Config`，可以直接使用 [`Config::from_toml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_toml_file)、[`Config::from_yaml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_yaml_file)、[`Config::from_properties_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_properties_file)、[`Config::from_env_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_file)、[`Config::from_env`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env) 或 [`Config::from_env_prefix`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_prefix) 等便捷构造方法。文件 source 的便捷构造方法需要启用对应的 `source-*` feature。
 
 内置来源和 `Config::merge_from_source` 都按事务语义加载：如果解析或合并失败，目标 `Config` 会保留加载前的状态。
+
+会规范化 key 的环境变量 source 会拒绝空 key 或畸形点号路径，例如 `APP_`、`APP__DB`、`APP_DB__HOST`。TOML 和 YAML source 也会拒绝单个文档内展平后的重复 key，例如字面量 `"server.port"` 与嵌套的 `server.port` 发生冲突。
 
 | 类型 | 作用 |
 |------|------|
@@ -403,6 +426,11 @@ use qubit_config::{Configurable, Configured};
 // 使用 Configured 基类
 let mut configured = Configured::new();
 configured.config_mut().set("port", 3000)?;
+configured.update_config(|config| {
+    config.set("host", "localhost")?;
+    config.set("workers", 4)?;
+    Ok(())
+})?;
 
 // 自定义可配置对象
 struct Application {
@@ -428,6 +456,8 @@ impl Application {
 let mut app = Application::new();
 app.config_mut().set("port", 3000)?;
 ```
+
+`config_mut()` 提供直接可变访问，不会自动触发 `on_config_changed()`。如果希望一组修改成功后只触发一次回调，请使用 `update_config()`。
 
 ## 支持的数据类型
 
@@ -544,10 +574,10 @@ pub enum ConfigError {
 
 ## 性能考虑
 
-- **零成本抽象** - 使用枚举而非 trait object，避免动态分发开销
+- **枚举值存储** - 核心配置值使用枚举表示，便于稳定地存储和转换
 - **变量替换优化** - 使用 `OnceLock` 缓存正则表达式，避免重复编译
 - **高效存储** - 配置项使用 `HashMap` 存储，查找时间复杂度 O(1)
-- **浅拷贝优化** - 克隆使用浅拷贝（`Arc` 包装时）
+- **分阶段 source 加载** - 内置 source 在 composite 和 merge 路径中直接写入已 staged 的 `Config`，保留事务语义，同时避免重复整份配置克隆
 
 ## 测试
 
@@ -574,11 +604,11 @@ cargo test
 - `qubit-datatype` - 核心工具和数据类型定义
 - `qubit-value` - 值处理框架
 - `serde` - 序列化框架
-- `chrono` - 日期和时间处理
 - `regex` - 正则表达式支持
-- `toml` - 解析 TOML，供 `TomlConfigSource` 使用
-- `serde_norway` - 解析 YAML，供 `YamlConfigSource` 使用
-- `dotenvy` - 解析 `.env` 文件，供 `EnvFileConfigSource` 使用
+- `chrono`、`url`、`num-bigint`、`bigdecimal` - 默认 `rich-types` feature 下的直接富类型解析支持
+- `toml` - `source-toml` feature 下的 TOML 解析
+- `serde_norway` - `source-yaml` feature 下的 YAML 解析
+- `dotenvy` - `source-env-file` feature 下的 `.env` 文件解析
 
 ## 发展路线图
 
