@@ -103,10 +103,7 @@ where
 /// # Errors
 ///
 /// Returns a substitution error if any string entry cannot be resolved.
-fn substituted_values(
-    property: &Property,
-    ctx: &ConfigParseContext<'_>,
-) -> ConfigResult<MultiValues> {
+fn substituted_values(property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<MultiValues> {
     match property.value() {
         MultiValues::String(values) => values
             .iter()
@@ -218,8 +215,7 @@ where
 
         let mut result = Vec::new();
         for item in values {
-            let item_property =
-                Property::with_value(ctx.key().to_string(), MultiValues::String(vec![item]));
+            let item_property = Property::with_value(ctx.key().to_string(), MultiValues::String(vec![item]));
             result.push(T::from_config(&item_property, ctx)?);
         }
         Ok(result)

@@ -64,9 +64,7 @@ impl CompositeConfigSource {
     /// An empty composite with no inner sources.
     #[inline]
     pub fn new() -> Self {
-        Self {
-            sources: Vec::new(),
-        }
+        Self { sources: Vec::new() }
     }
 
     /// Adds a configuration source

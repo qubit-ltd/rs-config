@@ -240,11 +240,7 @@ fn has_line_continuation(line: &str) -> bool {
 /// Number of trailing `\` bytes.
 #[inline]
 fn count_trailing_backslashes(line: &str) -> usize {
-    line.as_bytes()
-        .iter()
-        .rev()
-        .take_while(|&&b| b == b'\\')
-        .count()
+    line.as_bytes().iter().rev().take_while(|&&b| b == b'\\').count()
 }
 
 /// Processes Java properties escape sequences in a string.
@@ -349,11 +345,7 @@ impl ConfigSource for PropertiesConfigSource {
         let content = std::fs::read_to_string(&self.path).map_err(|e| {
             ConfigError::IoError(std::io::Error::new(
                 e.kind(),
-                format!(
-                    "Failed to read properties file '{}': {}",
-                    self.path.display(),
-                    e
-                ),
+                format!("Failed to read properties file '{}': {}", self.path.display(), e),
             ))
         })?;
 

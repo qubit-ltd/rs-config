@@ -88,9 +88,7 @@ impl Configured {
     /// ```
     #[inline]
     pub fn new() -> Self {
-        Self {
-            config: Config::new(),
-        }
+        Self { config: Config::new() }
     }
 
     /// Creates a configurable object with the specified configuration

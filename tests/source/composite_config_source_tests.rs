@@ -70,9 +70,7 @@ mod test_composite_config_source {
     fn test_add_multiple_sources() {
         let mut composite = CompositeConfigSource::new();
         composite.add(TomlConfigSource::from_file(fixture("basic.toml")));
-        composite.add(PropertiesConfigSource::from_file(fixture(
-            "basic.properties",
-        )));
+        composite.add(PropertiesConfigSource::from_file(fixture("basic.properties")));
         assert_eq!(composite.len(), 2);
     }
 

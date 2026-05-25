@@ -61,10 +61,7 @@ mod test_env_config_source {
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
-        assert_eq!(
-            config.get_string("QUBIT_TEST_UNIQUE_KEY_12345").unwrap(),
-            "test_value"
-        );
+        assert_eq!(config.get_string("QUBIT_TEST_UNIQUE_KEY_12345").unwrap(), "test_value");
 
         unsafe {
             std::env::remove_var("QUBIT_TEST_UNIQUE_KEY_12345");
@@ -253,9 +250,7 @@ mod test_env_config_source {
         use std::ffi::OsString;
         use std::os::unix::ffi::OsStringExt;
 
-        let key = OsString::from_vec(vec![
-            b'Q', b'U', b'N', b'I', b'C', b'O', b'D', b'E', b'_', 0xFF,
-        ]);
+        let key = OsString::from_vec(vec![b'Q', b'U', b'N', b'I', b'C', b'O', b'D', b'E', b'_', 0xFF]);
         unsafe {
             std::env::set_var(&key, "value");
         }

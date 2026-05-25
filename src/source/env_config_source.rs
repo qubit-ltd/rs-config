@@ -129,12 +129,7 @@ impl EnvConfigSource {
     ///
     /// A configured [`EnvConfigSource`].
     #[inline]
-    pub fn with_options(
-        prefix: &str,
-        strip_prefix: bool,
-        convert_underscores: bool,
-        lowercase_keys: bool,
-    ) -> Self {
+    pub fn with_options(prefix: &str, strip_prefix: bool, convert_underscores: bool, lowercase_keys: bool) -> Self {
         Self {
             prefix: Some(prefix.to_string()),
             strip_prefix,
@@ -256,10 +251,7 @@ impl EnvConfigSource {
     /// preserving a lossy representation in the diagnostic message.
     fn env_os_string_to_string(value: OsString, label: &str) -> ConfigResult<String> {
         value.into_string().map_err(|value| {
-            ConfigError::ParseError(format!(
-                "{label} is not valid Unicode: {}",
-                value.to_string_lossy(),
-            ))
+            ConfigError::ParseError(format!("{label} is not valid Unicode: {}", value.to_string_lossy(),))
         })
     }
 }
@@ -288,10 +280,7 @@ impl ConfigSource for EnvConfigSource {
             }
 
             let key = Self::env_os_string_to_string(key_os, "Environment variable key")?;
-            let value = Self::env_os_string_to_string(
-                value_os,
-                &format!("Value for environment variable '{key}'"),
-            )?;
+            let value = Self::env_os_string_to_string(value_os, &format!("Value for environment variable '{key}'"))?;
             let transformed_key = self.transform_key(&key);
             if self.strip_prefix || self.convert_underscores {
                 utils::validate_normalized_config_key(&transformed_key, &key)?;

@@ -52,9 +52,7 @@ fn test_deserialize_message_error_has_path_and_no_source() {
 #[test]
 fn test_deserialize_config_error_preserves_source() {
     let mut config = Config::new();
-    config.set_read_options(
-        ConfigReadOptions::default().with_blank_string_policy(BlankStringPolicy::Reject),
-    );
+    config.set_read_options(ConfigReadOptions::default().with_blank_string_policy(BlankStringPolicy::Reject));
     config
         .insert_property(
             "app.value",

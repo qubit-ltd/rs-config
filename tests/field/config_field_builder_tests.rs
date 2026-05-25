@@ -33,12 +33,7 @@ fn test_config_field_builder_applies_alias_default_and_options() {
         )
         .expect("field-level options should parse env-friendly boolean");
     let defaulted = config
-        .read(
-            ConfigField::<u16>::builder()
-                .name("server.port")
-                .default(8080)
-                .build(),
-        )
+        .read(ConfigField::<u16>::builder().name("server.port").default(8080).build())
         .expect("missing field should use default");
 
     assert!(enabled);
