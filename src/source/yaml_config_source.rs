@@ -98,11 +98,7 @@ impl ConfigSource for YamlConfigSource {
         })?;
 
         let value: YamlValue = yaml_backend::from_str(&content).map_err(|e| {
-            ConfigError::ParseError(format!(
-                "Failed to parse YAML file '{}': {}",
-                self.path.display(),
-                e
-            ))
+            ConfigError::ParseError(format!("Failed to parse YAML file '{}': {}", self.path.display(), e))
         })?;
 
         let mut seen = HashSet::new();
@@ -156,9 +152,7 @@ pub(crate) fn flatten_yaml_value(
             if let Some(i) = n.as_i64() {
                 config.set(prefix, i)?;
             } else {
-                let f = n
-                    .as_f64()
-                    .expect("YAML number should be representable as i64 or f64");
+                let f = n.as_f64().expect("YAML number should be representable as i64 or f64");
                 config.set(prefix, f)?;
             }
         }
@@ -257,8 +251,7 @@ fn flatten_yaml_sequence(prefix: &str, seq: &[YamlValue], config: &mut Config) -
             let values = seq
                 .iter()
                 .map(|item| {
-                    yaml_scalar_to_string(item, prefix)
-                        .expect("YAML string sequence was validated before insertion")
+                    yaml_scalar_to_string(item, prefix).expect("YAML string sequence was validated before insertion")
                 })
                 .collect::<Vec<_>>();
             config.set(prefix, values)?;
@@ -301,7 +294,5 @@ fn yaml_scalar_to_string(value: &YamlValue, key: &str) -> ConfigResult<String> {
 /// Builds a parse error for unsupported nested YAML sequence elements.
 fn unsupported_yaml_sequence_element_error(key: &str, value: &YamlValue) -> ConfigError {
     let key = if key.is_empty() { "<root>" } else { key };
-    ConfigError::ParseError(format!(
-        "Unsupported nested YAML structure at key '{key}': {value:?}"
-    ))
+    ConfigError::ParseError(format!("Unsupported nested YAML structure at key '{key}': {value:?}"))
 }

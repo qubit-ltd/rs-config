@@ -68,8 +68,7 @@ fn test_conversion_error() {
 
 #[test]
 fn test_from_data_conversion_error_maps_no_value() {
-    let error =
-        ConfigError::from_data_conversion_error("server.host", DataConversionError::NoValue);
+    let error = ConfigError::from_data_conversion_error("server.host", DataConversionError::NoValue);
 
     assert!(matches!(
         error,
@@ -227,11 +226,7 @@ fn test_from_value_error_type_mismatch() {
     };
     let config_err: ConfigError = value_err.into();
     match config_err {
-        ConfigError::TypeMismatch {
-            key,
-            expected,
-            actual,
-        } => {
+        ConfigError::TypeMismatch { key, expected, actual } => {
             assert_eq!(key, "");
             assert_eq!(expected, DataType::Bool);
             assert_eq!(actual, DataType::Int32);
@@ -301,11 +296,7 @@ fn test_from_keyed_value_error_type_mismatch() {
     let config_err = ConfigError::from(("server.port", value_err));
 
     match config_err {
-        ConfigError::TypeMismatch {
-            key,
-            expected,
-            actual,
-        } => {
+        ConfigError::TypeMismatch { key, expected, actual } => {
             assert_eq!(key, "server.port");
             assert_eq!(expected, DataType::Int32);
             assert_eq!(actual, DataType::String);

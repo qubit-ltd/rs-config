@@ -100,11 +100,7 @@ impl ConfigSource for TomlConfigSource {
         })?;
 
         let table: TomlTable = content.parse().map_err(|e| {
-            ConfigError::ParseError(format!(
-                "Failed to parse TOML file '{}': {}",
-                self.path.display(),
-                e
-            ))
+            ConfigError::ParseError(format!("Failed to parse TOML file '{}': {}", self.path.display(), e))
         })?;
 
         let mut seen = HashSet::new();
@@ -209,10 +205,7 @@ fn flatten_toml_array(prefix: &str, arr: &[TomlValue], config: &mut Config) -> C
             (ArrayKind::Integer, TomlValue::Integer(_))
                 | (ArrayKind::Float, TomlValue::Float(_))
                 | (ArrayKind::Bool, TomlValue::Boolean(_))
-                | (
-                    ArrayKind::String,
-                    TomlValue::String(_) | TomlValue::Datetime(_)
-                )
+                | (ArrayKind::String, TomlValue::String(_) | TomlValue::Datetime(_))
         )
     });
 
@@ -250,10 +243,7 @@ fn flatten_toml_array(prefix: &str, arr: &[TomlValue], config: &mut Config) -> C
         ArrayKind::Bool => {
             let values = arr
                 .iter()
-                .map(|item| {
-                    item.as_bool()
-                        .expect("TOML bool array was validated before insertion")
-                })
+                .map(|item| item.as_bool().expect("TOML bool array was validated before insertion"))
                 .collect::<Vec<_>>();
             config.set(prefix, values)?;
         }
@@ -261,8 +251,7 @@ fn flatten_toml_array(prefix: &str, arr: &[TomlValue], config: &mut Config) -> C
             let values = arr
                 .iter()
                 .map(|item| {
-                    toml_scalar_to_string(item, prefix)
-                        .expect("TOML string array was validated before insertion")
+                    toml_scalar_to_string(item, prefix).expect("TOML string array was validated before insertion")
                 })
                 .collect::<Vec<_>>();
             config.set(prefix, values)?;

@@ -89,11 +89,7 @@ impl ConfigSource for EnvFileConfigSource {
 
         for item in iter {
             let (key, value) = item.map_err(|e| {
-                ConfigError::ParseError(format!(
-                    "Failed to parse .env file '{}': {}",
-                    self.path.display(),
-                    e
-                ))
+                ConfigError::ParseError(format!("Failed to parse .env file '{}': {}", self.path.display(), e))
             })?;
             config.set(&key, value)?;
         }

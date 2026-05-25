@@ -387,28 +387,12 @@ impl TryFrom<BooleanConversionOptionsSerde> for BooleanConversionOptions {
     fn try_from(value: BooleanConversionOptionsSerde) -> Result<Self, Self::Error> {
         let mut options = BooleanConversionOptions::strict();
         let strict = BooleanConversionOptions::strict();
-        ensure_literal_prefix(
-            &value.true_literals,
-            strict.true_literals(),
-            "true_literals",
-        )?;
-        ensure_literal_prefix(
-            &value.false_literals,
-            strict.false_literals(),
-            "false_literals",
-        )?;
-        for literal in value
-            .true_literals
-            .iter()
-            .skip(strict.true_literals().len())
-        {
+        ensure_literal_prefix(&value.true_literals, strict.true_literals(), "true_literals")?;
+        ensure_literal_prefix(&value.false_literals, strict.false_literals(), "false_literals")?;
+        for literal in value.true_literals.iter().skip(strict.true_literals().len()) {
             options = options.with_true_literal(literal);
         }
-        for literal in value
-            .false_literals
-            .iter()
-            .skip(strict.false_literals().len())
-        {
+        for literal in value.false_literals.iter().skip(strict.false_literals().len()) {
             options = options.with_false_literal(literal);
         }
         Ok(options.with_case_sensitive(value.case_sensitive))
@@ -647,9 +631,7 @@ fn default_true_literals() -> Vec<String> {
 
 /// Returns the default false literals.
 fn default_false_literals() -> Vec<String> {
-    BooleanConversionOptions::default()
-        .false_literals()
-        .to_vec()
+    BooleanConversionOptions::default().false_literals().to_vec()
 }
 
 /// Returns the default scalar string collection delimiters.
@@ -663,21 +645,9 @@ fn default_append_unit_suffix() -> bool {
 }
 
 /// Ensures serialized boolean literals came from a supported public constructor.
-fn ensure_literal_prefix(
-    actual: &[String],
-    expected: &[String],
-    field: &str,
-) -> Result<(), String> {
-    if actual.len() < expected.len()
-        || !actual
-            .iter()
-            .zip(expected.iter())
-            .all(|(left, right)| left == right)
-    {
-        return Err(format!(
-            "{field} must start with the default literals: {:?}",
-            expected
-        ));
+fn ensure_literal_prefix(actual: &[String], expected: &[String], field: &str) -> Result<(), String> {
+    if actual.len() < expected.len() || !actual.iter().zip(expected.iter()).all(|(left, right)| left == right) {
+        return Err(format!("{field} must start with the default literals: {:?}", expected));
     }
     Ok(())
 }

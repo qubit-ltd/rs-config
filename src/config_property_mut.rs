@@ -101,9 +101,7 @@ impl<'a> ConfigPropertyMut<'a> {
     #[inline]
     pub fn set_final(&mut self, is_final: bool) -> ConfigResult<()> {
         if self.property.is_final() && !is_final {
-            return Err(ConfigError::PropertyIsFinal(
-                self.property.name().to_string(),
-            ));
+            return Err(ConfigError::PropertyIsFinal(self.property.name().to_string()));
         }
         self.property.set_final(is_final);
         Ok(())
@@ -211,9 +209,7 @@ impl<'a> ConfigPropertyMut<'a> {
     #[inline]
     fn ensure_not_final(&self) -> ConfigResult<()> {
         if self.property.is_final() {
-            return Err(ConfigError::PropertyIsFinal(
-                self.property.name().to_string(),
-            ));
+            return Err(ConfigError::PropertyIsFinal(self.property.name().to_string()));
         }
         Ok(())
     }

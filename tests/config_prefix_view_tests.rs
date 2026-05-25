@@ -77,9 +77,7 @@ mod test_config_prefix_view {
         let mut config = Config::new();
         config.set("http.host", "localhost").unwrap();
         config.set("http.port", "8080").unwrap();
-        config
-            .set("http.base_url", "http://${host}:${port}")
-            .unwrap();
+        config.set("http.base_url", "http://${host}:${port}").unwrap();
 
         let view = config.prefix_view("http");
         let base_url = view.get_string("base_url").unwrap();

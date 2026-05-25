@@ -158,10 +158,7 @@ mod test_properties_config_source {
         let content = "key = value with spaces";
         let pairs = PropertiesConfigSource::parse_content(content);
         assert_eq!(pairs.len(), 1);
-        assert_eq!(
-            pairs[0],
-            ("key".to_string(), "value with spaces".to_string())
-        );
+        assert_eq!(pairs[0], ("key".to_string(), "value with spaces".to_string()));
     }
 
     #[test]
@@ -250,10 +247,7 @@ mod test_properties_config_source {
         assert_eq!(config.get_string("greeting").unwrap(), "中文测试");
         assert_eq!(config.get_string("empty.value").unwrap(), "");
         assert_eq!(config.get_string("colon.key").unwrap(), "colon value");
-        assert_eq!(
-            config.get_string("spaces.key").unwrap(),
-            "value with spaces"
-        );
+        assert_eq!(config.get_string("spaces.key").unwrap(), "value with spaces");
     }
 
     #[test]
@@ -386,10 +380,7 @@ mod test_properties_edge_cases {
         let content = "path\\:home:some\\ value\nhash\\#key=bang\\!value";
         let pairs = PropertiesConfigSource::parse_content(content);
         assert_eq!(pairs.len(), 2);
-        assert_eq!(
-            pairs[0],
-            ("path:home".to_string(), "some value".to_string()),
-        );
+        assert_eq!(pairs[0], ("path:home".to_string(), "some value".to_string()),);
         assert_eq!(pairs[1], ("hash#key".to_string(), "bang!value".to_string()),);
     }
 }

@@ -191,12 +191,10 @@ impl ConfigError {
                 key: key.to_string(),
                 message: format!("JSON serialization error: {message}"),
             },
-            DataConversionError::JsonDeserializationError(message) => {
-                ConfigError::ConversionError {
-                    key: key.to_string(),
-                    message: format!("JSON deserialization error: {message}"),
-                }
-            }
+            DataConversionError::JsonDeserializationError(message) => ConfigError::ConversionError {
+                key: key.to_string(),
+                message: format!("JSON deserialization error: {message}"),
+            },
         }
     }
 }
@@ -205,16 +203,12 @@ impl From<ValueError> for ConfigError {
     fn from(err: ValueError) -> Self {
         match err {
             ValueError::NoValue => ConfigError::PropertyHasNoValue(String::new()),
-            ValueError::TypeMismatch { expected, actual } => {
-                ConfigError::type_mismatch_no_key(expected, actual)
-            }
+            ValueError::TypeMismatch { expected, actual } => ConfigError::type_mismatch_no_key(expected, actual),
             ValueError::ConversionFailed { from, to } => {
                 ConfigError::conversion_error_no_key(format!("From {from} to {to}"))
             }
             ValueError::ConversionError(msg) => ConfigError::conversion_error_no_key(msg),
-            ValueError::IndexOutOfBounds { index, len } => {
-                ConfigError::IndexOutOfBounds { index, len }
-            }
+            ValueError::IndexOutOfBounds { index, len } => ConfigError::IndexOutOfBounds { index, len },
             ValueError::JsonSerializationError(msg) => {
                 ConfigError::conversion_error_no_key(format!("JSON serialization error: {msg}"))
             }
@@ -242,9 +236,7 @@ impl From<(&str, ValueError)> for ConfigError {
                 key: key.to_string(),
                 message,
             },
-            ValueError::IndexOutOfBounds { index, len } => {
-                ConfigError::IndexOutOfBounds { index, len }
-            }
+            ValueError::IndexOutOfBounds { index, len } => ConfigError::IndexOutOfBounds { index, len },
             ValueError::JsonSerializationError(message) => ConfigError::ConversionError {
                 key: key.to_string(),
                 message: format!("JSON serialization error: {message}"),

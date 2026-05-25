@@ -81,11 +81,7 @@ mod test_env_file_config_source {
     fn test_load_inline_env_content() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join(".env");
-        std::fs::write(
-            &path,
-            "DB_HOST=db.example.com\nDB_PORT=5432\nDB_NAME=mydb\n",
-        )
-        .unwrap();
+        std::fs::write(&path, "DB_HOST=db.example.com\nDB_PORT=5432\nDB_NAME=mydb\n").unwrap();
 
         let source = EnvFileConfigSource::from_file(&path);
         let mut config = Config::new();

@@ -149,10 +149,7 @@ db:
         assert_eq!(config.get::<i64>("value").unwrap(), 42);
         // Boolean values are stored as bool
         assert!(!config.get::<bool>("enabled").unwrap());
-        assert_eq!(
-            config.get_string("db.url").unwrap(),
-            "postgres://localhost/mydb"
-        );
+        assert_eq!(config.get_string("db.url").unwrap(), "postgres://localhost/mydb");
         // Integer values are stored as i64
         assert_eq!(config.get::<i64>("db.pool").unwrap(), 5);
     }
@@ -202,8 +199,7 @@ db:
 
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
-        let mut property =
-            Property::with_value("locked", MultiValues::String(vec!["old".to_string()]));
+        let mut property = Property::with_value("locked", MultiValues::String(vec!["old".to_string()]));
         property.set_final(true);
         config.insert_property("locked", property).unwrap();
 
@@ -224,10 +220,7 @@ db:
         source.load(&mut config).unwrap();
 
         assert!(config.contains("empty"));
-        assert_eq!(
-            config.get_string_list("empty").unwrap(),
-            Vec::<String>::new()
-        );
+        assert_eq!(config.get_string_list("empty").unwrap(), Vec::<String>::new());
         assert_eq!(config.get_list::<i64>("empty").unwrap(), Vec::<i64>::new());
     }
 

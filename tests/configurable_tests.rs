@@ -307,9 +307,7 @@ mod test_on_config_changed {
             }
         }
 
-        let mut obj = SimpleConfigurable {
-            config: Config::new(),
-        };
+        let mut obj = SimpleConfigurable { config: Config::new() };
 
         // Should not panic
         obj.set_config(Config::new());
@@ -435,12 +433,8 @@ mod integration_tests {
     fn test_configurable_with_vectors() {
         let mut obj = TestConfigurable::new();
 
-        obj.config_mut()
-            .set("ports", vec![8080, 8081, 8082])
-            .unwrap();
-        obj.config_mut()
-            .set("hosts", vec!["host1", "host2", "host3"])
-            .unwrap();
+        obj.config_mut().set("ports", vec![8080, 8081, 8082]).unwrap();
+        obj.config_mut().set("hosts", vec!["host1", "host2", "host3"]).unwrap();
 
         let ports: Vec<i32> = obj.config().get_list("ports").unwrap();
         let hosts: Vec<String> = obj.config().get_list("hosts").unwrap();

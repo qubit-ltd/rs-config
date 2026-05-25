@@ -118,10 +118,7 @@ mod test_with_config {
         let config = create_test_config_with_description();
         let configured = Configured::with_config(config);
 
-        assert_eq!(
-            configured.config().description(),
-            Some("Test Configuration")
-        );
+        assert_eq!(configured.config().description(), Some("Test Configuration"));
         assert!(configured.config().contains("test"));
     }
 }
@@ -257,14 +254,10 @@ mod test_config_mut {
         let mut configured = Configured::new();
         assert!(configured.config().is_enable_variable_substitution());
 
-        configured
-            .config_mut()
-            .set_enable_variable_substitution(false);
+        configured.config_mut().set_enable_variable_substitution(false);
         assert!(!configured.config().is_enable_variable_substitution());
 
-        configured
-            .config_mut()
-            .set_enable_variable_substitution(true);
+        configured.config_mut().set_enable_variable_substitution(true);
         assert!(configured.config().is_enable_variable_substitution());
     }
 
@@ -463,14 +456,8 @@ mod test_default {
         let configured2 = Configured::default();
 
         assert_eq!(configured1.config().len(), configured2.config().len());
-        assert_eq!(
-            configured1.config().is_empty(),
-            configured2.config().is_empty()
-        );
-        assert_eq!(
-            configured1.config().description(),
-            configured2.config().description()
-        );
+        assert_eq!(configured1.config().is_empty(), configured2.config().is_empty());
+        assert_eq!(configured1.config().description(), configured2.config().description());
     }
 }
 
@@ -497,10 +484,7 @@ mod integration_tests {
 
         // Set configuration
         configured.config_mut().set("server.port", 8080).unwrap();
-        configured
-            .config_mut()
-            .set("server.host", "localhost")
-            .unwrap();
+        configured.config_mut().set("server.host", "localhost").unwrap();
         configured.config_mut().set("server.debug", true).unwrap();
 
         // Verify configuration
@@ -538,10 +522,7 @@ mod integration_tests {
         configured.set_config(new_config);
 
         assert_eq!(configured.config().len(), 2);
-        assert_eq!(
-            configured.config().description(),
-            Some("New server configuration")
-        );
+        assert_eq!(configured.config().description(), Some("New server configuration"));
         assert!(!configured.config().contains("server.port"));
         assert!(configured.config().contains("app.name"));
 
@@ -606,16 +587,10 @@ mod integration_tests {
         let mut configured = Configured::new();
 
         // Test vector types
+        configured.config_mut().set("int_list", vec![1, 2, 3, 4, 5]).unwrap();
         configured
             .config_mut()
-            .set("int_list", vec![1, 2, 3, 4, 5])
-            .unwrap();
-        configured
-            .config_mut()
-            .set(
-                "string_list",
-                vec!["a".to_string(), "b".to_string(), "c".to_string()],
-            )
+            .set("string_list", vec!["a".to_string(), "b".to_string(), "c".to_string()])
             .unwrap();
         configured
             .config_mut()

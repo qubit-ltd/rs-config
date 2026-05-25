@@ -122,9 +122,7 @@ pub trait ConfigReader {
             let property = self
                 .get_property(name)
                 .ok_or_else(|| ConfigError::PropertyNotFound(resolved.clone()))?;
-            if !property.is_empty()
-                && is_effectively_missing(self, &resolved, property, self.read_options())?
-            {
+            if !property.is_empty() && is_effectively_missing(self, &resolved, property, self.read_options())? {
                 return Err(ConfigError::PropertyHasNoValue(resolved));
             }
             parse_property_from_reader(self, &resolved, property, self.read_options())
@@ -191,11 +189,7 @@ pub trait ConfigReader {
     /// Conversion and substitution errors are returned instead of being hidden by
     /// the default.
     #[inline]
-    fn get_or<T>(
-        &self,
-        name: impl ConfigName,
-        default: impl IntoConfigDefault<T>,
-    ) -> ConfigResult<T>
+    fn get_or<T>(&self, name: impl ConfigName, default: impl IntoConfigDefault<T>) -> ConfigResult<T>
     where
         T: FromConfig,
     {
@@ -224,15 +218,8 @@ pub trait ConfigReader {
             let resolved = self.resolve_key(name);
             match self.get_property(name) {
                 None => Ok(None),
-                Some(property)
-                    if is_effectively_missing(self, &resolved, property, self.read_options())? =>
-                {
-                    Ok(None)
-                }
-                Some(property) => {
-                    parse_property_from_reader(self, &resolved, property, self.read_options())
-                        .map(Some)
-                }
+                Some(property) if is_effectively_missing(self, &resolved, property, self.read_options())? => Ok(None),
+                Some(property) => parse_property_from_reader(self, &resolved, property, self.read_options()).map(Some),
             }
         })
     }
@@ -259,9 +246,8 @@ pub trait ConfigReader {
         T: FromConfig,
     {
         names.with_config_names(|names| {
-            self.get_optional_any(names)?.ok_or_else(|| {
-                ConfigError::PropertyNotFound(format!("one of: {}", names.join(", ")))
-            })
+            self.get_optional_any(names)?
+                .ok_or_else(|| ConfigError::PropertyNotFound(format!("one of: {}", names.join(", "))))
         })
     }
 
@@ -278,9 +264,7 @@ pub trait ConfigReader {
     where
         T: FromConfig,
     {
-        names.with_config_names(|names| {
-            self.get_optional_any_with_options(names, self.read_options())
-        })
+        names.with_config_names(|names| self.get_optional_any_with_options(names, self.read_options()))
     }
 
     /// Reads a value from any key, using `default` only when all keys are
@@ -294,11 +278,7 @@ pub trait ConfigReader {
     /// # Returns
     ///
     /// Parsed value or `default`; parsing errors are never swallowed.
-    fn get_any_or<T>(
-        &self,
-        names: impl ConfigNames,
-        default: impl IntoConfigDefault<T>,
-    ) -> ConfigResult<T>
+    fn get_any_or<T>(&self, names: impl ConfigNames, default: impl IntoConfigDefault<T>) -> ConfigResult<T>
     where
         T: FromConfig,
     {
@@ -453,10 +433,7 @@ pub trait ConfigReader {
     /// # Returns
     ///
     /// A boxed iterator over matching entries.
-    fn iter_prefix<'a>(
-        &'a self,
-        prefix: &'a str,
-    ) -> Box<dyn Iterator<Item = (&'a str, &'a Property)> + 'a>;
+    fn iter_prefix<'a>(&'a self, prefix: &'a str) -> Box<dyn Iterator<Item = (&'a str, &'a Property)> + 'a>;
 
     /// Iterates all `(key, property)` pairs visible to this reader (same scope
     /// as [`Self::keys`]).
@@ -529,21 +506,11 @@ pub trait ConfigReader {
                 .get_property(name)
                 .ok_or_else(|| ConfigError::PropertyNotFound(resolved.clone()))?;
             if !property.is_empty()
-                && is_effectively_missing_with_substitution(
-                    self,
-                    &resolved,
-                    property,
-                    self.read_options(),
-                )?
+                && is_effectively_missing_with_substitution(self, &resolved, property, self.read_options())?
             {
                 return Err(ConfigError::PropertyHasNoValue(resolved));
             }
-            parse_property_from_reader_with_substitution(
-                self,
-                &resolved,
-                property,
-                self.read_options(),
-            )
+            parse_property_from_reader_with_substitution(self, &resolved, property, self.read_options())
         })
     }
 
@@ -559,9 +526,8 @@ pub trait ConfigReader {
     #[inline]
     fn get_string_any(&self, names: impl ConfigNames) -> ConfigResult<String> {
         names.with_config_names(|names| {
-            self.get_optional_string_any(names)?.ok_or_else(|| {
-                ConfigError::PropertyNotFound(format!("one of: {}", names.join(", ")))
-            })
+            self.get_optional_string_any(names)?
+                .ok_or_else(|| ConfigError::PropertyNotFound(format!("one of: {}", names.join(", "))))
         })
     }
 
@@ -576,9 +542,7 @@ pub trait ConfigReader {
     /// `Ok(None)` only when all keys are missing or empty.
     #[inline]
     fn get_optional_string_any(&self, names: impl ConfigNames) -> ConfigResult<Option<String>> {
-        names.with_config_names(|names| {
-            self.get_optional_any_with_options_and_substitution(names, self.read_options())
-        })
+        names.with_config_names(|names| self.get_optional_any_with_options_and_substitution(names, self.read_options()))
     }
 
     /// Gets a string from any key, or `default` when all keys are missing or
@@ -637,21 +601,11 @@ pub trait ConfigReader {
                 .get_property(name)
                 .ok_or_else(|| ConfigError::PropertyNotFound(resolved.clone()))?;
             if !property.is_empty()
-                && is_effectively_missing_with_substitution(
-                    self,
-                    &resolved,
-                    property,
-                    self.read_options(),
-                )?
+                && is_effectively_missing_with_substitution(self, &resolved, property, self.read_options())?
             {
                 return Err(ConfigError::PropertyHasNoValue(resolved));
             }
-            parse_property_from_reader_with_substitution(
-                self,
-                &resolved,
-                property,
-                self.read_options(),
-            )
+            parse_property_from_reader_with_substitution(self, &resolved, property, self.read_options())
         })
     }
 
@@ -669,14 +623,9 @@ pub trait ConfigReader {
     /// The resolved list or `default` converted to owned `String`s`; parsing and
     /// substitution errors are returned.
     #[inline]
-    fn get_string_list_or(
-        &self,
-        name: impl ConfigName,
-        default: &[&str],
-    ) -> ConfigResult<Vec<String>> {
-        self.get_optional_string_list(name).map(|value| {
-            value.unwrap_or_else(|| default.iter().map(|item| (*item).to_string()).collect())
-        })
+    fn get_string_list_or(&self, name: impl ConfigName, default: &[&str]) -> ConfigResult<Vec<String>> {
+        self.get_optional_string_list(name)
+            .map(|value| value.unwrap_or_else(|| default.iter().map(|item| (*item).to_string()).collect()))
     }
 
     /// Gets an optional string with the same three-way semantics as
@@ -698,22 +647,14 @@ pub trait ConfigReader {
             match self.get_property(name) {
                 None => Ok(None),
                 Some(property)
-                    if is_effectively_missing_with_substitution(
-                        self,
-                        &resolved,
-                        property,
-                        self.read_options(),
-                    )? =>
+                    if is_effectively_missing_with_substitution(self, &resolved, property, self.read_options())? =>
                 {
                     Ok(None)
                 }
-                Some(property) => parse_property_from_reader_with_substitution(
-                    self,
-                    &resolved,
-                    property,
-                    self.read_options(),
-                )
-                .map(Some),
+                Some(property) => {
+                    parse_property_from_reader_with_substitution(self, &resolved, property, self.read_options())
+                        .map(Some)
+                }
             }
         })
     }
@@ -735,22 +676,14 @@ pub trait ConfigReader {
             match self.get_property(name) {
                 None => Ok(None),
                 Some(property)
-                    if is_effectively_missing_with_substitution(
-                        self,
-                        &resolved,
-                        property,
-                        self.read_options(),
-                    )? =>
+                    if is_effectively_missing_with_substitution(self, &resolved, property, self.read_options())? =>
                 {
                     Ok(None)
                 }
-                Some(property) => parse_property_from_reader_with_substitution(
-                    self,
-                    &resolved,
-                    property,
-                    self.read_options(),
-                )
-                .map(Some),
+                Some(property) => {
+                    parse_property_from_reader_with_substitution(self, &resolved, property, self.read_options())
+                        .map(Some)
+                }
             }
         })
     }
@@ -773,10 +706,7 @@ pub trait ConfigReader {
                 if is_effectively_missing_with_substitution(self, &resolved, property, options)? {
                     continue;
                 }
-                return parse_property_from_reader_with_substitution(
-                    self, &resolved, property, options,
-                )
-                .map(Some);
+                return parse_property_from_reader_with_substitution(self, &resolved, property, options).map(Some);
             }
             Ok(None)
         })

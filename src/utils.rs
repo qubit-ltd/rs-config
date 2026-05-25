@@ -49,9 +49,7 @@ static VARIABLE_PATTERN: OnceLock<Regex> = OnceLock::new();
 ///
 #[inline]
 fn get_variable_pattern() -> &'static Regex {
-    VARIABLE_PATTERN.get_or_init(|| {
-        Regex::new(r"\$\{([^}]+)\}").expect("Failed to compile variable pattern regex")
-    })
+    VARIABLE_PATTERN.get_or_init(|| Regex::new(r"\$\{([^}]+)\}").expect("Failed to compile variable pattern regex"))
 }
 
 /// Maps a [`ValueError`] from typed property access to [`ConfigError`], using
@@ -117,10 +115,7 @@ pub(crate) fn validate_normalized_config_key(key: &str, origin: &str) -> ConfigR
 /// Returns [`ConfigError::KeyConflict`] when the same flattened key was already
 /// emitted by the source document.
 #[cfg(any(feature = "source-toml", feature = "source-yaml"))]
-pub(crate) fn ensure_unique_flattened_key(
-    seen: &mut HashSet<String>,
-    key: &str,
-) -> ConfigResult<()> {
+pub(crate) fn ensure_unique_flattened_key(seen: &mut HashSet<String>, key: &str) -> ConfigResult<()> {
     if seen.insert(key.to_string()) {
         return Ok(());
     }
@@ -143,9 +138,7 @@ pub(crate) fn substitute_variables<R: ConfigReader + ?Sized>(
     config: &R,
     max_depth: usize,
 ) -> ConfigResult<String> {
-    substitute_variables_by(value, max_depth, |var_name| {
-        find_variable_value(var_name, config)
-    })
+    substitute_variables_by(value, max_depth, |var_name| find_variable_value(var_name, config))
 }
 
 /// Replaces variables using a primary reader and a fallback reader.
@@ -154,10 +147,7 @@ pub(crate) fn substitute_variables<R: ConfigReader + ?Sized>(
 /// the fallback reader, then to environment variables only when the active
 /// read options explicitly enable environment fallback. Type and conversion
 /// errors in the primary reader are returned directly.
-pub(crate) fn substitute_variables_with_fallback<
-    P: ConfigReader + ?Sized,
-    F: ConfigReader + ?Sized,
->(
+pub(crate) fn substitute_variables_with_fallback<P: ConfigReader + ?Sized, F: ConfigReader + ?Sized>(
     value: &str,
     primary: &P,
     fallback: &F,
@@ -197,9 +187,7 @@ fn substitute_variables_recursive(
     let mut result = String::with_capacity(value.len());
     let mut last_end = 0;
     for caps in pattern.captures_iter(value) {
-        let full_match = caps
-            .get(0)
-            .expect("regex capture group 0 must be present for a match");
+        let full_match = caps.get(0).expect("regex capture group 0 must be present for a match");
         result.push_str(&value[last_end..full_match.start()]);
 
         let var_name = caps.get(1).map(|m| m.as_str()).unwrap_or_default();
@@ -211,8 +199,7 @@ fn substitute_variables_recursive(
 
         stack.push(var_name.to_string());
         let raw_value = resolve(var_name)?;
-        let expanded =
-            substitute_variables_recursive(&raw_value, max_depth, pattern, stack, resolve)?;
+        let expanded = substitute_variables_recursive(&raw_value, max_depth, pattern, stack, resolve)?;
         stack.pop();
         result.push_str(&expanded);
         last_end = full_match.end();
@@ -237,20 +224,14 @@ fn substitute_variables_recursive(
 /// Returns the variable value on success, or an error on failure
 ///
 ///
-fn find_variable_value<R: ConfigReader + ?Sized>(
-    var_name: &str,
-    config: &R,
-) -> ConfigResult<String> {
+fn find_variable_value<R: ConfigReader + ?Sized>(var_name: &str, config: &R) -> ConfigResult<String> {
     match config.get_property(var_name) {
         Some(property) if !property.is_empty() => match property.value().to::<String>() {
             Ok(value) => Ok(value),
             Err(error) => Err(map_value_error(var_name, error)),
         },
-        Some(_) | None if config.read_options().is_env_variable_substitution_enabled() => {
-            std::env::var(var_name).map_err(|_| {
-                ConfigError::SubstitutionError(format!("Cannot resolve variable: {}", var_name))
-            })
-        }
+        Some(_) | None if config.read_options().is_env_variable_substitution_enabled() => std::env::var(var_name)
+            .map_err(|_| ConfigError::SubstitutionError(format!("Cannot resolve variable: {}", var_name))),
         Some(_) | None => Err(ConfigError::SubstitutionError(format!(
             "Cannot resolve variable from config: {}",
             var_name
@@ -286,11 +267,7 @@ fn find_variable_value_with_fallback<P: ConfigReader + ?Sized, F: ConfigReader +
 ///
 /// Returns [`ConfigError::KeyConflict`] when the dotted path is malformed or
 /// conflicts with an existing scalar/object shape.
-pub(crate) fn insert_deserialize_value(
-    root: &mut Map<String, Value>,
-    key: &str,
-    value: Value,
-) -> ConfigResult<()> {
+pub(crate) fn insert_deserialize_value(root: &mut Map<String, Value>, key: &str, value: Value) -> ConfigResult<()> {
     if !key.contains('.') || key.is_empty() {
         root.insert(key.to_string(), value);
         return Ok(());
@@ -304,11 +281,7 @@ pub(crate) fn insert_deserialize_value(
 /// Returns [`ConfigError::KeyConflict`] when the key is malformed (`a..b`,
 /// `.a`, `a.`) or when an insertion path conflicts with an existing non-object
 /// parent.
-fn try_insert_nested_json_value(
-    root: &mut Map<String, Value>,
-    key: &str,
-    value: Value,
-) -> ConfigResult<()> {
+fn try_insert_nested_json_value(root: &mut Map<String, Value>, key: &str, value: Value) -> ConfigResult<()> {
     let parts: Vec<&str> = key.split('.').collect();
     if parts.iter().any(|part| part.is_empty()) {
         return Err(ConfigError::KeyConflict {
@@ -413,19 +386,13 @@ pub(crate) fn property_to_json_value(prop: &Property) -> Value {
         MultiValues::UInt64(v) => scalar_or_array(v, |x| Value::Number((*x).into())),
         MultiValues::UIntSize(v) => scalar_or_array(v, |x| Value::Number(Number::from(*x as u64))),
         MultiValues::Float32(v) => scalar_or_array(v, |x| {
-            Number::from_f64(*x as f64)
-                .map(Value::Number)
-                .unwrap_or(Value::Null)
+            Number::from_f64(*x as f64).map(Value::Number).unwrap_or(Value::Null)
         }),
-        MultiValues::Float64(v) => scalar_or_array(v, |x| {
-            Number::from_f64(*x)
-                .map(Value::Number)
-                .unwrap_or(Value::Null)
-        }),
-        MultiValues::String(v) => scalar_or_array(v, |x| Value::String(x.clone())),
-        MultiValues::Duration(v) => {
-            scalar_or_array(v, |x| Value::String(duration_with_unit::format(x)))
+        MultiValues::Float64(v) => {
+            scalar_or_array(v, |x| Number::from_f64(*x).map(Value::Number).unwrap_or(Value::Null))
         }
+        MultiValues::String(v) => scalar_or_array(v, |x| Value::String(x.clone())),
+        MultiValues::Duration(v) => scalar_or_array(v, |x| Value::String(duration_with_unit::format(x))),
         MultiValues::Url(v) => scalar_or_array(v, |x| Value::String(x.to_string())),
         MultiValues::StringMap(v) => {
             if v.len() == 1 {
@@ -471,10 +438,7 @@ pub(crate) fn property_to_json_value(prop: &Property) -> Value {
 ///
 /// Used by [`crate::Config::deserialize`] so a deserialized subtree can resolve
 /// both relative keys in the subtree and absolute keys from the root config.
-pub(crate) fn substitute_json_strings_with_fallback<
-    P: ConfigReader + ?Sized,
-    F: ConfigReader + ?Sized,
->(
+pub(crate) fn substitute_json_strings_with_fallback<P: ConfigReader + ?Sized, F: ConfigReader + ?Sized>(
     value: &mut Value,
     primary: &P,
     fallback: &F,
@@ -485,12 +449,7 @@ pub(crate) fn substitute_json_strings_with_fallback<
 
     match value {
         Value::String(s) => {
-            *s = substitute_variables_with_fallback(
-                s,
-                primary,
-                fallback,
-                primary.max_substitution_depth(),
-            )?;
+            *s = substitute_variables_with_fallback(s, primary, fallback, primary.max_substitution_depth())?;
         }
         Value::Array(values) => {
             for value in values {

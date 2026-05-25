@@ -30,9 +30,7 @@ fn test_config_field_name_builder_sets_primary_name_before_build() {
 #[test]
 fn test_config_field_name_builder_carries_pre_name_state() {
     let mut config = Config::new();
-    config
-        .set("PORT", "8080")
-        .expect("setting alias value should succeed");
+    config.set("PORT", "8080").expect("setting alias value should succeed");
 
     let field = ConfigField::<u16>::builder()
         .name("server.port")

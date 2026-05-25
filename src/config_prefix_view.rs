@@ -253,14 +253,8 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
         self.visible_entries().any(|(k, _)| k.starts_with(prefix))
     }
 
-    fn iter_prefix<'b>(
-        &'b self,
-        prefix: &'b str,
-    ) -> Box<dyn Iterator<Item = (&'b str, &'b Property)> + 'b> {
-        Box::new(
-            self.visible_entries()
-                .filter(move |(k, _)| k.starts_with(prefix)),
-        )
+    fn iter_prefix<'b>(&'b self, prefix: &'b str) -> Box<dyn Iterator<Item = (&'b str, &'b Property)> + 'b> {
+        Box::new(self.visible_entries().filter(move |(k, _)| k.starts_with(prefix)))
     }
 
     fn iter<'b>(&'b self) -> Box<dyn Iterator<Item = (&'b str, &'b Property)> + 'b> {

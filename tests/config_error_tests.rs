@@ -17,8 +17,7 @@ use qubit_datatype::{
 
 #[test]
 fn test_config_error_maps_data_conversion_no_value_with_key() {
-    let error =
-        ConfigError::from_data_conversion_error("server.host", DataConversionError::NoValue);
+    let error = ConfigError::from_data_conversion_error("server.host", DataConversionError::NoValue);
 
     assert!(matches!(
         &error,
