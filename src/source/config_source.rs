@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 use crate::{
     Config,
     ConfigResult,
@@ -31,7 +29,6 @@ use crate::{
 ///     }
 /// }
 /// ```
-///
 pub trait ConfigSource {
     /// Loads configuration data into the provided `Config` object
     ///
@@ -74,7 +71,10 @@ pub trait ConfigSource {
 ///
 /// Returns `Ok(())` after committing the staged config, or propagates the
 /// source error while leaving `config` unchanged.
-pub(crate) fn load_transactionally<S>(source: &S, config: &mut Config) -> ConfigResult<()>
+pub(crate) fn load_transactionally<S>(
+    source: &S,
+    config: &mut Config,
+) -> ConfigResult<()>
 where
     S: ConfigSource + ?Sized,
 {

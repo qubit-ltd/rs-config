@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! # Properties File Configuration Source
 //!
 //! Loads configuration from Java `.properties` format files.
@@ -21,7 +19,6 @@
 //! - Blank lines (ignored)
 //! - Line continuation with an odd number of `\` characters at end of line
 //! - Java properties escape sequences (`\uXXXX`, `\=`, `\:`, `\ `, etc.)
-//!
 
 use std::iter::Peekable;
 use std::path::{
@@ -58,7 +55,6 @@ use super::{
 /// let value = config.get::<String>("server.port").unwrap();
 /// assert_eq!(value, "8080");
 /// ```
-///
 #[derive(Debug, Clone)]
 pub struct PropertiesConfigSource {
     path: PathBuf,
@@ -94,7 +90,10 @@ impl PropertiesConfigSource {
             let trimmed = line.trim_start();
 
             // Skip blank lines and comments
-            if trimmed.is_empty() || trimmed.starts_with('#') || trimmed.starts_with('!') {
+            if trimmed.is_empty()
+                || trimmed.starts_with('#')
+                || trimmed.starts_with('!')
+            {
                 continue;
             }
 
@@ -127,9 +126,11 @@ fn parse_key_value(line: &str) -> Option<(&str, &str)> {
 
     for (i, ch) in line.char_indices() {
         if ch == '=' || ch == ':' {
-            // Separator is escaped only if there is an odd number of trailing backslashes.
+            // Separator is escaped only if there is an odd number of trailing
+            // backslashes.
             if !is_escaped_separator(line, i) {
-                let value_start = skip_properties_whitespace(line, i + ch.len_utf8());
+                let value_start =
+                    skip_properties_whitespace(line, i + ch.len_utf8());
                 return Some((&line[..i], &line[value_start..]));
             }
         }
@@ -139,7 +140,8 @@ fn parse_key_value(line: &str) -> Option<(&str, &str)> {
                 && (sep == '=' || sep == ':')
                 && !is_escaped_separator(line, value_start)
             {
-                value_start = skip_properties_whitespace(line, value_start + sep_len);
+                value_start =
+                    skip_properties_whitespace(line, value_start + sep_len);
             }
             return Some((&line[..i], &line[value_start..]));
         }
@@ -240,7 +242,11 @@ fn has_line_continuation(line: &str) -> bool {
 /// Number of trailing `\` bytes.
 #[inline]
 fn count_trailing_backslashes(line: &str) -> usize {
-    line.as_bytes().iter().rev().take_while(|&&b| b == b'\\').count()
+    line.as_bytes()
+        .iter()
+        .rev()
+        .take_while(|&&b| b == b'\\')
+        .count()
 }
 
 /// Processes Java properties escape sequences in a string.
@@ -256,7 +262,8 @@ fn unescape_properties(s: &str) -> String {
                     let hex: String = chars.by_ref().take(4).collect();
                     if hex.len() == 4
                         && let Ok(code) = u32::from_str_radix(&hex, 16)
-                        && let Some(unicode_char) = decode_unicode_escape(code, &mut chars)
+                        && let Some(unicode_char) =
+                            decode_unicode_escape(code, &mut chars)
                     {
                         result.push(unicode_char);
                         continue;
@@ -297,7 +304,10 @@ fn unescape_properties(s: &str) -> String {
 }
 
 /// Decodes a Java properties `\uXXXX` escape, including UTF-16 surrogate pairs.
-fn decode_unicode_escape(code: u32, chars: &mut Peekable<Chars<'_>>) -> Option<char> {
+fn decode_unicode_escape(
+    code: u32,
+    chars: &mut Peekable<Chars<'_>>,
+) -> Option<char> {
     if is_high_surrogate(code) {
         let mut lookahead = chars.clone();
         if lookahead.next() == Some('\\') && lookahead.next() == Some('u') {
@@ -345,7 +355,11 @@ impl ConfigSource for PropertiesConfigSource {
         let content = std::fs::read_to_string(&self.path).map_err(|e| {
             ConfigError::IoError(std::io::Error::new(
                 e.kind(),
-                format!("Failed to read properties file '{}': {}", self.path.display(), e),
+                format!(
+                    "Failed to read properties file '{}': {}",
+                    self.path.display(),
+                    e
+                ),
             ))
         })?;
 

@@ -1,13 +1,12 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
-//! [`qubit_config::constants`] behavior via [`qubit_config::Config`] (`DEFAULT_MAX_SUBSTITUTION_DEPTH`).
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+//! [`qubit_config::constants`] behavior via [`qubit_config::Config`]
+//! (`DEFAULT_MAX_SUBSTITUTION_DEPTH`).
 
 use qubit_config::Config;
 

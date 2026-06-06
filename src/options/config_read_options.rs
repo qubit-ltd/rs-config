@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 
 use qubit_datatype::{
     BlankStringPolicy,
@@ -27,7 +25,6 @@ use serde::{
 };
 
 /// Runtime options that control how configuration values are read and parsed.
-///
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ConfigReadOptions {
     /// Common scalar, collection, boolean, and duration conversion options.
@@ -110,7 +107,10 @@ impl ConfigReadOptions {
     ///
     /// Updated options.
     #[must_use]
-    pub fn with_env_variable_substitution_enabled(mut self, enabled: bool) -> Self {
+    pub fn with_env_variable_substitution_enabled(
+        mut self,
+        enabled: bool,
+    ) -> Self {
         self.env_variable_substitution_enabled = enabled;
         self
     }
@@ -125,7 +125,10 @@ impl ConfigReadOptions {
     ///
     /// Updated options.
     #[must_use]
-    pub fn with_blank_string_policy(mut self, policy: BlankStringPolicy) -> Self {
+    pub fn with_blank_string_policy(
+        mut self,
+        policy: BlankStringPolicy,
+    ) -> Self {
         self.conversion = self.conversion.with_blank_string_policy(policy);
         self
     }
@@ -155,7 +158,10 @@ impl ConfigReadOptions {
     ///
     /// Updated options.
     #[must_use]
-    pub fn with_string_options(mut self, string: StringConversionOptions) -> Self {
+    pub fn with_string_options(
+        mut self,
+        string: StringConversionOptions,
+    ) -> Self {
         self.conversion = self.conversion.with_string_options(string);
         self
     }
@@ -170,7 +176,10 @@ impl ConfigReadOptions {
     ///
     /// Updated options.
     #[must_use]
-    pub fn with_boolean_options(mut self, boolean: BooleanConversionOptions) -> Self {
+    pub fn with_boolean_options(
+        mut self,
+        boolean: BooleanConversionOptions,
+    ) -> Self {
         self.conversion = self.conversion.with_boolean_options(boolean);
         self
     }
@@ -185,7 +194,10 @@ impl ConfigReadOptions {
     ///
     /// Updated options.
     #[must_use]
-    pub fn with_collection_options(mut self, collection: CollectionConversionOptions) -> Self {
+    pub fn with_collection_options(
+        mut self,
+        collection: CollectionConversionOptions,
+    ) -> Self {
         self.conversion = self.conversion.with_collection_options(collection);
         self
     }
@@ -200,7 +212,10 @@ impl ConfigReadOptions {
     ///
     /// Updated options.
     #[must_use]
-    pub fn with_duration_options(mut self, duration: DurationConversionOptions) -> Self {
+    pub fn with_duration_options(
+        mut self,
+        duration: DurationConversionOptions,
+    ) -> Self {
         self.conversion = self.conversion.with_duration_options(duration);
         self
     }
@@ -217,7 +232,8 @@ impl AsRef<DataConversionOptions> for ConfigReadOptions {
 impl From<DataConversionOptions> for ConfigReadOptions {
     /// Creates config read options from data conversion options.
     ///
-    /// Environment-variable fallback for `${...}` substitution remains disabled.
+    /// Environment-variable fallback for `${...}` substitution remains
+    /// disabled.
     #[inline]
     fn from(conversion: DataConversionOptions) -> Self {
         Self {
@@ -233,7 +249,8 @@ struct ConfigReadOptionsSerde {
     /// Common scalar, collection, boolean, and duration conversion options.
     #[serde(default)]
     conversion: DataConversionOptionsSerde,
-    /// Whether unresolved `${...}` placeholders may fall back to environment variables.
+    /// Whether unresolved `${...}` placeholders may fall back to environment
+    /// variables.
     #[serde(default)]
     env_variable_substitution_enabled: bool,
 }
@@ -243,7 +260,8 @@ impl From<&ConfigReadOptions> for ConfigReadOptionsSerde {
     fn from(options: &ConfigReadOptions) -> Self {
         Self {
             conversion: DataConversionOptionsSerde::from(&options.conversion),
-            env_variable_substitution_enabled: options.env_variable_substitution_enabled,
+            env_variable_substitution_enabled: options
+                .env_variable_substitution_enabled,
         }
     }
 }
@@ -255,7 +273,8 @@ impl TryFrom<ConfigReadOptionsSerde> for ConfigReadOptions {
     fn try_from(value: ConfigReadOptionsSerde) -> Result<Self, Self::Error> {
         Ok(Self {
             conversion: value.conversion.try_into()?,
-            env_variable_substitution_enabled: value.env_variable_substitution_enabled,
+            env_variable_substitution_enabled: value
+                .env_variable_substitution_enabled,
         })
     }
 }
@@ -290,7 +309,9 @@ impl From<&DataConversionOptions> for DataConversionOptionsSerde {
         Self {
             string: StringConversionOptionsSerde::from(&options.string),
             boolean: BooleanConversionOptionsSerde::from(&options.boolean),
-            collection: CollectionConversionOptionsSerde::from(&options.collection),
+            collection: CollectionConversionOptionsSerde::from(
+                &options.collection,
+            ),
             duration: DurationConversionOptionsSerde::from(&options.duration),
         }
     }
@@ -300,7 +321,9 @@ impl TryFrom<DataConversionOptionsSerde> for DataConversionOptions {
     type Error = String;
 
     /// Converts the serde representation back to conversion options.
-    fn try_from(value: DataConversionOptionsSerde) -> Result<Self, Self::Error> {
+    fn try_from(
+        value: DataConversionOptionsSerde,
+    ) -> Result<Self, Self::Error> {
         Ok(Self {
             string: value.string.into(),
             boolean: value.boolean.try_into()?,
@@ -384,15 +407,33 @@ impl TryFrom<BooleanConversionOptionsSerde> for BooleanConversionOptions {
     type Error = String;
 
     /// Converts the serde representation back to boolean conversion options.
-    fn try_from(value: BooleanConversionOptionsSerde) -> Result<Self, Self::Error> {
+    fn try_from(
+        value: BooleanConversionOptionsSerde,
+    ) -> Result<Self, Self::Error> {
         let mut options = BooleanConversionOptions::strict();
         let strict = BooleanConversionOptions::strict();
-        ensure_literal_prefix(&value.true_literals, strict.true_literals(), "true_literals")?;
-        ensure_literal_prefix(&value.false_literals, strict.false_literals(), "false_literals")?;
-        for literal in value.true_literals.iter().skip(strict.true_literals().len()) {
+        ensure_literal_prefix(
+            &value.true_literals,
+            strict.true_literals(),
+            "true_literals",
+        )?;
+        ensure_literal_prefix(
+            &value.false_literals,
+            strict.false_literals(),
+            "false_literals",
+        )?;
+        for literal in value
+            .true_literals
+            .iter()
+            .skip(strict.true_literals().len())
+        {
             options = options.with_true_literal(literal);
         }
-        for literal in value.false_literals.iter().skip(strict.false_literals().len()) {
+        for literal in value
+            .false_literals
+            .iter()
+            .skip(strict.false_literals().len())
+        {
             options = options.with_false_literal(literal);
         }
         Ok(options.with_case_sensitive(value.case_sensitive))
@@ -417,7 +458,8 @@ struct CollectionConversionOptionsSerde {
 }
 
 impl Default for CollectionConversionOptionsSerde {
-    /// Creates the serde representation of default collection conversion options.
+    /// Creates the serde representation of default collection conversion
+    /// options.
     fn default() -> Self {
         Self::from(&CollectionConversionOptions::default())
     }
@@ -631,7 +673,9 @@ fn default_true_literals() -> Vec<String> {
 
 /// Returns the default false literals.
 fn default_false_literals() -> Vec<String> {
-    BooleanConversionOptions::default().false_literals().to_vec()
+    BooleanConversionOptions::default()
+        .false_literals()
+        .to_vec()
 }
 
 /// Returns the default scalar string collection delimiters.
@@ -644,10 +688,23 @@ fn default_append_unit_suffix() -> bool {
     DurationConversionOptions::default().append_unit_suffix
 }
 
-/// Ensures serialized boolean literals came from a supported public constructor.
-fn ensure_literal_prefix(actual: &[String], expected: &[String], field: &str) -> Result<(), String> {
-    if actual.len() < expected.len() || !actual.iter().zip(expected.iter()).all(|(left, right)| left == right) {
-        return Err(format!("{field} must start with the default literals: {:?}", expected));
+/// Ensures serialized boolean literals came from a supported public
+/// constructor.
+fn ensure_literal_prefix(
+    actual: &[String],
+    expected: &[String],
+    field: &str,
+) -> Result<(), String> {
+    if actual.len() < expected.len()
+        || !actual
+            .iter()
+            .zip(expected.iter())
+            .all(|(left, right)| left == right)
+    {
+        return Err(format!(
+            "{field} must start with the default literals: {:?}",
+            expected
+        ));
     }
     Ok(())
 }

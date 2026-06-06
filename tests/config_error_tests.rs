@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Focused tests for public configuration errors.
 
 use qubit_config::ConfigError;
@@ -17,7 +15,10 @@ use qubit_datatype::{
 
 #[test]
 fn test_config_error_maps_data_conversion_no_value_with_key() {
-    let error = ConfigError::from_data_conversion_error("server.host", DataConversionError::NoValue);
+    let error = ConfigError::from_data_conversion_error(
+        "server.host",
+        DataConversionError::NoValue,
+    );
 
     assert!(matches!(
         &error,

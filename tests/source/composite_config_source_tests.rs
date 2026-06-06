@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 #![cfg(feature = "source-toml")]
 
 //! # `CompositeConfigSource` tests
@@ -70,13 +68,16 @@ mod test_composite_config_source {
     fn test_add_multiple_sources() {
         let mut composite = CompositeConfigSource::new();
         composite.add(TomlConfigSource::from_file(fixture("basic.toml")));
-        composite.add(PropertiesConfigSource::from_file(fixture("basic.properties")));
+        composite.add(PropertiesConfigSource::from_file(fixture(
+            "basic.properties",
+        )));
         assert_eq!(composite.len(), 2);
     }
 
     #[test]
     fn test_load_merges_sources_in_order() {
-        // basic.toml sets host=localhost, override.toml sets host=production-server
+        // basic.toml sets host=localhost, override.toml sets
+        // host=production-server
         let mut composite = CompositeConfigSource::new();
         composite.add(TomlConfigSource::from_file(fixture("basic.toml")));
         composite.add(TomlConfigSource::from_file(fixture("override.toml")));

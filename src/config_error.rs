@@ -1,16 +1,13 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! # Configuration Error Type
 //!
 //! Defines all possible error scenarios in the configuration system.
-//!
 
 use thiserror::Error;
 
@@ -28,8 +25,6 @@ use qubit_value::ValueError;
 /// use qubit_config::{Config, ConfigError, ConfigResult};
 /// fn get_port(config: &Config) -> ConfigResult<i32> { unimplemented!() }
 /// ```
-///
-///
 #[derive(Debug, Error)]
 pub enum ConfigError {
     /// Property not found
@@ -93,7 +88,9 @@ pub enum ConfigError {
     PropertyIsFinal(String),
 
     /// Configuration key path cannot be represented without ambiguity
-    #[error("Configuration key conflict at '{path}': existing {existing}, incoming {incoming}")]
+    #[error(
+        "Configuration key conflict at '{path}': existing {existing}, incoming {incoming}"
+    )]
     KeyConflict {
         /// The conflicting configuration key/path
         path: String,
@@ -141,7 +138,10 @@ impl ConfigError {
     ///
     /// A [`ConfigError::TypeMismatch`] with an empty `key`.
     #[inline]
-    pub(crate) fn type_mismatch_no_key(expected: DataType, actual: DataType) -> Self {
+    pub(crate) fn type_mismatch_no_key(
+        expected: DataType,
+        actual: DataType,
+    ) -> Self {
         ConfigError::TypeMismatch {
             key: String::new(),
             expected,
@@ -176,25 +176,38 @@ impl ConfigError {
     /// # Returns
     ///
     /// A [`ConfigError`] carrying the supplied key.
-    pub fn from_data_conversion_error(key: &str, err: DataConversionError) -> Self {
+    pub fn from_data_conversion_error(
+        key: &str,
+        err: DataConversionError,
+    ) -> Self {
         match err {
-            DataConversionError::NoValue => ConfigError::PropertyHasNoValue(key.to_string()),
-            DataConversionError::ConversionFailed { from, to } => ConfigError::ConversionError {
-                key: key.to_string(),
-                message: format!("From {from} to {to}"),
-            },
-            DataConversionError::ConversionError(message) => ConfigError::ConversionError {
-                key: key.to_string(),
-                message,
-            },
-            DataConversionError::JsonSerializationError(message) => ConfigError::ConversionError {
-                key: key.to_string(),
-                message: format!("JSON serialization error: {message}"),
-            },
-            DataConversionError::JsonDeserializationError(message) => ConfigError::ConversionError {
-                key: key.to_string(),
-                message: format!("JSON deserialization error: {message}"),
-            },
+            DataConversionError::NoValue => {
+                ConfigError::PropertyHasNoValue(key.to_string())
+            }
+            DataConversionError::ConversionFailed { from, to } => {
+                ConfigError::ConversionError {
+                    key: key.to_string(),
+                    message: format!("From {from} to {to}"),
+                }
+            }
+            DataConversionError::ConversionError(message) => {
+                ConfigError::ConversionError {
+                    key: key.to_string(),
+                    message,
+                }
+            }
+            DataConversionError::JsonSerializationError(message) => {
+                ConfigError::ConversionError {
+                    key: key.to_string(),
+                    message: format!("JSON serialization error: {message}"),
+                }
+            }
+            DataConversionError::JsonDeserializationError(message) => {
+                ConfigError::ConversionError {
+                    key: key.to_string(),
+                    message: format!("JSON deserialization error: {message}"),
+                }
+            }
         }
     }
 }
@@ -202,18 +215,32 @@ impl ConfigError {
 impl From<ValueError> for ConfigError {
     fn from(err: ValueError) -> Self {
         match err {
-            ValueError::NoValue => ConfigError::PropertyHasNoValue(String::new()),
-            ValueError::TypeMismatch { expected, actual } => ConfigError::type_mismatch_no_key(expected, actual),
-            ValueError::ConversionFailed { from, to } => {
-                ConfigError::conversion_error_no_key(format!("From {from} to {to}"))
+            ValueError::NoValue => {
+                ConfigError::PropertyHasNoValue(String::new())
             }
-            ValueError::ConversionError(msg) => ConfigError::conversion_error_no_key(msg),
-            ValueError::IndexOutOfBounds { index, len } => ConfigError::IndexOutOfBounds { index, len },
+            ValueError::TypeMismatch { expected, actual } => {
+                ConfigError::type_mismatch_no_key(expected, actual)
+            }
+            ValueError::ConversionFailed { from, to } => {
+                ConfigError::conversion_error_no_key(format!(
+                    "From {from} to {to}"
+                ))
+            }
+            ValueError::ConversionError(msg) => {
+                ConfigError::conversion_error_no_key(msg)
+            }
+            ValueError::IndexOutOfBounds { index, len } => {
+                ConfigError::IndexOutOfBounds { index, len }
+            }
             ValueError::JsonSerializationError(msg) => {
-                ConfigError::conversion_error_no_key(format!("JSON serialization error: {msg}"))
+                ConfigError::conversion_error_no_key(format!(
+                    "JSON serialization error: {msg}"
+                ))
             }
             ValueError::JsonDeserializationError(msg) => {
-                ConfigError::conversion_error_no_key(format!("JSON deserialization error: {msg}"))
+                ConfigError::conversion_error_no_key(format!(
+                    "JSON deserialization error: {msg}"
+                ))
             }
         }
     }
@@ -222,29 +249,43 @@ impl From<ValueError> for ConfigError {
 impl From<(&str, ValueError)> for ConfigError {
     fn from((key, err): (&str, ValueError)) -> Self {
         match err {
-            ValueError::NoValue => ConfigError::PropertyHasNoValue(key.to_string()),
-            ValueError::TypeMismatch { expected, actual } => ConfigError::TypeMismatch {
-                key: key.to_string(),
-                expected,
-                actual,
-            },
-            ValueError::ConversionFailed { from, to } => ConfigError::ConversionError {
-                key: key.to_string(),
-                message: format!("From {from} to {to}"),
-            },
-            ValueError::ConversionError(message) => ConfigError::ConversionError {
-                key: key.to_string(),
-                message,
-            },
-            ValueError::IndexOutOfBounds { index, len } => ConfigError::IndexOutOfBounds { index, len },
-            ValueError::JsonSerializationError(message) => ConfigError::ConversionError {
-                key: key.to_string(),
-                message: format!("JSON serialization error: {message}"),
-            },
-            ValueError::JsonDeserializationError(message) => ConfigError::ConversionError {
-                key: key.to_string(),
-                message: format!("JSON deserialization error: {message}"),
-            },
+            ValueError::NoValue => {
+                ConfigError::PropertyHasNoValue(key.to_string())
+            }
+            ValueError::TypeMismatch { expected, actual } => {
+                ConfigError::TypeMismatch {
+                    key: key.to_string(),
+                    expected,
+                    actual,
+                }
+            }
+            ValueError::ConversionFailed { from, to } => {
+                ConfigError::ConversionError {
+                    key: key.to_string(),
+                    message: format!("From {from} to {to}"),
+                }
+            }
+            ValueError::ConversionError(message) => {
+                ConfigError::ConversionError {
+                    key: key.to_string(),
+                    message,
+                }
+            }
+            ValueError::IndexOutOfBounds { index, len } => {
+                ConfigError::IndexOutOfBounds { index, len }
+            }
+            ValueError::JsonSerializationError(message) => {
+                ConfigError::ConversionError {
+                    key: key.to_string(),
+                    message: format!("JSON serialization error: {message}"),
+                }
+            }
+            ValueError::JsonDeserializationError(message) => {
+                ConfigError::ConversionError {
+                    key: key.to_string(),
+                    message: format!("JSON deserialization error: {message}"),
+                }
+            }
         }
     }
 }

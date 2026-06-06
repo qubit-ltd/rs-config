@@ -1,16 +1,13 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! # Base Implementation of Configurable Objects
 //!
 //! Provides a base structure that implements the `Configurable` trait.
-//!
 
 use super::{
     Config,
@@ -63,8 +60,6 @@ use super::{
 ///     }
 /// }
 /// ```
-///
-///
 #[derive(Debug, Clone, PartialEq)]
 pub struct Configured {
     /// Configuration object
@@ -88,7 +83,9 @@ impl Configured {
     /// ```
     #[inline]
     pub fn new() -> Self {
-        Self { config: Config::new() }
+        Self {
+            config: Config::new(),
+        }
     }
 
     /// Creates a configurable object with the specified configuration

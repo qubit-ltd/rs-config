@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 
 use std::collections::HashMap;
 use std::time::Duration;
@@ -45,7 +43,6 @@ use super::config_parse_context::ConfigParseContext;
 use super::helpers::first_scalar_string;
 
 /// Parses a configuration [`Property`] into a target Rust type.
-///
 pub trait FromConfig: Sized {
     /// Parses `property` using `ctx`.
     ///
@@ -57,7 +54,10 @@ pub trait FromConfig: Sized {
     /// # Returns
     ///
     /// Parsed value, or a [`crate::ConfigError`] with key context.
-    fn from_config(property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<Self>;
+    fn from_config(
+        property: &Property,
+        ctx: &ConfigParseContext<'_>,
+    ) -> ConfigResult<Self>;
 }
 
 /// Converts the first scalar string value of a property to a target type.
@@ -70,8 +70,10 @@ pub trait FromConfig: Sized {
 /// # Returns
 ///
 /// The converted value, or a [`ConfigError`] with key context.
-///
-fn convert_first<T>(property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<T>
+fn convert_first<T>(
+    property: &Property,
+    ctx: &ConfigParseContext<'_>,
+) -> ConfigResult<T>
 where
     for<'a> DataConverter<'a>: DataConvertTo<T>,
 {
@@ -103,7 +105,10 @@ where
 /// # Errors
 ///
 /// Returns a substitution error if any string entry cannot be resolved.
-fn substituted_values(property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<MultiValues> {
+fn substituted_values(
+    property: &Property,
+    ctx: &ConfigParseContext<'_>,
+) -> ConfigResult<MultiValues> {
     match property.value() {
         MultiValues::String(values) => values
             .iter()
@@ -119,7 +124,6 @@ fn substituted_values(property: &Property, ctx: &ConfigParseContext<'_>) -> Conf
 /// # Parameters
 ///
 /// * `($($ty:ty),+ $(,)?)` - The list of types to implement the trait for.
-///
 macro_rules! impl_from_config_via_value {
     ($($ty:ty),+ $(,)?) => {
         $(
@@ -179,7 +183,10 @@ impl FromConfig for String {
     /// # Returns
     ///
     /// Parsed value, or a [`crate::ConfigError`] with key context.
-    fn from_config(property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<Self> {
+    fn from_config(
+        property: &Property,
+        ctx: &ConfigParseContext<'_>,
+    ) -> ConfigResult<Self> {
         if let Some(value) = first_scalar_string(property) {
             let value = ctx.substitute_string(value)?;
             QubitValue::String(value)
@@ -208,14 +215,20 @@ where
     /// # Returns
     ///
     /// Parsed value, or a [`crate::ConfigError`] with key context.
-    fn from_config(property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<Self> {
+    fn from_config(
+        property: &Property,
+        ctx: &ConfigParseContext<'_>,
+    ) -> ConfigResult<Self> {
         let values = substituted_values(property, ctx)?
             .to_list_with::<String>(ctx.options().conversion_options())
             .map_err(|e| utils::map_value_error(ctx.key(), e))?;
 
         let mut result = Vec::new();
         for item in values {
-            let item_property = Property::with_value(ctx.key().to_string(), MultiValues::String(vec![item]));
+            let item_property = Property::with_value(
+                ctx.key().to_string(),
+                MultiValues::String(vec![item]),
+            );
             result.push(T::from_config(&item_property, ctx)?);
         }
         Ok(result)

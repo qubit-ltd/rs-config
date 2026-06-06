@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Tests for field-level configuration read declarations.
 
 use qubit_config::{
@@ -27,7 +25,9 @@ fn test_config_field_builder_reads_alias_with_env_friendly_bool() {
             ConfigField::<bool>::builder()
                 .name("mime.enable_precise_detection")
                 .alias("MIME_DETECTOR_ENABLE_PRECISE_DETECTION")
-                .alias("ANOTHER_MIME_DETECTOR_ENABLE_PRECISE_DETECTION_PROPERTY")
+                .alias(
+                    "ANOTHER_MIME_DETECTOR_ENABLE_PRECISE_DETECTION_PROPERTY",
+                )
                 .default(false)
                 .read_options(ConfigReadOptions::env_friendly())
                 .build(),

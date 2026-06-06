@@ -1,16 +1,13 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! # Mutable Configuration Property Guard
 //!
 //! Provides guarded mutable access to non-final configuration properties.
-//!
 
 use std::ops::Deref;
 
@@ -29,7 +26,6 @@ use crate::{
 /// `DerefMut`. Value-changing operations re-check the property's final flag on
 /// every call, so setting a property final through the guard immediately blocks
 /// subsequent mutation through the same guard.
-///
 pub struct ConfigPropertyMut<'a> {
     property: &'a mut Property,
 }
@@ -74,7 +70,10 @@ impl<'a> ConfigPropertyMut<'a> {
     /// Returns [`ConfigError::PropertyIsFinal`] if the property has already
     /// been marked final.
     #[inline]
-    pub fn set_description(&mut self, description: Option<String>) -> ConfigResult<()> {
+    pub fn set_description(
+        &mut self,
+        description: Option<String>,
+    ) -> ConfigResult<()> {
         self.ensure_not_final()?;
         self.property.set_description(description);
         Ok(())
@@ -101,7 +100,9 @@ impl<'a> ConfigPropertyMut<'a> {
     #[inline]
     pub fn set_final(&mut self, is_final: bool) -> ConfigResult<()> {
         if self.property.is_final() && !is_final {
-            return Err(ConfigError::PropertyIsFinal(self.property.name().to_string()));
+            return Err(ConfigError::PropertyIsFinal(
+                self.property.name().to_string(),
+            ));
         }
         self.property.set_final(is_final);
         Ok(())
@@ -209,7 +210,9 @@ impl<'a> ConfigPropertyMut<'a> {
     #[inline]
     fn ensure_not_final(&self) -> ConfigResult<()> {
         if self.property.is_final() {
-            return Err(ConfigError::PropertyIsFinal(self.property.name().to_string()));
+            return Err(ConfigError::PropertyIsFinal(
+                self.property.name().to_string(),
+            ));
         }
         Ok(())
     }

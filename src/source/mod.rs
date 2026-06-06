@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! # Configuration Source Module
 //!
 //! Provides various configuration source implementations for loading
@@ -48,7 +46,6 @@
 //! assert_eq!(config.get::<i64>("port").unwrap(), 8080);
 //! # }
 //! ```
-//!
 
 mod composite_config_source;
 mod config_source;

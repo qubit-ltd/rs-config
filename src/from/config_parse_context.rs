@@ -1,18 +1,15 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 
 use crate::ConfigResult;
 use crate::options::ConfigReadOptions;
 
 /// Context passed to [`crate::from::FromConfig`] implementations.
-///
 pub struct ConfigParseContext<'a> {
     /// The root-relative configuration key.
     key: &'a str,
@@ -29,7 +26,8 @@ impl<'a> ConfigParseContext<'a> {
     ///
     /// * `key` - The root-relative configuration key.
     /// * `options` - The read options used for this parse operation.
-    /// * `substitute` - The substitution function used for this parse operation.
+    /// * `substitute` - The substitution function used for this parse
+    ///   operation.
     ///
     /// # Returns
     ///
@@ -75,7 +73,10 @@ impl<'a> ConfigParseContext<'a> {
     /// # Returns
     ///
     /// The substituted string value.
-    pub(crate) fn substitute_string(&self, value: &str) -> ConfigResult<String> {
+    pub(crate) fn substitute_string(
+        &self,
+        value: &str,
+    ) -> ConfigResult<String> {
         (self.substitute)(value)
     }
 }

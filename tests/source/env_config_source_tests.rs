@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! # `EnvConfigSource` tests
 
 use qubit_config::{
@@ -61,7 +59,10 @@ mod test_env_config_source {
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
-        assert_eq!(config.get_string("QUBIT_TEST_UNIQUE_KEY_12345").unwrap(), "test_value");
+        assert_eq!(
+            config.get_string("QUBIT_TEST_UNIQUE_KEY_12345").unwrap(),
+            "test_value"
+        );
 
         unsafe {
             std::env::remove_var("QUBIT_TEST_UNIQUE_KEY_12345");
@@ -125,7 +126,8 @@ mod test_env_config_source {
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
-        // MYAPP_SERVER_HOST → server.host (strip prefix, lowercase, underscore→dot)
+        // MYAPP_SERVER_HOST → server.host (strip prefix, lowercase,
+        // underscore→dot)
         assert_eq!(config.get_string("server.host").unwrap(), "app-host");
         assert!(!config.contains("MYAPP_SERVER_HOST"));
 
@@ -186,11 +188,13 @@ mod test_env_config_source {
             std::env::set_var("RAWAPP_MY_KEY", "raw_val");
         }
 
-        let source = EnvConfigSource::with_options("RAWAPP_", false, false, false);
+        let source =
+            EnvConfigSource::with_options("RAWAPP_", false, false, false);
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
-        // Key kept as-is (prefix not stripped, no lowercase, no underscore conversion)
+        // Key kept as-is (prefix not stripped, no lowercase, no underscore
+        // conversion)
         assert_eq!(config.get_string("RAWAPP_MY_KEY").unwrap(), "raw_val");
 
         unsafe {
@@ -250,7 +254,9 @@ mod test_env_config_source {
         use std::ffi::OsString;
         use std::os::unix::ffi::OsStringExt;
 
-        let key = OsString::from_vec(vec![b'Q', b'U', b'N', b'I', b'C', b'O', b'D', b'E', b'_', 0xFF]);
+        let key = OsString::from_vec(vec![
+            b'Q', b'U', b'N', b'I', b'C', b'O', b'D', b'E', b'_', 0xFF,
+        ]);
         unsafe {
             std::env::set_var(&key, "value");
         }
@@ -370,7 +376,8 @@ mod test_env_edge_cases {
         unsafe {
             std::env::set_var("COVTEST_FOO", "bar");
         }
-        let source = EnvConfigSource::with_options("COVTEST_", false, false, false);
+        let source =
+            EnvConfigSource::with_options("COVTEST_", false, false, false);
         let mut config = Config::new();
         source.load(&mut config).unwrap();
         // Key kept as-is (not stripped, not lowercased, not converted)

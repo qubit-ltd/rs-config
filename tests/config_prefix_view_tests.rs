@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! [`qubit_config::ConfigPrefixView`] tests.
 
 use qubit_config::{
@@ -77,7 +75,9 @@ mod test_config_prefix_view {
         let mut config = Config::new();
         config.set("http.host", "localhost").unwrap();
         config.set("http.port", "8080").unwrap();
-        config.set("http.base_url", "http://${host}:${port}").unwrap();
+        config
+            .set("http.base_url", "http://${host}:${port}")
+            .unwrap();
 
         let view = config.prefix_view("http");
         let base_url = view.get_string("base_url").unwrap();
@@ -95,7 +95,8 @@ mod test_config_prefix_view {
         assert!(view.contains_prefix("proxy"));
         assert!(!view.contains_prefix("db"));
 
-        let keys: Vec<&str> = view.iter_prefix("proxy.").map(|(k, _)| k).collect();
+        let keys: Vec<&str> =
+            view.iter_prefix("proxy.").map(|(k, _)| k).collect();
         assert_eq!(keys.len(), 2);
         assert!(keys.contains(&"proxy.host"));
         assert!(keys.contains(&"proxy.port"));
@@ -137,7 +138,8 @@ mod test_config_prefix_view {
         assert_eq!(same.prefix(), "http");
         assert_eq!(same.get_string("http.host").unwrap(), "localhost");
 
-        let all_keys: Vec<&str> = same.iter_prefix("").map(|(k, _)| k).collect();
+        let all_keys: Vec<&str> =
+            same.iter_prefix("").map(|(k, _)| k).collect();
         assert!(all_keys.contains(&"http"));
         assert!(all_keys.contains(&"host"));
     }
@@ -149,7 +151,8 @@ mod test_config_prefix_view {
         config.set("beta", "b").unwrap();
 
         let root_view = config.prefix_view("");
-        let keys: Vec<&str> = root_view.iter_prefix("").map(|(k, _)| k).collect();
+        let keys: Vec<&str> =
+            root_view.iter_prefix("").map(|(k, _)| k).collect();
         assert_eq!(keys.len(), 2);
         assert!(keys.contains(&"alpha"));
         assert!(keys.contains(&"beta"));

@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Error type used by the configuration serde deserializer.
 
 use std::fmt;
@@ -33,11 +31,13 @@ impl ConfigDeserializeError {
     /// Converts this error into the public configuration error type.
     pub(crate) fn into_config_error(self, path: &str) -> ConfigError {
         match self {
-            ConfigDeserializeError::Message(message) => ConfigError::DeserializeError {
-                path: path.to_string(),
-                message,
-                source: None,
-            },
+            ConfigDeserializeError::Message(message) => {
+                ConfigError::DeserializeError {
+                    path: path.to_string(),
+                    message,
+                    source: None,
+                }
+            }
             ConfigDeserializeError::Config(error) => {
                 let message = error.to_string();
                 ConfigError::DeserializeError {

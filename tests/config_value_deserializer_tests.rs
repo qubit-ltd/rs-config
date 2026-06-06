@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Integration tests for the custom serde deserializer.
 
 use std::collections::HashMap;
@@ -117,7 +115,10 @@ impl<'de> Deserialize<'de> for StrOnly {
         impl Visitor<'_> for StrVisitor {
             type Value = StrOnly;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+            fn expecting(
+                &self,
+                formatter: &mut fmt::Formatter<'_>,
+            ) -> fmt::Result {
                 formatter.write_str("a string")
             }
 
@@ -146,7 +147,10 @@ impl<'de> Deserialize<'de> for BytesOnly {
         impl Visitor<'_> for BytesVisitor {
             type Value = BytesOnly;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+            fn expecting(
+                &self,
+                formatter: &mut fmt::Formatter<'_>,
+            ) -> fmt::Result {
                 formatter.write_str("bytes")
             }
 
@@ -175,7 +179,10 @@ impl<'de> Deserialize<'de> for ByteBufOnly {
         impl Visitor<'_> for ByteBufVisitor {
             type Value = ByteBufOnly;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+            fn expecting(
+                &self,
+                formatter: &mut fmt::Formatter<'_>,
+            ) -> fmt::Result {
                 formatter.write_str("byte buffer")
             }
 
@@ -204,7 +211,10 @@ impl<'de> Deserialize<'de> for IdentifierOnly {
         impl Visitor<'_> for IdentifierVisitor {
             type Value = IdentifierOnly;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+            fn expecting(
+                &self,
+                formatter: &mut fmt::Formatter<'_>,
+            ) -> fmt::Result {
                 formatter.write_str("an identifier")
             }
 
@@ -315,7 +325,8 @@ fn deserialize_float_scalars_from_strings_and_numbers() -> ConfigResult<()> {
 }
 
 #[test]
-fn deserialize_numeric_scalars_cover_number_and_string_paths() -> ConfigResult<()> {
+fn deserialize_numeric_scalars_cover_number_and_string_paths()
+-> ConfigResult<()> {
     let mut config = Config::new();
     config.set("i8_number.value", 8i8)?;
     config.set("i16_string.value", "16")?;
@@ -336,8 +347,14 @@ fn deserialize_numeric_scalars_cover_number_and_string_paths() -> ConfigResult<(
     assert_eq!(config.deserialize::<OneField<u16>>("u16_number")?.value, 16);
     assert_eq!(config.deserialize::<OneField<u32>>("u32_string")?.value, 32);
     assert_eq!(config.deserialize::<OneField<u64>>("u64_number")?.value, 64);
-    assert_eq!(config.deserialize::<OneField<f32>>("f32_number")?.value, 1.5);
-    assert_eq!(config.deserialize::<OneField<f64>>("f64_string")?.value, 2.5);
+    assert_eq!(
+        config.deserialize::<OneField<f32>>("f32_number")?.value,
+        1.5
+    );
+    assert_eq!(
+        config.deserialize::<OneField<f64>>("f64_string")?.value,
+        2.5
+    );
     Ok(())
 }
 
@@ -421,9 +438,16 @@ fn deserialize_enum_reports_invalid_shapes() -> ConfigResult<()> {
     let mut empty_object = Config::new();
     empty_object.insert_property(
         "case.value",
-        Property::with_value("case.value", MultiValues::Json(vec![serde_json::json!({})])),
+        Property::with_value(
+            "case.value",
+            MultiValues::Json(vec![serde_json::json!({})]),
+        ),
     )?;
-    assert!(empty_object.deserialize::<OneField<Tagged>>("case").is_err());
+    assert!(
+        empty_object
+            .deserialize::<OneField<Tagged>>("case")
+            .is_err()
+    );
 
     let mut multiple_variants = Config::new();
     multiple_variants.insert_property(
@@ -436,7 +460,11 @@ fn deserialize_enum_reports_invalid_shapes() -> ConfigResult<()> {
             })]),
         ),
     )?;
-    assert!(multiple_variants.deserialize::<OneField<Tagged>>("case").is_err());
+    assert!(
+        multiple_variants
+            .deserialize::<OneField<Tagged>>("case")
+            .is_err()
+    );
 
     let mut scalar = Config::new();
     scalar.set("case.value", 1u8)?;
@@ -452,19 +480,35 @@ fn deserialize_enum_reports_invalid_shapes() -> ConfigResult<()> {
             })]),
         ),
     )?;
-    assert!(bad_unit_payload.deserialize::<OneField<Tagged>>("case").is_err());
+    assert!(
+        bad_unit_payload
+            .deserialize::<OneField<Tagged>>("case")
+            .is_err()
+    );
 
     let mut missing_newtype = Config::new();
     missing_newtype.set("case.value", "Code")?;
-    assert!(missing_newtype.deserialize::<OneField<Tagged>>("case").is_err());
+    assert!(
+        missing_newtype
+            .deserialize::<OneField<Tagged>>("case")
+            .is_err()
+    );
 
     let mut missing_tuple = Config::new();
     missing_tuple.set("case.value", "Pair")?;
-    assert!(missing_tuple.deserialize::<OneField<Tagged>>("case").is_err());
+    assert!(
+        missing_tuple
+            .deserialize::<OneField<Tagged>>("case")
+            .is_err()
+    );
 
     let mut missing_struct = Config::new();
     missing_struct.set("case.value", "Record")?;
-    assert!(missing_struct.deserialize::<OneField<Tagged>>("case").is_err());
+    assert!(
+        missing_struct
+            .deserialize::<OneField<Tagged>>("case")
+            .is_err()
+    );
     Ok(())
 }
 
@@ -531,7 +575,11 @@ fn deserialize_sequence_and_root_map_entry_points() -> ConfigResult<()> {
 
     let mut bad_map_config = Config::new();
     bad_map_config.set("value", true)?;
-    assert!(bad_map_config.deserialize::<HashMap<String, u8>>("value").is_err());
+    assert!(
+        bad_map_config
+            .deserialize::<HashMap<String, u8>>("value")
+            .is_err()
+    );
     Ok(())
 }
 
@@ -551,15 +599,23 @@ fn deserialize_one_field_success_for_error_only_types() -> ConfigResult<()> {
     config.set("mode.value", "Fast")?;
     config.set("json.bool", true)?;
 
-    assert_eq!(config.deserialize::<OneField<String>>("string")?.value, "text");
+    assert_eq!(
+        config.deserialize::<OneField<String>>("string")?.value,
+        "text"
+    );
     assert!(config.deserialize::<OneField<bool>>("bool")?.value);
     assert_eq!(config.deserialize::<OneField<char>>("char")?.value, 'x');
     assert_eq!(config.deserialize::<OneField<()>>("unit")?.value, ());
     assert_eq!(
-        config.deserialize::<OneField<Vec<String>>>("vec_string")?.value,
+        config
+            .deserialize::<OneField<Vec<String>>>("vec_string")?
+            .value,
         vec!["a".to_string(), "b".to_string()]
     );
-    assert_eq!(config.deserialize::<OneField<Vec<u8>>>("vec_u8")?.value, vec![1, 2]);
+    assert_eq!(
+        config.deserialize::<OneField<Vec<u8>>>("vec_u8")?.value,
+        vec![1, 2]
+    );
     assert_eq!(
         config
             .deserialize::<OneField<HashMap<String, u8>>>("map")?
@@ -572,14 +628,21 @@ fn deserialize_one_field_success_for_error_only_types() -> ConfigResult<()> {
         StrOnly("abc".to_string())
     );
     assert_eq!(
-        config.deserialize::<OneField<BytesOnly>>("bytes_only")?.value,
+        config
+            .deserialize::<OneField<BytesOnly>>("bytes_only")?
+            .value,
         BytesOnly(b"abc".to_vec())
     );
     assert_eq!(
-        config.deserialize::<OneField<ByteBufOnly>>("byte_buf_only")?.value,
+        config
+            .deserialize::<OneField<ByteBufOnly>>("byte_buf_only")?
+            .value,
         ByteBufOnly(b"xyz".to_vec())
     );
-    assert_eq!(config.deserialize::<OneField<Mode>>("mode")?.value, Mode::Fast);
+    assert_eq!(
+        config.deserialize::<OneField<Mode>>("mode")?.value,
+        Mode::Fast
+    );
     assert_eq!(
         config.deserialize::<serde_json::Value>("json")?,
         serde_json::json!({ "bool": true })
@@ -650,13 +713,29 @@ fn deserialize_scalar_error_branches() -> ConfigResult<()> {
     config.set("f64_bool.value", true)?;
     config.set("bad_enum.value", "Turbo")?;
 
-    assert!(config.deserialize::<OneField<String>>("null_string").is_err());
-    assert!(config.deserialize::<OneField<String>>("array_string").is_err());
-    assert!(config.deserialize::<OneField<String>>("object_string").is_err());
+    assert!(
+        config
+            .deserialize::<OneField<String>>("null_string")
+            .is_err()
+    );
+    assert!(
+        config
+            .deserialize::<OneField<String>>("array_string")
+            .is_err()
+    );
+    assert!(
+        config
+            .deserialize::<OneField<String>>("object_string")
+            .is_err()
+    );
     assert!(config.deserialize::<OneField<bool>>("bool_number").is_err());
     assert!(config.deserialize::<OneField<u8>>("u8_overflow").is_err());
     assert!(config.deserialize::<OneField<Vec<u8>>>("seq_bool").is_err());
-    assert!(config.deserialize::<OneField<HashMap<String, u8>>>("map_bool").is_err());
+    assert!(
+        config
+            .deserialize::<OneField<HashMap<String, u8>>>("map_bool")
+            .is_err()
+    );
     assert!(config.deserialize::<OneField<()>>("unit_bool").is_err());
     assert!(config.deserialize::<OneField<char>>("char_empty").is_err());
     assert!(config.deserialize::<OneField<char>>("char_long").is_err());
@@ -672,30 +751,62 @@ fn deserialize_scalar_error_branches() -> ConfigResult<()> {
     assert!(config.deserialize::<OneField<i16>>("i16_unsigned").is_err());
     assert!(config.deserialize::<OneField<i16>>("i16_overflow").is_err());
     assert!(config.deserialize::<OneField<i16>>("i16_bool").is_err());
-    assert!(config.deserialize::<OneField<i16>>("i16_bad_string").is_err());
+    assert!(
+        config
+            .deserialize::<OneField<i16>>("i16_bad_string")
+            .is_err()
+    );
     assert!(config.deserialize::<OneField<i32>>("i32_unsigned").is_err());
     assert!(config.deserialize::<OneField<i32>>("i32_overflow").is_err());
     assert!(config.deserialize::<OneField<i32>>("i32_bool").is_err());
-    assert!(config.deserialize::<OneField<i32>>("i32_bad_string").is_err());
+    assert!(
+        config
+            .deserialize::<OneField<i32>>("i32_bad_string")
+            .is_err()
+    );
     assert!(config.deserialize::<OneField<i64>>("i64_unsigned").is_err());
     assert!(config.deserialize::<OneField<i64>>("i64_bool").is_err());
-    assert!(config.deserialize::<OneField<i64>>("i64_bad_string").is_err());
+    assert!(
+        config
+            .deserialize::<OneField<i64>>("i64_bad_string")
+            .is_err()
+    );
     assert!(config.deserialize::<OneField<u8>>("u8_negative").is_err());
     assert!(config.deserialize::<OneField<u8>>("u8_bad_string").is_err());
     assert!(config.deserialize::<OneField<u16>>("u16_negative").is_err());
     assert!(config.deserialize::<OneField<u16>>("u16_overflow").is_err());
     assert!(config.deserialize::<OneField<u16>>("u16_array").is_err());
-    assert!(config.deserialize::<OneField<u16>>("u16_bad_string").is_err());
+    assert!(
+        config
+            .deserialize::<OneField<u16>>("u16_bad_string")
+            .is_err()
+    );
     assert!(config.deserialize::<OneField<u32>>("u32_negative").is_err());
     assert!(config.deserialize::<OneField<u32>>("u32_overflow").is_err());
     assert!(config.deserialize::<OneField<u32>>("u32_array").is_err());
-    assert!(config.deserialize::<OneField<u32>>("u32_bad_string").is_err());
+    assert!(
+        config
+            .deserialize::<OneField<u32>>("u32_bad_string")
+            .is_err()
+    );
     assert!(config.deserialize::<OneField<u64>>("u64_negative").is_err());
     assert!(config.deserialize::<OneField<u64>>("u64_array").is_err());
-    assert!(config.deserialize::<OneField<u64>>("u64_bad_string").is_err());
-    assert!(config.deserialize::<OneField<f32>>("f32_bad_string").is_err());
+    assert!(
+        config
+            .deserialize::<OneField<u64>>("u64_bad_string")
+            .is_err()
+    );
+    assert!(
+        config
+            .deserialize::<OneField<f32>>("f32_bad_string")
+            .is_err()
+    );
     assert!(config.deserialize::<OneField<f32>>("f32_bool").is_err());
-    assert!(config.deserialize::<OneField<f64>>("f64_bad_string").is_err());
+    assert!(
+        config
+            .deserialize::<OneField<f64>>("f64_bad_string")
+            .is_err()
+    );
     assert!(config.deserialize::<OneField<f64>>("f64_bool").is_err());
     assert!(config.deserialize::<OneField<Mode>>("bad_enum").is_err());
     Ok(())
@@ -704,7 +815,10 @@ fn deserialize_scalar_error_branches() -> ConfigResult<()> {
 #[test]
 fn deserialize_read_option_error_branches() -> ConfigResult<()> {
     let mut blank_config = Config::new();
-    blank_config.set_read_options(ConfigReadOptions::default().with_blank_string_policy(BlankStringPolicy::Reject));
+    blank_config.set_read_options(
+        ConfigReadOptions::default()
+            .with_blank_string_policy(BlankStringPolicy::Reject),
+    );
     blank_config.set("blank_string.value", " ")?;
     blank_config.set("blank_bool.value", " ")?;
     blank_config.set("blank_str.value", " ")?;
@@ -714,68 +828,135 @@ fn deserialize_read_option_error_branches() -> ConfigResult<()> {
     blank_config.set("blank_seq.value", " ")?;
     blank_config.set("blank_any", " ")?;
 
-    assert!(blank_config.deserialize::<OneField<String>>("blank_string").is_err());
-    assert!(blank_config.deserialize::<OneField<bool>>("blank_bool").is_err());
-    assert!(blank_config.deserialize::<OneField<StrOnly>>("blank_str").is_err());
-    assert!(blank_config.deserialize::<OneField<BytesOnly>>("blank_bytes").is_err());
+    assert!(
+        blank_config
+            .deserialize::<OneField<String>>("blank_string")
+            .is_err()
+    );
+    assert!(
+        blank_config
+            .deserialize::<OneField<bool>>("blank_bool")
+            .is_err()
+    );
+    assert!(
+        blank_config
+            .deserialize::<OneField<StrOnly>>("blank_str")
+            .is_err()
+    );
+    assert!(
+        blank_config
+            .deserialize::<OneField<BytesOnly>>("blank_bytes")
+            .is_err()
+    );
     assert!(
         blank_config
             .deserialize::<OneField<ByteBufOnly>>("blank_byte_buf")
             .is_err()
     );
-    assert!(blank_config.deserialize::<OneField<char>>("blank_char").is_err());
-    assert!(blank_config.deserialize::<OneField<Vec<String>>>("blank_seq").is_err());
-    assert!(blank_config.deserialize::<serde_json::Value>("blank_any").is_err());
+    assert!(
+        blank_config
+            .deserialize::<OneField<char>>("blank_char")
+            .is_err()
+    );
+    assert!(
+        blank_config
+            .deserialize::<OneField<Vec<String>>>("blank_seq")
+            .is_err()
+    );
+    assert!(
+        blank_config
+            .deserialize::<serde_json::Value>("blank_any")
+            .is_err()
+    );
 
     let mut list_config = Config::new();
-    list_config.set_read_options(ConfigReadOptions::env_friendly().with_empty_item_policy(EmptyItemPolicy::Reject));
+    list_config.set_read_options(
+        ConfigReadOptions::env_friendly()
+            .with_empty_item_policy(EmptyItemPolicy::Reject),
+    );
     list_config.set("bad_list.value", "a,,b")?;
 
-    assert!(list_config.deserialize::<OneField<Vec<String>>>("bad_list").is_err());
+    assert!(
+        list_config
+            .deserialize::<OneField<Vec<String>>>("bad_list")
+            .is_err()
+    );
     Ok(())
 }
 
 #[test]
-fn deserialize_json_string_conversion_errors_use_config_read_options() -> ConfigResult<()> {
+fn deserialize_json_string_conversion_errors_use_config_read_options()
+-> ConfigResult<()> {
     let mut config = Config::new();
-    config.set_read_options(ConfigReadOptions::default().with_blank_string_policy(BlankStringPolicy::Reject));
+    config.set_read_options(
+        ConfigReadOptions::default()
+            .with_blank_string_policy(BlankStringPolicy::Reject),
+    );
     config.insert_property(
         "string_value",
-        Property::with_value("string_value", MultiValues::Json(vec![serde_json::json!(" ")])),
+        Property::with_value(
+            "string_value",
+            MultiValues::Json(vec![serde_json::json!(" ")]),
+        ),
     )?;
     config.insert_property(
         "bool_value",
-        Property::with_value("bool_value", MultiValues::Json(vec![serde_json::json!(" ")])),
+        Property::with_value(
+            "bool_value",
+            MultiValues::Json(vec![serde_json::json!(" ")]),
+        ),
     )?;
     config.insert_property(
         "list_value",
-        Property::with_value("list_value", MultiValues::Json(vec![serde_json::json!(" ")])),
+        Property::with_value(
+            "list_value",
+            MultiValues::Json(vec![serde_json::json!(" ")]),
+        ),
     )?;
     config.insert_property(
         "any_value",
-        Property::with_value("any_value", MultiValues::Json(vec![serde_json::json!(" ")])),
+        Property::with_value(
+            "any_value",
+            MultiValues::Json(vec![serde_json::json!(" ")]),
+        ),
     )?;
     config.insert_property(
         "char_value",
-        Property::with_value("char_value", MultiValues::Json(vec![serde_json::json!(" ")])),
+        Property::with_value(
+            "char_value",
+            MultiValues::Json(vec![serde_json::json!(" ")]),
+        ),
     )?;
     config.insert_property(
         "str_value",
-        Property::with_value("str_value", MultiValues::Json(vec![serde_json::json!(" ")])),
+        Property::with_value(
+            "str_value",
+            MultiValues::Json(vec![serde_json::json!(" ")]),
+        ),
     )?;
     config.insert_property(
         "bytes_value",
-        Property::with_value("bytes_value", MultiValues::Json(vec![serde_json::json!(" ")])),
+        Property::with_value(
+            "bytes_value",
+            MultiValues::Json(vec![serde_json::json!(" ")]),
+        ),
     )?;
     config.insert_property(
         "byte_buf_value",
-        Property::with_value("byte_buf_value", MultiValues::Json(vec![serde_json::json!(" ")])),
+        Property::with_value(
+            "byte_buf_value",
+            MultiValues::Json(vec![serde_json::json!(" ")]),
+        ),
     )?;
 
     assert!(config.deserialize::<String>("string_value").is_err());
     assert!(config.deserialize::<bool>("bool_value").is_err());
     assert!(config.deserialize::<Vec<String>>("list_value").is_err());
-    assert!(config.deserialize::<serde_json::Value>("any_value").is_err());
+    assert!(
+        config
+            .deserialize::<serde_json::Value>("any_value")
+            .is_err()
+    );
     assert!(config.deserialize::<char>("char_value").is_err());
     assert!(config.deserialize::<StrOnly>("str_value").is_err());
     assert!(config.deserialize::<BytesOnly>("bytes_value").is_err());
@@ -784,17 +965,32 @@ fn deserialize_json_string_conversion_errors_use_config_read_options() -> Config
 }
 
 #[test]
-fn deserialize_error_wrapper_formats_message_and_config_sources() -> ConfigResult<()> {
+fn deserialize_error_wrapper_formats_message_and_config_sources()
+-> ConfigResult<()> {
     let mut config_error = Config::new();
-    config_error.set_read_options(ConfigReadOptions::default().with_blank_string_policy(BlankStringPolicy::Reject));
+    config_error.set_read_options(
+        ConfigReadOptions::default()
+            .with_blank_string_policy(BlankStringPolicy::Reject),
+    );
     config_error.insert_property(
         "config_error",
-        Property::with_value("config_error", MultiValues::Json(vec![serde_json::json!(" ")])),
+        Property::with_value(
+            "config_error",
+            MultiValues::Json(vec![serde_json::json!(" ")]),
+        ),
     )?;
-    assert!(config_error.deserialize::<StringErrorProbe>("config_error").is_err());
+    assert!(
+        config_error
+            .deserialize::<StringErrorProbe>("config_error")
+            .is_err()
+    );
 
     let mut message_error = Config::new();
     message_error.set_null("message_error", DataType::String)?;
-    assert!(message_error.deserialize::<StringErrorProbe>("message_error").is_err());
+    assert!(
+        message_error
+            .deserialize::<StringErrorProbe>("message_error")
+            .is_err()
+    );
     Ok(())
 }

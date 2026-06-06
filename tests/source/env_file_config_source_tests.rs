@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 #![cfg(feature = "source-env-file")]
 
 //! # `EnvFileConfigSource` tests
@@ -65,7 +63,10 @@ mod test_env_file_config_source {
         source.load(&mut config).unwrap();
 
         assert_eq!(config.get_string("QUOTED_VALUE").unwrap(), "hello world");
-        assert_eq!(config.get_string("SINGLE_QUOTED").unwrap(), "single quoted");
+        assert_eq!(
+            config.get_string("SINGLE_QUOTED").unwrap(),
+            "single quoted"
+        );
     }
 
     #[test]
@@ -81,7 +82,11 @@ mod test_env_file_config_source {
     fn test_load_inline_env_content() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join(".env");
-        std::fs::write(&path, "DB_HOST=db.example.com\nDB_PORT=5432\nDB_NAME=mydb\n").unwrap();
+        std::fs::write(
+            &path,
+            "DB_HOST=db.example.com\nDB_PORT=5432\nDB_NAME=mydb\n",
+        )
+        .unwrap();
 
         let source = EnvFileConfigSource::from_file(&path);
         let mut config = Config::new();
@@ -157,8 +162,9 @@ mod test_env_file_edge_cases {
     fn test_env_file_invalid_content_returns_parse_error() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("bad.env");
-        // dotenvy rejects lines with invalid unicode or certain malformed entries
-        // Write a file with a NUL byte which dotenvy will reject
+        // dotenvy rejects lines with invalid unicode or certain malformed
+        // entries Write a file with a NUL byte which dotenvy will
+        // reject
         std::fs::write(&path, b"KEY=\x00value\n").unwrap();
         let source = EnvFileConfigSource::from_file(&path);
         let mut config = Config::new();

@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! # System Environment Variable Configuration Source
 //!
 //! Loads configuration from the current process's environment variables.
@@ -22,7 +20,6 @@
 //! - `APP_SERVER_PORT=8080` → `server.port = "8080"`
 //!
 //! Without a prefix, all environment variables are loaded as-is.
-//!
 
 use std::{
     collections::HashMap,
@@ -61,7 +58,6 @@ use super::{
 /// let mut config = Config::new();
 /// source.load(&mut config).unwrap();
 /// ```
-///
 #[derive(Debug, Clone)]
 pub struct EnvConfigSource {
     /// Optional prefix filter; only variables with this prefix are loaded
@@ -129,7 +125,12 @@ impl EnvConfigSource {
     ///
     /// A configured [`EnvConfigSource`].
     #[inline]
-    pub fn with_options(prefix: &str, strip_prefix: bool, convert_underscores: bool, lowercase_keys: bool) -> Self {
+    pub fn with_options(
+        prefix: &str,
+        strip_prefix: bool,
+        convert_underscores: bool,
+        lowercase_keys: bool,
+    ) -> Self {
         Self {
             prefix: Some(prefix.to_string()),
             strip_prefix,
@@ -227,8 +228,8 @@ impl EnvConfigSource {
     ///
     /// # Returns
     ///
-    /// Always `false` on non-Unix platforms because raw environment bytes are not
-    /// available through the standard library.
+    /// Always `false` on non-Unix platforms because raw environment bytes are
+    /// not available through the standard library.
     #[cfg(not(unix))]
     fn non_unicode_env_key_matches_prefix(_key: &OsStr, _prefix: &str) -> bool {
         false
@@ -249,9 +250,15 @@ impl EnvConfigSource {
     ///
     /// Returns [`ConfigError::ParseError`] when `value` is not valid Unicode,
     /// preserving a lossy representation in the diagnostic message.
-    fn env_os_string_to_string(value: OsString, label: &str) -> ConfigResult<String> {
+    fn env_os_string_to_string(
+        value: OsString,
+        label: &str,
+    ) -> ConfigResult<String> {
         value.into_string().map_err(|value| {
-            ConfigError::ParseError(format!("{label} is not valid Unicode: {}", value.to_string_lossy(),))
+            ConfigError::ParseError(format!(
+                "{label} is not valid Unicode: {}",
+                value.to_string_lossy(),
+            ))
         })
     }
 }
@@ -279,14 +286,21 @@ impl ConfigSource for EnvConfigSource {
                 continue;
             }
 
-            let key = Self::env_os_string_to_string(key_os, "Environment variable key")?;
-            let value = Self::env_os_string_to_string(value_os, &format!("Value for environment variable '{key}'"))?;
+            let key = Self::env_os_string_to_string(
+                key_os,
+                "Environment variable key",
+            )?;
+            let value = Self::env_os_string_to_string(
+                value_os,
+                &format!("Value for environment variable '{key}'"),
+            )?;
             let transformed_key = self.transform_key(&key);
             if self.strip_prefix || self.convert_underscores {
                 utils::validate_normalized_config_key(&transformed_key, &key)?;
             }
             if self.can_collapse_distinct_keys()
-                && let Some(existing) = normalized_keys.insert(transformed_key.clone(), key.clone())
+                && let Some(existing) =
+                    normalized_keys.insert(transformed_key.clone(), key.clone())
             {
                 return Err(ConfigError::KeyConflict {
                     path: transformed_key,

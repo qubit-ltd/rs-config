@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Serde deserializer that applies configuration read conversion semantics.
 
 use qubit_value::Value as QubitValue;
@@ -39,14 +37,24 @@ pub(crate) struct ConfigValueDeserializer<'a> {
 
 impl<'a> ConfigValueDeserializer<'a> {
     /// Creates a value deserializer.
-    pub(crate) fn new(value: Value, key: String, options: &'a ConfigReadOptions) -> Self {
-        Self { value, key, options }
+    pub(crate) fn new(
+        value: Value,
+        key: String,
+        options: &'a ConfigReadOptions,
+    ) -> Self {
+        Self {
+            value,
+            key,
+            options,
+        }
     }
 
     /// Converts any scalar value into a string using config read semantics.
     fn scalar_to_string(&self) -> Result<String, ConfigDeserializeError> {
         match &self.value {
-            Value::String(value) => convert_string_value(&self.key, self.options, value),
+            Value::String(value) => {
+                convert_string_value(&self.key, self.options, value)
+            }
             Value::Bool(value) => Ok(value.to_string()),
             Value::Number(value) => Ok(value.to_string()),
             Value::Null => Err(de::Error::invalid_type(
@@ -66,28 +74,49 @@ impl<'a> ConfigValueDeserializer<'a> {
 }
 
 /// Converts a scalar string using the shared conversion layer.
-fn convert_string_value(key: &str, options: &ConfigReadOptions, value: &str) -> Result<String, ConfigDeserializeError> {
-    match QubitValue::String(value.to_string()).to_with::<String>(options.conversion_options()) {
+fn convert_string_value(
+    key: &str,
+    options: &ConfigReadOptions,
+    value: &str,
+) -> Result<String, ConfigDeserializeError> {
+    match QubitValue::String(value.to_string())
+        .to_with::<String>(options.conversion_options())
+    {
         Ok(value) => Ok(value),
-        Err(error) => Err(ConfigDeserializeError::from_config(ConfigError::from((key, error)))),
+        Err(error) => Err(ConfigDeserializeError::from_config(
+            ConfigError::from((key, error)),
+        )),
     }
 }
 
 /// Converts a scalar string into a boolean using the shared conversion layer.
-fn convert_bool_value(key: &str, options: &ConfigReadOptions, value: &str) -> Result<bool, ConfigDeserializeError> {
-    match QubitValue::String(value.to_string()).to_with::<bool>(options.conversion_options()) {
+fn convert_bool_value(
+    key: &str,
+    options: &ConfigReadOptions,
+    value: &str,
+) -> Result<bool, ConfigDeserializeError> {
+    match QubitValue::String(value.to_string())
+        .to_with::<bool>(options.conversion_options())
+    {
         Ok(value) => Ok(value),
-        Err(error) => Err(ConfigDeserializeError::from_config(ConfigError::from((key, error)))),
+        Err(error) => Err(ConfigDeserializeError::from_config(
+            ConfigError::from((key, error)),
+        )),
     }
 }
 
 /// Converts a JSON number or string into the scalar text consumed by
 /// `qubit-value` conversion.
-fn number_scalar_text(value: Value, expected: &'static str) -> Result<String, ConfigDeserializeError> {
+fn number_scalar_text(
+    value: Value,
+    expected: &'static str,
+) -> Result<String, ConfigDeserializeError> {
     match value {
         Value::Number(value) => Ok(value.to_string()),
         Value::String(value) => Ok(value),
-        other => Err(de::Error::invalid_type(unexpected_value(&other), &expected)),
+        other => {
+            Err(de::Error::invalid_type(unexpected_value(&other), &expected))
+        }
     }
 }
 
@@ -98,8 +127,12 @@ macro_rules! deserialize_number {
             V: Visitor<'de>,
         {
             let value = number_scalar_text(self.value, stringify!($ty))?;
-            let value = crate::config::convert_deserialize_number::<$ty>(&self.key, self.options, value)
-                .map_err(ConfigDeserializeError::from_config)?;
+            let value = crate::config::convert_deserialize_number::<$ty>(
+                &self.key,
+                self.options,
+                value,
+            )
+            .map_err(ConfigDeserializeError::from_config)?;
             visitor.$visit(value)
         }
     };
@@ -122,12 +155,26 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
                 } else if let Some(value) = value.as_u64() {
                     visitor.visit_u64(value)
                 } else {
-                    visitor.visit_f64(value.as_f64().expect("JSON numbers are finite"))
+                    visitor.visit_f64(
+                        value.as_f64().expect("JSON numbers are finite"),
+                    )
                 }
             }
-            Value::String(value) => visitor.visit_string(convert_string_value(&self.key, self.options, &value)?),
-            Value::Array(values) => visitor.visit_seq(ConfigSeqAccess::new(values, self.key, self.options)),
-            Value::Object(values) => visitor.visit_map(ConfigMapAccess::new(values, self.key, self.options)),
+            Value::String(value) => visitor.visit_string(convert_string_value(
+                &self.key,
+                self.options,
+                &value,
+            )?),
+            Value::Array(values) => visitor.visit_seq(ConfigSeqAccess::new(
+                values,
+                self.key,
+                self.options,
+            )),
+            Value::Object(values) => visitor.visit_map(ConfigMapAccess::new(
+                values,
+                self.key,
+                self.options,
+            )),
         }
     }
 
@@ -138,7 +185,11 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
     {
         match self.value {
             Value::Bool(value) => visitor.visit_bool(value),
-            Value::String(value) => visitor.visit_bool(convert_bool_value(&self.key, self.options, &value)?),
+            Value::String(value) => visitor.visit_bool(convert_bool_value(
+                &self.key,
+                self.options,
+                &value,
+            )?),
             other => Err(de::Error::invalid_type(
                 unexpected_value(&other),
                 &"a boolean-compatible scalar",
@@ -164,7 +215,8 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
     {
         match self.value {
             Value::String(value) => {
-                let value = convert_string_value(&self.key, self.options, &value)?;
+                let value =
+                    convert_string_value(&self.key, self.options, &value)?;
                 let mut chars = value.chars();
                 let Some(ch) = chars.next() else {
                     return Err(de::Error::invalid_value(
@@ -212,7 +264,10 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
     }
 
     /// Deserializes bytes from a string.
-    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_byte_buf<V>(
+        self,
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
@@ -226,7 +281,11 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
     {
         match self.value {
             Value::Null => visitor.visit_none(),
-            value => visitor.visit_some(ConfigValueDeserializer::new(value, self.key, self.options)),
+            value => visitor.visit_some(ConfigValueDeserializer::new(
+                value,
+                self.key,
+                self.options,
+            )),
         }
     }
 
@@ -237,12 +296,18 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
     {
         match self.value {
             Value::Null => visitor.visit_unit(),
-            other => Err(de::Error::invalid_type(unexpected_value(&other), &"unit")),
+            other => {
+                Err(de::Error::invalid_type(unexpected_value(&other), &"unit"))
+            }
         }
     }
 
     /// Deserializes unit struct.
-    fn deserialize_unit_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_unit_struct<V>(
+        self,
+        _name: &'static str,
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
@@ -250,7 +315,11 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
     }
 
     /// Deserializes a newtype struct.
-    fn deserialize_newtype_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_newtype_struct<V>(
+        self,
+        _name: &'static str,
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
@@ -264,36 +333,65 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
         V: Visitor<'de>,
     {
         match self.value {
-            Value::Array(values) => visitor.visit_seq(ConfigSeqAccess::new(values, self.key, self.options)),
+            Value::Array(values) => visitor.visit_seq(ConfigSeqAccess::new(
+                values,
+                self.key,
+                self.options,
+            )),
             Value::String(value) => {
-                let normalized = match self.options.conversion_options().string.normalize(&value) {
+                let normalized = match self
+                    .options
+                    .conversion_options()
+                    .string
+                    .normalize(&value)
+                {
                     Ok(value) => value,
                     Err(error) => {
                         return Err(ConfigDeserializeError::from_config(
-                            ConfigError::from_data_conversion_error(&self.key, error),
+                            ConfigError::from_data_conversion_error(
+                                &self.key, error,
+                            ),
                         ));
                     }
                 };
-                let values = match self.options.conversion_options().collection.scalar_items(&normalized) {
+                let values = match self
+                    .options
+                    .conversion_options()
+                    .collection
+                    .scalar_items(&normalized)
+                {
                     Ok(values) => values,
                     Err(error) => {
-                        return Err(ConfigDeserializeError::from_config(ConfigError::ConversionError {
-                            key: self.key.clone(),
-                            message: error.to_string(),
-                        }));
+                        return Err(ConfigDeserializeError::from_config(
+                            ConfigError::ConversionError {
+                                key: self.key.clone(),
+                                message: error.to_string(),
+                            },
+                        ));
                     }
                 }
                 .into_iter()
                 .map(Value::String)
                 .collect();
-                visitor.visit_seq(ConfigSeqAccess::new(values, self.key, self.options))
+                visitor.visit_seq(ConfigSeqAccess::new(
+                    values,
+                    self.key,
+                    self.options,
+                ))
             }
-            other => Err(de::Error::invalid_type(unexpected_value(&other), &"a sequence")),
+            other => Err(de::Error::invalid_type(
+                unexpected_value(&other),
+                &"a sequence",
+            )),
         }
     }
 
     /// Deserializes a tuple.
-    fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_tuple<V>(
+        self,
+        _len: usize,
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
@@ -301,7 +399,12 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
     }
 
     /// Deserializes a tuple struct.
-    fn deserialize_tuple_struct<V>(self, _name: &'static str, len: usize, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_tuple_struct<V>(
+        self,
+        _name: &'static str,
+        len: usize,
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
@@ -314,8 +417,14 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
         V: Visitor<'de>,
     {
         match self.value {
-            Value::Object(values) => visitor.visit_map(ConfigMapAccess::new(values, self.key, self.options)),
-            other => Err(de::Error::invalid_type(unexpected_value(&other), &"a map")),
+            Value::Object(values) => visitor.visit_map(ConfigMapAccess::new(
+                values,
+                self.key,
+                self.options,
+            )),
+            other => {
+                Err(de::Error::invalid_type(unexpected_value(&other), &"a map"))
+            }
         }
     }
 
@@ -344,8 +453,14 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
     {
         match self.value {
             Value::String(value) => {
-                let variant = convert_string_value(&self.key, self.options, &value)?;
-                visitor.visit_enum(ConfigEnumAccess::new(variant, None, self.key, self.options))
+                let variant =
+                    convert_string_value(&self.key, self.options, &value)?;
+                visitor.visit_enum(ConfigEnumAccess::new(
+                    variant,
+                    None,
+                    self.key,
+                    self.options,
+                ))
             }
             Value::Object(values) => {
                 let mut entries = values.into_iter();
@@ -361,7 +476,12 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
                         &"an enum object with exactly one variant",
                     ));
                 }
-                visitor.visit_enum(ConfigEnumAccess::new(variant, Some(value), self.key, self.options))
+                visitor.visit_enum(ConfigEnumAccess::new(
+                    variant,
+                    Some(value),
+                    self.key,
+                    self.options,
+                ))
             }
             other => Err(de::Error::invalid_type(
                 unexpected_value(&other),
@@ -371,7 +491,10 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
     }
 
     /// Deserializes an identifier.
-    fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_identifier<V>(
+        self,
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
@@ -379,7 +502,10 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
     }
 
     /// Deserializes ignored values.
-    fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_ignored_any<V>(
+        self,
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
@@ -397,7 +523,12 @@ struct ConfigEnumAccess<'a> {
 
 impl<'a> ConfigEnumAccess<'a> {
     /// Creates enum access for a variant and optional payload.
-    fn new(variant: String, value: Option<Value>, key: String, options: &'a ConfigReadOptions) -> Self {
+    fn new(
+        variant: String,
+        value: Option<Value>,
+        key: String,
+        options: &'a ConfigReadOptions,
+    ) -> Self {
         Self {
             variant,
             value,
@@ -412,7 +543,10 @@ impl<'de, 'a> EnumAccess<'de> for ConfigEnumAccess<'a> {
     type Variant = ConfigVariantAccess<'a>;
 
     /// Deserializes the enum variant identifier.
-    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), Self::Error>
+    fn variant_seed<V>(
+        self,
+        seed: V,
+    ) -> Result<(V::Value, Self::Variant), Self::Error>
     where
         V: DeserializeSeed<'de>,
     {
@@ -421,7 +555,8 @@ impl<'de, 'a> EnumAccess<'de> for ConfigEnumAccess<'a> {
         } else {
             format!("{}.{}", self.key, self.variant)
         };
-        let variant_deserializer: StringDeserializer<Self::Error> = self.variant.into_deserializer();
+        let variant_deserializer: StringDeserializer<Self::Error> =
+            self.variant.into_deserializer();
         let variant = seed.deserialize(variant_deserializer)?;
         Ok((
             variant,
@@ -448,7 +583,9 @@ impl<'de> VariantAccess<'de> for ConfigVariantAccess<'_> {
     fn unit_variant(self) -> Result<(), Self::Error> {
         match self.value {
             None | Some(Value::Null) => Ok(()),
-            Some(value) => serde::Deserialize::deserialize(ConfigValueDeserializer::new(value, self.key, self.options)),
+            Some(value) => serde::Deserialize::deserialize(
+                ConfigValueDeserializer::new(value, self.key, self.options),
+            ),
         }
     }
 
@@ -457,20 +594,34 @@ impl<'de> VariantAccess<'de> for ConfigVariantAccess<'_> {
     where
         T: DeserializeSeed<'de>,
     {
-        let value = self
-            .value
-            .ok_or_else(|| de::Error::invalid_type(de::Unexpected::UnitVariant, &"newtype variant payload"))?;
-        seed.deserialize(ConfigValueDeserializer::new(value, self.key, self.options))
+        let value = self.value.ok_or_else(|| {
+            de::Error::invalid_type(
+                de::Unexpected::UnitVariant,
+                &"newtype variant payload",
+            )
+        })?;
+        seed.deserialize(ConfigValueDeserializer::new(
+            value,
+            self.key,
+            self.options,
+        ))
     }
 
     /// Deserializes a tuple variant payload.
-    fn tuple_variant<V>(self, len: usize, visitor: V) -> Result<V::Value, Self::Error>
+    fn tuple_variant<V>(
+        self,
+        len: usize,
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
-        let value = self
-            .value
-            .ok_or_else(|| de::Error::invalid_type(de::Unexpected::UnitVariant, &"tuple variant payload"))?;
+        let value = self.value.ok_or_else(|| {
+            de::Error::invalid_type(
+                de::Unexpected::UnitVariant,
+                &"tuple variant payload",
+            )
+        })?;
         de::Deserializer::deserialize_tuple(
             ConfigValueDeserializer::new(value, self.key, self.options),
             len,
@@ -479,13 +630,20 @@ impl<'de> VariantAccess<'de> for ConfigVariantAccess<'_> {
     }
 
     /// Deserializes a struct variant payload.
-    fn struct_variant<V>(self, fields: &'static [&'static str], visitor: V) -> Result<V::Value, Self::Error>
+    fn struct_variant<V>(
+        self,
+        fields: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
-        let value = self
-            .value
-            .ok_or_else(|| de::Error::invalid_type(de::Unexpected::UnitVariant, &"struct variant payload"))?;
+        let value = self.value.ok_or_else(|| {
+            de::Error::invalid_type(
+                de::Unexpected::UnitVariant,
+                &"struct variant payload",
+            )
+        })?;
         de::Deserializer::deserialize_struct(
             ConfigValueDeserializer::new(value, self.key, self.options),
             "",
@@ -517,7 +675,11 @@ struct ConfigSeqAccess<'a> {
 
 impl<'a> ConfigSeqAccess<'a> {
     /// Creates sequence access.
-    fn new(values: Vec<Value>, key: String, options: &'a ConfigReadOptions) -> Self {
+    fn new(
+        values: Vec<Value>,
+        key: String,
+        options: &'a ConfigReadOptions,
+    ) -> Self {
         Self {
             values: values.into_iter(),
             key,
@@ -531,7 +693,10 @@ impl<'de> SeqAccess<'de> for ConfigSeqAccess<'_> {
     type Error = ConfigDeserializeError;
 
     /// Deserializes the next element.
-    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
+    fn next_element_seed<T>(
+        &mut self,
+        seed: T,
+    ) -> Result<Option<T::Value>, Self::Error>
     where
         T: de::DeserializeSeed<'de>,
     {
@@ -555,7 +720,11 @@ struct ConfigMapAccess<'a> {
 
 impl<'a> ConfigMapAccess<'a> {
     /// Creates map access.
-    fn new(values: Map<String, Value>, key: String, options: &'a ConfigReadOptions) -> Self {
+    fn new(
+        values: Map<String, Value>,
+        key: String,
+        options: &'a ConfigReadOptions,
+    ) -> Self {
         Self {
             entries: values.into_iter().collect::<Vec<_>>().into_iter(),
             next_value: None,
@@ -569,14 +738,18 @@ impl<'de> MapAccess<'de> for ConfigMapAccess<'_> {
     type Error = ConfigDeserializeError;
 
     /// Deserializes the next key.
-    fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error>
+    fn next_key_seed<K>(
+        &mut self,
+        seed: K,
+    ) -> Result<Option<K::Value>, Self::Error>
     where
         K: de::DeserializeSeed<'de>,
     {
         let Some((key, value)) = self.entries.next() else {
             return Ok(None);
         };
-        let key_deserializer: StringDeserializer<Self::Error> = key.clone().into_deserializer();
+        let key_deserializer: StringDeserializer<Self::Error> =
+            key.clone().into_deserializer();
         self.next_value = Some((key, value));
         seed.deserialize(key_deserializer).map(Some)
     }
@@ -586,12 +759,19 @@ impl<'de> MapAccess<'de> for ConfigMapAccess<'_> {
     where
         V: de::DeserializeSeed<'de>,
     {
-        let (key, value) = self.next_value.take().expect("map value requested before key");
+        let (key, value) = self
+            .next_value
+            .take()
+            .expect("map value requested before key");
         let child_key = if self.key.is_empty() {
             key
         } else {
             format!("{}.{}", self.key, key)
         };
-        seed.deserialize(ConfigValueDeserializer::new(value, child_key, self.options))
+        seed.deserialize(ConfigValueDeserializer::new(
+            value,
+            child_key,
+            self.options,
+        ))
     }
 }
