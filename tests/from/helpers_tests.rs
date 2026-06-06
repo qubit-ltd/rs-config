@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Tests for read helper behavior through public APIs.
 
 use qubit_config::{
@@ -22,7 +20,10 @@ use qubit_config::{
 fn test_helpers_treat_blank_string_as_missing_when_policy_allows() {
     let mut config = Config::new();
     config
-        .set_read_options(ConfigReadOptions::default().with_blank_string_policy(BlankStringPolicy::TreatAsMissing))
+        .set_read_options(
+            ConfigReadOptions::default()
+                .with_blank_string_policy(BlankStringPolicy::TreatAsMissing),
+        )
         .set("server.host", "   ")
         .expect("setting blank value should succeed");
 
@@ -37,7 +38,10 @@ fn test_helpers_treat_blank_string_as_missing_when_policy_allows() {
 fn test_helpers_substitute_values_before_string_missing_check() {
     let mut config = Config::new();
     config
-        .set_read_options(ConfigReadOptions::default().with_blank_string_policy(BlankStringPolicy::TreatAsMissing))
+        .set_read_options(
+            ConfigReadOptions::default()
+                .with_blank_string_policy(BlankStringPolicy::TreatAsMissing),
+        )
         .set("empty", "   ")
         .expect("setting blank value should succeed");
     config

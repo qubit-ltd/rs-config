@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! # `.env` File Configuration Source
 //!
 //! Loads configuration from `.env` format files (as used by dotenv tools).
@@ -18,7 +16,6 @@
 //! - `# comment` lines
 //! - Quoted values: `KEY="value with spaces"` or `KEY='value'`
 //! - Export prefix: `export KEY=VALUE` (the `export` keyword is ignored)
-//!
 
 use std::path::{
     Path,
@@ -53,7 +50,6 @@ use super::{
 /// let port = config.get::<String>("PORT").unwrap();
 /// assert_eq!(port, "8080");
 /// ```
-///
 #[derive(Debug, Clone)]
 pub struct EnvFileConfigSource {
     path: PathBuf,
@@ -89,7 +85,11 @@ impl ConfigSource for EnvFileConfigSource {
 
         for item in iter {
             let (key, value) = item.map_err(|e| {
-                ConfigError::ParseError(format!("Failed to parse .env file '{}': {}", self.path.display(), e))
+                ConfigError::ParseError(format!(
+                    "Failed to parse .env file '{}': {}",
+                    self.path.display(),
+                    e
+                ))
             })?;
             config.set(&key, value)?;
         }

@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Tests for field builder read declarations.
 
 use qubit_config::{
@@ -33,7 +31,12 @@ fn test_config_field_builder_applies_alias_default_and_options() {
         )
         .expect("field-level options should parse env-friendly boolean");
     let defaulted = config
-        .read(ConfigField::<u16>::builder().name("server.port").default(8080).build())
+        .read(
+            ConfigField::<u16>::builder()
+                .name("server.port")
+                .default(8080)
+                .build(),
+        )
         .expect("missing field should use default");
 
     assert!(enabled);

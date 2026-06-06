@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! # Composite Configuration Source
 //!
 //! Merges configuration from multiple sources in order.
@@ -38,7 +36,6 @@
 //! assert_eq!(config.get::<i64>("port").unwrap(), 8080);
 //! # }
 //! ```
-//!
 
 use crate::{
     Config,
@@ -51,7 +48,6 @@ use super::{
 };
 
 /// Configuration source that merges multiple sources in order
-///
 pub struct CompositeConfigSource {
     sources: Vec<Box<dyn ConfigSource>>,
 }
@@ -64,7 +60,9 @@ impl CompositeConfigSource {
     /// An empty composite with no inner sources.
     #[inline]
     pub fn new() -> Self {
-        Self { sources: Vec::new() }
+        Self {
+            sources: Vec::new(),
+        }
     }
 
     /// Adds a configuration source

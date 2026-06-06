@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 #![cfg(feature = "source-yaml")]
 
 //! # `YamlConfigSource` tests
@@ -93,7 +91,8 @@ mod test_yaml_config_source {
 
     #[test]
     fn test_load_nonexistent_yaml_file_returns_error() {
-        let source = YamlConfigSource::from_file("/nonexistent/path/config.yaml");
+        let source =
+            YamlConfigSource::from_file("/nonexistent/path/config.yaml");
         let mut config = Config::new();
         let result = source.load(&mut config);
         assert!(result.is_err());
@@ -149,7 +148,10 @@ db:
         assert_eq!(config.get::<i64>("value").unwrap(), 42);
         // Boolean values are stored as bool
         assert!(!config.get::<bool>("enabled").unwrap());
-        assert_eq!(config.get_string("db.url").unwrap(), "postgres://localhost/mydb");
+        assert_eq!(
+            config.get_string("db.url").unwrap(),
+            "postgres://localhost/mydb"
+        );
         // Integer values are stored as i64
         assert_eq!(config.get::<i64>("db.pool").unwrap(), 5);
     }
@@ -199,7 +201,10 @@ db:
 
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
-        let mut property = Property::with_value("locked", MultiValues::String(vec!["old".to_string()]));
+        let mut property = Property::with_value(
+            "locked",
+            MultiValues::String(vec!["old".to_string()]),
+        );
         property.set_final(true);
         config.insert_property("locked", property).unwrap();
 
@@ -220,7 +225,10 @@ db:
         source.load(&mut config).unwrap();
 
         assert!(config.contains("empty"));
-        assert_eq!(config.get_string_list("empty").unwrap(), Vec::<String>::new());
+        assert_eq!(
+            config.get_string_list("empty").unwrap(),
+            Vec::<String>::new()
+        );
         assert_eq!(config.get_list::<i64>("empty").unwrap(), Vec::<i64>::new());
     }
 
@@ -480,7 +488,10 @@ flags:
 
         assert_eq!(config.get_list::<i64>("ints").unwrap(), vec![1, 2]);
         assert_eq!(config.get_list::<f64>("floats").unwrap(), vec![1.25, 2.5]);
-        assert_eq!(config.get_list::<bool>("flags").unwrap(), vec![true, false]);
+        assert_eq!(
+            config.get_list::<bool>("flags").unwrap(),
+            vec![true, false]
+        );
     }
 
     #[test]
@@ -498,7 +509,8 @@ flags:
     fn test_yaml_sequence_with_mapping_returns_parse_error() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("seq_map.yaml");
-        std::fs::write(&path, "items:\n  - name: foo\n  - name: bar\n").unwrap();
+        std::fs::write(&path, "items:\n  - name: foo\n  - name: bar\n")
+            .unwrap();
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
         let result = source.load(&mut config);

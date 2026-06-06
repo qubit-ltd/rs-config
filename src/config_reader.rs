@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 
 #![allow(private_bounds)]
 
@@ -46,7 +44,6 @@ use crate::{
 /// (metadata, raw properties, iteration, subtree extraction, and serde
 /// deserialization), with prefix views resolving keys relative to their
 /// logical prefix.
-///
 pub trait ConfigReader {
     /// Returns whether `${...}` variable substitution is applied when reading
     /// string values.
@@ -119,13 +116,25 @@ pub trait ConfigReader {
     {
         name.with_config_name(|name| {
             let resolved = self.resolve_key(name);
-            let property = self
-                .get_property(name)
-                .ok_or_else(|| ConfigError::PropertyNotFound(resolved.clone()))?;
-            if !property.is_empty() && is_effectively_missing(self, &resolved, property, self.read_options())? {
+            let property = self.get_property(name).ok_or_else(|| {
+                ConfigError::PropertyNotFound(resolved.clone())
+            })?;
+            if !property.is_empty()
+                && is_effectively_missing(
+                    self,
+                    &resolved,
+                    property,
+                    self.read_options(),
+                )?
+            {
                 return Err(ConfigError::PropertyHasNoValue(resolved));
             }
-            parse_property_from_reader(self, &resolved, property, self.read_options())
+            parse_property_from_reader(
+                self,
+                &resolved,
+                property,
+                self.read_options(),
+            )
         })
     }
 
@@ -186,10 +195,14 @@ pub trait ConfigReader {
 
     /// Gets a value or `default` if the key is missing or empty.
     ///
-    /// Conversion and substitution errors are returned instead of being hidden by
-    /// the default.
+    /// Conversion and substitution errors are returned instead of being hidden
+    /// by the default.
     #[inline]
-    fn get_or<T>(&self, name: impl ConfigName, default: impl IntoConfigDefault<T>) -> ConfigResult<T>
+    fn get_or<T>(
+        &self,
+        name: impl ConfigName,
+        default: impl IntoConfigDefault<T>,
+    ) -> ConfigResult<T>
     where
         T: FromConfig,
     {
@@ -197,7 +210,8 @@ pub trait ConfigReader {
             .map(|value| value.unwrap_or_else(|| default.into_config_default()))
     }
 
-    /// Gets an optional value with the same semantics as [`crate::Config::get_optional`].
+    /// Gets an optional value with the same semantics as
+    /// [`crate::Config::get_optional`].
     ///
     /// # Type parameters
     ///
@@ -209,7 +223,8 @@ pub trait ConfigReader {
     ///
     /// # Returns
     ///
-    /// `Ok(Some(v))`, `Ok(None)` when missing or empty, or `Err` on conversion failure.
+    /// `Ok(Some(v))`, `Ok(None)` when missing or empty, or `Err` on conversion
+    /// failure.
     fn get_optional<T>(&self, name: impl ConfigName) -> ConfigResult<Option<T>>
     where
         T: FromConfig,
@@ -218,8 +233,23 @@ pub trait ConfigReader {
             let resolved = self.resolve_key(name);
             match self.get_property(name) {
                 None => Ok(None),
-                Some(property) if is_effectively_missing(self, &resolved, property, self.read_options())? => Ok(None),
-                Some(property) => parse_property_from_reader(self, &resolved, property, self.read_options()).map(Some),
+                Some(property)
+                    if is_effectively_missing(
+                        self,
+                        &resolved,
+                        property,
+                        self.read_options(),
+                    )? =>
+                {
+                    Ok(None)
+                }
+                Some(property) => parse_property_from_reader(
+                    self,
+                    &resolved,
+                    property,
+                    self.read_options(),
+                )
+                .map(Some),
             }
         })
     }
@@ -246,8 +276,12 @@ pub trait ConfigReader {
         T: FromConfig,
     {
         names.with_config_names(|names| {
-            self.get_optional_any(names)?
-                .ok_or_else(|| ConfigError::PropertyNotFound(format!("one of: {}", names.join(", "))))
+            self.get_optional_any(names)?.ok_or_else(|| {
+                ConfigError::PropertyNotFound(format!(
+                    "one of: {}",
+                    names.join(", ")
+                ))
+            })
         })
     }
 
@@ -260,11 +294,16 @@ pub trait ConfigReader {
     /// # Returns
     ///
     /// `Ok(None)` only when all keys are missing or empty.
-    fn get_optional_any<T>(&self, names: impl ConfigNames) -> ConfigResult<Option<T>>
+    fn get_optional_any<T>(
+        &self,
+        names: impl ConfigNames,
+    ) -> ConfigResult<Option<T>>
     where
         T: FromConfig,
     {
-        names.with_config_names(|names| self.get_optional_any_with_options(names, self.read_options()))
+        names.with_config_names(|names| {
+            self.get_optional_any_with_options(names, self.read_options())
+        })
     }
 
     /// Reads a value from any key, using `default` only when all keys are
@@ -278,13 +317,18 @@ pub trait ConfigReader {
     /// # Returns
     ///
     /// Parsed value or `default`; parsing errors are never swallowed.
-    fn get_any_or<T>(&self, names: impl ConfigNames, default: impl IntoConfigDefault<T>) -> ConfigResult<T>
+    fn get_any_or<T>(
+        &self,
+        names: impl ConfigNames,
+        default: impl IntoConfigDefault<T>,
+    ) -> ConfigResult<T>
     where
         T: FromConfig,
     {
         names.with_config_names(|names| {
-            self.get_optional_any(names)
-                .map(|value| value.unwrap_or_else(|| default.into_config_default()))
+            self.get_optional_any(names).map(|value| {
+                value.unwrap_or_else(|| default.into_config_default())
+            })
         })
     }
 
@@ -310,8 +354,9 @@ pub trait ConfigReader {
         T: FromConfig,
     {
         names.with_config_names(|names| {
-            self.get_optional_any_with_options(names, read_options)
-                .map(|value| value.unwrap_or_else(|| default.into_config_default()))
+            self.get_optional_any_with_options(names, read_options).map(
+                |value| value.unwrap_or_else(|| default.into_config_default()),
+            )
         })
     }
 
@@ -335,13 +380,19 @@ pub trait ConfigReader {
             default,
             read_options,
         } = field;
-        let options = read_options.as_ref().unwrap_or_else(|| self.read_options());
+        let options =
+            read_options.as_ref().unwrap_or_else(|| self.read_options());
         let mut names = Vec::with_capacity(1 + aliases.len());
         names.push(name.as_str());
         names.extend(aliases.iter().map(String::as_str));
         self.get_optional_any_with_options(&names, options)?
             .or(default)
-            .ok_or_else(|| ConfigError::PropertyNotFound(format!("one of: {}", names.join(", "))))
+            .ok_or_else(|| {
+                ConfigError::PropertyNotFound(format!(
+                    "one of: {}",
+                    names.join(", ")
+                ))
+            })
     }
 
     /// Reads an optional declared field.
@@ -363,7 +414,8 @@ pub trait ConfigReader {
             default,
             read_options,
         } = field;
-        let options = read_options.as_ref().unwrap_or_else(|| self.read_options());
+        let options =
+            read_options.as_ref().unwrap_or_else(|| self.read_options());
         let mut names = Vec::with_capacity(1 + aliases.len());
         names.push(name.as_str());
         names.extend(aliases.iter().map(String::as_str));
@@ -389,13 +441,17 @@ pub trait ConfigReader {
                 if is_effectively_missing(self, &resolved, property, options)? {
                     continue;
                 }
-                return parse_property_from_reader(self, &resolved, property, options).map(Some);
+                return parse_property_from_reader(
+                    self, &resolved, property, options,
+                )
+                .map(Some);
             }
             Ok(None)
         })
     }
 
-    /// Gets an optional list with the same semantics as [`crate::Config::get_optional_list`].
+    /// Gets an optional list with the same semantics as
+    /// [`crate::Config::get_optional_list`].
     ///
     /// # Type parameters
     ///
@@ -408,7 +464,10 @@ pub trait ConfigReader {
     /// # Returns
     ///
     /// `Ok(Some(vec))`, `Ok(None)` when missing or empty, or `Err` on failure.
-    fn get_optional_list<T>(&self, name: impl ConfigName) -> ConfigResult<Option<Vec<T>>>
+    fn get_optional_list<T>(
+        &self,
+        name: impl ConfigName,
+    ) -> ConfigResult<Option<Vec<T>>>
     where
         T: FromConfig;
 
@@ -433,11 +492,16 @@ pub trait ConfigReader {
     /// # Returns
     ///
     /// A boxed iterator over matching entries.
-    fn iter_prefix<'a>(&'a self, prefix: &'a str) -> Box<dyn Iterator<Item = (&'a str, &'a Property)> + 'a>;
+    fn iter_prefix<'a>(
+        &'a self,
+        prefix: &'a str,
+    ) -> Box<dyn Iterator<Item = (&'a str, &'a Property)> + 'a>;
 
     /// Iterates all `(key, property)` pairs visible to this reader (same scope
     /// as [`Self::keys`]).
-    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a str, &'a Property)> + 'a>;
+    fn iter<'a>(
+        &'a self,
+    ) -> Box<dyn Iterator<Item = (&'a str, &'a Property)> + 'a>;
 
     /// Returns `true` if the key exists and the property has no values (same
     /// as [`crate::Config::is_null`]).
@@ -446,7 +510,11 @@ pub trait ConfigReader {
     /// Extracts a subtree as a new [`Config`] (same semantics as
     /// [`crate::Config::subconfig`]; on a prefix view, `prefix` is relative to
     /// the view).
-    fn subconfig(&self, prefix: &str, strip_prefix: bool) -> ConfigResult<Config>;
+    fn subconfig(
+        &self,
+        prefix: &str,
+        strip_prefix: bool,
+    ) -> ConfigResult<Config>;
 
     /// Deserializes the subtree at `prefix` with serde (same as
     /// [`crate::Config::deserialize`]; on a prefix view, `prefix` is relative).
@@ -502,15 +570,25 @@ pub trait ConfigReader {
     fn get_string(&self, name: impl ConfigName) -> ConfigResult<String> {
         name.with_config_name(|name| {
             let resolved = self.resolve_key(name);
-            let property = self
-                .get_property(name)
-                .ok_or_else(|| ConfigError::PropertyNotFound(resolved.clone()))?;
+            let property = self.get_property(name).ok_or_else(|| {
+                ConfigError::PropertyNotFound(resolved.clone())
+            })?;
             if !property.is_empty()
-                && is_effectively_missing_with_substitution(self, &resolved, property, self.read_options())?
+                && is_effectively_missing_with_substitution(
+                    self,
+                    &resolved,
+                    property,
+                    self.read_options(),
+                )?
             {
                 return Err(ConfigError::PropertyHasNoValue(resolved));
             }
-            parse_property_from_reader_with_substitution(self, &resolved, property, self.read_options())
+            parse_property_from_reader_with_substitution(
+                self,
+                &resolved,
+                property,
+                self.read_options(),
+            )
         })
     }
 
@@ -526,8 +604,12 @@ pub trait ConfigReader {
     #[inline]
     fn get_string_any(&self, names: impl ConfigNames) -> ConfigResult<String> {
         names.with_config_names(|names| {
-            self.get_optional_string_any(names)?
-                .ok_or_else(|| ConfigError::PropertyNotFound(format!("one of: {}", names.join(", "))))
+            self.get_optional_string_any(names)?.ok_or_else(|| {
+                ConfigError::PropertyNotFound(format!(
+                    "one of: {}",
+                    names.join(", ")
+                ))
+            })
         })
     }
 
@@ -541,8 +623,16 @@ pub trait ConfigReader {
     ///
     /// `Ok(None)` only when all keys are missing or empty.
     #[inline]
-    fn get_optional_string_any(&self, names: impl ConfigNames) -> ConfigResult<Option<String>> {
-        names.with_config_names(|names| self.get_optional_any_with_options_and_substitution(names, self.read_options()))
+    fn get_optional_string_any(
+        &self,
+        names: impl ConfigNames,
+    ) -> ConfigResult<Option<String>> {
+        names.with_config_names(|names| {
+            self.get_optional_any_with_options_and_substitution(
+                names,
+                self.read_options(),
+            )
+        })
     }
 
     /// Gets a string from any key, or `default` when all keys are missing or
@@ -559,10 +649,17 @@ pub trait ConfigReader {
     /// The resolved string or a clone of `default`; substitution errors are
     /// returned.
     #[inline]
-    fn get_string_any_or(&self, names: impl ConfigNames, default: &str) -> ConfigResult<String> {
+    fn get_string_any_or(
+        &self,
+        names: impl ConfigNames,
+        default: &str,
+    ) -> ConfigResult<String> {
         names.with_config_names(|names| {
-            self.get_optional_any_with_options_and_substitution(names, self.read_options())
-                .map(|value| value.unwrap_or_else(|| default.to_string()))
+            self.get_optional_any_with_options_and_substitution(
+                names,
+                self.read_options(),
+            )
+            .map(|value| value.unwrap_or_else(|| default.to_string()))
         })
     }
 
@@ -572,14 +669,19 @@ pub trait ConfigReader {
     /// # Parameters
     ///
     /// * `name` - Configuration key.
-    /// * `default` - Fallback string used only when the key is missing or empty.
+    /// * `default` - Fallback string used only when the key is missing or
+    ///   empty.
     ///
     /// # Returns
     ///
     /// The resolved string or a clone of `default`; parsing and substitution
     /// errors are returned.
     #[inline]
-    fn get_string_or(&self, name: impl ConfigName, default: &str) -> ConfigResult<String> {
+    fn get_string_or(
+        &self,
+        name: impl ConfigName,
+        default: &str,
+    ) -> ConfigResult<String> {
         self.get_optional_string(name)
             .map(|value| value.unwrap_or_else(|| default.to_string()))
     }
@@ -594,18 +696,31 @@ pub trait ConfigReader {
     /// # Returns
     ///
     /// A vector of resolved strings, or a [`crate::ConfigError`].
-    fn get_string_list(&self, name: impl ConfigName) -> ConfigResult<Vec<String>> {
+    fn get_string_list(
+        &self,
+        name: impl ConfigName,
+    ) -> ConfigResult<Vec<String>> {
         name.with_config_name(|name| {
             let resolved = self.resolve_key(name);
-            let property = self
-                .get_property(name)
-                .ok_or_else(|| ConfigError::PropertyNotFound(resolved.clone()))?;
+            let property = self.get_property(name).ok_or_else(|| {
+                ConfigError::PropertyNotFound(resolved.clone())
+            })?;
             if !property.is_empty()
-                && is_effectively_missing_with_substitution(self, &resolved, property, self.read_options())?
+                && is_effectively_missing_with_substitution(
+                    self,
+                    &resolved,
+                    property,
+                    self.read_options(),
+                )?
             {
                 return Err(ConfigError::PropertyHasNoValue(resolved));
             }
-            parse_property_from_reader_with_substitution(self, &resolved, property, self.read_options())
+            parse_property_from_reader_with_substitution(
+                self,
+                &resolved,
+                property,
+                self.read_options(),
+            )
         })
     }
 
@@ -615,17 +730,24 @@ pub trait ConfigReader {
     /// # Parameters
     ///
     /// * `name` - Configuration key.
-    /// * `default` - Fallback string slices used only when the key is missing or
-    ///   empty.
+    /// * `default` - Fallback string slices used only when the key is missing
+    ///   or empty.
     ///
     /// # Returns
     ///
-    /// The resolved list or `default` converted to owned `String`s`; parsing and
-    /// substitution errors are returned.
+    /// The resolved list or `default` converted to owned `String`s`; parsing
+    /// and substitution errors are returned.
     #[inline]
-    fn get_string_list_or(&self, name: impl ConfigName, default: &[&str]) -> ConfigResult<Vec<String>> {
-        self.get_optional_string_list(name)
-            .map(|value| value.unwrap_or_else(|| default.iter().map(|item| (*item).to_string()).collect()))
+    fn get_string_list_or(
+        &self,
+        name: impl ConfigName,
+        default: &[&str],
+    ) -> ConfigResult<Vec<String>> {
+        self.get_optional_string_list(name).map(|value| {
+            value.unwrap_or_else(|| {
+                default.iter().map(|item| (*item).to_string()).collect()
+            })
+        })
     }
 
     /// Gets an optional string with the same three-way semantics as
@@ -641,20 +763,31 @@ pub trait ConfigReader {
     /// substitution applied; or `Err` if the value exists but cannot be read as
     /// a string.
     #[inline]
-    fn get_optional_string(&self, name: impl ConfigName) -> ConfigResult<Option<String>> {
+    fn get_optional_string(
+        &self,
+        name: impl ConfigName,
+    ) -> ConfigResult<Option<String>> {
         name.with_config_name(|name| {
             let resolved = self.resolve_key(name);
             match self.get_property(name) {
                 None => Ok(None),
                 Some(property)
-                    if is_effectively_missing_with_substitution(self, &resolved, property, self.read_options())? =>
+                    if is_effectively_missing_with_substitution(
+                        self,
+                        &resolved,
+                        property,
+                        self.read_options(),
+                    )? =>
                 {
                     Ok(None)
                 }
-                Some(property) => {
-                    parse_property_from_reader_with_substitution(self, &resolved, property, self.read_options())
-                        .map(Some)
-                }
+                Some(property) => parse_property_from_reader_with_substitution(
+                    self,
+                    &resolved,
+                    property,
+                    self.read_options(),
+                )
+                .map(Some),
             }
         })
     }
@@ -670,20 +803,31 @@ pub trait ConfigReader {
     /// `Ok(None)` if the key is missing or empty; `Ok(Some(vec))` otherwise; or
     /// `Err` on conversion/substitution failure.
     #[inline]
-    fn get_optional_string_list(&self, name: impl ConfigName) -> ConfigResult<Option<Vec<String>>> {
+    fn get_optional_string_list(
+        &self,
+        name: impl ConfigName,
+    ) -> ConfigResult<Option<Vec<String>>> {
         name.with_config_name(|name| {
             let resolved = self.resolve_key(name);
             match self.get_property(name) {
                 None => Ok(None),
                 Some(property)
-                    if is_effectively_missing_with_substitution(self, &resolved, property, self.read_options())? =>
+                    if is_effectively_missing_with_substitution(
+                        self,
+                        &resolved,
+                        property,
+                        self.read_options(),
+                    )? =>
                 {
                     Ok(None)
                 }
-                Some(property) => {
-                    parse_property_from_reader_with_substitution(self, &resolved, property, self.read_options())
-                        .map(Some)
-                }
+                Some(property) => parse_property_from_reader_with_substitution(
+                    self,
+                    &resolved,
+                    property,
+                    self.read_options(),
+                )
+                .map(Some),
             }
         })
     }
@@ -703,10 +847,15 @@ pub trait ConfigReader {
                     continue;
                 };
                 let resolved = self.resolve_key(*name);
-                if is_effectively_missing_with_substitution(self, &resolved, property, options)? {
+                if is_effectively_missing_with_substitution(
+                    self, &resolved, property, options,
+                )? {
                     continue;
                 }
-                return parse_property_from_reader_with_substitution(self, &resolved, property, options).map(Some);
+                return parse_property_from_reader_with_substitution(
+                    self, &resolved, property, options,
+                )
+                .map(Some);
             }
             Ok(None)
         })

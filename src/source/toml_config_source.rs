@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! # TOML File Configuration Source
 //!
 //! Loads configuration from TOML format files.
@@ -25,7 +23,6 @@
 //! becomes `server.host = "localhost"` and `server.port = 8080`.
 //!
 //! Arrays are stored as multi-value properties.
-//!
 
 use std::collections::HashSet;
 use std::path::{
@@ -66,7 +63,6 @@ use super::{
 /// source.load(&mut config).unwrap();
 /// assert_eq!(config.get::<i64>("server.port").unwrap(), 8080);
 /// ```
-///
 #[derive(Debug, Clone)]
 pub struct TomlConfigSource {
     path: PathBuf,
@@ -95,12 +91,20 @@ impl ConfigSource for TomlConfigSource {
         let content = std::fs::read_to_string(&self.path).map_err(|e| {
             ConfigError::IoError(std::io::Error::new(
                 e.kind(),
-                format!("Failed to read TOML file '{}': {}", self.path.display(), e),
+                format!(
+                    "Failed to read TOML file '{}': {}",
+                    self.path.display(),
+                    e
+                ),
             ))
         })?;
 
         let table: TomlTable = content.parse().map_err(|e| {
-            ConfigError::ParseError(format!("Failed to parse TOML file '{}': {}", self.path.display(), e))
+            ConfigError::ParseError(format!(
+                "Failed to parse TOML file '{}': {}",
+                self.path.display(),
+                e
+            ))
         })?;
 
         let mut seen = HashSet::new();
@@ -167,7 +171,11 @@ pub(crate) fn flatten_toml_value(
 /// Homogeneous scalar arrays are stored with their native types. Empty arrays
 /// are stored as explicit empty string lists because TOML carries no element
 /// type for them. Mixed or nested arrays fall back to string representation.
-fn flatten_toml_array(prefix: &str, arr: &[TomlValue], config: &mut Config) -> ConfigResult<()> {
+fn flatten_toml_array(
+    prefix: &str,
+    arr: &[TomlValue],
+    config: &mut Config,
+) -> ConfigResult<()> {
     if arr.is_empty() {
         config.set(prefix, Vec::<String>::new())?;
         return Ok(());
@@ -198,14 +206,18 @@ fn flatten_toml_array(prefix: &str, arr: &[TomlValue], config: &mut Config) -> C
         _ => ArrayKind::String,
     };
 
-    // Check that all elements match the first element's type; fall back to string if not.
+    // Check that all elements match the first element's type; fall back to
+    // string if not.
     let all_same = arr.iter().all(|item| {
         matches!(
             (&kind, item),
             (ArrayKind::Integer, TomlValue::Integer(_))
                 | (ArrayKind::Float, TomlValue::Float(_))
                 | (ArrayKind::Bool, TomlValue::Boolean(_))
-                | (ArrayKind::String, TomlValue::String(_) | TomlValue::Datetime(_))
+                | (
+                    ArrayKind::String,
+                    TomlValue::String(_) | TomlValue::Datetime(_)
+                )
         )
     });
 
@@ -224,8 +236,9 @@ fn flatten_toml_array(prefix: &str, arr: &[TomlValue], config: &mut Config) -> C
             let values = arr
                 .iter()
                 .map(|item| {
-                    item.as_integer()
-                        .expect("TOML integer array was validated before insertion")
+                    item.as_integer().expect(
+                        "TOML integer array was validated before insertion",
+                    )
                 })
                 .collect::<Vec<_>>();
             config.set(prefix, values)?;
@@ -234,8 +247,9 @@ fn flatten_toml_array(prefix: &str, arr: &[TomlValue], config: &mut Config) -> C
             let values = arr
                 .iter()
                 .map(|item| {
-                    item.as_float()
-                        .expect("TOML float array was validated before insertion")
+                    item.as_float().expect(
+                        "TOML float array was validated before insertion",
+                    )
                 })
                 .collect::<Vec<_>>();
             config.set(prefix, values)?;
@@ -243,7 +257,11 @@ fn flatten_toml_array(prefix: &str, arr: &[TomlValue], config: &mut Config) -> C
         ArrayKind::Bool => {
             let values = arr
                 .iter()
-                .map(|item| item.as_bool().expect("TOML bool array was validated before insertion"))
+                .map(|item| {
+                    item.as_bool().expect(
+                        "TOML bool array was validated before insertion",
+                    )
+                })
                 .collect::<Vec<_>>();
             config.set(prefix, values)?;
         }
@@ -251,7 +269,9 @@ fn flatten_toml_array(prefix: &str, arr: &[TomlValue], config: &mut Config) -> C
             let values = arr
                 .iter()
                 .map(|item| {
-                    toml_scalar_to_string(item, prefix).expect("TOML string array was validated before insertion")
+                    toml_scalar_to_string(item, prefix).expect(
+                        "TOML string array was validated before insertion",
+                    )
                 })
                 .collect::<Vec<_>>();
             config.set(prefix, values)?;

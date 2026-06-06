@@ -1,17 +1,14 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! # Configurable Interface
 //!
 //! Provides the `Configurable` trait for types to have unified configuration
 //! access and change callback interfaces.
-//!
 
 use super::{
     Config,
@@ -46,14 +43,12 @@ use super::{
 /// ```rust
 /// use qubit_config::{ConfigResult, ConfigError};
 /// ```
-///
 pub trait Configurable {
     /// Gets a reference to the configuration
     ///
     /// # Returns
     ///
     /// Returns an immutable reference to the configuration
-    ///
     fn config(&self) -> &Config;
 
     /// Gets a mutable reference to the configuration.
@@ -65,7 +60,6 @@ pub trait Configurable {
     /// # Returns
     ///
     /// Returns a mutable reference to the configuration
-    ///
     fn config_mut(&mut self) -> &mut Config;
 
     /// Sets the configuration
@@ -77,7 +71,6 @@ pub trait Configurable {
     /// # Returns
     ///
     /// Nothing.
-    ///
     fn set_config(&mut self, config: Config);
 
     /// Updates a staged copy of the configuration through a closure.
@@ -120,7 +113,6 @@ pub trait Configurable {
     /// # Returns
     ///
     /// Nothing.
-    ///
     #[inline]
     fn on_config_changed(&mut self) {
         // Default implementation is empty

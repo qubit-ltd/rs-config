@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Tests for public behavior produced by configuration deserialization errors.
 
 use std::error::Error;
@@ -52,11 +50,17 @@ fn test_deserialize_message_error_has_path_and_no_source() {
 #[test]
 fn test_deserialize_config_error_preserves_source() {
     let mut config = Config::new();
-    config.set_read_options(ConfigReadOptions::default().with_blank_string_policy(BlankStringPolicy::Reject));
+    config.set_read_options(
+        ConfigReadOptions::default()
+            .with_blank_string_policy(BlankStringPolicy::Reject),
+    );
     config
         .insert_property(
             "app.value",
-            Property::with_value("app.value", MultiValues::Json(vec![serde_json::json!(" ")])),
+            Property::with_value(
+                "app.value",
+                MultiValues::Json(vec![serde_json::json!(" ")]),
+            ),
         )
         .expect("inserting property should succeed");
 

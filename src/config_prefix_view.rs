@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 #![allow(private_bounds)]
 
 use std::borrow::Cow;
@@ -34,7 +32,6 @@ use crate::{
 ///
 /// Lookups rewrite keys by prepending `prefix`, while exposing keys relative to
 /// that prefix.
-///
 #[derive(Debug, Clone)]
 pub struct ConfigPrefixView<'a> {
     config: &'a Config,
@@ -96,7 +93,10 @@ impl<'a> ConfigPrefixView<'a> {
         } else if child.is_empty() {
             ConfigPrefixView::new(self.config, self.prefix.as_str())
         } else {
-            ConfigPrefixView::new(self.config, &format!("{}.{}", self.prefix, child))
+            ConfigPrefixView::new(
+                self.config,
+                &format!("{}.{}", self.prefix, child),
+            )
         }
     }
 
@@ -130,10 +130,14 @@ impl<'a> ConfigPrefixView<'a> {
         Cow::Owned(format!("{}.{}", self.prefix, name))
     }
 
-    fn visible_entries<'b>(&'b self) -> Box<dyn Iterator<Item = (&'b str, &'b Property)> + 'b> {
+    fn visible_entries<'b>(
+        &'b self,
+    ) -> Box<dyn Iterator<Item = (&'b str, &'b Property)> + 'b> {
         let prefix = self.prefix.as_str();
         if prefix.is_empty() {
-            return Box::new(self.config.properties.iter().map(|(k, v)| (k.as_str(), v)));
+            return Box::new(
+                self.config.properties.iter().map(|(k, v)| (k.as_str(), v)),
+            );
         }
         let full_prefix = self
             .full_prefix
@@ -239,7 +243,10 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
         })
     }
 
-    fn get_optional_list<T>(&self, name: impl ConfigName) -> ConfigResult<Option<Vec<T>>>
+    fn get_optional_list<T>(
+        &self,
+        name: impl ConfigName,
+    ) -> ConfigResult<Option<Vec<T>>>
     where
         T: FromConfig,
     {
@@ -253,11 +260,19 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
         self.visible_entries().any(|(k, _)| k.starts_with(prefix))
     }
 
-    fn iter_prefix<'b>(&'b self, prefix: &'b str) -> Box<dyn Iterator<Item = (&'b str, &'b Property)> + 'b> {
-        Box::new(self.visible_entries().filter(move |(k, _)| k.starts_with(prefix)))
+    fn iter_prefix<'b>(
+        &'b self,
+        prefix: &'b str,
+    ) -> Box<dyn Iterator<Item = (&'b str, &'b Property)> + 'b> {
+        Box::new(
+            self.visible_entries()
+                .filter(move |(k, _)| k.starts_with(prefix)),
+        )
     }
 
-    fn iter<'b>(&'b self) -> Box<dyn Iterator<Item = (&'b str, &'b Property)> + 'b> {
+    fn iter<'b>(
+        &'b self,
+    ) -> Box<dyn Iterator<Item = (&'b str, &'b Property)> + 'b> {
         self.visible_entries()
     }
 
@@ -268,7 +283,11 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
         })
     }
 
-    fn subconfig(&self, prefix: &str, strip_prefix: bool) -> ConfigResult<Config> {
+    fn subconfig(
+        &self,
+        prefix: &str,
+        strip_prefix: bool,
+    ) -> ConfigResult<Config> {
         let full = self.effective_root_prefix(prefix);
         self.config.subconfig(&full, strip_prefix)
     }

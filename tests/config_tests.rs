@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! # [`qubit_config::Config`] unit tests
 //!
 //! Covers the public `Config` API (including APIs introduced in v0.4.0).
@@ -380,26 +378,41 @@ mod test_get_property_mut {
         config.set("test", "value").unwrap();
 
         {
-            let mut property = config.get_property_mut("test").unwrap().unwrap();
+            let mut property =
+                config.get_property_mut("test").unwrap().unwrap();
             property.set_final(true).unwrap();
 
-            let desc_result = property.set_description(Some("blocked".to_string()));
-            assert!(matches!(desc_result, Err(ConfigError::PropertyIsFinal(_))));
+            let desc_result =
+                property.set_description(Some("blocked".to_string()));
+            assert!(matches!(
+                desc_result,
+                Err(ConfigError::PropertyIsFinal(_))
+            ));
 
-            let set_result = property.set_value(MultiValues::String(vec!["new-value".to_string()]));
+            let set_result = property
+                .set_value(MultiValues::String(vec!["new-value".to_string()]));
             assert!(matches!(set_result, Err(ConfigError::PropertyIsFinal(_))));
 
             let generic_set_result = property.set("new-value");
-            assert!(matches!(generic_set_result, Err(ConfigError::PropertyIsFinal(_))));
+            assert!(matches!(
+                generic_set_result,
+                Err(ConfigError::PropertyIsFinal(_))
+            ));
 
             let add_result = property.add("new-value");
             assert!(matches!(add_result, Err(ConfigError::PropertyIsFinal(_))));
 
             let clear_result = property.clear();
-            assert!(matches!(clear_result, Err(ConfigError::PropertyIsFinal(_))));
+            assert!(matches!(
+                clear_result,
+                Err(ConfigError::PropertyIsFinal(_))
+            ));
 
             let unset_result = property.set_final(false);
-            assert!(matches!(unset_result, Err(ConfigError::PropertyIsFinal(_))));
+            assert!(matches!(
+                unset_result,
+                Err(ConfigError::PropertyIsFinal(_))
+            ));
         }
 
         assert_eq!(config.get_string("test").unwrap(), "value");
@@ -411,7 +424,8 @@ mod test_get_property_mut {
         config.set("test", "value").unwrap();
 
         {
-            let mut property = config.get_property_mut("test").unwrap().unwrap();
+            let mut property =
+                config.get_property_mut("test").unwrap().unwrap();
             assert_eq!(property.name(), "test");
             assert_eq!(property.as_property().name(), "test");
             property
@@ -722,8 +736,8 @@ mod test_get {
         assert_eq!(value, 42);
     }
 
-    // Note: isize type does not implement IntoPropertyValue and FromPropertyValue traits
-    // #[test]
+    // Note: isize type does not implement IntoPropertyValue and
+    // FromPropertyValue traits #[test]
     // fn test_get_isize() {
     //     let mut config = Config::new();
     //     config.set("test", 42isize).unwrap();
@@ -772,8 +786,8 @@ mod test_get {
         assert_eq!(value, 42);
     }
 
-    // Note: usize type does not implement IntoPropertyValue and FromPropertyValue traits
-    // #[test]
+    // Note: usize type does not implement IntoPropertyValue and
+    // FromPropertyValue traits #[test]
     // fn test_get_usize() {
     //     let mut config = Config::new();
     //     config.set("test", 42usize).unwrap();
@@ -880,7 +894,9 @@ mod test_get {
     #[test]
     fn test_get_naive_datetime() {
         let mut config = Config::new();
-        let datetime = DateTime::<Utc>::from_timestamp(1703505600, 0).unwrap().naive_utc();
+        let datetime = DateTime::<Utc>::from_timestamp(1703505600, 0)
+            .unwrap()
+            .naive_utc();
         config.set("test", datetime).unwrap();
         let value: NaiveDateTime = config.get("test").unwrap();
         assert_eq!(value, datetime);
@@ -959,7 +975,8 @@ mod test_get_or {
     #[test]
     fn test_get_or_with_string_default() {
         let config = Config::new();
-        let value = config.get_or("nonexistent", "default".to_string()).unwrap();
+        let value =
+            config.get_or("nonexistent", "default".to_string()).unwrap();
         assert_eq!(value, "default");
     }
 
@@ -994,7 +1011,10 @@ mod test_get_or {
             .get_or::<Vec<String>>("nonexistent", ["default1", "default2"])
             .unwrap();
 
-        assert_eq!(values, vec!["default1".to_string(), "default2".to_string()]);
+        assert_eq!(
+            values,
+            vec!["default1".to_string(), "default2".to_string()]
+        );
     }
 
     #[test]
@@ -1006,7 +1026,10 @@ mod test_get_or {
             .get_or::<Vec<String>>("nonexistent", defaults.as_slice())
             .unwrap();
 
-        assert_eq!(values, vec!["default1".to_string(), "default2".to_string()]);
+        assert_eq!(
+            values,
+            vec!["default1".to_string(), "default2".to_string()]
+        );
     }
 
     #[test]
@@ -1014,7 +1037,9 @@ mod test_get_or {
         let config = Config::new();
         let defaults = vec!["default1".to_string(), "default2".to_string()];
 
-        let values = config.get_or::<Vec<String>>("nonexistent", &defaults).unwrap();
+        let values = config
+            .get_or::<Vec<String>>("nonexistent", &defaults)
+            .unwrap();
 
         assert_eq!(values, defaults);
     }
@@ -1075,10 +1100,12 @@ mod test_into_config_default {
         let vec_source = vec![4, 5, 6];
         let array_ref_source = [7, 8, 9];
 
-        let from_slice: Vec<i32> = slice_source.as_slice().into_config_default();
+        let from_slice: Vec<i32> =
+            slice_source.as_slice().into_config_default();
         let from_vec_ref: Vec<i32> = (&vec_source).into_config_default();
         let from_array: Vec<i32> = [10, 11, 12].into_config_default();
-        let from_array_ref: Vec<i32> = (&array_ref_source).into_config_default();
+        let from_array_ref: Vec<i32> =
+            (&array_ref_source).into_config_default();
 
         assert_eq!(from_slice, vec![1, 2, 3]);
         assert_eq!(from_vec_ref, vec![4, 5, 6]);
@@ -1096,7 +1123,8 @@ mod test_into_config_default {
         let from_vec_ref: Vec<String> = (&vec_ref_source).into_config_default();
         let from_vec: Vec<String> = vec!["e", "f"].into_config_default();
         let from_array: Vec<String> = ["i", "j"].into_config_default();
-        let from_array_ref: Vec<String> = (&array_ref_source).into_config_default();
+        let from_array_ref: Vec<String> =
+            (&array_ref_source).into_config_default();
 
         assert_eq!(from_slice, vec!["a".to_string(), "b".to_string()]);
         assert_eq!(from_vec_ref, vec!["c".to_string(), "d".to_string()]);
@@ -1135,7 +1163,11 @@ mod test_get_list {
         config
             .set(
                 "test",
-                vec!["value1".to_string(), "value2".to_string(), "value3".to_string()],
+                vec![
+                    "value1".to_string(),
+                    "value2".to_string(),
+                    "value3".to_string(),
+                ],
             )
             .unwrap();
         let values: Vec<String> = config.get_list("test").unwrap();
@@ -1276,8 +1308,9 @@ mod test_set {
         config.set("i32", 42i32).unwrap();
         config.set("i64", 42i64).unwrap();
         config.set("i128", 42i128).unwrap();
-        // Note: isize and usize types do not implement IntoPropertyValue and FromPropertyValue traits
-        // config.set("isize", 42isize).unwrap();
+        // Note: isize and usize types do not implement IntoPropertyValue and
+        // FromPropertyValue traits config.set("isize",
+        // 42isize).unwrap();
 
         config.set("u8", 42u8).unwrap();
         config.set("u16", 42u16).unwrap();
@@ -1324,8 +1357,11 @@ mod test_set {
 
         let date = NaiveDate::from_ymd_opt(2023, 12, 25).unwrap();
         let time = NaiveTime::from_hms_opt(12, 30, 45).unwrap();
-        let datetime = DateTime::<Utc>::from_timestamp(1703505600, 0).unwrap().naive_utc();
-        let utc_datetime = DateTime::<Utc>::from_timestamp(1703505600, 0).unwrap();
+        let datetime = DateTime::<Utc>::from_timestamp(1703505600, 0)
+            .unwrap()
+            .naive_utc();
+        let utc_datetime =
+            DateTime::<Utc>::from_timestamp(1703505600, 0).unwrap();
 
         config.set("date", date).unwrap();
         config.set("time", time).unwrap();
@@ -1338,7 +1374,10 @@ mod test_set {
         assert_eq!(config.get::<NaiveDate>("date").unwrap(), date);
         assert_eq!(config.get::<NaiveTime>("time").unwrap(), time);
         assert_eq!(config.get::<NaiveDateTime>("datetime").unwrap(), datetime);
-        assert_eq!(config.get::<DateTime<Utc>>("utc_datetime").unwrap(), utc_datetime);
+        assert_eq!(
+            config.get::<DateTime<Utc>>("utc_datetime").unwrap(),
+            utc_datetime
+        );
     }
 }
 
@@ -1537,7 +1576,9 @@ mod test_get_string_list {
     #[test]
     fn test_get_string_list_returns_string_list() {
         let mut config = Config::new();
-        config.set("test", vec!["value1", "value2", "value3"]).unwrap();
+        config
+            .set("test", vec!["value1", "value2", "value3"])
+            .unwrap();
         let values = config.get_string_list("test").unwrap();
         assert_eq!(values, vec!["value1", "value2", "value3"]);
     }
@@ -1546,9 +1587,14 @@ mod test_get_string_list {
     fn test_get_string_list_with_variable_substitution() {
         let mut config = Config::new();
         config.set("base", "http://localhost").unwrap();
-        config.set("urls", vec!["${base}/api", "${base}/admin"]).unwrap();
+        config
+            .set("urls", vec!["${base}/api", "${base}/admin"])
+            .unwrap();
         let urls = config.get_string_list("urls").unwrap();
-        assert_eq!(urls, vec!["http://localhost/api", "http://localhost/admin"]);
+        assert_eq!(
+            urls,
+            vec!["http://localhost/api", "http://localhost/admin"]
+        );
     }
 
     #[test]
@@ -1556,16 +1602,23 @@ mod test_get_string_list {
         let mut config = Config::new();
         config.set("host", "localhost").unwrap();
         config.set("base", "http://${host}").unwrap();
-        config.set("urls", vec!["${base}/api", "${base}/admin"]).unwrap();
+        config
+            .set("urls", vec!["${base}/api", "${base}/admin"])
+            .unwrap();
         let urls = config.get_string_list("urls").unwrap();
-        assert_eq!(urls, vec!["http://localhost/api", "http://localhost/admin"]);
+        assert_eq!(
+            urls,
+            vec!["http://localhost/api", "http://localhost/admin"]
+        );
     }
 
     #[test]
     fn test_get_string_list_with_variable_substitution_disabled() {
         let mut config = Config::new();
         config.set("base", "http://localhost").unwrap();
-        config.set("urls", vec!["${base}/api", "${base}/admin"]).unwrap();
+        config
+            .set("urls", vec!["${base}/api", "${base}/admin"])
+            .unwrap();
         config.set_enable_variable_substitution(false);
         let urls = config.get_string_list("urls").unwrap();
         assert_eq!(urls, vec!["${base}/api", "${base}/admin"]);
@@ -1630,7 +1683,9 @@ mod test_get_string_list_or {
     #[test]
     fn test_get_string_list_or_returns_default_when_property_not_exists() {
         let config = Config::new();
-        let values = config.get_string_list_or("nonexistent", &["default"]).unwrap();
+        let values = config
+            .get_string_list_or("nonexistent", &["default"])
+            .unwrap();
         assert_eq!(values, vec!["default"]);
     }
 
@@ -1646,9 +1701,14 @@ mod test_get_string_list_or {
     fn test_get_string_list_or_with_variable_substitution() {
         let mut config = Config::new();
         config.set("base", "http://localhost").unwrap();
-        config.set("urls", vec!["${base}/api", "${base}/admin"]).unwrap();
+        config
+            .set("urls", vec!["${base}/api", "${base}/admin"])
+            .unwrap();
         let urls = config.get_string_list_or("urls", &["default"]).unwrap();
-        assert_eq!(urls, vec!["http://localhost/api", "http://localhost/admin"]);
+        assert_eq!(
+            urls,
+            vec!["http://localhost/api", "http://localhost/admin"]
+        );
     }
 
     #[test]
@@ -1664,7 +1724,9 @@ mod test_get_string_list_or {
     fn test_get_string_list_or_with_vec_default() {
         let config = Config::new();
         let default_vec = vec!["vec1", "vec2", "vec3"];
-        let values = config.get_string_list_or("nonexistent", &default_vec).unwrap();
+        let values = config
+            .get_string_list_or("nonexistent", &default_vec)
+            .unwrap();
         assert_eq!(values, vec!["vec1", "vec2", "vec3"]);
     }
 }
@@ -1761,7 +1823,9 @@ mod test_final_property {
         let mut config = Config::new();
 
         // Set initial value
-        config.set("immutable_list", vec!["value1", "value2"]).unwrap();
+        config
+            .set("immutable_list", vec!["value1", "value2"])
+            .unwrap();
 
         config.set_final("immutable_list", true).unwrap();
 
@@ -2133,8 +2197,10 @@ mod test_subconfig {
     #[test]
     fn test_subconfig_preserves_read_options_and_description() {
         let mut config = Config::with_description("root config");
-        config
-            .set_read_options(ConfigReadOptions::default().with_blank_string_policy(BlankStringPolicy::TreatAsMissing));
+        config.set_read_options(
+            ConfigReadOptions::default()
+                .with_blank_string_policy(BlankStringPolicy::TreatAsMissing),
+        );
         config.set("http.host", "   ").unwrap();
         config.set("http.fallback", "localhost").unwrap();
 
@@ -2142,7 +2208,10 @@ mod test_subconfig {
 
         assert_eq!(sub.description(), Some("root config"));
         assert_eq!(sub.get_optional_string("host").unwrap(), None);
-        assert_eq!(sub.get_any::<String>(["host", "fallback"]).unwrap(), "localhost");
+        assert_eq!(
+            sub.get_any::<String>(["host", "fallback"]).unwrap(),
+            "localhost"
+        );
     }
 
     #[test]
@@ -2198,35 +2267,41 @@ mod test_get_and_get_list_error_mapping_additional_paths {
         let err = config.get::<i32>("date_value").unwrap_err();
         assert!(matches!(
             err,
-            ConfigError::ConversionError { .. } | ConfigError::TypeMismatch { .. }
+            ConfigError::ConversionError { .. }
+                | ConfigError::TypeMismatch { .. }
         ));
 
         // ConversionError path in get()
         let err = config.get::<i32>("bad_int").unwrap_err();
         assert!(matches!(
             err,
-            ConfigError::ConversionError { .. } | ConfigError::TypeMismatch { .. }
+            ConfigError::ConversionError { .. }
+                | ConfigError::TypeMismatch { .. }
         ));
 
         // JsonDeserializationError path in get()
         let err = config.get::<JsonValue>("bad_json").unwrap_err();
         assert!(matches!(
             err,
-            ConfigError::ConversionError { .. } | ConfigError::TypeMismatch { .. }
+            ConfigError::ConversionError { .. }
+                | ConfigError::TypeMismatch { .. }
         ));
 
-        // get_list on empty property returns empty list in current implementation.
+        // get_list on empty property returns empty list in current
+        // implementation.
         config.set_null("empty_list", DataType::String).unwrap();
         let empty_values = config.get_list::<String>("empty_list").unwrap();
         assert!(empty_values.is_empty());
 
-        // get_list on incompatible scalar may normalize to empty list in current implementation.
-        // Keep this assertion to lock current behavior.
+        // get_list on incompatible scalar may normalize to empty list in
+        // current implementation. Keep this assertion to lock current
+        // behavior.
         match config.get_list::<i32>("date_value") {
             Ok(values) => assert!(values.is_empty()),
             Err(err) => assert!(matches!(
                 err,
-                ConfigError::ConversionError { .. } | ConfigError::TypeMismatch { .. }
+                ConfigError::ConversionError { .. }
+                    | ConfigError::TypeMismatch { .. }
             )),
         }
     }
@@ -2279,7 +2354,12 @@ mod test_is_null {
     fn test_is_null_after_clear() {
         let mut config = Config::new();
         config.set("host", "localhost").unwrap();
-        config.get_property_mut("host").unwrap().unwrap().clear().unwrap();
+        config
+            .get_property_mut("host")
+            .unwrap()
+            .unwrap()
+            .clear()
+            .unwrap();
         assert!(config.is_null("host"));
     }
 }
@@ -2387,7 +2467,8 @@ mod test_get_optional_list {
     #[test]
     fn test_get_optional_list_missing_key_returns_none() {
         let config = Config::new();
-        let result: Option<Vec<i32>> = config.get_optional_list("missing").unwrap();
+        let result: Option<Vec<i32>> =
+            config.get_optional_list("missing").unwrap();
         assert_eq!(result, None);
     }
 
@@ -2395,7 +2476,8 @@ mod test_get_optional_list {
     fn test_get_optional_list_existing_key_returns_some() {
         let mut config = Config::new();
         config.set("ports", vec![8080, 8081, 8082]).unwrap();
-        let result: Option<Vec<i32>> = config.get_optional_list("ports").unwrap();
+        let result: Option<Vec<i32>> =
+            config.get_optional_list("ports").unwrap();
         assert_eq!(result, Some(vec![8080, 8081, 8082]));
     }
 
@@ -2403,7 +2485,8 @@ mod test_get_optional_list {
     fn test_get_optional_list_null_property_returns_none() {
         let mut config = Config::new();
         config.set_null("nullable", DataType::Int32).unwrap();
-        let result: Option<Vec<i32>> = config.get_optional_list("nullable").unwrap();
+        let result: Option<Vec<i32>> =
+            config.get_optional_list("nullable").unwrap();
         assert_eq!(result, None);
     }
 
@@ -2411,7 +2494,8 @@ mod test_get_optional_list {
     fn test_get_optional_list_single_value() {
         let mut config = Config::new();
         config.set("port", 8080).unwrap();
-        let result: Option<Vec<i32>> = config.get_optional_list("port").unwrap();
+        let result: Option<Vec<i32>> =
+            config.get_optional_list("port").unwrap();
         assert_eq!(result, Some(vec![8080]));
     }
 
@@ -2419,7 +2503,8 @@ mod test_get_optional_list {
     fn test_get_optional_list_type_mismatch_returns_error() {
         let mut config = Config::new();
         config.set("ports", vec!["yes", "no"]).unwrap();
-        let result: Result<Option<Vec<bool>>, _> = config.get_optional_list("ports");
+        let result: Result<Option<Vec<bool>>, _> =
+            config.get_optional_list("ports");
         assert!(result.is_err());
         match result.unwrap_err() {
             ConfigError::ConversionError { key, .. } => {
@@ -2487,7 +2572,10 @@ mod test_get_optional_string {
     fn test_get_optional_string_empty_string_is_some() {
         let mut config = Config::new();
         config.set("empty", "").unwrap();
-        assert_eq!(config.get_optional_string("empty").unwrap().as_deref(), Some(""));
+        assert_eq!(
+            config.get_optional_string("empty").unwrap().as_deref(),
+            Some("")
+        );
     }
 
     #[test]
@@ -2516,14 +2604,20 @@ mod test_get_optional_string {
     fn test_get_optional_string_type_mismatch_returns_error() {
         let mut config = Config::new();
         config.set("port", 8080i32).unwrap();
-        assert_eq!(config.get_optional_string("port").unwrap(), Some("8080".to_string()));
+        assert_eq!(
+            config.get_optional_string("port").unwrap(),
+            Some("8080".to_string())
+        );
     }
 
     #[test]
     fn test_get_optional_string_unresolved_variable_returns_error() {
         let mut config = Config::new();
         config
-            .set("bad", "${qubit_cfg_test_var_that_must_not_exist_7a8b9c0d1e2f}")
+            .set(
+                "bad",
+                "${qubit_cfg_test_var_that_must_not_exist_7a8b9c0d1e2f}",
+            )
             .unwrap();
         let result = config.get_optional_string("bad");
         assert!(matches!(result, Err(ConfigError::SubstitutionError(_))));
@@ -2536,7 +2630,10 @@ mod test_get_optional_string {
         config.set("a", "v").unwrap();
         config.set("b", "${a}").unwrap();
         let result = config.get_optional_string("b");
-        assert!(matches!(result, Err(ConfigError::SubstitutionDepthExceeded(0))));
+        assert!(matches!(
+            result,
+            Err(ConfigError::SubstitutionDepthExceeded(0))
+        ));
     }
 
     #[test]
@@ -2556,7 +2653,9 @@ mod test_get_optional_string {
     fn test_get_optional_string_list_substitution() {
         let mut config = Config::new();
         config.set("root", "/opt/app").unwrap();
-        config.set("paths", vec!["${root}/bin", "${root}/lib"]).unwrap();
+        config
+            .set("paths", vec!["${root}/bin", "${root}/lib"])
+            .unwrap();
         assert_eq!(
             config.get_optional_string_list("paths").unwrap(),
             Some(vec!["/opt/app/bin".to_string(), "/opt/app/lib".to_string()])
@@ -2587,8 +2686,12 @@ mod test_get_optional_string {
     fn test_get_optional_string_list_empty_vec_set_is_treated_as_absent_none() {
         let mut config = Config::new();
         config.set("empty_list", Vec::<String>::new()).unwrap();
-        // Empty collection normalizes to an empty property; optional readers treat it like null.
-        assert_eq!(config.get_optional_string_list("empty_list").unwrap(), None);
+        // Empty collection normalizes to an empty property; optional readers
+        // treat it like null.
+        assert_eq!(
+            config.get_optional_string_list("empty_list").unwrap(),
+            None
+        );
     }
 
     #[test]
@@ -2613,7 +2716,8 @@ mod test_get_optional_string {
     }
 
     #[test]
-    fn test_get_optional_string_list_unresolved_variable_in_element_returns_error() {
+    fn test_get_optional_string_list_unresolved_variable_in_element_returns_error()
+     {
         let mut config = Config::new();
         config
             .set(
@@ -2632,7 +2736,10 @@ mod test_get_optional_string {
         config.set("a", "x").unwrap();
         config.set("items", vec!["${a}"]).unwrap();
         let result = config.get_optional_string_list("items");
-        assert!(matches!(result, Err(ConfigError::SubstitutionDepthExceeded(0))));
+        assert!(matches!(
+            result,
+            Err(ConfigError::SubstitutionDepthExceeded(0))
+        ));
     }
 }
 
@@ -2667,7 +2774,11 @@ mod test_enhanced_errors {
         let result: Result<bool, _> = config.get_strict("server.port");
         assert!(result.is_err());
         match result.unwrap_err() {
-            ConfigError::TypeMismatch { key, expected, actual } => {
+            ConfigError::TypeMismatch {
+                key,
+                expected,
+                actual,
+            } => {
                 assert_eq!(key, "server.port");
                 assert_eq!(expected, DataType::Bool);
                 assert_eq!(actual, DataType::Int32);
@@ -2694,7 +2805,8 @@ mod test_enhanced_errors {
     #[test]
     fn test_get_property_not_found_carries_key() {
         let config = Config::new();
-        let result: Result<String, _> = config.get("http.logging.body_size_limit");
+        let result: Result<String, _> =
+            config.get("http.logging.body_size_limit");
         assert!(result.is_err());
         match result.unwrap_err() {
             ConfigError::PropertyNotFound(key) => {
@@ -2764,7 +2876,11 @@ mod test_enhanced_errors {
         };
         let ce: ConfigError = ve.into();
         match ce {
-            ConfigError::TypeMismatch { key, expected, actual } => {
+            ConfigError::TypeMismatch {
+                key,
+                expected,
+                actual,
+            } => {
                 assert_eq!(key, "");
                 assert_eq!(expected, DataType::Int32);
                 assert_eq!(actual, DataType::String);
@@ -3097,7 +3213,10 @@ mod test_yaml_type_faithful {
     fn test_yaml_empty_sequence() {
         let config = load_yaml("empty: []\n");
         assert!(config.contains("empty"));
-        assert_eq!(config.get_list::<String>("empty").unwrap(), Vec::<String>::new());
+        assert_eq!(
+            config.get_list::<String>("empty").unwrap(),
+            Vec::<String>::new()
+        );
         assert_eq!(config.get_list::<i64>("empty").unwrap(), Vec::<i64>::new());
     }
 
@@ -3142,7 +3261,10 @@ mod test_property_insertion_api {
         config
             .insert_property(
                 "direct",
-                Property::with_value("direct", MultiValues::String(vec!["hello".to_string()])),
+                Property::with_value(
+                    "direct",
+                    MultiValues::String(vec!["hello".to_string()]),
+                ),
             )
             .unwrap();
         assert_eq!(config.get_string("direct").unwrap(), "hello");
@@ -3161,7 +3283,10 @@ mod test_property_insertion_api {
         let mut config = Config::new();
         let result = config.insert_property(
             "expected.key",
-            Property::with_value("actual.key", MultiValues::String(vec!["hello".to_string()])),
+            Property::with_value(
+                "actual.key",
+                MultiValues::String(vec!["hello".to_string()]),
+            ),
         );
         assert!(matches!(result, Err(ConfigError::MergeError(_))));
     }
@@ -3174,7 +3299,10 @@ mod test_property_insertion_api {
 
         let result = config.insert_property(
             "final.key",
-            Property::with_value("final.key", MultiValues::String(vec!["v2".to_string()])),
+            Property::with_value(
+                "final.key",
+                MultiValues::String(vec!["v2".to_string()]),
+            ),
         );
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
     }
@@ -3212,7 +3340,8 @@ mod test_config_error_branches {
         assert!(result.is_empty());
     }
 
-    // Test get on a property that has wrong type (triggers TypeMismatch with key)
+    // Test get on a property that has wrong type (triggers TypeMismatch with
+    // key)
     #[test]
     fn test_get_type_mismatch_with_key_in_error() {
         let mut config = Config::new();
@@ -3226,7 +3355,8 @@ mod test_config_error_branches {
         }
     }
 
-    // Test get_list on a property that has wrong type (triggers TypeMismatch with key)
+    // Test get_list on a property that has wrong type (triggers TypeMismatch
+    // with key)
     #[test]
     fn test_get_list_type_mismatch_with_key_in_error() {
         let mut config = Config::new();
@@ -3336,7 +3466,11 @@ mod test_subconfig_deserialize_integration {
         let sub_a = config.subconfig("module.a", true).unwrap();
         assert_eq!(sub_a.get::<i32>("x").unwrap(), 1);
         assert_eq!(sub_a.get::<i32>("y").unwrap(), 2);
-        assert!(!sub_a.contains("x".to_string().as_str().replace("x", "b.x").as_str()));
+        assert!(
+            !sub_a.contains(
+                "x".to_string().as_str().replace("x", "b.x").as_str()
+            )
+        );
     }
 }
 
@@ -3433,7 +3567,10 @@ api_url = "${base_url}/api"
         let mut config = Config::new();
         config.merge_from_source(&source).unwrap();
 
-        assert_eq!(config.get_string("api_url").unwrap(), "http://localhost:8080/api");
+        assert_eq!(
+            config.get_string("api_url").unwrap(),
+            "http://localhost:8080/api"
+        );
     }
 }
 
@@ -3441,7 +3578,12 @@ api_url = "${base_url}/api"
 // Source-backed constructors (`Config` API)
 // ============================================================================
 
-#[cfg(all(test, feature = "source-env-file", feature = "source-toml", feature = "source-yaml"))]
+#[cfg(all(
+    test,
+    feature = "source-env-file",
+    feature = "source-toml",
+    feature = "source-yaml"
+))]
 mod test_source_backed_constructors {
     use super::Config;
     use qubit_config::source::TomlConfigSource;
@@ -3495,7 +3637,8 @@ mod test_source_backed_constructors {
 
     #[test]
     fn test_from_properties_file_loads_properties_config() {
-        let config = Config::from_properties_file(fixture("basic.properties")).unwrap();
+        let config =
+            Config::from_properties_file(fixture("basic.properties")).unwrap();
 
         assert_eq!(config.get_string("host").unwrap(), "localhost");
         assert_eq!(config.get_string("app.version").unwrap(), "1.0.0");
@@ -3518,7 +3661,10 @@ mod test_source_backed_constructors {
 
         let config = Config::from_env().unwrap();
 
-        assert_eq!(config.get_string("QUBIT_CONFIG_FROM_ENV_TEST_KEY").unwrap(), "from-env");
+        assert_eq!(
+            config.get_string("QUBIT_CONFIG_FROM_ENV_TEST_KEY").unwrap(),
+            "from-env"
+        );
 
         unsafe {
             std::env::remove_var("QUBIT_CONFIG_FROM_ENV_TEST_KEY");
@@ -3554,7 +3700,8 @@ mod test_source_backed_constructors {
             std::env::set_var("QOPTS_MY_KEY", "raw-value");
         }
 
-        let config = Config::from_env_options("QOPTS_", false, false, false).unwrap();
+        let config =
+            Config::from_env_options("QOPTS_", false, false, false).unwrap();
 
         assert_eq!(config.get_string("QOPTS_MY_KEY").unwrap(), "raw-value");
         assert!(!config.contains("my.key"));

@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! # ConfigError Unit Tests
 //!
 //! Tests all error types and conversions of the ConfigError enum.
@@ -68,7 +66,10 @@ fn test_conversion_error() {
 
 #[test]
 fn test_from_data_conversion_error_maps_no_value() {
-    let error = ConfigError::from_data_conversion_error("server.host", DataConversionError::NoValue);
+    let error = ConfigError::from_data_conversion_error(
+        "server.host",
+        DataConversionError::NoValue,
+    );
 
     assert!(matches!(
         error,
@@ -112,7 +113,9 @@ fn test_from_data_conversion_error_maps_conversion_message() {
 fn test_from_data_conversion_error_maps_json_serialization() {
     let error = ConfigError::from_data_conversion_error(
         "payload",
-        DataConversionError::JsonSerializationError("unsupported value".to_string()),
+        DataConversionError::JsonSerializationError(
+            "unsupported value".to_string(),
+        ),
     );
 
     assert!(matches!(
@@ -127,7 +130,9 @@ fn test_from_data_conversion_error_maps_json_serialization() {
 fn test_from_data_conversion_error_maps_json_deserialization() {
     let error = ConfigError::from_data_conversion_error(
         "payload",
-        DataConversionError::JsonDeserializationError("invalid json".to_string()),
+        DataConversionError::JsonDeserializationError(
+            "invalid json".to_string(),
+        ),
     );
 
     assert!(matches!(
@@ -149,7 +154,9 @@ fn test_index_out_of_bounds_error() {
 
 #[test]
 fn test_substitution_error() {
-    let error = ConfigError::SubstitutionError("Undefined variable: ${VAR}".to_string());
+    let error = ConfigError::SubstitutionError(
+        "Undefined variable: ${VAR}".to_string(),
+    );
     let error_msg = format!("{}", error);
     assert!(error_msg.contains("Variable substitution failed"));
     assert!(error_msg.contains("${VAR}"));
@@ -226,7 +233,11 @@ fn test_from_value_error_type_mismatch() {
     };
     let config_err: ConfigError = value_err.into();
     match config_err {
-        ConfigError::TypeMismatch { key, expected, actual } => {
+        ConfigError::TypeMismatch {
+            key,
+            expected,
+            actual,
+        } => {
             assert_eq!(key, "");
             assert_eq!(expected, DataType::Bool);
             assert_eq!(actual, DataType::Int32);
@@ -253,7 +264,8 @@ fn test_from_value_error_conversion_failed() {
 
 #[test]
 fn test_from_value_error_conversion_error() {
-    let value_err = ValueError::ConversionError("Custom error message".to_string());
+    let value_err =
+        ValueError::ConversionError("Custom error message".to_string());
     let config_err: ConfigError = value_err.into();
     match config_err {
         ConfigError::ConversionError { key, message } => {
@@ -296,7 +308,11 @@ fn test_from_keyed_value_error_type_mismatch() {
     let config_err = ConfigError::from(("server.port", value_err));
 
     match config_err {
-        ConfigError::TypeMismatch { key, expected, actual } => {
+        ConfigError::TypeMismatch {
+            key,
+            expected,
+            actual,
+        } => {
             assert_eq!(key, "server.port");
             assert_eq!(expected, DataType::Int32);
             assert_eq!(actual, DataType::String);
@@ -352,7 +368,8 @@ fn test_from_keyed_value_error_index_out_of_bounds() {
 
 #[test]
 fn test_from_keyed_value_error_json_serialization_error() {
-    let value_err = ValueError::JsonSerializationError("unsupported".to_string());
+    let value_err =
+        ValueError::JsonSerializationError("unsupported".to_string());
     let config_err = ConfigError::from(("payload", value_err));
 
     match config_err {
@@ -367,7 +384,8 @@ fn test_from_keyed_value_error_json_serialization_error() {
 
 #[test]
 fn test_from_keyed_value_error_json_deserialization_error() {
-    let value_err = ValueError::JsonDeserializationError("invalid json".to_string());
+    let value_err =
+        ValueError::JsonDeserializationError("invalid json".to_string());
     let config_err = ConfigError::from(("payload", value_err));
 
     match config_err {

@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 
 use std::marker::PhantomData;
 
@@ -15,7 +13,6 @@ use crate::options::ConfigReadOptions;
 use super::config_field_builder::ConfigFieldBuilder;
 
 /// Builder state before the field name is provided.
-///
 pub struct ConfigFieldNameBuilder<T> {
     /// The fallback aliases.
     pub(crate) aliases: Vec<String>,
@@ -28,7 +25,8 @@ pub struct ConfigFieldNameBuilder<T> {
 }
 
 impl<T> ConfigFieldNameBuilder<T> {
-    /// Sets the primary field name and unlocks [`super::ConfigFieldBuilder::build`].
+    /// Sets the primary field name and unlocks
+    /// [`super::ConfigFieldBuilder::build`].
     ///
     /// # Parameters
     ///

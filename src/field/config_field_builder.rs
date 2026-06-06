@@ -1,19 +1,16 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 
 use crate::options::ConfigReadOptions;
 
 use super::config_field::ConfigField;
 
 /// Builder state after the field name is provided.
-///
 pub struct ConfigFieldBuilder<T> {
     /// The primary field name.
     pub(crate) name: String,

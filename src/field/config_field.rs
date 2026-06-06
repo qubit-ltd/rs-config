@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 
 use std::marker::PhantomData;
 
@@ -15,7 +13,6 @@ use crate::options::ConfigReadOptions;
 use super::config_field_name_builder::ConfigFieldNameBuilder;
 
 /// Field-level read declaration for [`crate::ConfigReader::read`].
-///
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConfigField<T> {
     /// The primary field name.

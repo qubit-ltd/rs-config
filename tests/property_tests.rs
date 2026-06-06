@@ -1,16 +1,14 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! # Property Unit Tests
 //!
-//! Tests all public methods of the Property struct, including methods delegated to MultiValues.
-//!
+//! Tests all public methods of the Property struct, including methods delegated
+//! to MultiValues.
 
 use bigdecimal::BigDecimal;
 use chrono::{
@@ -41,7 +39,8 @@ fn test_property_new() {
 
 #[test]
 fn test_property_with_value() {
-    let value = MultiValues::String(vec!["hello".to_string(), "world".to_string()]);
+    let value =
+        MultiValues::String(vec!["hello".to_string(), "world".to_string()]);
     let prop = Property::with_value("test.string", value);
 
     assert_eq!(prop.name(), "test.string");
@@ -409,7 +408,9 @@ fn test_property_int32_set() {
 #[test]
 fn test_property_int64_get() {
     let mut prop = Property::new("test");
-    prop.set_value(MultiValues::Int64(vec![1000000000, 2000000000, 3000000000]));
+    prop.set_value(MultiValues::Int64(vec![
+        1000000000, 2000000000, 3000000000,
+    ]));
 
     let values = prop.get_int64s().unwrap();
     assert_eq!(values, &[1000000000, 2000000000, 3000000000]);
@@ -467,7 +468,10 @@ fn test_property_int128_get() {
 #[test]
 fn test_property_int128_get_first() {
     let mut prop = Property::new("test");
-    let values = vec![123456789012345678901234567890_i128, 987654321098765432109876543210_i128];
+    let values = vec![
+        123456789012345678901234567890_i128,
+        987654321098765432109876543210_i128,
+    ];
     prop.set_value(MultiValues::Int128(values));
 
     let first = prop.get_first_int128().unwrap();
@@ -477,10 +481,14 @@ fn test_property_int128_get_first() {
 #[test]
 fn test_property_int128_add() {
     let mut prop = Property::new("test");
-    prop.set_value(MultiValues::Int128(vec![1000000000000000000000000000000_i128]));
+    prop.set_value(MultiValues::Int128(vec![
+        1000000000000000000000000000000_i128,
+    ]));
 
-    prop.add_int128(2000000000000000000000000000000_i128).unwrap();
-    prop.add_int128(3000000000000000000000000000000_i128).unwrap();
+    prop.add_int128(2000000000000000000000000000000_i128)
+        .unwrap();
+    prop.add_int128(3000000000000000000000000000000_i128)
+        .unwrap();
 
     let values = prop.get_int128s().unwrap();
     assert_eq!(values.len(), 3);
@@ -494,7 +502,8 @@ fn test_property_int128_set() {
         2000000000000000000000000000000_i128,
     ]));
 
-    prop.set_int128(9999999999999999999999999999999_i128).unwrap();
+    prop.set_int128(9999999999999999999999999999999_i128)
+        .unwrap();
     let values = prop.get_int128s().unwrap();
     assert_eq!(values.len(), 1);
 }
@@ -638,7 +647,9 @@ fn test_property_uint32_set() {
 #[test]
 fn test_property_uint64_get() {
     let mut prop = Property::new("test");
-    prop.set_value(MultiValues::UInt64(vec![1000000000, 2000000000, 3000000000]));
+    prop.set_value(MultiValues::UInt64(vec![
+        1000000000, 2000000000, 3000000000,
+    ]));
 
     let values = prop.get_uint64s().unwrap();
     assert_eq!(values, &[1000000000, 2000000000, 3000000000]);
@@ -696,7 +707,10 @@ fn test_property_uint128_get() {
 #[test]
 fn test_property_uint128_get_first() {
     let mut prop = Property::new("test");
-    let values = vec![123456789012345678901234567890_u128, 987654321098765432109876543210_u128];
+    let values = vec![
+        123456789012345678901234567890_u128,
+        987654321098765432109876543210_u128,
+    ];
     prop.set_value(MultiValues::UInt128(values));
 
     let first = prop.get_first_uint128().unwrap();
@@ -706,10 +720,14 @@ fn test_property_uint128_get_first() {
 #[test]
 fn test_property_uint128_add() {
     let mut prop = Property::new("test");
-    prop.set_value(MultiValues::UInt128(vec![1000000000000000000000000000000_u128]));
+    prop.set_value(MultiValues::UInt128(vec![
+        1000000000000000000000000000000_u128,
+    ]));
 
-    prop.add_uint128(2000000000000000000000000000000_u128).unwrap();
-    prop.add_uint128(3000000000000000000000000000000_u128).unwrap();
+    prop.add_uint128(2000000000000000000000000000000_u128)
+        .unwrap();
+    prop.add_uint128(3000000000000000000000000000000_u128)
+        .unwrap();
 
     let values = prop.get_uint128s().unwrap();
     assert_eq!(values.len(), 3);
@@ -723,7 +741,8 @@ fn test_property_uint128_set() {
         2000000000000000000000000000000_u128,
     ]));
 
-    prop.set_uint128(340282366920938463463374607431768211455_u128).unwrap();
+    prop.set_uint128(340282366920938463463374607431768211455_u128)
+        .unwrap();
     let values = prop.get_uint128s().unwrap();
     assert_eq!(values.len(), 1);
 }
@@ -836,7 +855,10 @@ fn test_property_string_get() {
 #[test]
 fn test_property_string_get_first() {
     let mut prop = Property::new("test");
-    prop.set_value(MultiValues::String(vec!["first".to_string(), "second".to_string()]));
+    prop.set_value(MultiValues::String(vec![
+        "first".to_string(),
+        "second".to_string(),
+    ]));
 
     let first = prop.get_first_string().unwrap();
     assert_eq!(first, "first");
@@ -857,7 +879,10 @@ fn test_property_string_add() {
 #[test]
 fn test_property_string_set() {
     let mut prop = Property::new("test");
-    prop.set_value(MultiValues::String(vec!["hello".to_string(), "world".to_string()]));
+    prop.set_value(MultiValues::String(vec![
+        "hello".to_string(),
+        "world".to_string(),
+    ]));
 
     prop.set_string("rust".to_string()).unwrap();
     let values = prop.get_strings().unwrap();
@@ -1104,7 +1129,11 @@ fn test_property_bigdecimal_get() {
     let bd1 = BigDecimal::from_str("123.456789").unwrap();
     let bd2 = BigDecimal::from_str("987.654321").unwrap();
     let bd3 = BigDecimal::from_str("111.222333").unwrap();
-    prop.set_value(MultiValues::BigDecimal(vec![bd1.clone(), bd2.clone(), bd3.clone()]));
+    prop.set_value(MultiValues::BigDecimal(vec![
+        bd1.clone(),
+        bd2.clone(),
+        bd3.clone(),
+    ]));
 
     let values = prop.get_bigdecimals().unwrap();
     assert_eq!(values, &[bd1, bd2, bd3]);
@@ -1248,7 +1277,10 @@ fn test_property_generic_get_float64() {
 #[test]
 fn test_property_generic_get_string() {
     let mut prop = Property::new("test");
-    prop.set_value(MultiValues::String(vec!["hello".to_string(), "world".to_string()]));
+    prop.set_value(MultiValues::String(vec![
+        "hello".to_string(),
+        "world".to_string(),
+    ]));
 
     let values: Vec<String> = prop.get().unwrap();
     assert_eq!(values, vec!["hello", "world"]);
@@ -1261,7 +1293,10 @@ fn test_property_generic_get_bigint() {
     let mut prop = Property::new("test");
     let bigint1 = BigInt::from(12345678901234567890_i128);
     let bigint2 = BigInt::from(98765432109876543210_i128);
-    prop.set_value(MultiValues::BigInteger(vec![bigint1.clone(), bigint2.clone()]));
+    prop.set_value(MultiValues::BigInteger(vec![
+        bigint1.clone(),
+        bigint2.clone(),
+    ]));
 
     let values: Vec<BigInt> = prop.get().unwrap();
     assert_eq!(values, vec![bigint1, bigint2]);
@@ -1312,7 +1347,10 @@ fn test_property_generic_get_first_int32() {
 #[test]
 fn test_property_generic_get_first_string() {
     let mut prop = Property::new("test");
-    prop.set_value(MultiValues::String(vec!["first".to_string(), "second".to_string()]));
+    prop.set_value(MultiValues::String(vec![
+        "first".to_string(),
+        "second".to_string(),
+    ]));
 
     let first: String = prop.get_first().unwrap();
     assert_eq!(first, "first");
@@ -1400,7 +1438,8 @@ fn test_property_generic_set_vec_string() {
     let mut prop = Property::new("test");
     prop.set_value(MultiValues::String(vec!["old".to_string()]));
 
-    prop.set(vec!["new1".to_string(), "new2".to_string()]).unwrap();
+    prop.set(vec!["new1".to_string(), "new2".to_string()])
+        .unwrap();
     let values: Vec<String> = prop.get().unwrap();
     assert_eq!(values, vec!["new1", "new2"]);
 }
@@ -1528,7 +1567,8 @@ fn test_property_generic_add_vec_string() {
     let mut prop = Property::new("test");
     prop.set_value(MultiValues::String(vec!["hello".to_string()]));
 
-    prop.add(vec!["world".to_string(), "rust".to_string()]).unwrap();
+    prop.add(vec!["world".to_string(), "rust".to_string()])
+        .unwrap();
     let values: Vec<String> = prop.get().unwrap();
     assert_eq!(values, vec!["hello", "world", "rust"]);
 }
@@ -1615,7 +1655,10 @@ fn test_property_large_collection() {
 #[test]
 fn test_property_clone() {
     let mut prop1 = Property::new("test");
-    prop1.set_value(MultiValues::String(vec!["hello".to_string(), "world".to_string()]));
+    prop1.set_value(MultiValues::String(vec![
+        "hello".to_string(),
+        "world".to_string(),
+    ]));
     prop1.set_description(Some("Test property".to_string()));
     prop1.set_final(true);
 

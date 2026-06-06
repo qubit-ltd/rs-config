@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 #![cfg(feature = "source-toml")]
 
 //! # `TomlConfigSource` tests
@@ -89,7 +87,8 @@ mod test_toml_config_source {
 
     #[test]
     fn test_load_nonexistent_toml_file_returns_error() {
-        let source = TomlConfigSource::from_file("/nonexistent/path/config.toml");
+        let source =
+            TomlConfigSource::from_file("/nonexistent/path/config.toml");
         let mut config = Config::new();
         let result = source.load(&mut config);
         assert!(result.is_err());
@@ -146,7 +145,10 @@ pool = 5
         assert_eq!(config.get::<i64>("value").unwrap(), 42);
         // Boolean values are stored as bool
         assert!(!config.get::<bool>("enabled").unwrap());
-        assert_eq!(config.get_string("db.url").unwrap(), "postgres://localhost/mydb");
+        assert_eq!(
+            config.get_string("db.url").unwrap(),
+            "postgres://localhost/mydb"
+        );
         // Integer values are stored as i64
         assert_eq!(config.get::<i64>("db.pool").unwrap(), 5);
     }
@@ -250,7 +252,10 @@ mod test_toml_edge_cases {
         source.load(&mut config).unwrap();
 
         assert!(config.contains("empty"));
-        assert_eq!(config.get_string_list("empty").unwrap(), Vec::<String>::new());
+        assert_eq!(
+            config.get_string_list("empty").unwrap(),
+            Vec::<String>::new()
+        );
         assert_eq!(config.get_list::<i64>("empty").unwrap(), Vec::<i64>::new());
     }
 
@@ -322,7 +327,11 @@ mod test_toml_edge_cases {
     fn test_toml_mixed_type_array_fallback() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("mixed.toml");
-        std::fs::write(&path, "tags = [1, 2.5, true, \"a\", 2026-04-09T12:00:00Z]\n").unwrap();
+        std::fs::write(
+            &path,
+            "tags = [1, 2.5, true, \"a\", 2026-04-09T12:00:00Z]\n",
+        )
+        .unwrap();
         let source = TomlConfigSource::from_file(&path);
         let mut config = Config::new();
         source.load(&mut config).unwrap();
@@ -364,18 +373,26 @@ dates = [2026-04-09T12:00:00Z, 2026-04-10T12:00:00Z]
 
         assert_eq!(config.get_list::<i64>("ints").unwrap(), vec![1, 2, 3]);
         assert_eq!(config.get_list::<f64>("floats").unwrap(), vec![1.25, 2.5]);
-        assert_eq!(config.get_list::<bool>("flags").unwrap(), vec![true, false]);
+        assert_eq!(
+            config.get_list::<bool>("flags").unwrap(),
+            vec![true, false]
+        );
         let dates = config.get_string_list("dates").unwrap();
         assert_eq!(dates.len(), 2);
         assert!(dates[0].contains("2026-04-09"));
     }
 
-    // ---- toml: toml_scalar_to_string for float/bool/datetime in mixed fallback ----
+    // ---- toml: toml_scalar_to_string for float/bool/datetime in mixed
+    // fallback ----
     #[test]
     fn test_toml_array_of_tables_nested_error() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("nested_tbl.toml");
-        std::fs::write(&path, "[[servers]]\nhost = \"a\"\n\n[[servers]]\nhost = \"b\"\n").unwrap();
+        std::fs::write(
+            &path,
+            "[[servers]]\nhost = \"a\"\n\n[[servers]]\nhost = \"b\"\n",
+        )
+        .unwrap();
         let source = TomlConfigSource::from_file(&path);
         let mut config = Config::new();
         let result = source.load(&mut config);
@@ -397,7 +414,12 @@ locked_datetime = 1979-05-27T07:32:00Z
         )
         .unwrap();
 
-        for key in ["locked_int", "locked_float", "locked_bool", "locked_datetime"] {
+        for key in [
+            "locked_int",
+            "locked_float",
+            "locked_bool",
+            "locked_datetime",
+        ] {
             let source = TomlConfigSource::from_file(&path);
             let mut config = Config::new();
             config.set(key, "old").unwrap();
