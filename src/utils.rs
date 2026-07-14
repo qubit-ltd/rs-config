@@ -12,27 +12,14 @@
 
 use regex::Regex;
 use serde_json::map::Entry;
-use serde_json::{
-    Map,
-    Number,
-    Value,
-};
+use serde_json::{Map, Value};
 #[cfg(any(feature = "source-toml", feature = "source-yaml"))]
 use std::collections::HashSet;
 use std::sync::OnceLock;
 
-use qubit_serde::serde::duration_with_unit;
-use qubit_value::{
-    MultiValues,
-    ValueError,
-};
+use qubit_value::ValueError;
 
-use super::{
-    ConfigError,
-    ConfigReader,
-    ConfigResult,
-    Property,
-};
+use super::{ConfigError, ConfigReader, ConfigResult, Property};
 
 /// Regular expression pattern for variables
 ///
@@ -43,8 +30,7 @@ static VARIABLE_PATTERN: OnceLock<Regex> = OnceLock::new();
 #[inline]
 fn get_variable_pattern() -> &'static Regex {
     VARIABLE_PATTERN.get_or_init(|| {
-        Regex::new(r"\$\{([^}]+)\}")
-            .expect("Failed to compile variable pattern regex")
+        Regex::new(r"\$\{([^}]+)\}").expect("Failed to compile variable pattern regex")
     })
 }
 
@@ -73,10 +59,7 @@ pub(crate) fn map_value_error(key: &str, err: ValueError) -> ConfigError {
 ///
 /// Returns [`ConfigError::KeyConflict`] when the normalized key is empty or has
 /// malformed dotted segments.
-pub(crate) fn validate_normalized_config_key(
-    key: &str,
-    origin: &str,
-) -> ConfigResult<()> {
+pub(crate) fn validate_normalized_config_key(key: &str, origin: &str) -> ConfigResult<()> {
     if key.is_empty() {
         return Err(ConfigError::KeyConflict {
             path: key.to_string(),
@@ -143,7 +126,7 @@ pub(crate) fn substitute_variables<R: ConfigReader + ?Sized>(
 
 /// Replaces variables using a primary reader and a fallback reader.
 ///
-/// The primary reader is checked first. Missing or empty values fall back to
+/// The primary reader is checked first. Absent or unset values fall back to
 /// the fallback reader, then to environment variables only when the active
 /// read options explicitly enable environment fallback. Type and conversion
 /// errors in the primary reader are returned directly.
@@ -169,13 +152,7 @@ fn substitute_variables_by(
 ) -> ConfigResult<String> {
     let pattern = get_variable_pattern();
     let mut stack = Vec::new();
-    substitute_variables_recursive(
-        value,
-        max_depth,
-        pattern,
-        &mut stack,
-        &mut resolve,
-    )
+    substitute_variables_recursive(value, max_depth, pattern, &mut stack, &mut resolve)
 }
 
 /// Recursively expands variables while tracking the active variable chain.
@@ -210,9 +187,8 @@ fn substitute_variables_recursive(
 
         stack.push(var_name.to_string());
         let raw_value = resolve(var_name)?;
-        let expanded = substitute_variables_recursive(
-            &raw_value, max_depth, pattern, stack, resolve,
-        )?;
+        let expanded =
+            substitute_variables_recursive(&raw_value, max_depth, pattern, stack, resolve)?;
         stack.pop();
         result.push_str(&expanded);
         last_end = full_match.end();
@@ -224,7 +200,7 @@ fn substitute_variables_recursive(
 /// Finds the value of a variable
 ///
 /// First looks in the configuration. It falls back to environment variables
-/// only when the key is missing or explicitly empty/null in config and the
+/// only when the key is absent or unset/null in config and the
 /// active read options explicitly enable environment fallback.
 ///
 /// # Parameters
@@ -240,20 +216,13 @@ fn find_variable_value<R: ConfigReader + ?Sized>(
     config: &R,
 ) -> ConfigResult<String> {
     match config.get_property(var_name) {
-        Some(property) if !property.is_empty() => {
-            match property.value().to::<String>() {
-                Ok(value) => Ok(value),
-                Err(error) => Err(map_value_error(var_name, error)),
-            }
-        }
-        Some(_) | None
-            if config.read_options().is_env_variable_substitution_enabled() =>
-        {
+        Some(property) if !property.is_unset() => match property.value().to::<String>() {
+            Ok(value) => Ok(value),
+            Err(error) => Err(map_value_error(var_name, error)),
+        },
+        Some(_) | None if config.read_options().is_env_variable_substitution_enabled() => {
             std::env::var(var_name).map_err(|_| {
-                ConfigError::SubstitutionError(format!(
-                    "Cannot resolve variable: {}",
-                    var_name
-                ))
+                ConfigError::SubstitutionError(format!("Cannot resolve variable: {}", var_name))
             })
         }
         Some(_) | None => Err(ConfigError::SubstitutionError(format!(
@@ -265,24 +234,19 @@ fn find_variable_value<R: ConfigReader + ?Sized>(
 
 /// Finds a variable value from `primary`, then `fallback`.
 ///
-/// Missing or empty values in `primary` are looked up in `fallback`. Other
+/// Absent or unset values in `primary` are looked up in `fallback`. Other
 /// errors from `primary` are returned directly so fallback values do not mask
 /// invalid local configuration.
-fn find_variable_value_with_fallback<
-    P: ConfigReader + ?Sized,
-    F: ConfigReader + ?Sized,
->(
+fn find_variable_value_with_fallback<P: ConfigReader + ?Sized, F: ConfigReader + ?Sized>(
     var_name: &str,
     primary: &P,
     fallback: &F,
 ) -> ConfigResult<String> {
     match primary.get_property(var_name) {
-        Some(property) if !property.is_empty() => {
-            match property.value().to::<String>() {
-                Ok(value) => Ok(value),
-                Err(error) => Err(map_value_error(var_name, error)),
-            }
-        }
+        Some(property) if !property.is_unset() => match property.value().to::<String>() {
+            Ok(value) => Ok(value),
+            Err(error) => Err(map_value_error(var_name, error)),
+        },
         Some(_) | None => find_variable_value(var_name, fallback),
     }
 }
@@ -400,126 +364,16 @@ fn json_value_kind(value: &Value) -> &'static str {
 ///
 /// # Returns
 ///
-/// JSON null, scalar, array, or object matching the stored [`MultiValues`].
-pub(crate) fn property_to_json_value(prop: &Property) -> Value {
-    let mv = prop.value();
-
-    match mv {
-        MultiValues::Empty(_) => Value::Null,
-        MultiValues::Bool(v) => {
-            if v.len() == 1 {
-                Value::Bool(v[0])
-            } else {
-                Value::Array(v.iter().map(|b| Value::Bool(*b)).collect())
-            }
-        }
-        MultiValues::Int8(v) => {
-            scalar_or_array(v, |x| Value::Number((*x).into()))
-        }
-        MultiValues::Int16(v) => {
-            scalar_or_array(v, |x| Value::Number((*x).into()))
-        }
-        MultiValues::Int32(v) => {
-            scalar_or_array(v, |x| Value::Number((*x).into()))
-        }
-        MultiValues::Int64(v) => {
-            scalar_or_array(v, |x| Value::Number((*x).into()))
-        }
-        MultiValues::IntSize(v) => {
-            scalar_or_array(v, |x| Value::Number(Number::from(*x as i64)))
-        }
-        MultiValues::UInt8(v) => {
-            scalar_or_array(v, |x| Value::Number((*x).into()))
-        }
-        MultiValues::UInt16(v) => {
-            scalar_or_array(v, |x| Value::Number((*x).into()))
-        }
-        MultiValues::UInt32(v) => {
-            scalar_or_array(v, |x| Value::Number((*x).into()))
-        }
-        MultiValues::UInt64(v) => {
-            scalar_or_array(v, |x| Value::Number((*x).into()))
-        }
-        MultiValues::UIntSize(v) => {
-            scalar_or_array(v, |x| Value::Number(Number::from(*x as u64)))
-        }
-        MultiValues::Float32(v) => scalar_or_array(v, |x| {
-            Number::from_f64(*x as f64)
-                .map(Value::Number)
-                .unwrap_or(Value::Null)
-        }),
-        MultiValues::Float64(v) => scalar_or_array(v, |x| {
-            Number::from_f64(*x)
-                .map(Value::Number)
-                .unwrap_or(Value::Null)
-        }),
-        MultiValues::String(v) => {
-            scalar_or_array(v, |x| Value::String(x.clone()))
-        }
-        MultiValues::Duration(v) => {
-            scalar_or_array(v, |x| Value::String(duration_with_unit::format(x)))
-        }
-        MultiValues::Url(v) => {
-            scalar_or_array(v, |x| Value::String(x.to_string()))
-        }
-        MultiValues::StringMap(v) => {
-            if v.len() == 1 {
-                let obj: Map<String, Value> = v[0]
-                    .iter()
-                    .map(|(k, val)| (k.clone(), Value::String(val.clone())))
-                    .collect();
-                Value::Object(obj)
-            } else {
-                Value::Array(
-                    v.iter()
-                        .map(|m| {
-                            let obj: Map<String, Value> = m
-                                .iter()
-                                .map(|(k, val)| {
-                                    (k.clone(), Value::String(val.clone()))
-                                })
-                                .collect();
-                            Value::Object(obj)
-                        })
-                        .collect(),
-                )
-            }
-        }
-        MultiValues::Json(v) => {
-            if v.len() == 1 {
-                v[0].clone()
-            } else {
-                Value::Array(v.clone())
-            }
-        }
-        MultiValues::Char(v) => {
-            scalar_or_array(v, |x| Value::String(x.to_string()))
-        }
-        MultiValues::BigInteger(v) => {
-            scalar_or_array(v, |x| Value::String(x.to_string()))
-        }
-        MultiValues::BigDecimal(v) => {
-            scalar_or_array(v, |x| Value::String(x.to_string()))
-        }
-        MultiValues::DateTime(v) => {
-            scalar_or_array(v, |x| Value::String(x.to_string()))
-        }
-        MultiValues::Date(v) => {
-            scalar_or_array(v, |x| Value::String(x.to_string()))
-        }
-        MultiValues::Time(v) => {
-            scalar_or_array(v, |x| Value::String(x.to_string()))
-        }
-        MultiValues::Instant(v) => {
-            scalar_or_array(v, |x| Value::String(x.to_string()))
-        }
-        MultiValues::Int128(v) => {
-            scalar_or_array(v, |x| Value::String(x.to_string()))
-        }
-        MultiValues::UInt128(v) => {
-            scalar_or_array(v, |x| Value::String(x.to_string()))
-        }
-    }
+/// JSON null, scalar, array, or object matching the stored value.
+///
+/// # Errors
+///
+/// Returns a keyed conversion error when the property cannot be represented
+/// by JSON, including non-finite floating-point values.
+pub(crate) fn property_to_json_value(prop: &Property) -> ConfigResult<Value> {
+    prop.value()
+        .to_json_value()
+        .map_err(|error| map_value_error(prop.name(), error))
 }
 
 /// Applies variable substitution to every JSON string leaf with fallback scope.
@@ -549,42 +403,16 @@ pub(crate) fn substitute_json_strings_with_fallback<
         }
         Value::Array(values) => {
             for value in values {
-                substitute_json_strings_with_fallback(
-                    value, primary, fallback,
-                )?;
+                substitute_json_strings_with_fallback(value, primary, fallback)?;
             }
         }
         Value::Object(map) => {
             for value in map.values_mut() {
-                substitute_json_strings_with_fallback(
-                    value, primary, fallback,
-                )?;
+                substitute_json_strings_with_fallback(value, primary, fallback)?;
             }
         }
         _ => {}
     }
 
     Ok(())
-}
-
-/// If `v` has one element, returns `f(&v[0])`; otherwise a JSON array of `f`
-/// applied to each item.
-///
-/// # Parameters
-///
-/// * `v` - Multi-values slice from a [`Property`].
-/// * `f` - Maps each element to [`serde_json::Value`].
-///
-/// # Returns
-///
-/// A scalar or array [`serde_json::Value`].
-fn scalar_or_array<T, F>(v: &[T], f: F) -> Value
-where
-    F: Fn(&T) -> Value,
-{
-    if v.len() == 1 {
-        f(&v[0])
-    } else {
-        Value::Array(v.iter().map(f).collect())
-    }
 }

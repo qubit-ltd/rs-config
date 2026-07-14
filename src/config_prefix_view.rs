@@ -9,20 +9,13 @@
 
 use std::borrow::Cow;
 
-use qubit_value::{
-    MultiValues,
-    ValueError,
-};
+use qubit_datatype::{DataConvertTo, DataConverter, DataTypeOf};
+use qubit_value::{MultiValues, ValueError};
 
 use crate::config::Config;
 use crate::config_reader::ConfigReader;
-use crate::from::FromConfig;
 use crate::options::ConfigReadOptions;
-use crate::{
-    ConfigName,
-    ConfigResult,
-    Property,
-};
+use crate::{ConfigName, ConfigResult, Property};
 
 /// Read-only **prefix** view over a [`Config`]: key lookups use a logical key
 /// prefix.
@@ -93,10 +86,7 @@ impl<'a> ConfigPrefixView<'a> {
         } else if child.is_empty() {
             ConfigPrefixView::new(self.config, self.prefix.as_str())
         } else {
-            ConfigPrefixView::new(
-                self.config,
-                &format!("{}.{}", self.prefix, child),
-            )
+            ConfigPrefixView::new(self.config, &format!("{}.{}", self.prefix, child))
         }
     }
 
@@ -130,14 +120,10 @@ impl<'a> ConfigPrefixView<'a> {
         Cow::Owned(format!("{}.{}", self.prefix, name))
     }
 
-    fn visible_entries<'b>(
-        &'b self,
-    ) -> Box<dyn Iterator<Item = (&'b str, &'b Property)> + 'b> {
+    fn visible_entries<'b>(&'b self) -> Box<dyn Iterator<Item = (&'b str, &'b Property)> + 'b> {
         let prefix = self.prefix.as_str();
         if prefix.is_empty() {
-            return Box::new(
-                self.config.properties.iter().map(|(k, v)| (k.as_str(), v)),
-            );
+            return Box::new(self.config.properties.iter().map(|(k, v)| (k.as_str(), v)));
         }
         let full_prefix = self
             .full_prefix
@@ -225,7 +211,8 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
 
     fn get_list<T>(&self, name: impl ConfigName) -> ConfigResult<Vec<T>>
     where
-        T: FromConfig,
+        T: DataTypeOf,
+        for<'b> DataConverter<'b>: DataConvertTo<T>,
     {
         name.with_config_name(|name| {
             let key = self.resolve_key_cow(name);
@@ -243,12 +230,10 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
         })
     }
 
-    fn get_optional_list<T>(
-        &self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Option<Vec<T>>>
+    fn get_optional_list<T>(&self, name: impl ConfigName) -> ConfigResult<Option<Vec<T>>>
     where
-        T: FromConfig,
+        T: DataTypeOf,
+        for<'b> DataConverter<'b>: DataConvertTo<T>,
     {
         name.with_config_name(|name| {
             let key = self.resolve_key_cow(name);
@@ -270,9 +255,7 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
         )
     }
 
-    fn iter<'b>(
-        &'b self,
-    ) -> Box<dyn Iterator<Item = (&'b str, &'b Property)> + 'b> {
+    fn iter<'b>(&'b self) -> Box<dyn Iterator<Item = (&'b str, &'b Property)> + 'b> {
         self.visible_entries()
     }
 
@@ -283,11 +266,7 @@ impl<'a> ConfigReader for ConfigPrefixView<'a> {
         })
     }
 
-    fn subconfig(
-        &self,
-        prefix: &str,
-        strip_prefix: bool,
-    ) -> ConfigResult<Config> {
+    fn subconfig(&self, prefix: &str, strip_prefix: bool) -> ConfigResult<Config> {
         let full = self.effective_root_prefix(prefix);
         self.config.subconfig(&full, strip_prefix)
     }

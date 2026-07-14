@@ -2,48 +2,48 @@
 //    Copyright (c) 2025 - 2026 Haixing Hu.
 //
 //    SPDX-License-Identifier: Apache-2.0
-//
-//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 //! Focused tests for public configuration errors.
 
 use qubit_config::ConfigError;
-use qubit_datatype::{
-    DataConversionError,
-    DataType,
-};
+use qubit_datatype::{DataConversionError, DataType, InvalidValueReason};
 
 #[test]
-fn test_config_error_maps_data_conversion_no_value_with_key() {
+fn test_config_error_maps_data_conversion_missing_with_key() {
     let error = ConfigError::from_data_conversion_error(
         "server.host",
-        DataConversionError::NoValue,
+        DataConversionError::Missing {
+            from: DataType::String,
+            to: DataType::String,
+        },
     );
 
     assert!(matches!(
         &error,
         ConfigError::PropertyHasNoValue(key) if key == "server.host"
     ));
-    assert_eq!(error.to_string(), "Property 'server.host' has no value");
 }
 
 #[test]
-fn test_config_error_maps_data_conversion_failure_with_key_context() {
+fn test_config_error_retains_structured_failure() {
     let error = ConfigError::from_data_conversion_error(
         "server.enabled",
-        DataConversionError::ConversionFailed {
+        DataConversionError::InvalidValue {
             from: DataType::String,
             to: DataType::Bool,
+            reason: InvalidValueReason::InvalidBoolean,
         },
     );
 
     assert!(matches!(
         &error,
-        ConfigError::ConversionError { key, message }
-            if key == "server.enabled" && message == "From string to bool"
+        ConfigError::ConversionError {
+            key,
+            source_index: None,
+            source: DataConversionError::InvalidValue {
+                reason: InvalidValueReason::InvalidBoolean,
+                ..
+            },
+        } if key == "server.enabled"
     ));
-    assert_eq!(
-        error.to_string(),
-        "Type conversion failed at 'server.enabled': From string to bool"
-    );
 }

@@ -10,13 +10,8 @@
 use std::error::Error;
 
 use qubit_config::{
-    Config,
-    ConfigError,
-    Property,
-    options::{
-        BlankStringPolicy,
-        ConfigReadOptions,
-    },
+    Config, ConfigError, Property,
+    options::{BlankStringPolicy, ConfigReadOptions},
 };
 use qubit_datatype::DataType;
 use qubit_value::MultiValues;
@@ -51,16 +46,12 @@ fn test_deserialize_message_error_has_path_and_no_source() {
 fn test_deserialize_config_error_preserves_source() {
     let mut config = Config::new();
     config.set_read_options(
-        ConfigReadOptions::default()
-            .with_blank_string_policy(BlankStringPolicy::Reject),
+        ConfigReadOptions::default().with_blank_string_policy(BlankStringPolicy::Reject),
     );
     config
         .insert_property(
             "app.value",
-            Property::with_value(
-                "app.value",
-                MultiValues::Json(vec![serde_json::json!(" ")]),
-            ),
+            Property::with_value("app.value", MultiValues::Json(vec![serde_json::json!(" ")])),
         )
         .expect("inserting property should succeed");
 

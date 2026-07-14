@@ -12,14 +12,8 @@
 #![allow(private_bounds)]
 
 use serde::de::DeserializeOwned;
-use serde::{
-    Deserialize,
-    Serialize,
-};
-use serde_json::{
-    Map,
-    Value as JsonValue,
-};
+use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value as JsonValue};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -29,10 +23,7 @@ use crate::config_reader::ConfigReader;
 use crate::config_value_deserializer::ConfigValueDeserializer;
 use crate::constants::DEFAULT_MAX_SUBSTITUTION_DEPTH;
 use crate::field::ConfigField;
-use crate::from::{
-    FromConfig,
-    IntoConfigDefault,
-};
+use crate::from::{FromConfig, IntoConfigDefault};
 use crate::options::ConfigReadOptions;
 #[cfg(feature = "source-env-file")]
 use crate::source::EnvFileConfigSource;
@@ -40,29 +31,11 @@ use crate::source::EnvFileConfigSource;
 use crate::source::TomlConfigSource;
 #[cfg(feature = "source-yaml")]
 use crate::source::YamlConfigSource;
-use crate::source::{
-    ConfigSource,
-    EnvConfigSource,
-    PropertiesConfigSource,
-};
+use crate::source::{ConfigSource, EnvConfigSource, PropertiesConfigSource};
 use crate::utils;
-use crate::{
-    ConfigError,
-    ConfigName,
-    ConfigNames,
-    ConfigResult,
-    Property,
-};
-use qubit_datatype::{
-    DataConvertTo,
-    DataConverter,
-    DataType,
-};
-use qubit_value::{
-    MultiValues,
-    Value as QubitValue,
-    ValueError,
-};
+use crate::{ConfigError, ConfigName, ConfigNames, ConfigResult, Property};
+use qubit_datatype::{DataConvertTo, DataConverter, DataType, DataTypeOf};
+use qubit_value::{MultiValues, Value as QubitValue, ValueError};
 
 pub(crate) fn convert_deserialize_number<T>(
     key: &str,
@@ -112,8 +85,17 @@ fn scalar_string_is_missing_for_deserialize(
     };
     match options.conversion_options().string.normalize(&value) {
         Ok(_) => Ok(false),
-        Err(qubit_datatype::DataConversionError::NoValue) => Ok(true),
-        Err(error) => Err(ConfigError::from_data_conversion_error(key, error)),
+        Err(qubit_datatype::StringNormalizationError::Missing) => Ok(true),
+        Err(qubit_datatype::StringNormalizationError::BlankRejected) => {
+            Err(ConfigError::from_data_conversion_error(
+                key,
+                qubit_datatype::DataConversionError::InvalidValue {
+                    from: qubit_datatype::DataType::String,
+                    to: qubit_datatype::DataType::String,
+                    reason: qubit_datatype::InvalidValueReason::BlankRejected,
+                },
+            ))
+        }
     }
 }
 
@@ -315,10 +297,7 @@ impl Config {
     ///
     /// Mutable reference to this configuration for chaining.
     #[inline]
-    pub fn set_read_options(
-        &mut self,
-        read_options: ConfigReadOptions,
-    ) -> &mut Self {
+    pub fn set_read_options(&mut self, read_options: ConfigReadOptions) -> &mut Self {
         self.read_options = read_options;
         self
     }
@@ -467,15 +446,12 @@ impl Config {
     /// - [`ConfigError::PropertyNotFound`] if the key does not exist.
     /// - [`ConfigError::PropertyIsFinal`] when trying to unset a final
     ///   property.
-    pub fn set_final(
-        &mut self,
-        name: impl ConfigName,
-        is_final: bool,
-    ) -> ConfigResult<()> {
+    pub fn set_final(&mut self, name: impl ConfigName, is_final: bool) -> ConfigResult<()> {
         name.with_config_name(|name| {
-            let property = self.properties.get_mut(name).ok_or_else(|| {
-                ConfigError::PropertyNotFound(name.to_string())
-            })?;
+            let property = self
+                .properties
+                .get_mut(name)
+                .ok_or_else(|| ConfigError::PropertyNotFound(name.to_string()))?;
             if property.is_final() && !is_final {
                 return Err(ConfigError::PropertyIsFinal(name.to_string()));
             }
@@ -507,10 +483,7 @@ impl Config {
     /// assert!(!config.contains("port"));
     /// ```
     #[inline]
-    pub fn remove(
-        &mut self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Option<Property>> {
+    pub fn remove(&mut self, name: impl ConfigName) -> ConfigResult<Option<Property>> {
         name.with_config_name(|name| {
             self.ensure_property_not_final(name)?;
             Ok(self.properties.remove(name))
@@ -628,9 +601,7 @@ impl Config {
     /// Ensures no property is final before a bulk destructive operation.
     #[inline]
     fn ensure_no_final_properties(&self) -> ConfigResult<()> {
-        if let Some((name, _)) =
-            self.properties.iter().find(|(_, prop)| prop.is_final())
-        {
+        if let Some((name, _)) = self.properties.iter().find(|(_, prop)| prop.is_final()) {
             return Err(ConfigError::PropertyIsFinal(name.clone()));
         }
         Ok(())
@@ -796,11 +767,8 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// `Ok(None)` when all keys are missing or empty.
-    pub fn get_optional_any<T>(
-        &self,
-        names: impl ConfigNames,
-    ) -> ConfigResult<Option<T>>
+    /// `Ok(None)` when every key is absent or effectively missing.
+    pub fn get_optional_any<T>(&self, names: impl ConfigNames) -> ConfigResult<Option<T>>
     where
         T: FromConfig,
     {
@@ -812,7 +780,8 @@ impl Config {
     /// # Parameters
     ///
     /// * `names` - Candidate keys checked in priority order.
-    /// * `default` - Fallback used only when all keys are missing or empty.
+    /// * `default` - Fallback used only when every key is absent or effectively
+    ///   missing.
     ///
     /// # Returns
     ///
@@ -834,7 +803,8 @@ impl Config {
     /// # Parameters
     ///
     /// * `names` - Candidate keys checked in priority order.
-    /// * `default` - Fallback used only when all keys are missing or empty.
+    /// * `default` - Fallback used only when every key is absent or effectively
+    ///   missing.
     /// * `read_options` - Parsing options for this read.
     ///
     /// # Returns
@@ -849,12 +819,7 @@ impl Config {
     where
         T: FromConfig,
     {
-        <Self as ConfigReader>::get_any_or_with(
-            self,
-            names,
-            default,
-            read_options,
-        )
+        <Self as ConfigReader>::get_any_or_with(self, names, default, read_options)
     }
 
     /// Reads a declared configuration field.
@@ -883,10 +848,7 @@ impl Config {
     /// # Returns
     ///
     /// Parsed field value, default, or `None`.
-    pub fn read_optional<T>(
-        &self,
-        field: ConfigField<T>,
-    ) -> ConfigResult<Option<T>>
+    pub fn read_optional<T>(&self, field: ConfigField<T>) -> ConfigResult<Option<T>>
     where
         T: FromConfig,
     {
@@ -923,7 +885,8 @@ impl Config {
     /// ```
     pub fn get_list<T>(&self, name: impl ConfigName) -> ConfigResult<Vec<T>>
     where
-        T: FromConfig,
+        T: DataTypeOf,
+        for<'a> DataConverter<'a>: DataConvertTo<T>,
     {
         <Self as ConfigReader>::get(self, name)
     }
@@ -948,19 +911,12 @@ impl Config {
     ///
     /// A vector of exact typed values on success, or a [`ConfigError`] on
     /// failure.
-    pub fn get_list_strict<T>(
-        &self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Vec<T>>
+    pub fn get_list_strict<T>(&self, name: impl ConfigName) -> ConfigResult<Vec<T>>
     where
         for<'a> Vec<T>: TryFrom<&'a MultiValues, Error = ValueError>,
     {
         name.with_config_name(|name| {
             let property = self.get_property_by_name(name)?;
-            if property.is_empty() {
-                return Ok(Vec::new());
-            }
-
             property
                 .get::<T>()
                 .map_err(|e| utils::map_value_error(name, e))
@@ -1009,11 +965,7 @@ impl Config {
     /// config.set("hosts", vec!["host1", "host2"]).unwrap();
     /// // T inferred as &str (then converted)
     /// ```
-    pub fn set<S>(
-        &mut self,
-        name: impl ConfigName,
-        values: S,
-    ) -> ConfigResult<()>
+    pub fn set<S>(&mut self, name: impl ConfigName, values: S) -> ConfigResult<()>
     where
         S: Into<MultiValues>,
     {
@@ -1024,7 +976,8 @@ impl Config {
                 .entry(name.to_string())
                 .or_insert_with(|| Property::new(name));
 
-            property.set(values).map_err(ConfigError::from)
+            property.set(values);
+            Ok(())
         })
     }
 
@@ -1059,11 +1012,7 @@ impl Config {
     /// let ports: Vec<i32> = config.get_list("port").unwrap();
     /// assert_eq!(ports, vec![8080, 8081, 8082, 8083, 8084, 8085]);
     /// ```
-    pub fn add<S>(
-        &mut self,
-        name: impl ConfigName,
-        values: S,
-    ) -> ConfigResult<()>
+    pub fn add<S>(&mut self, name: impl ConfigName, values: S) -> ConfigResult<()>
     where
         S: Into<MultiValues>,
     {
@@ -1074,7 +1023,7 @@ impl Config {
                 property.add(values).map_err(ConfigError::from)
             } else {
                 let mut property = Property::new(name);
-                property.set(values).map_err(ConfigError::from)?;
+                property.set(values);
                 self.properties.insert(name.to_string(), property);
                 Ok(())
             }
@@ -1123,10 +1072,7 @@ impl Config {
     /// # Returns
     ///
     /// Returns the string value on success, or an error on failure.
-    pub fn get_string_any(
-        &self,
-        names: impl ConfigNames,
-    ) -> ConfigResult<String> {
+    pub fn get_string_any(&self, names: impl ConfigNames) -> ConfigResult<String> {
         <Self as ConfigReader>::get_string_any(self, names)
     }
 
@@ -1138,11 +1084,8 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// `Ok(None)` when all keys are missing or empty.
-    pub fn get_optional_string_any(
-        &self,
-        names: impl ConfigNames,
-    ) -> ConfigResult<Option<String>> {
+    /// `Ok(None)` when every key is absent or effectively missing.
+    pub fn get_optional_string_any(&self, names: impl ConfigNames) -> ConfigResult<Option<String>> {
         <Self as ConfigReader>::get_optional_string_any(self, names)
     }
 
@@ -1152,7 +1095,8 @@ impl Config {
     /// # Parameters
     ///
     /// * `names` - Candidate keys checked in priority order.
-    /// * `default` - Fallback used only when all keys are missing or empty.
+    /// * `default` - Fallback used only when every key is absent or effectively
+    ///   missing.
     ///
     /// # Returns
     ///
@@ -1178,11 +1122,7 @@ impl Config {
     ///
     /// Returns the string value or default value. Substitution errors are
     /// returned instead of being hidden by the default.
-    pub fn get_string_or(
-        &self,
-        name: impl ConfigName,
-        default: &str,
-    ) -> ConfigResult<String> {
+    pub fn get_string_or(&self, name: impl ConfigName, default: &str) -> ConfigResult<String> {
         <Self as ConfigReader>::get_string_or(self, name, default)
     }
 
@@ -1211,10 +1151,7 @@ impl Config {
     /// let paths = config.get_string_list("paths").unwrap();
     /// assert_eq!(paths, vec!["/opt/app/bin", "/opt/app/lib"]);
     /// ```
-    pub fn get_string_list(
-        &self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Vec<String>> {
+    pub fn get_string_list(&self, name: impl ConfigName) -> ConfigResult<Vec<String>> {
         <Self as ConfigReader>::get_string_list(self, name)
     }
 
@@ -1488,10 +1425,7 @@ impl Config {
     /// # }
     /// ```
     #[inline]
-    pub fn merge_from_source(
-        &mut self,
-        source: &dyn ConfigSource,
-    ) -> ConfigResult<()> {
+    pub fn merge_from_source(&mut self, source: &dyn ConfigSource) -> ConfigResult<()> {
         let mut staged = self.clone();
         source.load_into(&mut staged)?;
         *self = staged;
@@ -1617,11 +1551,7 @@ impl Config {
     /// assert!(http_config.contains("port"));
     /// assert!(!http_config.contains("db.host"));
     /// ```
-    pub fn subconfig(
-        &self,
-        prefix: &str,
-        strip_prefix: bool,
-    ) -> ConfigResult<Config> {
+    pub fn subconfig(&self, prefix: &str, strip_prefix: bool) -> ConfigResult<Config> {
         let mut sub = Config::new();
         sub.description = self.description.clone();
         sub.enable_variable_substitution = self.enable_variable_substitution;
@@ -1668,7 +1598,8 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// `true` if the property exists and has no values (is empty).
+    /// `true` if the property exists and has zero values. This includes both
+    /// an unset property and a concrete empty collection.
     ///
     /// # Examples
     ///
@@ -1724,10 +1655,7 @@ impl Config {
     /// let missing: Option<i32> = config.get_optional("missing").unwrap();
     /// assert_eq!(missing, None);
     /// ```
-    pub fn get_optional<T>(
-        &self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Option<T>>
+    pub fn get_optional<T>(&self, name: impl ConfigName) -> ConfigResult<Option<T>>
     where
         T: FromConfig,
     {
@@ -1770,12 +1698,10 @@ impl Config {
     /// let missing: Option<Vec<i32>> = config.get_optional_list("missing").unwrap();
     /// assert_eq!(missing, None);
     /// ```
-    pub fn get_optional_list<T>(
-        &self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Option<Vec<T>>>
+    pub fn get_optional_list<T>(&self, name: impl ConfigName) -> ConfigResult<Option<Vec<T>>>
     where
-        T: FromConfig,
+        T: DataTypeOf,
+        for<'a> DataConverter<'a>: DataConvertTo<T>,
     {
         <Self as ConfigReader>::get_optional(self, name)
     }
@@ -1808,10 +1734,7 @@ impl Config {
     /// let missing = config.get_optional_string("missing").unwrap();
     /// assert_eq!(missing, None);
     /// ```
-    pub fn get_optional_string(
-        &self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Option<String>> {
+    pub fn get_optional_string(&self, name: impl ConfigName) -> ConfigResult<Option<String>> {
         <Self as ConfigReader>::get_optional_string(self, name)
     }
 
@@ -1952,17 +1875,14 @@ impl Config {
         }
 
         let exact = self.properties.get(prefix);
-        let has_children =
-            self.properties.keys().any(|key| is_child_key(key, prefix));
+        let has_children = self.properties.keys().any(|key| is_child_key(key, prefix));
         match (exact, has_children) {
             (Some(_), true) => Err(ConfigError::KeyConflict {
                 path: prefix.to_string(),
                 existing: "exact value".to_string(),
                 incoming: "nested child keys".to_string(),
             }),
-            (Some(property), false) => {
-                self.deserialize_exact_value(prefix, property)
-            }
+            (Some(property), false) => self.deserialize_exact_value(prefix, property),
             (None, _) => self.deserialize_subtree_value(prefix),
         }
     }
@@ -1974,22 +1894,13 @@ impl Config {
     /// Returns substitution errors when string leaves contain unresolved
     /// placeholders, or `JsonValue::Null` when the exact property is
     /// effectively missing under the active read options.
-    fn deserialize_exact_value(
-        &self,
-        key: &str,
-        property: &Property,
-    ) -> ConfigResult<JsonValue> {
-        if scalar_string_is_missing_for_deserialize(
-            self,
-            self,
-            key,
-            property,
-            self.read_options(),
-        )? {
+    fn deserialize_exact_value(&self, key: &str, property: &Property) -> ConfigResult<JsonValue> {
+        if scalar_string_is_missing_for_deserialize(self, self, key, property, self.read_options())?
+        {
             return Ok(JsonValue::Null);
         }
 
-        let mut value = utils::property_to_json_value(property);
+        let mut value = utils::property_to_json_value(property)?;
         utils::substitute_json_strings_with_fallback(&mut value, self, self)?;
         Ok(value)
     }
@@ -2000,10 +1911,7 @@ impl Config {
     ///
     /// Returns key-conflict errors for ambiguous dotted paths, and propagates
     /// substitution/conversion errors from active read options.
-    fn deserialize_subtree_value(
-        &self,
-        prefix: &str,
-    ) -> ConfigResult<JsonValue> {
+    fn deserialize_subtree_value(&self, prefix: &str) -> ConfigResult<JsonValue> {
         let sub = self.subconfig(prefix, true)?;
 
         let mut properties = sub.properties.iter().collect::<Vec<_>>();
@@ -2011,22 +1919,13 @@ impl Config {
 
         let mut map = Map::new();
         for (key, prop) in properties {
-            if scalar_string_is_missing_for_deserialize(
-                &sub,
-                self,
-                key,
-                prop,
-                self.read_options(),
-            )? {
+            if scalar_string_is_missing_for_deserialize(&sub, self, key, prop, self.read_options())?
+            {
                 continue;
             }
 
-            let mut json_val = utils::property_to_json_value(prop);
-            utils::substitute_json_strings_with_fallback(
-                &mut json_val,
-                &sub,
-                self,
-            )?;
+            let mut json_val = utils::property_to_json_value(prop)?;
+            utils::substitute_json_strings_with_fallback(&mut json_val, &sub, self)?;
             utils::insert_deserialize_value(&mut map, key, json_val)?;
         }
         Ok(JsonValue::Object(map))
@@ -2090,11 +1989,7 @@ impl Config {
     /// - [`ConfigError::PropertyIsFinal`] when trying to override a final
     ///   property.
     #[inline]
-    pub fn set_null(
-        &mut self,
-        name: impl ConfigName,
-        data_type: DataType,
-    ) -> ConfigResult<()> {
+    pub fn set_null(&mut self, name: impl ConfigName, data_type: DataType) -> ConfigResult<()> {
         name.with_config_name(|name| {
             self.insert_property(
                 name,
@@ -2161,7 +2056,8 @@ impl ConfigReader for Config {
     #[inline]
     fn get_list<T>(&self, name: impl ConfigName) -> ConfigResult<Vec<T>>
     where
-        T: FromConfig,
+        T: DataTypeOf,
+        for<'a> DataConverter<'a>: DataConvertTo<T>,
     {
         Config::get_list(self, name)
     }
@@ -2175,12 +2071,10 @@ impl ConfigReader for Config {
     }
 
     #[inline]
-    fn get_optional_list<T>(
-        &self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Option<Vec<T>>>
+    fn get_optional_list<T>(&self, name: impl ConfigName) -> ConfigResult<Option<Vec<T>>>
     where
-        T: FromConfig,
+        T: DataTypeOf,
+        for<'a> DataConverter<'a>: DataConvertTo<T>,
     {
         Config::get_optional_list(self, name)
     }
@@ -2199,9 +2093,7 @@ impl ConfigReader for Config {
     }
 
     #[inline]
-    fn iter<'a>(
-        &'a self,
-    ) -> Box<dyn Iterator<Item = (&'a str, &'a Property)> + 'a> {
+    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a str, &'a Property)> + 'a> {
         Box::new(Config::iter(self))
     }
 
@@ -2211,11 +2103,7 @@ impl ConfigReader for Config {
     }
 
     #[inline]
-    fn subconfig(
-        &self,
-        prefix: &str,
-        strip_prefix: bool,
-    ) -> ConfigResult<Config> {
+    fn subconfig(&self, prefix: &str, strip_prefix: bool) -> ConfigResult<Config> {
         Config::subconfig(self, prefix, strip_prefix)
     }
 

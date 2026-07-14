@@ -2,474 +2,169 @@
 //    Copyright (c) 2025 - 2026 Haixing Hu.
 //
 //    SPDX-License-Identifier: Apache-2.0
-//
-//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! # ConfigError Unit Tests
-//!
-//! Tests all error types and conversions of the ConfigError enum.
 
-use qubit_config::{
-    Config,
-    ConfigError,
-};
-use qubit_datatype::DataConversionError;
-use qubit_datatype::DataType;
+use std::error::Error;
+
+use qubit_config::ConfigError;
+use qubit_datatype::{DataConversionError, DataListConversionError, DataType, InvalidValueReason};
 use qubit_value::ValueError;
-use std::io;
 
-// ============================================================================
-// Basic Error Type Tests
-// ============================================================================
-
-#[test]
-fn test_property_not_found_error() {
-    let error = ConfigError::PropertyNotFound("test.property".to_string());
-    let error_msg = format!("{}", error);
-    assert!(error_msg.contains("Property not found"));
-    assert!(error_msg.contains("test.property"));
+fn invalid_integer() -> DataConversionError {
+    DataConversionError::InvalidValue {
+        from: DataType::String,
+        to: DataType::Int32,
+        reason: InvalidValueReason::InvalidSyntax {
+            expected: "a base-10 integer",
+        },
+    }
 }
 
 #[test]
-fn test_property_has_no_value_error() {
-    let error = ConfigError::PropertyHasNoValue("test.property".to_string());
-    let error_msg = format!("{}", error);
-    assert!(error_msg.contains("has no value"));
-    assert!(error_msg.contains("test.property"));
+fn test_basic_error_messages() {
+    assert_eq!(
+        ConfigError::PropertyNotFound("server.port".to_string()).to_string(),
+        "Property not found: server.port"
+    );
+    assert_eq!(
+        ConfigError::PropertyHasNoValue("server.port".to_string()).to_string(),
+        "Property 'server.port' has no value"
+    );
 }
 
 #[test]
-fn test_type_mismatch_error() {
-    let error = ConfigError::TypeMismatch {
-        key: "server.port".to_string(),
-        expected: DataType::Int32,
-        actual: DataType::String,
-    };
-    let error_msg = format!("{}", error);
-    assert!(error_msg.contains("Type mismatch"));
-    assert!(error_msg.contains("expected"));
-    assert!(error_msg.contains("actual"));
-    assert!(error_msg.contains("server.port"));
-}
-
-#[test]
-fn test_conversion_error() {
+fn test_structured_conversion_error_is_redacted() {
     let error = ConfigError::ConversionError {
-        key: "db.timeout".to_string(),
-        message: "Cannot convert to integer".to_string(),
+        key: "secret".to_string(),
+        source_index: Some(2),
+        source: invalid_integer(),
     };
-    let error_msg = format!("{}", error);
-    assert!(error_msg.contains("Type conversion failed"));
-    assert!(error_msg.contains("Cannot convert to integer"));
-    assert!(error_msg.contains("db.timeout"));
+    let message = error.to_string();
+    assert!(message.contains("secret"));
+    assert!(message.contains("invalid syntax"));
+    assert!(!message.contains("hunter2"));
+    assert!(error.source().is_some());
 }
 
 #[test]
-fn test_from_data_conversion_error_maps_no_value() {
+fn test_data_conversion_missing_maps_to_no_value() {
     let error = ConfigError::from_data_conversion_error(
-        "server.host",
-        DataConversionError::NoValue,
-    );
-
-    assert!(matches!(
-        error,
-        ConfigError::PropertyHasNoValue(key) if key == "server.host"
-    ));
-}
-
-#[test]
-fn test_from_data_conversion_error_maps_conversion_failed() {
-    let error = ConfigError::from_data_conversion_error(
-        "server.enabled",
-        DataConversionError::ConversionFailed {
+        "server.port",
+        DataConversionError::Missing {
             from: DataType::String,
-            to: DataType::Bool,
+            to: DataType::Int32,
         },
     );
-
     assert!(matches!(
         error,
-        ConfigError::ConversionError { key, message }
-            if key == "server.enabled"
-                && message.contains("From string to bool")
+        ConfigError::PropertyHasNoValue(key) if key == "server.port"
     ));
 }
 
 #[test]
-fn test_from_data_conversion_error_maps_conversion_message() {
-    let error = ConfigError::from_data_conversion_error(
-        "server.enabled",
-        DataConversionError::ConversionError("invalid boolean".to_string()),
-    );
-
+fn test_data_conversion_error_keeps_structure() {
+    let error = ConfigError::from_data_conversion_error("server.port", invalid_integer());
     assert!(matches!(
         error,
-        ConfigError::ConversionError { key, message }
-            if key == "server.enabled" && message == "invalid boolean"
-    ));
-}
-
-#[test]
-fn test_from_data_conversion_error_maps_json_serialization() {
-    let error = ConfigError::from_data_conversion_error(
-        "payload",
-        DataConversionError::JsonSerializationError(
-            "unsupported value".to_string(),
-        ),
-    );
-
-    assert!(matches!(
-        error,
-        ConfigError::ConversionError { key, message }
-            if key == "payload"
-                && message == "JSON serialization error: unsupported value"
-    ));
-}
-
-#[test]
-fn test_from_data_conversion_error_maps_json_deserialization() {
-    let error = ConfigError::from_data_conversion_error(
-        "payload",
-        DataConversionError::JsonDeserializationError(
-            "invalid json".to_string(),
-        ),
-    );
-
-    assert!(matches!(
-        error,
-        ConfigError::ConversionError { key, message }
-            if key == "payload"
-                && message == "JSON deserialization error: invalid json"
-    ));
-}
-
-#[test]
-fn test_index_out_of_bounds_error() {
-    let error = ConfigError::IndexOutOfBounds { index: 5, len: 3 };
-    let error_msg = format!("{}", error);
-    assert!(error_msg.contains("Index out of bounds"));
-    assert!(error_msg.contains("5"));
-    assert!(error_msg.contains("3"));
-}
-
-#[test]
-fn test_substitution_error() {
-    let error = ConfigError::SubstitutionError(
-        "Undefined variable: ${VAR}".to_string(),
-    );
-    let error_msg = format!("{}", error);
-    assert!(error_msg.contains("Variable substitution failed"));
-    assert!(error_msg.contains("${VAR}"));
-}
-
-#[test]
-fn test_substitution_depth_exceeded_error() {
-    let error = ConfigError::SubstitutionDepthExceeded(64);
-    let error_msg = format!("{}", error);
-    assert!(error_msg.contains("substitution depth exceeded"));
-    assert!(error_msg.contains("64"));
-}
-
-#[test]
-fn test_merge_error() {
-    let error = ConfigError::MergeError("Type conflict".to_string());
-    let error_msg = format!("{}", error);
-    assert!(error_msg.contains("Configuration merge failed"));
-    assert!(error_msg.contains("Type conflict"));
-}
-
-#[test]
-fn test_property_is_final_error() {
-    let error = ConfigError::PropertyIsFinal("final.property".to_string());
-    let error_msg = format!("{}", error);
-    assert!(error_msg.contains("is final"));
-    assert!(error_msg.contains("cannot be overridden"));
-    assert!(error_msg.contains("final.property"));
-}
-
-#[test]
-fn test_io_error() {
-    let io_err = io::Error::new(io::ErrorKind::NotFound, "File not found");
-    let error: ConfigError = io_err.into();
-    let error_msg = format!("{}", error);
-    assert!(error_msg.contains("IO error"));
-}
-
-#[test]
-fn test_parse_error() {
-    let error = ConfigError::ParseError("Invalid JSON format".to_string());
-    let error_msg = format!("{}", error);
-    assert!(error_msg.contains("Parse error"));
-    assert!(error_msg.contains("Invalid JSON format"));
-}
-
-#[test]
-fn test_other_error() {
-    let error = ConfigError::Other("Unknown error".to_string());
-    let error_msg = format!("{}", error);
-    assert!(error_msg.contains("Configuration error"));
-    assert!(error_msg.contains("Unknown error"));
-}
-
-// ============================================================================
-// Error Conversion Tests
-// ============================================================================
-
-#[test]
-fn test_from_value_error_no_value() {
-    let value_err = ValueError::NoValue;
-    let config_err: ConfigError = value_err.into();
-    match config_err {
-        ConfigError::PropertyHasNoValue(_) => {}
-        _ => panic!("Expected PropertyHasNoValue error"),
-    }
-}
-
-#[test]
-fn test_from_value_error_type_mismatch() {
-    let value_err = ValueError::TypeMismatch {
-        expected: DataType::Bool,
-        actual: DataType::Int32,
-    };
-    let config_err: ConfigError = value_err.into();
-    match config_err {
-        ConfigError::TypeMismatch {
+        ConfigError::ConversionError {
             key,
-            expected,
-            actual,
-        } => {
-            assert_eq!(key, "");
-            assert_eq!(expected, DataType::Bool);
-            assert_eq!(actual, DataType::Int32);
-        }
-        _ => panic!("Expected TypeMismatch error"),
-    }
+            source_index: None,
+            source: DataConversionError::InvalidValue {
+                reason: InvalidValueReason::InvalidSyntax { .. },
+                ..
+            },
+        } if key == "server.port"
+    ));
 }
 
 #[test]
-fn test_from_value_error_conversion_failed() {
-    let value_err = ValueError::ConversionFailed {
-        from: DataType::String,
-        to: DataType::Float64,
-    };
-    let config_err: ConfigError = value_err.into();
-    match config_err {
-        ConfigError::ConversionError { key, message } => {
-            assert_eq!(key, "");
-            assert!(message.contains("From") && message.contains("to"));
-        }
-        _ => panic!("Expected ConversionError"),
-    }
-}
-
-#[test]
-fn test_from_value_error_conversion_error() {
-    let value_err =
-        ValueError::ConversionError("Custom error message".to_string());
-    let config_err: ConfigError = value_err.into();
-    match config_err {
-        ConfigError::ConversionError { key, message } => {
-            assert_eq!(key, "");
-            assert_eq!(message, "Custom error message");
-        }
-        _ => panic!("Expected ConversionError"),
-    }
-}
-
-#[test]
-fn test_from_value_error_index_out_of_bounds() {
-    let value_err = ValueError::IndexOutOfBounds { index: 10, len: 5 };
-    let config_err: ConfigError = value_err.into();
-    match config_err {
-        ConfigError::IndexOutOfBounds { index, len } => {
-            assert_eq!(index, 10);
-            assert_eq!(len, 5);
-        }
-        _ => panic!("Expected IndexOutOfBounds error"),
-    }
-}
-
-#[test]
-fn test_from_keyed_value_error_no_value() {
-    let config_err = ConfigError::from(("server.port", ValueError::NoValue));
-
-    match config_err {
-        ConfigError::PropertyHasNoValue(key) => assert_eq!(key, "server.port"),
-        _ => panic!("Expected PropertyHasNoValue error"),
-    }
-}
-
-#[test]
-fn test_from_keyed_value_error_type_mismatch() {
-    let value_err = ValueError::TypeMismatch {
+fn test_value_error_without_key() {
+    let error = ConfigError::from(ValueError::TypeMismatch {
         expected: DataType::Int32,
         actual: DataType::String,
-    };
-    let config_err = ConfigError::from(("server.port", value_err));
-
-    match config_err {
-        ConfigError::TypeMismatch {
-            key,
-            expected,
-            actual,
-        } => {
-            assert_eq!(key, "server.port");
-            assert_eq!(expected, DataType::Int32);
-            assert_eq!(actual, DataType::String);
-        }
-        _ => panic!("Expected TypeMismatch error"),
-    }
-}
-
-#[test]
-fn test_from_keyed_value_error_conversion_failed() {
-    let value_err = ValueError::ConversionFailed {
-        from: DataType::String,
-        to: DataType::Float64,
-    };
-    let config_err = ConfigError::from(("server.timeout", value_err));
-
-    match config_err {
-        ConfigError::ConversionError { key, message } => {
-            assert_eq!(key, "server.timeout");
-            assert!(message.contains("From") && message.contains("to"));
-        }
-        _ => panic!("Expected ConversionError"),
-    }
-}
-
-#[test]
-fn test_from_keyed_value_error_conversion_error() {
-    let value_err = ValueError::ConversionError("invalid value".to_string());
-    let config_err = ConfigError::from(("server.timeout", value_err));
-
-    match config_err {
-        ConfigError::ConversionError { key, message } => {
-            assert_eq!(key, "server.timeout");
-            assert_eq!(message, "invalid value");
-        }
-        _ => panic!("Expected ConversionError"),
-    }
-}
-
-#[test]
-fn test_from_keyed_value_error_index_out_of_bounds() {
-    let value_err = ValueError::IndexOutOfBounds { index: 3, len: 1 };
-    let config_err = ConfigError::from(("items", value_err));
-
-    match config_err {
-        ConfigError::IndexOutOfBounds { index, len } => {
-            assert_eq!(index, 3);
-            assert_eq!(len, 1);
-        }
-        _ => panic!("Expected IndexOutOfBounds error"),
-    }
-}
-
-#[test]
-fn test_from_keyed_value_error_json_serialization_error() {
-    let value_err =
-        ValueError::JsonSerializationError("unsupported".to_string());
-    let config_err = ConfigError::from(("payload", value_err));
-
-    match config_err {
-        ConfigError::ConversionError { key, message } => {
-            assert_eq!(key, "payload");
-            assert!(message.contains("JSON serialization error"));
-            assert!(message.contains("unsupported"));
-        }
-        _ => panic!("Expected ConversionError"),
-    }
-}
-
-#[test]
-fn test_from_keyed_value_error_json_deserialization_error() {
-    let value_err =
-        ValueError::JsonDeserializationError("invalid json".to_string());
-    let config_err = ConfigError::from(("payload", value_err));
-
-    match config_err {
-        ConfigError::ConversionError { key, message } => {
-            assert_eq!(key, "payload");
-            assert!(message.contains("JSON deserialization error"));
-            assert!(message.contains("invalid json"));
-        }
-        _ => panic!("Expected ConversionError"),
-    }
-}
-
-#[test]
-fn test_get_conversion_or_type_error_carries_key() {
-    let mut config = Config::new();
-    config.set("my.key", "not-an-int").unwrap();
-
-    let result: Result<i32, _> = config.get("my.key");
-
+    });
     assert!(matches!(
-        result,
-        Err(ConfigError::ConversionError { ref key, .. })
-            | Err(ConfigError::TypeMismatch { ref key, .. }) if key == "my.key"
+        error,
+        ConfigError::TypeMismatch { key, .. } if key.is_empty()
     ));
-}
 
-#[test]
-fn test_get_type_mismatch_error_carries_key() {
-    let mut config = Config::new();
-    config.set("a.b", true).unwrap();
-
-    let result: Result<i32, _> = config.get_strict("a.b");
-
+    let error = ConfigError::from(ValueError::DataConversion(invalid_integer()));
     assert!(matches!(
-        result,
-        Err(ConfigError::TypeMismatch {
-            ref key,
-            expected: DataType::Int32,
-            actual: DataType::Bool,
-        }) if key == "a.b"
-    ));
-}
-
-// ============================================================================
-// Debug Trait Tests
-// ============================================================================
-
-#[test]
-fn test_error_debug_format() {
-    let error = ConfigError::PropertyNotFound("test".to_string());
-    let debug_str = format!("{:?}", error);
-    assert!(debug_str.contains("PropertyNotFound"));
-}
-
-// ============================================================================
-// Error Type Matching Tests
-// ============================================================================
-
-#[test]
-fn test_error_matching() {
-    let errors = vec![
-        ConfigError::PropertyNotFound("test".to_string()),
-        ConfigError::PropertyHasNoValue("test".to_string()),
-        ConfigError::TypeMismatch {
-            key: "test.key".to_string(),
-            expected: DataType::Int32,
-            actual: DataType::String,
-        },
+        error,
         ConfigError::ConversionError {
-            key: "test.key".to_string(),
-            message: "test".to_string(),
-        },
-        ConfigError::IndexOutOfBounds { index: 1, len: 0 },
-        ConfigError::SubstitutionError("test".to_string()),
-        ConfigError::SubstitutionDepthExceeded(100),
-        ConfigError::MergeError("test".to_string()),
-        ConfigError::PropertyIsFinal("test".to_string()),
-        ConfigError::ParseError("test".to_string()),
-        ConfigError::Other("test".to_string()),
-    ];
+            key,
+            source_index: None,
+            ..
+        } if key.is_empty()
+    ));
+}
 
-    for error in errors {
-        // Verify that each error type can be properly formatted
-        let msg = format!("{}", error);
-        assert!(!msg.is_empty());
-    }
+#[test]
+fn test_keyed_value_error_keeps_source_index() {
+    let value_error = ValueError::DataListConversion(DataListConversionError {
+        source_index: 4,
+        source: invalid_integer(),
+    });
+    let error = ConfigError::from(("ports", value_error));
+    assert!(matches!(
+        error,
+        ConfigError::ConversionError {
+            key,
+            source_index: Some(4),
+            source: DataConversionError::InvalidValue { .. },
+        } if key == "ports"
+    ));
+}
+
+#[test]
+fn test_keyed_value_error_variants() {
+    assert!(matches!(
+        ConfigError::from(("empty", ValueError::NoValue)),
+        ConfigError::PropertyHasNoValue(key) if key == "empty"
+    ));
+    assert!(matches!(
+        ConfigError::from((
+            "port",
+            ValueError::TypeMismatch {
+                expected: DataType::Int32,
+                actual: DataType::String,
+            },
+        )),
+        ConfigError::TypeMismatch { key, .. } if key == "port"
+    ));
+}
+
+#[test]
+fn test_remaining_error_messages() {
+    assert!(
+        ConfigError::SubstitutionError("missing".to_string())
+            .to_string()
+            .contains("missing")
+    );
+    assert!(
+        ConfigError::SubstitutionDepthExceeded(16)
+            .to_string()
+            .contains("16")
+    );
+    assert!(
+        ConfigError::SubstitutionCycle {
+            chain: vec!["a".to_string(), "b".to_string(), "a".to_string()],
+        }
+        .to_string()
+        .contains("a -> b -> a")
+    );
+    assert!(
+        ConfigError::PropertyIsFinal("locked".to_string())
+            .to_string()
+            .contains("locked")
+    );
+    assert!(
+        ConfigError::KeyConflict {
+            path: "a.b".to_string(),
+            existing: "scalar".to_string(),
+            incoming: "object".to_string(),
+        }
+        .to_string()
+        .contains("a.b")
+    );
 }

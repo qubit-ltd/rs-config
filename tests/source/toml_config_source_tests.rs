@@ -10,12 +10,8 @@
 //! # `TomlConfigSource` tests
 
 use qubit_config::{
-    Config,
-    ConfigError,
-    source::{
-        ConfigSource,
-        TomlConfigSource,
-    },
+    Config, ConfigError,
+    source::{ConfigSource, TomlConfigSource},
 };
 
 use std::path::PathBuf;
@@ -34,14 +30,7 @@ fn fixture(name: &str) -> PathBuf {
 #[cfg(test)]
 mod test_toml_config_source {
     #[allow(unused_imports)]
-    use super::{
-        Config,
-        ConfigError,
-        ConfigSource,
-        PathBuf,
-        TomlConfigSource,
-        fixture,
-    };
+    use super::{Config, ConfigError, ConfigSource, PathBuf, TomlConfigSource, fixture};
 
     #[test]
     fn test_load_basic_toml_file() {
@@ -87,8 +76,7 @@ mod test_toml_config_source {
 
     #[test]
     fn test_load_nonexistent_toml_file_returns_error() {
-        let source =
-            TomlConfigSource::from_file("/nonexistent/path/config.toml");
+        let source = TomlConfigSource::from_file("/nonexistent/path/config.toml");
         let mut config = Config::new();
         let result = source.load(&mut config);
         assert!(result.is_err());
@@ -219,14 +207,7 @@ port = 9090
 #[cfg(test)]
 mod test_toml_edge_cases {
     #[allow(unused_imports)]
-    use super::{
-        Config,
-        ConfigError,
-        ConfigSource,
-        PathBuf,
-        TomlConfigSource,
-        fixture,
-    };
+    use super::{Config, ConfigError, ConfigSource, PathBuf, TomlConfigSource, fixture};
 
     // ---- toml: datetime value ----
     #[test]
@@ -373,10 +354,7 @@ dates = [2026-04-09T12:00:00Z, 2026-04-10T12:00:00Z]
 
         assert_eq!(config.get_list::<i64>("ints").unwrap(), vec![1, 2, 3]);
         assert_eq!(config.get_list::<f64>("floats").unwrap(), vec![1.25, 2.5]);
-        assert_eq!(
-            config.get_list::<bool>("flags").unwrap(),
-            vec![true, false]
-        );
+        assert_eq!(config.get_list::<bool>("flags").unwrap(), vec![true, false]);
         let dates = config.get_string_list("dates").unwrap();
         assert_eq!(dates.len(), 2);
         assert!(dates[0].contains("2026-04-09"));

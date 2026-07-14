@@ -7,10 +7,7 @@
 // =============================================================================
 //! Tests for the field name builder state.
 
-use qubit_config::{
-    Config,
-    field::ConfigField,
-};
+use qubit_config::{Config, field::ConfigField};
 
 #[test]
 fn test_config_field_name_builder_sets_primary_name_before_build() {

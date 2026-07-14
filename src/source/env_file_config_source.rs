@@ -17,21 +17,11 @@
 //! - Quoted values: `KEY="value with spaces"` or `KEY='value'`
 //! - Export prefix: `export KEY=VALUE` (the `export` keyword is ignored)
 
-use std::path::{
-    Path,
-    PathBuf,
-};
+use std::path::{Path, PathBuf};
 
-use crate::{
-    Config,
-    ConfigError,
-    ConfigResult,
-};
+use crate::{Config, ConfigError, ConfigResult};
 
-use super::{
-    ConfigSource,
-    config_source::load_transactionally,
-};
+use super::{ConfigSource, config_source::load_transactionally};
 
 /// Configuration source that loads from `.env` format files
 ///

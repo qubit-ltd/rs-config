@@ -7,10 +7,7 @@
 // =============================================================================
 //! Tests for guarded mutable property access.
 
-use qubit_config::{
-    Config,
-    ConfigError,
-};
+use qubit_config::{Config, ConfigError};
 
 #[test]
 fn test_config_property_mut_updates_non_final_property() {
