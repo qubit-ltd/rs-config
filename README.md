@@ -30,20 +30,20 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-qubit-config = "0.13"
+qubit-config = "0.14"
 ```
 
 Default features preserve the full API:
 
 ```toml
-qubit-config = { version = "0.13", default-features = true }
+qubit-config = { version = "0.14", default-features = true }
 ```
 
 For lighter builds, disable defaults and opt into only the source loaders you
 need:
 
 ```toml
-qubit-config = { version = "0.13", default-features = false, features = ["source-toml"] }
+qubit-config = { version = "0.14", default-features = false, features = ["source-toml"] }
 ```
 
 Available feature flags:
@@ -117,9 +117,9 @@ The main read APIs are:
 | API | Behavior |
 |-----|----------|
 | `get<T>(name)` | Read a required value through `FromConfig`. |
-| `get_optional<T>(name)` | Return `Ok(None)` when the key is missing or empty. |
-| `get_or<T>(name, default)` | Use `default` only when the key is missing or empty. |
-| `get_any<T>(&[names])` | Read the first present and non-empty key in order. |
+| `get_optional<T>(name)` | Return `Ok(None)` when the key is absent or effectively missing. |
+| `get_or<T>(name, default)` | Use `default` only when the key is absent or effectively missing. |
+| `get_any<T>(&[names])` | Read the first key whose value is not effectively missing. |
 | `get_optional_any<T>(&[names])` | Multi-key optional read. |
 | `get_any_or<T>(&[names], default)` | Multi-key defaulted read. |
 | `get_any_or_with<T>(&[names], default, options)` | Multi-key defaulted read with explicit read options. |
@@ -128,6 +128,10 @@ The main read APIs are:
 | `get_strict` / `get_list_strict` | Exact stored-type reads without cross-type conversion. |
 
 Defaults do not hide bad configuration. If a key exists and its value fails parsing, type conversion, or variable substitution, the error is returned immediately instead of falling back to a default or later alias.
+
+An unset property is effectively missing. A scalar string can also be treated
+as missing by the active string policy. A concrete empty collection is present:
+`get_optional_list` returns `Some(Vec::new())`, and defaults are not used.
 
 ```rust
 use qubit_config::{Config, ConfigError};
@@ -282,7 +286,9 @@ assert_eq!(optional_port, None);
 assert_eq!(retries, 3);
 ```
 
-Multi-key reads scan keys in order. Missing and empty values are skipped; the first configured non-empty value is parsed. If that value is invalid, the error is returned and later keys are not tried.
+Multi-key reads scan keys in order. Absent and effectively missing values are
+skipped; a concrete empty collection is still present. If the first selected
+value is invalid, the error is returned and later keys are not tried.
 
 ### Configuration sources
 
@@ -509,9 +515,8 @@ impl Port {
 impl FromConfig for Port {
     fn from_config(property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<Self> {
         let value = u16::from_config(property, ctx)?;
-        Port::new(value).map_err(|message| ConfigError::ConversionError {
-            key: ctx.key().to_string(),
-            message,
+        Port::new(value).map_err(|message| {
+            ConfigError::Other(format!("{}: {message}", ctx.key()))
         })
     }
 }
@@ -563,8 +568,11 @@ pub enum ConfigError {
     PropertyNotFound(String),           // Property does not exist
     PropertyHasNoValue(String),         // Property has no value
     TypeMismatch { key: String, expected: DataType, actual: DataType }, // Type mismatch
-    ConversionError { key: String, message: String }, // Type conversion failed
-    IndexOutOfBounds { index: usize, len: usize }, // Index out of bounds
+    ConversionError { // Structured, value-redacted conversion failure
+        key: String,
+        source_index: Option<usize>,
+        source: DataConversionError,
+    },
     SubstitutionError(String),          // Variable substitution failed
     SubstitutionDepthExceeded(usize),   // Variable substitution depth exceeded
     SubstitutionCycle { chain: Vec<String> }, // Variable substitution cycle detected
