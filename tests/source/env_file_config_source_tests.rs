@@ -10,12 +10,8 @@
 //! # `EnvFileConfigSource` tests
 
 use qubit_config::{
-    Config,
-    ConfigError,
-    source::{
-        ConfigSource,
-        EnvFileConfigSource,
-    },
+    Config, ConfigError,
+    source::{ConfigSource, EnvFileConfigSource},
 };
 
 use std::path::PathBuf;
@@ -34,14 +30,7 @@ fn fixture(name: &str) -> PathBuf {
 #[cfg(test)]
 mod test_env_file_config_source {
     #[allow(unused_imports)]
-    use super::{
-        Config,
-        ConfigError,
-        ConfigSource,
-        EnvFileConfigSource,
-        PathBuf,
-        fixture,
-    };
+    use super::{Config, ConfigError, ConfigSource, EnvFileConfigSource, PathBuf, fixture};
 
     #[test]
     fn test_load_basic_env_file() {
@@ -63,10 +52,7 @@ mod test_env_file_config_source {
         source.load(&mut config).unwrap();
 
         assert_eq!(config.get_string("QUOTED_VALUE").unwrap(), "hello world");
-        assert_eq!(
-            config.get_string("SINGLE_QUOTED").unwrap(),
-            "single quoted"
-        );
+        assert_eq!(config.get_string("SINGLE_QUOTED").unwrap(), "single quoted");
     }
 
     #[test]
@@ -138,14 +124,7 @@ mod test_env_file_config_source {
 #[cfg(test)]
 mod test_env_file_edge_cases {
     #[allow(unused_imports)]
-    use super::{
-        Config,
-        ConfigError,
-        ConfigSource,
-        EnvFileConfigSource,
-        PathBuf,
-        fixture,
-    };
+    use super::{Config, ConfigError, ConfigSource, EnvFileConfigSource, PathBuf, fixture};
 
     // ---- env_file: non-existent file returns IoError ----
     #[test]

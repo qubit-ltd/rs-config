@@ -8,18 +8,10 @@
 //! # `EnvConfigSource` tests
 
 use qubit_config::{
-    Config,
-    ConfigError,
-    source::{
-        ConfigSource,
-        EnvConfigSource,
-    },
+    Config, ConfigError,
+    source::{ConfigSource, EnvConfigSource},
 };
-use std::sync::{
-    Mutex,
-    MutexGuard,
-    OnceLock,
-};
+use std::sync::{Mutex, MutexGuard, OnceLock};
 
 /// Serializes tests that mutate or read process environment variables.
 fn env_test_lock() -> MutexGuard<'static, ()> {
@@ -37,13 +29,7 @@ fn env_test_lock() -> MutexGuard<'static, ()> {
 mod test_env_config_source {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        ConfigError,
-        ConfigSource,
-        EnvConfigSource,
-        Mutex,
-        MutexGuard,
-        OnceLock,
+        Config, ConfigError, ConfigSource, EnvConfigSource, Mutex, MutexGuard, OnceLock,
         env_test_lock,
     };
 
@@ -188,8 +174,7 @@ mod test_env_config_source {
             std::env::set_var("RAWAPP_MY_KEY", "raw_val");
         }
 
-        let source =
-            EnvConfigSource::with_options("RAWAPP_", false, false, false);
+        let source = EnvConfigSource::with_options("RAWAPP_", false, false, false);
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
@@ -358,13 +343,7 @@ mod test_env_config_source {
 mod test_env_edge_cases {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        ConfigError,
-        ConfigSource,
-        EnvConfigSource,
-        Mutex,
-        MutexGuard,
-        OnceLock,
+        Config, ConfigError, ConfigSource, EnvConfigSource, Mutex, MutexGuard, OnceLock,
         env_test_lock,
     };
 
@@ -376,8 +355,7 @@ mod test_env_edge_cases {
         unsafe {
             std::env::set_var("COVTEST_FOO", "bar");
         }
-        let source =
-            EnvConfigSource::with_options("COVTEST_", false, false, false);
+        let source = EnvConfigSource::with_options("COVTEST_", false, false, false);
         let mut config = Config::new();
         source.load(&mut config).unwrap();
         // Key kept as-is (not stripped, not lowercased, not converted)

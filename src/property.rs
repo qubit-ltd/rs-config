@@ -10,14 +10,8 @@
 //! Defines the property structure for configuration items, including name,
 //! value, description, and other information.
 
-use serde::{
-    Deserialize,
-    Serialize,
-};
-use std::ops::{
-    Deref,
-    DerefMut,
-};
+use serde::{Deserialize, Serialize};
+use std::ops::{Deref, DerefMut};
 
 use qubit_datatype::DataType;
 use qubit_value::MultiValues;
@@ -40,13 +34,13 @@ use qubit_value::MultiValues;
 /// use qubit_config::Property;
 ///
 /// let mut port = Property::new("port");
-/// port.set(8080).unwrap();  // Generic method, type auto-inferred
+/// port.set(8080);  // Generic method, type auto-inferred
 /// port.set_description(Some("Server port".to_string()));
 /// assert_eq!(port.name(), "port");
 /// assert_eq!(port.count(), 1);
 ///
 /// let mut code = Property::new("code");
-/// code.set(42u8).unwrap();  // Generic set, inferred as u8
+/// code.set(42u8);  // Generic set, inferred as u8
 /// code.add(1u8).unwrap();
 /// assert_eq!(code.count(), 2);
 /// ```
@@ -65,7 +59,7 @@ pub struct Property {
 impl Property {
     /// Creates a new property
     ///
-    /// Creates an empty property with an initial value of an empty i32 list.
+    /// Creates an unset property whose declared value type is `i32`.
     ///
     /// # Parameters
     ///
@@ -229,10 +223,11 @@ impl Property {
     ///
     /// # Returns
     ///
-    /// Returns `true` if the property contains no values
+    /// Returns `true` for both an unset value and a concrete empty collection.
+    /// Use [`MultiValues::is_unset`] when those states must be distinguished.
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.value.is_empty()
+        self.value.count() == 0
     }
 
     /// Clears the property value

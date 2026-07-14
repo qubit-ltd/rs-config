@@ -7,11 +7,7 @@
 // =============================================================================
 //! Tests for field builder read declarations.
 
-use qubit_config::{
-    Config,
-    field::ConfigField,
-    options::ConfigReadOptions,
-};
+use qubit_config::{Config, field::ConfigField, options::ConfigReadOptions};
 
 #[test]
 fn test_config_field_builder_applies_alias_default_and_options() {

@@ -11,25 +11,13 @@ use std::collections::HashMap;
 use std::fmt;
 
 use qubit_config::{
-    Config,
-    ConfigResult,
-    Property,
-    options::{
-        BlankStringPolicy,
-        ConfigReadOptions,
-        EmptyItemPolicy,
-    },
+    Config, ConfigError, ConfigResult, Property,
+    options::{BlankStringPolicy, ConfigReadOptions, EmptyItemPolicy},
 };
-use qubit_datatype::DataType;
+use qubit_datatype::{DataConversionError, DataType};
 use qubit_value::MultiValues;
-use serde::de::{
-    self,
-    Visitor,
-};
-use serde::{
-    Deserialize,
-    Deserializer,
-};
+use serde::de::{self, Visitor};
+use serde::{Deserialize, Deserializer};
 
 #[derive(Debug, Deserialize, PartialEq)]
 struct SignedScalars {
@@ -115,10 +103,7 @@ impl<'de> Deserialize<'de> for StrOnly {
         impl Visitor<'_> for StrVisitor {
             type Value = StrOnly;
 
-            fn expecting(
-                &self,
-                formatter: &mut fmt::Formatter<'_>,
-            ) -> fmt::Result {
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                 formatter.write_str("a string")
             }
 
@@ -147,10 +132,7 @@ impl<'de> Deserialize<'de> for BytesOnly {
         impl Visitor<'_> for BytesVisitor {
             type Value = BytesOnly;
 
-            fn expecting(
-                &self,
-                formatter: &mut fmt::Formatter<'_>,
-            ) -> fmt::Result {
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                 formatter.write_str("bytes")
             }
 
@@ -179,10 +161,7 @@ impl<'de> Deserialize<'de> for ByteBufOnly {
         impl Visitor<'_> for ByteBufVisitor {
             type Value = ByteBufOnly;
 
-            fn expecting(
-                &self,
-                formatter: &mut fmt::Formatter<'_>,
-            ) -> fmt::Result {
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                 formatter.write_str("byte buffer")
             }
 
@@ -211,10 +190,7 @@ impl<'de> Deserialize<'de> for IdentifierOnly {
         impl Visitor<'_> for IdentifierVisitor {
             type Value = IdentifierOnly;
 
-            fn expecting(
-                &self,
-                formatter: &mut fmt::Formatter<'_>,
-            ) -> fmt::Result {
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                 formatter.write_str("an identifier")
             }
 
@@ -325,8 +301,7 @@ fn deserialize_float_scalars_from_strings_and_numbers() -> ConfigResult<()> {
 }
 
 #[test]
-fn deserialize_numeric_scalars_cover_number_and_string_paths()
--> ConfigResult<()> {
+fn deserialize_numeric_scalars_cover_number_and_string_paths() -> ConfigResult<()> {
     let mut config = Config::new();
     config.set("i8_number.value", 8i8)?;
     config.set("i16_string.value", "16")?;
@@ -401,6 +376,69 @@ fn deserialize_enum_string_uses_config_read_options() -> ConfigResult<()> {
     Ok(())
 }
 
+/// Test character conversion errors never expose the configuration value.
+#[test]
+fn deserialize_char_redacts_secret_value() -> ConfigResult<()> {
+    const SECRET: &str = "TOP_SECRET_CHAR_MARKER";
+    let mut config = Config::new();
+    config.set("secret.value", SECRET)?;
+
+    let error = config
+        .deserialize::<OneField<char>>("secret")
+        .expect_err("a multi-character secret must not deserialize as char");
+
+    assert!(!error.to_string().contains(SECRET));
+    assert!(!format!("{error:?}").contains(SECRET));
+    match error {
+        ConfigError::DeserializeError {
+            source: Some(source),
+            ..
+        } => match *source {
+            ConfigError::ConversionError {
+                source:
+                    DataConversionError::InvalidValue {
+                        from: DataType::String,
+                        to: DataType::Char,
+                        ..
+                    },
+                ..
+            } => {}
+            other => {
+                panic!("expected structured char conversion error: {other}")
+            }
+        },
+        other => panic!("expected deserialization error: {other}"),
+    }
+    Ok(())
+}
+
+/// Test unknown enum diagnostics never expose the configuration value.
+#[test]
+fn deserialize_unknown_enum_redacts_secret_value() -> ConfigResult<()> {
+    const SECRET: &str = "TOP_SECRET_ENUM_MARKER";
+    let mut config = Config::new();
+    config.set("secret.value", SECRET)?;
+
+    let error = config
+        .deserialize::<OneField<Mode>>("secret")
+        .expect_err("an unknown secret marker must not deserialize as Mode");
+
+    assert!(!error.to_string().contains(SECRET));
+    assert!(!format!("{error:?}").contains(SECRET));
+    match error {
+        ConfigError::DeserializeError {
+            message,
+            source: None,
+            ..
+        } => assert_eq!(
+            message,
+            "configuration value does not match the requested type",
+        ),
+        other => panic!("expected redacted deserialization error: {other}"),
+    }
+    Ok(())
+}
+
 #[test]
 fn deserialize_externally_tagged_enum_variants() -> ConfigResult<()> {
     let mut unit_config = Config::new();
@@ -438,10 +476,7 @@ fn deserialize_enum_reports_invalid_shapes() -> ConfigResult<()> {
     let mut empty_object = Config::new();
     empty_object.insert_property(
         "case.value",
-        Property::with_value(
-            "case.value",
-            MultiValues::Json(vec![serde_json::json!({})]),
-        ),
+        Property::with_value("case.value", MultiValues::Json(vec![serde_json::json!({})])),
     )?;
     assert!(
         empty_object
@@ -816,8 +851,7 @@ fn deserialize_scalar_error_branches() -> ConfigResult<()> {
 fn deserialize_read_option_error_branches() -> ConfigResult<()> {
     let mut blank_config = Config::new();
     blank_config.set_read_options(
-        ConfigReadOptions::default()
-            .with_blank_string_policy(BlankStringPolicy::Reject),
+        ConfigReadOptions::default().with_blank_string_policy(BlankStringPolicy::Reject),
     );
     blank_config.set("blank_string.value", " ")?;
     blank_config.set("blank_bool.value", " ")?;
@@ -871,8 +905,7 @@ fn deserialize_read_option_error_branches() -> ConfigResult<()> {
 
     let mut list_config = Config::new();
     list_config.set_read_options(
-        ConfigReadOptions::env_friendly()
-            .with_empty_item_policy(EmptyItemPolicy::Reject),
+        ConfigReadOptions::env_friendly().with_empty_item_policy(EmptyItemPolicy::Reject),
     );
     list_config.set("bad_list.value", "a,,b")?;
 
@@ -885,12 +918,10 @@ fn deserialize_read_option_error_branches() -> ConfigResult<()> {
 }
 
 #[test]
-fn deserialize_json_string_conversion_errors_use_config_read_options()
--> ConfigResult<()> {
+fn deserialize_json_string_conversion_errors_use_config_read_options() -> ConfigResult<()> {
     let mut config = Config::new();
     config.set_read_options(
-        ConfigReadOptions::default()
-            .with_blank_string_policy(BlankStringPolicy::Reject),
+        ConfigReadOptions::default().with_blank_string_policy(BlankStringPolicy::Reject),
     );
     config.insert_property(
         "string_value",
@@ -915,10 +946,7 @@ fn deserialize_json_string_conversion_errors_use_config_read_options()
     )?;
     config.insert_property(
         "any_value",
-        Property::with_value(
-            "any_value",
-            MultiValues::Json(vec![serde_json::json!(" ")]),
-        ),
+        Property::with_value("any_value", MultiValues::Json(vec![serde_json::json!(" ")])),
     )?;
     config.insert_property(
         "char_value",
@@ -929,10 +957,7 @@ fn deserialize_json_string_conversion_errors_use_config_read_options()
     )?;
     config.insert_property(
         "str_value",
-        Property::with_value(
-            "str_value",
-            MultiValues::Json(vec![serde_json::json!(" ")]),
-        ),
+        Property::with_value("str_value", MultiValues::Json(vec![serde_json::json!(" ")])),
     )?;
     config.insert_property(
         "bytes_value",
@@ -965,12 +990,10 @@ fn deserialize_json_string_conversion_errors_use_config_read_options()
 }
 
 #[test]
-fn deserialize_error_wrapper_formats_message_and_config_sources()
--> ConfigResult<()> {
+fn deserialize_error_wrapper_formats_message_and_config_sources() -> ConfigResult<()> {
     let mut config_error = Config::new();
     config_error.set_read_options(
-        ConfigReadOptions::default()
-            .with_blank_string_policy(BlankStringPolicy::Reject),
+        ConfigReadOptions::default().with_blank_string_policy(BlankStringPolicy::Reject),
     );
     config_error.insert_property(
         "config_error",

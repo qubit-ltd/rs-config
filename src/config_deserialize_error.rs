@@ -31,13 +31,11 @@ impl ConfigDeserializeError {
     /// Converts this error into the public configuration error type.
     pub(crate) fn into_config_error(self, path: &str) -> ConfigError {
         match self {
-            ConfigDeserializeError::Message(message) => {
-                ConfigError::DeserializeError {
-                    path: path.to_string(),
-                    message,
-                    source: None,
-                }
-            }
+            ConfigDeserializeError::Message(_) => ConfigError::DeserializeError {
+                path: path.to_string(),
+                message: "configuration value does not match the requested type".to_string(),
+                source: None,
+            },
             ConfigDeserializeError::Config(error) => {
                 let message = error.to_string();
                 ConfigError::DeserializeError {

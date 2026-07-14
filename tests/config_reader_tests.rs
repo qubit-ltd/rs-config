@@ -8,16 +8,8 @@
 //! [`qubit_config::ConfigReader`] tests.
 
 use qubit_config::field::ConfigField;
-use qubit_config::options::{
-    BlankStringPolicy,
-    ConfigReadOptions,
-};
-use qubit_config::{
-    Config,
-    ConfigError,
-    ConfigPrefixView,
-    ConfigReader,
-};
+use qubit_config::options::{BlankStringPolicy, ConfigReadOptions};
+use qubit_config::{Config, ConfigError, ConfigPrefixView, ConfigReader};
 use qubit_datatype::DataType;
 use serde::Deserialize;
 
@@ -34,16 +26,8 @@ fn create_test_config() -> Config {
 mod test_config_reader_smoke {
     #[allow(unused_imports)]
     use super::{
-        BlankStringPolicy,
-        Config,
-        ConfigError,
-        ConfigField,
-        ConfigPrefixView,
-        ConfigReadOptions,
-        ConfigReader,
-        DataType,
-        Deserialize,
-        create_test_config,
+        BlankStringPolicy, Config, ConfigError, ConfigField, ConfigPrefixView, ConfigReadOptions,
+        ConfigReader, DataType, Deserialize, create_test_config,
     };
 
     #[test]
@@ -60,16 +44,8 @@ mod test_config_reader_smoke {
 mod test_config_reader {
     #[allow(unused_imports)]
     use super::{
-        BlankStringPolicy,
-        Config,
-        ConfigError,
-        ConfigField,
-        ConfigPrefixView,
-        ConfigReadOptions,
-        ConfigReader,
-        DataType,
-        Deserialize,
-        create_test_config,
+        BlankStringPolicy, Config, ConfigError, ConfigField, ConfigPrefixView, ConfigReadOptions,
+        ConfigReader, DataType, Deserialize, create_test_config,
     };
 
     fn read_host(reader: &impl ConfigReader) -> String {
@@ -106,10 +82,8 @@ mod test_config_reader {
         config.set("name", "${who}").unwrap();
         config.set("names", vec!["${a}", "${b}"]).unwrap();
 
-        let name =
-            <Config as ConfigReader>::get_string(&config, "name").unwrap();
-        let names = <Config as ConfigReader>::get_string_list(&config, "names")
-            .unwrap();
+        let name = <Config as ConfigReader>::get_string(&config, "name").unwrap();
+        let names = <Config as ConfigReader>::get_string_list(&config, "names").unwrap();
         assert_eq!(name, "${who}");
         assert_eq!(names, vec!["${a}".to_string(), "${b}".to_string()]);
     }
@@ -123,47 +97,32 @@ mod test_config_reader {
 
         let reader = &config;
         assert_eq!(
-            <Config as ConfigReader>::get_string_or(
-                reader, "missing", "fallback"
-            )
-            .unwrap(),
+            <Config as ConfigReader>::get_string_or(reader, "missing", "fallback").unwrap(),
             "fallback"
         );
         assert_eq!(
-            <Config as ConfigReader>::get_string_list_or(
-                reader,
-                "missing.list",
-                &["x", "y"]
-            )
-            .unwrap(),
+            <Config as ConfigReader>::get_string_list_or(reader, "missing.list", &["x", "y"])
+                .unwrap(),
             vec!["x".to_string(), "y".to_string()]
         );
         assert_eq!(
-            <Config as ConfigReader>::get_optional_string(reader, "name")
-                .unwrap(),
+            <Config as ConfigReader>::get_optional_string(reader, "name").unwrap(),
             Some("alice".to_string())
         );
         assert_eq!(
-            <Config as ConfigReader>::get_optional_string(reader, "missing")
-                .unwrap(),
+            <Config as ConfigReader>::get_optional_string(reader, "missing").unwrap(),
             None
         );
         assert_eq!(
-            <Config as ConfigReader>::get_optional_string_list(reader, "names")
-                .unwrap(),
+            <Config as ConfigReader>::get_optional_string_list(reader, "names").unwrap(),
             Some(vec!["alice".to_string(), "bob".to_string()])
         );
         assert_eq!(
-            <Config as ConfigReader>::get_optional_string_list(
-                reader,
-                "missing.names"
-            )
-            .unwrap(),
+            <Config as ConfigReader>::get_optional_string_list(reader, "missing.names").unwrap(),
             None
         );
         assert_eq!(
-            <Config as ConfigReader>::get_string_or(reader, "url", "fallback")
-                .unwrap(),
+            <Config as ConfigReader>::get_string_or(reader, "url", "fallback").unwrap(),
             "http://alice"
         );
     }
@@ -178,56 +137,39 @@ mod test_config_reader {
 
         let view = config.prefix_view("http");
         assert_eq!(
-            <ConfigPrefixView<'_> as ConfigReader>::get_string_or(
-                &view, "missing", "fallback"
-            )
-            .unwrap(),
+            <ConfigPrefixView<'_> as ConfigReader>::get_string_or(&view, "missing", "fallback")
+                .unwrap(),
             "fallback"
         );
         assert_eq!(
-            <ConfigPrefixView<'_> as ConfigReader>::get_string_list_or(
-                &view,
-                "missing",
-                &["m"]
-            )
-            .unwrap(),
+            <ConfigPrefixView<'_> as ConfigReader>::get_string_list_or(&view, "missing", &["m"])
+                .unwrap(),
             vec!["m".to_string()]
         );
         assert_eq!(
-            <ConfigPrefixView<'_> as ConfigReader>::get_optional_string(
-                &view, "host"
-            )
-            .unwrap(),
+            <ConfigPrefixView<'_> as ConfigReader>::get_optional_string(&view, "host").unwrap(),
             Some("localhost".to_string())
         );
         assert_eq!(
-            <ConfigPrefixView<'_> as ConfigReader>::get_optional_string_list(
-                &view, "names"
-            )
-            .unwrap(),
+            <ConfigPrefixView<'_> as ConfigReader>::get_optional_string_list(&view, "names")
+                .unwrap(),
             Some(vec!["a".to_string(), "b".to_string()])
         );
-        let timeout: i32 =
-            <ConfigPrefixView<'_> as ConfigReader>::get(&view, "timeout")
-                .unwrap();
+        let timeout: i32 = <ConfigPrefixView<'_> as ConfigReader>::get(&view, "timeout").unwrap();
         assert_eq!(timeout, 30);
         let timeout_list: Vec<i32> =
-            <ConfigPrefixView<'_> as ConfigReader>::get_list(&view, "timeout")
-                .unwrap();
+            <ConfigPrefixView<'_> as ConfigReader>::get_list(&view, "timeout").unwrap();
         assert_eq!(timeout_list, vec![30]);
         assert!(<ConfigPrefixView<'_> as ConfigReader>::contains_prefix(
             &view, "na"
         ));
-        let keys: Vec<&str> =
-            <ConfigPrefixView<'_> as ConfigReader>::iter_prefix(&view, "h")
-                .map(|(k, _)| k)
-                .collect();
+        let keys: Vec<&str> = <ConfigPrefixView<'_> as ConfigReader>::iter_prefix(&view, "h")
+            .map(|(k, _)| k)
+            .collect();
         assert_eq!(keys, vec!["host"]);
         assert_eq!(
-            <ConfigPrefixView<'_> as ConfigReader>::get_string_or(
-                &view, "url", "fallback"
-            )
-            .unwrap(),
+            <ConfigPrefixView<'_> as ConfigReader>::get_string_or(&view, "url", "fallback")
+                .unwrap(),
             "http://localhost"
         );
     }
@@ -239,40 +181,26 @@ mod test_config_reader {
         config.set("http.port", 8080i32).unwrap();
 
         assert_eq!(
-            <Config as ConfigReader>::get_optional::<bool>(&config, "missing")
-                .unwrap(),
+            <Config as ConfigReader>::get_optional::<bool>(&config, "missing").unwrap(),
             None
         );
         assert_eq!(
-            <Config as ConfigReader>::get_optional::<bool>(
-                &config,
-                "http.ipv4_only"
-            )
-            .unwrap(),
+            <Config as ConfigReader>::get_optional::<bool>(&config, "http.ipv4_only").unwrap(),
             Some(true)
         );
 
         let http = config.prefix_view("http");
         assert_eq!(
-            <ConfigPrefixView<'_> as ConfigReader>::get_optional::<bool>(
-                &http,
-                "ipv4_only"
-            )
-            .unwrap(),
+            <ConfigPrefixView<'_> as ConfigReader>::get_optional::<bool>(&http, "ipv4_only")
+                .unwrap(),
             Some(true)
         );
         assert_eq!(
-            <ConfigPrefixView<'_> as ConfigReader>::get_optional::<i32>(
-                &http, "port"
-            )
-            .unwrap(),
+            <ConfigPrefixView<'_> as ConfigReader>::get_optional::<i32>(&http, "port").unwrap(),
             Some(8080)
         );
         assert_eq!(
-            <ConfigPrefixView<'_> as ConfigReader>::get_optional::<i32>(
-                &http, "nope"
-            )
-            .unwrap(),
+            <ConfigPrefixView<'_> as ConfigReader>::get_optional::<i32>(&http, "nope").unwrap(),
             None
         );
     }
@@ -283,55 +211,26 @@ mod test_config_reader {
         config.set("http.enabled", "1").unwrap();
         config.set("http.flags", vec!["true", "0"]).unwrap();
 
-        assert!(
-            <Config as ConfigReader>::get::<bool>(&config, "http.enabled")
-                .unwrap()
-        );
+        assert!(<Config as ConfigReader>::get::<bool>(&config, "http.enabled").unwrap());
         assert_eq!(
-            <Config as ConfigReader>::get_list::<bool>(&config, "http.flags")
-                .unwrap(),
+            <Config as ConfigReader>::get_list::<bool>(&config, "http.flags").unwrap(),
             vec![true, false]
         );
-        assert!(
-            <Config as ConfigReader>::get_strict::<bool>(
-                &config,
-                "http.enabled"
-            )
-            .is_err()
-        );
-        assert!(
-            <Config as ConfigReader>::get_list_strict::<bool>(
-                &config,
-                "http.flags"
-            )
-            .is_err()
-        );
+        assert!(<Config as ConfigReader>::get_strict::<bool>(&config, "http.enabled").is_err());
+        assert!(<Config as ConfigReader>::get_list_strict::<bool>(&config, "http.flags").is_err());
 
         let http = config.prefix_view("http");
-        assert!(
-            <ConfigPrefixView<'_> as ConfigReader>::get::<bool>(
-                &http, "enabled"
-            )
-            .unwrap()
-        );
+        assert!(<ConfigPrefixView<'_> as ConfigReader>::get::<bool>(&http, "enabled").unwrap());
         assert_eq!(
-            <ConfigPrefixView<'_> as ConfigReader>::get_list::<bool>(
-                &http, "flags"
-            )
-            .unwrap(),
+            <ConfigPrefixView<'_> as ConfigReader>::get_list::<bool>(&http, "flags").unwrap(),
             vec![true, false]
         );
         assert!(
-            <ConfigPrefixView<'_> as ConfigReader>::get_strict::<bool>(
-                &http, "enabled"
-            )
-            .is_err()
+            <ConfigPrefixView<'_> as ConfigReader>::get_strict::<bool>(&http, "enabled").is_err()
         );
         assert!(
-            <ConfigPrefixView<'_> as ConfigReader>::get_list_strict::<bool>(
-                &http, "flags"
-            )
-            .is_err()
+            <ConfigPrefixView<'_> as ConfigReader>::get_list_strict::<bool>(&http, "flags")
+                .is_err()
         );
     }
 
@@ -344,16 +243,13 @@ mod test_config_reader {
         let reader = &config;
         assert!(<Config as ConfigReader>::contains(reader, "db.host"));
         assert!(<Config as ConfigReader>::contains_prefix(reader, "db."));
-        let host: String =
-            <Config as ConfigReader>::get(reader, "db.host").unwrap();
-        let port_list: Vec<i32> =
-            <Config as ConfigReader>::get_list(reader, "db.port").unwrap();
+        let host: String = <Config as ConfigReader>::get(reader, "db.host").unwrap();
+        let port_list: Vec<i32> = <Config as ConfigReader>::get_list(reader, "db.port").unwrap();
         assert_eq!(host, "127.0.0.1");
         assert_eq!(port_list, vec![5432]);
-        let keys: Vec<&str> =
-            <Config as ConfigReader>::iter_prefix(reader, "db.")
-                .map(|(k, _)| k)
-                .collect();
+        let keys: Vec<&str> = <Config as ConfigReader>::iter_prefix(reader, "db.")
+            .map(|(k, _)| k)
+            .collect();
         assert_eq!(keys.len(), 2);
     }
 }
@@ -364,16 +260,8 @@ mod test_config_reader {
 mod test_config_reader_extended_surface {
     #[allow(unused_imports)]
     use super::{
-        BlankStringPolicy,
-        Config,
-        ConfigError,
-        ConfigField,
-        ConfigPrefixView,
-        ConfigReadOptions,
-        ConfigReader,
-        DataType,
-        Deserialize,
-        create_test_config,
+        BlankStringPolicy, Config, ConfigError, ConfigField, ConfigPrefixView, ConfigReadOptions,
+        ConfigReader, DataType, Deserialize, create_test_config,
     };
 
     #[derive(Deserialize, Debug, PartialEq, Eq)]
@@ -403,10 +291,7 @@ mod test_config_reader_extended_surface {
 
         let http = config.prefix_view("http");
         assert_eq!(
-            <ConfigPrefixView<'_> as ConfigReader>::resolve_key(
-                &http,
-                "proxy.host"
-            ),
+            <ConfigPrefixView<'_> as ConfigReader>::resolve_key(&http, "proxy.host"),
             "http.proxy.host"
         );
         assert_eq!(
@@ -433,10 +318,7 @@ mod test_config_reader_extended_surface {
         config.set_null("empty.names", DataType::String).unwrap();
 
         assert!(<Config as ConfigReader>::get_property(&config, "k").is_some());
-        assert!(
-            <Config as ConfigReader>::get_property(&config, "nullish")
-                .is_some()
-        );
+        assert!(<Config as ConfigReader>::get_property(&config, "nullish").is_some());
         assert!(<Config as ConfigReader>::is_null(&config, "nullish"));
         assert!(!<Config as ConfigReader>::is_null(&config, "k"));
         assert!(!<Config as ConfigReader>::is_null(&config, "missing"));
@@ -462,22 +344,16 @@ mod test_config_reader_extended_surface {
             1
         );
         assert_eq!(
-            <Config as ConfigReader>::get_or(&config, "missing", 99i32)
-                .unwrap(),
+            <Config as ConfigReader>::get_or(&config, "missing", 99i32).unwrap(),
             99
         );
 
         assert_eq!(
-            <Config as ConfigReader>::get_optional_string(&config, "nullish")
-                .unwrap(),
+            <Config as ConfigReader>::get_optional_string(&config, "nullish").unwrap(),
             None
         );
         assert_eq!(
-            <Config as ConfigReader>::get_optional_string_list(
-                &config,
-                "empty.names"
-            )
-            .unwrap(),
+            <Config as ConfigReader>::get_optional_string_list(&config, "empty.names").unwrap(),
             None
         );
     }
@@ -503,33 +379,21 @@ mod test_config_reader_extended_surface {
             3
         );
 
-        assert!(
-            <ConfigPrefixView<'_> as ConfigReader>::get_property(&view, "x")
-                .is_some()
-        );
+        assert!(<ConfigPrefixView<'_> as ConfigReader>::get_property(&view, "x").is_some());
         assert!(<ConfigPrefixView<'_> as ConfigReader>::is_null(
             &view, "empty"
         ));
         assert_eq!(
-            <ConfigPrefixView<'_> as ConfigReader>::get_optional_string(
-                &view, "empty"
-            )
-            .unwrap(),
+            <ConfigPrefixView<'_> as ConfigReader>::get_optional_string(&view, "empty").unwrap(),
             None
         );
 
-        let sub =
-            <ConfigPrefixView<'_> as ConfigReader>::subconfig(&view, "", true)
-                .unwrap();
-        assert!(
-            sub.contains("x") && sub.contains("y") && sub.contains("empty")
-        );
+        let sub = <ConfigPrefixView<'_> as ConfigReader>::subconfig(&view, "", true).unwrap();
+        assert!(sub.contains("x") && sub.contains("y") && sub.contains("empty"));
         assert!(!sub.contains("a.x"));
 
-        let nested = <ConfigPrefixView<'_> as ConfigReader>::subconfig(
-            &view, "nope", true,
-        )
-        .unwrap();
+        let nested =
+            <ConfigPrefixView<'_> as ConfigReader>::subconfig(&view, "nope", true).unwrap();
         assert!(nested.is_empty());
     }
 
@@ -540,23 +404,15 @@ mod test_config_reader_extended_surface {
         config.set("other.port", 9090i32).unwrap();
 
         assert_eq!(
-            <Config as ConfigReader>::get_optional_list::<i32>(
-                &config,
-                "svc.ports"
-            )
-            .unwrap(),
+            <Config as ConfigReader>::get_optional_list::<i32>(&config, "svc.ports").unwrap(),
             Some(vec![8080, 8081])
         );
         assert_eq!(
-            <Config as ConfigReader>::get_optional_list::<i32>(
-                &config, "missing"
-            )
-            .unwrap(),
+            <Config as ConfigReader>::get_optional_list::<i32>(&config, "missing").unwrap(),
             None
         );
 
-        let sub =
-            <Config as ConfigReader>::subconfig(&config, "svc", true).unwrap();
+        let sub = <Config as ConfigReader>::subconfig(&config, "svc", true).unwrap();
         assert_eq!(sub.get_list::<i32>("ports").unwrap(), vec![8080, 8081]);
         assert!(!sub.contains("other.port"));
     }
@@ -572,25 +428,19 @@ mod test_config_reader_extended_surface {
         let view = config.prefix_view("svc");
         assert!(!<ConfigPrefixView<'_> as ConfigReader>::is_empty(&view));
         assert_eq!(
-            <ConfigPrefixView<'_> as ConfigReader>::get_optional_list::<i32>(
-                &view, "ports"
-            )
-            .unwrap(),
+            <ConfigPrefixView<'_> as ConfigReader>::get_optional_list::<i32>(&view, "ports")
+                .unwrap(),
             Some(vec![8080, 8081])
         );
         assert_eq!(
-            <ConfigPrefixView<'_> as ConfigReader>::get_optional_list::<i32>(
-                &view, "missing"
-            )
-            .unwrap(),
+            <ConfigPrefixView<'_> as ConfigReader>::get_optional_list::<i32>(&view, "missing")
+                .unwrap(),
             None
         );
 
         let root_view = config.prefix_view("");
-        let sub = <ConfigPrefixView<'_> as ConfigReader>::subconfig(
-            &root_view, "svc", true,
-        )
-        .unwrap();
+        let sub =
+            <ConfigPrefixView<'_> as ConfigReader>::subconfig(&root_view, "svc", true).unwrap();
         assert_eq!(sub.get_list::<i32>("ports").unwrap(), vec![8080, 8081]);
     }
 
@@ -600,8 +450,7 @@ mod test_config_reader_extended_surface {
         config.set("srv.host", "h").unwrap();
         config.set("srv.port", 5i32).unwrap();
 
-        let server: Server =
-            <Config as ConfigReader>::deserialize(&config, "srv").unwrap();
+        let server: Server = <Config as ConfigReader>::deserialize(&config, "srv").unwrap();
         assert_eq!(
             server,
             Server {
@@ -611,9 +460,7 @@ mod test_config_reader_extended_surface {
         );
 
         let view = config.prefix_view("srv");
-        let again: Server =
-            <ConfigPrefixView<'_> as ConfigReader>::deserialize(&view, "")
-                .unwrap();
+        let again: Server = <ConfigPrefixView<'_> as ConfigReader>::deserialize(&view, "").unwrap();
         assert_eq!(again, server);
     }
 }
@@ -622,16 +469,8 @@ mod test_config_reader_extended_surface {
 mod test_config_reader_alias_reads {
     #[allow(unused_imports)]
     use super::{
-        BlankStringPolicy,
-        Config,
-        ConfigError,
-        ConfigField,
-        ConfigPrefixView,
-        ConfigReadOptions,
-        ConfigReader,
-        DataType,
-        Deserialize,
-        create_test_config,
+        BlankStringPolicy, Config, ConfigError, ConfigField, ConfigPrefixView, ConfigReadOptions,
+        ConfigReader, DataType, Deserialize, create_test_config,
     };
 
     #[test]
@@ -650,10 +489,7 @@ mod test_config_reader_alias_reads {
         let config = Config::new();
 
         let value = config
-            .get_any_or::<Vec<String>>(
-                ["new.paths", "old.paths"],
-                ["bin", "lib"],
-            )
+            .get_any_or::<Vec<String>>(["new.paths", "old.paths"], ["bin", "lib"])
             .expect("missing aliases should use string list default");
 
         assert_eq!(value, vec!["bin".to_string(), "lib".to_string()]);
@@ -693,8 +529,7 @@ mod test_config_reader_alias_reads {
             .expect("borrowed string vectors should be accepted by reference");
         assert_eq!(str_vec_ref, 8080);
 
-        let owned_vec_names =
-            vec!["missing.port".to_string(), "server.port".to_string()];
+        let owned_vec_names = vec!["missing.port".to_string(), "server.port".to_string()];
         let owned_vec = config
             .get_any_or::<u16>(owned_vec_names.clone(), 9000)
             .expect("owned name vectors should be accepted by value");
@@ -710,8 +545,7 @@ mod test_config_reader_alias_reads {
             .expect("owned name slices should be accepted directly");
         assert_eq!(owned_slice, 8080);
 
-        let owned_array =
-            ["missing.port".to_string(), "server.port".to_string()];
+        let owned_array = ["missing.port".to_string(), "server.port".to_string()];
         let owned_array_value = config
             .get_any_or::<u16>(owned_array.clone(), 9000)
             .expect("owned name arrays should be accepted directly");
@@ -727,9 +561,7 @@ mod test_config_reader_alias_reads {
             ["missing.paths", "legacy.paths"],
             ["cache", "tmp"],
         )
-        .expect(
-            "ConfigReader should accept direct arrays for names and defaults",
-        );
+        .expect("ConfigReader should accept direct arrays for names and defaults");
         assert_eq!(trait_call, vec!["cache".to_string(), "tmp".to_string()]);
     }
 
@@ -770,8 +602,7 @@ mod test_config_reader_alias_reads {
     }
 
     #[test]
-    fn test_get_any_or_returns_error_for_present_invalid_value_before_default()
-    {
+    fn test_get_any_or_returns_error_for_present_invalid_value_before_default() {
         let mut config = Config::new();
         config
             .set("feature.enabled", "maybe")
@@ -801,9 +632,8 @@ mod test_config_reader_alias_reads {
             .get_any_or_with::<u16>(
                 &["server.port", "SERVER_PORT"],
                 8080,
-                &ConfigReadOptions::default().with_blank_string_policy(
-                    BlankStringPolicy::TreatAsMissing,
-                ),
+                &ConfigReadOptions::default()
+                    .with_blank_string_policy(BlankStringPolicy::TreatAsMissing),
             )
             .expect("blank value should use default with explicit options");
 
@@ -819,9 +649,8 @@ mod test_config_reader_alias_reads {
 
         let result = config
             .with_read_options(
-                ConfigReadOptions::default().with_blank_string_policy(
-                    BlankStringPolicy::TreatAsMissing,
-                ),
+                ConfigReadOptions::default()
+                    .with_blank_string_policy(BlankStringPolicy::TreatAsMissing),
             )
             .get::<String>("server.host");
 
@@ -840,15 +669,20 @@ mod test_config_reader_alias_reads {
 
         let result = config
             .with_read_options(
-                ConfigReadOptions::default()
-                    .with_blank_string_policy(BlankStringPolicy::Reject),
+                ConfigReadOptions::default().with_blank_string_policy(BlankStringPolicy::Reject),
             )
             .get_optional::<String>("server.host");
 
         assert!(matches!(
             result,
-            Err(ConfigError::ConversionError { key, message })
-                if key == "server.host" && message == "blank string is not allowed"
+            Err(ConfigError::ConversionError {
+                key,
+                source: qubit_datatype::DataConversionError::InvalidValue {
+                    reason: qubit_datatype::InvalidValueReason::BlankRejected,
+                    ..
+                },
+                ..
+            }) if key == "server.host"
         ));
     }
 
@@ -857,9 +691,8 @@ mod test_config_reader_alias_reads {
         let mut config = Config::new();
         config
             .set_read_options(
-                ConfigReadOptions::default().with_blank_string_policy(
-                    BlankStringPolicy::TreatAsMissing,
-                ),
+                ConfigReadOptions::default()
+                    .with_blank_string_policy(BlankStringPolicy::TreatAsMissing),
             )
             .set("svc.name", "   ")
             .expect("setting blank value should succeed");
@@ -953,16 +786,10 @@ mod test_config_reader_alias_reads {
             .expect("setting alias value should succeed");
 
         let value = config
-            .get_string_any_or(
-                ["service.url", "SERVICE_URL"],
-                "http://fallback",
-            )
+            .get_string_any_or(["service.url", "SERVICE_URL"], "http://fallback")
             .expect("string alias should resolve");
         let fallback = config
-            .get_string_any_or(
-                ["missing.url", "MISSING_URL"],
-                "http://fallback",
-            )
+            .get_string_any_or(["missing.url", "MISSING_URL"], "http://fallback")
             .expect("missing aliases should use fallback");
 
         assert_eq!(value, "http://localhost:8080");
@@ -999,9 +826,8 @@ mod test_config_reader_alias_reads {
         let mut config = Config::new();
         config
             .set_read_options(
-                ConfigReadOptions::default().with_blank_string_policy(
-                    BlankStringPolicy::TreatAsMissing,
-                ),
+                ConfigReadOptions::default()
+                    .with_blank_string_policy(BlankStringPolicy::TreatAsMissing),
             )
             .set("empty.string", "${blank}")
             .expect("setting empty string should succeed");
@@ -1018,9 +844,9 @@ mod test_config_reader_alias_reads {
         let missing_string = config
             .get_string("empty.string")
             .expect_err("blank substitution should be treated as no value");
-        let missing_list = config.get_string_list("empty.list").expect_err(
-            "blank list substitution should be treated as no value",
-        );
+        let missing_list = config
+            .get_string_list("empty.list")
+            .expect_err("blank list substitution should be treated as no value");
         let first_present = config
             .get_string_any(["missing", "empty.string", "fallback"])
             .expect("alias reader should skip effectively missing values");
@@ -1041,15 +867,30 @@ mod test_config_reader_alias_reads {
     }
 
     #[test]
-    fn test_get_list_strict_returns_empty_vector_for_null_property() {
+    fn test_get_list_strict_reports_no_value_for_unset_property() {
         let mut config = Config::new();
         config
             .set_null("empty.list", DataType::String)
             .expect("setting null value should succeed");
 
+        let result = config.get_list_strict::<String>("empty.list");
+
+        assert!(matches!(
+            result,
+            Err(ConfigError::PropertyHasNoValue(key)) if key == "empty.list"
+        ));
+    }
+
+    #[test]
+    fn test_get_list_strict_preserves_concrete_empty_collection() {
+        let mut config = Config::new();
+        config
+            .set("empty.list", Vec::<String>::new())
+            .expect("setting an empty collection should succeed");
+
         let values = config
             .get_list_strict::<String>("empty.list")
-            .expect("null list should parse as empty vector");
+            .expect("a concrete empty collection should remain readable");
 
         assert!(values.is_empty());
     }
@@ -1060,9 +901,7 @@ mod test_config_reader_alias_reads {
 
         let result = config.get_list_strict::<String>("missing.list");
 
-        assert!(
-            matches!(result, Err(ConfigError::PropertyNotFound(key)) if key == "missing.list")
-        );
+        assert!(matches!(result, Err(ConfigError::PropertyNotFound(key)) if key == "missing.list"));
     }
 
     #[test]

@@ -13,11 +13,7 @@ use std::ops::Deref;
 
 use qubit_value::MultiValues;
 
-use crate::{
-    ConfigError,
-    ConfigResult,
-    Property,
-};
+use crate::{ConfigError, ConfigResult, Property};
 
 /// Guarded mutable access to a non-final [`Property`] stored in a
 /// [`crate::Config`].
@@ -70,10 +66,7 @@ impl<'a> ConfigPropertyMut<'a> {
     /// Returns [`ConfigError::PropertyIsFinal`] if the property has already
     /// been marked final.
     #[inline]
-    pub fn set_description(
-        &mut self,
-        description: Option<String>,
-    ) -> ConfigResult<()> {
+    pub fn set_description(&mut self, description: Option<String>) -> ConfigResult<()> {
         self.ensure_not_final()?;
         self.property.set_description(description);
         Ok(())
@@ -146,13 +139,14 @@ impl<'a> ConfigPropertyMut<'a> {
     /// # Errors
     ///
     /// Returns [`ConfigError::PropertyIsFinal`] if the property has already
-    /// been marked final, or a converted value error if setting fails.
+    /// been marked final.
     pub fn set<S>(&mut self, values: S) -> ConfigResult<()>
     where
         S: Into<MultiValues>,
     {
         self.ensure_not_final()?;
-        self.property.set(values).map_err(ConfigError::from)
+        self.property.set(values);
+        Ok(())
     }
 
     /// Appends values using the generic [`MultiValues`] adder.
