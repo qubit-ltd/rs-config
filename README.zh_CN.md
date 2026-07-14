@@ -32,19 +32,19 @@
 
 ```toml
 [dependencies]
-qubit-config = "0.13"
+qubit-config = "0.14"
 ```
 
 默认 features 会保留完整 API：
 
 ```toml
-qubit-config = { version = "0.13", default-features = true }
+qubit-config = { version = "0.14", default-features = true }
 ```
 
 如果只需要轻量能力，可以关闭默认 features，再按需启用具体 source：
 
 ```toml
-qubit-config = { version = "0.13", default-features = false, features = ["source-toml"] }
+qubit-config = { version = "0.14", default-features = false, features = ["source-toml"] }
 ```
 
 可用 feature flags：
@@ -118,9 +118,9 @@ config.set("database.port", 5432)?;
 | API | 行为 |
 |-----|------|
 | `get<T>(name)` | 通过 `FromConfig` 读取必填值。 |
-| `get_optional<T>(name)` | key 缺失或为空时返回 `Ok(None)`。 |
-| `get_or<T>(name, default)` | 仅在 key 缺失或为空时使用默认值。 |
-| `get_any<T>(&[names])` | 按顺序读取第一个存在且非空的 key。 |
+| `get_optional<T>(name)` | key 不存在或被视为缺失时返回 `Ok(None)`。 |
+| `get_or<T>(name, default)` | 仅在 key 不存在或被视为缺失时使用默认值。 |
+| `get_any<T>(&[names])` | 按顺序读取第一个未被视为缺失的 key。 |
 | `get_optional_any<T>(&[names])` | 多 key 可选读取。 |
 | `get_any_or<T>(&[names], default)` | 多 key 默认值读取。 |
 | `get_any_or_with<T>(&[names], default, options)` | 使用显式读取选项的多 key 默认值读取。 |
@@ -129,6 +129,10 @@ config.set("database.port", 5432)?;
 | `get_strict` / `get_list_strict` | 精确存储类型读取，不做跨类型转换。 |
 
 默认值不会隐藏错误配置。如果 key 存在，但值解析、类型转换或变量替换失败，会直接返回错误，不会回退到默认值，也不会继续尝试后面的 alias。
+
+未设置的 property 会被视为缺失；启用相应字符串策略后，标量字符串也可能被视为缺失。
+具体的空集合仍是已设置值：`get_optional_list` 返回 `Some(Vec::new())`，且不会使用
+默认值。
 
 ```rust
 use qubit_config::{Config, ConfigError};
@@ -283,7 +287,8 @@ assert_eq!(optional_port, None);
 assert_eq!(retries, 3);
 ```
 
-多 key 读取会按顺序扫描 key。缺失和空值会被跳过；第一个存在且非空的值会被解析。如果这个值无效，会直接返回错误，不会继续尝试后面的 key。
+多 key 读取会按顺序扫描 key。不存在或被视为缺失的值会被跳过；具体空集合仍是已设置
+值。如果第一个选中的值无效，会直接返回错误，不会继续尝试后面的 key。
 
 ### 配置来源（Configuration sources）
 
@@ -503,9 +508,8 @@ impl Port {
 impl FromConfig for Port {
     fn from_config(property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<Self> {
         let value = u16::from_config(property, ctx)?;
-        Port::new(value).map_err(|message| ConfigError::ConversionError {
-            key: ctx.key().to_string(),
-            message,
+        Port::new(value).map_err(|message| {
+            ConfigError::Other(format!("{}: {message}", ctx.key()))
         })
     }
 }
@@ -557,8 +561,11 @@ pub enum ConfigError {
     PropertyNotFound(String),           // 配置项不存在
     PropertyHasNoValue(String),         // 配置项没有值
     TypeMismatch { key: String, expected: DataType, actual: DataType }, // 类型不匹配
-    ConversionError { key: String, message: String }, // 类型转换失败
-    IndexOutOfBounds { index: usize, len: usize }, // 索引越界
+    ConversionError { // 结构化且不包含原值的转换失败
+        key: String,
+        source_index: Option<usize>,
+        source: DataConversionError,
+    },
     SubstitutionError(String),          // 变量替换失败
     SubstitutionDepthExceeded(usize),   // 变量替换深度超限
     SubstitutionCycle { chain: Vec<String> }, // 检测到变量替换环
