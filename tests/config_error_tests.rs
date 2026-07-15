@@ -6,7 +6,11 @@
 //! Focused tests for public configuration errors.
 
 use qubit_config::ConfigError;
-use qubit_datatype::{DataConversionError, DataType, InvalidValueReason};
+use qubit_datatype::{
+    DataConversionError,
+    DataType,
+    InvalidValueReason,
+};
 
 #[test]
 fn test_config_error_maps_data_conversion_missing_with_key() {

@@ -7,7 +7,11 @@
 // =============================================================================
 //! Tests for parsing context behavior observable through typed reads.
 
-use qubit_config::{Config, ConfigError, ConfigReader};
+use qubit_config::{
+    Config,
+    ConfigError,
+    ConfigReader,
+};
 
 #[test]
 fn test_config_parse_context_uses_resolved_key_in_errors() {

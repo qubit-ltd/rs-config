@@ -6,11 +6,18 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-use qubit_value::MultiValues;
+use qubit_value::{
+    Value as QubitValue,
+    ValueContainer,
+};
 
 use crate::config_reader::ConfigReader;
 use crate::options::ConfigReadOptions;
-use crate::{ConfigResult, Property, utils};
+use crate::{
+    ConfigResult,
+    Property,
+    utils,
+};
 
 use super::config_parse_context::ConfigParseContext;
 use super::from_config::FromConfig;
@@ -23,10 +30,12 @@ use super::from_config::FromConfig;
 ///
 /// # Returns
 ///
-/// Returns `Some(&str)` only when the property stores exactly one string.
+/// Returns `Some(&str)` only when the property has scalar string shape.
 pub(crate) fn first_scalar_string(property: &Property) -> Option<&str> {
     match property.value() {
-        MultiValues::String(values) if values.len() == 1 => values.first().map(String::as_str),
+        ValueContainer::Scalar(QubitValue::String(value)) => {
+            Some(value.as_str())
+        }
         _ => None,
     }
 }
@@ -98,7 +107,9 @@ where
 }
 
 /// Checks whether a property is missing after applying variable substitution.
-pub(crate) fn is_effectively_missing_with_substitution<R: ConfigReader + ?Sized>(
+pub(crate) fn is_effectively_missing_with_substitution<
+    R: ConfigReader + ?Sized,
+>(
     reader: &R,
     name: &str,
     property: &Property,
@@ -136,7 +147,8 @@ fn is_effectively_missing_by<R: ConfigReader + ?Sized>(
     let Some(value) = first_scalar_string(property) else {
         return Ok(false);
     };
-    let substitute = |value: &str| substitute_for_reader(reader, value, apply_substitution);
+    let substitute =
+        |value: &str| substitute_for_reader(reader, value, apply_substitution);
     let ctx = ConfigParseContext::new(name, options, &substitute);
     let value = ctx.substitute_string(value)?;
     match options.conversion_options().string.normalize(&value) {
@@ -159,7 +171,8 @@ where
     R: ConfigReader + ?Sized,
     T: FromConfig,
 {
-    let substitute = |value: &str| substitute_for_reader(reader, value, apply_substitution);
+    let substitute =
+        |value: &str| substitute_for_reader(reader, value, apply_substitution);
     let ctx = ConfigParseContext::new(name, options, &substitute);
     T::from_config(property, &ctx)
 }
@@ -171,7 +184,11 @@ fn substitute_for_reader<R: ConfigReader + ?Sized>(
     apply_substitution: bool,
 ) -> ConfigResult<String> {
     if apply_substitution && reader.is_enable_variable_substitution() {
-        utils::substitute_variables(value, reader, reader.max_substitution_depth())
+        utils::substitute_variables(
+            value,
+            reader,
+            reader.max_substitution_depth(),
+        )
     } else {
         no_substitution(value)
     }

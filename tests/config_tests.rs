@@ -9,10 +9,21 @@
 //!
 //! Covers the public `Config` API (including APIs introduced in v0.4.0).
 
-pub(crate) use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
+pub(crate) use chrono::{
+    DateTime,
+    NaiveDate,
+    NaiveDateTime,
+    NaiveTime,
+    Utc,
+};
 pub(crate) use qubit_config::{
-    Config, ConfigError, Property,
-    options::{BlankStringPolicy, ConfigReadOptions},
+    Config,
+    ConfigError,
+    Property,
+    options::{
+        BlankStringPolicy,
+        ConfigReadOptions,
+    },
 };
 pub(crate) use qubit_datatype::DataType;
 pub(crate) use qubit_value::MultiValues;
@@ -34,6 +45,46 @@ pub(crate) fn create_test_config_with_description() -> Config {
     Config::with_description("Test Configuration")
 }
 
+#[test]
+fn test_config_preserves_scalar_and_collection_source_shapes() {
+    let mut config = Config::new();
+    config.set("scalar", 42_i32).expect("set scalar");
+    config
+        .set("collection", vec![42_i32])
+        .expect("set collection");
+
+    assert_eq!(config.deserialize::<i32>("scalar").expect("scalar"), 42);
+    assert_eq!(
+        config
+            .deserialize::<Vec<i32>>("collection")
+            .expect("collection"),
+        vec![42]
+    );
+}
+
+#[test]
+fn test_config_splits_scalar_text_but_preserves_collection_items() {
+    let mut config = Config::new();
+    config.set_read_options(ConfigReadOptions::env_friendly());
+    config.set("scalar_text", "a,b").expect("set scalar text");
+    config
+        .set("collection_text", vec!["a,b"])
+        .expect("set collection text");
+
+    assert_eq!(
+        config
+            .get_list::<String>("scalar_text")
+            .expect("split scalar"),
+        vec!["a".to_string(), "b".to_string()]
+    );
+    assert_eq!(
+        config
+            .get_list::<String>("collection_text")
+            .expect("preserve collection item"),
+        vec!["a,b".to_string()]
+    );
+}
+
 // ============================================================================
 // Constructor Tests
 // ============================================================================
@@ -42,8 +93,20 @@ pub(crate) fn create_test_config_with_description() -> Config {
 mod test_new {
     #[allow(unused_imports)]
     use super::{
-        BlankStringPolicy, Config, ConfigError, ConfigReadOptions, DataType, DateTime, Deserialize,
-        MultiValues, NaiveDate, NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        BlankStringPolicy,
+        Config,
+        ConfigError,
+        ConfigReadOptions,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -69,8 +132,20 @@ mod test_new {
 mod test_with_description {
     #[allow(unused_imports)]
     use super::{
-        BlankStringPolicy, Config, ConfigError, ConfigReadOptions, DataType, DateTime, Deserialize,
-        MultiValues, NaiveDate, NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        BlankStringPolicy,
+        Config,
+        ConfigError,
+        ConfigReadOptions,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -103,8 +178,20 @@ mod test_with_description {
 mod test_description {
     #[allow(unused_imports)]
     use super::{
-        BlankStringPolicy, Config, ConfigError, ConfigReadOptions, DataType, DateTime, Deserialize,
-        MultiValues, NaiveDate, NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        BlankStringPolicy,
+        Config,
+        ConfigError,
+        ConfigReadOptions,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -146,8 +233,18 @@ mod test_description {
 mod test_variable_substitution {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -202,8 +299,18 @@ mod test_variable_substitution {
 mod test_contains {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -232,8 +339,18 @@ mod test_contains {
 mod test_get_property {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -256,8 +373,18 @@ mod test_get_property {
 mod test_get_property_mut {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -291,13 +418,19 @@ mod test_get_property_mut {
         config.set("test", "value").unwrap();
 
         {
-            let mut property = config.get_property_mut("test").unwrap().unwrap();
+            let mut property =
+                config.get_property_mut("test").unwrap().unwrap();
             property.set_final(true).unwrap();
 
-            let desc_result = property.set_description(Some("blocked".to_string()));
-            assert!(matches!(desc_result, Err(ConfigError::PropertyIsFinal(_))));
+            let desc_result =
+                property.set_description(Some("blocked".to_string()));
+            assert!(matches!(
+                desc_result,
+                Err(ConfigError::PropertyIsFinal(_))
+            ));
 
-            let set_result = property.set_value(MultiValues::String(vec!["new-value".to_string()]));
+            let set_result = property
+                .set_value(MultiValues::String(vec!["new-value".to_string()]));
             assert!(matches!(set_result, Err(ConfigError::PropertyIsFinal(_))));
 
             let generic_set_result = property.set("new-value");
@@ -310,10 +443,16 @@ mod test_get_property_mut {
             assert!(matches!(add_result, Err(ConfigError::PropertyIsFinal(_))));
 
             let clear_result = property.clear();
-            assert!(matches!(clear_result, Err(ConfigError::PropertyIsFinal(_))));
+            assert!(matches!(
+                clear_result,
+                Err(ConfigError::PropertyIsFinal(_))
+            ));
 
             let unset_result = property.set_final(false);
-            assert!(matches!(unset_result, Err(ConfigError::PropertyIsFinal(_))));
+            assert!(matches!(
+                unset_result,
+                Err(ConfigError::PropertyIsFinal(_))
+            ));
         }
 
         assert_eq!(config.get_string("test").unwrap(), "value");
@@ -325,7 +464,8 @@ mod test_get_property_mut {
         config.set("test", "value").unwrap();
 
         {
-            let mut property = config.get_property_mut("test").unwrap().unwrap();
+            let mut property =
+                config.get_property_mut("test").unwrap().unwrap();
             assert_eq!(property.name(), "test");
             assert_eq!(property.as_property().name(), "test");
             property
@@ -353,8 +493,18 @@ mod test_get_property_mut {
 mod test_remove {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -392,8 +542,18 @@ mod test_remove {
 mod test_clear {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -430,8 +590,18 @@ mod test_clear {
 mod test_len {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -455,8 +625,18 @@ mod test_len {
 mod test_is_empty {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -478,8 +658,18 @@ mod test_is_empty {
 mod test_keys {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -513,8 +703,18 @@ mod test_keys {
 mod test_get {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -576,15 +776,6 @@ mod test_get {
         assert_eq!(value, 42);
     }
 
-    // Note: isize type does not implement IntoPropertyValue and
-    // FromPropertyValue traits #[test]
-    // fn test_get_isize() {
-    //     let mut config = Config::new();
-    //     config.set("test", 42isize).unwrap();
-    //     let value: isize = config.get("test").unwrap();
-    //     assert_eq!(value, 42);
-    // }
-
     // Unsigned integer type tests
     #[test]
     fn test_get_u8() {
@@ -625,15 +816,6 @@ mod test_get {
         let value: u128 = config.get("test").unwrap();
         assert_eq!(value, 42);
     }
-
-    // Note: usize type does not implement IntoPropertyValue and
-    // FromPropertyValue traits #[test]
-    // fn test_get_usize() {
-    //     let mut config = Config::new();
-    //     config.set("test", 42usize).unwrap();
-    //     let value: usize = config.get("test").unwrap();
-    //     assert_eq!(value, 42);
-    // }
 
     // Float type tests
     #[test]
@@ -774,8 +956,18 @@ mod test_get {
 mod test_get_or {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -805,7 +997,8 @@ mod test_get_or {
     #[test]
     fn test_get_or_with_string_default() {
         let config = Config::new();
-        let value = config.get_or("nonexistent", "default".to_string()).unwrap();
+        let value =
+            config.get_or("nonexistent", "default".to_string()).unwrap();
         assert_eq!(value, "default");
     }
 
@@ -840,7 +1033,10 @@ mod test_get_or {
             .get_or::<Vec<String>>("nonexistent", ["default1", "default2"])
             .unwrap();
 
-        assert_eq!(values, vec!["default1".to_string(), "default2".to_string()]);
+        assert_eq!(
+            values,
+            vec!["default1".to_string(), "default2".to_string()]
+        );
     }
 
     #[test]
@@ -852,7 +1048,10 @@ mod test_get_or {
             .get_or::<Vec<String>>("nonexistent", defaults.as_slice())
             .unwrap();
 
-        assert_eq!(values, vec!["default1".to_string(), "default2".to_string()]);
+        assert_eq!(
+            values,
+            vec!["default1".to_string(), "default2".to_string()]
+        );
     }
 
     #[test]
@@ -923,10 +1122,12 @@ mod test_into_config_default {
         let vec_source = vec![4, 5, 6];
         let array_ref_source = [7, 8, 9];
 
-        let from_slice: Vec<i32> = slice_source.as_slice().into_config_default();
+        let from_slice: Vec<i32> =
+            slice_source.as_slice().into_config_default();
         let from_vec_ref: Vec<i32> = (&vec_source).into_config_default();
         let from_array: Vec<i32> = [10, 11, 12].into_config_default();
-        let from_array_ref: Vec<i32> = (&array_ref_source).into_config_default();
+        let from_array_ref: Vec<i32> =
+            (&array_ref_source).into_config_default();
 
         assert_eq!(from_slice, vec![1, 2, 3]);
         assert_eq!(from_vec_ref, vec![4, 5, 6]);
@@ -944,7 +1145,8 @@ mod test_into_config_default {
         let from_vec_ref: Vec<String> = (&vec_ref_source).into_config_default();
         let from_vec: Vec<String> = vec!["e", "f"].into_config_default();
         let from_array: Vec<String> = ["i", "j"].into_config_default();
-        let from_array_ref: Vec<String> = (&array_ref_source).into_config_default();
+        let from_array_ref: Vec<String> =
+            (&array_ref_source).into_config_default();
 
         assert_eq!(from_slice, vec!["a".to_string(), "b".to_string()]);
         assert_eq!(from_vec_ref, vec!["c".to_string(), "d".to_string()]);
@@ -962,8 +1164,18 @@ mod test_into_config_default {
 mod test_get_list {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -1044,8 +1256,18 @@ mod test_get_list {
 mod test_set {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -1108,30 +1330,21 @@ mod test_set {
         config.set("i32", 42i32).unwrap();
         config.set("i64", 42i64).unwrap();
         config.set("i128", 42i128).unwrap();
-        // Note: isize and usize types do not implement IntoPropertyValue and
-        // FromPropertyValue traits config.set("isize",
-        // 42isize).unwrap();
-
         config.set("u8", 42u8).unwrap();
         config.set("u16", 42u16).unwrap();
         config.set("u32", 42u32).unwrap();
         config.set("u64", 42u64).unwrap();
         config.set("u128", 42u128).unwrap();
-        // config.set("usize", 42usize).unwrap();
-
         assert_eq!(config.get::<i8>("i8").unwrap(), 42);
         assert_eq!(config.get::<i16>("i16").unwrap(), 42);
         assert_eq!(config.get::<i32>("i32").unwrap(), 42);
         assert_eq!(config.get::<i64>("i64").unwrap(), 42);
         assert_eq!(config.get::<i128>("i128").unwrap(), 42);
-        // assert_eq!(config.get::<isize>("isize").unwrap(), 42);
-
         assert_eq!(config.get::<u8>("u8").unwrap(), 42);
         assert_eq!(config.get::<u16>("u16").unwrap(), 42);
         assert_eq!(config.get::<u32>("u32").unwrap(), 42);
         assert_eq!(config.get::<u64>("u64").unwrap(), 42);
         assert_eq!(config.get::<u128>("u128").unwrap(), 42);
-        // assert_eq!(config.get::<usize>("usize").unwrap(), 42);
     }
 
     #[test]
@@ -1160,7 +1373,8 @@ mod test_set {
         let datetime = DateTime::<Utc>::from_timestamp(1703505600, 0)
             .unwrap()
             .naive_utc();
-        let utc_datetime = DateTime::<Utc>::from_timestamp(1703505600, 0).unwrap();
+        let utc_datetime =
+            DateTime::<Utc>::from_timestamp(1703505600, 0).unwrap();
 
         config.set("date", date).unwrap();
         config.set("time", time).unwrap();
@@ -1188,8 +1402,18 @@ mod test_set {
 mod test_add {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -1247,8 +1471,18 @@ mod test_add {
 mod test_get_string {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -1290,8 +1524,18 @@ mod test_get_string {
 mod test_get_string_or {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -1327,8 +1571,18 @@ mod test_get_string_or {
 mod test_get_string_list {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -1350,7 +1604,10 @@ mod test_get_string_list {
             .set("urls", vec!["${base}/api", "${base}/admin"])
             .unwrap();
         let urls = config.get_string_list("urls").unwrap();
-        assert_eq!(urls, vec!["http://localhost/api", "http://localhost/admin"]);
+        assert_eq!(
+            urls,
+            vec!["http://localhost/api", "http://localhost/admin"]
+        );
     }
 
     #[test]
@@ -1362,7 +1619,10 @@ mod test_get_string_list {
             .set("urls", vec!["${base}/api", "${base}/admin"])
             .unwrap();
         let urls = config.get_string_list("urls").unwrap();
-        assert_eq!(urls, vec!["http://localhost/api", "http://localhost/admin"]);
+        assert_eq!(
+            urls,
+            vec!["http://localhost/api", "http://localhost/admin"]
+        );
     }
 
     #[test]
@@ -1410,8 +1670,18 @@ mod test_get_string_list {
 mod test_get_string_list_or {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -1448,7 +1718,10 @@ mod test_get_string_list_or {
             .set("urls", vec!["${base}/api", "${base}/admin"])
             .unwrap();
         let urls = config.get_string_list_or("urls", &["default"]).unwrap();
-        assert_eq!(urls, vec!["http://localhost/api", "http://localhost/admin"]);
+        assert_eq!(
+            urls,
+            vec!["http://localhost/api", "http://localhost/admin"]
+        );
     }
 
     #[test]
@@ -1479,8 +1752,18 @@ mod test_get_string_list_or {
 mod test_default {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -1510,8 +1793,18 @@ mod test_default {
 mod test_final_property {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -1636,8 +1929,18 @@ mod test_final_property {
 mod test_iter {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -1690,8 +1993,18 @@ mod test_iter {
 mod test_iter_prefix {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -1754,8 +2067,18 @@ mod test_iter_prefix {
 mod test_contains_prefix {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -1806,8 +2129,20 @@ mod test_contains_prefix {
 mod test_subconfig {
     #[allow(unused_imports)]
     use super::{
-        BlankStringPolicy, Config, ConfigError, ConfigReadOptions, DataType, DateTime, Deserialize,
-        MultiValues, NaiveDate, NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        BlankStringPolicy,
+        Config,
+        ConfigError,
+        ConfigReadOptions,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -1914,42 +2249,60 @@ mod test_subconfig {
 mod test_get_and_get_list_error_mapping_additional_paths {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
     #[test]
     fn test_get_and_get_list_error_mapping_additional_paths() {
-        use chrono::NaiveDate;
         use serde_json::Value as JsonValue;
 
         let mut config = Config::new();
         config
-            .set("date_value", NaiveDate::from_ymd_opt(2025, 1, 1).unwrap())
+            .set(
+                "map_value",
+                std::collections::HashMap::from([(
+                    "key".to_string(),
+                    "value".to_string(),
+                )]),
+            )
             .unwrap();
         config.set("bad_int", "abc").unwrap();
         config.set("bad_json", "{invalid-json").unwrap();
 
         // Unsupported conversion path in get().
-        let err = config.get::<i32>("date_value").unwrap_err();
+        let err = config.get::<i32>("map_value").unwrap_err();
         assert!(matches!(
             err,
-            ConfigError::ConversionError { .. } | ConfigError::TypeMismatch { .. }
+            ConfigError::ConversionError { .. }
+                | ConfigError::TypeMismatch { .. }
         ));
 
         // Invalid syntax path in get().
         let err = config.get::<i32>("bad_int").unwrap_err();
         assert!(matches!(
             err,
-            ConfigError::ConversionError { .. } | ConfigError::TypeMismatch { .. }
+            ConfigError::ConversionError { .. }
+                | ConfigError::TypeMismatch { .. }
         ));
 
         // JSON deserialization error path in get().
         let err = config.get::<JsonValue>("bad_json").unwrap_err();
         assert!(matches!(
             err,
-            ConfigError::ConversionError { .. } | ConfigError::TypeMismatch { .. }
+            ConfigError::ConversionError { .. }
+                | ConfigError::TypeMismatch { .. }
         ));
 
         // An unset property remains missing for list conversion.
@@ -1962,11 +2315,12 @@ mod test_get_and_get_list_error_mapping_additional_paths {
         // get_list on incompatible scalar may normalize to empty list in
         // current implementation. Keep this assertion to lock current
         // behavior.
-        match config.get_list::<i32>("date_value") {
+        match config.get_list::<i32>("map_value") {
             Ok(values) => assert!(values.is_empty()),
             Err(err) => assert!(matches!(
                 err,
-                ConfigError::ConversionError { .. } | ConfigError::TypeMismatch { .. }
+                ConfigError::ConversionError { .. }
+                    | ConfigError::TypeMismatch { .. }
             )),
         }
     }
@@ -1980,8 +2334,18 @@ mod test_get_and_get_list_error_mapping_additional_paths {
 mod test_is_null {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -2027,8 +2391,18 @@ mod test_is_null {
 mod test_get_optional {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -2094,15 +2468,26 @@ mod test_get_optional {
 mod test_get_optional_list {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
     #[test]
     fn test_get_optional_list_missing_key_returns_none() {
         let config = Config::new();
-        let result: Option<Vec<i32>> = config.get_optional_list("missing").unwrap();
+        let result: Option<Vec<i32>> =
+            config.get_optional_list("missing").unwrap();
         assert_eq!(result, None);
     }
 
@@ -2110,7 +2495,8 @@ mod test_get_optional_list {
     fn test_get_optional_list_existing_key_returns_some() {
         let mut config = Config::new();
         config.set("ports", vec![8080, 8081, 8082]).unwrap();
-        let result: Option<Vec<i32>> = config.get_optional_list("ports").unwrap();
+        let result: Option<Vec<i32>> =
+            config.get_optional_list("ports").unwrap();
         assert_eq!(result, Some(vec![8080, 8081, 8082]));
     }
 
@@ -2118,7 +2504,8 @@ mod test_get_optional_list {
     fn test_get_optional_list_null_property_returns_none() {
         let mut config = Config::new();
         config.set_null("nullable", DataType::Int32).unwrap();
-        let result: Option<Vec<i32>> = config.get_optional_list("nullable").unwrap();
+        let result: Option<Vec<i32>> =
+            config.get_optional_list("nullable").unwrap();
         assert_eq!(result, None);
     }
 
@@ -2126,7 +2513,8 @@ mod test_get_optional_list {
     fn test_get_optional_list_single_value() {
         let mut config = Config::new();
         config.set("port", 8080).unwrap();
-        let result: Option<Vec<i32>> = config.get_optional_list("port").unwrap();
+        let result: Option<Vec<i32>> =
+            config.get_optional_list("port").unwrap();
         assert_eq!(result, Some(vec![8080]));
     }
 
@@ -2134,7 +2522,8 @@ mod test_get_optional_list {
     fn test_get_optional_list_type_mismatch_returns_error() {
         let mut config = Config::new();
         config.set("ports", vec!["yes", "no"]).unwrap();
-        let result: Result<Option<Vec<bool>>, _> = config.get_optional_list("ports");
+        let result: Result<Option<Vec<bool>>, _> =
+            config.get_optional_list("ports");
         assert!(result.is_err());
         match result.unwrap_err() {
             ConfigError::ConversionError { key, .. } => {
@@ -2153,8 +2542,18 @@ mod test_get_optional_list {
 mod test_get_optional_string {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -2335,7 +2734,8 @@ mod test_get_optional_string {
     }
 
     #[test]
-    fn test_get_optional_string_list_unresolved_variable_in_element_returns_error() {
+    fn test_get_optional_string_list_unresolved_variable_in_element_returns_error()
+     {
         let mut config = Config::new();
         config
             .set(
@@ -2372,8 +2772,18 @@ mod test_get_optional_string {
 mod test_enhanced_errors {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -2416,7 +2826,8 @@ mod test_enhanced_errors {
     #[test]
     fn test_get_property_not_found_carries_key() {
         let config = Config::new();
-        let result: Result<String, _> = config.get("http.logging.body_size_limit");
+        let result: Result<String, _> =
+            config.get("http.logging.body_size_limit");
         assert!(result.is_err());
         match result.unwrap_err() {
             ConfigError::PropertyNotFound(key) => {
@@ -2522,11 +2933,13 @@ mod test_enhanced_errors {
     #[test]
     fn test_conversion_error_from_value_error_has_empty_key() {
         use qubit_value::ValueError;
-        let ve = ValueError::DataConversion(qubit_datatype::DataConversionError::InvalidValue {
-            from: DataType::String,
-            to: DataType::Int32,
-            reason: qubit_datatype::InvalidValueReason::OutOfRange,
-        });
+        let ve = ValueError::DataConversion(
+            qubit_datatype::DataConversionError::InvalidValue {
+                from: DataType::String,
+                to: DataType::Int32,
+                reason: qubit_datatype::InvalidValueReason::OutOfRange,
+            },
+        );
         let ce: ConfigError = ve.into();
         match ce {
             ConfigError::ConversionError { key, source, .. } => {
@@ -2543,10 +2956,12 @@ mod test_enhanced_errors {
     #[test]
     fn test_conversion_failed_from_value_error_has_empty_key() {
         use qubit_value::ValueError;
-        let ve = ValueError::DataConversion(qubit_datatype::DataConversionError::Unsupported {
-            from: DataType::String,
-            to: DataType::Int32,
-        });
+        let ve = ValueError::DataConversion(
+            qubit_datatype::DataConversionError::Unsupported {
+                from: DataType::String,
+                to: DataType::Int32,
+            },
+        );
         let ce: ConfigError = ve.into();
         match ce {
             ConfigError::ConversionError { key, source, .. } => {
@@ -2567,12 +2982,25 @@ mod test_enhanced_errors {
 
 #[cfg(all(test, feature = "source-toml"))]
 mod test_toml_type_faithful {
-    use qubit_config::source::{ConfigSource, TomlConfigSource};
+    use qubit_config::source::{
+        ConfigSource,
+        TomlConfigSource,
+    };
 
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -2676,12 +3104,25 @@ mod test_toml_type_faithful {
 
 #[cfg(all(test, feature = "source-yaml"))]
 mod test_yaml_type_faithful {
-    use qubit_config::source::{ConfigSource, YamlConfigSource};
+    use qubit_config::source::{
+        ConfigSource,
+        YamlConfigSource,
+    };
 
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -2815,8 +3256,18 @@ mod test_yaml_type_faithful {
 mod test_property_insertion_api {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -2826,7 +3277,10 @@ mod test_property_insertion_api {
         config
             .insert_property(
                 "direct",
-                Property::with_value("direct", MultiValues::String(vec!["hello".to_string()])),
+                Property::with_value(
+                    "direct",
+                    MultiValues::String(vec!["hello".to_string()]),
+                ),
             )
             .unwrap();
         assert_eq!(config.get_string("direct").unwrap(), "hello");
@@ -2845,7 +3299,10 @@ mod test_property_insertion_api {
         let mut config = Config::new();
         let result = config.insert_property(
             "expected.key",
-            Property::with_value("actual.key", MultiValues::String(vec!["hello".to_string()])),
+            Property::with_value(
+                "actual.key",
+                MultiValues::String(vec!["hello".to_string()]),
+            ),
         );
         assert!(matches!(result, Err(ConfigError::MergeError(_))));
     }
@@ -2858,7 +3315,10 @@ mod test_property_insertion_api {
 
         let result = config.insert_property(
             "final.key",
-            Property::with_value("final.key", MultiValues::String(vec!["v2".to_string()])),
+            Property::with_value(
+                "final.key",
+                MultiValues::String(vec!["v2".to_string()]),
+            ),
         );
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
     }
@@ -2872,8 +3332,18 @@ mod test_property_insertion_api {
 mod test_config_error_branches {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -2942,8 +3412,18 @@ mod test_config_error_branches {
 mod test_subconfig_deserialize_integration {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, DateTime, Deserialize, MultiValues, NaiveDate,
-        NaiveDateTime, NaiveTime, Property, Utc, create_test_config,
+        Config,
+        ConfigError,
+        DataType,
+        DateTime,
+        Deserialize,
+        MultiValues,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Property,
+        Utc,
+        create_test_config,
         create_test_config_with_description,
     };
 
@@ -3005,7 +3485,11 @@ mod test_subconfig_deserialize_integration {
         let sub_a = config.subconfig("module.a", true).unwrap();
         assert_eq!(sub_a.get::<i32>("x").unwrap(), 1);
         assert_eq!(sub_a.get::<i32>("y").unwrap(), 2);
-        assert!(!sub_a.contains("x".to_string().as_str().replace("x", "b.x").as_str()));
+        assert!(
+            !sub_a.contains(
+                "x".to_string().as_str().replace("x", "b.x").as_str()
+            )
+        );
     }
 }
 
@@ -3015,7 +3499,10 @@ mod test_subconfig_deserialize_integration {
 
 #[cfg(all(test, feature = "source-toml"))]
 mod test_merge_from_source {
-    use super::{Config, ConfigError};
+    use super::{
+        Config,
+        ConfigError,
+    };
     use qubit_config::source::TomlConfigSource;
     use std::path::PathBuf;
 
@@ -3120,7 +3607,11 @@ mod test_source_backed_constructors {
     use super::Config;
     use qubit_config::source::TomlConfigSource;
     use std::path::PathBuf;
-    use std::sync::{Mutex, MutexGuard, OnceLock};
+    use std::sync::{
+        Mutex,
+        MutexGuard,
+        OnceLock,
+    };
 
     fn fixture(name: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -3165,7 +3656,8 @@ mod test_source_backed_constructors {
 
     #[test]
     fn test_from_properties_file_loads_properties_config() {
-        let config = Config::from_properties_file(fixture("basic.properties")).unwrap();
+        let config =
+            Config::from_properties_file(fixture("basic.properties")).unwrap();
 
         assert_eq!(config.get_string("host").unwrap(), "localhost");
         assert_eq!(config.get_string("app.version").unwrap(), "1.0.0");
@@ -3227,7 +3719,8 @@ mod test_source_backed_constructors {
             std::env::set_var("QOPTS_MY_KEY", "raw-value");
         }
 
-        let config = Config::from_env_options("QOPTS_", false, false, false).unwrap();
+        let config =
+            Config::from_env_options("QOPTS_", false, false, false).unwrap();
 
         assert_eq!(config.get_string("QOPTS_MY_KEY").unwrap(), "raw-value");
         assert!(!config.contains("my.key"));

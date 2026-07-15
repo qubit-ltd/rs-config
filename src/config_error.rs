@@ -11,7 +11,10 @@
 
 use thiserror::Error;
 
-use qubit_datatype::{DataConversionError, DataType};
+use qubit_datatype::{
+    DataConversionError,
+    DataType,
+};
 use qubit_value::ValueError;
 
 /// Configuration error type.
@@ -72,7 +75,9 @@ pub enum ConfigError {
     PropertyIsFinal(String),
 
     /// Configuration key path cannot be represented without ambiguity.
-    #[error("Configuration key conflict at '{path}': existing {existing}, incoming {incoming}")]
+    #[error(
+        "Configuration key conflict at '{path}': existing {existing}, incoming {incoming}"
+    )]
     KeyConflict {
         /// Conflicting configuration key/path.
         path: String,
@@ -110,7 +115,10 @@ pub enum ConfigError {
 impl ConfigError {
     /// Maps a common data conversion error to a keyed configuration error.
     #[inline]
-    pub fn from_data_conversion_error(key: &str, error: DataConversionError) -> Self {
+    pub fn from_data_conversion_error(
+        key: &str,
+        error: DataConversionError,
+    ) -> Self {
         if matches!(error, DataConversionError::Missing { .. }) {
             Self::PropertyHasNoValue(key.to_string())
         } else {
@@ -126,12 +134,16 @@ impl ConfigError {
     fn from_value_error(key: &str, error: ValueError) -> Self {
         match error {
             ValueError::NoValue => Self::PropertyHasNoValue(key.to_string()),
-            ValueError::TypeMismatch { expected, actual } => Self::TypeMismatch {
-                key: key.to_string(),
-                expected,
-                actual,
-            },
-            ValueError::DataConversion(source) => Self::from_data_conversion_error(key, source),
+            ValueError::TypeMismatch { expected, actual } => {
+                Self::TypeMismatch {
+                    key: key.to_string(),
+                    expected,
+                    actual,
+                }
+            }
+            ValueError::DataConversion(source) => {
+                Self::from_data_conversion_error(key, source)
+            }
             ValueError::DataListConversion(error) => Self::ConversionError {
                 key: key.to_string(),
                 source_index: Some(error.source_index),

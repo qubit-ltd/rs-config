@@ -25,13 +25,27 @@
 //! Arrays are stored as multi-value properties.
 
 use std::collections::HashSet;
-use std::path::{Path, PathBuf};
+use std::path::{
+    Path,
+    PathBuf,
+};
 
-use toml::{Table as TomlTable, Value as TomlValue};
+use toml::{
+    Table as TomlTable,
+    Value as TomlValue,
+};
 
-use crate::{Config, ConfigError, ConfigResult, utils};
+use crate::{
+    Config,
+    ConfigError,
+    ConfigResult,
+    utils,
+};
 
-use super::{ConfigSource, config_source::load_transactionally};
+use super::{
+    ConfigSource,
+    config_source::load_transactionally,
+};
 
 /// Configuration source that loads from TOML format files
 ///
@@ -77,7 +91,11 @@ impl ConfigSource for TomlConfigSource {
         let content = std::fs::read_to_string(&self.path).map_err(|e| {
             ConfigError::IoError(std::io::Error::new(
                 e.kind(),
-                format!("Failed to read TOML file '{}': {}", self.path.display(), e),
+                format!(
+                    "Failed to read TOML file '{}': {}",
+                    self.path.display(),
+                    e
+                ),
             ))
         })?;
 
@@ -153,7 +171,11 @@ pub(crate) fn flatten_toml_value(
 /// Homogeneous scalar arrays are stored with their native types. Empty arrays
 /// are stored as explicit empty string lists because TOML carries no element
 /// type for them. Mixed or nested arrays fall back to string representation.
-fn flatten_toml_array(prefix: &str, arr: &[TomlValue], config: &mut Config) -> ConfigResult<()> {
+fn flatten_toml_array(
+    prefix: &str,
+    arr: &[TomlValue],
+    config: &mut Config,
+) -> ConfigResult<()> {
     if arr.is_empty() {
         config.set(prefix, Vec::<String>::new())?;
         return Ok(());
@@ -214,8 +236,9 @@ fn flatten_toml_array(prefix: &str, arr: &[TomlValue], config: &mut Config) -> C
             let values = arr
                 .iter()
                 .map(|item| {
-                    item.as_integer()
-                        .expect("TOML integer array was validated before insertion")
+                    item.as_integer().expect(
+                        "TOML integer array was validated before insertion",
+                    )
                 })
                 .collect::<Vec<_>>();
             config.set(prefix, values)?;
@@ -224,8 +247,9 @@ fn flatten_toml_array(prefix: &str, arr: &[TomlValue], config: &mut Config) -> C
             let values = arr
                 .iter()
                 .map(|item| {
-                    item.as_float()
-                        .expect("TOML float array was validated before insertion")
+                    item.as_float().expect(
+                        "TOML float array was validated before insertion",
+                    )
                 })
                 .collect::<Vec<_>>();
             config.set(prefix, values)?;
@@ -234,8 +258,9 @@ fn flatten_toml_array(prefix: &str, arr: &[TomlValue], config: &mut Config) -> C
             let values = arr
                 .iter()
                 .map(|item| {
-                    item.as_bool()
-                        .expect("TOML bool array was validated before insertion")
+                    item.as_bool().expect(
+                        "TOML bool array was validated before insertion",
+                    )
                 })
                 .collect::<Vec<_>>();
             config.set(prefix, values)?;
@@ -244,8 +269,9 @@ fn flatten_toml_array(prefix: &str, arr: &[TomlValue], config: &mut Config) -> C
             let values = arr
                 .iter()
                 .map(|item| {
-                    toml_scalar_to_string(item, prefix)
-                        .expect("TOML string array was validated before insertion")
+                    toml_scalar_to_string(item, prefix).expect(
+                        "TOML string array was validated before insertion",
+                    )
                 })
                 .collect::<Vec<_>>();
             config.set(prefix, values)?;

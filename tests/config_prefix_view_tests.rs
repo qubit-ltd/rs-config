@@ -7,12 +7,18 @@
 // =============================================================================
 //! [`qubit_config::ConfigPrefixView`] tests.
 
-use qubit_config::{Config, ConfigReader};
+use qubit_config::{
+    Config,
+    ConfigReader,
+};
 
 #[cfg(test)]
 mod test_config_prefix_view_smoke {
     #[allow(unused_imports)]
-    use super::{Config, ConfigReader};
+    use super::{
+        Config,
+        ConfigReader,
+    };
 
     #[test]
     fn config_prefix_view_reads_relative_key() {
@@ -26,7 +32,10 @@ mod test_config_prefix_view_smoke {
 #[cfg(test)]
 mod test_config_prefix_view {
     #[allow(unused_imports)]
-    use super::{Config, ConfigReader};
+    use super::{
+        Config,
+        ConfigReader,
+    };
 
     #[test]
     fn test_view_reads_relative_keys_without_copy() {
@@ -86,7 +95,8 @@ mod test_config_prefix_view {
         assert!(view.contains_prefix("proxy"));
         assert!(!view.contains_prefix("db"));
 
-        let keys: Vec<&str> = view.iter_prefix("proxy.").map(|(k, _)| k).collect();
+        let keys: Vec<&str> =
+            view.iter_prefix("proxy.").map(|(k, _)| k).collect();
         assert_eq!(keys.len(), 2);
         assert!(keys.contains(&"proxy.host"));
         assert!(keys.contains(&"proxy.port"));
@@ -128,7 +138,8 @@ mod test_config_prefix_view {
         assert_eq!(same.prefix(), "http");
         assert_eq!(same.get_string("http.host").unwrap(), "localhost");
 
-        let all_keys: Vec<&str> = same.iter_prefix("").map(|(k, _)| k).collect();
+        let all_keys: Vec<&str> =
+            same.iter_prefix("").map(|(k, _)| k).collect();
         assert!(all_keys.contains(&"http"));
         assert!(all_keys.contains(&"host"));
     }
@@ -140,7 +151,8 @@ mod test_config_prefix_view {
         config.set("beta", "b").unwrap();
 
         let root_view = config.prefix_view("");
-        let keys: Vec<&str> = root_view.iter_prefix("").map(|(k, _)| k).collect();
+        let keys: Vec<&str> =
+            root_view.iter_prefix("").map(|(k, _)| k).collect();
         assert_eq!(keys.len(), 2);
         assert!(keys.contains(&"alpha"));
         assert!(keys.contains(&"beta"));

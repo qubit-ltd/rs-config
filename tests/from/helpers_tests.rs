@@ -8,8 +8,12 @@
 //! Tests for read helper behavior through public APIs.
 
 use qubit_config::{
-    Config, ConfigError,
-    options::{BlankStringPolicy, ConfigReadOptions},
+    Config,
+    ConfigError,
+    options::{
+        BlankStringPolicy,
+        ConfigReadOptions,
+    },
 };
 
 #[test]

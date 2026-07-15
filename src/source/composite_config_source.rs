@@ -37,9 +37,15 @@
 //! # }
 //! ```
 
-use crate::{Config, ConfigResult};
+use crate::{
+    Config,
+    ConfigResult,
+};
 
-use super::{ConfigSource, config_source::load_transactionally};
+use super::{
+    ConfigSource,
+    config_source::load_transactionally,
+};
 
 /// Configuration source that merges multiple sources in order
 pub struct CompositeConfigSource {

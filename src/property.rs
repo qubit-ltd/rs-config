@@ -10,11 +10,20 @@
 //! Defines the property structure for configuration items, including name,
 //! value, description, and other information.
 
-use serde::{Deserialize, Serialize};
-use std::ops::{Deref, DerefMut};
+use serde::{
+    Deserialize,
+    Serialize,
+};
+use std::ops::{
+    Deref,
+    DerefMut,
+};
 
 use qubit_datatype::DataType;
-use qubit_value::MultiValues;
+use qubit_value::{
+    Value,
+    ValueContainer,
+};
 
 /// Configuration Property
 ///
@@ -49,7 +58,7 @@ pub struct Property {
     /// Property name
     name: String,
     /// Property value
-    value: MultiValues,
+    value: ValueContainer,
     /// Property description
     description: Option<String>,
     /// Whether this is a final value (cannot be overridden)
@@ -82,7 +91,7 @@ impl Property {
     pub fn new(name: impl Into<String>) -> Self {
         Self {
             name: name.into(),
-            value: MultiValues::Empty(DataType::Int32),
+            value: ValueContainer::Scalar(Value::Unset(DataType::Int32)),
             description: None,
             is_final: false,
         }
@@ -110,10 +119,13 @@ impl Property {
     /// assert_eq!(prop.count(), 1);
     /// ```
     #[inline]
-    pub fn with_value(name: impl Into<String>, value: MultiValues) -> Self {
+    pub fn with_value(
+        name: impl Into<String>,
+        value: impl Into<ValueContainer>,
+    ) -> Self {
         Self {
             name: name.into(),
-            value,
+            value: value.into(),
             description: None,
             is_final: false,
         }
@@ -135,7 +147,7 @@ impl Property {
     ///
     /// Returns a reference to the property value
     #[inline]
-    pub fn value(&self) -> &MultiValues {
+    pub fn value(&self) -> &ValueContainer {
         &self.value
     }
 
@@ -145,7 +157,7 @@ impl Property {
     ///
     /// Returns a mutable reference to the property value
     #[inline]
-    pub fn value_mut(&mut self) -> &mut MultiValues {
+    pub fn value_mut(&mut self) -> &mut ValueContainer {
         &mut self.value
     }
 
@@ -155,8 +167,8 @@ impl Property {
     ///
     /// * `value` - New property value
     #[inline]
-    pub fn set_value(&mut self, value: MultiValues) {
-        self.value = value;
+    pub fn set_value(&mut self, value: impl Into<ValueContainer>) {
+        self.value = value.into();
     }
 
     /// Gets the property description
@@ -224,7 +236,8 @@ impl Property {
     /// # Returns
     ///
     /// Returns `true` for both an unset value and a concrete empty collection.
-    /// Use [`MultiValues::is_unset`] when those states must be distinguished.
+    /// Use [`ValueContainer::is_unset`] when those states must be
+    /// distinguished.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.value.count() == 0
@@ -240,11 +253,11 @@ impl Property {
 }
 
 impl Deref for Property {
-    type Target = MultiValues;
+    type Target = ValueContainer;
 
-    /// Dereferences to MultiValues
+    /// Dereferences to [`ValueContainer`].
     ///
-    /// Allows direct access to all MultiValues methods
+    /// Allows direct access to scalar-or-collection operations.
     #[inline]
     fn deref(&self) -> &Self::Target {
         &self.value
@@ -252,9 +265,9 @@ impl Deref for Property {
 }
 
 impl DerefMut for Property {
-    /// Mutably dereferences to MultiValues
+    /// Mutably dereferences to [`ValueContainer`].
     ///
-    /// Allows direct mutable access to all MultiValues methods
+    /// Allows direct mutable access to scalar-or-collection operations.
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.value

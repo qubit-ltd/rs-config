@@ -7,7 +7,10 @@
 // =============================================================================
 //! Tests for configuration key argument adapters.
 
-use qubit_config::{Config, ConfigReader};
+use qubit_config::{
+    Config,
+    ConfigReader,
+};
 
 #[test]
 fn test_config_name_accepts_str_string_and_string_ref() {

@@ -10,9 +10,13 @@
 //! # `CompositeConfigSource` tests
 
 use qubit_config::{
-    Config, ConfigError,
+    Config,
+    ConfigError,
     source::{
-        CompositeConfigSource, ConfigSource, EnvConfigSource, PropertiesConfigSource,
+        CompositeConfigSource,
+        ConfigSource,
+        EnvConfigSource,
+        PropertiesConfigSource,
         TomlConfigSource,
     },
 };
@@ -34,8 +38,15 @@ fn fixture(name: &str) -> PathBuf {
 mod test_composite_config_source {
     #[allow(unused_imports)]
     use super::{
-        CompositeConfigSource, Config, ConfigError, ConfigSource, EnvConfigSource, PathBuf,
-        PropertiesConfigSource, TomlConfigSource, fixture,
+        CompositeConfigSource,
+        Config,
+        ConfigError,
+        ConfigSource,
+        EnvConfigSource,
+        PathBuf,
+        PropertiesConfigSource,
+        TomlConfigSource,
+        fixture,
     };
 
     #[test]
