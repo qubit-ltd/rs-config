@@ -15,7 +15,7 @@
 //! # Examples
 //!
 //! ```rust
-//! # #[cfg(feature = "source-toml")]
+//! # #[cfg(feature = "toml")]
 //! # {
 //! use qubit_config::source::{
 //!     CompositeConfigSource, ConfigSource, TomlConfigSource,

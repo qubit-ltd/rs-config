@@ -24,8 +24,8 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use crate::ConfigPropertyMut;
-use crate::config_prefix_view::ConfigPrefixView;
 use crate::config_reader::ConfigReader;
+use crate::config_section::ConfigSection;
 use crate::config_value_deserializer::ConfigValueDeserializer;
 use crate::constants::DEFAULT_MAX_SUBSTITUTION_DEPTH;
 use crate::field::ConfigField;
@@ -34,11 +34,11 @@ use crate::from::{
     IntoConfigDefault,
 };
 use crate::options::ConfigReadOptions;
-#[cfg(feature = "source-env-file")]
+#[cfg(feature = "env-file")]
 use crate::source::EnvFileConfigSource;
-#[cfg(feature = "source-toml")]
+#[cfg(feature = "toml")]
 use crate::source::TomlConfigSource;
-#[cfg(feature = "source-yaml")]
+#[cfg(feature = "yaml")]
 use crate::source::YamlConfigSource;
 use crate::source::{
     ConfigSource,
@@ -242,6 +242,199 @@ impl Config {
     }
 
     // ========================================================================
+    // Configuration Source Integration
+    // ========================================================================
+
+    /// Creates a new configuration by loading a [`ConfigSource`].
+    ///
+    /// The returned configuration starts empty and is populated by the given
+    /// source. This is a convenience constructor for callers that do not need
+    /// to customize the target [`Config`] before loading.
+    ///
+    /// # Parameters
+    ///
+    /// * `source` - The configuration source to load from.
+    ///
+    /// # Returns
+    ///
+    /// A populated configuration.
+    ///
+    /// # Errors
+    ///
+    /// Returns any [`ConfigError`] produced by the source while loading or by
+    /// the underlying config mutation methods.
+    #[inline]
+    pub fn from_source(source: &dyn ConfigSource) -> ConfigResult<Self> {
+        let mut config = Self::new();
+        source.load(&mut config)?;
+        Ok(config)
+    }
+
+    /// Creates a configuration from all current process environment variables.
+    ///
+    /// Environment variable names are loaded as-is. Use
+    /// [`Self::from_env_prefix`] when the application uses a dedicated prefix
+    /// and wants normalized dot-separated keys.
+    ///
+    /// # Returns
+    ///
+    /// A configuration populated from the process environment.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError`] if a matching environment key or value is not
+    /// valid Unicode, or if setting a loaded property fails.
+    #[inline]
+    pub fn from_env() -> ConfigResult<Self> {
+        let source = EnvConfigSource::new();
+        Self::from_source(&source)
+    }
+
+    /// Creates a configuration from environment variables with a prefix.
+    ///
+    /// Only variables starting with `prefix` are loaded. The prefix is
+    /// stripped, the remaining key is lowercased, and underscores are
+    /// converted to dots.
+    ///
+    /// # Parameters
+    ///
+    /// * `prefix` - Prefix used to select environment variables.
+    ///
+    /// # Returns
+    ///
+    /// A configuration populated from matching environment variables.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError`] if a matching environment key or value is not
+    /// valid Unicode, or if setting a loaded property fails.
+    #[inline]
+    pub fn from_env_prefix(prefix: &str) -> ConfigResult<Self> {
+        let source = EnvConfigSource::with_prefix(prefix);
+        Self::from_source(&source)
+    }
+
+    /// Creates a configuration from environment variables with explicit key
+    /// transformation options.
+    ///
+    /// # Parameters
+    ///
+    /// * `prefix` - Prefix used to select environment variables.
+    /// * `strip_prefix` - Whether to strip the prefix from loaded keys.
+    /// * `convert_underscores` - Whether to convert underscores to dots.
+    /// * `lowercase_keys` - Whether to lowercase loaded keys.
+    ///
+    /// # Returns
+    ///
+    /// A configuration populated from matching environment variables.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError`] if a matching environment key or value is not
+    /// valid Unicode, or if setting a loaded property fails.
+    #[inline]
+    pub fn from_env_options(
+        prefix: &str,
+        strip_prefix: bool,
+        convert_underscores: bool,
+        lowercase_keys: bool,
+    ) -> ConfigResult<Self> {
+        let source = EnvConfigSource::with_options(
+            prefix,
+            strip_prefix,
+            convert_underscores,
+            lowercase_keys,
+        );
+        Self::from_source(&source)
+    }
+
+    /// Creates a configuration from a TOML file.
+    ///
+    /// # Parameters
+    ///
+    /// * `path` - Path to the TOML file.
+    ///
+    /// # Returns
+    ///
+    /// A configuration populated from the TOML file.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::IoError`] if the file cannot be read,
+    /// [`ConfigError::ParseError`] if the TOML cannot be parsed, or another
+    /// [`ConfigError`] if setting a loaded property fails.
+    #[cfg(feature = "toml")]
+    #[inline]
+    pub fn from_toml_file<P: AsRef<Path>>(path: P) -> ConfigResult<Self> {
+        let source = TomlConfigSource::from_file(path);
+        Self::from_source(&source)
+    }
+
+    /// Creates a configuration from a YAML file.
+    ///
+    /// # Parameters
+    ///
+    /// * `path` - Path to the YAML file.
+    ///
+    /// # Returns
+    ///
+    /// A configuration populated from the YAML file.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::IoError`] if the file cannot be read,
+    /// [`ConfigError::ParseError`] if the YAML cannot be parsed, or another
+    /// [`ConfigError`] if setting a loaded property fails.
+    #[cfg(feature = "yaml")]
+    #[inline]
+    pub fn from_yaml_file<P: AsRef<Path>>(path: P) -> ConfigResult<Self> {
+        let source = YamlConfigSource::from_file(path);
+        Self::from_source(&source)
+    }
+
+    /// Creates a configuration from a Java `.properties` file.
+    ///
+    /// # Parameters
+    ///
+    /// * `path` - Path to the `.properties` file.
+    ///
+    /// # Returns
+    ///
+    /// A configuration populated from the `.properties` file.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::IoError`] if the file cannot be read, or another
+    /// [`ConfigError`] if setting a loaded property fails.
+    #[inline]
+    pub fn from_properties_file<P: AsRef<Path>>(path: P) -> ConfigResult<Self> {
+        let source = PropertiesConfigSource::from_file(path);
+        Self::from_source(&source)
+    }
+
+    /// Creates a configuration from a `.env` file.
+    ///
+    /// # Parameters
+    ///
+    /// * `path` - Path to the `.env` file.
+    ///
+    /// # Returns
+    ///
+    /// A configuration populated from the `.env` file.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::IoError`] if the file cannot be read,
+    /// [`ConfigError::ParseError`] if dotenv parsing fails, or another
+    /// [`ConfigError`] if setting a loaded property fails.
+    #[cfg(feature = "env-file")]
+    #[inline]
+    pub fn from_env_file<P: AsRef<Path>>(path: P) -> ConfigResult<Self> {
+        let source = EnvFileConfigSource::from_file(path);
+        Self::from_source(&source)
+    }
+
+    // ========================================================================
     // Basic Property Access
     // ========================================================================
 
@@ -348,32 +541,22 @@ impl Config {
         config
     }
 
-    /// Creates a read-only prefix view using [`ConfigPrefixView`].
+    /// Creates a read-only section rooted at `path`.
     ///
-    /// # Parameters
+    /// Property names read through the returned section are interpreted
+    /// strictly relative to its normalized path.
     ///
-    /// * `prefix` - Prefix
+    /// # Arguments
+    ///
+    /// * `path` - Root-relative section path. Leading and trailing `.`
+    ///   separators are removed; an empty path represents the root.
     ///
     /// # Returns
     ///
-    /// Returns a read-only prefix view
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use qubit_config::{Config, ConfigReader};
-    ///
-    /// let mut config = Config::new();
-    /// config.set("server.port", 8080).unwrap();
-    /// config.set("server.host", "localhost").unwrap();
-    ///
-    /// let server = config.prefix_view("server");
-    /// assert_eq!(server.get::<i32>("port").unwrap(), 8080);
-    /// assert_eq!(server.get::<String>("host").unwrap(), "localhost");
-    /// ```
+    /// A section borrowing this configuration.
     #[inline]
-    pub fn prefix_view(&self, prefix: &str) -> ConfigPrefixView<'_> {
-        ConfigPrefixView::new(self, prefix)
+    pub fn section(&self, path: &str) -> ConfigSection<'_> {
+        ConfigSection::new(self, path)
     }
 
     /// Sets the maximum depth for variable substitution
@@ -1266,199 +1449,6 @@ impl Config {
         <Self as ConfigReader>::get_string_list_or(self, name, default)
     }
 
-    // ========================================================================
-    // Configuration Source Integration
-    // ========================================================================
-
-    /// Creates a new configuration by loading a [`ConfigSource`].
-    ///
-    /// The returned configuration starts empty and is populated by the given
-    /// source. This is a convenience constructor for callers that do not need
-    /// to customize the target [`Config`] before loading.
-    ///
-    /// # Parameters
-    ///
-    /// * `source` - The configuration source to load from.
-    ///
-    /// # Returns
-    ///
-    /// A populated configuration.
-    ///
-    /// # Errors
-    ///
-    /// Returns any [`ConfigError`] produced by the source while loading or by
-    /// the underlying config mutation methods.
-    #[inline]
-    pub fn from_source(source: &dyn ConfigSource) -> ConfigResult<Self> {
-        let mut config = Self::new();
-        source.load(&mut config)?;
-        Ok(config)
-    }
-
-    /// Creates a configuration from all current process environment variables.
-    ///
-    /// Environment variable names are loaded as-is. Use
-    /// [`Self::from_env_prefix`] when the application uses a dedicated prefix
-    /// and wants normalized dot-separated keys.
-    ///
-    /// # Returns
-    ///
-    /// A configuration populated from the process environment.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ConfigError`] if a matching environment key or value is not
-    /// valid Unicode, or if setting a loaded property fails.
-    #[inline]
-    pub fn from_env() -> ConfigResult<Self> {
-        let source = EnvConfigSource::new();
-        Self::from_source(&source)
-    }
-
-    /// Creates a configuration from environment variables with a prefix.
-    ///
-    /// Only variables starting with `prefix` are loaded. The prefix is
-    /// stripped, the remaining key is lowercased, and underscores are
-    /// converted to dots.
-    ///
-    /// # Parameters
-    ///
-    /// * `prefix` - Prefix used to select environment variables.
-    ///
-    /// # Returns
-    ///
-    /// A configuration populated from matching environment variables.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ConfigError`] if a matching environment key or value is not
-    /// valid Unicode, or if setting a loaded property fails.
-    #[inline]
-    pub fn from_env_prefix(prefix: &str) -> ConfigResult<Self> {
-        let source = EnvConfigSource::with_prefix(prefix);
-        Self::from_source(&source)
-    }
-
-    /// Creates a configuration from environment variables with explicit key
-    /// transformation options.
-    ///
-    /// # Parameters
-    ///
-    /// * `prefix` - Prefix used to select environment variables.
-    /// * `strip_prefix` - Whether to strip the prefix from loaded keys.
-    /// * `convert_underscores` - Whether to convert underscores to dots.
-    /// * `lowercase_keys` - Whether to lowercase loaded keys.
-    ///
-    /// # Returns
-    ///
-    /// A configuration populated from matching environment variables.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ConfigError`] if a matching environment key or value is not
-    /// valid Unicode, or if setting a loaded property fails.
-    #[inline]
-    pub fn from_env_options(
-        prefix: &str,
-        strip_prefix: bool,
-        convert_underscores: bool,
-        lowercase_keys: bool,
-    ) -> ConfigResult<Self> {
-        let source = EnvConfigSource::with_options(
-            prefix,
-            strip_prefix,
-            convert_underscores,
-            lowercase_keys,
-        );
-        Self::from_source(&source)
-    }
-
-    /// Creates a configuration from a TOML file.
-    ///
-    /// # Parameters
-    ///
-    /// * `path` - Path to the TOML file.
-    ///
-    /// # Returns
-    ///
-    /// A configuration populated from the TOML file.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ConfigError::IoError`] if the file cannot be read,
-    /// [`ConfigError::ParseError`] if the TOML cannot be parsed, or another
-    /// [`ConfigError`] if setting a loaded property fails.
-    #[cfg(feature = "source-toml")]
-    #[inline]
-    pub fn from_toml_file<P: AsRef<Path>>(path: P) -> ConfigResult<Self> {
-        let source = TomlConfigSource::from_file(path);
-        Self::from_source(&source)
-    }
-
-    /// Creates a configuration from a YAML file.
-    ///
-    /// # Parameters
-    ///
-    /// * `path` - Path to the YAML file.
-    ///
-    /// # Returns
-    ///
-    /// A configuration populated from the YAML file.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ConfigError::IoError`] if the file cannot be read,
-    /// [`ConfigError::ParseError`] if the YAML cannot be parsed, or another
-    /// [`ConfigError`] if setting a loaded property fails.
-    #[cfg(feature = "source-yaml")]
-    #[inline]
-    pub fn from_yaml_file<P: AsRef<Path>>(path: P) -> ConfigResult<Self> {
-        let source = YamlConfigSource::from_file(path);
-        Self::from_source(&source)
-    }
-
-    /// Creates a configuration from a Java `.properties` file.
-    ///
-    /// # Parameters
-    ///
-    /// * `path` - Path to the `.properties` file.
-    ///
-    /// # Returns
-    ///
-    /// A configuration populated from the `.properties` file.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ConfigError::IoError`] if the file cannot be read, or another
-    /// [`ConfigError`] if setting a loaded property fails.
-    #[inline]
-    pub fn from_properties_file<P: AsRef<Path>>(path: P) -> ConfigResult<Self> {
-        let source = PropertiesConfigSource::from_file(path);
-        Self::from_source(&source)
-    }
-
-    /// Creates a configuration from a `.env` file.
-    ///
-    /// # Parameters
-    ///
-    /// * `path` - Path to the `.env` file.
-    ///
-    /// # Returns
-    ///
-    /// A configuration populated from the `.env` file.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ConfigError::IoError`] if the file cannot be read,
-    /// [`ConfigError::ParseError`] if dotenv parsing fails, or another
-    /// [`ConfigError`] if setting a loaded property fails.
-    #[cfg(feature = "source-env-file")]
-    #[inline]
-    pub fn from_env_file<P: AsRef<Path>>(path: P) -> ConfigResult<Self> {
-        let source = EnvFileConfigSource::from_file(path);
-        Self::from_source(&source)
-    }
-
     /// Merges configuration from a `ConfigSource`
     ///
     /// Loads all key-value pairs from the given source and merges them into
@@ -1477,7 +1467,7 @@ impl Config {
     /// # Examples
     ///
     /// ```rust
-    /// # #[cfg(feature = "source-toml")]
+    /// # #[cfg(feature = "toml")]
     /// # {
     /// use qubit_config::Config;
     /// use qubit_config::source::{
@@ -2249,8 +2239,8 @@ impl ConfigReader for Config {
     }
 
     #[inline]
-    fn prefix_view(&self, prefix: &str) -> ConfigPrefixView<'_> {
-        Config::prefix_view(self, prefix)
+    fn section(&self, path: &str) -> ConfigSection<'_> {
+        Config::section(self, path)
     }
 }
 

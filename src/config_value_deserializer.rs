@@ -10,23 +10,20 @@
 use qubit_value::Value as QubitValue;
 use serde::de::{
     self,
-    DeserializeSeed,
-    EnumAccess,
-    IntoDeserializer,
-    MapAccess,
-    SeqAccess,
-    VariantAccess,
     Visitor,
-    value::StringDeserializer,
 };
-use serde_json::{
-    Map,
-    Value,
-};
+use serde_json::Value;
 
 use crate::ConfigError;
 use crate::config_deserialize_error::ConfigDeserializeError;
+use crate::config_value_deserializer::internal::{
+    ConfigEnumAccess,
+    ConfigMapAccess,
+    ConfigSeqAccess,
+};
 use crate::options::ConfigReadOptions;
+
+mod internal;
 
 /// Deserializer over a single serde value.
 pub(crate) struct ConfigValueDeserializer<'a> {
@@ -218,10 +215,12 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
     deserialize_number!(deserialize_i16, visit_i16, i16);
     deserialize_number!(deserialize_i32, visit_i32, i32);
     deserialize_number!(deserialize_i64, visit_i64, i64);
+    deserialize_number!(deserialize_i128, visit_i128, i128);
     deserialize_number!(deserialize_u8, visit_u8, u8);
     deserialize_number!(deserialize_u16, visit_u16, u16);
     deserialize_number!(deserialize_u32, visit_u32, u32);
     deserialize_number!(deserialize_u64, visit_u64, u64);
+    deserialize_number!(deserialize_u128, visit_u128, u128);
     deserialize_number!(deserialize_f32, visit_f32, f32);
     deserialize_number!(deserialize_f64, visit_f64, f64);
 
@@ -528,146 +527,6 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
     }
 }
 
-/// Enum access over a configuration value.
-struct ConfigEnumAccess<'a> {
-    variant: String,
-    value: Option<Value>,
-    key: String,
-    options: &'a ConfigReadOptions,
-}
-
-impl<'a> ConfigEnumAccess<'a> {
-    /// Creates enum access for a variant and optional payload.
-    fn new(
-        variant: String,
-        value: Option<Value>,
-        key: String,
-        options: &'a ConfigReadOptions,
-    ) -> Self {
-        Self {
-            variant,
-            value,
-            key,
-            options,
-        }
-    }
-}
-
-impl<'de, 'a> EnumAccess<'de> for ConfigEnumAccess<'a> {
-    type Error = ConfigDeserializeError;
-    type Variant = ConfigVariantAccess<'a>;
-
-    /// Deserializes the enum variant identifier.
-    fn variant_seed<V>(
-        self,
-        seed: V,
-    ) -> Result<(V::Value, Self::Variant), Self::Error>
-    where
-        V: DeserializeSeed<'de>,
-    {
-        let child_key = if self.key.is_empty() {
-            self.variant.clone()
-        } else {
-            format!("{}.{}", self.key, self.variant)
-        };
-        let variant_deserializer: StringDeserializer<Self::Error> =
-            self.variant.into_deserializer();
-        let variant = seed.deserialize(variant_deserializer)?;
-        Ok((
-            variant,
-            ConfigVariantAccess {
-                value: self.value,
-                key: child_key,
-                options: self.options,
-            },
-        ))
-    }
-}
-
-/// Variant access over a configuration enum payload.
-struct ConfigVariantAccess<'a> {
-    value: Option<Value>,
-    key: String,
-    options: &'a ConfigReadOptions,
-}
-
-impl<'de> VariantAccess<'de> for ConfigVariantAccess<'_> {
-    type Error = ConfigDeserializeError;
-
-    /// Deserializes a unit variant.
-    fn unit_variant(self) -> Result<(), Self::Error> {
-        match self.value {
-            None | Some(Value::Null) => Ok(()),
-            Some(value) => serde::Deserialize::deserialize(
-                ConfigValueDeserializer::new(value, self.key, self.options),
-            ),
-        }
-    }
-
-    /// Deserializes a newtype variant payload.
-    fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value, Self::Error>
-    where
-        T: DeserializeSeed<'de>,
-    {
-        let value = self.value.ok_or_else(|| {
-            de::Error::invalid_type(
-                de::Unexpected::UnitVariant,
-                &"newtype variant payload",
-            )
-        })?;
-        seed.deserialize(ConfigValueDeserializer::new(
-            value,
-            self.key,
-            self.options,
-        ))
-    }
-
-    /// Deserializes a tuple variant payload.
-    fn tuple_variant<V>(
-        self,
-        len: usize,
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        let value = self.value.ok_or_else(|| {
-            de::Error::invalid_type(
-                de::Unexpected::UnitVariant,
-                &"tuple variant payload",
-            )
-        })?;
-        de::Deserializer::deserialize_tuple(
-            ConfigValueDeserializer::new(value, self.key, self.options),
-            len,
-            visitor,
-        )
-    }
-
-    /// Deserializes a struct variant payload.
-    fn struct_variant<V>(
-        self,
-        fields: &'static [&'static str],
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        let value = self.value.ok_or_else(|| {
-            de::Error::invalid_type(
-                de::Unexpected::UnitVariant,
-                &"struct variant payload",
-            )
-        })?;
-        de::Deserializer::deserialize_struct(
-            ConfigValueDeserializer::new(value, self.key, self.options),
-            "",
-            fields,
-            visitor,
-        )
-    }
-}
-
 /// Classifies a serde value for type error diagnostics.
 fn unexpected_value(value: &Value) -> de::Unexpected<'static> {
     match value {
@@ -677,116 +536,5 @@ fn unexpected_value(value: &Value) -> de::Unexpected<'static> {
         Value::String(_) => de::Unexpected::Other("string"),
         Value::Array(_) => de::Unexpected::Seq,
         Value::Object(_) => de::Unexpected::Map,
-    }
-}
-
-/// Sequence access over configuration values.
-struct ConfigSeqAccess<'a> {
-    values: std::vec::IntoIter<Value>,
-    key: String,
-    index: usize,
-    options: &'a ConfigReadOptions,
-}
-
-impl<'a> ConfigSeqAccess<'a> {
-    /// Creates sequence access.
-    fn new(
-        values: Vec<Value>,
-        key: String,
-        options: &'a ConfigReadOptions,
-    ) -> Self {
-        Self {
-            values: values.into_iter(),
-            key,
-            index: 0,
-            options,
-        }
-    }
-}
-
-impl<'de> SeqAccess<'de> for ConfigSeqAccess<'_> {
-    type Error = ConfigDeserializeError;
-
-    /// Deserializes the next element.
-    fn next_element_seed<T>(
-        &mut self,
-        seed: T,
-    ) -> Result<Option<T::Value>, Self::Error>
-    where
-        T: de::DeserializeSeed<'de>,
-    {
-        let Some(value) = self.values.next() else {
-            return Ok(None);
-        };
-        let key = format!("{}[{}]", self.key, self.index);
-        self.index += 1;
-        seed.deserialize(ConfigValueDeserializer::new(value, key, self.options))
-            .map(Some)
-    }
-}
-
-/// Map access over configuration objects.
-struct ConfigMapAccess<'a> {
-    entries: std::vec::IntoIter<(String, Value)>,
-    next_value: Option<(String, Value)>,
-    key: String,
-    options: &'a ConfigReadOptions,
-}
-
-impl<'a> ConfigMapAccess<'a> {
-    /// Creates map access.
-    fn new(
-        values: Map<String, Value>,
-        key: String,
-        options: &'a ConfigReadOptions,
-    ) -> Self {
-        Self {
-            entries: values.into_iter().collect::<Vec<_>>().into_iter(),
-            next_value: None,
-            key,
-            options,
-        }
-    }
-}
-
-impl<'de> MapAccess<'de> for ConfigMapAccess<'_> {
-    type Error = ConfigDeserializeError;
-
-    /// Deserializes the next key.
-    fn next_key_seed<K>(
-        &mut self,
-        seed: K,
-    ) -> Result<Option<K::Value>, Self::Error>
-    where
-        K: de::DeserializeSeed<'de>,
-    {
-        let Some((key, value)) = self.entries.next() else {
-            return Ok(None);
-        };
-        let key_deserializer: StringDeserializer<Self::Error> =
-            key.clone().into_deserializer();
-        self.next_value = Some((key, value));
-        seed.deserialize(key_deserializer).map(Some)
-    }
-
-    /// Deserializes the value for the last key.
-    fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::DeserializeSeed<'de>,
-    {
-        let (key, value) = self
-            .next_value
-            .take()
-            .expect("map value requested before key");
-        let child_key = if self.key.is_empty() {
-            key
-        } else {
-            format!("{}.{}", self.key, key)
-        };
-        seed.deserialize(ConfigValueDeserializer::new(
-            value,
-            child_key,
-            self.options,
-        ))
     }
 }

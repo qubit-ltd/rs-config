@@ -52,6 +52,12 @@ struct UnsignedScalars {
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+struct WideIntegers {
+    signed: i128,
+    unsigned: u128,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
 struct FloatScalars {
     f32_value: f32,
     f64_value: f64,
@@ -307,6 +313,70 @@ fn deserialize_unsigned_scalars_from_strings_and_numbers() -> ConfigResult<()> {
             u64_value: 64,
         }
     );
+    Ok(())
+}
+
+#[test]
+fn test_deserialize_wide_integers() -> ConfigResult<()> {
+    let mut config = Config::new();
+    config.set("wide.signed", i128::MIN)?;
+    config.set("wide.unsigned", u128::MAX)?;
+
+    let actual: WideIntegers = config.deserialize("wide")?;
+
+    assert_eq!(
+        actual,
+        WideIntegers {
+            signed: i128::MIN,
+            unsigned: u128::MAX,
+        }
+    );
+    Ok(())
+}
+
+#[test]
+fn test_deserialize_i128_rejects_invalid_redacted_value() -> ConfigResult<()> {
+    const INVALID_VALUE: &str = "TOP_SECRET_INVALID_I128";
+    let mut config = Config::new();
+    config.set("wide.signed", INVALID_VALUE)?;
+    config.set("wide.unsigned", 1u128)?;
+
+    let error = config
+        .deserialize::<WideIntegers>("wide")
+        .expect_err("an invalid i128 must be rejected");
+
+    assert!(!error.to_string().contains(INVALID_VALUE));
+    assert!(!format!("{error:?}").contains(INVALID_VALUE));
+    match error {
+        ConfigError::DeserializeError {
+            source: Some(source),
+            ..
+        } => assert!(source.to_string().contains("wide.signed")),
+        other => panic!("expected a structured deserialization error: {other}"),
+    }
+    Ok(())
+}
+
+#[test]
+fn test_deserialize_u128_rejects_overflow() -> ConfigResult<()> {
+    let overflow = format!("{}0", u128::MAX);
+    let mut config = Config::new();
+    config.set("wide.signed", 1i128)?;
+    config.set("wide.unsigned", overflow.as_str())?;
+
+    let error = config
+        .deserialize::<WideIntegers>("wide")
+        .expect_err("an overflowing u128 must be rejected");
+
+    assert!(!error.to_string().contains(overflow.as_str()));
+    assert!(!format!("{error:?}").contains(overflow.as_str()));
+    match error {
+        ConfigError::DeserializeError {
+            source: Some(source),
+            ..
+        } => assert!(source.to_string().contains("wide.unsigned")),
+        other => panic!("expected a structured deserialization error: {other}"),
+    }
     Ok(())
 }
 

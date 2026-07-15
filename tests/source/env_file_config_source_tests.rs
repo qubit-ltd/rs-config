@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-#![cfg(feature = "source-env-file")]
+#![cfg(feature = "env-file")]
 
 //! # `EnvFileConfigSource` tests
 

@@ -28,13 +28,13 @@ fn test_config_name_accepts_str_string_and_string_ref() {
 }
 
 #[test]
-fn test_config_name_resolves_relative_to_prefix_view() {
+fn test_config_name_resolves_relative_to_section() {
     let mut config = Config::new();
     config
         .set("http.host", "localhost")
         .expect("setting config value should succeed");
 
-    let view = config.prefix_view("http");
+    let view = config.section("http");
     let name = String::from("host");
 
     assert!(ConfigReader::contains(&view, &name));

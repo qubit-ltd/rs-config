@@ -16,7 +16,7 @@ use serde_json::{
     Map,
     Value,
 };
-#[cfg(any(feature = "source-toml", feature = "source-yaml"))]
+#[cfg(any(feature = "toml", feature = "yaml"))]
 use std::collections::HashSet;
 use std::sync::OnceLock;
 
@@ -106,7 +106,7 @@ pub(crate) fn validate_normalized_config_key(
 ///
 /// Returns [`ConfigError::KeyConflict`] when the same flattened key was already
 /// emitted by the source document.
-#[cfg(any(feature = "source-toml", feature = "source-yaml"))]
+#[cfg(any(feature = "toml", feature = "yaml"))]
 pub(crate) fn ensure_unique_flattened_key(
     seen: &mut HashSet<String>,
     key: &str,

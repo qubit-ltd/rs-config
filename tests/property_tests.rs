@@ -10,12 +10,15 @@
 //! Tests all public methods of the Property struct, including methods delegated
 //! to ValueContainer.
 
+#[cfg(feature = "bigdecimal")]
 use bigdecimal::BigDecimal;
+#[cfg(feature = "chrono")]
 use chrono::{
     DateTime,
     NaiveDate,
     NaiveTime,
 };
+#[cfg(feature = "num-bigint")]
 use num_bigint::BigInt;
 use qubit_config::Property;
 use qubit_datatype::DataType;
@@ -23,6 +26,7 @@ use qubit_value::{
     MultiValues,
     ValueContainer,
 };
+#[cfg(feature = "bigdecimal")]
 use std::str::FromStr;
 
 // ============================================================================
@@ -897,6 +901,7 @@ fn test_property_string_set() {
 // ============================================================================
 
 #[test]
+#[cfg(feature = "chrono")]
 fn test_property_date_get() {
     let mut prop = Property::new("test");
     let date1 = NaiveDate::from_ymd_opt(2023, 1, 1).unwrap();
@@ -909,6 +914,7 @@ fn test_property_date_get() {
 }
 
 #[test]
+#[cfg(feature = "chrono")]
 fn test_property_date_get_first() {
     let mut prop = Property::new("test");
     let date1 = NaiveDate::from_ymd_opt(2023, 1, 1).unwrap();
@@ -920,6 +926,7 @@ fn test_property_date_get_first() {
 }
 
 #[test]
+#[cfg(feature = "chrono")]
 fn test_property_date_add() {
     let mut prop = Property::new("test");
     let date1 = NaiveDate::from_ymd_opt(2023, 1, 1).unwrap();
@@ -935,6 +942,7 @@ fn test_property_date_add() {
 }
 
 #[test]
+#[cfg(feature = "chrono")]
 fn test_property_date_set() {
     let mut prop = Property::new("test");
     let date1 = NaiveDate::from_ymd_opt(2023, 1, 1).unwrap();
@@ -952,6 +960,7 @@ fn test_property_date_set() {
 // ============================================================================
 
 #[test]
+#[cfg(feature = "chrono")]
 fn test_property_time_get() {
     let mut prop = Property::new("test");
     let time1 = NaiveTime::from_hms_opt(10, 30, 0).unwrap();
@@ -964,6 +973,7 @@ fn test_property_time_get() {
 }
 
 #[test]
+#[cfg(feature = "chrono")]
 fn test_property_time_get_first() {
     let mut prop = Property::new("test");
     let time1 = NaiveTime::from_hms_opt(10, 30, 0).unwrap();
@@ -975,6 +985,7 @@ fn test_property_time_get_first() {
 }
 
 #[test]
+#[cfg(feature = "chrono")]
 fn test_property_time_add() {
     let mut prop = Property::new("test");
     let time1 = NaiveTime::from_hms_opt(10, 30, 0).unwrap();
@@ -990,6 +1001,7 @@ fn test_property_time_add() {
 }
 
 #[test]
+#[cfg(feature = "chrono")]
 fn test_property_time_set() {
     let mut prop = Property::new("test");
     let time1 = NaiveTime::from_hms_opt(10, 30, 0).unwrap();
@@ -1007,6 +1019,7 @@ fn test_property_time_set() {
 // ============================================================================
 
 #[test]
+#[cfg(feature = "chrono")]
 fn test_property_instant_get() {
     let mut prop = Property::new("test");
     let instant1 = DateTime::from_timestamp(1672531200, 0).unwrap();
@@ -1019,6 +1032,7 @@ fn test_property_instant_get() {
 }
 
 #[test]
+#[cfg(feature = "chrono")]
 fn test_property_instant_get_first() {
     let mut prop = Property::new("test");
     let instant1 = DateTime::from_timestamp(1672531200, 0).unwrap();
@@ -1030,6 +1044,7 @@ fn test_property_instant_get_first() {
 }
 
 #[test]
+#[cfg(feature = "chrono")]
 fn test_property_instant_add() {
     let mut prop = Property::new("test");
     let instant1 = DateTime::from_timestamp(1672531200, 0).unwrap();
@@ -1045,6 +1060,7 @@ fn test_property_instant_add() {
 }
 
 #[test]
+#[cfg(feature = "chrono")]
 fn test_property_instant_set() {
     let mut prop = Property::new("test");
     let instant1 = DateTime::from_timestamp(1672531200, 0).unwrap();
@@ -1062,6 +1078,7 @@ fn test_property_instant_set() {
 // ============================================================================
 
 #[test]
+#[cfg(feature = "num-bigint")]
 fn test_property_bigint_get() {
     let mut prop = Property::new("test");
     let bigint1 = BigInt::from(12345678901234567890_i128);
@@ -1078,6 +1095,7 @@ fn test_property_bigint_get() {
 }
 
 #[test]
+#[cfg(feature = "num-bigint")]
 fn test_property_bigint_get_first() {
     let mut prop = Property::new("test");
     let bigint1 = BigInt::from(12345678901234567890_i128);
@@ -1089,6 +1107,7 @@ fn test_property_bigint_get_first() {
 }
 
 #[test]
+#[cfg(feature = "num-bigint")]
 fn test_property_bigint_add() {
     let mut prop = Property::new("test");
     let bigint1 = BigInt::from(12345678901234567890_i128);
@@ -1104,6 +1123,7 @@ fn test_property_bigint_add() {
 }
 
 #[test]
+#[cfg(feature = "num-bigint")]
 fn test_property_bigint_set() {
     let mut prop = Property::new("test");
     let bigint1 = BigInt::from(12345678901234567890_i128);
@@ -1121,6 +1141,7 @@ fn test_property_bigint_set() {
 // ============================================================================
 
 #[test]
+#[cfg(feature = "bigdecimal")]
 fn test_property_bigdecimal_get() {
     let mut prop = Property::new("test");
     let bd1 = BigDecimal::from_str("123.456789").unwrap();
@@ -1137,6 +1158,7 @@ fn test_property_bigdecimal_get() {
 }
 
 #[test]
+#[cfg(feature = "bigdecimal")]
 fn test_property_bigdecimal_get_first() {
     let mut prop = Property::new("test");
     let bd1 = BigDecimal::from_str("123.456789").unwrap();
@@ -1148,6 +1170,7 @@ fn test_property_bigdecimal_get_first() {
 }
 
 #[test]
+#[cfg(feature = "bigdecimal")]
 fn test_property_bigdecimal_add() {
     let mut prop = Property::new("test");
     let bd1 = BigDecimal::from_str("123.456789").unwrap();
@@ -1163,6 +1186,7 @@ fn test_property_bigdecimal_add() {
 }
 
 #[test]
+#[cfg(feature = "bigdecimal")]
 fn test_property_bigdecimal_set() {
     let mut prop = Property::new("test");
     let bd1 = BigDecimal::from_str("123.456789").unwrap();
@@ -1295,6 +1319,7 @@ fn test_property_generic_get_string() {
 
 // ByteArray related tests have been removed
 
+#[cfg(feature = "num-bigint")]
 #[test]
 fn test_property_generic_get_bigint() {
     let mut prop = Property::new("test");
@@ -1309,6 +1334,7 @@ fn test_property_generic_get_bigint() {
     assert_eq!(values, vec![bigint1, bigint2]);
 }
 
+#[cfg(feature = "bigdecimal")]
 #[test]
 fn test_property_generic_get_bigdecimal() {
     let mut prop = Property::new("test");

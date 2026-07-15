@@ -9,9 +9,9 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-#[cfg(feature = "rich-types")]
+#[cfg(feature = "bigdecimal")]
 use bigdecimal::BigDecimal;
-#[cfg(feature = "rich-types")]
+#[cfg(feature = "chrono")]
 use chrono::{
     DateTime,
     NaiveDate,
@@ -19,7 +19,7 @@ use chrono::{
     NaiveTime,
     Utc,
 };
-#[cfg(feature = "rich-types")]
+#[cfg(feature = "num-bigint")]
 use num_bigint::BigInt;
 use qubit_datatype::{
     DataConvertTo,
@@ -32,7 +32,7 @@ use qubit_value::{
     ValueContainer,
 };
 use serde_json::Value as JsonValue;
-#[cfg(feature = "rich-types")]
+#[cfg(feature = "url")]
 use url::Url;
 
 use crate::{
@@ -167,16 +167,17 @@ impl_from_config_via_value!(
     HashMap<String, String>,
 );
 
-#[cfg(feature = "rich-types")]
-impl_from_config_via_value!(
-    NaiveDate,
-    NaiveTime,
-    NaiveDateTime,
-    DateTime<Utc>,
-    Url,
-    BigInt,
-    BigDecimal,
-);
+#[cfg(feature = "chrono")]
+impl_from_config_via_value!(NaiveDate, NaiveTime, NaiveDateTime, DateTime<Utc>);
+
+#[cfg(feature = "url")]
+impl_from_config_via_value!(Url);
+
+#[cfg(feature = "num-bigint")]
+impl_from_config_via_value!(BigInt);
+
+#[cfg(feature = "bigdecimal")]
+impl_from_config_via_value!(BigDecimal);
 
 impl FromConfig for String {
     /// Parses `property` using `ctx`.

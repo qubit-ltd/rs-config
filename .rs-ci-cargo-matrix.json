@@ -8,34 +8,64 @@
       "features": []
     },
     {
+      "name": "bigdecimal",
+      "commands": ["test", "doc"],
+      "defaultFeatures": false,
+      "features": ["bigdecimal"]
+    },
+    {
+      "name": "chrono",
+      "commands": ["test", "doc"],
+      "defaultFeatures": false,
+      "features": ["chrono"]
+    },
+    {
+      "name": "num-bigint",
+      "commands": ["test", "doc"],
+      "defaultFeatures": false,
+      "features": ["num-bigint"]
+    },
+    {
+      "name": "url",
+      "commands": ["test", "doc"],
+      "defaultFeatures": false,
+      "features": ["url"]
+    },
+    {
+      "name": "env-file",
+      "commands": ["test", "doc"],
+      "defaultFeatures": false,
+      "features": ["env-file"]
+    },
+    {
+      "name": "toml",
+      "commands": ["test", "doc"],
+      "defaultFeatures": false,
+      "features": ["toml"]
+    },
+    {
+      "name": "yaml",
+      "commands": ["test", "doc"],
+      "defaultFeatures": false,
+      "features": ["yaml"]
+    },
+    {
       "name": "rich-types",
       "commands": ["test", "doc"],
       "defaultFeatures": false,
       "features": ["rich-types"]
     },
     {
-      "name": "source-toml",
+      "name": "formats",
       "commands": ["test", "doc"],
       "defaultFeatures": false,
-      "features": ["source-toml"]
+      "features": ["formats"]
     },
     {
-      "name": "source-yaml",
+      "name": "full",
       "commands": ["test", "doc"],
       "defaultFeatures": false,
-      "features": ["source-yaml"]
-    },
-    {
-      "name": "source-env-file",
-      "commands": ["test", "doc"],
-      "defaultFeatures": false,
-      "features": ["source-env-file"]
-    },
-    {
-      "name": "sources-without-rich-types",
-      "commands": ["test", "doc"],
-      "defaultFeatures": false,
-      "features": ["source-env-file", "source-toml", "source-yaml"]
+      "features": ["full"]
     }
   ]
 }

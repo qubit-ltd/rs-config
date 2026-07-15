@@ -21,9 +21,9 @@
 - ✅ **序列化支持** - 完整的 serde 支持，可序列化和反序列化
 - ✅ **可扩展** - 基于 trait 的设计，易于支持自定义类型
 - ✅ **配置来源（ConfigSource）** - 提供 [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) trait 与多种内置实现：TOML、YAML、Java 风格 `.properties`、`.env` 文件、进程环境变量（可选前缀与键名规范化），以及按顺序合并多个来源的 [`CompositeConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.CompositeConfigSource.html)（后加载的来源覆盖同名键）；内置来源按事务语义加载，会校验有歧义的规范化 key，并拒绝 TOML/YAML 单文档内展平后的重复 key
-- ✅ **只读访问（ConfigReader）** - [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) trait 提供无需修改配置的泛型读取；[`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) 与 [`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html) 均实现该 trait，并包含字符串辅助方法、多 key 读取和字段声明读取
+- ✅ **只读访问（ConfigReader）** - [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) trait 提供无需修改配置的泛型读取；[`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) 与 [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html) 均实现该 trait，并包含字符串辅助方法、多 key 读取和字段声明读取
 - ✅ **可配置解析** - [`ConfigReadOptions`](https://docs.rs/qubit-config/latest/qubit_config/options/struct.ConfigReadOptions.html) 可在全局或单个字段上控制字符串 trim、空白值处理、布尔字面量和标量字符串拆分列表
-- ✅ **前缀视图（ConfigPrefixView）** - [`Config::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.prefix_view) 返回绑定逻辑键前缀的 [`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html)（相对键解析为 `前缀.键`）；可通过 [`ConfigPrefixView::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html#method.prefix_view) 嵌套子前缀
+- ✅ **严格 section（ConfigSection）** - [`Config::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.section) 返回严格相对键视图；可通过 [`ConfigSection::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html#method.section) 继续嵌套
 - ✅ **高效核心表示** - 核心值使用枚举表示，并通过 staged source loading 控制合并成本；可插拔 source 在需要动态组合时仍可使用 trait object
 
 ## 安装
@@ -35,26 +35,32 @@
 qubit-config = "0.14"
 ```
 
-默认 features 会保留完整 API：
+默认 feature 集为空，核心配置读取不会引入可选格式或富类型依赖。需要全部可选能力时启用 `full`：
 
 ```toml
-qubit-config = { version = "0.14", default-features = true }
+qubit-config = { version = "0.14", features = ["full"] }
 ```
 
-如果只需要轻量能力，可以关闭默认 features，再按需启用具体 source：
+也可以只启用实际需要的能力：
 
 ```toml
-qubit-config = { version = "0.14", default-features = false, features = ["source-toml"] }
+qubit-config = { version = "0.14", features = ["toml"] }
 ```
 
 可用 feature flags：
 
 | Feature | 启用内容 |
 |---------|----------|
-| `rich-types` | 对 `chrono`、`url`、`num-bigint`、`bigdecimal` 类型的直接 `FromConfig` 支持 |
-| `source-toml` | `TomlConfigSource` 与 `Config::from_toml_file` |
-| `source-yaml` | `YamlConfigSource` 与 `Config::from_yaml_file` |
-| `source-env-file` | `EnvFileConfigSource` 与 `Config::from_env_file` |
+| `bigdecimal` | `BigDecimal` 值及直接 `FromConfig` 支持 |
+| `chrono` | Chrono 日期时间值及直接 `FromConfig` 支持 |
+| `num-bigint` | `BigInt` 值及直接 `FromConfig` 支持 |
+| `url` | URL 值及直接 `FromConfig` 支持 |
+| `env-file` | `EnvFileConfigSource` 与 `Config::from_env_file` |
+| `toml` | `TomlConfigSource` 与 `Config::from_toml_file` |
+| `yaml` | `YamlConfigSource` 与 `Config::from_yaml_file` |
+| `rich-types` | 上述四个富类型 feature |
+| `formats` | `env-file`、`toml` 与 `yaml` |
+| `full` | `rich-types` 与 `formats` |
 
 ## 快速开始
 
@@ -111,7 +117,7 @@ config.set("database.port", 5432)?;
 
 ### ConfigReader（只读接口）
 
-[`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) 是配置的只读抽象。仅需读取配置时，函数或类型可以接受 `&impl ConfigReader`（或泛型 `R: ConfigReader`），而不必暴露完整的 `&Config`；同一套 API 可用于完整 [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) 和 [`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html)。`ConfigReader` 包含泛型类型读取方法，因此不是 object-safe，不能用作 `dyn ConfigReader`。
+[`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) 是配置的只读抽象。仅需读取配置时，函数或类型可以接受 `&impl ConfigReader`（或泛型 `R: ConfigReader`），而不必暴露完整的 `&Config`；同一套 API 可用于完整 [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) 和 [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html)。`ConfigReader` 包含泛型类型读取方法，因此不是 object-safe，不能用作 `dyn ConfigReader`。
 
 主要读取 API 如下：
 
@@ -159,9 +165,9 @@ let paths = config.get_any_or::<Vec<String>>(
 )?;
 ```
 
-### ConfigPrefixView（前缀视图）
+### ConfigSection（严格相对视图）
 
-[`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html) 表示对 `Config` 的零拷贝借用，并带有一个逻辑键前缀。通过 [`Config::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.prefix_view) 创建；传入的键名会在该前缀下解析。例如前缀 `db`、键 `host` 对应存储键 `db.host`。使用 [`ConfigPrefixView::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html#method.prefix_view) 可得到嵌套前缀视图。
+[`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html) 是 `Config` 的零拷贝、严格相对视图。通过 [`Config::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.section) 创建；所有键都在 section 路径下解析，例如 section `db` 中的键 `host` 对应 `db.host`。恰好位于 `db` 的标量不属于该 section，只有 `db.host` 等后代可见。使用 [`ConfigSection::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html#method.section) 可继续创建嵌套 section。
 
 ```rust
 use qubit_config::{Config, ConfigReader};
@@ -170,7 +176,7 @@ let mut config = Config::new();
 config.set("db.host", "localhost")?;
 config.set("db.port", 5432i32)?;
 
-let db = config.prefix_view("db");
+let db = config.section("db");
 let host: String = db.get_string("host")?;
 let port: i32 = db.get("port")?;
 ```
@@ -612,10 +618,10 @@ cargo test
 - `qubit-value` - 值处理框架
 - `serde` - 序列化框架
 - `regex` - 正则表达式支持
-- `chrono`、`url`、`num-bigint`、`bigdecimal` - 默认 `rich-types` feature 下的直接富类型解析支持
-- `toml` - `source-toml` feature 下的 TOML 解析
-- `serde_norway` - `source-yaml` feature 下的 YAML 解析
-- `dotenvy` - `source-env-file` feature 下的 `.env` 文件解析
+- `chrono`、`url`、`num-bigint`、`bigdecimal` - 各自同名原子 feature 下的可选富类型支持
+- `toml` - `toml` feature 下的 TOML 解析
+- `serde_norway` - `yaml` feature 下的 YAML 解析
+- `dotenvy` - `env-file` feature 下的 `.env` 文件解析
 
 ## 发展路线图
 

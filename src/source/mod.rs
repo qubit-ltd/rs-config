@@ -16,18 +16,18 @@
 //! - [`PropertiesConfigSource`]: Loads configuration from Java `.properties`
 //!   format files
 //! - `TomlConfigSource`: Loads configuration from TOML format files when the
-//!   `source-toml` feature is enabled
+//!   `toml` feature is enabled
 //! - `YamlConfigSource`: Loads configuration from YAML format files when the
-//!   `source-yaml` feature is enabled
+//!   `yaml` feature is enabled
 //! - `EnvFileConfigSource`: Loads configuration from `.env` format files when
-//!   the `source-env-file` feature is enabled
+//!   the `env-file` feature is enabled
 //! - [`EnvConfigSource`]: Loads configuration from system environment variables
 //! - [`CompositeConfigSource`]: Merges configuration from multiple sources
 //!
 //! # Examples
 //!
 //! ```rust
-//! # #[cfg(feature = "source-toml")]
+//! # #[cfg(feature = "toml")]
 //! # {
 //! use qubit_config::Config;
 //! use qubit_config::source::{
@@ -50,21 +50,21 @@
 mod composite_config_source;
 mod config_source;
 mod env_config_source;
-#[cfg(feature = "source-env-file")]
+#[cfg(feature = "env-file")]
 mod env_file_config_source;
 mod properties_config_source;
-#[cfg(feature = "source-toml")]
+#[cfg(feature = "toml")]
 mod toml_config_source;
-#[cfg(feature = "source-yaml")]
+#[cfg(feature = "yaml")]
 mod yaml_config_source;
 
 pub use composite_config_source::CompositeConfigSource;
 pub use config_source::ConfigSource;
 pub use env_config_source::EnvConfigSource;
-#[cfg(feature = "source-env-file")]
+#[cfg(feature = "env-file")]
 pub use env_file_config_source::EnvFileConfigSource;
 pub use properties_config_source::PropertiesConfigSource;
-#[cfg(feature = "source-toml")]
+#[cfg(feature = "toml")]
 pub use toml_config_source::TomlConfigSource;
-#[cfg(feature = "source-yaml")]
+#[cfg(feature = "yaml")]
 pub use yaml_config_source::YamlConfigSource;

@@ -9,6 +9,7 @@
 //!
 //! Covers the public `Config` API (including APIs introduced in v0.4.0).
 
+#[cfg(feature = "chrono")]
 pub(crate) use chrono::{
     DateTime,
     NaiveDate,
@@ -98,14 +99,9 @@ mod test_new {
         ConfigError,
         ConfigReadOptions,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -137,14 +133,9 @@ mod test_with_description {
         ConfigError,
         ConfigReadOptions,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -183,14 +174,9 @@ mod test_description {
         ConfigError,
         ConfigReadOptions,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -236,14 +222,9 @@ mod test_variable_substitution {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -302,14 +283,9 @@ mod test_contains {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -342,14 +318,9 @@ mod test_get_property {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -376,14 +347,9 @@ mod test_get_property_mut {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -496,14 +462,9 @@ mod test_remove {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -545,14 +506,9 @@ mod test_clear {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -593,14 +549,9 @@ mod test_len {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -628,14 +579,9 @@ mod test_is_empty {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -661,14 +607,9 @@ mod test_keys {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -706,16 +647,19 @@ mod test_get {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
+        Property,
+        create_test_config,
+        create_test_config_with_description,
+    };
+    #[cfg(feature = "chrono")]
+    use super::{
+        DateTime,
         NaiveDate,
         NaiveDateTime,
         NaiveTime,
-        Property,
         Utc,
-        create_test_config,
-        create_test_config_with_description,
     };
 
     // String type tests
@@ -892,7 +836,7 @@ mod test_get {
     }
 
     // Date and time type tests
-    #[cfg(feature = "rich-types")]
+    #[cfg(feature = "chrono")]
     #[test]
     fn test_get_naive_date() {
         let mut config = Config::new();
@@ -902,7 +846,7 @@ mod test_get {
         assert_eq!(value, date);
     }
 
-    #[cfg(feature = "rich-types")]
+    #[cfg(feature = "chrono")]
     #[test]
     fn test_get_naive_time() {
         let mut config = Config::new();
@@ -912,7 +856,7 @@ mod test_get {
         assert_eq!(value, time);
     }
 
-    #[cfg(feature = "rich-types")]
+    #[cfg(feature = "chrono")]
     #[test]
     fn test_get_naive_datetime() {
         let mut config = Config::new();
@@ -924,7 +868,7 @@ mod test_get {
         assert_eq!(value, datetime);
     }
 
-    #[cfg(feature = "rich-types")]
+    #[cfg(feature = "chrono")]
     #[test]
     fn test_get_datetime_utc() {
         let mut config = Config::new();
@@ -959,14 +903,9 @@ mod test_get_or {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -1167,14 +1106,9 @@ mod test_get_list {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -1259,16 +1193,19 @@ mod test_set {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
+        Property,
+        create_test_config,
+        create_test_config_with_description,
+    };
+    #[cfg(feature = "chrono")]
+    use super::{
+        DateTime,
         NaiveDate,
         NaiveDateTime,
         NaiveTime,
-        Property,
         Utc,
-        create_test_config,
-        create_test_config_with_description,
     };
 
     #[test]
@@ -1358,7 +1295,7 @@ mod test_set {
         assert_eq!(config.get::<f64>("f64").unwrap(), 3.5);
     }
 
-    #[cfg(feature = "rich-types")]
+    #[cfg(feature = "chrono")]
     #[test]
     fn test_set_all_other_types() {
         let mut config = Config::new();
@@ -1405,14 +1342,9 @@ mod test_add {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -1474,14 +1406,9 @@ mod test_get_string {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -1527,14 +1454,9 @@ mod test_get_string_or {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -1574,14 +1496,9 @@ mod test_get_string_list {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -1673,14 +1590,9 @@ mod test_get_string_list_or {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -1755,14 +1667,9 @@ mod test_default {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -1796,14 +1703,9 @@ mod test_final_property {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -1932,14 +1834,9 @@ mod test_iter {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -1996,14 +1893,9 @@ mod test_iter_prefix {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -2070,14 +1962,9 @@ mod test_contains_prefix {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -2134,14 +2021,9 @@ mod test_subconfig {
         ConfigError,
         ConfigReadOptions,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -2252,14 +2134,9 @@ mod test_get_and_get_list_error_mapping_additional_paths {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -2337,14 +2214,9 @@ mod test_is_null {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -2394,14 +2266,9 @@ mod test_get_optional {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -2471,14 +2338,9 @@ mod test_get_optional_list {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -2545,14 +2407,9 @@ mod test_get_optional_string {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -2775,14 +2632,9 @@ mod test_enhanced_errors {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -2980,7 +2832,7 @@ mod test_enhanced_errors {
 // TOML Type-Faithful Loading Tests
 // ============================================================================
 
-#[cfg(all(test, feature = "source-toml"))]
+#[cfg(all(test, feature = "toml"))]
 mod test_toml_type_faithful {
     use qubit_config::source::{
         ConfigSource,
@@ -2992,14 +2844,9 @@ mod test_toml_type_faithful {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -3102,7 +2949,7 @@ mod test_toml_type_faithful {
 // YAML Type-Faithful Loading Tests
 // ============================================================================
 
-#[cfg(all(test, feature = "source-yaml"))]
+#[cfg(all(test, feature = "yaml"))]
 mod test_yaml_type_faithful {
     use qubit_config::source::{
         ConfigSource,
@@ -3114,14 +2961,9 @@ mod test_yaml_type_faithful {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -3259,14 +3101,9 @@ mod test_property_insertion_api {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -3335,14 +3172,9 @@ mod test_config_error_branches {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -3415,14 +3247,9 @@ mod test_subconfig_deserialize_integration {
         Config,
         ConfigError,
         DataType,
-        DateTime,
         Deserialize,
         MultiValues,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
         Property,
-        Utc,
         create_test_config,
         create_test_config_with_description,
     };
@@ -3497,7 +3324,7 @@ mod test_subconfig_deserialize_integration {
 // merge_from_source (`Config` API)
 // ============================================================================
 
-#[cfg(all(test, feature = "source-toml"))]
+#[cfg(all(test, feature = "toml"))]
 mod test_merge_from_source {
     use super::{
         Config,
@@ -3597,12 +3424,7 @@ api_url = "${base_url}/api"
 // Source-backed constructors (`Config` API)
 // ============================================================================
 
-#[cfg(all(
-    test,
-    feature = "source-env-file",
-    feature = "source-toml",
-    feature = "source-yaml"
-))]
+#[cfg(all(test, feature = "env-file", feature = "toml", feature = "yaml"))]
 mod test_source_backed_constructors {
     use super::Config;
     use qubit_config::source::TomlConfigSource;

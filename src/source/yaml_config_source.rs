@@ -194,17 +194,37 @@ fn flatten_yaml_sequence(
         return Ok(());
     }
 
-    enum SeqKind {
-        Integer,
-        Float,
-        Bool,
-        String,
-    }
-
-    let kind = match &seq[0] {
-        YamlValue::Number(n) if n.is_i64() => SeqKind::Integer,
-        YamlValue::Number(_) => SeqKind::Float,
-        YamlValue::Bool(_) => SeqKind::Bool,
+    match &seq[0] {
+        YamlValue::Number(number)
+            if number.is_i64()
+                && seq.iter().all(|value| {
+                    matches!(value, YamlValue::Number(number) if number.is_i64())
+                }) =>
+        {
+            let values = seq.iter().filter_map(YamlValue::as_i64).collect::<Vec<_>>();
+            config.set(prefix, values)?;
+        }
+        YamlValue::Number(_)
+            if seq.iter().all(|value| matches!(value, YamlValue::Number(_))) =>
+        {
+            let values = seq.iter().filter_map(YamlValue::as_f64).collect::<Vec<_>>();
+            config.set(prefix, values)?;
+        }
+        YamlValue::Bool(_)
+            if seq.iter().all(|value| matches!(value, YamlValue::Bool(_))) =>
+        {
+            let values = seq.iter().filter_map(YamlValue::as_bool).collect::<Vec<_>>();
+            config.set(prefix, values)?;
+        }
+        YamlValue::String(_)
+            if seq.iter().all(|value| matches!(value, YamlValue::String(_))) =>
+        {
+            let values = seq
+                .iter()
+                .map(|value| yaml_scalar_to_string(value, prefix))
+                .collect::<ConfigResult<Vec<_>>>()?;
+            config.set(prefix, values)?;
+        }
         YamlValue::Mapping(_)
         | YamlValue::Sequence(_)
         | YamlValue::Tagged(_) => {
@@ -212,69 +232,11 @@ fn flatten_yaml_sequence(
                 prefix, &seq[0],
             ));
         }
-        _ => SeqKind::String,
-    };
-
-    let all_same = seq.iter().all(|item| match (&kind, item) {
-        (SeqKind::Integer, YamlValue::Number(n)) => n.is_i64(),
-        (SeqKind::Float, YamlValue::Number(_)) => true,
-        (SeqKind::Bool, YamlValue::Bool(_)) => true,
-        (SeqKind::String, YamlValue::String(_)) => true,
-        _ => false,
-    });
-
-    if !all_same {
-        let values = seq
-            .iter()
-            .map(|item| yaml_scalar_to_string(item, prefix))
-            .collect::<ConfigResult<Vec<_>>>()?;
-        config.set(prefix, values)?;
-        return Ok(());
-    }
-
-    match kind {
-        SeqKind::Integer => {
+        _ => {
             let values = seq
                 .iter()
-                .map(|item| {
-                    item.as_i64().expect(
-                        "YAML integer sequence was validated before insertion",
-                    )
-                })
-                .collect::<Vec<_>>();
-            config.set(prefix, values)?;
-        }
-        SeqKind::Float => {
-            let values = seq
-                .iter()
-                .map(|item| {
-                    item.as_f64().expect(
-                        "YAML float sequence was validated before insertion",
-                    )
-                })
-                .collect::<Vec<_>>();
-            config.set(prefix, values)?;
-        }
-        SeqKind::Bool => {
-            let values = seq
-                .iter()
-                .map(|item| {
-                    item.as_bool().expect(
-                        "YAML bool sequence was validated before insertion",
-                    )
-                })
-                .collect::<Vec<_>>();
-            config.set(prefix, values)?;
-        }
-        SeqKind::String => {
-            let values = seq
-                .iter()
-                .map(|item| {
-                    yaml_scalar_to_string(item, prefix).expect(
-                        "YAML string sequence was validated before insertion",
-                    )
-                })
-                .collect::<Vec<_>>();
+                .map(|value| yaml_scalar_to_string(value, prefix))
+                .collect::<ConfigResult<Vec<_>>>()?;
             config.set(prefix, values)?;
         }
     }
