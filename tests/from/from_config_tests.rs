@@ -12,11 +12,22 @@ use std::time::Duration;
 #[cfg(feature = "rich-types")]
 use bigdecimal::BigDecimal;
 #[cfg(feature = "rich-types")]
-use chrono::{NaiveDate, NaiveDateTime};
+use chrono::{
+    NaiveDate,
+    NaiveDateTime,
+};
 #[cfg(feature = "rich-types")]
 use num_bigint::BigInt;
-use qubit_config::{Config, ConfigError, options::ConfigReadOptions};
-use qubit_datatype::{DataConversionError, InvalidValueReason, NumericConversionPolicy};
+use qubit_config::{
+    Config,
+    ConfigError,
+    options::ConfigReadOptions,
+};
+use qubit_datatype::{
+    DataConversionError,
+    InvalidValueReason,
+    NumericConversionPolicy,
+};
 #[cfg(feature = "rich-types")]
 use std::str::FromStr;
 
@@ -72,8 +83,11 @@ fn test_from_config_preserves_typed_vector_values() {
 fn test_from_config_preserves_rich_typed_vector_values() {
     let dates = vec![NaiveDate::from_ymd_opt(2026, 7, 13).unwrap()];
     let datetimes = vec![
-        NaiveDateTime::parse_from_str("2026-07-13T01:02:03.123456789", "%Y-%m-%dT%H:%M:%S%.f")
-            .unwrap(),
+        NaiveDateTime::parse_from_str(
+            "2026-07-13T01:02:03.123456789",
+            "%Y-%m-%dT%H:%M:%S%.f",
+        )
+        .unwrap(),
     ];
     let integers = vec![BigInt::from_str("123456789012345678901").unwrap()];
     let decimals = vec![BigDecimal::from_str("1.234567890123456789").unwrap()];
@@ -130,7 +144,8 @@ fn test_from_config_numeric_policy_is_explicit() {
     ));
 
     config.set_read_options(
-        ConfigReadOptions::default().with_numeric_policy(NumericConversionPolicy::Lossy),
+        ConfigReadOptions::default()
+            .with_numeric_policy(NumericConversionPolicy::Lossy),
     );
     assert_eq!(config.get::<Vec<i32>>("values").unwrap(), vec![1, 2]);
 }

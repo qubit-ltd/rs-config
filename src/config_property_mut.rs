@@ -11,9 +11,13 @@
 
 use std::ops::Deref;
 
-use qubit_value::MultiValues;
+use qubit_value::ValueContainer;
 
-use crate::{ConfigError, ConfigResult, Property};
+use crate::{
+    ConfigError,
+    ConfigResult,
+    Property,
+};
 
 /// Guarded mutable access to a non-final [`Property`] stored in a
 /// [`crate::Config`].
@@ -66,7 +70,10 @@ impl<'a> ConfigPropertyMut<'a> {
     /// Returns [`ConfigError::PropertyIsFinal`] if the property has already
     /// been marked final.
     #[inline]
-    pub fn set_description(&mut self, description: Option<String>) -> ConfigResult<()> {
+    pub fn set_description(
+        &mut self,
+        description: Option<String>,
+    ) -> ConfigResult<()> {
         self.ensure_not_final()?;
         self.property.set_description(description);
         Ok(())
@@ -116,17 +123,21 @@ impl<'a> ConfigPropertyMut<'a> {
     /// Returns [`ConfigError::PropertyIsFinal`] if the property has already
     /// been marked final.
     #[inline]
-    pub fn set_value(&mut self, value: MultiValues) -> ConfigResult<()> {
+    pub fn set_value(
+        &mut self,
+        value: impl Into<ValueContainer>,
+    ) -> ConfigResult<()> {
         self.ensure_not_final()?;
         self.property.set_value(value);
         Ok(())
     }
 
-    /// Replaces the property value using the generic [`MultiValues`] setter.
+    /// Replaces the property value using the generic [`ValueContainer`]
+    /// setter.
     ///
     /// # Type Parameters
     ///
-    /// * `S` - Input accepted by [`MultiValues`] setter traits.
+    /// * `S` - Input accepted by [`ValueContainer`].
     ///
     /// # Parameters
     ///
@@ -142,18 +153,18 @@ impl<'a> ConfigPropertyMut<'a> {
     /// been marked final.
     pub fn set<S>(&mut self, values: S) -> ConfigResult<()>
     where
-        S: Into<MultiValues>,
+        S: Into<ValueContainer>,
     {
         self.ensure_not_final()?;
         self.property.set(values);
         Ok(())
     }
 
-    /// Appends values using the generic [`MultiValues`] adder.
+    /// Appends values using the generic [`ValueContainer`] adder.
     ///
     /// # Type Parameters
     ///
-    /// * `S` - Input accepted by [`MultiValues`] adder traits.
+    /// * `S` - Input accepted by [`ValueContainer`].
     ///
     /// # Parameters
     ///
@@ -169,7 +180,7 @@ impl<'a> ConfigPropertyMut<'a> {
     /// been marked final, or a converted value error if appending fails.
     pub fn add<S>(&mut self, values: S) -> ConfigResult<()>
     where
-        S: Into<MultiValues>,
+        S: Into<ValueContainer>,
     {
         self.ensure_not_final()?;
         self.property.add(values).map_err(ConfigError::from)

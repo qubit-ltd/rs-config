@@ -12,14 +12,22 @@
 
 use regex::Regex;
 use serde_json::map::Entry;
-use serde_json::{Map, Value};
+use serde_json::{
+    Map,
+    Value,
+};
 #[cfg(any(feature = "source-toml", feature = "source-yaml"))]
 use std::collections::HashSet;
 use std::sync::OnceLock;
 
 use qubit_value::ValueError;
 
-use super::{ConfigError, ConfigReader, ConfigResult, Property};
+use super::{
+    ConfigError,
+    ConfigReader,
+    ConfigResult,
+    Property,
+};
 
 /// Regular expression pattern for variables
 ///
@@ -30,7 +38,8 @@ static VARIABLE_PATTERN: OnceLock<Regex> = OnceLock::new();
 #[inline]
 fn get_variable_pattern() -> &'static Regex {
     VARIABLE_PATTERN.get_or_init(|| {
-        Regex::new(r"\$\{([^}]+)\}").expect("Failed to compile variable pattern regex")
+        Regex::new(r"\$\{([^}]+)\}")
+            .expect("Failed to compile variable pattern regex")
     })
 }
 
@@ -59,7 +68,10 @@ pub(crate) fn map_value_error(key: &str, err: ValueError) -> ConfigError {
 ///
 /// Returns [`ConfigError::KeyConflict`] when the normalized key is empty or has
 /// malformed dotted segments.
-pub(crate) fn validate_normalized_config_key(key: &str, origin: &str) -> ConfigResult<()> {
+pub(crate) fn validate_normalized_config_key(
+    key: &str,
+    origin: &str,
+) -> ConfigResult<()> {
     if key.is_empty() {
         return Err(ConfigError::KeyConflict {
             path: key.to_string(),
@@ -152,7 +164,13 @@ fn substitute_variables_by(
 ) -> ConfigResult<String> {
     let pattern = get_variable_pattern();
     let mut stack = Vec::new();
-    substitute_variables_recursive(value, max_depth, pattern, &mut stack, &mut resolve)
+    substitute_variables_recursive(
+        value,
+        max_depth,
+        pattern,
+        &mut stack,
+        &mut resolve,
+    )
 }
 
 /// Recursively expands variables while tracking the active variable chain.
@@ -187,8 +205,9 @@ fn substitute_variables_recursive(
 
         stack.push(var_name.to_string());
         let raw_value = resolve(var_name)?;
-        let expanded =
-            substitute_variables_recursive(&raw_value, max_depth, pattern, stack, resolve)?;
+        let expanded = substitute_variables_recursive(
+            &raw_value, max_depth, pattern, stack, resolve,
+        )?;
         stack.pop();
         result.push_str(&expanded);
         last_end = full_match.end();
@@ -216,13 +235,20 @@ fn find_variable_value<R: ConfigReader + ?Sized>(
     config: &R,
 ) -> ConfigResult<String> {
     match config.get_property(var_name) {
-        Some(property) if !property.is_unset() => match property.value().to::<String>() {
-            Ok(value) => Ok(value),
-            Err(error) => Err(map_value_error(var_name, error)),
-        },
-        Some(_) | None if config.read_options().is_env_variable_substitution_enabled() => {
+        Some(property) if !property.is_unset() => {
+            match property.value().to::<String>() {
+                Ok(value) => Ok(value),
+                Err(error) => Err(map_value_error(var_name, error)),
+            }
+        }
+        Some(_) | None
+            if config.read_options().is_env_variable_substitution_enabled() =>
+        {
             std::env::var(var_name).map_err(|_| {
-                ConfigError::SubstitutionError(format!("Cannot resolve variable: {}", var_name))
+                ConfigError::SubstitutionError(format!(
+                    "Cannot resolve variable: {}",
+                    var_name
+                ))
             })
         }
         Some(_) | None => Err(ConfigError::SubstitutionError(format!(
@@ -237,16 +263,21 @@ fn find_variable_value<R: ConfigReader + ?Sized>(
 /// Absent or unset values in `primary` are looked up in `fallback`. Other
 /// errors from `primary` are returned directly so fallback values do not mask
 /// invalid local configuration.
-fn find_variable_value_with_fallback<P: ConfigReader + ?Sized, F: ConfigReader + ?Sized>(
+fn find_variable_value_with_fallback<
+    P: ConfigReader + ?Sized,
+    F: ConfigReader + ?Sized,
+>(
     var_name: &str,
     primary: &P,
     fallback: &F,
 ) -> ConfigResult<String> {
     match primary.get_property(var_name) {
-        Some(property) if !property.is_unset() => match property.value().to::<String>() {
-            Ok(value) => Ok(value),
-            Err(error) => Err(map_value_error(var_name, error)),
-        },
+        Some(property) if !property.is_unset() => {
+            match property.value().to::<String>() {
+                Ok(value) => Ok(value),
+                Err(error) => Err(map_value_error(var_name, error)),
+            }
+        }
         Some(_) | None => find_variable_value(var_name, fallback),
     }
 }
@@ -403,12 +434,16 @@ pub(crate) fn substitute_json_strings_with_fallback<
         }
         Value::Array(values) => {
             for value in values {
-                substitute_json_strings_with_fallback(value, primary, fallback)?;
+                substitute_json_strings_with_fallback(
+                    value, primary, fallback,
+                )?;
             }
         }
         Value::Object(map) => {
             for value in map.values_mut() {
-                substitute_json_strings_with_fallback(value, primary, fallback)?;
+                substitute_json_strings_with_fallback(
+                    value, primary, fallback,
+                )?;
             }
         }
         _ => {}

@@ -7,7 +7,12 @@
 use std::error::Error;
 
 use qubit_config::ConfigError;
-use qubit_datatype::{DataConversionError, DataListConversionError, DataType, InvalidValueReason};
+use qubit_datatype::{
+    DataConversionError,
+    DataListConversionError,
+    DataType,
+    InvalidValueReason,
+};
 use qubit_value::ValueError;
 
 fn invalid_integer() -> DataConversionError {
@@ -63,7 +68,10 @@ fn test_data_conversion_missing_maps_to_no_value() {
 
 #[test]
 fn test_data_conversion_error_keeps_structure() {
-    let error = ConfigError::from_data_conversion_error("server.port", invalid_integer());
+    let error = ConfigError::from_data_conversion_error(
+        "server.port",
+        invalid_integer(),
+    );
     assert!(matches!(
         error,
         ConfigError::ConversionError {
@@ -88,7 +96,8 @@ fn test_value_error_without_key() {
         ConfigError::TypeMismatch { key, .. } if key.is_empty()
     ));
 
-    let error = ConfigError::from(ValueError::DataConversion(invalid_integer()));
+    let error =
+        ConfigError::from(ValueError::DataConversion(invalid_integer()));
     assert!(matches!(
         error,
         ConfigError::ConversionError {

@@ -100,13 +100,16 @@ config.set("database.port", 5432)?;
 
 Each configuration item is represented by a `Property` that contains:
 - Name (key)
-- Multi-value container
+- Scalar-or-collection value container
 - Optional description
 - Final flag (immutable after set)
 
-### MultiValues
+### ValueContainer
 
-A type-safe container that can hold multiple values of the same data type.
+A type-safe container that preserves whether a source supplied one scalar value
+or an explicit collection. Scalar strings may be split by configured collection
+conversion rules; collection elements are converted individually and are never
+split again.
 
 ### ConfigReader
 

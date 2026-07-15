@@ -25,14 +25,25 @@
 //! Arrays are stored as multi-value properties.
 
 use std::collections::HashSet;
-use std::path::{Path, PathBuf};
+use std::path::{
+    Path,
+    PathBuf,
+};
 
 use serde_norway as yaml_backend;
 use yaml_backend::Value as YamlValue;
 
-use crate::{Config, ConfigError, ConfigResult, utils};
+use crate::{
+    Config,
+    ConfigError,
+    ConfigResult,
+    utils,
+};
 
-use super::{ConfigSource, config_source::load_transactionally};
+use super::{
+    ConfigSource,
+    config_source::load_transactionally,
+};
 
 /// Configuration source that loads from YAML format files
 ///
@@ -78,17 +89,22 @@ impl ConfigSource for YamlConfigSource {
         let content = std::fs::read_to_string(&self.path).map_err(|e| {
             ConfigError::IoError(std::io::Error::new(
                 e.kind(),
-                format!("Failed to read YAML file '{}': {}", self.path.display(), e),
+                format!(
+                    "Failed to read YAML file '{}': {}",
+                    self.path.display(),
+                    e
+                ),
             ))
         })?;
 
-        let value: YamlValue = yaml_backend::from_str(&content).map_err(|e| {
-            ConfigError::ParseError(format!(
-                "Failed to parse YAML file '{}': {}",
-                self.path.display(),
-                e
-            ))
-        })?;
+        let value: YamlValue =
+            yaml_backend::from_str(&content).map_err(|e| {
+                ConfigError::ParseError(format!(
+                    "Failed to parse YAML file '{}': {}",
+                    self.path.display(),
+                    e
+                ))
+            })?;
 
         let mut seen = HashSet::new();
         flatten_yaml_value("", &value, config, &mut seen)?;
@@ -142,9 +158,9 @@ pub(crate) fn flatten_yaml_value(
             if let Some(i) = n.as_i64() {
                 config.set(prefix, i)?;
             } else {
-                let f = n
-                    .as_f64()
-                    .expect("YAML number should be representable as i64 or f64");
+                let f = n.as_f64().expect(
+                    "YAML number should be representable as i64 or f64",
+                );
                 config.set(prefix, f)?;
             }
         }
@@ -168,7 +184,11 @@ pub(crate) fn flatten_yaml_value(
 ///
 /// Nested structures inside sequences (mapping/sequence/tagged) are rejected
 /// with a parse error to avoid silently losing structure information.
-fn flatten_yaml_sequence(prefix: &str, seq: &[YamlValue], config: &mut Config) -> ConfigResult<()> {
+fn flatten_yaml_sequence(
+    prefix: &str,
+    seq: &[YamlValue],
+    config: &mut Config,
+) -> ConfigResult<()> {
     if seq.is_empty() {
         config.set(prefix, Vec::<String>::new())?;
         return Ok(());
@@ -185,8 +205,12 @@ fn flatten_yaml_sequence(prefix: &str, seq: &[YamlValue], config: &mut Config) -
         YamlValue::Number(n) if n.is_i64() => SeqKind::Integer,
         YamlValue::Number(_) => SeqKind::Float,
         YamlValue::Bool(_) => SeqKind::Bool,
-        YamlValue::Mapping(_) | YamlValue::Sequence(_) | YamlValue::Tagged(_) => {
-            return Err(unsupported_yaml_sequence_element_error(prefix, &seq[0]));
+        YamlValue::Mapping(_)
+        | YamlValue::Sequence(_)
+        | YamlValue::Tagged(_) => {
+            return Err(unsupported_yaml_sequence_element_error(
+                prefix, &seq[0],
+            ));
         }
         _ => SeqKind::String,
     };
@@ -213,8 +237,9 @@ fn flatten_yaml_sequence(prefix: &str, seq: &[YamlValue], config: &mut Config) -
             let values = seq
                 .iter()
                 .map(|item| {
-                    item.as_i64()
-                        .expect("YAML integer sequence was validated before insertion")
+                    item.as_i64().expect(
+                        "YAML integer sequence was validated before insertion",
+                    )
                 })
                 .collect::<Vec<_>>();
             config.set(prefix, values)?;
@@ -223,8 +248,9 @@ fn flatten_yaml_sequence(prefix: &str, seq: &[YamlValue], config: &mut Config) -
             let values = seq
                 .iter()
                 .map(|item| {
-                    item.as_f64()
-                        .expect("YAML float sequence was validated before insertion")
+                    item.as_f64().expect(
+                        "YAML float sequence was validated before insertion",
+                    )
                 })
                 .collect::<Vec<_>>();
             config.set(prefix, values)?;
@@ -233,8 +259,9 @@ fn flatten_yaml_sequence(prefix: &str, seq: &[YamlValue], config: &mut Config) -
             let values = seq
                 .iter()
                 .map(|item| {
-                    item.as_bool()
-                        .expect("YAML bool sequence was validated before insertion")
+                    item.as_bool().expect(
+                        "YAML bool sequence was validated before insertion",
+                    )
                 })
                 .collect::<Vec<_>>();
             config.set(prefix, values)?;
@@ -243,8 +270,9 @@ fn flatten_yaml_sequence(prefix: &str, seq: &[YamlValue], config: &mut Config) -
             let values = seq
                 .iter()
                 .map(|item| {
-                    yaml_scalar_to_string(item, prefix)
-                        .expect("YAML string sequence was validated before insertion")
+                    yaml_scalar_to_string(item, prefix).expect(
+                        "YAML string sequence was validated before insertion",
+                    )
                 })
                 .collect::<Vec<_>>();
             config.set(prefix, values)?;
@@ -278,14 +306,19 @@ fn yaml_scalar_to_string(value: &YamlValue, key: &str) -> ConfigResult<String> {
         YamlValue::Number(n) => Ok(n.to_string()),
         YamlValue::Bool(b) => Ok(b.to_string()),
         YamlValue::Null => Ok(String::new()),
-        YamlValue::Sequence(_) | YamlValue::Mapping(_) | YamlValue::Tagged(_) => {
+        YamlValue::Sequence(_)
+        | YamlValue::Mapping(_)
+        | YamlValue::Tagged(_) => {
             Err(unsupported_yaml_sequence_element_error(key, value))
         }
     }
 }
 
 /// Builds a parse error for unsupported nested YAML sequence elements.
-fn unsupported_yaml_sequence_element_error(key: &str, value: &YamlValue) -> ConfigError {
+fn unsupported_yaml_sequence_element_error(
+    key: &str,
+    value: &YamlValue,
+) -> ConfigError {
     let key = if key.is_empty() { "<root>" } else { key };
     ConfigError::ParseError(format!(
         "Unsupported nested YAML structure at key '{key}': {value:?}"

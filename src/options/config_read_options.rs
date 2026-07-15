@@ -7,11 +7,19 @@
 // =============================================================================
 
 use qubit_datatype::{
-    BlankStringPolicy, BooleanConversionOptions, CollectionConversionOptions,
-    DataConversionOptions, DurationConversionOptions, EmptyItemPolicy, NumericConversionPolicy,
+    BlankStringPolicy,
+    BooleanConversionOptions,
+    CollectionConversionOptions,
+    DataConversionOptions,
+    DurationConversionOptions,
+    EmptyItemPolicy,
+    NumericConversionPolicy,
     StringConversionOptions,
 };
-use serde::{Deserialize, Serialize};
+use serde::{
+    Deserialize,
+    Serialize,
+};
 
 /// Runtime options that control how configuration values are read and parsed.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -75,7 +83,10 @@ impl ConfigReadOptions {
     ///
     /// Updated options.
     #[must_use]
-    pub fn with_env_variable_substitution_enabled(mut self, enabled: bool) -> Self {
+    pub fn with_env_variable_substitution_enabled(
+        mut self,
+        enabled: bool,
+    ) -> Self {
         self.env_variable_substitution_enabled = enabled;
         self
     }
@@ -90,7 +101,10 @@ impl ConfigReadOptions {
     ///
     /// Updated options.
     #[must_use]
-    pub fn with_blank_string_policy(mut self, policy: BlankStringPolicy) -> Self {
+    pub fn with_blank_string_policy(
+        mut self,
+        policy: BlankStringPolicy,
+    ) -> Self {
         self.conversion = self.conversion.with_blank_string_policy(policy);
         self
     }
@@ -120,7 +134,10 @@ impl ConfigReadOptions {
     ///
     /// Updated options.
     #[must_use]
-    pub fn with_string_options(mut self, string: StringConversionOptions) -> Self {
+    pub fn with_string_options(
+        mut self,
+        string: StringConversionOptions,
+    ) -> Self {
         self.conversion = self.conversion.with_string_options(string);
         self
     }
@@ -135,7 +152,10 @@ impl ConfigReadOptions {
     ///
     /// Updated options.
     #[must_use]
-    pub fn with_boolean_options(mut self, boolean: BooleanConversionOptions) -> Self {
+    pub fn with_boolean_options(
+        mut self,
+        boolean: BooleanConversionOptions,
+    ) -> Self {
         self.conversion = self.conversion.with_boolean_options(boolean);
         self
     }
@@ -150,7 +170,10 @@ impl ConfigReadOptions {
     ///
     /// Updated options.
     #[must_use]
-    pub fn with_collection_options(mut self, collection: CollectionConversionOptions) -> Self {
+    pub fn with_collection_options(
+        mut self,
+        collection: CollectionConversionOptions,
+    ) -> Self {
         self.conversion = self.conversion.with_collection_options(collection);
         self
     }
@@ -165,7 +188,10 @@ impl ConfigReadOptions {
     ///
     /// Updated options.
     #[must_use]
-    pub fn with_duration_options(mut self, duration: DurationConversionOptions) -> Self {
+    pub fn with_duration_options(
+        mut self,
+        duration: DurationConversionOptions,
+    ) -> Self {
         self.conversion = self.conversion.with_duration_options(duration);
         self
     }
@@ -181,7 +207,10 @@ impl ConfigReadOptions {
     ///
     /// Updated options.
     #[must_use]
-    pub fn with_numeric_policy(mut self, policy: NumericConversionPolicy) -> Self {
+    pub fn with_numeric_policy(
+        mut self,
+        policy: NumericConversionPolicy,
+    ) -> Self {
         self.conversion = self.conversion.with_numeric_policy(policy);
         self
     }

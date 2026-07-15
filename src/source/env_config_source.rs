@@ -23,12 +23,23 @@
 
 use std::{
     collections::HashMap,
-    ffi::{OsStr, OsString},
+    ffi::{
+        OsStr,
+        OsString,
+    },
 };
 
-use crate::{Config, ConfigError, ConfigResult, utils};
+use crate::{
+    Config,
+    ConfigError,
+    ConfigResult,
+    utils,
+};
 
-use super::{ConfigSource, config_source::load_transactionally};
+use super::{
+    ConfigSource,
+    config_source::load_transactionally,
+};
 
 /// Configuration source that loads from system environment variables
 ///
@@ -239,7 +250,10 @@ impl EnvConfigSource {
     ///
     /// Returns [`ConfigError::ParseError`] when `value` is not valid Unicode,
     /// preserving a lossy representation in the diagnostic message.
-    fn env_os_string_to_string(value: OsString, label: &str) -> ConfigResult<String> {
+    fn env_os_string_to_string(
+        value: OsString,
+        label: &str,
+    ) -> ConfigResult<String> {
         value.into_string().map_err(|value| {
             ConfigError::ParseError(format!(
                 "{label} is not valid Unicode: {}",
@@ -272,7 +286,10 @@ impl ConfigSource for EnvConfigSource {
                 continue;
             }
 
-            let key = Self::env_os_string_to_string(key_os, "Environment variable key")?;
+            let key = Self::env_os_string_to_string(
+                key_os,
+                "Environment variable key",
+            )?;
             let value = Self::env_os_string_to_string(
                 value_os,
                 &format!("Value for environment variable '{key}'"),
@@ -282,7 +299,8 @@ impl ConfigSource for EnvConfigSource {
                 utils::validate_normalized_config_key(&transformed_key, &key)?;
             }
             if self.can_collapse_distinct_keys()
-                && let Some(existing) = normalized_keys.insert(transformed_key.clone(), key.clone())
+                && let Some(existing) =
+                    normalized_keys.insert(transformed_key.clone(), key.clone())
             {
                 return Err(ConfigError::KeyConflict {
                     path: transformed_key,
