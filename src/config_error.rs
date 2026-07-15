@@ -51,6 +51,16 @@ pub enum ConfigError {
         source: DataConversionError,
     },
 
+    /// Value-layer error not covered by a specialized configuration mapping.
+    #[error("Value error at '{key}': {source}")]
+    ValueError {
+        /// Configuration key/path where the value access failed.
+        key: String,
+        /// Original value-layer error.
+        #[source]
+        source: ValueError,
+    },
+
     /// Variable substitution failed.
     #[error("Variable substitution failed: {0}")]
     SubstitutionError(String),
@@ -148,6 +158,10 @@ impl ConfigError {
                 key: key.to_string(),
                 source_index: Some(error.source_index),
                 source: error.source,
+            },
+            source => Self::ValueError {
+                key: key.to_string(),
+                source,
             },
         }
     }

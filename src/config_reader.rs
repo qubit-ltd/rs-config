@@ -20,7 +20,7 @@ use qubit_value::{
 };
 use serde::de::DeserializeOwned;
 
-use crate::config_prefix_view::ConfigPrefixView;
+use crate::config_section::ConfigSection;
 use crate::field::ConfigField;
 use crate::from::{
     FromConfig,
@@ -44,12 +44,12 @@ use crate::{
 ///
 /// This trait allows consumers to read configuration values without requiring
 /// ownership of a [`crate::Config`]. Both [`crate::Config`] and
-/// [`crate::ConfigPrefixView`] implement it.
+/// [`crate::ConfigSection`] implement it.
 ///
 /// Its required methods mirror the read-only surface of [`crate::Config`]
 /// (metadata, raw properties, iteration, subtree extraction, and serde
-/// deserialization), with prefix views resolving keys relative to their
-/// logical prefix.
+/// deserialization), with sections resolving keys relative to their logical
+/// path.
 pub trait ConfigReader {
     /// Returns whether `${...}` variable substitution is applied when reading
     /// string values.
@@ -70,31 +70,31 @@ pub trait ConfigReader {
     fn max_substitution_depth(&self) -> usize;
 
     /// Returns the optional human-readable description attached to this
-    /// configuration (the whole document; prefix views expose the same value
+    /// configuration (the whole document; sections expose the same value
     /// as the underlying [`crate::Config`]).
     fn description(&self) -> Option<&str>;
 
     /// Returns a reference to the raw [`Property`] for `name`, if present.
     ///
-    /// For a [`ConfigPrefixView`], `name` is resolved relative to the view
+    /// For a [`ConfigSection`], `name` is resolved relative to the view
     /// prefix (same rules as [`Self::get`]).
     fn get_property(&self, name: impl ConfigName) -> Option<&Property>;
 
     /// Number of configuration entries visible to this reader (all keys for
-    /// [`crate::Config`]; relative keys only for a [`ConfigPrefixView`]).
+    /// [`crate::Config`]; relative keys only for a [`ConfigSection`]).
     fn len(&self) -> usize;
 
     /// Returns `true` when [`Self::len`] is zero.
     fn is_empty(&self) -> bool;
 
-    /// All keys visible to this reader (relative keys for a prefix view).
+    /// All keys visible to this reader (relative keys for a section).
     fn keys(&self) -> Vec<String>;
 
     /// Returns whether a property exists for the given key.
     ///
     /// # Parameters
     ///
-    /// * `name` - Full configuration key (for [`crate::ConfigPrefixView`],
+    /// * `name` - Full configuration key (for [`crate::ConfigSection`],
     ///   relative keys are resolved against the view prefix).
     ///
     /// # Returns
@@ -227,7 +227,7 @@ pub trait ConfigReader {
     ///
     /// # Parameters
     ///
-    /// * `name` - Configuration key (relative for a prefix view).
+    /// * `name` - Configuration key (relative for a section).
     ///
     /// # Returns
     ///
@@ -485,7 +485,7 @@ pub trait ConfigReader {
     ///
     /// # Parameters
     ///
-    /// * `prefix` - Key prefix to test (for a prefix view, keys are relative to
+    /// * `prefix` - Key prefix to test (for a section, keys are relative to
     ///   that view).
     ///
     /// # Returns
@@ -518,7 +518,7 @@ pub trait ConfigReader {
     fn is_null(&self, name: impl ConfigName) -> bool;
 
     /// Extracts a subtree as a new [`Config`] (same semantics as
-    /// [`crate::Config::subconfig`]; on a prefix view, `prefix` is relative to
+    /// [`crate::Config::subconfig`]; on a section, `prefix` is relative to
     /// the view).
     fn subconfig(
         &self,
@@ -527,38 +527,38 @@ pub trait ConfigReader {
     ) -> ConfigResult<Config>;
 
     /// Deserializes the subtree at `prefix` with serde (same as
-    /// [`crate::Config::deserialize`]; on a prefix view, `prefix` is relative).
+    /// [`crate::Config::deserialize`]; on a section, `prefix` is relative).
     fn deserialize<T>(&self, prefix: &str) -> ConfigResult<T>
     where
         T: DeserializeOwned;
 
-    /// Creates a read-only prefix view; relative keys resolve under `prefix`.
+    /// Creates a read-only section; property keys resolve strictly relative to
+    /// `path`.
     ///
-    /// Semantics match [`crate::Config::prefix_view`] and
-    /// [`crate::ConfigPrefixView::prefix_view`] (nested prefix when called on a
-    /// view).
+    /// Semantics match [`crate::Config::section`] and
+    /// [`crate::ConfigSection::section`]. Calling this method on a section
+    /// creates a nested section.
     ///
-    /// # Parameters
+    /// # Arguments
     ///
-    /// * `prefix` - Logical prefix; empty means the full configuration (same as
-    ///   root).
+    /// * `path` - Relative section path; an empty path keeps the current scope.
     ///
     /// # Returns
     ///
-    /// A [`ConfigPrefixView`] borrowing this reader's underlying
+    /// A [`ConfigSection`] borrowing this reader's underlying
     /// [`crate::Config`].
-    fn prefix_view(&self, prefix: &str) -> ConfigPrefixView<'_>;
+    fn section(&self, path: &str) -> ConfigSection<'_>;
 
     /// Resolves `name` into the canonical key path against the root
     /// [`crate::Config`].
     ///
     /// For a root [`crate::Config`], this returns `name` unchanged. For a
-    /// [`crate::ConfigPrefixView`], this prepends the effective view prefix so
+    /// [`crate::ConfigSection`], this prepends the effective section path so
     /// callers can report root-relative key paths in diagnostics.
     ///
     /// # Parameters
     ///
-    /// * `name` - Relative or absolute key in the current reader scope.
+    /// * `name` - Key relative to the current reader scope.
     ///
     /// # Returns
     ///

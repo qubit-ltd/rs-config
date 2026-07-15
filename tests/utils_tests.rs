@@ -969,7 +969,9 @@ mod test_property_to_json_value_deserialize_behavior {
         Property,
         Value,
     };
+    #[cfg(feature = "bigdecimal")]
     use bigdecimal::BigDecimal;
+    #[cfg(feature = "chrono")]
     use chrono::{
         DateTime,
         NaiveDate,
@@ -977,9 +979,12 @@ mod test_property_to_json_value_deserialize_behavior {
         NaiveTime,
         Utc,
     };
+    #[cfg(feature = "num-bigint")]
     use num_bigint::BigInt;
+    #[cfg(feature = "bigdecimal")]
     use std::str::FromStr;
     use std::time::Duration;
+    #[cfg(feature = "url")]
     use url::Url;
 
     #[derive(Deserialize, Debug, PartialEq)]
@@ -1156,6 +1161,7 @@ mod test_property_to_json_value_deserialize_behavior {
         assert_eq!(value.val, serde_json::json!("2ms"));
     }
 
+    #[cfg(feature = "url")]
     #[test]
     fn test_deserialize_url() {
         let url = Url::parse("https://example.com").unwrap();
@@ -1210,6 +1216,7 @@ mod test_property_to_json_value_deserialize_behavior {
         assert_eq!(s.val, serde_json::json!("A"));
     }
 
+    #[cfg(feature = "num-bigint")]
     #[test]
     fn test_deserialize_big_integer() {
         let big = BigInt::from(12345678901234567i64);
@@ -1218,6 +1225,7 @@ mod test_property_to_json_value_deserialize_behavior {
         assert!(s.val.is_string());
     }
 
+    #[cfg(feature = "bigdecimal")]
     #[test]
     fn test_deserialize_big_decimal() {
         let dec = BigDecimal::from_str("3.14159265358979").unwrap();
@@ -1226,6 +1234,7 @@ mod test_property_to_json_value_deserialize_behavior {
         assert!(s.val.is_string());
     }
 
+    #[cfg(feature = "chrono")]
     #[test]
     fn test_deserialize_datetime() {
         let dt = NaiveDateTime::parse_from_str(
@@ -1238,6 +1247,7 @@ mod test_property_to_json_value_deserialize_behavior {
         assert!(s.val.is_string());
     }
 
+    #[cfg(feature = "chrono")]
     #[test]
     fn test_deserialize_date() {
         let d = NaiveDate::from_ymd_opt(2026, 4, 9).unwrap();
@@ -1246,6 +1256,7 @@ mod test_property_to_json_value_deserialize_behavior {
         assert!(s.val.is_string());
     }
 
+    #[cfg(feature = "chrono")]
     #[test]
     fn test_deserialize_time() {
         let t = NaiveTime::from_hms_opt(12, 0, 0).unwrap();
@@ -1254,6 +1265,7 @@ mod test_property_to_json_value_deserialize_behavior {
         assert!(s.val.is_string());
     }
 
+    #[cfg(feature = "chrono")]
     #[test]
     fn test_deserialize_instant() {
         let instant: DateTime<Utc> =

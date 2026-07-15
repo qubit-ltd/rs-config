@@ -19,9 +19,9 @@ A powerful, type-safe configuration management system for Rust, providing flexib
 - ✅ **Serialization Support** - Full serde support for serialization and deserialization
 - ✅ **Extensible** - Trait-based design for easy custom type support
 - ✅ **Configuration sources** - [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) trait with built-in loaders: TOML, YAML, Java-style `.properties`, `.env` files, process environment variables (with optional prefix / key normalization), and [`CompositeConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.CompositeConfigSource.html) to merge several sources in order (later entries override earlier ones for the same key); built-in sources load transactionally, validate ambiguous normalized keys, and reject duplicate flattened TOML/YAML keys
-- ✅ **Read-only API** - [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) trait for typed reads without mutation; implemented by [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) and [`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html), with string helpers, multi-key reads, and field declarations that respect variable substitution
+- ✅ **Read-only API** - [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) trait for typed reads without mutation; implemented by [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) and [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html), with string helpers, multi-key reads, and field declarations that respect variable substitution
 - ✅ **Configurable parsing** - [`ConfigReadOptions`](https://docs.rs/qubit-config/latest/qubit_config/options/struct.ConfigReadOptions.html) controls string trimming, blank handling, boolean literals, and scalar-string collection splitting globally or per field
-- ✅ **Prefix views** - [`Config::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.prefix_view) returns a [`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html) scoped to a logical key prefix (relative keys map to `prefix.key`); nest with [`ConfigPrefixView::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html#method.prefix_view)
+- ✅ **Strict sections** - [`Config::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.section) returns a [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html) with strictly relative keys; nest with [`ConfigSection::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html#method.section)
 - ✅ **Efficient core representation** - Uses enum-backed values and staged source loading; pluggable sources can still use trait objects where dynamic composition is useful
 
 ## Installation
@@ -33,27 +33,34 @@ Add this to your `Cargo.toml`:
 qubit-config = "0.14"
 ```
 
-Default features preserve the full API:
+The default feature set is intentionally empty, so core configuration reads do
+not pull in optional formats or rich value types. Enable the complete optional
+surface with `full`:
 
 ```toml
-qubit-config = { version = "0.14", default-features = true }
+qubit-config = { version = "0.14", features = ["full"] }
 ```
 
-For lighter builds, disable defaults and opt into only the source loaders you
-need:
+Enable only the capabilities you need:
 
 ```toml
-qubit-config = { version = "0.14", default-features = false, features = ["source-toml"] }
+qubit-config = { version = "0.14", features = ["toml"] }
 ```
 
 Available feature flags:
 
 | Feature | Enables |
 |---------|---------|
-| `rich-types` | Direct `FromConfig` support for `chrono`, `url`, `num-bigint`, and `bigdecimal` types |
-| `source-toml` | `TomlConfigSource` and `Config::from_toml_file` |
-| `source-yaml` | `YamlConfigSource` and `Config::from_yaml_file` |
-| `source-env-file` | `EnvFileConfigSource` and `Config::from_env_file` |
+| `bigdecimal` | `BigDecimal` values and direct `FromConfig` support |
+| `chrono` | Chrono date/time values and direct `FromConfig` support |
+| `num-bigint` | `BigInt` values and direct `FromConfig` support |
+| `url` | URL values and direct `FromConfig` support |
+| `env-file` | `EnvFileConfigSource` and `Config::from_env_file` |
+| `toml` | `TomlConfigSource` and `Config::from_toml_file` |
+| `yaml` | `YamlConfigSource` and `Config::from_yaml_file` |
+| `rich-types` | All four rich-value features |
+| `formats` | `env-file`, `toml`, and `yaml` |
+| `full` | `rich-types` and `formats` |
 
 ## Quick Start
 
@@ -113,7 +120,7 @@ split again.
 
 ### ConfigReader
 
-[`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) is the read-only configuration surface. Functions or types that only need settings can take `&impl ConfigReader` (or a generic `R: ConfigReader`) instead of `&Config`; the same API works for [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) and [`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html). `ConfigReader` has generic typed methods, so it is not object-safe and should not be used as `dyn ConfigReader`.
+[`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) is the read-only configuration surface. Functions or types that only need settings can take `&impl ConfigReader` (or a generic `R: ConfigReader`) instead of `&Config`; the same API works for [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) and [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html). `ConfigReader` has generic typed methods, so it is not object-safe and should not be used as `dyn ConfigReader`.
 
 The main read APIs are:
 
@@ -161,9 +168,9 @@ let paths = config.get_any_or::<Vec<String>>(
 )?;
 ```
 
-### ConfigPrefixView
+### ConfigSection
 
-[`ConfigPrefixView`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html) is a zero-copy borrow of a `Config` with a logical key prefix. Use [`Config::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.prefix_view) to create it; keys passed to the view are resolved under that prefix. For example, prefix `db` and key `host` read the stored key `db.host`. Use [`ConfigPrefixView::prefix_view`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigPrefixView.html#method.prefix_view) for nested views.
+[`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html) is a zero-copy, strictly relative view of a `Config`. Use [`Config::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.section) to create it; every key is resolved below the section path, so section `db` and key `host` read `db.host`. The exact scalar at `db` is not part of the section; only descendants such as `db.host` are visible. Use [`ConfigSection::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html#method.section) for nested sections.
 
 ```rust
 use qubit_config::{Config, ConfigReader};
@@ -172,7 +179,7 @@ let mut config = Config::new();
 config.set("db.host", "localhost")?;
 config.set("db.port", 5432i32)?;
 
-let db = config.prefix_view("db");
+let db = config.section("db");
 let host: String = db.get_string("host")?;
 let port: i32 = db.get("port")?;
 ```
@@ -622,10 +629,10 @@ For internal design documentation (Chinese), see [src/README.md](src/README.md).
 - `qubit-value` - Value handling framework
 - `serde` - Serialization framework
 - `regex` - Regular expression support
-- `chrono`, `url`, `num-bigint`, `bigdecimal` - direct rich-type parsing support behind the default `rich-types` feature
-- `toml` - TOML parsing behind `source-toml`
-- `serde_norway` - YAML parsing behind `source-yaml`
-- `dotenvy` - `.env` file parsing behind `source-env-file`
+- `chrono`, `url`, `num-bigint`, `bigdecimal` - optional rich-value support behind their matching atomic features
+- `toml` - TOML parsing behind `toml`
+- `serde_norway` - YAML parsing behind `yaml`
+- `dotenvy` - `.env` file parsing behind `env-file`
 
 ## Roadmap
 

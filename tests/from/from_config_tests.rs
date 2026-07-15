@@ -9,14 +9,14 @@
 
 use std::time::Duration;
 
-#[cfg(feature = "rich-types")]
+#[cfg(feature = "bigdecimal")]
 use bigdecimal::BigDecimal;
-#[cfg(feature = "rich-types")]
+#[cfg(feature = "chrono")]
 use chrono::{
     NaiveDate,
     NaiveDateTime,
 };
-#[cfg(feature = "rich-types")]
+#[cfg(feature = "num-bigint")]
 use num_bigint::BigInt;
 use qubit_config::{
     Config,
@@ -28,7 +28,7 @@ use qubit_datatype::{
     InvalidValueReason,
     NumericConversionPolicy,
 };
-#[cfg(feature = "rich-types")]
+#[cfg(any(feature = "bigdecimal", feature = "num-bigint"))]
 use std::str::FromStr;
 
 #[test]
@@ -77,10 +77,10 @@ fn test_from_config_preserves_typed_vector_values() {
     assert_eq!(config.get::<Vec<Duration>>("durations").unwrap(), durations,);
 }
 
-/// Test rich typed vectors preserve their original representations.
-#[cfg(feature = "rich-types")]
+/// Test chrono vectors preserve their original representations.
+#[cfg(feature = "chrono")]
 #[test]
-fn test_from_config_preserves_rich_typed_vector_values() {
+fn test_from_config_preserves_chrono_vector_values() {
     let dates = vec![NaiveDate::from_ymd_opt(2026, 7, 13).unwrap()];
     let datetimes = vec![
         NaiveDateTime::parse_from_str(
@@ -89,21 +89,37 @@ fn test_from_config_preserves_rich_typed_vector_values() {
         )
         .unwrap(),
     ];
-    let integers = vec![BigInt::from_str("123456789012345678901").unwrap()];
-    let decimals = vec![BigDecimal::from_str("1.234567890123456789").unwrap()];
     let mut config = Config::new();
     config.set("dates", dates.clone()).unwrap();
     config.set("datetimes", datetimes.clone()).unwrap();
-    config.set("integers", integers.clone()).unwrap();
-    config.set("decimals", decimals.clone()).unwrap();
 
     assert_eq!(config.get::<Vec<NaiveDate>>("dates").unwrap(), dates);
     assert_eq!(
         config.get::<Vec<NaiveDateTime>>("datetimes").unwrap(),
         datetimes,
     );
+}
+
+/// Test big integer vectors preserve their original representations.
+#[cfg(feature = "num-bigint")]
+#[test]
+fn test_from_config_preserves_big_integer_vector_values() {
+    let integers = vec![BigInt::from_str("123456789012345678901").unwrap()];
+    let mut config = Config::new();
+    config.set("integers", integers.clone()).unwrap();
+
     assert_eq!(config.get::<Vec<BigInt>>("integers").unwrap(), integers);
-    assert_eq!(config.get::<Vec<BigDecimal>>("decimals").unwrap(), decimals,);
+}
+
+/// Test big decimal vectors preserve their original representations.
+#[cfg(feature = "bigdecimal")]
+#[test]
+fn test_from_config_preserves_big_decimal_vector_values() {
+    let decimals = vec![BigDecimal::from_str("1.234567890123456789").unwrap()];
+    let mut config = Config::new();
+    config.set("decimals", decimals.clone()).unwrap();
+
+    assert_eq!(config.get::<Vec<BigDecimal>>("decimals").unwrap(), decimals);
 }
 
 /// Test list failures retain the original source index and structured reason.

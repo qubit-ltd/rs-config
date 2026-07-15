@@ -181,18 +181,45 @@ fn flatten_toml_array(
         return Ok(());
     }
 
-    // Determine the dominant scalar type from the first element.
-    enum ArrayKind {
-        Integer,
-        Float,
-        Bool,
-        String,
-    }
-
-    let kind = match &arr[0] {
-        TomlValue::Integer(_) => ArrayKind::Integer,
-        TomlValue::Float(_) => ArrayKind::Float,
-        TomlValue::Boolean(_) => ArrayKind::Bool,
+    match &arr[0] {
+        TomlValue::Integer(_)
+            if all_toml_values_match(arr, TomlValue::is_integer) =>
+        {
+            let values = arr
+                .iter()
+                .filter_map(TomlValue::as_integer)
+                .collect::<Vec<_>>();
+            config.set(prefix, values)?;
+        }
+        TomlValue::Float(_)
+            if all_toml_values_match(arr, TomlValue::is_float) =>
+        {
+            let values = arr
+                .iter()
+                .filter_map(TomlValue::as_float)
+                .collect::<Vec<_>>();
+            config.set(prefix, values)?;
+        }
+        TomlValue::Boolean(_)
+            if all_toml_values_match(arr, TomlValue::is_bool) =>
+        {
+            let values = arr
+                .iter()
+                .filter_map(TomlValue::as_bool)
+                .collect::<Vec<_>>();
+            config.set(prefix, values)?;
+        }
+        TomlValue::String(_) | TomlValue::Datetime(_)
+            if arr.iter().all(|value| {
+                matches!(value, TomlValue::String(_) | TomlValue::Datetime(_))
+            }) =>
+        {
+            let values = arr
+                .iter()
+                .map(|value| toml_scalar_to_string(value, prefix))
+                .collect::<ConfigResult<Vec<_>>>()?;
+            config.set(prefix, values)?;
+        }
         TomlValue::Table(_) => {
             return Err(ConfigError::ParseError(format!(
                 "Unsupported nested TOML table inside array at key '{prefix}'"
@@ -203,82 +230,24 @@ fn flatten_toml_array(
                 "Unsupported nested TOML array at key '{prefix}'"
             )));
         }
-        _ => ArrayKind::String,
-    };
-
-    // Check that all elements match the first element's type; fall back to
-    // string if not.
-    let all_same = arr.iter().all(|item| {
-        matches!(
-            (&kind, item),
-            (ArrayKind::Integer, TomlValue::Integer(_))
-                | (ArrayKind::Float, TomlValue::Float(_))
-                | (ArrayKind::Bool, TomlValue::Boolean(_))
-                | (
-                    ArrayKind::String,
-                    TomlValue::String(_) | TomlValue::Datetime(_)
-                )
-        )
-    });
-
-    if !all_same {
-        // Mixed types → fall back to string
-        let values = arr
-            .iter()
-            .map(|item| toml_scalar_to_string(item, prefix))
-            .collect::<ConfigResult<Vec<_>>>()?;
-        config.set(prefix, values)?;
-        return Ok(());
-    }
-
-    match kind {
-        ArrayKind::Integer => {
+        _ => {
             let values = arr
                 .iter()
-                .map(|item| {
-                    item.as_integer().expect(
-                        "TOML integer array was validated before insertion",
-                    )
-                })
-                .collect::<Vec<_>>();
-            config.set(prefix, values)?;
-        }
-        ArrayKind::Float => {
-            let values = arr
-                .iter()
-                .map(|item| {
-                    item.as_float().expect(
-                        "TOML float array was validated before insertion",
-                    )
-                })
-                .collect::<Vec<_>>();
-            config.set(prefix, values)?;
-        }
-        ArrayKind::Bool => {
-            let values = arr
-                .iter()
-                .map(|item| {
-                    item.as_bool().expect(
-                        "TOML bool array was validated before insertion",
-                    )
-                })
-                .collect::<Vec<_>>();
-            config.set(prefix, values)?;
-        }
-        ArrayKind::String => {
-            let values = arr
-                .iter()
-                .map(|item| {
-                    toml_scalar_to_string(item, prefix).expect(
-                        "TOML string array was validated before insertion",
-                    )
-                })
-                .collect::<Vec<_>>();
+                .map(|value| toml_scalar_to_string(value, prefix))
+                .collect::<ConfigResult<Vec<_>>>()?;
             config.set(prefix, values)?;
         }
     }
 
     Ok(())
+}
+
+/// Tests whether all TOML values satisfy a scalar type predicate.
+fn all_toml_values_match(
+    values: &[TomlValue],
+    predicate: impl Fn(&TomlValue) -> bool,
+) -> bool {
+    values.iter().all(predicate)
 }
 
 /// Converts a TOML scalar value to a string (used as fallback for mixed arrays)
