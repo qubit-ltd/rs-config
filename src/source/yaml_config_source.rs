@@ -197,27 +197,32 @@ fn flatten_yaml_sequence(
     match &seq[0] {
         YamlValue::Number(number)
             if number.is_i64()
-                && seq.iter().all(|value| {
-                    matches!(value, YamlValue::Number(number) if number.is_i64())
-                }) =>
+                && seq
+                    .iter()
+                    .all(|value| matches!(value, YamlValue::Number(number) if number.is_i64())) =>
         {
             let values = seq.iter().filter_map(YamlValue::as_i64).collect::<Vec<_>>();
             config.set(prefix, values)?;
         }
         YamlValue::Number(_)
-            if seq.iter().all(|value| matches!(value, YamlValue::Number(_))) =>
+            if seq
+                .iter()
+                .all(|value| matches!(value, YamlValue::Number(_))) =>
         {
             let values = seq.iter().filter_map(YamlValue::as_f64).collect::<Vec<_>>();
             config.set(prefix, values)?;
         }
-        YamlValue::Bool(_)
-            if seq.iter().all(|value| matches!(value, YamlValue::Bool(_))) =>
-        {
-            let values = seq.iter().filter_map(YamlValue::as_bool).collect::<Vec<_>>();
+        YamlValue::Bool(_) if seq.iter().all(|value| matches!(value, YamlValue::Bool(_))) => {
+            let values = seq
+                .iter()
+                .filter_map(YamlValue::as_bool)
+                .collect::<Vec<_>>();
             config.set(prefix, values)?;
         }
         YamlValue::String(_)
-            if seq.iter().all(|value| matches!(value, YamlValue::String(_))) =>
+            if seq
+                .iter()
+                .all(|value| matches!(value, YamlValue::String(_))) =>
         {
             let values = seq
                 .iter()
@@ -225,12 +230,8 @@ fn flatten_yaml_sequence(
                 .collect::<ConfigResult<Vec<_>>>()?;
             config.set(prefix, values)?;
         }
-        YamlValue::Mapping(_)
-        | YamlValue::Sequence(_)
-        | YamlValue::Tagged(_) => {
-            return Err(unsupported_yaml_sequence_element_error(
-                prefix, &seq[0],
-            ));
+        YamlValue::Mapping(_) | YamlValue::Sequence(_) | YamlValue::Tagged(_) => {
+            return Err(unsupported_yaml_sequence_element_error(prefix, &seq[0]));
         }
         _ => {
             let values = seq
