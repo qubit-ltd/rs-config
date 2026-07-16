@@ -6,10 +6,7 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-use qubit_value::{
-    Value as QubitValue,
-    ValueContainer,
-};
+use qubit_value::Value as QubitValue;
 
 use crate::config_reader::ConfigReader;
 use crate::options::ConfigReadOptions;
@@ -32,10 +29,8 @@ use super::from_config::FromConfig;
 ///
 /// Returns `Some(&str)` only when the property has scalar string shape.
 pub(crate) fn first_scalar_string(property: &Property) -> Option<&str> {
-    match property.value() {
-        ValueContainer::Scalar(QubitValue::String(value)) => {
-            Some(value.as_str())
-        }
+    match property.value().as_scalar() {
+        Some(QubitValue::String(value)) => Some(value.as_str()),
         _ => None,
     }
 }
