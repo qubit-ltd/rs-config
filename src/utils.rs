@@ -20,6 +20,7 @@ use serde_json::{
 use std::collections::HashSet;
 use std::sync::OnceLock;
 
+use qubit_datatype::DataConversionOptions;
 use qubit_value::ValueError;
 
 use super::{
@@ -33,6 +34,19 @@ use super::{
 ///
 /// Matches variables in `${variable_name}` format
 static VARIABLE_PATTERN: OnceLock<Regex> = OnceLock::new();
+
+/// Conversion policy used when projecting properties for deserialization.
+static PROPERTY_JSON_OPTIONS: OnceLock<DataConversionOptions> = OnceLock::new();
+
+/// Returns the explicit lossy policy retained by configuration deserialization.
+///
+/// # Returns
+///
+/// Shared options that permit duration unit rounding.
+#[inline]
+fn property_json_options() -> &'static DataConversionOptions {
+    PROPERTY_JSON_OPTIONS.get_or_init(DataConversionOptions::lossy)
+}
 
 /// Gets the regular expression pattern for variables
 #[inline]
@@ -403,7 +417,7 @@ fn json_value_kind(value: &Value) -> &'static str {
 /// by JSON, including non-finite floating-point values.
 pub(crate) fn property_to_json_value(prop: &Property) -> ConfigResult<Value> {
     prop.value()
-        .to_json_value()
+        .to_json_value_with(property_json_options())
         .map_err(|error| map_value_error(prop.name(), error))
 }
 
