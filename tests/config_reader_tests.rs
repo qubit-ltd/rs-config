@@ -16,9 +16,13 @@ use qubit_config::{
     Config,
     ConfigError,
     ConfigReader,
+    ConfigResult,
     ConfigSection,
 };
-use qubit_datatype::DataType;
+use qubit_datatype::{
+    DataConversionTarget,
+    DataType,
+};
 use serde::Deserialize;
 
 fn create_test_config() -> Config {
@@ -40,7 +44,9 @@ mod test_config_reader_smoke {
         ConfigField,
         ConfigReadOptions,
         ConfigReader,
+        ConfigResult,
         ConfigSection,
+        DataConversionTarget,
         DataType,
         Deserialize,
         create_test_config,
@@ -66,7 +72,9 @@ mod test_config_reader {
         ConfigField,
         ConfigReadOptions,
         ConfigReader,
+        ConfigResult,
         ConfigSection,
+        DataConversionTarget,
         DataType,
         Deserialize,
         create_test_config,
@@ -78,6 +86,26 @@ mod test_config_reader {
 
     fn read_http_host_via_section(reader: &impl ConfigReader) -> String {
         reader.section("http").get_string("host").unwrap()
+    }
+
+    fn read_converted_list<T>(
+        reader: &impl ConfigReader,
+        key: &str,
+    ) -> ConfigResult<Vec<T>>
+    where
+        T: DataConversionTarget,
+    {
+        reader.get_list(key)
+    }
+
+    #[test]
+    fn test_config_reader_conversion_bound_is_target_side() {
+        let mut config = Config::new();
+        config.set("ports", vec![8080_i32, 8081]).unwrap();
+        assert_eq!(
+            read_converted_list::<u16>(&config, "ports").unwrap(),
+            vec![8080, 8081]
+        );
     }
 
     #[test]

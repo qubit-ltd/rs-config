@@ -54,10 +54,8 @@ use crate::{
     Property,
 };
 use qubit_datatype::{
-    DataConvertTo,
-    DataConverter,
+    DataConversionTarget,
     DataType,
-    DataTypeOf,
 };
 use qubit_value::{
     StrictValueListRead,
@@ -72,7 +70,7 @@ pub(crate) fn convert_deserialize_number<T>(
     value: String,
 ) -> ConfigResult<T>
 where
-    for<'a> DataConverter<'a>: DataConvertTo<T>,
+    T: DataConversionTarget,
 {
     match QubitValue::String(value).to_with::<T>(options.conversion_options()) {
         Ok(value) => Ok(value),
@@ -1116,8 +1114,7 @@ impl Config {
     /// ```
     pub fn get_list<T>(&self, name: impl ConfigName) -> ConfigResult<Vec<T>>
     where
-        T: DataTypeOf,
-        for<'a> DataConverter<'a>: DataConvertTo<T>,
+        T: DataConversionTarget,
     {
         <Self as ConfigReader>::get(self, name)
     }
@@ -1775,8 +1772,7 @@ impl Config {
         name: impl ConfigName,
     ) -> ConfigResult<Option<Vec<T>>>
     where
-        T: DataTypeOf,
-        for<'a> DataConverter<'a>: DataConvertTo<T>,
+        T: DataConversionTarget,
     {
         <Self as ConfigReader>::get_optional(self, name)
     }
@@ -2101,7 +2097,7 @@ impl Config {
                 name,
                 Property::with_value(
                     name,
-                    ValueContainer::Scalar(QubitValue::Unset(data_type)),
+                    ValueContainer::Scalar(QubitValue::new_unset(data_type)),
                 ),
             )
         })
@@ -2165,8 +2161,7 @@ impl ConfigReader for Config {
     #[inline]
     fn get_list<T>(&self, name: impl ConfigName) -> ConfigResult<Vec<T>>
     where
-        T: DataTypeOf,
-        for<'a> DataConverter<'a>: DataConvertTo<T>,
+        T: DataConversionTarget,
     {
         Config::get_list(self, name)
     }
@@ -2185,8 +2180,7 @@ impl ConfigReader for Config {
         name: impl ConfigName,
     ) -> ConfigResult<Option<Vec<T>>>
     where
-        T: DataTypeOf,
-        for<'a> DataConverter<'a>: DataConvertTo<T>,
+        T: DataConversionTarget,
     {
         Config::get_optional_list(self, name)
     }
