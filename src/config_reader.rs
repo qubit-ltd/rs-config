@@ -14,9 +14,8 @@ use qubit_datatype::{
     DataTypeOf,
 };
 use qubit_value::{
-    MultiValues,
-    Value as QubitValue,
-    ValueError,
+    StrictValueListRead,
+    StrictValueRead,
 };
 use serde::de::DeserializeOwned;
 
@@ -161,8 +160,7 @@ pub trait ConfigReader {
     /// key is absent, unset, or has a different stored type.
     fn get_strict<T>(&self, name: impl ConfigName) -> ConfigResult<T>
     where
-        for<'a> T: TryFrom<&'a QubitValue, Error = ValueError>
-            + TryFrom<&'a MultiValues, Error = ValueError>;
+        T: StrictValueRead;
 
     /// Reads all stored values for `name` and converts each element to `T`.
     ///
@@ -198,8 +196,7 @@ pub trait ConfigReader {
     /// [`crate::ConfigError`] on failure.
     fn get_list_strict<T>(&self, name: impl ConfigName) -> ConfigResult<Vec<T>>
     where
-        for<'a> T: TryFrom<&'a QubitValue, Error = ValueError>,
-        for<'a> Vec<T>: TryFrom<&'a MultiValues, Error = ValueError>;
+        T: StrictValueListRead;
 
     /// Gets a value or `default` if the key is absent or effectively missing.
     ///

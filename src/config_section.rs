@@ -15,9 +15,8 @@ use qubit_datatype::{
     DataTypeOf,
 };
 use qubit_value::{
-    MultiValues,
-    Value as QubitValue,
-    ValueError,
+    StrictValueListRead,
+    StrictValueRead,
 };
 
 use crate::config::Config;
@@ -260,8 +259,7 @@ impl<'a> ConfigReader for ConfigSection<'a> {
 
     fn get_strict<T>(&self, name: impl ConfigName) -> ConfigResult<T>
     where
-        for<'b> T: TryFrom<&'b QubitValue, Error = ValueError>
-            + TryFrom<&'b MultiValues, Error = ValueError>,
+        T: StrictValueRead,
     {
         name.with_config_name(|name| {
             let key = self
@@ -286,8 +284,7 @@ impl<'a> ConfigReader for ConfigSection<'a> {
 
     fn get_list_strict<T>(&self, name: impl ConfigName) -> ConfigResult<Vec<T>>
     where
-        for<'b> T: TryFrom<&'b QubitValue, Error = ValueError>,
-        for<'b> Vec<T>: TryFrom<&'b MultiValues, Error = ValueError>,
+        T: StrictValueListRead,
     {
         name.with_config_name(|name| {
             let key = self

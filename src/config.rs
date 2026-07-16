@@ -60,10 +60,10 @@ use qubit_datatype::{
     DataTypeOf,
 };
 use qubit_value::{
-    MultiValues,
+    StrictValueListRead,
+    StrictValueRead,
     Value as QubitValue,
     ValueContainer,
-    ValueError,
 };
 
 pub(crate) fn convert_deserialize_number<T>(
@@ -96,8 +96,7 @@ fn scalar_string_is_missing_for_deserialize(
     property: &Property,
     options: &ConfigReadOptions,
 ) -> ConfigResult<bool> {
-    let ValueContainer::Scalar(QubitValue::String(value)) = property.value()
-    else {
+    let Some(QubitValue::String(value)) = property.value().as_scalar() else {
         return Ok(false);
     };
     let value = if primary.is_enable_variable_substitution() {
@@ -910,8 +909,7 @@ impl Config {
     /// The exact typed value on success, or a [`ConfigError`] on failure.
     pub fn get_strict<T>(&self, name: impl ConfigName) -> ConfigResult<T>
     where
-        for<'a> T: TryFrom<&'a QubitValue, Error = ValueError>
-            + TryFrom<&'a MultiValues, Error = ValueError>,
+        T: StrictValueRead,
     {
         name.with_config_name(|name| {
             let property = self.get_property_by_name(name)?;
@@ -1149,8 +1147,7 @@ impl Config {
         name: impl ConfigName,
     ) -> ConfigResult<Vec<T>>
     where
-        for<'a> T: TryFrom<&'a QubitValue, Error = ValueError>,
-        for<'a> Vec<T>: TryFrom<&'a MultiValues, Error = ValueError>,
+        T: StrictValueListRead,
     {
         name.with_config_name(|name| {
             let property = self.get_property_by_name(name)?;
@@ -2160,8 +2157,7 @@ impl ConfigReader for Config {
     #[inline]
     fn get_strict<T>(&self, name: impl ConfigName) -> ConfigResult<T>
     where
-        for<'a> T: TryFrom<&'a QubitValue, Error = ValueError>
-            + TryFrom<&'a MultiValues, Error = ValueError>,
+        T: StrictValueRead,
     {
         Config::get_strict(self, name)
     }
@@ -2178,8 +2174,7 @@ impl ConfigReader for Config {
     #[inline]
     fn get_list_strict<T>(&self, name: impl ConfigName) -> ConfigResult<Vec<T>>
     where
-        for<'a> T: TryFrom<&'a QubitValue, Error = ValueError>,
-        for<'a> Vec<T>: TryFrom<&'a MultiValues, Error = ValueError>,
+        T: StrictValueListRead,
     {
         Config::get_list_strict(self, name)
     }
