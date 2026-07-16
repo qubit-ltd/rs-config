@@ -9,11 +9,7 @@
 
 use std::borrow::Cow;
 
-use qubit_datatype::{
-    DataConvertTo,
-    DataConverter,
-    DataTypeOf,
-};
+use qubit_datatype::DataConversionTarget;
 use qubit_value::{
     StrictValueListRead,
     StrictValueRead,
@@ -271,8 +267,7 @@ impl<'a> ConfigReader for ConfigSection<'a> {
 
     fn get_list<T>(&self, name: impl ConfigName) -> ConfigResult<Vec<T>>
     where
-        T: DataTypeOf,
-        for<'b> DataConverter<'b>: DataConvertTo<T>,
+        T: DataConversionTarget,
     {
         name.with_config_name(|name| {
             let key = self
@@ -299,8 +294,7 @@ impl<'a> ConfigReader for ConfigSection<'a> {
         name: impl ConfigName,
     ) -> ConfigResult<Option<Vec<T>>>
     where
-        T: DataTypeOf,
-        for<'b> DataConverter<'b>: DataConvertTo<T>,
+        T: DataConversionTarget,
     {
         name.with_config_name(|name| {
             let Some(key) = self.visible_property_key(name) else {

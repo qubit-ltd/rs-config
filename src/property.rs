@@ -91,7 +91,7 @@ impl Property {
     pub fn new(name: impl Into<String>) -> Self {
         Self {
             name: name.into(),
-            value: ValueContainer::Scalar(Value::Unset(DataType::Int32)),
+            value: ValueContainer::Scalar(Value::new_unset(DataType::Int32)),
             description: None,
             is_final: false,
         }

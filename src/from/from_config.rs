@@ -21,11 +21,7 @@ use chrono::{
 };
 #[cfg(feature = "num-bigint")]
 use num_bigint::BigInt;
-use qubit_datatype::{
-    DataConvertTo,
-    DataConverter,
-    DataTypeOf,
-};
+use qubit_datatype::DataConversionTarget;
 use qubit_value::{
     MultiValues,
     Value as QubitValue,
@@ -77,8 +73,7 @@ fn convert_first<T>(
     ctx: &ConfigParseContext<'_>,
 ) -> ConfigResult<T>
 where
-    for<'a> DataConverter<'a>: DataConvertTo<T>,
-    T: DataTypeOf,
+    T: DataConversionTarget,
 {
     if let Some(value) = first_scalar_string(property) {
         let value = ctx.substitute_string(value)?;
@@ -210,8 +205,7 @@ impl FromConfig for String {
 
 impl<T> FromConfig for Vec<T>
 where
-    T: DataTypeOf,
-    for<'a> DataConverter<'a>: DataConvertTo<T>,
+    T: DataConversionTarget,
 {
     /// Parses `property` using `ctx`.
     ///

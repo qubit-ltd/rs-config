@@ -8,11 +8,7 @@
 
 #![allow(private_bounds)]
 
-use qubit_datatype::{
-    DataConvertTo,
-    DataConverter,
-    DataTypeOf,
-};
+use qubit_datatype::DataConversionTarget;
 use qubit_value::{
     StrictValueListRead,
     StrictValueRead,
@@ -177,8 +173,7 @@ pub trait ConfigReader {
     /// A vector of values on success, or a [`crate::ConfigError`] on failure.
     fn get_list<T>(&self, name: impl ConfigName) -> ConfigResult<Vec<T>>
     where
-        T: DataTypeOf,
-        for<'a> DataConverter<'a>: DataConvertTo<T>;
+        T: DataConversionTarget;
 
     /// Reads all stored values for `name` without cross-type conversion.
     ///
@@ -475,8 +470,7 @@ pub trait ConfigReader {
         name: impl ConfigName,
     ) -> ConfigResult<Option<Vec<T>>>
     where
-        T: DataTypeOf,
-        for<'a> DataConverter<'a>: DataConvertTo<T>;
+        T: DataConversionTarget;
 
     /// Returns whether any key visible to this reader starts with `prefix`.
     ///
