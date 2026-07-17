@@ -22,7 +22,7 @@ use qubit_config::{
     },
 };
 use qubit_datatype::{
-    DataConversionError,
+    DataConversionErrorKind,
     DataType,
 };
 use qubit_value::MultiValues;
@@ -493,15 +493,11 @@ fn deserialize_char_redacts_secret_value() -> ConfigResult<()> {
             source: Some(source),
             ..
         } => match *source {
-            ConfigError::ConversionError {
-                source:
-                    DataConversionError::InvalidValue {
-                        from: DataType::String,
-                        to: DataType::Char,
-                        ..
-                    },
-                ..
-            } => {}
+            ConfigError::ConversionError { source, .. }
+                if source.from_type() == Some(DataType::String)
+                    && source.to_type() == DataType::Char
+                    && source.kind()
+                        == DataConversionErrorKind::InvalidValue => {}
             other => {
                 panic!("expected structured char conversion error: {other}")
             }

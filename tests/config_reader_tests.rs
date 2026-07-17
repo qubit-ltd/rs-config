@@ -868,12 +868,13 @@ mod test_config_reader_alias_reads {
             result,
             Err(ConfigError::ConversionError {
                 key,
-                source: qubit_datatype::DataConversionError::InvalidValue {
-                    reason: qubit_datatype::InvalidValueReason::BlankRejected,
-                    ..
-                },
+                source,
                 ..
             }) if key == "server.host"
+                && matches!(
+                    source.reason(),
+                    Some(qubit_datatype::InvalidValueReason::BlankRejected),
+                )
         ));
     }
 
@@ -1061,8 +1062,8 @@ mod test_config_reader_alias_reads {
             ConfigError::ConversionError {
                 key,
                 source_index: Some(0),
-                source: qubit_datatype::DataConversionError::Missing { .. },
-            } if key == "empty.list"
+                source,
+            } if key == "empty.list" && source.is_missing()
         ));
         assert_eq!(first_present, "value");
         assert!(

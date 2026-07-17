@@ -1107,12 +1107,13 @@ mod test_property_to_json_value_deserialize_behavior {
             ConfigError::ConversionError {
                 key,
                 source_index: Some(0),
-                source: DataConversionError::InvalidValue {
-                    from: DataType::Float32,
-                    to: DataType::Json,
-                    reason: InvalidValueReason::NonFinite,
-                },
+                source,
             } if key == "x.val"
+                && source == DataConversionError::invalid(
+                    DataType::Float32,
+                    DataType::Json,
+                    InvalidValueReason::NonFinite,
+                )
         ));
     }
 
@@ -1129,12 +1130,13 @@ mod test_property_to_json_value_deserialize_behavior {
             ConfigError::ConversionError {
                 key,
                 source_index: Some(1),
-                source: DataConversionError::InvalidValue {
-                    from: DataType::Float64,
-                    to: DataType::Json,
-                    reason: InvalidValueReason::NonFinite,
-                },
+                source,
             } if key == "x.val"
+                && source == DataConversionError::invalid(
+                    DataType::Float64,
+                    DataType::Json,
+                    InvalidValueReason::NonFinite,
+                )
         ));
     }
 

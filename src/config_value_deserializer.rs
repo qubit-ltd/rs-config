@@ -360,11 +360,11 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
                         return Err(ConfigDeserializeError::from_config(
                             ConfigError::from_data_conversion_error(
                                 &self.key,
-                                qubit_datatype::DataConversionError::InvalidValue {
-                                    from: qubit_datatype::DataType::String,
-                                    to: qubit_datatype::DataType::String,
-                                    reason: qubit_datatype::InvalidValueReason::BlankRejected,
-                                },
+                                qubit_datatype::DataConversionError::invalid(
+                                    qubit_datatype::DataType::String,
+                                    qubit_datatype::DataType::String,
+                                    qubit_datatype::InvalidValueReason::BlankRejected,
+                                ),
                             ),
                         ));
                     }
@@ -379,12 +379,12 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
                     .map_err(|error| {
                         ConfigDeserializeError::from_config(ConfigError::ConversionError {
                             key: self.key.clone(),
-                            source_index: Some(error.source_index),
-                            source: qubit_datatype::DataConversionError::InvalidValue {
-                                from: qubit_datatype::DataType::String,
-                                to: qubit_datatype::DataType::String,
-                                reason: qubit_datatype::InvalidValueReason::BlankRejected,
-                            },
+                            source_index: Some(error.source_index()),
+                            source: qubit_datatype::DataConversionError::invalid(
+                                qubit_datatype::DataType::String,
+                                qubit_datatype::DataType::String,
+                                qubit_datatype::InvalidValueReason::BlankRejected,
+                            ),
                         })
                     })?;
                 visitor.visit_seq(ConfigSeqAccess::new(
