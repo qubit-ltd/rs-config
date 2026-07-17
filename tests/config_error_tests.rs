@@ -17,10 +17,7 @@ use qubit_value::ValueError;
 fn test_config_error_maps_data_conversion_missing_with_key() {
     let error = ConfigError::from_data_conversion_error(
         "server.host",
-        DataConversionError::Missing {
-            from: DataType::String,
-            to: DataType::String,
-        },
+        DataConversionError::missing(DataType::String, DataType::String),
     );
 
     assert!(matches!(
@@ -33,11 +30,11 @@ fn test_config_error_maps_data_conversion_missing_with_key() {
 fn test_config_error_retains_structured_failure() {
     let error = ConfigError::from_data_conversion_error(
         "server.enabled",
-        DataConversionError::InvalidValue {
-            from: DataType::String,
-            to: DataType::Bool,
-            reason: InvalidValueReason::InvalidBoolean,
-        },
+        DataConversionError::invalid(
+            DataType::String,
+            DataType::Bool,
+            InvalidValueReason::InvalidBoolean,
+        ),
     );
 
     assert!(matches!(
@@ -45,11 +42,12 @@ fn test_config_error_retains_structured_failure() {
         ConfigError::ConversionError {
             key,
             source_index: None,
-            source: DataConversionError::InvalidValue {
-                reason: InvalidValueReason::InvalidBoolean,
-                ..
-            },
+            source,
         } if key == "server.enabled"
+            && matches!(
+                source.reason(),
+                Some(InvalidValueReason::InvalidBoolean),
+            )
     ));
 }
 

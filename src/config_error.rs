@@ -129,7 +129,7 @@ impl ConfigError {
         key: &str,
         error: DataConversionError,
     ) -> Self {
-        if matches!(error, DataConversionError::Missing { .. }) {
+        if error.is_missing() {
             Self::PropertyHasNoValue(key.to_string())
         } else {
             Self::ConversionError {
@@ -154,11 +154,14 @@ impl ConfigError {
             ValueError::DataConversion(source) => {
                 Self::from_data_conversion_error(key, source)
             }
-            ValueError::DataListConversion(error) => Self::ConversionError {
-                key: key.to_string(),
-                source_index: Some(error.source_index),
-                source: error.source,
-            },
+            ValueError::DataListConversion(error) => {
+                let source_index = error.source_index();
+                Self::ConversionError {
+                    key: key.to_string(),
+                    source_index: Some(source_index),
+                    source: error.into_conversion_error(),
+                }
+            }
             source => Self::ValueError {
                 key: key.to_string(),
                 source,

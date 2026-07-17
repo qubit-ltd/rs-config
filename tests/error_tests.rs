@@ -16,13 +16,13 @@ use qubit_datatype::{
 use qubit_value::ValueError;
 
 fn invalid_integer() -> DataConversionError {
-    DataConversionError::InvalidValue {
-        from: DataType::String,
-        to: DataType::Int32,
-        reason: InvalidValueReason::InvalidSyntax {
+    DataConversionError::invalid(
+        DataType::String,
+        DataType::Int32,
+        InvalidValueReason::InvalidSyntax {
             expected: "a base-10 integer",
         },
-    }
+    )
 }
 
 #[test]
@@ -55,10 +55,7 @@ fn test_structured_conversion_error_is_redacted() {
 fn test_data_conversion_missing_maps_to_no_value() {
     let error = ConfigError::from_data_conversion_error(
         "server.port",
-        DataConversionError::Missing {
-            from: DataType::String,
-            to: DataType::Int32,
-        },
+        DataConversionError::missing(DataType::String, DataType::Int32),
     );
     assert!(matches!(
         error,
@@ -77,11 +74,12 @@ fn test_data_conversion_error_keeps_structure() {
         ConfigError::ConversionError {
             key,
             source_index: None,
-            source: DataConversionError::InvalidValue {
-                reason: InvalidValueReason::InvalidSyntax { .. },
-                ..
-            },
+            source,
         } if key == "server.port"
+            && matches!(
+                source.reason(),
+                Some(InvalidValueReason::InvalidSyntax { .. }),
+            )
     ));
 }
 
@@ -110,18 +108,19 @@ fn test_value_error_without_key() {
 
 #[test]
 fn test_keyed_value_error_keeps_source_index() {
-    let value_error = ValueError::DataListConversion(DataListConversionError {
-        source_index: 4,
-        source: invalid_integer(),
-    });
+    let value_error = ValueError::DataListConversion(
+        DataListConversionError::new(4, invalid_integer()),
+    );
     let error = ConfigError::from(("ports", value_error));
     assert!(matches!(
         error,
         ConfigError::ConversionError {
             key,
             source_index: Some(4),
-            source: DataConversionError::InvalidValue { .. },
+            source,
         } if key == "ports"
+            && source.kind()
+                == qubit_datatype::DataConversionErrorKind::InvalidValue
     ));
 }
 

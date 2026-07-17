@@ -2721,13 +2721,13 @@ mod test_enhanced_errors {
         let error = ConfigError::ConversionError {
             key: "db.timeout".to_string(),
             source_index: None,
-            source: qubit_datatype::DataConversionError::InvalidValue {
-                from: DataType::String,
-                to: DataType::Duration,
-                reason: qubit_datatype::InvalidValueReason::InvalidSyntax {
+            source: qubit_datatype::DataConversionError::invalid(
+                DataType::String,
+                DataType::Duration,
+                qubit_datatype::InvalidValueReason::InvalidSyntax {
                     expected: "a duration",
                 },
-            },
+            ),
         };
         let msg = format!("{}", error);
         assert!(msg.contains("db.timeout"));
@@ -2786,20 +2786,20 @@ mod test_enhanced_errors {
     fn test_conversion_error_from_value_error_has_empty_key() {
         use qubit_value::ValueError;
         let ve = ValueError::DataConversion(
-            qubit_datatype::DataConversionError::InvalidValue {
-                from: DataType::String,
-                to: DataType::Int32,
-                reason: qubit_datatype::InvalidValueReason::OutOfRange,
-            },
+            qubit_datatype::DataConversionError::invalid(
+                DataType::String,
+                DataType::Int32,
+                qubit_datatype::InvalidValueReason::OutOfRange,
+            ),
         );
         let ce: ConfigError = ve.into();
         match ce {
             ConfigError::ConversionError { key, source, .. } => {
                 assert_eq!(key, "");
-                assert!(matches!(
-                    source,
-                    qubit_datatype::DataConversionError::InvalidValue { .. }
-                ));
+                assert_eq!(
+                    source.kind(),
+                    qubit_datatype::DataConversionErrorKind::InvalidValue,
+                );
             }
             _ => panic!("Expected ConversionError"),
         }
@@ -2809,19 +2809,19 @@ mod test_enhanced_errors {
     fn test_conversion_failed_from_value_error_has_empty_key() {
         use qubit_value::ValueError;
         let ve = ValueError::DataConversion(
-            qubit_datatype::DataConversionError::Unsupported {
-                from: DataType::String,
-                to: DataType::Int32,
-            },
+            qubit_datatype::DataConversionError::unsupported(
+                DataType::String,
+                DataType::Int32,
+            ),
         );
         let ce: ConfigError = ve.into();
         match ce {
             ConfigError::ConversionError { key, source, .. } => {
                 assert_eq!(key, "");
-                assert!(matches!(
-                    source,
-                    qubit_datatype::DataConversionError::Unsupported { .. }
-                ));
+                assert_eq!(
+                    source.kind(),
+                    qubit_datatype::DataConversionErrorKind::Unsupported,
+                );
             }
             _ => panic!("Expected ConversionError"),
         }

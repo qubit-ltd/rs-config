@@ -113,11 +113,11 @@ fn scalar_string_is_missing_for_deserialize(
         Err(qubit_datatype::StringNormalizationError::BlankRejected) => {
             Err(ConfigError::from_data_conversion_error(
                 key,
-                qubit_datatype::DataConversionError::InvalidValue {
-                    from: qubit_datatype::DataType::String,
-                    to: qubit_datatype::DataType::String,
-                    reason: qubit_datatype::InvalidValueReason::BlankRejected,
-                },
+                qubit_datatype::DataConversionError::invalid(
+                    qubit_datatype::DataType::String,
+                    qubit_datatype::DataType::String,
+                    qubit_datatype::InvalidValueReason::BlankRejected,
+                ),
             ))
         }
     }

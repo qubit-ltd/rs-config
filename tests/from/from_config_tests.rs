@@ -24,7 +24,6 @@ use qubit_config::{
     options::ConfigReadOptions,
 };
 use qubit_datatype::{
-    DataConversionError,
     InvalidValueReason,
     NumericConversionPolicy,
 };
@@ -135,11 +134,12 @@ fn test_from_config_list_error_preserves_source_index() {
         Err(ConfigError::ConversionError {
             key,
             source_index: Some(1),
-            source: DataConversionError::InvalidValue {
-                reason: InvalidValueReason::InvalidSyntax { .. },
-                ..
-            },
+            source,
         }) if key == "ports"
+            && matches!(
+                source.reason(),
+                Some(InvalidValueReason::InvalidSyntax { .. }),
+            )
     ));
 }
 
@@ -151,12 +151,12 @@ fn test_from_config_numeric_policy_is_explicit() {
     assert!(matches!(
         config.get::<Vec<i32>>("values"),
         Err(ConfigError::ConversionError {
-            source: DataConversionError::InvalidValue {
-                reason: InvalidValueReason::PrecisionLoss,
-                ..
-            },
+            source,
             ..
-        })
+        }) if matches!(
+            source.reason(),
+            Some(InvalidValueReason::PrecisionLoss),
+        )
     ));
 
     config.set_read_options(
