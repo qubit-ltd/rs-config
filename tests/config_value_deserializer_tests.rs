@@ -571,7 +571,7 @@ fn deserialize_enum_reports_invalid_shapes() -> ConfigResult<()> {
     let mut empty_object = Config::new();
     empty_object.insert_property(
         "case.value",
-        Property::with_value(
+        Property::new(
             "case.value",
             MultiValues::Json(vec![serde_json::json!({})]),
         ),
@@ -585,7 +585,7 @@ fn deserialize_enum_reports_invalid_shapes() -> ConfigResult<()> {
     let mut multiple_variants = Config::new();
     multiple_variants.insert_property(
         "case.value",
-        Property::with_value(
+        Property::new(
             "case.value",
             MultiValues::Json(vec![serde_json::json!({
                 "Unit": null,
@@ -606,7 +606,7 @@ fn deserialize_enum_reports_invalid_shapes() -> ConfigResult<()> {
     let mut bad_unit_payload = Config::new();
     bad_unit_payload.insert_property(
         "case.value",
-        Property::with_value(
+        Property::new(
             "case.value",
             MultiValues::Json(vec![serde_json::json!({
                 "Unit": { "extra": true }
@@ -1027,56 +1027,56 @@ fn deserialize_json_string_conversion_errors_use_config_read_options()
     );
     config.insert_property(
         "string_value",
-        Property::with_value(
+        Property::new(
             "string_value",
             MultiValues::Json(vec![serde_json::json!(" ")]),
         ),
     )?;
     config.insert_property(
         "bool_value",
-        Property::with_value(
+        Property::new(
             "bool_value",
             MultiValues::Json(vec![serde_json::json!(" ")]),
         ),
     )?;
     config.insert_property(
         "list_value",
-        Property::with_value(
+        Property::new(
             "list_value",
             MultiValues::Json(vec![serde_json::json!(" ")]),
         ),
     )?;
     config.insert_property(
         "any_value",
-        Property::with_value(
+        Property::new(
             "any_value",
             MultiValues::Json(vec![serde_json::json!(" ")]),
         ),
     )?;
     config.insert_property(
         "char_value",
-        Property::with_value(
+        Property::new(
             "char_value",
             MultiValues::Json(vec![serde_json::json!(" ")]),
         ),
     )?;
     config.insert_property(
         "str_value",
-        Property::with_value(
+        Property::new(
             "str_value",
             MultiValues::Json(vec![serde_json::json!(" ")]),
         ),
     )?;
     config.insert_property(
         "bytes_value",
-        Property::with_value(
+        Property::new(
             "bytes_value",
             MultiValues::Json(vec![serde_json::json!(" ")]),
         ),
     )?;
     config.insert_property(
         "byte_buf_value",
-        Property::with_value(
+        Property::new(
             "byte_buf_value",
             MultiValues::Json(vec![serde_json::json!(" ")]),
         ),
@@ -1107,7 +1107,7 @@ fn deserialize_error_wrapper_formats_message_and_config_sources()
     );
     config_error.insert_property(
         "config_error",
-        Property::with_value(
+        Property::new(
             "config_error",
             MultiValues::Json(vec![serde_json::json!(" ")]),
         ),

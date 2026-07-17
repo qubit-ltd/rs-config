@@ -201,7 +201,7 @@ db:
 
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
-        let mut property = Property::with_value(
+        let mut property = Property::new(
             "locked",
             MultiValues::String(vec!["old".to_string()]),
         );

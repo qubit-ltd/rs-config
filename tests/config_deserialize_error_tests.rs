@@ -57,10 +57,7 @@ fn test_deserialize_config_error_preserves_source() {
     config
         .insert_property(
             "app.value",
-            Property::with_value(
-                "app.value",
-                Value::Json(serde_json::json!(" ")),
-            ),
+            Property::new("app.value", Value::Json(serde_json::json!(" "))),
         )
         .expect("inserting property should succeed");
 

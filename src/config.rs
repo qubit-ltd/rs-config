@@ -1200,12 +1200,13 @@ impl Config {
     {
         name.with_config_name(|name| {
             self.ensure_property_not_final(name)?;
-            let property = self
-                .properties
-                .entry(name.to_string())
-                .or_insert_with(|| Property::new(name));
-
-            property.set(values);
+            let value = values.into();
+            if let Some(property) = self.properties.get_mut(name) {
+                property.set(value);
+            } else {
+                self.properties
+                    .insert(name.to_string(), Property::new(name, value));
+            }
             Ok(())
         })
     }
@@ -1251,13 +1252,12 @@ impl Config {
     {
         name.with_config_name(|name| {
             self.ensure_property_not_final(name)?;
-
+            let value = values.into();
             if let Some(property) = self.properties.get_mut(name) {
-                property.add(values).map_err(ConfigError::from)
+                property.add(value).map_err(ConfigError::from)
             } else {
-                let mut property = Property::new(name);
-                property.set(values);
-                self.properties.insert(name.to_string(), property);
+                self.properties
+                    .insert(name.to_string(), Property::new(name, value));
                 Ok(())
             }
         })
@@ -2089,7 +2089,7 @@ impl Config {
         name.with_config_name(|name| {
             self.insert_property(
                 name,
-                Property::with_value(
+                Property::new(
                     name,
                     ValueContainer::Scalar(QubitValue::new_unset(data_type)),
                 ),
