@@ -148,8 +148,7 @@ fn is_effectively_missing_by<R: ConfigReader + ?Sized>(
     let value = ctx.substitute_string(value)?;
     match options.conversion_options().string.normalize(&value) {
         Ok(_) => Ok(false),
-        Err(qubit_datatype::StringNormalizationError::Missing) => Ok(true),
-        Err(_) => Ok(false),
+        Err(error) => Ok(error.is_missing()),
     }
 }
 

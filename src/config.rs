@@ -109,17 +109,11 @@ fn scalar_string_is_missing_for_deserialize(
     };
     match options.conversion_options().string.normalize(&value) {
         Ok(_) => Ok(false),
-        Err(qubit_datatype::StringNormalizationError::Missing) => Ok(true),
-        Err(qubit_datatype::StringNormalizationError::BlankRejected) => {
-            Err(ConfigError::from_data_conversion_error(
-                key,
-                qubit_datatype::DataConversionError::invalid(
-                    qubit_datatype::DataType::String,
-                    qubit_datatype::DataType::String,
-                    qubit_datatype::InvalidValueReason::BlankRejected,
-                ),
-            ))
-        }
+        Err(error) if error.is_missing() => Ok(true),
+        Err(error) => Err(ConfigError::from_data_conversion_error(
+            key,
+            error.into_data_conversion_error(qubit_datatype::DataType::String),
+        )),
     }
 }
 
