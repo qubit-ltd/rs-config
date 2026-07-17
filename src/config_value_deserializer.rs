@@ -349,21 +349,17 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
                     .normalize(&value)
                 {
                     Ok(value) => value,
-                    Err(qubit_datatype::StringNormalizationError::Missing) => {
+                    Err(error) if error.is_missing() => {
                         return Err(ConfigDeserializeError::from_config(
                             ConfigError::PropertyHasNoValue(self.key.clone()),
                         ));
                     }
-                    Err(
-                        qubit_datatype::StringNormalizationError::BlankRejected,
-                    ) => {
+                    Err(error) => {
                         return Err(ConfigDeserializeError::from_config(
                             ConfigError::from_data_conversion_error(
                                 &self.key,
-                                qubit_datatype::DataConversionError::invalid(
+                                error.into_data_conversion_error(
                                     qubit_datatype::DataType::String,
-                                    qubit_datatype::DataType::String,
-                                    qubit_datatype::InvalidValueReason::BlankRejected,
                                 ),
                             ),
                         ));
