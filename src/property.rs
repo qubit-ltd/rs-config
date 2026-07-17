@@ -20,10 +20,7 @@ use std::ops::{
 };
 
 use qubit_datatype::DataType;
-use qubit_value::{
-    Value,
-    ValueContainer,
-};
+use qubit_value::ValueContainer;
 
 /// Configuration Property
 ///
@@ -42,14 +39,12 @@ use qubit_value::{
 /// ```rust
 /// use qubit_config::Property;
 ///
-/// let mut port = Property::new("port");
-/// port.set(8080);  // Generic method, type auto-inferred
+/// let mut port = Property::new("port", 8080);
 /// port.set_description(Some("Server port".to_string()));
 /// assert_eq!(port.name(), "port");
 /// assert_eq!(port.count(), 1);
 ///
-/// let mut code = Property::new("code");
-/// code.set(42u8);  // Generic set, inferred as u8
+/// let mut code = Property::new("code", 42u8);
 /// code.add(1u8).unwrap();
 /// assert_eq!(code.count(), 2);
 /// ```
@@ -68,11 +63,12 @@ pub struct Property {
 impl Property {
     /// Creates a new property
     ///
-    /// Creates an unset property whose declared value type is `i32`.
+    /// Creates a property with its initial value and shape.
     ///
     /// # Parameters
     ///
     /// * `name` - Property name
+    /// * `value` - Initial scalar or collection value
     ///
     /// # Returns
     ///
@@ -83,43 +79,12 @@ impl Property {
     /// ```rust
     /// use qubit_config::Property;
     ///
-    /// let prop = Property::new("server.port");
+    /// let prop = Property::new("server.port", 8080);
     /// assert_eq!(prop.name(), "server.port");
-    /// assert!(prop.is_empty());
-    /// ```
-    #[inline]
-    pub fn new(name: impl Into<String>) -> Self {
-        Self {
-            name: name.into(),
-            value: ValueContainer::Scalar(Value::new_unset(DataType::Int32)),
-            description: None,
-            is_final: false,
-        }
-    }
-
-    /// Creates a property with a value
-    ///
-    /// # Parameters
-    ///
-    /// * `name` - Property name
-    /// * `value` - Property value
-    ///
-    /// # Returns
-    ///
-    /// Returns a new property instance
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use qubit_config::Property;
-    /// use qubit_value::MultiValues;
-    ///
-    /// let prop = Property::with_value("port", MultiValues::Int32(vec![8080]));
-    /// assert_eq!(prop.name(), "port");
     /// assert_eq!(prop.count(), 1);
     /// ```
     #[inline]
-    pub fn with_value(
+    pub fn new(
         name: impl Into<String>,
         value: impl Into<ValueContainer>,
     ) -> Self {

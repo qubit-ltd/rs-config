@@ -294,10 +294,7 @@ mod test_deserialize {
         for (parent_value, expected_kind, message) in cases {
             let mut config = Config::new();
             config
-                .insert_property(
-                    "ctx.a",
-                    Property::with_value("ctx.a", parent_value),
-                )
+                .insert_property("ctx.a", Property::new("ctx.a", parent_value))
                 .unwrap();
             config.set("ctx.a.b", "conflict").unwrap();
 
@@ -321,7 +318,7 @@ mod test_deserialize {
         config
             .insert_property(
                 "ctx.a",
-                Property::with_value(
+                Property::new(
                     "ctx.a",
                     Value::Json(serde_json::json!({
                         "b": "from-object",
@@ -364,7 +361,7 @@ mod test_deserialize {
         config
             .insert_property(
                 "server",
-                Property::with_value(
+                Property::new(
                     "server",
                     Value::Json(serde_json::json!({
                         "host": "localhost",
@@ -553,7 +550,7 @@ mod test_deserialize {
         config
             .insert_property(
                 "svc.meta",
-                Property::with_value(
+                Property::new(
                     "svc.meta",
                     Value::Json(serde_json::json!({
                         "enabled": true,
@@ -628,7 +625,7 @@ mod test_deserialize {
         config
             .insert_property(
                 "svc.meta",
-                Property::with_value(
+                Property::new(
                     "svc.meta",
                     MultiValues::Json(vec![serde_json::json!({
                         "url": "${QUBIT_CONFIG_UNSET_JSON_LEAF_VAR_12345}/v1",
@@ -995,9 +992,7 @@ mod test_property_to_json_value_deserialize_behavior {
     /// Builds a config containing one collection-shaped property.
     fn config_with_mv(key: &str, mv: MultiValues) -> Config {
         let mut config = Config::new();
-        config
-            .insert_property(key, Property::with_value(key, mv))
-            .unwrap();
+        config.insert_property(key, Property::new(key, mv)).unwrap();
         config
     }
 
@@ -1005,7 +1000,7 @@ mod test_property_to_json_value_deserialize_behavior {
     fn config_with_value(key: &str, value: Value) -> Config {
         let mut config = Config::new();
         config
-            .insert_property(key, Property::with_value(key, value))
+            .insert_property(key, Property::new(key, value))
             .unwrap();
         config
     }

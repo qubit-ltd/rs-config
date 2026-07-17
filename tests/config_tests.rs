@@ -3114,7 +3114,7 @@ mod test_property_insertion_api {
         config
             .insert_property(
                 "direct",
-                Property::with_value(
+                Property::new(
                     "direct",
                     MultiValues::String(vec!["hello".to_string()]),
                 ),
@@ -3136,7 +3136,7 @@ mod test_property_insertion_api {
         let mut config = Config::new();
         let result = config.insert_property(
             "expected.key",
-            Property::with_value(
+            Property::new(
                 "actual.key",
                 MultiValues::String(vec!["hello".to_string()]),
             ),
@@ -3152,7 +3152,7 @@ mod test_property_insertion_api {
 
         let result = config.insert_property(
             "final.key",
-            Property::with_value(
+            Property::new(
                 "final.key",
                 MultiValues::String(vec!["v2".to_string()]),
             ),

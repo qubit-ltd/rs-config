@@ -24,6 +24,7 @@ use qubit_config::Property;
 use qubit_datatype::DataType;
 use qubit_value::{
     MultiValues,
+    Value,
     ValueContainer,
 };
 #[cfg(feature = "bigdecimal")]
@@ -33,22 +34,30 @@ use std::str::FromStr;
 // Property Basic Method Tests
 // ============================================================================
 
+/// Creates an explicitly typed unset scalar property for mutation-focused
+/// tests.
+fn new_unset_int32_property(name: &str) -> Property {
+    Property::new(name, Value::new_unset(DataType::Int32))
+}
+
 #[test]
 fn test_property_new() {
-    let prop = Property::new("test.property");
+    let values = MultiValues::String(vec!["primary".to_owned()]);
+    let prop = Property::new("test.property", values.clone());
     assert_eq!(prop.name(), "test.property");
-    assert!(prop.is_empty());
-    assert_eq!(prop.count(), 0);
-    assert_eq!(prop.data_type(), DataType::Int32);
+    assert_eq!(prop.value(), &ValueContainer::Collection(values));
+    assert!(!prop.is_empty());
+    assert_eq!(prop.count(), 1);
+    assert_eq!(prop.data_type(), DataType::String);
     assert!(prop.description().is_none());
     assert!(!prop.is_final());
 }
 
 #[test]
-fn test_property_with_value() {
+fn test_property_new_collection() {
     let value =
         MultiValues::String(vec!["hello".to_string(), "world".to_string()]);
-    let prop = Property::with_value("test.string", value);
+    let prop = Property::new("test.string", value);
 
     assert_eq!(prop.name(), "test.string");
     assert_eq!(prop.count(), 2);
@@ -58,13 +67,13 @@ fn test_property_with_value() {
 
 #[test]
 fn test_property_name() {
-    let prop = Property::new("my.property.name");
+    let prop = new_unset_int32_property("my.property.name");
     assert_eq!(prop.name(), "my.property.name");
 }
 
 #[test]
 fn test_property_value() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     let value = MultiValues::Int32(vec![42, 43]);
     prop.set_value(value.clone());
 
@@ -73,7 +82,7 @@ fn test_property_value() {
 
 #[test]
 fn test_property_value_mut() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     let value = MultiValues::Int32(vec![42]);
     prop.set_value(value);
 
@@ -85,7 +94,7 @@ fn test_property_value_mut() {
 
 #[test]
 fn test_property_set_value() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     let value1 = MultiValues::Int32(vec![1, 2]);
     let value2 = MultiValues::String(vec!["hello".to_string()]);
 
@@ -100,7 +109,7 @@ fn test_property_set_value() {
 
 #[test]
 fn test_property_description() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
 
     // Initial state
     assert!(prop.description().is_none());
@@ -116,7 +125,7 @@ fn test_property_description() {
 
 #[test]
 fn test_property_is_final() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
 
     // Initial state
     assert!(!prop.is_final());
@@ -132,7 +141,7 @@ fn test_property_is_final() {
 
 #[test]
 fn test_property_data_type() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
 
     // Default type
     assert_eq!(prop.data_type(), DataType::Int32);
@@ -147,7 +156,7 @@ fn test_property_data_type() {
 
 #[test]
 fn test_property_count() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
 
     // Empty value
     assert_eq!(prop.count(), 0);
@@ -163,7 +172,7 @@ fn test_property_count() {
 
 #[test]
 fn test_property_is_empty() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
 
     // Empty
     assert!(prop.is_empty());
@@ -179,7 +188,7 @@ fn test_property_is_empty() {
 
 #[test]
 fn test_property_clear() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int32(vec![1, 2, 3]));
 
     assert_eq!(prop.count(), 3);
@@ -194,7 +203,7 @@ fn test_property_clear() {
 
 #[test]
 fn test_property_bool_get() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Bool(vec![true, false, true]));
 
     let values = prop.get_list::<bool>().unwrap();
@@ -203,7 +212,7 @@ fn test_property_bool_get() {
 
 #[test]
 fn test_property_bool_get_first() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Bool(vec![false, true]));
 
     let first = prop.get::<bool>().unwrap();
@@ -212,7 +221,7 @@ fn test_property_bool_get_first() {
 
 #[test]
 fn test_property_bool_add() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Bool(vec![true]));
 
     prop.add(false).unwrap();
@@ -224,7 +233,7 @@ fn test_property_bool_add() {
 
 #[test]
 fn test_property_bool_set() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Bool(vec![true, false]));
 
     prop.set(false);
@@ -238,7 +247,7 @@ fn test_property_bool_set() {
 
 #[test]
 fn test_property_char_get() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Char(vec!['a', 'b', 'c']));
 
     let values = prop.get_list::<char>().unwrap();
@@ -247,7 +256,7 @@ fn test_property_char_get() {
 
 #[test]
 fn test_property_char_get_first() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Char(vec!['x', 'y']));
 
     let first = prop.get::<char>().unwrap();
@@ -256,7 +265,7 @@ fn test_property_char_get_first() {
 
 #[test]
 fn test_property_char_add() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Char(vec!['a']));
 
     prop.add('b').unwrap();
@@ -268,7 +277,7 @@ fn test_property_char_add() {
 
 #[test]
 fn test_property_char_set() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Char(vec!['a', 'b']));
 
     prop.set('z');
@@ -282,7 +291,7 @@ fn test_property_char_set() {
 
 #[test]
 fn test_property_int8_get() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int8(vec![1, 2, 3]));
 
     let values = prop.get_list::<i8>().unwrap();
@@ -291,7 +300,7 @@ fn test_property_int8_get() {
 
 #[test]
 fn test_property_int8_get_first() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int8(vec![42, 43]));
 
     let first = prop.get::<i8>().unwrap();
@@ -300,7 +309,7 @@ fn test_property_int8_get_first() {
 
 #[test]
 fn test_property_int8_add() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int8(vec![1]));
 
     prop.add(2_i8).unwrap();
@@ -312,7 +321,7 @@ fn test_property_int8_add() {
 
 #[test]
 fn test_property_int8_set() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int8(vec![1, 2]));
 
     prop.set(99_i8);
@@ -326,7 +335,7 @@ fn test_property_int8_set() {
 
 #[test]
 fn test_property_int16_get() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int16(vec![1000, 2000, 3000]));
 
     let values = prop.get_list::<i16>().unwrap();
@@ -335,7 +344,7 @@ fn test_property_int16_get() {
 
 #[test]
 fn test_property_int16_get_first() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int16(vec![1234, 5678]));
 
     let first = prop.get::<i16>().unwrap();
@@ -344,7 +353,7 @@ fn test_property_int16_get_first() {
 
 #[test]
 fn test_property_int16_add() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int16(vec![1000]));
 
     prop.add(2000_i16).unwrap();
@@ -356,7 +365,7 @@ fn test_property_int16_add() {
 
 #[test]
 fn test_property_int16_set() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int16(vec![1000, 2000]));
 
     prop.set(9999_i16);
@@ -370,7 +379,7 @@ fn test_property_int16_set() {
 
 #[test]
 fn test_property_int32_get() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int32(vec![100000, 200000, 300000]));
 
     let values = prop.get_list::<i32>().unwrap();
@@ -379,7 +388,7 @@ fn test_property_int32_get() {
 
 #[test]
 fn test_property_int32_get_first() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int32(vec![123456, 789012]));
 
     let first = prop.get::<i32>().unwrap();
@@ -388,7 +397,7 @@ fn test_property_int32_get_first() {
 
 #[test]
 fn test_property_int32_add() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int32(vec![100000]));
 
     prop.add(200000_i32).unwrap();
@@ -400,7 +409,7 @@ fn test_property_int32_add() {
 
 #[test]
 fn test_property_int32_set() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int32(vec![100000, 200000]));
 
     prop.set(999999_i32);
@@ -414,7 +423,7 @@ fn test_property_int32_set() {
 
 #[test]
 fn test_property_int64_get() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int64(vec![
         1000000000, 2000000000, 3000000000,
     ]));
@@ -425,7 +434,7 @@ fn test_property_int64_get() {
 
 #[test]
 fn test_property_int64_get_first() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int64(vec![1234567890, 9876543210]));
 
     let first = prop.get::<i64>().unwrap();
@@ -434,7 +443,7 @@ fn test_property_int64_get_first() {
 
 #[test]
 fn test_property_int64_add() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int64(vec![1000000000]));
 
     prop.add(2000000000_i64).unwrap();
@@ -446,7 +455,7 @@ fn test_property_int64_add() {
 
 #[test]
 fn test_property_int64_set() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int64(vec![1000000000, 2000000000]));
 
     prop.set(9999999999_i64);
@@ -460,7 +469,7 @@ fn test_property_int64_set() {
 
 #[test]
 fn test_property_int128_get() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     let values = vec![
         1000000000000000000000000000000_i128,
         2000000000000000000000000000000_i128,
@@ -474,7 +483,7 @@ fn test_property_int128_get() {
 
 #[test]
 fn test_property_int128_get_first() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     let values = vec![
         123456789012345678901234567890_i128,
         987654321098765432109876543210_i128,
@@ -487,7 +496,7 @@ fn test_property_int128_get_first() {
 
 #[test]
 fn test_property_int128_add() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int128(vec![
         1000000000000000000000000000000_i128,
     ]));
@@ -501,7 +510,7 @@ fn test_property_int128_add() {
 
 #[test]
 fn test_property_int128_set() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int128(vec![
         1000000000000000000000000000000_i128,
         2000000000000000000000000000000_i128,
@@ -518,7 +527,7 @@ fn test_property_int128_set() {
 
 #[test]
 fn test_property_uint8_get() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::UInt8(vec![1, 2, 3]));
 
     let values = prop.get_list::<u8>().unwrap();
@@ -527,7 +536,7 @@ fn test_property_uint8_get() {
 
 #[test]
 fn test_property_uint8_get_first() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::UInt8(vec![42, 43]));
 
     let first = prop.get::<u8>().unwrap();
@@ -536,7 +545,7 @@ fn test_property_uint8_get_first() {
 
 #[test]
 fn test_property_uint8_add() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::UInt8(vec![1]));
 
     prop.add(2_u8).unwrap();
@@ -548,7 +557,7 @@ fn test_property_uint8_add() {
 
 #[test]
 fn test_property_uint8_set() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::UInt8(vec![1, 2]));
 
     prop.set(255_u8);
@@ -562,7 +571,7 @@ fn test_property_uint8_set() {
 
 #[test]
 fn test_property_uint16_get() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::UInt16(vec![1000, 2000, 3000]));
 
     let values = prop.get_list::<u16>().unwrap();
@@ -571,7 +580,7 @@ fn test_property_uint16_get() {
 
 #[test]
 fn test_property_uint16_get_first() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::UInt16(vec![1234, 5678]));
 
     let first = prop.get::<u16>().unwrap();
@@ -580,7 +589,7 @@ fn test_property_uint16_get_first() {
 
 #[test]
 fn test_property_uint16_add() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::UInt16(vec![1000]));
 
     prop.add(2000_u16).unwrap();
@@ -592,7 +601,7 @@ fn test_property_uint16_add() {
 
 #[test]
 fn test_property_uint16_set() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::UInt16(vec![1000, 2000]));
 
     prop.set(65535_u16);
@@ -606,7 +615,7 @@ fn test_property_uint16_set() {
 
 #[test]
 fn test_property_uint32_get() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::UInt32(vec![100000, 200000, 300000]));
 
     let values = prop.get_list::<u32>().unwrap();
@@ -615,7 +624,7 @@ fn test_property_uint32_get() {
 
 #[test]
 fn test_property_uint32_get_first() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::UInt32(vec![123456, 789012]));
 
     let first = prop.get::<u32>().unwrap();
@@ -624,7 +633,7 @@ fn test_property_uint32_get_first() {
 
 #[test]
 fn test_property_uint32_add() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::UInt32(vec![100000]));
 
     prop.add(200000_u32).unwrap();
@@ -636,7 +645,7 @@ fn test_property_uint32_add() {
 
 #[test]
 fn test_property_uint32_set() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::UInt32(vec![100000, 200000]));
 
     prop.set(4294967295_u32);
@@ -650,7 +659,7 @@ fn test_property_uint32_set() {
 
 #[test]
 fn test_property_uint64_get() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::UInt64(vec![
         1000000000, 2000000000, 3000000000,
     ]));
@@ -661,7 +670,7 @@ fn test_property_uint64_get() {
 
 #[test]
 fn test_property_uint64_get_first() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::UInt64(vec![1234567890, 9876543210]));
 
     let first = prop.get::<u64>().unwrap();
@@ -670,7 +679,7 @@ fn test_property_uint64_get_first() {
 
 #[test]
 fn test_property_uint64_add() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::UInt64(vec![1000000000]));
 
     prop.add(2000000000_u64).unwrap();
@@ -682,7 +691,7 @@ fn test_property_uint64_add() {
 
 #[test]
 fn test_property_uint64_set() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::UInt64(vec![1000000000, 2000000000]));
 
     prop.set(18446744073709551615_u64);
@@ -696,7 +705,7 @@ fn test_property_uint64_set() {
 
 #[test]
 fn test_property_uint128_get() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     let values = vec![
         1000000000000000000000000000000_u128,
         2000000000000000000000000000000_u128,
@@ -710,7 +719,7 @@ fn test_property_uint128_get() {
 
 #[test]
 fn test_property_uint128_get_first() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     let values = vec![
         123456789012345678901234567890_u128,
         987654321098765432109876543210_u128,
@@ -723,7 +732,7 @@ fn test_property_uint128_get_first() {
 
 #[test]
 fn test_property_uint128_add() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::UInt128(vec![
         1000000000000000000000000000000_u128,
     ]));
@@ -737,7 +746,7 @@ fn test_property_uint128_add() {
 
 #[test]
 fn test_property_uint128_set() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::UInt128(vec![
         1000000000000000000000000000000_u128,
         2000000000000000000000000000000_u128,
@@ -754,7 +763,7 @@ fn test_property_uint128_set() {
 
 #[test]
 fn test_property_float32_get() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Float32(vec![1.1, 2.2, 3.3]));
 
     let values = prop.get_list::<f32>().unwrap();
@@ -763,7 +772,7 @@ fn test_property_float32_get() {
 
 #[test]
 fn test_property_float32_get_first() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Float32(vec![3.5, 2.72]));
 
     let first = prop.get::<f32>().unwrap();
@@ -772,7 +781,7 @@ fn test_property_float32_get_first() {
 
 #[test]
 fn test_property_float32_add() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Float32(vec![1.1]));
 
     prop.add(2.2_f32).unwrap();
@@ -784,7 +793,7 @@ fn test_property_float32_add() {
 
 #[test]
 fn test_property_float32_set() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Float32(vec![1.1, 2.2]));
 
     prop.set(99.99_f32);
@@ -798,7 +807,7 @@ fn test_property_float32_set() {
 
 #[test]
 fn test_property_float64_get() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Float64(vec![1.111111, 2.222222, 3.333333]));
 
     let values = prop.get_list::<f64>().unwrap();
@@ -807,7 +816,7 @@ fn test_property_float64_get() {
 
 #[test]
 fn test_property_float64_get_first() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Float64(vec![3.5, 2.8]));
 
     let first = prop.get::<f64>().unwrap();
@@ -816,7 +825,7 @@ fn test_property_float64_get_first() {
 
 #[test]
 fn test_property_float64_add() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Float64(vec![1.111111]));
 
     prop.add(2.222222_f64).unwrap();
@@ -828,7 +837,7 @@ fn test_property_float64_add() {
 
 #[test]
 fn test_property_float64_set() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Float64(vec![1.111111, 2.222222]));
 
     prop.set(99.999999_f64);
@@ -842,7 +851,7 @@ fn test_property_float64_set() {
 
 #[test]
 fn test_property_string_get() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::String(vec![
         "hello".to_string(),
         "world".to_string(),
@@ -855,7 +864,7 @@ fn test_property_string_get() {
 
 #[test]
 fn test_property_string_get_first() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::String(vec![
         "first".to_string(),
         "second".to_string(),
@@ -867,7 +876,7 @@ fn test_property_string_get_first() {
 
 #[test]
 fn test_property_string_add() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::String(vec!["hello".to_string()]));
 
     prop.add("world".to_string()).unwrap();
@@ -879,7 +888,7 @@ fn test_property_string_add() {
 
 #[test]
 fn test_property_string_set() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::String(vec![
         "hello".to_string(),
         "world".to_string(),
@@ -903,7 +912,7 @@ fn test_property_string_set() {
 #[test]
 #[cfg(feature = "chrono")]
 fn test_property_date_get() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     let date1 = NaiveDate::from_ymd_opt(2023, 1, 1).unwrap();
     let date2 = NaiveDate::from_ymd_opt(2023, 2, 1).unwrap();
     let date3 = NaiveDate::from_ymd_opt(2023, 3, 1).unwrap();
@@ -916,7 +925,7 @@ fn test_property_date_get() {
 #[test]
 #[cfg(feature = "chrono")]
 fn test_property_date_get_first() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     let date1 = NaiveDate::from_ymd_opt(2023, 1, 1).unwrap();
     let date2 = NaiveDate::from_ymd_opt(2023, 2, 1).unwrap();
     prop.set_value(MultiValues::Date(vec![date1, date2]));
@@ -928,7 +937,7 @@ fn test_property_date_get_first() {
 #[test]
 #[cfg(feature = "chrono")]
 fn test_property_date_add() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     let date1 = NaiveDate::from_ymd_opt(2023, 1, 1).unwrap();
     prop.set_value(MultiValues::Date(vec![date1]));
 
@@ -944,7 +953,7 @@ fn test_property_date_add() {
 #[test]
 #[cfg(feature = "chrono")]
 fn test_property_date_set() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     let date1 = NaiveDate::from_ymd_opt(2023, 1, 1).unwrap();
     let date2 = NaiveDate::from_ymd_opt(2023, 2, 1).unwrap();
     prop.set_value(MultiValues::Date(vec![date1, date2]));
@@ -962,7 +971,7 @@ fn test_property_date_set() {
 #[test]
 #[cfg(feature = "chrono")]
 fn test_property_time_get() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     let time1 = NaiveTime::from_hms_opt(10, 30, 0).unwrap();
     let time2 = NaiveTime::from_hms_opt(14, 45, 30).unwrap();
     let time3 = NaiveTime::from_hms_opt(18, 0, 0).unwrap();
@@ -975,7 +984,7 @@ fn test_property_time_get() {
 #[test]
 #[cfg(feature = "chrono")]
 fn test_property_time_get_first() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     let time1 = NaiveTime::from_hms_opt(10, 30, 0).unwrap();
     let time2 = NaiveTime::from_hms_opt(14, 45, 30).unwrap();
     prop.set_value(MultiValues::Time(vec![time1, time2]));
@@ -987,7 +996,7 @@ fn test_property_time_get_first() {
 #[test]
 #[cfg(feature = "chrono")]
 fn test_property_time_add() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     let time1 = NaiveTime::from_hms_opt(10, 30, 0).unwrap();
     prop.set_value(MultiValues::Time(vec![time1]));
 
@@ -1003,7 +1012,7 @@ fn test_property_time_add() {
 #[test]
 #[cfg(feature = "chrono")]
 fn test_property_time_set() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     let time1 = NaiveTime::from_hms_opt(10, 30, 0).unwrap();
     let time2 = NaiveTime::from_hms_opt(14, 45, 30).unwrap();
     prop.set_value(MultiValues::Time(vec![time1, time2]));
@@ -1021,7 +1030,7 @@ fn test_property_time_set() {
 #[test]
 #[cfg(feature = "chrono")]
 fn test_property_instant_get() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     let instant1 = DateTime::from_timestamp(1672531200, 0).unwrap();
     let instant2 = DateTime::from_timestamp(1672617600, 0).unwrap();
     let instant3 = DateTime::from_timestamp(1672704000, 0).unwrap();
@@ -1034,7 +1043,7 @@ fn test_property_instant_get() {
 #[test]
 #[cfg(feature = "chrono")]
 fn test_property_instant_get_first() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     let instant1 = DateTime::from_timestamp(1672531200, 0).unwrap();
     let instant2 = DateTime::from_timestamp(1672617600, 0).unwrap();
     prop.set_value(MultiValues::Instant(vec![instant1, instant2]));
@@ -1046,7 +1055,7 @@ fn test_property_instant_get_first() {
 #[test]
 #[cfg(feature = "chrono")]
 fn test_property_instant_add() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     let instant1 = DateTime::from_timestamp(1672531200, 0).unwrap();
     prop.set_value(MultiValues::Instant(vec![instant1]));
 
@@ -1062,7 +1071,7 @@ fn test_property_instant_add() {
 #[test]
 #[cfg(feature = "chrono")]
 fn test_property_instant_set() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     let instant1 = DateTime::from_timestamp(1672531200, 0).unwrap();
     let instant2 = DateTime::from_timestamp(1672617600, 0).unwrap();
     prop.set_value(MultiValues::Instant(vec![instant1, instant2]));
@@ -1080,7 +1089,7 @@ fn test_property_instant_set() {
 #[test]
 #[cfg(feature = "num-bigint")]
 fn test_property_bigint_get() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     let bigint1 = BigInt::from(12345678901234567890_i128);
     let bigint2 = BigInt::from(98765432109876543210_i128);
     let bigint3 = BigInt::from(11111111111111111111_i128);
@@ -1097,7 +1106,7 @@ fn test_property_bigint_get() {
 #[test]
 #[cfg(feature = "num-bigint")]
 fn test_property_bigint_get_first() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     let bigint1 = BigInt::from(12345678901234567890_i128);
     let bigint2 = BigInt::from(98765432109876543210_i128);
     prop.set_value(MultiValues::BigInteger(vec![bigint1.clone(), bigint2]));
@@ -1109,7 +1118,7 @@ fn test_property_bigint_get_first() {
 #[test]
 #[cfg(feature = "num-bigint")]
 fn test_property_bigint_add() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     let bigint1 = BigInt::from(12345678901234567890_i128);
     prop.set_value(MultiValues::BigInteger(vec![bigint1.clone()]));
 
@@ -1125,7 +1134,7 @@ fn test_property_bigint_add() {
 #[test]
 #[cfg(feature = "num-bigint")]
 fn test_property_bigint_set() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     let bigint1 = BigInt::from(12345678901234567890_i128);
     let bigint2 = BigInt::from(98765432109876543210_i128);
     prop.set_value(MultiValues::BigInteger(vec![bigint1, bigint2]));
@@ -1143,7 +1152,7 @@ fn test_property_bigint_set() {
 #[test]
 #[cfg(feature = "bigdecimal")]
 fn test_property_bigdecimal_get() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     let bd1 = BigDecimal::from_str("123.456789").unwrap();
     let bd2 = BigDecimal::from_str("987.654321").unwrap();
     let bd3 = BigDecimal::from_str("111.222333").unwrap();
@@ -1160,7 +1169,7 @@ fn test_property_bigdecimal_get() {
 #[test]
 #[cfg(feature = "bigdecimal")]
 fn test_property_bigdecimal_get_first() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     let bd1 = BigDecimal::from_str("123.456789").unwrap();
     let bd2 = BigDecimal::from_str("987.654321").unwrap();
     prop.set_value(MultiValues::BigDecimal(vec![bd1.clone(), bd2]));
@@ -1172,7 +1181,7 @@ fn test_property_bigdecimal_get_first() {
 #[test]
 #[cfg(feature = "bigdecimal")]
 fn test_property_bigdecimal_add() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     let bd1 = BigDecimal::from_str("123.456789").unwrap();
     prop.set_value(MultiValues::BigDecimal(vec![bd1.clone()]));
 
@@ -1188,7 +1197,7 @@ fn test_property_bigdecimal_add() {
 #[test]
 #[cfg(feature = "bigdecimal")]
 fn test_property_bigdecimal_set() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     let bd1 = BigDecimal::from_str("123.456789").unwrap();
     let bd2 = BigDecimal::from_str("987.654321").unwrap();
     prop.set_value(MultiValues::BigDecimal(vec![bd1, bd2]));
@@ -1205,7 +1214,7 @@ fn test_property_bigdecimal_set() {
 
 #[test]
 fn test_property_type_mismatch_error() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int32(vec![42]));
 
     // Try to get wrong type
@@ -1219,7 +1228,7 @@ fn test_property_type_mismatch_error() {
 
 #[test]
 fn test_property_empty_value_error() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Unset(DataType::Int32));
 
     // Try to get first value
@@ -1229,7 +1238,7 @@ fn test_property_empty_value_error() {
 
 #[test]
 fn test_property_unset_get_reports_no_value() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Unset(DataType::Int32));
 
     assert!(matches!(
@@ -1240,7 +1249,7 @@ fn test_property_unset_get_reports_no_value() {
 
 #[test]
 fn test_property_concrete_empty_get_returns_empty_slice() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int32(Vec::new()));
 
     let values = prop.get_list::<i32>().unwrap();
@@ -1253,7 +1262,7 @@ fn test_property_concrete_empty_get_returns_empty_slice() {
 
 #[test]
 fn test_property_generic_get_bool() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Bool(vec![true, false, true]));
 
     let values: Vec<bool> = prop.get_list().unwrap();
@@ -1262,7 +1271,7 @@ fn test_property_generic_get_bool() {
 
 #[test]
 fn test_property_generic_get_char() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Char(vec!['a', 'b', 'c']));
 
     let values: Vec<char> = prop.get_list().unwrap();
@@ -1271,7 +1280,7 @@ fn test_property_generic_get_char() {
 
 #[test]
 fn test_property_generic_get_int32() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int32(vec![1, 2, 3]));
 
     let values: Vec<i32> = prop.get_list().unwrap();
@@ -1280,7 +1289,7 @@ fn test_property_generic_get_int32() {
 
 #[test]
 fn test_property_generic_get_int64() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int64(vec![1000000000, 2000000000]));
 
     let values: Vec<i64> = prop.get_list().unwrap();
@@ -1289,7 +1298,7 @@ fn test_property_generic_get_int64() {
 
 #[test]
 fn test_property_generic_get_uint32() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::UInt32(vec![100000, 200000]));
 
     let values: Vec<u32> = prop.get_list().unwrap();
@@ -1298,7 +1307,7 @@ fn test_property_generic_get_uint32() {
 
 #[test]
 fn test_property_generic_get_float64() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Float64(vec![1.1, 2.2, 3.3]));
 
     let values: Vec<f64> = prop.get_list().unwrap();
@@ -1307,7 +1316,7 @@ fn test_property_generic_get_float64() {
 
 #[test]
 fn test_property_generic_get_string() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::String(vec![
         "hello".to_string(),
         "world".to_string(),
@@ -1322,7 +1331,7 @@ fn test_property_generic_get_string() {
 #[cfg(feature = "num-bigint")]
 #[test]
 fn test_property_generic_get_bigint() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     let bigint1 = BigInt::from(12345678901234567890_i128);
     let bigint2 = BigInt::from(98765432109876543210_i128);
     prop.set_value(MultiValues::BigInteger(vec![
@@ -1337,7 +1346,7 @@ fn test_property_generic_get_bigint() {
 #[cfg(feature = "bigdecimal")]
 #[test]
 fn test_property_generic_get_bigdecimal() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     let bd1 = BigDecimal::from_str("123.456789").unwrap();
     let bd2 = BigDecimal::from_str("987.654321").unwrap();
     prop.set_value(MultiValues::BigDecimal(vec![bd1.clone(), bd2.clone()]));
@@ -1352,7 +1361,7 @@ fn test_property_generic_get_bigdecimal() {
 
 #[test]
 fn test_property_generic_get_first_bool() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Bool(vec![false, true]));
 
     let first: bool = prop.get().unwrap();
@@ -1361,7 +1370,7 @@ fn test_property_generic_get_first_bool() {
 
 #[test]
 fn test_property_generic_get_first_char() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Char(vec!['x', 'y', 'z']));
 
     let first: char = prop.get().unwrap();
@@ -1370,7 +1379,7 @@ fn test_property_generic_get_first_char() {
 
 #[test]
 fn test_property_generic_get_first_int32() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int32(vec![42, 43, 44]));
 
     let first: i32 = prop.get().unwrap();
@@ -1379,7 +1388,7 @@ fn test_property_generic_get_first_int32() {
 
 #[test]
 fn test_property_generic_get_first_string() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::String(vec![
         "first".to_string(),
         "second".to_string(),
@@ -1391,7 +1400,7 @@ fn test_property_generic_get_first_string() {
 
 #[test]
 fn test_property_generic_get_first_float64() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Float64(vec![3.5, 2.72]));
 
     let first: f64 = prop.get().unwrap();
@@ -1404,7 +1413,7 @@ fn test_property_generic_get_first_float64() {
 
 #[test]
 fn test_property_generic_set_single_bool() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Bool(vec![true, false]));
 
     prop.set(true);
@@ -1414,7 +1423,7 @@ fn test_property_generic_set_single_bool() {
 
 #[test]
 fn test_property_generic_set_single_int32() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int32(vec![1, 2, 3]));
 
     prop.set(42);
@@ -1424,7 +1433,7 @@ fn test_property_generic_set_single_int32() {
 
 #[test]
 fn test_property_generic_set_single_string() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::String(vec!["old".to_string()]));
 
     prop.set("new".to_string());
@@ -1434,7 +1443,7 @@ fn test_property_generic_set_single_string() {
 
 #[test]
 fn test_property_generic_set_single_float64() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Float64(vec![1.1, 2.2]));
 
     prop.set(99.99);
@@ -1448,7 +1457,7 @@ fn test_property_generic_set_single_float64() {
 
 #[test]
 fn test_property_generic_set_vec_bool() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Bool(vec![true]));
 
     prop.set(vec![false, true, false]);
@@ -1458,7 +1467,7 @@ fn test_property_generic_set_vec_bool() {
 
 #[test]
 fn test_property_generic_set_vec_int32() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int32(vec![1, 2, 3]));
 
     prop.set(vec![4, 5, 6]);
@@ -1468,7 +1477,7 @@ fn test_property_generic_set_vec_int32() {
 
 #[test]
 fn test_property_generic_set_vec_string() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::String(vec!["old".to_string()]));
 
     prop.set(vec!["new1".to_string(), "new2".to_string()]);
@@ -1478,7 +1487,7 @@ fn test_property_generic_set_vec_string() {
 
 #[test]
 fn test_property_generic_set_vec_float64() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Float64(vec![1.1]));
 
     prop.set(vec![2.2, 3.3, 4.4]);
@@ -1492,7 +1501,7 @@ fn test_property_generic_set_vec_float64() {
 
 #[test]
 fn test_property_generic_set_slice_int32() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int32(vec![1, 2, 3]));
 
     let array = [4, 5, 6, 7];
@@ -1504,7 +1513,7 @@ fn test_property_generic_set_slice_int32() {
 
 #[test]
 fn test_property_generic_set_slice_string() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::String(vec!["old".to_string()]));
 
     let array = ["new1".to_string(), "new2".to_string(), "new3".to_string()];
@@ -1516,7 +1525,7 @@ fn test_property_generic_set_slice_string() {
 
 #[test]
 fn test_property_generic_set_slice_float64() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Float64(vec![1.1, 2.2]));
 
     let array = [3.3, 4.4];
@@ -1532,7 +1541,7 @@ fn test_property_generic_set_slice_float64() {
 
 #[test]
 fn test_property_generic_add_single_bool() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Bool(vec![true]));
 
     prop.add(false).unwrap();
@@ -1542,7 +1551,7 @@ fn test_property_generic_add_single_bool() {
 
 #[test]
 fn test_property_generic_add_single_int32() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int32(vec![1, 2]));
 
     prop.add(3).unwrap();
@@ -1552,7 +1561,7 @@ fn test_property_generic_add_single_int32() {
 
 #[test]
 fn test_property_generic_add_single_string() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::String(vec!["hello".to_string()]));
 
     prop.add("world".to_string()).unwrap();
@@ -1562,7 +1571,7 @@ fn test_property_generic_add_single_string() {
 
 #[test]
 fn test_property_generic_add_single_float64() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Float64(vec![1.1]));
 
     prop.add(2.2).unwrap();
@@ -1576,7 +1585,7 @@ fn test_property_generic_add_single_float64() {
 
 #[test]
 fn test_property_generic_add_vec_bool() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Bool(vec![true]));
 
     prop.add(vec![false, true]).unwrap();
@@ -1586,7 +1595,7 @@ fn test_property_generic_add_vec_bool() {
 
 #[test]
 fn test_property_generic_add_vec_int32() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int32(vec![1, 2]));
 
     prop.add(vec![3, 4]).unwrap();
@@ -1596,7 +1605,7 @@ fn test_property_generic_add_vec_int32() {
 
 #[test]
 fn test_property_generic_add_vec_string() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::String(vec!["hello".to_string()]));
 
     prop.add(vec!["world".to_string(), "rust".to_string()])
@@ -1607,7 +1616,7 @@ fn test_property_generic_add_vec_string() {
 
 #[test]
 fn test_property_generic_add_vec_float64() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Float64(vec![1.1]));
 
     prop.add(vec![2.2, 3.3]).unwrap();
@@ -1621,7 +1630,7 @@ fn test_property_generic_add_vec_float64() {
 
 #[test]
 fn test_property_generic_add_slice_int32() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int32(vec![1, 2]));
 
     let array = [3, 4, 5];
@@ -1633,7 +1642,7 @@ fn test_property_generic_add_slice_int32() {
 
 #[test]
 fn test_property_generic_add_slice_string() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::String(vec!["hello".to_string()]));
 
     let array = ["world".to_string(), "rust".to_string()];
@@ -1645,7 +1654,7 @@ fn test_property_generic_add_slice_string() {
 
 #[test]
 fn test_property_generic_add_slice_float64() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Float64(vec![1.1]));
 
     let array = [2.2, 3.3];
@@ -1661,7 +1670,7 @@ fn test_property_generic_add_slice_float64() {
 
 #[test]
 fn test_property_empty_after_clear() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int32(vec![1, 2, 3, 4, 5]));
 
     assert_eq!(prop.count(), 5);
@@ -1673,7 +1682,7 @@ fn test_property_empty_after_clear() {
 
 #[test]
 fn test_property_large_collection() {
-    let mut prop = Property::new("test");
+    let mut prop = new_unset_int32_property("test");
     let large_vec: Vec<i32> = (1..=1000).collect();
     prop.set_value(MultiValues::Int32(large_vec.clone()));
 
@@ -1686,7 +1695,7 @@ fn test_property_large_collection() {
 
 #[test]
 fn test_property_clone() {
-    let mut prop1 = Property::new("test");
+    let mut prop1 = new_unset_int32_property("test");
     prop1.set_value(MultiValues::String(vec![
         "hello".to_string(),
         "world".to_string(),
@@ -1705,7 +1714,7 @@ fn test_property_clone() {
 
 #[test]
 fn test_property_debug_format() {
-    let mut prop = Property::new("test.property");
+    let mut prop = new_unset_int32_property("test.property");
     prop.set_value(MultiValues::Int32(vec![42, 43]));
     prop.set_description(Some("Test property".to_string()));
 
@@ -1718,11 +1727,11 @@ fn test_property_debug_format() {
 
 #[test]
 fn test_property_partial_eq() {
-    let mut prop1 = Property::new("test");
+    let mut prop1 = new_unset_int32_property("test");
     prop1.set_value(MultiValues::Int32(vec![42, 43]));
     prop1.set_description(Some("Test".to_string()));
 
-    let mut prop2 = Property::new("test");
+    let mut prop2 = new_unset_int32_property("test");
     prop2.set_value(MultiValues::Int32(vec![42, 43]));
     prop2.set_description(Some("Test".to_string()));
 
