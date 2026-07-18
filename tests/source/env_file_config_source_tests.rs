@@ -157,21 +157,28 @@ mod test_env_file_edge_cases {
         assert!(matches!(result, Err(ConfigError::IoError(_))));
     }
 
-    // ---- env_file: file with invalid content triggers parse error ----
     #[test]
-    fn test_env_file_invalid_content_returns_parse_error() {
-        let dir = tempfile::tempdir().unwrap();
+    fn test_env_file_invalid_content_returns_redacted_parse_error() {
+        const SECRET_MARKER: &str = "RS_CONFIG_DOTENV_SECRET_MARKER";
+        let dir =
+            tempfile::tempdir().expect("temporary directory should be created");
         let path = dir.path().join("bad.env");
-        // dotenvy rejects lines with invalid unicode or certain malformed
-        // entries Write a file with a NUL byte which dotenvy will
-        // reject
-        std::fs::write(&path, b"KEY=\x00value\n").unwrap();
+        std::fs::write(&path, format!("PASSWORD=\"{SECRET_MARKER}\n"))
+            .expect("invalid .env fixture should be written");
+
         let source = EnvFileConfigSource::from_file(&path);
         let mut config = Config::new();
-        let result = source.load(&mut config);
-        // Either succeeds (dotenvy is lenient) or fails with ParseError
-        // We just verify it doesn't panic
-        let _ = result;
+        let error = source
+            .load(&mut config)
+            .expect_err("unterminated .env string should fail");
+
+        assert!(matches!(&error, ConfigError::ParseError(_)));
+        let display = error.to_string();
+        let debug = format!("{error:?}");
+        assert!(display.contains("bad.env"));
+        assert!(display.contains("<redacted>"));
+        assert!(!display.contains(SECRET_MARKER));
+        assert!(!debug.contains(SECRET_MARKER));
     }
 
     #[test]

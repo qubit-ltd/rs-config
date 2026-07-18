@@ -22,6 +22,8 @@ use std::path::{
     PathBuf,
 };
 
+use qubit_sanitize::redacted_debug;
+
 use crate::{
     Config,
     ConfigError,
@@ -55,6 +57,44 @@ pub struct EnvFileConfigSource {
     path: PathBuf,
 }
 
+/// Maps a dotenv parser error without exposing the offending assignment.
+///
+/// # Parameters
+///
+/// * `path` - Path of the dotenv file being loaded.
+/// * `error` - Parser or I/O error returned by dotenvy.
+///
+/// # Returns
+///
+/// A [`ConfigError::IoError`] preserving its I/O kind, or a value-redacted
+/// [`ConfigError::ParseError`].
+fn map_dotenv_error(path: &Path, error: dotenvy::Error) -> ConfigError {
+    match error {
+        dotenvy::Error::Io(source) => {
+            ConfigError::IoError(std::io::Error::new(
+                source.kind(),
+                format!(
+                    "Failed to read .env file '{}': {source}",
+                    path.display(),
+                ),
+            ))
+        }
+        dotenvy::Error::LineParse(line, error_index) => {
+            ConfigError::ParseError(format!(
+                "Failed to parse .env file '{}' at line index \
+                 {error_index}: {:?}",
+                path.display(),
+                redacted_debug(&line),
+            ))
+        }
+        error => ConfigError::ParseError(format!(
+            "Failed to parse .env file '{}': {:?}",
+            path.display(),
+            redacted_debug(&error),
+        )),
+    }
+}
+
 impl EnvFileConfigSource {
     /// Creates a new `EnvFileConfigSource` from a file path
     ///
@@ -75,22 +115,12 @@ impl ConfigSource for EnvFileConfigSource {
     }
 
     fn load_into(&self, config: &mut Config) -> ConfigResult<()> {
-        let iter = dotenvy::from_path_iter(&self.path).map_err(|e| {
-            ConfigError::IoError(std::io::Error::other(format!(
-                "Failed to read .env file '{}': {}",
-                self.path.display(),
-                e
-            )))
-        })?;
+        let iter = dotenvy::from_path_iter(&self.path)
+            .map_err(|error| map_dotenv_error(&self.path, error))?;
 
         for item in iter {
-            let (key, value) = item.map_err(|e| {
-                ConfigError::ParseError(format!(
-                    "Failed to parse .env file '{}': {}",
-                    self.path.display(),
-                    e
-                ))
-            })?;
+            let (key, value) =
+                item.map_err(|error| map_dotenv_error(&self.path, error))?;
             config.set(&key, value)?;
         }
 

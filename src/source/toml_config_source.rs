@@ -68,6 +68,64 @@ pub struct TomlConfigSource {
     path: PathBuf,
 }
 
+/// Computes a one-based TOML error location from a parser span.
+///
+/// # Parameters
+///
+/// * `content` - TOML source used only to calculate line and column.
+/// * `error` - TOML parser error providing the byte span.
+///
+/// # Returns
+///
+/// `Some((line, column))` when the span starts at a valid UTF-8 boundary,
+/// otherwise `None`.
+fn toml_error_location(
+    content: &str,
+    error: &toml::de::Error,
+) -> Option<(usize, usize)> {
+    let offset = error.span()?.start;
+    let prefix = content.get(..offset)?;
+    let line = prefix.bytes().filter(|byte| *byte == b'\n').count() + 1;
+    let column = prefix
+        .rsplit('\n')
+        .next()
+        .map_or(1, |line| line.chars().count() + 1);
+    Some((line, column))
+}
+
+/// Builds a TOML parse error without formatting source text.
+///
+/// # Parameters
+///
+/// * `path` - Path of the TOML file being parsed.
+/// * `content` - TOML source used only to calculate line and column.
+/// * `error` - TOML parser error supplying a source-independent message.
+///
+/// # Returns
+///
+/// A [`ConfigError::ParseError`] containing safe path, message, and location
+/// context.
+fn toml_parse_error(
+    path: &Path,
+    content: &str,
+    error: &toml::de::Error,
+) -> ConfigError {
+    let message = match toml_error_location(content, error) {
+        Some((line, column)) => format!(
+            "Failed to parse TOML file '{}' at line {line}, column \
+             {column}: {}",
+            path.display(),
+            error.message(),
+        ),
+        None => format!(
+            "Failed to parse TOML file '{}': {}",
+            path.display(),
+            error.message(),
+        ),
+    };
+    ConfigError::ParseError(message)
+}
+
 impl TomlConfigSource {
     /// Creates a new `TomlConfigSource` from a file path
     ///
@@ -99,13 +157,9 @@ impl ConfigSource for TomlConfigSource {
             ))
         })?;
 
-        let table: TomlTable = content.parse().map_err(|e| {
-            ConfigError::ParseError(format!(
-                "Failed to parse TOML file '{}': {}",
-                self.path.display(),
-                e
-            ))
-        })?;
+        let table: TomlTable = content
+            .parse()
+            .map_err(|error| toml_parse_error(&self.path, &content, &error))?;
 
         let mut seen = HashSet::new();
         flatten_toml_value("", &TomlValue::Table(table), config, &mut seen)?;

@@ -227,24 +227,31 @@ mod test_env_config_source {
         use std::ffi::OsString;
         use std::os::unix::ffi::OsStringExt;
 
+        const SECRET_MARKER: &str = "RS_CONFIG_ENV_VALUE_SECRET_MARKER";
         let key = "QUNICODE_BAD_VALUE";
+        let mut raw_value = SECRET_MARKER.as_bytes().to_vec();
+        raw_value.push(0xFF);
         unsafe {
-            std::env::set_var(key, OsString::from_vec(vec![b'o', 0xFF, b'k']));
+            std::env::set_var(key, OsString::from_vec(raw_value));
         }
 
         let source = EnvConfigSource::with_prefix("QUNICODE_");
         let mut config = Config::new();
-        let result = source.load(&mut config);
+        let error = source
+            .load(&mut config)
+            .expect_err("non-Unicode environment value should fail");
 
         unsafe {
             std::env::remove_var(key);
         }
 
-        assert!(matches!(
-            result,
-            Err(ConfigError::ParseError(message))
-                if message.contains(key) && message.contains("not valid Unicode")
-        ));
+        let display = error.to_string();
+        let debug = format!("{error:?}");
+        assert!(display.contains(key));
+        assert!(display.contains("not valid Unicode"));
+        assert!(display.contains("<redacted>"));
+        assert!(!display.contains(SECRET_MARKER));
+        assert!(!debug.contains(SECRET_MARKER));
     }
 
     #[cfg(unix)]
@@ -254,27 +261,32 @@ mod test_env_config_source {
         use std::ffi::OsString;
         use std::os::unix::ffi::OsStringExt;
 
-        let key = OsString::from_vec(vec![
-            b'Q', b'U', b'N', b'I', b'C', b'O', b'D', b'E', b'_', 0xFF,
-        ]);
+        const SECRET_MARKER: &str = "RS_CONFIG_ENV_KEY_SECRET_MARKER";
+        let mut raw_key = b"QUNICODE_".to_vec();
+        raw_key.extend_from_slice(SECRET_MARKER.as_bytes());
+        raw_key.push(0xFF);
+        let key = OsString::from_vec(raw_key);
         unsafe {
             std::env::set_var(&key, "value");
         }
 
         let source = EnvConfigSource::with_prefix("QUNICODE_");
         let mut config = Config::new();
-        let result = source.load(&mut config);
+        let error = source
+            .load(&mut config)
+            .expect_err("non-Unicode environment key should fail");
 
         unsafe {
             std::env::remove_var(&key);
         }
 
-        assert!(matches!(
-            result,
-            Err(ConfigError::ParseError(message))
-                if message.contains("Environment variable key")
-                    && message.contains("not valid Unicode")
-        ));
+        let display = error.to_string();
+        let debug = format!("{error:?}");
+        assert!(display.contains("Environment variable key"));
+        assert!(display.contains("not valid Unicode"));
+        assert!(display.contains("<redacted>"));
+        assert!(!display.contains(SECRET_MARKER));
+        assert!(!debug.contains(SECRET_MARKER));
     }
 
     #[test]
