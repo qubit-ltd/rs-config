@@ -13,6 +13,7 @@ use crate::options::ConfigReadOptions;
 use super::config_field_builder::ConfigFieldBuilder;
 
 /// Builder state before the field name is provided.
+#[must_use = "continue configuring the field and build it"]
 pub struct ConfigFieldNameBuilder<T> {
     /// The fallback aliases.
     pub(crate) aliases: Vec<String>,
@@ -35,6 +36,7 @@ impl<T> ConfigFieldNameBuilder<T> {
     /// # Returns
     ///
     /// Builder state with a primary name.
+    #[must_use = "continue configuring the field or build it"]
     pub fn name(self, name: &str) -> ConfigFieldBuilder<T> {
         ConfigFieldBuilder {
             name: name.to_string(),

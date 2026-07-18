@@ -12,13 +12,14 @@ use std::error::Error;
 use qubit_config::{
     Config,
     ConfigError,
+    ConfigErrorKind,
     Property,
-    options::{
-        BlankStringPolicy,
-        ConfigReadOptions,
-    },
+    options::ConfigReadOptions,
 };
-use qubit_datatype::DataType;
+use qubit_datatype::{
+    BlankStringPolicy,
+    DataType,
+};
 use qubit_value::Value;
 use serde::Deserialize;
 
@@ -39,16 +40,21 @@ fn test_deserialize_message_error_has_path_and_no_source() {
         .deserialize::<RequiredString>("app")
         .expect_err("null string should fail during serde deserialization");
 
+    assert_eq!(error.kind(), ConfigErrorKind::Deserialize);
+    assert_eq!(error.path(), Some("app"));
     assert!(matches!(
         &error,
-        ConfigError::DeserializeError { path, source, .. }
-            if path == "app" && source.is_none()
+        ConfigError::DeserializeError {
+            message,
+            source: None,
+            ..
+        } if message == "configuration value does not match the requested type"
     ));
     assert!(error.source().is_none());
 }
 
 #[test]
-fn test_deserialize_config_error_preserves_source() {
+fn test_deserialize_config_error_preserves_kind_and_leaf_path() {
     let mut config = Config::new();
     config.set_read_options(
         ConfigReadOptions::default()
@@ -65,11 +71,12 @@ fn test_deserialize_config_error_preserves_source() {
         .deserialize::<RequiredString>("app")
         .expect_err("blank string should be rejected by config conversion");
 
+    assert_eq!(error.kind(), ConfigErrorKind::Conversion);
+    assert_eq!(error.path(), Some("app.value"));
     assert!(matches!(
         &error,
-        ConfigError::DeserializeError { path, source, .. }
-            if path == "app" && source.is_some()
+        ConfigError::ConversionError { key, .. } if key == "app.value"
     ));
     assert!(error.source().is_some());
-    assert!(error.to_string().contains("Deserialization error at 'app'"));
+    assert!(!error.to_string().contains("Deserialization error at 'app'"));
 }

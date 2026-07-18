@@ -18,7 +18,8 @@ use crate::ConfigError;
 pub(crate) enum ConfigDeserializeError {
     /// A serde-originated diagnostic message.
     Message(String),
-    /// A structured configuration error with key context.
+    /// A structured configuration error that must retain its kind and leaf
+    /// path.
     Config(ConfigError),
 }
 
@@ -40,14 +41,7 @@ impl ConfigDeserializeError {
                     source: None,
                 }
             }
-            ConfigDeserializeError::Config(error) => {
-                let message = error.to_string();
-                ConfigError::DeserializeError {
-                    path: path.to_string(),
-                    message,
-                    source: Some(Box::new(error)),
-                }
-            }
+            ConfigDeserializeError::Config(error) => error,
         }
     }
 }

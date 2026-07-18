@@ -1868,13 +1868,18 @@ impl Config {
     // Structured Config Deserialization (v0.4.0)
     // ========================================================================
 
-    /// Deserializes a config value or subtree at `prefix` into `T` using
-    /// `serde`. String values inside the generated serde value apply the
-    /// same `${...}` substitution rules as [`Self::get_string`] and
-    /// [`Self::get_string_list`] when substitution is enabled. Scalar strings
-    /// are then parsed with this config's [`ConfigReadOptions`], so
-    /// environment-style booleans, numeric strings, and scalar string lists
-    /// behave consistently with typed `get` reads.
+    /// Deserializes the subtree at `prefix` through the configuration Serde
+    /// view.
+    ///
+    /// String-backed scalar and collection projections apply this config's
+    /// [`ConfigReadOptions`], including enabled substitution and explicit
+    /// conversion policies.
+    ///
+    /// The Serde view is JSON-like: mappings, sequences, booleans, strings,
+    /// numbers, and null values are exposed according to Serde's data model.
+    /// This method does not promise the native conversion shapes used by
+    /// [`Self::get`] for rich values such as durations or arbitrary-precision
+    /// integers.
     ///
     /// When `prefix` is non-empty, an exact property named `prefix` is
     /// deserialized as the root value. If no exact property exists, child keys
@@ -1908,10 +1913,11 @@ impl Config {
     ///
     /// # Errors
     ///
-    /// Returns [`ConfigError::KeyConflict`] for ambiguous key shapes,
-    /// substitution/conversion errors while preparing string values, or
-    /// [`ConfigError::DeserializeError`] when serde cannot deserialize the
-    /// prepared value into `T`.
+    /// Returns the original [`ConfigError`] when configuration lookup or
+    /// conversion fails, preserving its kind, leaf path, and source. A
+    /// mismatch raised only by `T`'s Serde implementation returns
+    /// [`ConfigError::DeserializeError`] at `prefix` with a fixed sanitized
+    /// message.
     ///
     /// # Examples
     ///

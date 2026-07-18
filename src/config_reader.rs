@@ -528,8 +528,28 @@ pub trait ConfigReader {
         strip_prefix: bool,
     ) -> ConfigResult<Config>;
 
-    /// Deserializes the subtree at `prefix` with serde (same as
-    /// [`crate::Config::deserialize`]; on a section, `prefix` is relative).
+    /// Deserializes a subtree through [`Config::deserialize`].
+    ///
+    /// The method uses the same JSON-like Serde view and error-preservation
+    /// boundary documented by [`Config::deserialize`]. On a section, `prefix`
+    /// is relative.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Target type implementing [`DeserializeOwned`].
+    ///
+    /// # Parameters
+    ///
+    /// * `prefix` - Relative dot-delimited subtree path.
+    ///
+    /// # Returns
+    ///
+    /// The deserialized value.
+    ///
+    /// # Errors
+    ///
+    /// Returns lookup and conversion errors unchanged. Pure Serde type
+    /// mismatches return a sanitized [`ConfigError::DeserializeError`].
     fn deserialize<T>(&self, prefix: &str) -> ConfigResult<T>
     where
         T: DeserializeOwned;

@@ -11,6 +11,7 @@ use crate::options::ConfigReadOptions;
 use super::config_field::ConfigField;
 
 /// Builder state after the field name is provided.
+#[must_use = "continue configuring the field or build it"]
 pub struct ConfigFieldBuilder<T> {
     /// The primary field name.
     pub(crate) name: String,
@@ -32,6 +33,7 @@ impl<T> ConfigFieldBuilder<T> {
     /// # Returns
     ///
     /// Updated builder.
+    #[must_use = "use the updated builder"]
     pub fn alias(mut self, alias: &str) -> Self {
         self.aliases.push(alias.to_string());
         self
@@ -46,6 +48,7 @@ impl<T> ConfigFieldBuilder<T> {
     /// # Returns
     ///
     /// Updated builder.
+    #[must_use = "use the updated builder"]
     pub fn default(mut self, default: T) -> Self {
         self.default = Some(default);
         self
@@ -60,6 +63,7 @@ impl<T> ConfigFieldBuilder<T> {
     /// # Returns
     ///
     /// Updated builder.
+    #[must_use = "use the updated builder"]
     pub fn read_options(mut self, read_options: ConfigReadOptions) -> Self {
         self.read_options = Some(read_options);
         self
@@ -70,6 +74,7 @@ impl<T> ConfigFieldBuilder<T> {
     /// # Returns
     ///
     /// A field declaration ready to be passed to [`crate::ConfigReader::read`].
+    #[must_use = "use the built field with ConfigReader::read"]
     pub fn build(self) -> ConfigField<T> {
         ConfigField {
             name: self.name,

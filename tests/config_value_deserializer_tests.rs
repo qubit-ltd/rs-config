@@ -15,15 +15,13 @@ use qubit_config::{
     ConfigError,
     ConfigResult,
     Property,
-    options::{
-        BlankStringPolicy,
-        ConfigReadOptions,
-        EmptyItemPolicy,
-    },
+    options::ConfigReadOptions,
 };
 use qubit_datatype::{
+    BlankStringPolicy,
     DataConversionErrorKind,
     DataType,
+    EmptyItemPolicy,
 };
 use qubit_value::MultiValues;
 use serde::de::{
@@ -348,11 +346,10 @@ fn test_deserialize_i128_rejects_invalid_redacted_value() -> ConfigResult<()> {
     assert!(!error.to_string().contains(INVALID_VALUE));
     assert!(!format!("{error:?}").contains(INVALID_VALUE));
     match error {
-        ConfigError::DeserializeError {
-            source: Some(source),
-            ..
-        } => assert!(source.to_string().contains("wide.signed")),
-        other => panic!("expected a structured deserialization error: {other}"),
+        ConfigError::ConversionError { key, .. } => {
+            assert_eq!(key, "wide.signed");
+        }
+        other => panic!("expected a structured conversion error: {other}"),
     }
     Ok(())
 }
@@ -371,11 +368,10 @@ fn test_deserialize_u128_rejects_overflow() -> ConfigResult<()> {
     assert!(!error.to_string().contains(overflow.as_str()));
     assert!(!format!("{error:?}").contains(overflow.as_str()));
     match error {
-        ConfigError::DeserializeError {
-            source: Some(source),
-            ..
-        } => assert!(source.to_string().contains("wide.unsigned")),
-        other => panic!("expected a structured deserialization error: {other}"),
+        ConfigError::ConversionError { key, .. } => {
+            assert_eq!(key, "wide.unsigned");
+        }
+        other => panic!("expected a structured conversion error: {other}"),
     }
     Ok(())
 }
@@ -489,20 +485,12 @@ fn deserialize_char_redacts_secret_value() -> ConfigResult<()> {
     assert!(!error.to_string().contains(SECRET));
     assert!(!format!("{error:?}").contains(SECRET));
     match error {
-        ConfigError::DeserializeError {
-            source: Some(source),
-            ..
-        } => match *source {
-            ConfigError::ConversionError { source, .. }
-                if source.from_type() == Some(DataType::String)
-                    && source.to_type() == DataType::Char
-                    && source.kind()
-                        == DataConversionErrorKind::InvalidValue => {}
-            other => {
-                panic!("expected structured char conversion error: {other}")
-            }
-        },
-        other => panic!("expected deserialization error: {other}"),
+        ConfigError::ConversionError { key, source, .. }
+            if key == "secret.value"
+                && source.from_type() == Some(DataType::String)
+                && source.to_type() == DataType::Char
+                && source.kind() == DataConversionErrorKind::InvalidValue => {}
+        other => panic!("expected structured char conversion error: {other}"),
     }
     Ok(())
 }

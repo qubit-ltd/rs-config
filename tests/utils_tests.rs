@@ -486,7 +486,7 @@ mod test_deserialize {
         let mut config = Config::new();
         config.set_read_options(
             ConfigReadOptions::env_friendly().with_blank_string_policy(
-                qubit_config::options::BlankStringPolicy::TreatAsMissing,
+                qubit_datatype::BlankStringPolicy::TreatAsMissing,
             ),
         );
         config.set("value", "   ").unwrap();

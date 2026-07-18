@@ -13,6 +13,7 @@ use crate::options::ConfigReadOptions;
 use super::config_field_name_builder::ConfigFieldNameBuilder;
 
 /// Field-level read declaration for [`crate::ConfigReader::read`].
+#[must_use = "use the field declaration with ConfigReader::read"]
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConfigField<T> {
     /// The primary field name.
@@ -31,6 +32,16 @@ impl<T> ConfigField<T> {
     /// # Returns
     ///
     /// A builder requiring a primary field name before `build` is available.
+    ///
+    /// Discarding the builder is rejected when unused results are denied.
+    ///
+    /// ```compile_fail
+    /// #![deny(unused_must_use)]
+    /// use qubit_config::field::ConfigField;
+    ///
+    /// ConfigField::<String>::builder();
+    /// ```
+    #[must_use = "use the returned builder to declare a configuration field"]
     pub fn builder() -> ConfigFieldNameBuilder<T> {
         ConfigFieldNameBuilder {
             aliases: Vec::new(),
