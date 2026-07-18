@@ -579,7 +579,6 @@ impl Config {
     /// # Returns
     ///
     /// A cloned [`Config`] using `read_options`.
-    #[must_use]
     #[inline]
     pub fn with_read_options(&self, read_options: ConfigReadOptions) -> Self {
         let mut config = self.clone();
@@ -2154,11 +2153,8 @@ impl Config {
             return Ok(JsonValue::Null);
         }
 
-        let mut value = utils::property_to_json_value(
-            property,
-            key,
-            self.read_options(),
-        )?;
+        let mut value =
+            utils::property_to_json_value(property, key, self.read_options())?;
         utils::substitute_json_strings_with_fallback(
             &mut value, key, self, self,
         )?;

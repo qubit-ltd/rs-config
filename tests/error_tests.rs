@@ -156,16 +156,16 @@ fn test_remaining_error_messages() {
             path: "service.url".to_string(),
             message: "missing".to_string(),
         }
-            .to_string()
-            .contains("missing")
+        .to_string()
+        .contains("missing")
     );
     assert!(
         ConfigError::SubstitutionDepthExceeded {
             path: "service.url".to_string(),
             max_depth: 16,
         }
-            .to_string()
-            .contains("16")
+        .to_string()
+        .contains("16")
     );
     assert!(
         ConfigError::SubstitutionCycle {
