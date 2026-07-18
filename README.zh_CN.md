@@ -3,9 +3,9 @@
 [![Rust CI](https://github.com/qubit-ltd/rs-config/actions/workflows/ci.yml/badge.svg)](https://github.com/qubit-ltd/rs-config/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/endpoint?url=https://qubit-ltd.github.io/rs-config/coverage-badge.json)](https://qubit-ltd.github.io/rs-config/coverage/)
 [![Crates.io](https://img.shields.io/crates/v/qubit-config.svg?color=blue)](https://crates.io/crates/qubit-config)
-[![Rust](https://img.shields.io/badge/rust-1.94%2B-blue.svg?logo=rust)](https://www.rust-lang.org)
+[![Rust](https://img.shields.io/badge/rust-1.94+-blue.svg?logo=rust)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![English Doc](https://img.shields.io/badge/doc-English-blue.svg)](README.md)
+[![English Document](https://img.shields.io/badge/Document-English-blue.svg)](README.md)
 
 一个功能强大、类型安全的 Rust 配置管理系统，提供灵活的配置管理，支持多种数据类型、变量替换、多值属性，以及可插拔的**配置来源（config source）**（文件、环境变量与组合源）。
 
@@ -24,6 +24,8 @@
 - ✅ **只读访问（ConfigReader）** - [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) trait 提供无需修改配置的泛型读取；[`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) 与 [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html) 均实现该 trait，并包含字符串辅助方法、多 key 读取和字段声明读取
 - ✅ **可配置解析** - [`ConfigReadOptions`](https://docs.rs/qubit-config/latest/qubit_config/options/struct.ConfigReadOptions.html) 可在全局或单个字段上控制字符串 trim、空白值处理、布尔字面量和标量字符串拆分列表
 - ✅ **严格 section（ConfigSection）** - [`Config::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.section) 返回严格相对键视图；可通过 [`ConfigSection::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html#method.section) 继续嵌套
+- ✅ **安全诊断** - `Debug` 输出保留配置项元数据，并通过 `qubit-sanitize` 脱敏所有存储值
+- ✅ **结构化错误** - [`ConfigError::kind`](https://docs.rs/qubit-config/latest/qubit_config/enum.ConfigError.html#method.kind) 与 [`ConfigError::path`](https://docs.rs/qubit-config/latest/qubit_config/enum.ConfigError.html#method.path) 提供稳定的机器可读上下文，下游无需穷举错误变体
 - ✅ **高效核心表示** - 核心值使用枚举表示，并通过 staged source loading 控制合并成本；可插拔 source 在需要动态组合时仍可使用 trait object
 
 ## 安装
@@ -169,6 +171,9 @@ let paths = config.get_any_or::<Vec<String>>(
 
 [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html) 是 `Config` 的零拷贝、严格相对视图。通过 [`Config::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.section) 创建；所有键都在 section 路径下解析，例如 section `db` 中的键 `host` 对应 `db.host`。恰好位于 `db` 的标量不属于该 section，只有 `db.host` 等后代可见。使用 [`ConfigSection::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html#method.section) 可继续创建嵌套 section。
 
+判断点分 section 是否存在时使用 `contains_section("db")`。只有明确需要原始字符
+前缀匹配时才使用 `contains_key_prefix("db")`；后者也会匹配 `db2` 等同名前缀键。
+
 ```rust
 use qubit_config::{Config, ConfigReader};
 
@@ -190,6 +195,7 @@ let port: i32 = db.get("port")?;
 | `StringReadOptions` | 字符串 trim，以及空白字符串的处理方式：保留、当作缺失、或拒绝。 |
 | `BooleanReadOptions` | 可接受的布尔字面量和大小写敏感性。 |
 | `CollectionReadOptions` | 是否把标量字符串拆成列表、分隔符、元素 trim，以及空元素策略。 |
+| 数值与 Duration 转换 | 默认采用精确转换。Duration 转文本会遵循配置的输出单位；除非显式选择 `NumericConversionPolicy::Lossy`，否则拒绝隐式舍入。 |
 | 环境变量替换 | 未解析的 `${...}` 占位符是否可以回退读取进程环境变量。默认关闭。 |
 
 `ConfigReadOptions::env_friendly()` 适合环境变量风格配置：会 trim 字符串，把空白标量字符串当作缺失，布尔值接受 `true/false`、`1/0`、`yes/no`、`on/off`，并在读取 `Vec<T>` 时按逗号拆分标量字符串、跳过空元素。
@@ -563,6 +569,7 @@ let server = Server {
 配置系统使用 `ConfigResult<T>` 类型进行错误处理：
 
 ```rust
+#[non_exhaustive]
 pub enum ConfigError {
     PropertyNotFound(String),           // 配置项不存在
     PropertyHasNoValue(String),         // 配置项没有值
@@ -572,9 +579,10 @@ pub enum ConfigError {
         source_index: Option<usize>,
         source: DataConversionError,
     },
-    SubstitutionError(String),          // 变量替换失败
-    SubstitutionDepthExceeded(usize),   // 变量替换深度超限
-    SubstitutionCycle { chain: Vec<String> }, // 检测到变量替换环
+    ValueError { key: String, source: ValueError },
+    SubstitutionError { path: String, message: String },
+    SubstitutionDepthExceeded { path: String, max_depth: usize },
+    SubstitutionCycle { path: String, chain: Vec<String> },
     MergeError(String),                 // 配置合并失败
     PropertyIsFinal(String),            // 配置项是最终的，不能被覆盖
     KeyConflict { path: String, existing: String, incoming: String }, // key 结构有歧义
@@ -585,6 +593,10 @@ pub enum ConfigError {
 }
 ```
 
+下游应通过 `ConfigError::kind()` 分支，并通过 `ConfigError::path()` 获取可选的
+key 上下文。把值层错误转换为配置错误时，必须使用
+`ConfigError::from((path, value_error))` 显式提供 key；不再支持无路径转换。
+
 ## 性能考虑
 
 - **枚举值存储** - 核心配置值使用枚举表示，便于稳定地存储和转换
@@ -592,30 +604,15 @@ pub enum ConfigError {
 - **高效存储** - 配置项使用 `HashMap` 存储，查找时间复杂度 O(1)
 - **分阶段 source 加载** - 内置 source 在 composite 和 merge 路径中直接写入已 staged 的 `Config`，保留事务语义，同时避免重复整份配置克隆
 
-## 测试
-
-运行测试套件：
-
-```bash
-cargo test
-```
-
-运行代码覆盖率测试：
-
-```bash
-./coverage.sh
-```
-
 ## 文档
 
 详细的 API 文档请访问 [docs.rs/qubit-config](https://docs.rs/qubit-config)。
-
-内部设计文档请参阅 [src/README.md](src/README.md)。
 
 ## 依赖项
 
 - `qubit-datatype` - 核心工具和数据类型定义
 - `qubit-value` - 值处理框架
+- `qubit-sanitize` - 配置诊断的固定标记脱敏工具
 - `serde` - 序列化框架
 - `regex` - 正则表达式支持
 - `chrono`、`url`、`num-bigint`、`bigdecimal` - 各自同名原子 feature 下的可选富类型支持
@@ -632,30 +629,36 @@ cargo test
 - [ ] 支持配置加密
 - [ ] 提供线程安全的包装类型 `SyncConfig`
 
-## 贡献
+## 测试
 
-欢迎贡献！请随时提交 Pull Request。
+```bash
+# 使用默认 feature 集运行测试
+cargo test
+
+# 使用项目声明的全部 feature 运行测试
+cargo test --all-features
+
+# 运行项目 CI 检查
+./ci-check.sh
+
+# 检查代码覆盖率
+./coverage.sh
+```
 
 ## 许可证
 
-Copyright (c) 2025 - 2026. Haixing Hu, Qubit Co. Ltd. All rights reserved.
+Copyright (c) 2025 - 2026. Haixing Hu. All rights reserved.
 
-根据 Apache 许可证 2.0 版（"许可证"）授权；
-除非遵守许可证，否则您不得使用此文件。
-您可以在以下位置获取许可证副本：
+本项目基于 Apache License 2.0 授权。完整许可证文本请参阅
+[LICENSE](LICENSE)。
 
-    http://www.apache.org/licenses/LICENSE-2.0
+## 贡献
 
-除非适用法律要求或书面同意，否则根据许可证分发的软件
-按"原样"分发，不附带任何明示或暗示的担保或条件。
-有关许可证下的特定语言管理权限和限制，请参阅许可证。
-
-完整的许可证文本请参阅 [LICENSE](LICENSE)。
+欢迎贡献。请遵循 Rust API 指南，及时更新公共 API 文档与测试，并在提交
+Pull Request 前运行 `./align-ci.sh`格式化代码，运行`./ci-check.sh`对齐CI要求。
 
 ## 作者
 
-**胡海星** - *Qubit Co. Ltd.*
+**Haixing Hu** - *Qubit Co. Ltd.*
 
----
-
-有关 Qubit Rust 库的更多信息，请访问我们的 [GitHub 组织](https://github.com/qubit-ltd)。
+仓库地址：[https://github.com/qubit-ltd/rs-config](https://github.com/qubit-ltd/rs-config)
