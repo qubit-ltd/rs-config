@@ -59,6 +59,7 @@ serde_norway = { version = "0.9", optional = true }
 dotenvy = { version = "0.15", optional = true }
 
 qubit-datatype = { path = "../rs-datatype", version = "0.7", features = ["converter"] }
+qubit-sanitize = { path = "../rs-sanitize", version = "0.3", default-features = false }
 qubit-value = { path = "../rs-value", version = "0.10", default-features = false, features = ["converter", "json"] }
 
 [dev-dependencies]

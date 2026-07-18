@@ -2,6 +2,8 @@
 //    Copyright (c) 2025 - 2026 Haixing Hu.
 //
 //    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
 use std::error::Error;
@@ -84,25 +86,30 @@ fn test_data_conversion_error_keeps_structure() {
 }
 
 #[test]
-fn test_value_error_without_key() {
-    let error = ConfigError::from(ValueError::TypeMismatch {
-        expected: DataType::Int32,
-        actual: DataType::String,
-    });
+fn test_value_error_requires_key_context() {
+    let error = ConfigError::from((
+        "server.port",
+        ValueError::TypeMismatch {
+            expected: DataType::Int32,
+            actual: DataType::String,
+        },
+    ));
     assert!(matches!(
         error,
-        ConfigError::TypeMismatch { key, .. } if key.is_empty()
+        ConfigError::TypeMismatch { key, .. } if key == "server.port"
     ));
 
-    let error =
-        ConfigError::from(ValueError::DataConversion(invalid_integer()));
+    let error = ConfigError::from((
+        "server.port",
+        ValueError::DataConversion(invalid_integer()),
+    ));
     assert!(matches!(
         error,
         ConfigError::ConversionError {
             key,
             source_index: None,
             ..
-        } if key.is_empty()
+        } if key == "server.port"
     ));
 }
 
@@ -145,17 +152,24 @@ fn test_keyed_value_error_variants() {
 #[test]
 fn test_remaining_error_messages() {
     assert!(
-        ConfigError::SubstitutionError("missing".to_string())
+        ConfigError::SubstitutionError {
+            path: "service.url".to_string(),
+            message: "missing".to_string(),
+        }
             .to_string()
             .contains("missing")
     );
     assert!(
-        ConfigError::SubstitutionDepthExceeded(16)
+        ConfigError::SubstitutionDepthExceeded {
+            path: "service.url".to_string(),
+            max_depth: 16,
+        }
             .to_string()
             .contains("16")
     );
     assert!(
         ConfigError::SubstitutionCycle {
+            path: "service.url".to_string(),
             chain: vec!["a".to_string(), "b".to_string(), "a".to_string()],
         }
         .to_string()

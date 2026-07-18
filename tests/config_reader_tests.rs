@@ -242,7 +242,7 @@ mod test_config_reader {
             <ConfigSection<'_> as ConfigReader>::get_list(&view, "timeout")
                 .unwrap();
         assert_eq!(timeout_list, vec![30]);
-        assert!(<ConfigSection<'_> as ConfigReader>::contains_prefix(
+        assert!(<ConfigSection<'_> as ConfigReader>::contains_key_prefix(
             &view, "na"
         ));
         let keys: Vec<&str> =
@@ -368,7 +368,7 @@ mod test_config_reader {
 
         let reader = &config;
         assert!(<Config as ConfigReader>::contains(reader, "db.host"));
-        assert!(<Config as ConfigReader>::contains_prefix(reader, "db."));
+        assert!(<Config as ConfigReader>::contains_key_prefix(reader, "db."));
         let host: String =
             <Config as ConfigReader>::get(reader, "db.host").unwrap();
         let port_list: Vec<i32> =

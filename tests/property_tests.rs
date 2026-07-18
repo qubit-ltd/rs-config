@@ -1720,9 +1720,9 @@ fn test_property_debug_format() {
 
     let debug_str = format!("{:?}", prop);
     assert!(debug_str.contains("test.property"));
-    assert!(debug_str.contains("Int32"));
-    assert!(debug_str.contains("42"));
-    assert!(debug_str.contains("43"));
+    assert!(debug_str.contains("<redacted>"));
+    assert!(!debug_str.contains("42"));
+    assert!(!debug_str.contains("43"));
 }
 
 #[test]

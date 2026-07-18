@@ -142,8 +142,9 @@ fn is_effectively_missing_by<R: ConfigReader + ?Sized>(
     let Some(value) = first_scalar_string(property) else {
         return Ok(false);
     };
-    let substitute =
-        |value: &str| substitute_for_reader(reader, value, apply_substitution);
+    let substitute = |value: &str| {
+        substitute_for_reader(reader, name, value, apply_substitution)
+    };
     let ctx = ConfigParseContext::new(name, options, &substitute);
     let value = ctx.substitute_string(value)?;
     match options.conversion_options().string.normalize(&value) {
@@ -165,8 +166,9 @@ where
     R: ConfigReader + ?Sized,
     T: FromConfig,
 {
-    let substitute =
-        |value: &str| substitute_for_reader(reader, value, apply_substitution);
+    let substitute = |value: &str| {
+        substitute_for_reader(reader, name, value, apply_substitution)
+    };
     let ctx = ConfigParseContext::new(name, options, &substitute);
     T::from_config(property, &ctx)
 }
@@ -174,6 +176,7 @@ where
 /// Applies variable substitution for explicit string reads.
 fn substitute_for_reader<R: ConfigReader + ?Sized>(
     reader: &R,
+    path: &str,
     value: &str,
     apply_substitution: bool,
 ) -> ConfigResult<String> {
@@ -182,6 +185,7 @@ fn substitute_for_reader<R: ConfigReader + ?Sized>(
             value,
             reader,
             reader.max_substitution_depth(),
+            path,
         )
     } else {
         no_substitution(value)

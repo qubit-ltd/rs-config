@@ -1391,7 +1391,10 @@ mod test_add {
         config.set("test", "string").unwrap();
         let result = config.add("test", 42);
         assert!(result.is_err());
-        assert!(matches!(result, Err(ConfigError::TypeMismatch { .. })));
+        assert!(matches!(
+            result,
+            Err(ConfigError::TypeMismatch { key, .. }) if key == "test"
+        ));
     }
 }
 
@@ -1972,21 +1975,21 @@ mod test_contains_prefix {
     #[test]
     fn test_contains_prefix_empty_config() {
         let config = Config::new();
-        assert!(!config.contains_prefix("http."));
+        assert!(!config.contains_key_prefix("http."));
     }
 
     #[test]
     fn test_contains_prefix_match() {
         let mut config = Config::new();
         config.set("http.host", "localhost").unwrap();
-        assert!(config.contains_prefix("http."));
+        assert!(config.contains_key_prefix("http."));
     }
 
     #[test]
     fn test_contains_prefix_no_match() {
         let mut config = Config::new();
         config.set("db.host", "dbhost").unwrap();
-        assert!(!config.contains_prefix("http."));
+        assert!(!config.contains_key_prefix("http."));
     }
 
     #[test]
@@ -1994,9 +1997,9 @@ mod test_contains_prefix {
         let mut config = Config::new();
         config.set("http.host", "localhost").unwrap();
         // "http" is a prefix of "http.host"
-        assert!(config.contains_prefix("http"));
+        assert!(config.contains_key_prefix("http"));
         // "htt" is also a prefix
-        assert!(config.contains_prefix("htt"));
+        assert!(config.contains_key_prefix("htt"));
     }
 
     #[test]
@@ -2004,7 +2007,32 @@ mod test_contains_prefix {
         let mut config = Config::new();
         config.set("host", "localhost").unwrap();
         // Empty string is a prefix of everything
-        assert!(config.contains_prefix(""));
+        assert!(config.contains_key_prefix(""));
+    }
+
+    #[test]
+    fn test_contains_section_uses_dotted_key_boundary() {
+        let mut config = Config::new();
+        config.set("proxy", "scalar").unwrap();
+        config.set("proxy2.host", "sibling").unwrap();
+
+        assert!(!config.contains_section("proxy"));
+
+        config.set("proxy.host", "localhost").unwrap();
+        assert!(config.contains_section("proxy"));
+    }
+
+    #[test]
+    fn test_section_contains_section_uses_relative_boundary() {
+        let mut config = Config::new();
+        config.set("http.proxy2.host", "sibling").unwrap();
+        let http = config.section("http");
+
+        assert!(!http.contains_section("proxy"));
+
+        config.set("http.proxy.host", "localhost").unwrap();
+        let http = config.section("http");
+        assert!(http.contains_section("proxy"));
     }
 }
 
@@ -2040,6 +2068,21 @@ mod test_subconfig {
         assert!(sub.contains("port"));
         assert!(!sub.contains("db.host"));
         assert!(!sub.contains("http.host"));
+        assert_eq!(sub.get_property("host").unwrap().name(), "host");
+    }
+
+    #[test]
+    fn test_deserialize_rejects_property_name_map_key_mismatch() {
+        let mut config = Config::new();
+        config.set("http.host", "localhost").unwrap();
+        let mut json = serde_json::to_value(config).unwrap();
+        json["properties"]["http.host"]["name"] =
+            serde_json::json!("http.other");
+
+        let error = serde_json::from_value::<Config>(json).unwrap_err();
+
+        assert!(error.to_string().contains("http.host"));
+        assert!(error.to_string().contains("http.other"));
     }
 
     #[test]
@@ -2496,7 +2539,10 @@ mod test_get_optional_string {
             )
             .unwrap();
         let result = config.get_optional_string("bad");
-        assert!(matches!(result, Err(ConfigError::SubstitutionError(_))));
+        assert!(matches!(
+            result,
+            Err(ConfigError::SubstitutionError { path, .. }) if path == "bad"
+        ));
     }
 
     #[test]
@@ -2508,7 +2554,10 @@ mod test_get_optional_string {
         let result = config.get_optional_string("b");
         assert!(matches!(
             result,
-            Err(ConfigError::SubstitutionDepthExceeded(0))
+            Err(ConfigError::SubstitutionDepthExceeded {
+                path,
+                max_depth: 0,
+            }) if path == "b"
         ));
     }
 
@@ -2604,7 +2653,11 @@ mod test_get_optional_string {
             )
             .unwrap();
         let result = config.get_optional_string_list("items");
-        assert!(matches!(result, Err(ConfigError::SubstitutionError(_))));
+        assert!(matches!(
+            result,
+            Err(ConfigError::SubstitutionError { path, .. })
+                if path == "items"
+        ));
     }
 
     #[test]
@@ -2616,7 +2669,10 @@ mod test_get_optional_string {
         let result = config.get_optional_string_list("items");
         assert!(matches!(
             result,
-            Err(ConfigError::SubstitutionDepthExceeded(0))
+            Err(ConfigError::SubstitutionDepthExceeded {
+                path,
+                max_depth: 0,
+            }) if path == "items"
         ));
     }
 }
@@ -2747,21 +2803,20 @@ mod test_enhanced_errors {
     }
 
     #[test]
-    fn test_type_mismatch_from_value_error_has_empty_key() {
+    fn test_type_mismatch_from_value_error_requires_explicit_key() {
         use qubit_value::ValueError;
-        // ValueError::TypeMismatch → ConfigError::TypeMismatch with empty key
         let ve = ValueError::TypeMismatch {
             expected: DataType::Int32,
             actual: DataType::String,
         };
-        let ce: ConfigError = ve.into();
+        let ce = ConfigError::from(("typed.value", ve));
         match ce {
             ConfigError::TypeMismatch {
                 key,
                 expected,
                 actual,
             } => {
-                assert_eq!(key, "");
+                assert_eq!(key, "typed.value");
                 assert_eq!(expected, DataType::Int32);
                 assert_eq!(actual, DataType::String);
             }
@@ -2783,7 +2838,7 @@ mod test_enhanced_errors {
     }
 
     #[test]
-    fn test_conversion_error_from_value_error_has_empty_key() {
+    fn test_conversion_error_from_value_error_requires_explicit_key() {
         use qubit_value::ValueError;
         let ve = ValueError::DataConversion(
             qubit_datatype::DataConversionError::invalid(
@@ -2792,10 +2847,10 @@ mod test_enhanced_errors {
                 qubit_datatype::InvalidValueReason::OutOfRange,
             ),
         );
-        let ce: ConfigError = ve.into();
+        let ce = ConfigError::from(("converted.value", ve));
         match ce {
             ConfigError::ConversionError { key, source, .. } => {
-                assert_eq!(key, "");
+                assert_eq!(key, "converted.value");
                 assert_eq!(
                     source.kind(),
                     qubit_datatype::DataConversionErrorKind::InvalidValue,
@@ -2806,7 +2861,7 @@ mod test_enhanced_errors {
     }
 
     #[test]
-    fn test_conversion_failed_from_value_error_has_empty_key() {
+    fn test_conversion_failed_from_value_error_requires_explicit_key() {
         use qubit_value::ValueError;
         let ve = ValueError::DataConversion(
             qubit_datatype::DataConversionError::unsupported(
@@ -2814,10 +2869,10 @@ mod test_enhanced_errors {
                 DataType::Int32,
             ),
         );
-        let ce: ConfigError = ve.into();
+        let ce = ConfigError::from(("unsupported.value", ve));
         match ce {
             ConfigError::ConversionError { key, source, .. } => {
-                assert_eq!(key, "");
+                assert_eq!(key, "unsupported.value");
                 assert_eq!(
                     source.kind(),
                     qubit_datatype::DataConversionErrorKind::Unsupported,
@@ -3306,8 +3361,8 @@ mod test_subconfig_deserialize_integration {
         config.set("module.a.y", 2).unwrap();
         config.set("module.b.x", 3).unwrap();
 
-        assert!(config.contains_prefix("module.a."));
-        assert!(config.contains_prefix("module.b."));
+        assert!(config.contains_key_prefix("module.a."));
+        assert!(config.contains_key_prefix("module.b."));
 
         let sub_a = config.subconfig("module.a", true).unwrap();
         assert_eq!(sub_a.get::<i32>("x").unwrap(), 1);

@@ -183,7 +183,9 @@ impl<'a> ConfigPropertyMut<'a> {
         S: Into<ValueContainer>,
     {
         self.ensure_not_final()?;
-        self.property.add(values).map_err(ConfigError::from)
+        self.property
+            .add(values)
+            .map_err(|error| ConfigError::from((self.property.name(), error)))
     }
 
     /// Clears the property value when the property is not final.

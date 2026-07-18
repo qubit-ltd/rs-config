@@ -64,3 +64,17 @@ fn test_config_property_mut_rejects_mutation_after_marking_final() {
     }
     assert_eq!(config.get_string("server.host").unwrap(), "localhost");
 }
+
+#[test]
+fn test_config_property_mut_add_reports_property_path() {
+    let mut config = Config::new();
+    config.set("server.port", 8080_i32).unwrap();
+    let mut property = config.get_property_mut("server.port").unwrap().unwrap();
+
+    let error = property.add("invalid").unwrap_err();
+
+    assert!(matches!(
+        error,
+        ConfigError::TypeMismatch { key, .. } if key == "server.port"
+    ));
+}

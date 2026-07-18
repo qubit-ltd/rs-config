@@ -10,6 +10,7 @@
 //! Provides configuration-related utility functions, such as variable
 //! substitution and JSON map construction for [`crate::Config::deserialize`].
 
+use qubit_value::ValueError;
 use regex::Regex;
 use serde_json::map::Entry;
 use serde_json::{
@@ -20,33 +21,18 @@ use serde_json::{
 use std::collections::HashSet;
 use std::sync::OnceLock;
 
-use qubit_datatype::DataConversionOptions;
-use qubit_value::ValueError;
-
 use super::{
     ConfigError,
     ConfigReader,
     ConfigResult,
     Property,
+    options::ConfigReadOptions,
 };
 
 /// Regular expression pattern for variables
 ///
 /// Matches variables in `${variable_name}` format
 static VARIABLE_PATTERN: OnceLock<Regex> = OnceLock::new();
-
-/// Conversion policy used when projecting properties for deserialization.
-static PROPERTY_JSON_OPTIONS: OnceLock<DataConversionOptions> = OnceLock::new();
-
-/// Returns the explicit lossy policy retained by configuration deserialization.
-///
-/// # Returns
-///
-/// Shared options that permit duration unit rounding.
-#[inline]
-fn property_json_options() -> &'static DataConversionOptions {
-    PROPERTY_JSON_OPTIONS.get_or_init(DataConversionOptions::lossy)
-}
 
 /// Gets the regular expression pattern for variables
 #[inline]
@@ -144,9 +130,10 @@ pub(crate) fn substitute_variables<R: ConfigReader + ?Sized>(
     value: &str,
     config: &R,
     max_depth: usize,
+    path: &str,
 ) -> ConfigResult<String> {
-    substitute_variables_by(value, max_depth, |var_name| {
-        find_variable_value(var_name, config)
+    substitute_variables_by(value, max_depth, path, |var_name| {
+        find_variable_value(var_name, config, path)
     })
 }
 
@@ -164,9 +151,10 @@ pub(crate) fn substitute_variables_with_fallback<
     primary: &P,
     fallback: &F,
     max_depth: usize,
+    path: &str,
 ) -> ConfigResult<String> {
-    substitute_variables_by(value, max_depth, |var_name| {
-        find_variable_value_with_fallback(var_name, primary, fallback)
+    substitute_variables_by(value, max_depth, path, |var_name| {
+        find_variable_value_with_fallback(var_name, primary, fallback, path)
     })
 }
 
@@ -174,6 +162,7 @@ pub(crate) fn substitute_variables_with_fallback<
 fn substitute_variables_by(
     value: &str,
     max_depth: usize,
+    path: &str,
     mut resolve: impl FnMut(&str) -> ConfigResult<String>,
 ) -> ConfigResult<String> {
     let pattern = get_variable_pattern();
@@ -181,6 +170,7 @@ fn substitute_variables_by(
     substitute_variables_recursive(
         value,
         max_depth,
+        path,
         pattern,
         &mut stack,
         &mut resolve,
@@ -191,6 +181,7 @@ fn substitute_variables_by(
 fn substitute_variables_recursive(
     value: &str,
     max_depth: usize,
+    path: &str,
     pattern: &Regex,
     stack: &mut Vec<String>,
     resolve: &mut impl FnMut(&str) -> ConfigResult<String>,
@@ -199,7 +190,10 @@ fn substitute_variables_recursive(
         return Ok(value.to_string());
     }
     if stack.len() >= max_depth {
-        return Err(ConfigError::SubstitutionDepthExceeded(max_depth));
+        return Err(ConfigError::SubstitutionDepthExceeded {
+            path: path.to_string(),
+            max_depth,
+        });
     }
 
     let mut result = String::with_capacity(value.len());
@@ -214,13 +208,16 @@ fn substitute_variables_recursive(
         if let Some(index) = stack.iter().position(|name| name == var_name) {
             let mut chain = stack[index..].to_vec();
             chain.push(var_name.to_string());
-            return Err(ConfigError::SubstitutionCycle { chain });
+            return Err(ConfigError::SubstitutionCycle {
+                path: path.to_string(),
+                chain,
+            });
         }
 
         stack.push(var_name.to_string());
         let raw_value = resolve(var_name)?;
         let expanded = substitute_variables_recursive(
-            &raw_value, max_depth, pattern, stack, resolve,
+            &raw_value, max_depth, path, pattern, stack, resolve,
         )?;
         stack.pop();
         result.push_str(&expanded);
@@ -247,6 +244,7 @@ fn substitute_variables_recursive(
 fn find_variable_value<R: ConfigReader + ?Sized>(
     var_name: &str,
     config: &R,
+    path: &str,
 ) -> ConfigResult<String> {
     match config.get_property(var_name) {
         Some(property) if !property.is_unset() => {
@@ -259,16 +257,18 @@ fn find_variable_value<R: ConfigReader + ?Sized>(
             if config.read_options().is_env_variable_substitution_enabled() =>
         {
             std::env::var(var_name).map_err(|_| {
-                ConfigError::SubstitutionError(format!(
-                    "Cannot resolve variable: {}",
-                    var_name
-                ))
+                ConfigError::SubstitutionError {
+                    path: path.to_string(),
+                    message: format!("Cannot resolve variable: {var_name}"),
+                }
             })
         }
-        Some(_) | None => Err(ConfigError::SubstitutionError(format!(
-            "Cannot resolve variable from config: {}",
-            var_name
-        ))),
+        Some(_) | None => Err(ConfigError::SubstitutionError {
+            path: path.to_string(),
+            message: format!(
+                "Cannot resolve variable from config: {var_name}"
+            ),
+        }),
     }
 }
 
@@ -284,6 +284,7 @@ fn find_variable_value_with_fallback<
     var_name: &str,
     primary: &P,
     fallback: &F,
+    path: &str,
 ) -> ConfigResult<String> {
     match primary.get_property(var_name) {
         Some(property) if !property.is_unset() => {
@@ -292,7 +293,7 @@ fn find_variable_value_with_fallback<
                 Err(error) => Err(map_value_error(var_name, error)),
             }
         }
-        Some(_) | None => find_variable_value(var_name, fallback),
+        Some(_) | None => find_variable_value(var_name, fallback, path),
     }
 }
 
@@ -406,6 +407,8 @@ fn json_value_kind(value: &Value) -> &'static str {
 /// # Parameters
 ///
 /// * `prop` - Source property.
+/// * `path` - Absolute configuration path used for error context.
+/// * `options` - Active read and conversion options.
 ///
 /// # Returns
 ///
@@ -415,10 +418,14 @@ fn json_value_kind(value: &Value) -> &'static str {
 ///
 /// Returns a keyed conversion error when the property cannot be represented
 /// by JSON, including non-finite floating-point values.
-pub(crate) fn property_to_json_value(prop: &Property) -> ConfigResult<Value> {
+pub(crate) fn property_to_json_value(
+    prop: &Property,
+    path: &str,
+    options: &ConfigReadOptions,
+) -> ConfigResult<Value> {
     prop.value()
-        .to_json_value_with(property_json_options())
-        .map_err(|error| map_value_error(prop.name(), error))
+        .to_json_value_with(options.conversion_options())
+        .map_err(|error| map_value_error(path, error))
 }
 
 /// Applies variable substitution to every JSON string leaf with fallback scope.
@@ -430,6 +437,7 @@ pub(crate) fn substitute_json_strings_with_fallback<
     F: ConfigReader + ?Sized,
 >(
     value: &mut Value,
+    path: &str,
     primary: &P,
     fallback: &F,
 ) -> ConfigResult<()> {
@@ -444,19 +452,20 @@ pub(crate) fn substitute_json_strings_with_fallback<
                 primary,
                 fallback,
                 primary.max_substitution_depth(),
+                path,
             )?;
         }
         Value::Array(values) => {
             for value in values {
                 substitute_json_strings_with_fallback(
-                    value, primary, fallback,
+                    value, path, primary, fallback,
                 )?;
             }
         }
         Value::Object(map) => {
             for value in map.values_mut() {
                 substitute_json_strings_with_fallback(
-                    value, primary, fallback,
+                    value, path, primary, fallback,
                 )?;
             }
         }

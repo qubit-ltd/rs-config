@@ -11,6 +11,8 @@
 
 #![allow(private_bounds)]
 
+mod internal;
+
 use serde::de::DeserializeOwned;
 use serde::{
     Deserialize,
@@ -23,6 +25,7 @@ use serde_json::{
 use std::collections::HashMap;
 use std::path::Path;
 
+use self::internal::ConfigSerdeRepr;
 use crate::ConfigPropertyMut;
 use crate::config_reader::ConfigReader;
 use crate::config_section::ConfigSection;
@@ -103,6 +106,7 @@ fn scalar_string_is_missing_for_deserialize(
             primary,
             fallback,
             primary.max_substitution_depth(),
+            key,
         )?
     } else {
         value.to_string()
@@ -162,7 +166,9 @@ fn scalar_string_is_missing_for_deserialize(
 /// // Read configuration value or use default
 /// let timeout: f64 = config.get_or("timeout", 30.0).unwrap();
 /// ```
+#[must_use]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(try_from = "ConfigSerdeRepr")]
 pub struct Config {
     /// Configuration description
     description: Option<String>,
@@ -175,6 +181,44 @@ pub struct Config {
     /// Runtime read parsing options
     #[serde(default)]
     read_options: ConfigReadOptions,
+}
+
+impl TryFrom<ConfigSerdeRepr> for Config {
+    type Error = String;
+
+    /// Builds a configuration only when every map key matches its property.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - Deserialized wire representation to validate.
+    ///
+    /// # Returns
+    ///
+    /// A configuration whose property-name invariant is satisfied.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error naming the first mismatched map key and property name.
+    fn try_from(value: ConfigSerdeRepr) -> Result<Self, Self::Error> {
+        if let Some((key, property)) = value
+            .properties
+            .iter()
+            .filter(|(key, property)| key.as_str() != property.name())
+            .min_by_key(|(key, _)| *key)
+        {
+            return Err(format!(
+                "configuration map key '{key}' does not match property name '{}'",
+                property.name(),
+            ));
+        }
+        Ok(Self {
+            description: value.description,
+            properties: value.properties,
+            enable_variable_substitution: value.enable_variable_substitution,
+            max_substitution_depth: value.max_substitution_depth,
+            read_options: value.read_options,
+        })
+    }
 }
 
 impl Config {
@@ -434,7 +478,7 @@ impl Config {
     /// # Returns
     ///
     /// Returns the configuration description as Option
-    #[inline]
+    #[inline(always)]
     pub fn description(&self) -> Option<&str> {
         self.description.as_deref()
     }
@@ -448,7 +492,7 @@ impl Config {
     /// # Returns
     ///
     /// Nothing.
-    #[inline]
+    #[inline(always)]
     pub fn set_description(&mut self, description: Option<String>) {
         self.description = description;
     }
@@ -458,7 +502,7 @@ impl Config {
     /// # Returns
     ///
     /// Returns `true` if variable substitution is enabled
-    #[inline]
+    #[inline(always)]
     pub fn is_enable_variable_substitution(&self) -> bool {
         self.enable_variable_substitution
     }
@@ -472,7 +516,7 @@ impl Config {
     /// # Returns
     ///
     /// Nothing.
-    #[inline]
+    #[inline(always)]
     pub fn set_enable_variable_substitution(&mut self, enable: bool) {
         self.enable_variable_substitution = enable;
     }
@@ -482,9 +526,19 @@ impl Config {
     /// # Returns
     ///
     /// Returns the maximum depth value
-    #[inline]
+    #[inline(always)]
     pub fn max_substitution_depth(&self) -> usize {
         self.max_substitution_depth
+    }
+
+    /// Sets the maximum depth for variable substitution.
+    ///
+    /// # Parameters
+    ///
+    /// * `depth` - Maximum depth.
+    #[inline(always)]
+    pub fn set_max_substitution_depth(&mut self, depth: usize) {
+        self.max_substitution_depth = depth;
     }
 
     /// Gets the global read parsing options.
@@ -493,7 +547,7 @@ impl Config {
     ///
     /// The options used by `get`, `get_any`, and field reads when no
     /// field-level override is provided.
-    #[inline]
+    #[inline(always)]
     pub fn read_options(&self) -> &ConfigReadOptions {
         &self.read_options
     }
@@ -507,7 +561,7 @@ impl Config {
     /// # Returns
     ///
     /// Mutable reference to this configuration for chaining.
-    #[inline]
+    #[inline(always)]
     pub fn set_read_options(
         &mut self,
         read_options: ConfigReadOptions,
@@ -526,6 +580,7 @@ impl Config {
     ///
     /// A cloned [`Config`] using `read_options`.
     #[must_use]
+    #[inline]
     pub fn with_read_options(&self, read_options: ConfigReadOptions) -> Self {
         let mut config = self.clone();
         config.read_options = read_options;
@@ -545,23 +600,9 @@ impl Config {
     /// # Returns
     ///
     /// A section borrowing this configuration.
-    #[inline]
+    #[inline(always)]
     pub fn section(&self, path: &str) -> ConfigSection<'_> {
         ConfigSection::new(self, path)
-    }
-
-    /// Sets the maximum depth for variable substitution
-    ///
-    /// # Parameters
-    ///
-    /// * `depth` - Maximum depth
-    ///
-    /// # Returns
-    ///
-    /// Nothing.
-    #[inline]
-    pub fn set_max_substitution_depth(&mut self, depth: usize) {
-        self.max_substitution_depth = depth;
     }
 
     // ========================================================================
@@ -767,56 +808,6 @@ impl Config {
     /// ```
     pub fn keys(&self) -> Vec<String> {
         self.properties.keys().cloned().collect()
-    }
-
-    /// Looks up a property by key for internal read paths.
-    ///
-    /// # Parameters
-    ///
-    /// * `name` - Configuration key
-    ///
-    /// # Returns
-    ///
-    /// `Ok(&Property)` if the key exists, or [`ConfigError::PropertyNotFound`]
-    /// otherwise.
-    #[inline]
-    fn get_property_by_name(&self, name: &str) -> ConfigResult<&Property> {
-        self.properties
-            .get(name)
-            .ok_or_else(|| ConfigError::PropertyNotFound(name.to_string()))
-    }
-
-    /// Ensures the entry for `name` is not marked final before a write.
-    ///
-    /// Missing keys are allowed (writes may create them).
-    ///
-    /// # Parameters
-    ///
-    /// * `name` - Configuration key
-    ///
-    /// # Returns
-    ///
-    /// `Ok(())` if the key is absent or not final, or
-    /// [`ConfigError::PropertyIsFinal`] if an existing property is final.
-    #[inline]
-    fn ensure_property_not_final(&self, name: &str) -> ConfigResult<()> {
-        if let Some(prop) = self.properties.get(name)
-            && prop.is_final()
-        {
-            return Err(ConfigError::PropertyIsFinal(name.to_string()));
-        }
-        Ok(())
-    }
-
-    /// Ensures no property is final before a bulk destructive operation.
-    #[inline]
-    fn ensure_no_final_properties(&self) -> ConfigResult<()> {
-        if let Some((name, _)) =
-            self.properties.iter().find(|(_, prop)| prop.is_final())
-        {
-            return Err(ConfigError::PropertyIsFinal(name.clone()));
-        }
-        Ok(())
     }
 
     // ========================================================================
@@ -1254,7 +1245,9 @@ impl Config {
             self.ensure_property_not_final(name)?;
             let value = values.into();
             if let Some(property) = self.properties.get_mut(name) {
-                property.add(value).map_err(ConfigError::from)
+                property
+                    .add(value)
+                    .map_err(|error| ConfigError::from((name, error)))
             } else {
                 self.properties
                     .insert(name.to_string(), Property::new(name, value));
@@ -1568,12 +1561,35 @@ impl Config {
     /// let mut config = Config::new();
     /// config.set("http.host", "localhost").unwrap();
     ///
-    /// assert!(config.contains_prefix("http."));
-    /// assert!(!config.contains_prefix("db."));
+    /// assert!(config.contains_key_prefix("http."));
+    /// assert!(!config.contains_key_prefix("db."));
     /// ```
     #[inline]
-    pub fn contains_prefix(&self, prefix: &str) -> bool {
+    pub fn contains_key_prefix(&self, prefix: &str) -> bool {
         self.properties.keys().any(|k| k.starts_with(prefix))
+    }
+
+    /// Returns whether a dotted configuration section has descendants.
+    ///
+    /// An exact scalar at `path` and sibling names such as `proxy2` do not
+    /// make the `proxy` section present.
+    ///
+    /// # Parameters
+    ///
+    /// * `path` - Dotted section path. Leading and trailing separators are
+    ///   ignored; an empty path represents the root.
+    ///
+    /// # Returns
+    ///
+    /// `true` when at least one descendant key belongs to the section.
+    #[inline]
+    pub fn contains_section(&self, path: &str) -> bool {
+        let path = path.trim_matches('.');
+        if path.is_empty() {
+            return !self.properties.is_empty();
+        }
+        let child_prefix = format!("{path}.");
+        self.contains_key_prefix(&child_prefix)
     }
 
     /// Extracts a sub-configuration for child keys below `prefix`.
@@ -1635,7 +1651,12 @@ impl Config {
                 } else {
                     k.clone()
                 };
-                sub.properties.insert(new_key, v.clone());
+                let property = if strip_prefix {
+                    v.renamed(new_key.clone())
+                } else {
+                    v.clone()
+                };
+                sub.properties.insert(new_key, property);
             }
         }
 
@@ -1929,100 +1950,6 @@ impl Config {
         }
     }
 
-    /// Builds the JSON root consumed by structured serde deserialization.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ConfigError::KeyConflict`] when `prefix` has both an exact
-    /// value and child keys, or when dotted child keys cannot form an
-    /// unambiguous object tree. Returns substitution/conversion errors if
-    /// configured string handling fails before deserialization starts.
-    fn deserialize_root_value(&self, prefix: &str) -> ConfigResult<JsonValue> {
-        if prefix.is_empty() {
-            return self.deserialize_subtree_value(prefix);
-        }
-
-        let exact = self.properties.get(prefix);
-        let has_children =
-            self.properties.keys().any(|key| is_child_key(key, prefix));
-        match (exact, has_children) {
-            (Some(_), true) => Err(ConfigError::KeyConflict {
-                path: prefix.to_string(),
-                existing: "exact value".to_string(),
-                incoming: "nested child keys".to_string(),
-            }),
-            (Some(property), false) => {
-                self.deserialize_exact_value(prefix, property)
-            }
-            (None, _) => self.deserialize_subtree_value(prefix),
-        }
-    }
-
-    /// Builds a JSON value from a single exact property for deserialization.
-    ///
-    /// # Errors
-    ///
-    /// Returns substitution errors when string leaves contain unresolved
-    /// placeholders, or `JsonValue::Null` when the exact property is
-    /// effectively missing under the active read options.
-    fn deserialize_exact_value(
-        &self,
-        key: &str,
-        property: &Property,
-    ) -> ConfigResult<JsonValue> {
-        if scalar_string_is_missing_for_deserialize(
-            self,
-            self,
-            key,
-            property,
-            self.read_options(),
-        )? {
-            return Ok(JsonValue::Null);
-        }
-
-        let mut value = utils::property_to_json_value(property)?;
-        utils::substitute_json_strings_with_fallback(&mut value, self, self)?;
-        Ok(value)
-    }
-
-    /// Builds a JSON object from keys under `prefix` for deserialization.
-    ///
-    /// # Errors
-    ///
-    /// Returns key-conflict errors for ambiguous dotted paths, and propagates
-    /// substitution/conversion errors from active read options.
-    fn deserialize_subtree_value(
-        &self,
-        prefix: &str,
-    ) -> ConfigResult<JsonValue> {
-        let sub = self.subconfig(prefix, true)?;
-
-        let mut properties = sub.properties.iter().collect::<Vec<_>>();
-        properties.sort_by_key(|(left_key, _)| *left_key);
-
-        let mut map = Map::new();
-        for (key, prop) in properties {
-            if scalar_string_is_missing_for_deserialize(
-                &sub,
-                self,
-                key,
-                prop,
-                self.read_options(),
-            )? {
-                continue;
-            }
-
-            let mut json_val = utils::property_to_json_value(prop)?;
-            utils::substitute_json_strings_with_fallback(
-                &mut json_val,
-                &sub,
-                self,
-            )?;
-            utils::insert_deserialize_value(&mut map, key, json_val)?;
-        }
-        Ok(JsonValue::Object(map))
-    }
-
     /// Inserts or replaces a property using an explicit [`Property`] object.
     ///
     /// This method enforces two invariants:
@@ -2095,6 +2022,203 @@ impl Config {
                 ),
             )
         })
+    }
+
+    /// Looks up a property by key for internal read paths.
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Configuration key.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(&Property)` if the key exists, or [`ConfigError::PropertyNotFound`]
+    /// otherwise.
+    #[inline]
+    fn get_property_by_name(&self, name: &str) -> ConfigResult<&Property> {
+        self.properties
+            .get(name)
+            .ok_or_else(|| ConfigError::PropertyNotFound(name.to_string()))
+    }
+
+    /// Ensures the entry for `name` is not marked final before a write.
+    ///
+    /// Missing keys are allowed because writes may create them.
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Configuration key.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if the key is absent or not final.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::PropertyIsFinal`] if an existing property is
+    /// final.
+    #[inline]
+    fn ensure_property_not_final(&self, name: &str) -> ConfigResult<()> {
+        if let Some(prop) = self.properties.get(name)
+            && prop.is_final()
+        {
+            return Err(ConfigError::PropertyIsFinal(name.to_string()));
+        }
+        Ok(())
+    }
+
+    /// Ensures no property is final before a bulk destructive operation.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when every property is mutable.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::PropertyIsFinal`] for the first final property.
+    #[inline]
+    fn ensure_no_final_properties(&self) -> ConfigResult<()> {
+        if let Some((name, _)) =
+            self.properties.iter().find(|(_, prop)| prop.is_final())
+        {
+            return Err(ConfigError::PropertyIsFinal(name.clone()));
+        }
+        Ok(())
+    }
+
+    /// Builds the JSON root consumed by structured serde deserialization.
+    ///
+    /// # Parameters
+    ///
+    /// * `prefix` - Exact property key or dotted subtree path.
+    ///
+    /// # Returns
+    ///
+    /// The scalar or object representation consumed by serde.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::KeyConflict`] when `prefix` has both an exact
+    /// value and child keys, or when dotted child keys cannot form an
+    /// unambiguous object tree. Returns substitution/conversion errors if
+    /// configured string handling fails before deserialization starts.
+    fn deserialize_root_value(&self, prefix: &str) -> ConfigResult<JsonValue> {
+        if prefix.is_empty() {
+            return self.deserialize_subtree_value(prefix);
+        }
+
+        let exact = self.properties.get(prefix);
+        let has_children =
+            self.properties.keys().any(|key| is_child_key(key, prefix));
+        match (exact, has_children) {
+            (Some(_), true) => Err(ConfigError::KeyConflict {
+                path: prefix.to_string(),
+                existing: "exact value".to_string(),
+                incoming: "nested child keys".to_string(),
+            }),
+            (Some(property), false) => {
+                self.deserialize_exact_value(prefix, property)
+            }
+            (None, _) => self.deserialize_subtree_value(prefix),
+        }
+    }
+
+    /// Builds a JSON value from a single exact property for deserialization.
+    ///
+    /// # Parameters
+    ///
+    /// * `key` - Absolute property key used for error context.
+    /// * `property` - Property to project into JSON.
+    ///
+    /// # Returns
+    ///
+    /// A JSON scalar, collection, object, or null value.
+    ///
+    /// # Errors
+    ///
+    /// Returns substitution errors when string leaves contain unresolved
+    /// placeholders, or conversion errors when the configured projection is
+    /// not exact.
+    fn deserialize_exact_value(
+        &self,
+        key: &str,
+        property: &Property,
+    ) -> ConfigResult<JsonValue> {
+        if scalar_string_is_missing_for_deserialize(
+            self,
+            self,
+            key,
+            property,
+            self.read_options(),
+        )? {
+            return Ok(JsonValue::Null);
+        }
+
+        let mut value = utils::property_to_json_value(
+            property,
+            key,
+            self.read_options(),
+        )?;
+        utils::substitute_json_strings_with_fallback(
+            &mut value, key, self, self,
+        )?;
+        Ok(value)
+    }
+
+    /// Builds a JSON object from keys under `prefix` for deserialization.
+    ///
+    /// # Parameters
+    ///
+    /// * `prefix` - Dotted subtree path to project.
+    ///
+    /// # Returns
+    ///
+    /// A JSON object containing relative child paths.
+    ///
+    /// # Errors
+    ///
+    /// Returns key-conflict errors for ambiguous dotted paths, and propagates
+    /// substitution/conversion errors from active read options.
+    fn deserialize_subtree_value(
+        &self,
+        prefix: &str,
+    ) -> ConfigResult<JsonValue> {
+        let sub = self.subconfig(prefix, true)?;
+
+        let mut properties = sub.properties.iter().collect::<Vec<_>>();
+        properties.sort_by_key(|(left_key, _)| *left_key);
+
+        let mut map = Map::new();
+        for (key, prop) in properties {
+            let absolute_path = if prefix.is_empty() {
+                key.to_string()
+            } else {
+                format!("{prefix}.{key}")
+            };
+            if scalar_string_is_missing_for_deserialize(
+                &sub,
+                self,
+                &absolute_path,
+                prop,
+                self.read_options(),
+            )? {
+                continue;
+            }
+
+            let mut json_val = utils::property_to_json_value(
+                prop,
+                &absolute_path,
+                self.read_options(),
+            )?;
+            utils::substitute_json_strings_with_fallback(
+                &mut json_val,
+                &absolute_path,
+                &sub,
+                self,
+            )?;
+            utils::insert_deserialize_value(&mut map, key, json_val)?;
+        }
+        Ok(JsonValue::Object(map))
     }
 }
 
@@ -2180,8 +2304,13 @@ impl ConfigReader for Config {
     }
 
     #[inline]
-    fn contains_prefix(&self, prefix: &str) -> bool {
-        Config::contains_prefix(self, prefix)
+    fn contains_key_prefix(&self, prefix: &str) -> bool {
+        Config::contains_key_prefix(self, prefix)
+    }
+
+    #[inline]
+    fn contains_section(&self, path: &str) -> bool {
+        Config::contains_section(self, path)
     }
 
     #[inline]

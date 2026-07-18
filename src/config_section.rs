@@ -30,6 +30,7 @@ use crate::{
 /// Every property name is resolved strictly relative to [`Self::path`]. An
 /// exact scalar stored at the section path is not part of the section; only
 /// descendants beginning with `{path}.` are visible.
+#[must_use]
 #[derive(Debug, Clone)]
 pub struct ConfigSection<'a> {
     /// Root configuration borrowed by this section.
@@ -98,6 +99,34 @@ impl<'a> ConfigSection<'a> {
     #[inline(always)]
     pub fn path(&self) -> &str {
         &self.path
+    }
+
+    /// Returns whether a visible key starts with the raw character prefix.
+    ///
+    /// # Parameters
+    ///
+    /// * `prefix` - Prefix interpreted relative to this section.
+    ///
+    /// # Returns
+    ///
+    /// `true` when a visible key starts with `prefix`.
+    #[inline(always)]
+    pub fn contains_key_prefix(&self, prefix: &str) -> bool {
+        <Self as ConfigReader>::contains_key_prefix(self, prefix)
+    }
+
+    /// Returns whether a relative dotted section has descendants.
+    ///
+    /// # Parameters
+    ///
+    /// * `path` - Dotted path relative to this section.
+    ///
+    /// # Returns
+    ///
+    /// `true` when at least one descendant belongs to the exact section.
+    #[inline(always)]
+    pub fn contains_section(&self, path: &str) -> bool {
+        <Self as ConfigReader>::contains_section(self, path)
     }
 
     /// Resolves a relative property name to its root configuration key.
@@ -304,9 +333,18 @@ impl<'a> ConfigReader for ConfigSection<'a> {
         })
     }
 
-    fn contains_prefix(&self, prefix: &str) -> bool {
+    fn contains_key_prefix(&self, prefix: &str) -> bool {
         self.visible_entries()
             .any(|(key, _)| key.starts_with(prefix))
+    }
+
+    fn contains_section(&self, path: &str) -> bool {
+        let path = path.trim_matches('.');
+        if path.is_empty() {
+            return self.visible_entries().next().is_some();
+        }
+        let child_prefix = format!("{path}.");
+        self.contains_key_prefix(&child_prefix)
     }
 
     fn iter_prefix<'b>(
