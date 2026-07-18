@@ -3,7 +3,7 @@
 [![Rust CI](https://github.com/qubit-ltd/rs-config/actions/workflows/ci.yml/badge.svg)](https://github.com/qubit-ltd/rs-config/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/endpoint?url=https://qubit-ltd.github.io/rs-config/coverage-badge.json)](https://qubit-ltd.github.io/rs-config/coverage/)
 [![Crates.io](https://img.shields.io/crates/v/qubit-config.svg?color=blue)](https://crates.io/crates/qubit-config)
-[![Rust](https://img.shields.io/badge/rust-1.94%2B-blue.svg?logo=rust)](https://www.rust-lang.org)
+[![Rust](https://img.shields.io/badge/rust-1.94+-blue.svg?logo=rust)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](README.zh_CN.md)
 
@@ -22,6 +22,8 @@ A powerful, type-safe configuration management system for Rust, providing flexib
 - ✅ **Read-only API** - [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) trait for typed reads without mutation; implemented by [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) and [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html), with string helpers, multi-key reads, and field declarations that respect variable substitution
 - ✅ **Configurable parsing** - [`ConfigReadOptions`](https://docs.rs/qubit-config/latest/qubit_config/options/struct.ConfigReadOptions.html) controls string trimming, blank handling, boolean literals, and scalar-string collection splitting globally or per field
 - ✅ **Strict sections** - [`Config::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.section) returns a [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html) with strictly relative keys; nest with [`ConfigSection::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html#method.section)
+- ✅ **Safe diagnostics** - `Debug` output preserves property metadata while redacting every stored configuration value through `qubit-sanitize`
+- ✅ **Structured errors** - [`ConfigError::kind`](https://docs.rs/qubit-config/latest/qubit_config/enum.ConfigError.html#method.kind) and [`ConfigError::path`](https://docs.rs/qubit-config/latest/qubit_config/enum.ConfigError.html#method.path) expose stable machine-readable context without downstream exhaustive variant matching
 - ✅ **Efficient core representation** - Uses enum-backed values and staged source loading; pluggable sources can still use trait objects where dynamic composition is useful
 
 ## Installation
@@ -172,6 +174,10 @@ let paths = config.get_any_or::<Vec<String>>(
 
 [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html) is a zero-copy, strictly relative view of a `Config`. Use [`Config::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.section) to create it; every key is resolved below the section path, so section `db` and key `host` read `db.host`. The exact scalar at `db` is not part of the section; only descendants such as `db.host` are visible. Use [`ConfigSection::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html#method.section) for nested sections.
 
+Use `contains_section("db")` for dotted section membership. Use
+`contains_key_prefix("db")` only when raw character-prefix matching is
+intentional; it also matches sibling names such as `db2`.
+
 ```rust
 use qubit_config::{Config, ConfigReader};
 
@@ -193,6 +199,7 @@ let port: i32 = db.get("port")?;
 | `StringReadOptions` | Trimming and blank-string handling: preserve, treat as missing, or reject. |
 | `BooleanReadOptions` | Accepted boolean literals and case sensitivity. |
 | `CollectionReadOptions` | Splitting scalar strings into lists, delimiters, per-item trimming, and empty-item policy. |
+| Numeric and duration conversion | Exact conversion is the default. Duration-to-text projection honors the configured output unit and rejects implicit rounding unless `NumericConversionPolicy::Lossy` is selected explicitly. |
 | Environment variable substitution | Whether unresolved `${...}` placeholders may fall back to process environment variables. This is disabled by default. |
 
 `ConfigReadOptions::env_friendly()` is useful for environment-variable style values: it trims strings, treats blank scalar strings as missing, accepts `true/false`, `1/0`, `yes/no`, and `on/off`, and splits scalar strings on commas for `Vec<T>` reads while skipping empty items.
@@ -574,6 +581,7 @@ let server = Server {
 The configuration system uses `ConfigResult<T>` for error handling:
 
 ```rust
+#[non_exhaustive]
 pub enum ConfigError {
     PropertyNotFound(String),           // Property does not exist
     PropertyHasNoValue(String),         // Property has no value
@@ -583,9 +591,10 @@ pub enum ConfigError {
         source_index: Option<usize>,
         source: DataConversionError,
     },
-    SubstitutionError(String),          // Variable substitution failed
-    SubstitutionDepthExceeded(usize),   // Variable substitution depth exceeded
-    SubstitutionCycle { chain: Vec<String> }, // Variable substitution cycle detected
+    ValueError { key: String, source: ValueError },
+    SubstitutionError { path: String, message: String },
+    SubstitutionDepthExceeded { path: String, max_depth: usize },
+    SubstitutionCycle { path: String, chain: Vec<String> },
     MergeError(String),                 // Configuration merge failed
     PropertyIsFinal(String),            // Property is final and cannot be overwritten
     KeyConflict { path: String, existing: String, incoming: String }, // Ambiguous key shape
@@ -596,6 +605,11 @@ pub enum ConfigError {
 }
 ```
 
+Consumers should branch on `ConfigError::kind()` and read optional key context
+through `ConfigError::path()`. Converting a value-layer error requires explicit
+key context via `ConfigError::from((path, value_error))`; pathless conversion is
+not supported.
+
 ## Performance Considerations
 
 - **Enum-backed values** - Core property values use enums for predictable storage and conversion paths
@@ -603,30 +617,15 @@ pub enum ConfigError {
 - **Efficient Storage** - Properties stored in `HashMap` with O(1) lookup time complexity
 - **Staged Source Loading** - Built-in source loaders write into an already staged `Config` during composite and merge operations, preserving transaction semantics without repeated full-config clones
 
-## Testing
-
-Run the test suite:
-
-```bash
-cargo test
-```
-
-Run with code coverage:
-
-```bash
-./coverage.sh
-```
-
 ## Documentation
 
 For detailed API documentation, visit [docs.rs/qubit-config](https://docs.rs/qubit-config).
-
-For internal design documentation (Chinese), see [src/README.md](src/README.md).
 
 ## Dependencies
 
 - `qubit-datatype` - Core utilities and data type definitions
 - `qubit-value` - Value handling framework
+- `qubit-sanitize` - Fixed-marker redaction for configuration diagnostics
 - `serde` - Serialization framework
 - `regex` - Regular expression support
 - `chrono`, `url`, `num-bigint`, `bigdecimal` - optional rich-value support behind their matching atomic features
@@ -643,32 +642,37 @@ For internal design documentation (Chinese), see [src/README.md](src/README.md).
 - [ ] Configuration encryption support
 - [ ] Thread-safe wrapper type `SyncConfig`
 
-## Contributing
+## Testing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+```bash
+# Run tests with the default feature set
+cargo test
+
+# Run tests with all declared features
+cargo test --all-features
+
+# Project CI checks
+./ci-check.sh
+
+# Check code coverage
+./coverage.sh
+```
 
 ## License
 
-Copyright (c) 2025 - 2026. Haixing Hu, Qubit Co. Ltd. All rights reserved.
+Copyright (c) 2025 - 2026. Haixing Hu. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for the
+full license text.
 
-    http://www.apache.org/licenses/LICENSE-2.0
+## Contributing
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
-See [LICENSE](LICENSE) for the full license text.
+Contributions are welcome. Please follow the Rust API guidelines, keep public
+API documentation and tests current, and run `./align-ci.sh` to format code and
+`./ci-check.sh` to satisfy CI requirements before submitting a pull request.
 
 ## Author
 
 **Haixing Hu** - *Qubit Co. Ltd.*
 
----
-
-For more information about the Qubit Rust libraries, visit our [GitHub organization](https://github.com/qubit-ltd).
+Repository: [https://github.com/qubit-ltd/rs-config](https://github.com/qubit-ltd/rs-config)
