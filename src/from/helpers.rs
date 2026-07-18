@@ -174,6 +174,22 @@ where
 }
 
 /// Applies variable substitution for explicit string reads.
+///
+/// # Parameters
+///
+/// * `reader` - Reader used to resolve variables.
+/// * `path` - Configuration path whose value is being expanded.
+/// * `value` - Source text.
+/// * `apply_substitution` - Whether this read path requests substitution.
+///
+/// # Returns
+///
+/// Expanded or unchanged owned text.
+///
+/// # Errors
+///
+/// Returns keyed lookup, conversion, depth, or cycle errors.
+#[inline]
 fn substitute_for_reader<R: ConfigReader + ?Sized>(
     reader: &R,
     path: &str,
@@ -193,6 +209,15 @@ fn substitute_for_reader<R: ConfigReader + ?Sized>(
 }
 
 /// Returns `value` unchanged as an owned string.
+///
+/// # Parameters
+///
+/// * `value` - Text to clone.
+///
+/// # Returns
+///
+/// An owned copy of `value`.
+#[inline(always)]
 fn no_substitution(value: &str) -> ConfigResult<String> {
     Ok(value.to_string())
 }
