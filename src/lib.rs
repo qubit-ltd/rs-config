@@ -13,6 +13,7 @@
 mod config;
 mod config_deserialize_error;
 mod config_error;
+mod config_error_kind;
 mod config_name;
 mod config_names;
 mod config_property_mut;
@@ -31,6 +32,7 @@ pub mod source;
 mod utils;
 
 pub use config::Config;
+pub use config_error_kind::ConfigErrorKind;
 pub use config_name::ConfigName;
 pub use config_names::ConfigNames;
 pub use config_property_mut::ConfigPropertyMut;

@@ -482,7 +482,18 @@ pub trait ConfigReader {
     /// # Returns
     ///
     /// `true` if at least one matching key exists.
-    fn contains_prefix(&self, prefix: &str) -> bool;
+    fn contains_key_prefix(&self, prefix: &str) -> bool;
+
+    /// Returns whether a dotted section visible to this reader has children.
+    ///
+    /// # Parameters
+    ///
+    /// * `path` - Section path relative to this reader.
+    ///
+    /// # Returns
+    ///
+    /// `true` when at least one descendant belongs to that exact dotted path.
+    fn contains_section(&self, path: &str) -> bool;
 
     /// Iterates `(key, property)` pairs for keys that start with `prefix`.
     ///

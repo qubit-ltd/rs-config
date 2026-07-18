@@ -19,7 +19,10 @@ use qubit_config::{
 use qubit_datatype::{
     DataConversionError,
     DataType,
+    DurationConversionOptions,
+    DurationUnit,
     InvalidValueReason,
+    NumericConversionPolicy,
 };
 use qubit_value::{
     MultiValues,
@@ -44,9 +47,12 @@ mod test_deserialize {
         DataConversionError,
         DataType,
         Deserialize,
+        DurationConversionOptions,
+        DurationUnit,
         HashMap,
         InvalidValueReason,
         MultiValues,
+        NumericConversionPolicy,
         Property,
         Value,
         ValueContainer,
@@ -604,9 +610,11 @@ mod test_deserialize {
             "unresolved variable should fail before serde deserialization",
         );
         match err {
-            ConfigError::SubstitutionError(msg) => {
+            ConfigError::SubstitutionError { path, message } => {
+                assert_eq!(path, "svc.url");
                 assert!(
-                    msg.contains("QUBIT_CONFIG_UNSET_DESERIALIZE_VAR_12345")
+                    message
+                        .contains("QUBIT_CONFIG_UNSET_DESERIALIZE_VAR_12345")
                 );
             }
             other => panic!("Expected SubstitutionError, got {:?}", other),
@@ -639,8 +647,11 @@ mod test_deserialize {
             .expect_err("unresolved JSON leaf variable should fail before serde deserialization");
 
         match err {
-            ConfigError::SubstitutionError(msg) => {
-                assert!(msg.contains("QUBIT_CONFIG_UNSET_JSON_LEAF_VAR_12345"));
+            ConfigError::SubstitutionError { path, message } => {
+                assert_eq!(path, "svc.meta");
+                assert!(
+                    message.contains("QUBIT_CONFIG_UNSET_JSON_LEAF_VAR_12345")
+                );
             }
             other => panic!("Expected SubstitutionError, got {:?}", other),
         }
@@ -722,7 +733,10 @@ mod test_variable_substitution {
 
         assert!(matches!(
             result,
-            Err(ConfigError::SubstitutionDepthExceeded(5))
+            Err(ConfigError::SubstitutionDepthExceeded {
+                path,
+                max_depth: 5,
+            }) if path == "a"
         ));
     }
 
@@ -763,7 +777,11 @@ mod test_variable_substitution {
         unsafe {
             std::env::remove_var("QUBIT_CONFIG_TEST_ENV_DISABLED");
         }
-        assert!(matches!(result, Err(ConfigError::SubstitutionError(_))));
+        assert!(matches!(
+            result,
+            Err(ConfigError::SubstitutionError { path, .. })
+                if path == "value"
+        ));
     }
 
     #[test]
@@ -797,7 +815,11 @@ mod test_variable_substitution {
             .get_string("missing")
             .expect_err("unresolved variable should return an error");
 
-        assert!(matches!(err, ConfigError::SubstitutionError(_)));
+        assert!(matches!(
+            err,
+            ConfigError::SubstitutionError { ref path, .. }
+                if path == "missing"
+        ));
         assert!(
             err.to_string()
                 .contains("QUBIT_CONFIG_TEST_VAR_THAT_MUST_NOT_EXIST_001")
@@ -818,7 +840,11 @@ mod test_variable_substitution {
             "unresolved variable in list read should return an error",
         );
 
-        assert!(matches!(err, ConfigError::SubstitutionError(_)));
+        assert!(matches!(
+            err,
+            ConfigError::SubstitutionError { ref path, .. }
+                if path == "values"
+        ));
         assert!(
             err.to_string()
                 .contains("QUBIT_CONFIG_TEST_LIST_VAR_THAT_MUST_NOT_EXIST_001")
@@ -925,8 +951,9 @@ mod test_variable_substitution {
 
         assert!(matches!(
             result,
-            Err(ConfigError::SubstitutionError(message))
-                if message.contains("QUBIT_CONFIG_TEST_ENV_MISSING_FOR_FALLBACK")
+            Err(ConfigError::SubstitutionError { path, message })
+                if path == "value"
+                    && message.contains("QUBIT_CONFIG_TEST_ENV_MISSING_FOR_FALLBACK")
         ));
     }
 
@@ -937,13 +964,15 @@ mod test_variable_substitution {
         config.set("b", "${c}").unwrap();
         config.set("c", "${b}").unwrap();
 
-        let result = config.get_string("a");
+        let error = config.get_string("a").unwrap_err();
 
         assert!(matches!(
-            result,
-            Err(ConfigError::SubstitutionCycle { chain })
-                if chain == vec!["b".to_string(), "c".to_string(), "b".to_string()]
+            &error,
+            ConfigError::SubstitutionCycle { path, chain }
+                if path == "a"
+                    && chain == &vec!["b".to_string(), "c".to_string(), "b".to_string()]
         ));
+        assert_eq!(error.path(), Some("a"));
     }
 }
 
@@ -957,12 +986,16 @@ mod test_property_to_json_value_deserialize_behavior {
     use super::{
         Config,
         ConfigError,
+        ConfigReadOptions,
         DataConversionError,
         DataType,
         Deserialize,
+        DurationConversionOptions,
+        DurationUnit,
         HashMap,
         InvalidValueReason,
         MultiValues,
+        NumericConversionPolicy,
         Property,
         Value,
     };
@@ -1097,19 +1130,24 @@ mod test_property_to_json_value_deserialize_behavior {
             config_with_mv("x.val", MultiValues::Float32(vec![f32::NAN]));
         let error = config.deserialize::<AnyStruct>("x").unwrap_err();
 
-        assert!(matches!(
-            error,
-            ConfigError::ConversionError {
-                key,
-                source_index: Some(0),
-                source,
-            } if key == "x.val"
-                && source == DataConversionError::invalid(
-                    DataType::Float32,
-                    DataType::Json,
-                    InvalidValueReason::NonFinite,
-                )
-        ));
+        let ConfigError::ConversionError {
+            key,
+            source_index,
+            source,
+        } = error
+        else {
+            panic!("expected a conversion error");
+        };
+        assert_eq!(key, "x.val");
+        assert_eq!(source_index, Some(0));
+        assert_eq!(
+            source,
+            DataConversionError::invalid(
+                DataType::Float32,
+                DataType::Json,
+                InvalidValueReason::NonFinite,
+            )
+        );
     }
 
     #[test]
@@ -1120,19 +1158,24 @@ mod test_property_to_json_value_deserialize_behavior {
         );
         let error = config.deserialize::<AnyStruct>("x").unwrap_err();
 
-        assert!(matches!(
-            error,
-            ConfigError::ConversionError {
-                key,
-                source_index: Some(1),
-                source,
-            } if key == "x.val"
-                && source == DataConversionError::invalid(
-                    DataType::Float64,
-                    DataType::Json,
-                    InvalidValueReason::NonFinite,
-                )
-        ));
+        let ConfigError::ConversionError {
+            key,
+            source_index,
+            source,
+        } = error
+        else {
+            panic!("expected a conversion error");
+        };
+        assert_eq!(key, "x.val");
+        assert_eq!(source_index, Some(1));
+        assert_eq!(
+            source,
+            DataConversionError::invalid(
+                DataType::Float64,
+                DataType::Json,
+                InvalidValueReason::NonFinite,
+            )
+        );
     }
 
     #[test]
@@ -1146,16 +1189,52 @@ mod test_property_to_json_value_deserialize_behavior {
     }
 
     #[test]
-    fn test_deserialize_duration_rounds_to_milliseconds() {
+    fn test_deserialize_duration_rejects_implicit_precision_loss() {
         let config = config_with_value(
             "x.val",
             Value::Duration(Duration::from_micros(1500)),
         );
-        let value: AnyStruct = config
-            .deserialize("x")
-            .expect("duration config should deserialize");
+        let error = config.deserialize::<AnyStruct>("x").unwrap_err();
+
+        assert!(matches!(
+            error,
+            ConfigError::ConversionError { source, .. }
+                if source.reason() == Some(&InvalidValueReason::PrecisionLoss)
+        ));
+    }
+
+    #[test]
+    fn test_deserialize_duration_allows_explicit_lossy_policy() {
+        let mut config = config_with_value(
+            "x.val",
+            Value::Duration(Duration::from_micros(1500)),
+        );
+        config.set_read_options(
+            ConfigReadOptions::default()
+                .with_numeric_policy(NumericConversionPolicy::Lossy),
+        );
+
+        let value: AnyStruct = config.deserialize("x").unwrap();
 
         assert_eq!(value.val, serde_json::json!("2ms"));
+    }
+
+    #[test]
+    fn test_deserialize_duration_honors_output_unit() {
+        let mut config = config_with_value(
+            "x.val",
+            Value::Duration(Duration::from_micros(1500)),
+        );
+        config.set_read_options(
+            ConfigReadOptions::default().with_duration_options(
+                DurationConversionOptions::default()
+                    .with_output_unit(DurationUnit::Microseconds),
+            ),
+        );
+
+        let value: AnyStruct = config.deserialize("x").unwrap();
+
+        assert_eq!(value.val, serde_json::json!("1500us"));
     }
 
     #[cfg(feature = "url")]
