@@ -370,18 +370,21 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
                     .conversion_options()
                     .collection
                     .scalar_items(normalized)
-                    .map(|result| result.map(|item| Value::String(item.value.to_string())))
+                    .map(|result| {
+                        result.map(|item| Value::String(item.value.to_string()))
+                    })
                     .collect::<Result<Vec<_>, _>>()
                     .map_err(|error| {
-                        ConfigDeserializeError::from_config(ConfigError::ConversionError {
-                            key: self.key.clone(),
-                            source_index: Some(error.source_index()),
-                            source: qubit_datatype::DataConversionError::invalid(
-                                qubit_datatype::DataType::String,
-                                qubit_datatype::DataType::String,
-                                qubit_datatype::InvalidValueReason::BlankRejected,
-                            ),
-                        })
+                        let source_index = error.source_index();
+                        ConfigDeserializeError::from_config(
+                            ConfigError::ConversionError {
+                                key: self.key.clone(),
+                                source_index: Some(source_index),
+                                source: error.into_data_conversion_error(
+                                    qubit_datatype::DataType::String,
+                                ),
+                            },
+                        )
                     })?;
                 visitor.visit_seq(ConfigSeqAccess::new(
                     values,
