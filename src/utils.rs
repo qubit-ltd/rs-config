@@ -346,9 +346,7 @@ fn find_variable_value<R: ConfigReader + ?Sized>(
         }
         Some(_) | None => Err(ConfigError::SubstitutionError {
             path: path.to_string(),
-            message: format!(
-                "Cannot resolve variable from config: {var_name}"
-            ),
+            message: format!("Cannot resolve variable from config: {var_name}"),
         }),
     }
 }

@@ -21,7 +21,6 @@ use crate::ConfigErrorKind;
 
 /// Configuration error type.
 #[non_exhaustive]
-#[must_use]
 #[derive(Debug, Error)]
 pub enum ConfigError {
     /// Property not found.
