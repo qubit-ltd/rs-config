@@ -30,6 +30,7 @@ use std::path::{
     PathBuf,
 };
 
+use qubit_sanitize::redacted_debug;
 use serde_norway as yaml_backend;
 use yaml_backend::Value as YamlValue;
 
@@ -66,6 +67,34 @@ pub struct YamlConfigSource {
     path: PathBuf,
 }
 
+/// Builds a YAML parse error without formatting parser-owned input details.
+///
+/// # Parameters
+///
+/// * `path` - Path of the YAML file being parsed.
+/// * `error` - YAML parser error used only for its public location.
+///
+/// # Returns
+///
+/// A [`ConfigError::ParseError`] containing only file and public location
+/// context.
+fn yaml_parse_error(path: &Path, error: &yaml_backend::Error) -> ConfigError {
+    let message = match error.location() {
+        Some(location) => format!(
+            "Failed to parse YAML file '{}' at line {}, column {}: \
+             invalid YAML syntax",
+            path.display(),
+            location.line(),
+            location.column(),
+        ),
+        None => format!(
+            "Failed to parse YAML file '{}': invalid YAML syntax",
+            path.display(),
+        ),
+    };
+    ConfigError::ParseError(message)
+}
+
 impl YamlConfigSource {
     /// Creates a new `YamlConfigSource` from a file path
     ///
@@ -97,14 +126,8 @@ impl ConfigSource for YamlConfigSource {
             ))
         })?;
 
-        let value: YamlValue =
-            yaml_backend::from_str(&content).map_err(|e| {
-                ConfigError::ParseError(format!(
-                    "Failed to parse YAML file '{}': {}",
-                    self.path.display(),
-                    e
-                ))
-            })?;
+        let value: YamlValue = yaml_backend::from_str(&content)
+            .map_err(|error| yaml_parse_error(&self.path, &error))?;
 
         let mut seen = HashSet::new();
         flatten_yaml_value("", &value, config, &mut seen)?;
@@ -264,7 +287,8 @@ fn yaml_key_to_string(value: &YamlValue) -> ConfigResult<String> {
         YamlValue::Bool(b) => Ok(b.to_string()),
         YamlValue::Null => Ok("null".to_string()),
         _ => Err(ConfigError::ParseError(format!(
-            "Unsupported YAML mapping key type: {value:?}"
+            "Unsupported YAML mapping key type: {:?}",
+            redacted_debug(value),
         ))),
     }
 }
@@ -295,6 +319,7 @@ fn unsupported_yaml_sequence_element_error(
 ) -> ConfigError {
     let key = if key.is_empty() { "<root>" } else { key };
     ConfigError::ParseError(format!(
-        "Unsupported nested YAML structure at key '{key}': {value:?}"
+        "Unsupported nested YAML structure at key '{key}': {:?}",
+        redacted_debug(value),
     ))
 }

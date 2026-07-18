@@ -133,16 +133,27 @@ mod test_yaml_config_source {
     }
 
     #[test]
-    fn test_load_invalid_yaml_returns_parse_error() {
-        let dir = tempfile::tempdir().unwrap();
+    fn test_load_invalid_yaml_returns_redacted_parse_error() {
+        const SECRET_MARKER: &str = "RS_CONFIG_YAML_PARSER_SECRET_MARKER";
+        let dir =
+            tempfile::tempdir().expect("temporary directory should be created");
         let path = dir.path().join("invalid.yaml");
-        std::fs::write(&path, "key: [unclosed bracket").unwrap();
+        std::fs::write(&path, format!("password: \"{SECRET_MARKER}\n"))
+            .expect("invalid YAML fixture should be written");
 
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
-        let result = source.load(&mut config);
-        assert!(result.is_err());
-        assert!(matches!(result, Err(ConfigError::ParseError(_))));
+        let error = source
+            .load(&mut config)
+            .expect_err("unterminated YAML string should fail");
+
+        assert!(matches!(&error, ConfigError::ParseError(_)));
+        let display = error.to_string();
+        assert!(display.contains("invalid YAML syntax"));
+        assert!(display.contains("line"));
+        assert!(display.contains("column"));
+        assert!(!display.contains(SECRET_MARKER));
+        assert!(!format!("{error:?}").contains(SECRET_MARKER));
     }
 
     #[test]
@@ -333,15 +344,24 @@ db:
     }
 
     #[test]
-    fn test_load_yaml_complex_keys_returns_error() {
-        let dir = tempfile::tempdir().unwrap();
+    fn test_load_yaml_complex_keys_returns_redacted_error() {
+        const SECRET_MARKER: &str = "RS_CONFIG_YAML_KEY_SECRET_MARKER";
+        let dir =
+            tempfile::tempdir().expect("temporary directory should be created");
         let path = dir.path().join("complex_key.yaml");
-        std::fs::write(&path, "? [a, b]\n: 1\n? {x: 1}\n: 2\n").unwrap();
+        std::fs::write(&path, format!("? [{SECRET_MARKER}, b]\n: 1\n"))
+            .expect("complex YAML key fixture should be written");
 
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
-        let result = source.load(&mut config);
-        assert!(matches!(result, Err(ConfigError::ParseError(_))));
+        let error = source
+            .load(&mut config)
+            .expect_err("complex YAML key should fail");
+
+        let display = error.to_string();
+        assert!(display.contains("<redacted>"));
+        assert!(!display.contains(SECRET_MARKER));
+        assert!(!format!("{error:?}").contains(SECRET_MARKER));
     }
 
     #[test]
@@ -539,15 +559,28 @@ flags:
     }
 
     #[test]
-    fn test_yaml_sequence_with_mapping_returns_parse_error() {
-        let dir = tempfile::tempdir().unwrap();
+    fn test_yaml_sequence_with_mapping_returns_redacted_parse_error() {
+        const SECRET_MARKER: &str = "RS_CONFIG_YAML_NESTED_SECRET_MARKER";
+        let dir =
+            tempfile::tempdir().expect("temporary directory should be created");
         let path = dir.path().join("seq_map.yaml");
-        std::fs::write(&path, "items:\n  - name: foo\n  - name: bar\n")
-            .unwrap();
+        std::fs::write(
+            &path,
+            format!("items:\n  - password: {SECRET_MARKER}\n"),
+        )
+        .expect("nested YAML mapping fixture should be written");
+
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
-        let result = source.load(&mut config);
-        assert!(matches!(result, Err(ConfigError::ParseError(_))));
+        let error = source
+            .load(&mut config)
+            .expect_err("nested YAML mapping should fail");
+
+        let display = error.to_string();
+        assert!(display.contains("items"));
+        assert!(display.contains("<redacted>"));
+        assert!(!display.contains(SECRET_MARKER));
+        assert!(!format!("{error:?}").contains(SECRET_MARKER));
     }
 
     #[test]

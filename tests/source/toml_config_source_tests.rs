@@ -96,16 +96,27 @@ mod test_toml_config_source {
     }
 
     #[test]
-    fn test_load_invalid_toml_returns_parse_error() {
-        let dir = tempfile::tempdir().unwrap();
+    fn test_load_invalid_toml_returns_redacted_parse_error() {
+        const SECRET_MARKER: &str = "RS_CONFIG_TOML_SECRET_MARKER";
+        let dir =
+            tempfile::tempdir().expect("temporary directory should be created");
         let path = dir.path().join("invalid.toml");
-        std::fs::write(&path, "this is not valid toml ===").unwrap();
+        std::fs::write(&path, format!("password = \"{SECRET_MARKER}\n"))
+            .expect("invalid TOML fixture should be written");
 
         let source = TomlConfigSource::from_file(&path);
         let mut config = Config::new();
-        let result = source.load(&mut config);
-        assert!(result.is_err());
-        assert!(matches!(result, Err(ConfigError::ParseError(_))));
+        let error = source
+            .load(&mut config)
+            .expect_err("unterminated TOML string should fail");
+
+        assert!(matches!(&error, ConfigError::ParseError(_)));
+        let display = error.to_string();
+        let debug = format!("{error:?}");
+        assert!(display.contains("line 1"));
+        assert!(display.contains("column"));
+        assert!(!display.contains(SECRET_MARKER));
+        assert!(!debug.contains(SECRET_MARKER));
     }
 
     #[test]
