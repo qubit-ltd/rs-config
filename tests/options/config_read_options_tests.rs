@@ -21,7 +21,8 @@ use qubit_datatype::{
     DurationConversionOptions,
     DurationUnit,
     EmptyItemPolicy,
-    NumericConversionPolicy,
+    NumericConversionLimits,
+    NumericConversionOptions,
     StringConversionOptions,
     SuffixlessDurationPolicy,
 };
@@ -138,8 +139,8 @@ fn test_string_and_duration_options_are_delegated_to_conversion_options() {
         .with_string_options(string_options.clone())
         .with_duration_options(duration_options.clone());
 
-    assert_eq!(options.conversion_options().string, string_options);
-    assert_eq!(options.conversion_options().duration, duration_options);
+    assert_eq!(options.conversion_options().string(), &string_options);
+    assert_eq!(options.conversion_options().duration(), &duration_options);
 }
 
 #[test]
@@ -149,7 +150,10 @@ fn test_collection_options_builder_is_exposed_directly() {
     let options = ConfigReadOptions::default()
         .with_collection_options(collection_options.clone());
 
-    assert_eq!(options.conversion_options().collection, collection_options);
+    assert_eq!(
+        options.conversion_options().collection(),
+        &collection_options,
+    );
 }
 
 #[test]
@@ -234,7 +238,7 @@ fn test_config_read_options_serde_round_trips_all_policy_variants() {
             serde_json::from_str(&serde_json::to_string(&options).unwrap())
                 .unwrap();
         assert_eq!(
-            restored.conversion_options().string.blank_string_policy,
+            restored.conversion_options().string().blank_string_policy(),
             policy
         );
     }
@@ -250,7 +254,10 @@ fn test_config_read_options_serde_round_trips_all_policy_variants() {
             serde_json::from_str(&serde_json::to_string(&options).unwrap())
                 .unwrap();
         assert_eq!(
-            restored.conversion_options().collection.empty_item_policy,
+            restored
+                .conversion_options()
+                .collection()
+                .empty_item_policy(),
             policy
         );
     }
@@ -277,29 +284,53 @@ fn test_config_read_options_serde_round_trips_all_policy_variants() {
             serde_json::from_str(&serde_json::to_string(&options).unwrap())
                 .unwrap();
         assert_eq!(
-            restored.conversion_options().duration.numeric_input_unit,
+            restored
+                .conversion_options()
+                .duration()
+                .numeric_input_unit(),
             unit,
         );
         assert_eq!(
             restored
                 .conversion_options()
-                .duration
-                .suffixless_string_policy,
+                .duration()
+                .suffixless_string_policy(),
             SuffixlessDurationPolicy::Assume(unit),
         );
-        assert_eq!(restored.conversion_options().duration.output_unit, unit);
-        assert!(!restored.conversion_options().duration.append_unit_suffix);
+        assert_eq!(
+            restored.conversion_options().duration().output_unit(),
+            unit,
+        );
+        assert!(
+            !restored
+                .conversion_options()
+                .duration()
+                .append_unit_suffix()
+        );
     }
 }
 
 /// Test serde round-trips the shared conversion options without a mirror DTO.
 #[test]
-fn test_config_read_options_serde_round_trips_numeric_policy() {
+fn test_config_read_options_serde_round_trips_numeric_options() {
     let options = ConfigReadOptions::default()
-        .with_numeric_policy(NumericConversionPolicy::Lossy)
+        .with_numeric_options(
+            NumericConversionOptions::lossy().with_limits(
+                NumericConversionLimits::default()
+                    .with_max_text_bytes(128)
+                    .with_max_big_integer_digits(64),
+            ),
+        )
         .with_env_variable_substitution_enabled(true);
     let json = serde_json::to_value(&options).expect("serialize options");
-    assert_eq!(json["conversion"]["numeric_policy"], "lossy");
+    assert_eq!(
+        json["conversion"]["numeric"]["fractional_to_integer"],
+        "truncate",
+    );
+    assert_eq!(
+        json["conversion"]["numeric"]["limits"]["max_text_bytes"],
+        128,
+    );
 
     let restored: ConfigReadOptions =
         serde_json::from_value(json).expect("deserialize options");
@@ -324,18 +355,18 @@ fn test_config_read_options_serde_boolean_literals_and_errors() {
     assert!(
         restored
             .conversion_options()
-            .boolean
+            .boolean()
             .true_literals()
             .contains(&"enabled".to_string())
     );
     assert!(
         restored
             .conversion_options()
-            .boolean
+            .boolean()
             .false_literals()
             .contains(&"disabled".to_string())
     );
-    assert!(restored.conversion_options().boolean.case_sensitive());
+    assert!(restored.conversion_options().boolean().case_sensitive());
 
     let bad_true = serde_json::json!({
         "conversion": {

@@ -13,7 +13,7 @@ use qubit_datatype::{
     DataConversionOptions,
     DurationConversionOptions,
     EmptyItemPolicy,
-    NumericConversionPolicy,
+    NumericConversionOptions,
     StringConversionOptions,
 };
 use serde::{
@@ -39,8 +39,9 @@ impl ConfigReadOptions {
     ///
     /// Options that trim strings, treat blank scalar strings as missing, accept
     /// common boolean aliases, and split scalar strings on commas while
-    /// skipping empty collection items. Environment-variable substitution is
-    /// still disabled; enable it explicitly with
+    /// skipping empty collection items. Text-to-float conversion permits
+    /// nearest-even rounding, while other numeric conversions remain exact.
+    /// Environment-variable substitution is still disabled; enable it with
     /// [`Self::with_env_variable_substitution_enabled`].
     #[must_use]
     pub fn env_friendly() -> Self {
@@ -196,22 +197,21 @@ impl ConfigReadOptions {
         self
     }
 
-    /// Returns a copy with the requested numeric conversion policy.
+    /// Returns a copy with different numeric conversion options.
     ///
     /// # Parameters
     ///
-    /// * `policy` - Whether precision-losing numeric conversions are rejected
-    ///   or explicitly accepted.
+    /// * `numeric` - New numeric conversion policies and resource limits.
     ///
     /// # Returns
     ///
     /// Updated options.
     #[must_use]
-    pub fn with_numeric_policy(
+    pub fn with_numeric_options(
         mut self,
-        policy: NumericConversionPolicy,
+        numeric: NumericConversionOptions,
     ) -> Self {
-        self.conversion = self.conversion.with_numeric_policy(policy);
+        self.conversion = self.conversion.with_numeric_options(numeric);
         self
     }
 }

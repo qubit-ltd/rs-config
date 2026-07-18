@@ -25,7 +25,7 @@ use qubit_config::{
 };
 use qubit_datatype::{
     InvalidValueReason,
-    NumericConversionPolicy,
+    NumericConversionOptions,
 };
 #[cfg(any(feature = "bigdecimal", feature = "num-bigint"))]
 use std::str::FromStr;
@@ -145,7 +145,7 @@ fn test_from_config_list_error_preserves_source_index() {
 
 /// Test exact conversion is default and lossy conversion is explicit.
 #[test]
-fn test_from_config_numeric_policy_is_explicit() {
+fn test_from_config_numeric_options_are_explicit() {
     let mut config = Config::new();
     config.set("values", vec![1.5f64, 2.9]).expect("set values");
     assert!(matches!(
@@ -161,7 +161,7 @@ fn test_from_config_numeric_policy_is_explicit() {
 
     config.set_read_options(
         ConfigReadOptions::default()
-            .with_numeric_policy(NumericConversionPolicy::Lossy),
+            .with_numeric_options(NumericConversionOptions::lossy()),
     );
     assert_eq!(config.get::<Vec<i32>>("values").unwrap(), vec![1, 2]);
 }

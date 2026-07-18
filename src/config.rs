@@ -111,7 +111,7 @@ fn scalar_string_is_missing_for_deserialize(
     } else {
         value.to_string()
     };
-    match options.conversion_options().string.normalize(&value) {
+    match options.conversion_options().string().normalize(&value) {
         Ok(_) => Ok(false),
         Err(error) if error.is_missing() => Ok(true),
         Err(error) => Err(ConfigError::from_data_conversion_error(

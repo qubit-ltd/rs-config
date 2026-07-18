@@ -195,10 +195,11 @@ let port: i32 = db.get("port")?;
 | `StringConversionOptions` | 字符串 trim，以及空白字符串的处理方式：保留、当作缺失、或拒绝。 |
 | `BooleanConversionOptions` | 可接受的布尔字面量和大小写敏感性。 |
 | `CollectionConversionOptions` | 是否把标量字符串拆成列表、分隔符、元素 trim，以及空元素策略。 |
-| 数值与 Duration 转换 | 默认采用精确转换。Duration 转文本会遵循配置的输出单位；除非显式选择 `NumericConversionPolicy::Lossy`，否则拒绝隐式舍入。 |
+| `NumericConversionOptions` | 小数转整数、已有数值转浮点、文本转浮点策略，以及数值文本和 `BigInt` 物化上限。 |
+| `DurationConversionOptions` | 数值输入单位、文本后缀规则、输出单位与后缀，以及独立的 Duration 舍入策略。 |
 | 环境变量替换 | 未解析的 `${...}` 占位符是否可以回退读取进程环境变量。默认关闭。 |
 
-`ConfigReadOptions::env_friendly()` 适合环境变量风格配置：会 trim 字符串，把空白标量字符串当作缺失，布尔值接受 `true/false`、`1/0`、`yes/no`、`on/off`，并在读取 `Vec<T>` 时按逗号拆分标量字符串、跳过空元素。
+`ConfigReadOptions::env_friendly()` 适合环境变量风格配置：会 trim 字符串，把空白标量字符串当作缺失，布尔值接受 `true/false`、`1/0`、`yes/no`、`on/off`，并在读取 `Vec<T>` 时按逗号拆分标量字符串、跳过空元素。它允许文本转浮点采用 nearest-even 舍入，但小数转整数与已有数值转浮点仍保持精确。
 
 `${...}` 替换回退读取进程环境变量默认关闭，`ConfigReadOptions::env_friendly()` 也不会自动开启，以避免进程环境值带来意外注入。仅在可信配置链路中用 `with_env_variable_substitution_enabled(true)` 显式开启。
 
@@ -233,10 +234,17 @@ use qubit_datatype::{
     BooleanConversionOptions,
     CollectionConversionOptions,
     EmptyItemPolicy,
+    NumericConversionLimits,
+    NumericConversionOptions,
     StringConversionOptions,
 };
 
 let options = ConfigReadOptions::default()
+    .with_numeric_options(
+        NumericConversionOptions::strict().with_limits(
+            NumericConversionLimits::default().with_max_text_bytes(4096),
+        ),
+    )
     .with_string_options(
         StringConversionOptions::default()
             .with_trim(true)

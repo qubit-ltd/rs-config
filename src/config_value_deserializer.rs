@@ -345,7 +345,7 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
                 let normalized = match self
                     .options
                     .conversion_options()
-                    .string
+                    .string()
                     .normalize(&value)
                 {
                     Ok(value) => value,
@@ -368,7 +368,7 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
                 let values = self
                     .options
                     .conversion_options()
-                    .collection
+                    .collection()
                     .scalar_items(normalized)
                     .map(|result| {
                         result.map(|item| Value::String(item.value.to_string()))
