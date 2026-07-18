@@ -199,10 +199,11 @@ let port: i32 = db.get("port")?;
 | `StringConversionOptions` | Trimming and blank-string handling: preserve, treat as missing, or reject. |
 | `BooleanConversionOptions` | Accepted boolean literals and case sensitivity. |
 | `CollectionConversionOptions` | Splitting scalar strings into lists, delimiters, per-item trimming, and empty-item policy. |
-| Numeric and duration conversion | Exact conversion is the default. Duration-to-text projection honors the configured output unit and rejects implicit rounding unless `NumericConversionPolicy::Lossy` is selected explicitly. |
+| `NumericConversionOptions` | Fractional-to-integer, numeric-to-float, and text-to-float policies, plus numeric text and `BigInt` materialization limits. |
+| `DurationConversionOptions` | Numeric input unit, text suffix rules, output unit and suffix, and independent Duration rounding. |
 | Environment variable substitution | Whether unresolved `${...}` placeholders may fall back to process environment variables. This is disabled by default. |
 
-`ConfigReadOptions::env_friendly()` is useful for environment-variable style values: it trims strings, treats blank scalar strings as missing, accepts `true/false`, `1/0`, `yes/no`, and `on/off`, and splits scalar strings on commas for `Vec<T>` reads while skipping empty items.
+`ConfigReadOptions::env_friendly()` is useful for environment-variable style values: it trims strings, treats blank scalar strings as missing, accepts `true/false`, `1/0`, `yes/no`, and `on/off`, and splits scalar strings on commas for `Vec<T>` reads while skipping empty items. It permits nearest-even text-to-float rounding, but keeps fractional-to-integer and existing-numeric-to-float conversions exact.
 
 Environment-variable fallback for `${...}` substitution is disabled by default, including in `ConfigReadOptions::env_friendly()`, to avoid accidental injection from the process environment. Enable it explicitly only for trusted configuration flows with `with_env_variable_substitution_enabled(true)`.
 
@@ -238,10 +239,17 @@ use qubit_datatype::{
     BooleanConversionOptions,
     CollectionConversionOptions,
     EmptyItemPolicy,
+    NumericConversionLimits,
+    NumericConversionOptions,
     StringConversionOptions,
 };
 
 let options = ConfigReadOptions::default()
+    .with_numeric_options(
+        NumericConversionOptions::strict().with_limits(
+            NumericConversionLimits::default().with_max_text_bytes(4096),
+        ),
+    )
     .with_string_options(
         StringConversionOptions::default()
             .with_trim(true)

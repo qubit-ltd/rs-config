@@ -20,9 +20,10 @@ use qubit_datatype::{
     DataConversionError,
     DataType,
     DurationConversionOptions,
+    DurationRoundingPolicy,
     DurationUnit,
     InvalidValueReason,
-    NumericConversionPolicy,
+    NumericConversionOptions,
 };
 use qubit_value::{
     MultiValues,
@@ -52,7 +53,7 @@ mod test_deserialize {
         HashMap,
         InvalidValueReason,
         MultiValues,
-        NumericConversionPolicy,
+        NumericConversionOptions,
         Property,
         Value,
         ValueContainer,
@@ -991,11 +992,11 @@ mod test_property_to_json_value_deserialize_behavior {
         DataType,
         Deserialize,
         DurationConversionOptions,
+        DurationRoundingPolicy,
         DurationUnit,
         HashMap,
         InvalidValueReason,
         MultiValues,
-        NumericConversionPolicy,
         Property,
         Value,
     };
@@ -1204,14 +1205,16 @@ mod test_property_to_json_value_deserialize_behavior {
     }
 
     #[test]
-    fn test_deserialize_duration_allows_explicit_lossy_policy() {
+    fn test_deserialize_duration_allows_explicit_half_up_rounding() {
         let mut config = config_with_value(
             "x.val",
             Value::Duration(Duration::from_micros(1500)),
         );
         config.set_read_options(
-            ConfigReadOptions::default()
-                .with_numeric_policy(NumericConversionPolicy::Lossy),
+            ConfigReadOptions::default().with_duration_options(
+                DurationConversionOptions::default()
+                    .with_rounding_policy(DurationRoundingPolicy::HalfUp),
+            ),
         );
 
         let value: AnyStruct = config.deserialize("x").unwrap();
