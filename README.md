@@ -12,11 +12,11 @@ A powerful, type-safe configuration management system for Rust, providing flexib
 ## Features
 
 - ✅ **Pure Generic API** - Use `get<T>()`, `read(ConfigField<T>)`, and `set<T>()` generic methods with full type inference support
-- ✅ **Rich Data Types** - Support for all primitive types, temporal types, strings, byte arrays, and more
+- ✅ **Rich Data Types** - Supports Rust primitives plus feature-gated temporal, URL, and arbitrary-precision value types
 - ✅ **Multi-Value Properties** - Each configuration property can contain multiple values with list operations
 - ✅ **Variable Substitution** - Support for `${var_name}` style variable substitution from config, with explicit opt-in fallback to process environment variables
-- ✅ **Type Safety** - Compile-time type checking to prevent runtime type errors
-- ✅ **Serialization Support** - Full serde support for serialization and deserialization
+- ✅ **Type-aware API** - Generic target types are checked at compile time; missing, malformed, or incompatible configuration data is reported at runtime through `ConfigError`
+- ✅ **Serde Integration** - Supports `Config` wire serialization and JSON-like subtree deserialization; native rich-type conversion remains available through typed reads
 - ✅ **Extensible** - Trait-based design for easy custom type support
 - ✅ **Configuration sources** - [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) trait with built-in loaders: TOML, YAML, Java-style `.properties`, `.env` files, process environment variables (with optional prefix / key normalization), and [`CompositeConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.CompositeConfigSource.html) to merge several sources in order (later entries override earlier ones for the same key); built-in sources load transactionally, validate ambiguous normalized keys, and reject duplicate flattened TOML/YAML keys
 - ✅ **Read-only API** - [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) trait for typed reads without mutation; implemented by [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) and [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html), with string helpers, multi-key reads, and field declarations that respect variable substitution
@@ -196,9 +196,9 @@ let port: i32 = db.get("port")?;
 
 | Option group | Controls |
 |--------------|----------|
-| `StringReadOptions` | Trimming and blank-string handling: preserve, treat as missing, or reject. |
-| `BooleanReadOptions` | Accepted boolean literals and case sensitivity. |
-| `CollectionReadOptions` | Splitting scalar strings into lists, delimiters, per-item trimming, and empty-item policy. |
+| `StringConversionOptions` | Trimming and blank-string handling: preserve, treat as missing, or reject. |
+| `BooleanConversionOptions` | Accepted boolean literals and case sensitivity. |
+| `CollectionConversionOptions` | Splitting scalar strings into lists, delimiters, per-item trimming, and empty-item policy. |
 | Numeric and duration conversion | Exact conversion is the default. Duration-to-text projection honors the configured output unit and rejects implicit rounding unless `NumericConversionPolicy::Lossy` is selected explicitly. |
 | Environment variable substitution | Whether unresolved `${...}` placeholders may fall back to process environment variables. This is disabled by default. |
 
@@ -222,22 +222,38 @@ assert_eq!(ports, vec![8080, 8081, 8082]);
 
 You can build stricter or domain-specific options with builder-style methods:
 
+The conversion policy types are owned by `qubit-datatype`. Applications that
+customize them should depend on that crate directly:
+
+```toml
+[dependencies]
+qubit-config = "0.14"
+qubit-datatype = { version = "0.7", features = ["converter"] }
+```
+
 ```rust
-use qubit_config::{
-    Config,
-    options::{
-        BooleanReadOptions, CollectionReadOptions, ConfigReadOptions, EmptyItemPolicy,
-    },
+use qubit_config::{Config, options::ConfigReadOptions};
+use qubit_datatype::{
+    BlankStringPolicy,
+    BooleanConversionOptions,
+    CollectionConversionOptions,
+    EmptyItemPolicy,
+    StringConversionOptions,
 };
 
 let options = ConfigReadOptions::default()
+    .with_string_options(
+        StringConversionOptions::default()
+            .with_trim(true)
+            .with_blank_string_policy(BlankStringPolicy::Reject),
+    )
     .with_boolean_options(
-        BooleanReadOptions::strict()
-            .with_true_literal("enabled")
-            .with_false_literal("disabled"),
+        BooleanConversionOptions::strict()
+            .with_true_literal("enabled")?
+            .with_false_literal("disabled")?,
     )
     .with_collection_options(
-        CollectionReadOptions::default()
+        CollectionConversionOptions::default()
             .with_split_scalar_strings(true)
             .with_delimiters([',', ';'])
             .with_trim_items(true)
@@ -309,7 +325,7 @@ value is invalid, the error is returned and later keys are not tried.
 
 ### Configuration sources
 
-Implementations of [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) load external settings into a [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html). Call [`merge_from_source`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.merge_from_source) (or `load` on the source with a `&mut Config`) to apply them. When no pre-load customization is needed, use the convenience constructors such as [`Config::from_toml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_toml_file), [`Config::from_yaml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_yaml_file), [`Config::from_properties_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_properties_file), [`Config::from_env_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_file), [`Config::from_env`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env), or [`Config::from_env_prefix`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_prefix). File source convenience constructors are available when their corresponding `source-*` feature is enabled.
+Implementations of [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) load external settings into a [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html). Call [`merge_from_source`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.merge_from_source) (or `load` on the source with a `&mut Config`) to apply them. When no pre-load customization is needed, use the convenience constructors such as [`Config::from_toml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_toml_file), [`Config::from_yaml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_yaml_file), [`Config::from_properties_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_properties_file), [`Config::from_env_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_file), [`Config::from_env`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env), or [`Config::from_env_prefix`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_prefix). TOML, YAML, and `.env` convenience constructors require the `toml`, `yaml`, and `env-file` features respectively.
 
 Built-in sources and `Config::merge_from_source` are transactional: if parsing or merging fails, the target `Config` keeps its previous state.
 
@@ -412,7 +428,9 @@ let env = config.get_string("env")?;
 
 ### Structured Configuration
 
-`deserialize()` uses the same read options as typed `get` reads. For example, `ConfigReadOptions::env_friendly()` can parse numeric strings, boolean aliases, comma-separated scalar string lists, and blank strings treated as missing while building a serde struct.
+`deserialize()` exposes a JSON-like Serde view containing mappings, sequences, booleans, strings, numbers, and null values. String-backed projections still apply `ConfigReadOptions`; for example, `ConfigReadOptions::env_friendly()` can parse numeric strings, boolean aliases, comma-separated scalar string lists, and blank strings treated as missing while building a serde struct. It does not promise the native conversion shapes used by typed `get<T>()` reads for rich values such as durations or arbitrary-precision integers.
+
+Lookup and conversion failures retain their original `ConfigError` kind, leaf path, and source. A mismatch raised only by the target type's Serde implementation returns a sanitized `DeserializeError` at the requested prefix.
 
 When `prefix` is non-empty, `deserialize(prefix)` uses strict root selection:
 an exact `prefix` property is deserialized as the root value, otherwise

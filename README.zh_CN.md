@@ -14,11 +14,11 @@
 ## 特性
 
 - ✅ **纯泛型 API** - 使用 `get<T>()`、`read(ConfigField<T>)` 和 `set<T>()` 泛型方法，支持完整的类型推断
-- ✅ **丰富的数据类型** - 支持所有基本类型、时间类型、字符串、字节数组等
+- ✅ **丰富的数据类型** - 支持 Rust 基础类型，以及由 feature 控制的时间、URL 和任意精度数值类型
 - ✅ **多值属性** - 每个配置项可以包含多个值，支持列表操作
 - ✅ **变量替换** - 支持 `${var_name}` 形式的配置变量替换；如需回退到进程环境变量，必须显式开启
-- ✅ **类型安全** - 编译期类型检查，避免运行时类型错误
-- ✅ **序列化支持** - 完整的 serde 支持，可序列化和反序列化
+- ✅ **类型感知 API** - 泛型目标类型在编译期检查；缺失、格式错误或不兼容的配置数据仍会在运行期通过 `ConfigError` 报告
+- ✅ **Serde 集成** - 支持 `Config` wire 序列化与 JSON-like 子树反序列化；富类型的原生转换继续通过 typed read 提供
 - ✅ **可扩展** - 基于 trait 的设计，易于支持自定义类型
 - ✅ **配置来源（ConfigSource）** - 提供 [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) trait 与多种内置实现：TOML、YAML、Java 风格 `.properties`、`.env` 文件、进程环境变量（可选前缀与键名规范化），以及按顺序合并多个来源的 [`CompositeConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.CompositeConfigSource.html)（后加载的来源覆盖同名键）；内置来源按事务语义加载，会校验有歧义的规范化 key，并拒绝 TOML/YAML 单文档内展平后的重复 key
 - ✅ **只读访问（ConfigReader）** - [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) trait 提供无需修改配置的泛型读取；[`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) 与 [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html) 均实现该 trait，并包含字符串辅助方法、多 key 读取和字段声明读取
@@ -192,9 +192,9 @@ let port: i32 = db.get("port")?;
 
 | 选项组 | 控制内容 |
 |--------|----------|
-| `StringReadOptions` | 字符串 trim，以及空白字符串的处理方式：保留、当作缺失、或拒绝。 |
-| `BooleanReadOptions` | 可接受的布尔字面量和大小写敏感性。 |
-| `CollectionReadOptions` | 是否把标量字符串拆成列表、分隔符、元素 trim，以及空元素策略。 |
+| `StringConversionOptions` | 字符串 trim，以及空白字符串的处理方式：保留、当作缺失、或拒绝。 |
+| `BooleanConversionOptions` | 可接受的布尔字面量和大小写敏感性。 |
+| `CollectionConversionOptions` | 是否把标量字符串拆成列表、分隔符、元素 trim，以及空元素策略。 |
 | 数值与 Duration 转换 | 默认采用精确转换。Duration 转文本会遵循配置的输出单位；除非显式选择 `NumericConversionPolicy::Lossy`，否则拒绝隐式舍入。 |
 | 环境变量替换 | 未解析的 `${...}` 占位符是否可以回退读取进程环境变量。默认关闭。 |
 
@@ -218,22 +218,37 @@ assert_eq!(ports, vec![8080, 8081, 8082]);
 
 也可以用 builder 风格方法构造更严格或更贴合业务的解析选项：
 
+转换策略类型由 `qubit-datatype` 提供。需要定制这些策略的应用应直接依赖该 crate：
+
+```toml
+[dependencies]
+qubit-config = "0.14"
+qubit-datatype = { version = "0.7", features = ["converter"] }
+```
+
 ```rust
-use qubit_config::{
-    Config,
-    options::{
-        BooleanReadOptions, CollectionReadOptions, ConfigReadOptions, EmptyItemPolicy,
-    },
+use qubit_config::{Config, options::ConfigReadOptions};
+use qubit_datatype::{
+    BlankStringPolicy,
+    BooleanConversionOptions,
+    CollectionConversionOptions,
+    EmptyItemPolicy,
+    StringConversionOptions,
 };
 
 let options = ConfigReadOptions::default()
+    .with_string_options(
+        StringConversionOptions::default()
+            .with_trim(true)
+            .with_blank_string_policy(BlankStringPolicy::Reject),
+    )
     .with_boolean_options(
-        BooleanReadOptions::strict()
-            .with_true_literal("enabled")
-            .with_false_literal("disabled"),
+        BooleanConversionOptions::strict()
+            .with_true_literal("enabled")?
+            .with_false_literal("disabled")?,
     )
     .with_collection_options(
-        CollectionReadOptions::default()
+        CollectionConversionOptions::default()
             .with_split_scalar_strings(true)
             .with_delimiters([',', ';'])
             .with_trim_items(true)
@@ -304,7 +319,7 @@ assert_eq!(retries, 3);
 
 ### 配置来源（Configuration sources）
 
-[`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) 的实现负责把外部设置写入 [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html)。可调用 [`merge_from_source`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.merge_from_source)，或在持有 `&mut Config` 时对具体来源调用 `load`。如果不需要在加载前定制目标 `Config`，可以直接使用 [`Config::from_toml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_toml_file)、[`Config::from_yaml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_yaml_file)、[`Config::from_properties_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_properties_file)、[`Config::from_env_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_file)、[`Config::from_env`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env) 或 [`Config::from_env_prefix`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_prefix) 等便捷构造方法。文件 source 的便捷构造方法需要启用对应的 `source-*` feature。
+[`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) 的实现负责把外部设置写入 [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html)。可调用 [`merge_from_source`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.merge_from_source)，或在持有 `&mut Config` 时对具体来源调用 `load`。如果不需要在加载前定制目标 `Config`，可以直接使用 [`Config::from_toml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_toml_file)、[`Config::from_yaml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_yaml_file)、[`Config::from_properties_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_properties_file)、[`Config::from_env_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_file)、[`Config::from_env`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env) 或 [`Config::from_env_prefix`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_prefix) 等便捷构造方法。TOML、YAML 与 `.env` 便捷构造方法分别需要启用 `toml`、`yaml` 与 `env-file` feature。
 
 内置来源和 `Config::merge_from_source` 都按事务语义加载：如果解析或合并失败，目标 `Config` 会保留加载前的状态。
 
@@ -406,7 +421,9 @@ let env = config.get_string("env")?;
 
 ### 结构化配置
 
-`deserialize()` 使用与泛型 `get` 读取一致的读取选项。例如，`ConfigReadOptions::env_friendly()` 可在反序列化 serde 结构时解析数字字符串、布尔别名、逗号分隔的标量字符串列表，并把空白字符串按缺失值处理。
+`deserialize()` 暴露由 mapping、sequence、布尔值、字符串、数字和 null 组成的 JSON-like Serde 视图。字符串来源的投影仍会应用 `ConfigReadOptions`；例如，`ConfigReadOptions::env_friendly()` 可在反序列化 serde 结构时解析数字字符串、布尔别名、逗号分隔的标量字符串列表，并把空白字符串按缺失值处理。对于 Duration 或任意精度整数等富类型，它不承诺复现 typed `get<T>()` 的原生转换形状。
+
+查找与转换失败会保留原始 `ConfigError` 的 kind、叶子 path 与 source。只有目标类型自身触发的纯 Serde 不匹配，才会在请求的 prefix 返回固定脱敏消息的 `DeserializeError`。
 
 当 `prefix` 非空时，`deserialize(prefix)` 使用严格的根选择语义：如果存在精确的 `prefix` 属性，就把该属性作为反序列化根值；否则用 `prefix.*` 子键组成根对象。同时定义 `prefix` 和 `prefix.*` 会返回 key conflict。带点号的键也必须能组成无歧义对象树，例如同一反序列化对象中不能同时存在 `a` 和 `a.b`。
 
