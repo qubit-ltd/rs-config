@@ -11,21 +11,18 @@ use qubit_config::{
     Config,
     ConfigError,
     field::ConfigField,
-    options::{
-        BlankStringPolicy,
-        BooleanReadOptions,
-        CollectionReadOptions,
-        ConfigReadOptions,
-        EmptyItemPolicy,
-        StringReadOptions,
-    },
+    options::ConfigReadOptions,
 };
 use qubit_datatype::{
+    BlankStringPolicy,
     BooleanConversionOptions,
+    CollectionConversionOptions,
     DataConversionOptions,
     DurationConversionOptions,
     DurationUnit,
+    EmptyItemPolicy,
     NumericConversionPolicy,
+    StringConversionOptions,
     SuffixlessDurationPolicy,
 };
 
@@ -52,7 +49,7 @@ fn test_field_options_can_add_custom_boolean_literals() {
         .expect("setting test config should succeed");
 
     let options = ConfigReadOptions::default().with_boolean_options(
-        BooleanReadOptions::strict()
+        BooleanConversionOptions::strict()
             .with_true_literal("enabled")
             .expect("custom true literal should be distinct")
             .with_false_literal("disabled")
@@ -134,7 +131,7 @@ fn test_env_variable_substitution_option_is_explicit() {
 
 #[test]
 fn test_string_and_duration_options_are_delegated_to_conversion_options() {
-    let string_options = StringReadOptions::default().with_trim(true);
+    let string_options = StringConversionOptions::default().with_trim(true);
     let duration_options = DurationConversionOptions::default()
         .with_numeric_input_unit(DurationUnit::Milliseconds);
     let options = ConfigReadOptions::default()
@@ -148,7 +145,7 @@ fn test_string_and_duration_options_are_delegated_to_conversion_options() {
 #[test]
 fn test_collection_options_builder_is_exposed_directly() {
     let collection_options =
-        CollectionReadOptions::default().with_split_scalar_strings(true);
+        CollectionConversionOptions::default().with_split_scalar_strings(true);
     let options = ConfigReadOptions::default()
         .with_collection_options(collection_options.clone());
 

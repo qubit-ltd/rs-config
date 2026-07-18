@@ -10,11 +10,9 @@
 use qubit_config::{
     Config,
     ConfigError,
-    options::{
-        BlankStringPolicy,
-        ConfigReadOptions,
-    },
+    options::ConfigReadOptions,
 };
+use qubit_datatype::BlankStringPolicy;
 
 #[test]
 fn test_helpers_treat_blank_string_as_missing_when_policy_allows() {

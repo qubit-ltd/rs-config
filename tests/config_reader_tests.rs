@@ -8,10 +8,7 @@
 //! [`qubit_config::ConfigReader`] tests.
 
 use qubit_config::field::ConfigField;
-use qubit_config::options::{
-    BlankStringPolicy,
-    ConfigReadOptions,
-};
+use qubit_config::options::ConfigReadOptions;
 use qubit_config::{
     Config,
     ConfigError,
@@ -20,6 +17,7 @@ use qubit_config::{
     ConfigSection,
 };
 use qubit_datatype::{
+    BlankStringPolicy,
     DataConversionTarget,
     DataType,
 };

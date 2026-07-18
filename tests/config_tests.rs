@@ -21,12 +21,12 @@ pub(crate) use qubit_config::{
     Config,
     ConfigError,
     Property,
-    options::{
-        BlankStringPolicy,
-        ConfigReadOptions,
-    },
+    options::ConfigReadOptions,
 };
-pub(crate) use qubit_datatype::DataType;
+pub(crate) use qubit_datatype::{
+    BlankStringPolicy,
+    DataType,
+};
 pub(crate) use qubit_value::MultiValues;
 pub(crate) use serde::Deserialize;
 
