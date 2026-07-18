@@ -34,7 +34,11 @@ use super::{
 /// Matches variables in `${variable_name}` format
 static VARIABLE_PATTERN: OnceLock<Regex> = OnceLock::new();
 
-/// Gets the regular expression pattern for variables
+/// Gets the compiled regular expression used to find variables.
+///
+/// # Returns
+///
+/// The process-wide `${name}` pattern.
 #[inline]
 fn get_variable_pattern() -> &'static Regex {
     VARIABLE_PATTERN.get_or_init(|| {
@@ -45,6 +49,15 @@ fn get_variable_pattern() -> &'static Regex {
 
 /// Maps a [`ValueError`] from typed property access to [`ConfigError`], using
 /// `key` as the configuration path for type and conversion errors.
+///
+/// # Parameters
+///
+/// * `key` - Configuration path associated with the value operation.
+/// * `err` - Value-layer error to classify.
+///
+/// # Returns
+///
+/// A structured configuration error retaining `key`.
 pub(crate) fn map_value_error(key: &str, err: ValueError) -> ConfigError {
     ConfigError::from((key, err))
 }
@@ -126,6 +139,21 @@ pub(crate) fn ensure_unique_flattened_key(
 ///
 /// Used internally by [`crate::Config`] and [`crate::ConfigReader`] when
 /// variable substitution is enabled.
+///
+/// # Parameters
+///
+/// * `value` - Text containing optional `${name}` placeholders.
+/// * `config` - Reader used to resolve variables.
+/// * `max_depth` - Maximum recursive expansion depth.
+/// * `path` - Configuration path whose value is being expanded.
+///
+/// # Returns
+///
+/// Fully expanded text.
+///
+/// # Errors
+///
+/// Returns keyed lookup, conversion, depth, or cycle errors.
 pub(crate) fn substitute_variables<R: ConfigReader + ?Sized>(
     value: &str,
     config: &R,
@@ -143,6 +171,22 @@ pub(crate) fn substitute_variables<R: ConfigReader + ?Sized>(
 /// the fallback reader, then to environment variables only when the active
 /// read options explicitly enable environment fallback. Type and conversion
 /// errors in the primary reader are returned directly.
+///
+/// # Parameters
+///
+/// * `value` - Text containing optional `${name}` placeholders.
+/// * `primary` - Reader checked first for each variable.
+/// * `fallback` - Reader checked for variables absent from `primary`.
+/// * `max_depth` - Maximum recursive expansion depth.
+/// * `path` - Configuration path whose value is being expanded.
+///
+/// # Returns
+///
+/// Fully expanded text.
+///
+/// # Errors
+///
+/// Returns keyed lookup, conversion, depth, or cycle errors.
 pub(crate) fn substitute_variables_with_fallback<
     P: ConfigReader + ?Sized,
     F: ConfigReader + ?Sized,
@@ -159,6 +203,21 @@ pub(crate) fn substitute_variables_with_fallback<
 }
 
 /// Replaces variables in `value` by repeatedly applying `resolve`.
+///
+/// # Parameters
+///
+/// * `value` - Text containing optional placeholders.
+/// * `max_depth` - Maximum recursive expansion depth.
+/// * `path` - Configuration path used for diagnostics.
+/// * `resolve` - Resolver invoked for each variable name.
+///
+/// # Returns
+///
+/// Fully expanded text.
+///
+/// # Errors
+///
+/// Returns resolver, depth, or cycle errors.
 fn substitute_variables_by(
     value: &str,
     max_depth: usize,
@@ -178,6 +237,23 @@ fn substitute_variables_by(
 }
 
 /// Recursively expands variables while tracking the active variable chain.
+///
+/// # Parameters
+///
+/// * `value` - Text for the current recursive expansion step.
+/// * `max_depth` - Maximum active variable-chain length.
+/// * `path` - Configuration path used for diagnostics.
+/// * `pattern` - Compiled placeholder pattern.
+/// * `stack` - Active variable chain used for cycle detection.
+/// * `resolve` - Resolver invoked for each variable name.
+///
+/// # Returns
+///
+/// Fully expanded text for this step.
+///
+/// # Errors
+///
+/// Returns resolver, depth, or cycle errors.
 fn substitute_variables_recursive(
     value: &str,
     max_depth: usize,
@@ -237,10 +313,15 @@ fn substitute_variables_recursive(
 ///
 /// * `var_name` - Variable name
 /// * `config` - Configuration object
+/// * `path` - Configuration path whose value is being expanded.
 ///
 /// # Returns
 ///
 /// Returns the variable value on success, or an error on failure
+///
+/// # Errors
+///
+/// Returns a keyed conversion or unresolved-variable error.
 fn find_variable_value<R: ConfigReader + ?Sized>(
     var_name: &str,
     config: &R,
@@ -277,6 +358,21 @@ fn find_variable_value<R: ConfigReader + ?Sized>(
 /// Absent or unset values in `primary` are looked up in `fallback`. Other
 /// errors from `primary` are returned directly so fallback values do not mask
 /// invalid local configuration.
+///
+/// # Parameters
+///
+/// * `var_name` - Variable name to resolve.
+/// * `primary` - Reader checked first.
+/// * `fallback` - Reader checked when `primary` has no value.
+/// * `path` - Configuration path whose value is being expanded.
+///
+/// # Returns
+///
+/// The resolved variable text.
+///
+/// # Errors
+///
+/// Returns a keyed conversion or unresolved-variable error.
 fn find_variable_value_with_fallback<
     P: ConfigReader + ?Sized,
     F: ConfigReader + ?Sized,
@@ -432,6 +528,21 @@ pub(crate) fn property_to_json_value(
 ///
 /// Used by [`crate::Config::deserialize`] so a deserialized subtree can resolve
 /// both relative keys in the subtree and absolute keys from the root config.
+///
+/// # Parameters
+///
+/// * `value` - JSON value whose string leaves are expanded in place.
+/// * `path` - Configuration path represented by `value`.
+/// * `primary` - Reader checked first for variables.
+/// * `fallback` - Reader used when `primary` has no value.
+///
+/// # Returns
+///
+/// `Ok(())` after every string leaf has been expanded.
+///
+/// # Errors
+///
+/// Returns keyed lookup, conversion, depth, or cycle errors.
 pub(crate) fn substitute_json_strings_with_fallback<
     P: ConfigReader + ?Sized,
     F: ConfigReader + ?Sized,
