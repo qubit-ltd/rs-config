@@ -64,6 +64,39 @@ mod test_yaml_config_source {
     }
 
     #[test]
+    fn test_load_yaml_u64_scalar_without_precision_loss() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("u64_scalar.yaml");
+        std::fs::write(&path, format!("value: {}\n", u64::MAX)).unwrap();
+        let source = YamlConfigSource::from_file(&path);
+        let mut config = Config::new();
+
+        source.load(&mut config).unwrap();
+
+        assert_eq!(config.get::<u64>("value").unwrap(), u64::MAX);
+    }
+
+    #[test]
+    fn test_load_yaml_u64_sequence_without_precision_loss() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("u64_sequence.yaml");
+        std::fs::write(
+            &path,
+            "values: [9223372036854775808, 18446744073709551615]\n",
+        )
+        .unwrap();
+        let source = YamlConfigSource::from_file(&path);
+        let mut config = Config::new();
+
+        source.load(&mut config).unwrap();
+
+        assert_eq!(
+            config.get_list::<u64>("values").unwrap(),
+            vec![i64::MAX as u64 + 1, u64::MAX],
+        );
+    }
+
+    #[test]
     fn test_load_yaml_nested_mapping_flattened() {
         let source = YamlConfigSource::from_file(fixture("basic.yaml"));
         let mut config = Config::new();

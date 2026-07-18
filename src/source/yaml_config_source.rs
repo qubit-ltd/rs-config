@@ -115,7 +115,8 @@ impl ConfigSource for YamlConfigSource {
 /// Recursively flattens a YAML value into the config using dot-separated keys.
 ///
 /// Scalar types are stored with their native types where possible:
-/// - Integer numbers → i64
+/// - Signed integer numbers → i64
+/// - Large non-negative integer numbers → u64
 /// - Floating-point numbers → f64
 /// - Booleans → bool
 /// - Strings → String
@@ -157,9 +158,11 @@ pub(crate) fn flatten_yaml_value(
             utils::ensure_unique_flattened_key(seen, prefix)?;
             if let Some(i) = n.as_i64() {
                 config.set(prefix, i)?;
+            } else if let Some(i) = n.as_u64() {
+                config.set(prefix, i)?;
             } else {
                 let f = n.as_f64().expect(
-                    "YAML number should be representable as i64 or f64",
+                    "YAML number should be representable as i64, u64, or f64",
                 );
                 config.set(prefix, f)?;
             }
@@ -207,7 +210,15 @@ fn flatten_yaml_sequence(
         YamlValue::Number(_)
             if seq
                 .iter()
-                .all(|value| matches!(value, YamlValue::Number(_))) =>
+                .all(|value| matches!(value, YamlValue::Number(number) if number.is_u64())) =>
+        {
+            let values = seq.iter().filter_map(YamlValue::as_u64).collect::<Vec<_>>();
+            config.set(prefix, values)?;
+        }
+        YamlValue::Number(_)
+            if seq
+                .iter()
+                .all(|value| matches!(value, YamlValue::Number(number) if number.is_f64())) =>
         {
             let values = seq.iter().filter_map(YamlValue::as_f64).collect::<Vec<_>>();
             config.set(prefix, values)?;
