@@ -34,9 +34,9 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
 
 [features]
 default = []
-bigdecimal = ["dep:bigdecimal", "qubit-value/big-number"]
+bigdecimal = ["dep:bigdecimal", "qubit-value/big-decimal"]
 chrono = ["dep:chrono", "qubit-value/chrono"]
-num-bigint = ["dep:num-bigint", "qubit-value/big-number"]
+num-bigint = ["dep:num-bigint", "qubit-value/big-integer"]
 url = ["dep:url", "qubit-value/url"]
 env-file = ["dep:dotenvy"]
 toml = ["dep:toml"]
