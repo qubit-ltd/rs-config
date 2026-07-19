@@ -21,7 +21,7 @@
 - ✅ **Serde 集成** - 支持 `Config` wire 序列化与 JSON-like 子树反序列化；富类型的原生转换继续通过 typed read 提供
 - ✅ **可扩展** - 基于 trait 的设计，易于支持自定义类型
 - ✅ **配置来源（ConfigSource）** - 提供 [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) trait 与多种内置实现：TOML、YAML、Java 风格 `.properties`、`.env` 文件、进程环境变量（可选前缀与键名规范化），以及按顺序合并多个来源的 [`CompositeConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.CompositeConfigSource.html)（后加载的来源覆盖同名键）；内置来源按事务语义加载，会校验有歧义的规范化 key，并拒绝 TOML/YAML 单文档内展平后的重复 key
-- ✅ **只读访问（ConfigReader）** - [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) trait 提供无需修改配置的泛型读取；[`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) 与 [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html) 均实现该 trait，并包含字符串辅助方法、多 key 读取和字段声明读取
+- ✅ **只读访问（ConfigReader）** - 封闭的 [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) trait 为 [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) 与 [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html) 提供泛型、多 key 和字段声明读取
 - ✅ **可配置解析** - [`ConfigReadOptions`](https://docs.rs/qubit-config/latest/qubit_config/options/struct.ConfigReadOptions.html) 可在全局或单个字段上控制字符串 trim、空白值处理、布尔字面量和标量字符串拆分列表
 - ✅ **严格 section（ConfigSection）** - [`Config::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.section) 返回严格相对键视图；可通过 [`ConfigSection::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html#method.section) 继续嵌套
 - ✅ **安全诊断** - `Debug` 输出保留配置项元数据，并通过 `qubit-sanitize` 脱敏所有存储值
@@ -125,14 +125,13 @@ config.set("database.port", 5432)?;
 
 | API | 行为 |
 |-----|------|
-| `get<T>(name)` | 通过 `FromConfig` 读取必填值。 |
+| `get<T>(name)` | 通过 `FromConfig` 读取必填值，并对字符串来源应用变量替换。 |
 | `get_optional<T>(name)` | key 不存在或被视为缺失时返回 `Ok(None)`。 |
 | `get_or<T>(name, default)` | 仅在 key 不存在或被视为缺失时使用默认值。 |
 | `get_any<T>(&[names])` | 按顺序读取第一个未被视为缺失的 key。 |
 | `get_optional_any<T>(&[names])` | 多 key 可选读取。 |
 | `get_any_or<T>(&[names], default)` | 多 key 默认值读取。 |
 | `get_any_or_with<T>(&[names], default, options)` | 使用显式读取选项的多 key 默认值读取。 |
-| `get_string`、`get_string_any`、`get_string_any_or` | 带变量替换的字符串读取。 |
 | `read(ConfigField<T>)` | 通过字段声明读取，支持 name、alias、default 和字段级解析选项。 |
 | `get_strict` / `get_list_strict` | 精确存储类型读取，不做跨类型转换。 |
 
@@ -182,7 +181,7 @@ config.set("db.host", "localhost")?;
 config.set("db.port", 5432i32)?;
 
 let db = config.section("db");
-let host: String = db.get_string("host")?;
+let host: String = db.get("host")?;
 let port: i32 = db.get("port")?;
 ```
 
@@ -197,11 +196,11 @@ let port: i32 = db.get("port")?;
 | `CollectionConversionOptions` | 是否把标量字符串拆成列表、分隔符、元素 trim，以及空元素策略。 |
 | `NumericConversionOptions` | 小数转整数、已有数值转浮点、文本转浮点策略，以及数值文本和 `BigInt` 物化上限。 |
 | `DurationConversionOptions` | 数值输入单位、文本后缀规则、输出单位与后缀，以及独立的 Duration 舍入策略。 |
-| 环境变量替换 | 未解析的 `${...}` 占位符是否可以回退读取进程环境变量。默认关闭。 |
+| `VariableSubstitutionOptions` | 控制是否替换、环境变量回退，以及递归深度、展开次数和输出字节数上限。 |
 
 `ConfigReadOptions::env_friendly()` 适合环境变量风格配置：会 trim 字符串，把空白标量字符串当作缺失，布尔值接受 `true/false`、`1/0`、`yes/no`、`on/off`，并在读取 `Vec<T>` 时按逗号拆分标量字符串、跳过空元素。它允许文本转浮点采用 nearest-even 舍入，但小数转整数与已有数值转浮点仍保持精确。
 
-`${...}` 替换回退读取进程环境变量默认关闭，`ConfigReadOptions::env_friendly()` 也不会自动开启，以避免进程环境值带来意外注入。仅在可信配置链路中用 `with_env_variable_substitution_enabled(true)` 显式开启。
+`${...}` 替换回退读取进程环境变量默认关闭，`ConfigReadOptions::env_friendly()` 也不会自动开启，以避免进程环境值带来意外注入。仅在可信配置链路中通过 `VariableSubstitutionOptions` 显式开启；该选项还限制递归深度、占位符展开次数和输出字节数。
 
 ```rust
 use qubit_config::{Config, options::ConfigReadOptions};
@@ -307,7 +306,7 @@ let mut config = Config::new().with_read_options(ConfigReadOptions::env_friendly
 config.set("SERVICE_URL", "http://localhost:8080")?;
 config.set("SERVER_TIMEOUT", "30")?;
 
-let url = config.get_string_any(["service.url", "SERVICE_URL"])?;
+let url = config.get_any::<String>(["service.url", "SERVICE_URL"])?;
 let timeout = config.get_any_or(["server.timeout", "SERVER_TIMEOUT"], 10u64)?;
 let optional_port = config.get_optional_any::<u16>(["server.port", "SERVER_PORT"])?;
 let retries = config.get_any_or_with(
@@ -413,17 +412,20 @@ config.set("port", "8080")?;
 config.set("url", "http://${host}:${port}/api")?;
 
 // 变量会自动替换
-let url = config.get_string("url")?;
+let url: String = config.get("url")?;
 // 结果: "http://localhost:8080/api"
 
 // 回退读取环境变量需要显式开启，因为进程环境值在某些部署中可能被外部影响。
 config.set_read_options(
     qubit_config::options::ConfigReadOptions::default()
-        .with_env_variable_substitution_enabled(true),
+        .with_substitution(
+            qubit_config::options::VariableSubstitutionOptions::default()
+                .with_environment_fallback_enabled(true),
+        ),
 );
 std::env::set_var("APP_ENV", "production");
 config.set("env", "${APP_ENV}")?;
-let env = config.get_string("env")?;
+let env: String = config.get("env")?;
 // 结果: "production"
 ```
 
@@ -607,6 +609,8 @@ pub enum ConfigError {
     ValueError { key: String, source: ValueError },
     SubstitutionError { path: String, message: String },
     SubstitutionDepthExceeded { path: String, max_depth: usize },
+    SubstitutionExpansionLimitExceeded { path: String, max_expansions: usize },
+    SubstitutionOutputTooLarge { path: String, max_output_bytes: usize },
     SubstitutionCycle { path: String, chain: Vec<String> },
     MergeError(String),                 // 配置合并失败
     PropertyIsFinal(String),            // 配置项是最终的，不能被覆盖
@@ -644,15 +648,6 @@ key 上下文。把值层错误转换为配置错误时，必须使用
 - `toml` - `toml` feature 下的 TOML 解析
 - `serde_norway` - `yaml` feature 下的 YAML 解析
 - `dotenvy` - `env-file` feature 下的 `.env` 文件解析
-
-## 发展路线图
-
-- [ ] 更多配置格式加载器（如 JSON、XML）
-- [ ] 除有序 `CompositeConfigSource` 外的高级合并 / 覆盖策略
-- [ ] 支持配置监听和热重载
-- [ ] 支持配置验证框架
-- [ ] 支持配置加密
-- [ ] 提供线程安全的包装类型 `SyncConfig`
 
 ## 测试
 
