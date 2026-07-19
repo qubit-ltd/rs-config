@@ -87,9 +87,9 @@ input. The pre-fix test must fail because Serde's default methods report that
 
 ```rust
 let http = config.section("http");
-let host = http.get_string("host")?;
+let host: String = http.get("host")?;
 let proxy = http.section("proxy");
-let proxy_host = proxy.get_string("host")?;
+let proxy_host: String = proxy.get("host")?;
 ```
 
 The public surface is:

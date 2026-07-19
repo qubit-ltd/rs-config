@@ -19,7 +19,7 @@ A powerful, type-safe configuration management system for Rust, providing flexib
 - ✅ **Serde Integration** - Supports `Config` wire serialization and JSON-like subtree deserialization; native rich-type conversion remains available through typed reads
 - ✅ **Extensible** - Trait-based design for easy custom type support
 - ✅ **Configuration sources** - [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) trait with built-in loaders: TOML, YAML, Java-style `.properties`, `.env` files, process environment variables (with optional prefix / key normalization), and [`CompositeConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.CompositeConfigSource.html) to merge several sources in order (later entries override earlier ones for the same key); built-in sources load transactionally, validate ambiguous normalized keys, and reject duplicate flattened TOML/YAML keys
-- ✅ **Read-only API** - [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) trait for typed reads without mutation; implemented by [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) and [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html), with string helpers, multi-key reads, and field declarations that respect variable substitution
+- ✅ **Read-only API** - The sealed [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) trait provides typed, multi-key, and field-declaration reads for [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) and [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html)
 - ✅ **Configurable parsing** - [`ConfigReadOptions`](https://docs.rs/qubit-config/latest/qubit_config/options/struct.ConfigReadOptions.html) controls string trimming, blank handling, boolean literals, and scalar-string collection splitting globally or per field
 - ✅ **Strict sections** - [`Config::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.section) returns a [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html) with strictly relative keys; nest with [`ConfigSection::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html#method.section)
 - ✅ **Safe diagnostics** - `Debug` output preserves property metadata while redacting every stored configuration value through `qubit-sanitize`
@@ -128,14 +128,13 @@ The main read APIs are:
 
 | API | Behavior |
 |-----|----------|
-| `get<T>(name)` | Read a required value through `FromConfig`. |
+| `get<T>(name)` | Read a required value through `FromConfig`, applying variable substitution to string-backed input. |
 | `get_optional<T>(name)` | Return `Ok(None)` when the key is absent or effectively missing. |
 | `get_or<T>(name, default)` | Use `default` only when the key is absent or effectively missing. |
 | `get_any<T>(&[names])` | Read the first key whose value is not effectively missing. |
 | `get_optional_any<T>(&[names])` | Multi-key optional read. |
 | `get_any_or<T>(&[names], default)` | Multi-key defaulted read. |
 | `get_any_or_with<T>(&[names], default, options)` | Multi-key defaulted read with explicit read options. |
-| `get_string`, `get_string_any`, `get_string_any_or` | String helpers with variable substitution. |
 | `read(ConfigField<T>)` | Field declaration with name, aliases, default, and field-level read options. |
 | `get_strict` / `get_list_strict` | Exact stored-type reads without cross-type conversion. |
 
@@ -186,7 +185,7 @@ config.set("db.host", "localhost")?;
 config.set("db.port", 5432i32)?;
 
 let db = config.section("db");
-let host: String = db.get_string("host")?;
+let host: String = db.get("host")?;
 let port: i32 = db.get("port")?;
 ```
 
@@ -201,11 +200,11 @@ let port: i32 = db.get("port")?;
 | `CollectionConversionOptions` | Splitting scalar strings into lists, delimiters, per-item trimming, and empty-item policy. |
 | `NumericConversionOptions` | Fractional-to-integer, numeric-to-float, and text-to-float policies, plus numeric text and `BigInt` materialization limits. |
 | `DurationConversionOptions` | Numeric input unit, text suffix rules, output unit and suffix, and independent Duration rounding. |
-| Environment variable substitution | Whether unresolved `${...}` placeholders may fall back to process environment variables. This is disabled by default. |
+| `VariableSubstitutionOptions` | Enables substitution, controls environment fallback, and bounds recursion depth, expansion count, and output bytes. |
 
 `ConfigReadOptions::env_friendly()` is useful for environment-variable style values: it trims strings, treats blank scalar strings as missing, accepts `true/false`, `1/0`, `yes/no`, and `on/off`, and splits scalar strings on commas for `Vec<T>` reads while skipping empty items. It permits nearest-even text-to-float rounding, but keeps fractional-to-integer and existing-numeric-to-float conversions exact.
 
-Environment-variable fallback for `${...}` substitution is disabled by default, including in `ConfigReadOptions::env_friendly()`, to avoid accidental injection from the process environment. Enable it explicitly only for trusted configuration flows with `with_env_variable_substitution_enabled(true)`.
+Environment-variable fallback for `${...}` substitution is disabled by default, including in `ConfigReadOptions::env_friendly()`, to avoid accidental injection from the process environment. Configure it explicitly through `VariableSubstitutionOptions`, which also bounds recursion depth, placeholder expansions, and output bytes.
 
 ```rust
 use qubit_config::{Config, options::ConfigReadOptions};
@@ -312,7 +311,7 @@ let mut config = Config::new().with_read_options(ConfigReadOptions::env_friendly
 config.set("SERVICE_URL", "http://localhost:8080")?;
 config.set("SERVER_TIMEOUT", "30")?;
 
-let url = config.get_string_any(["service.url", "SERVICE_URL"])?;
+let url = config.get_any::<String>(["service.url", "SERVICE_URL"])?;
 let timeout = config.get_any_or(["server.timeout", "SERVER_TIMEOUT"], 10u64)?;
 let optional_port = config.get_optional_any::<u16>(["server.port", "SERVER_PORT"])?;
 let retries = config.get_any_or_with(
@@ -419,18 +418,21 @@ config.set("port", "8080")?;
 config.set("url", "http://${host}:${port}/api")?;
 
 // Variables are automatically substituted
-let url = config.get_string("url")?;
+let url: String = config.get("url")?;
 // Result: "http://localhost:8080/api"
 
 // Environment fallback is opt-in because process environment values can be
 // attacker-controlled in some deployments.
 config.set_read_options(
     qubit_config::options::ConfigReadOptions::default()
-        .with_env_variable_substitution_enabled(true),
+        .with_substitution(
+            qubit_config::options::VariableSubstitutionOptions::default()
+                .with_environment_fallback_enabled(true),
+        ),
 );
 std::env::set_var("APP_ENV", "production");
 config.set("env", "${APP_ENV}")?;
-let env = config.get_string("env")?;
+let env: String = config.get("env")?;
 // Result: "production"
 ```
 
@@ -620,6 +622,8 @@ pub enum ConfigError {
     ValueError { key: String, source: ValueError },
     SubstitutionError { path: String, message: String },
     SubstitutionDepthExceeded { path: String, max_depth: usize },
+    SubstitutionExpansionLimitExceeded { path: String, max_expansions: usize },
+    SubstitutionOutputTooLarge { path: String, max_output_bytes: usize },
     SubstitutionCycle { path: String, chain: Vec<String> },
     MergeError(String),                 // Configuration merge failed
     PropertyIsFinal(String),            // Property is final and cannot be overwritten
@@ -658,15 +662,6 @@ For detailed API documentation, visit [docs.rs/qubit-config](https://docs.rs/qub
 - `toml` - TOML parsing behind `toml`
 - `serde_norway` - YAML parsing behind `yaml`
 - `dotenvy` - `.env` file parsing behind `env-file`
-
-## Roadmap
-
-- [ ] Additional configuration loaders (e.g. JSON, XML)
-- [ ] Advanced merge / overlay policies beyond ordered `CompositeConfigSource`
-- [ ] Configuration watching and hot reload
-- [ ] Configuration validation framework
-- [ ] Configuration encryption support
-- [ ] Thread-safe wrapper type `SyncConfig`
 
 ## Testing
 
