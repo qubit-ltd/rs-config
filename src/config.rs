@@ -30,7 +30,6 @@ use crate::ConfigPropertyMut;
 use crate::config_reader::ConfigReader;
 use crate::config_section::ConfigSection;
 use crate::config_value_deserializer::ConfigValueDeserializer;
-use crate::constants::DEFAULT_MAX_SUBSTITUTION_DEPTH;
 use crate::field::ConfigField;
 use crate::from::{
     FromConfig,
@@ -100,12 +99,13 @@ fn scalar_string_is_missing_for_deserialize(
     let Some(QubitValue::String(value)) = property.value().as_scalar() else {
         return Ok(false);
     };
-    let value = if primary.is_enable_variable_substitution() {
+    let substitution = options.substitution();
+    let value = if substitution.is_enabled() {
         utils::substitute_variables_with_fallback(
             value,
             primary,
             fallback,
-            primary.max_substitution_depth(),
+            substitution,
             key,
         )?
     } else {
@@ -174,10 +174,6 @@ pub struct Config {
     description: Option<String>,
     /// Configuration property mapping
     pub(crate) properties: HashMap<String, Property>,
-    /// Whether variable substitution is enabled
-    enable_variable_substitution: bool,
-    /// Maximum depth for variable substitution
-    max_substitution_depth: usize,
     /// Runtime read parsing options
     #[serde(default)]
     read_options: ConfigReadOptions,
@@ -214,8 +210,6 @@ impl TryFrom<ConfigSerdeRepr> for Config {
         Ok(Self {
             description: value.description,
             properties: value.properties,
-            enable_variable_substitution: value.enable_variable_substitution,
-            max_substitution_depth: value.max_substitution_depth,
             read_options: value.read_options,
         })
     }
@@ -241,8 +235,6 @@ impl Config {
         Self {
             description: None,
             properties: HashMap::new(),
-            enable_variable_substitution: true,
-            max_substitution_depth: DEFAULT_MAX_SUBSTITUTION_DEPTH,
             read_options: ConfigReadOptions::default(),
         }
     }
@@ -270,8 +262,6 @@ impl Config {
         Self {
             description: Some(description.to_string()),
             properties: HashMap::new(),
-            enable_variable_substitution: true,
-            max_substitution_depth: DEFAULT_MAX_SUBSTITUTION_DEPTH,
             read_options: ConfigReadOptions::default(),
         }
     }
@@ -495,50 +485,6 @@ impl Config {
     #[inline(always)]
     pub fn set_description(&mut self, description: Option<String>) {
         self.description = description;
-    }
-
-    /// Checks if variable substitution is enabled
-    ///
-    /// # Returns
-    ///
-    /// Returns `true` if variable substitution is enabled
-    #[inline(always)]
-    pub fn is_enable_variable_substitution(&self) -> bool {
-        self.enable_variable_substitution
-    }
-
-    /// Sets whether to enable variable substitution
-    ///
-    /// # Parameters
-    ///
-    /// * `enable` - Whether to enable
-    ///
-    /// # Returns
-    ///
-    /// Nothing.
-    #[inline(always)]
-    pub fn set_enable_variable_substitution(&mut self, enable: bool) {
-        self.enable_variable_substitution = enable;
-    }
-
-    /// Gets the maximum depth for variable substitution
-    ///
-    /// # Returns
-    ///
-    /// Returns the maximum depth value
-    #[inline(always)]
-    pub fn max_substitution_depth(&self) -> usize {
-        self.max_substitution_depth
-    }
-
-    /// Sets the maximum depth for variable substitution.
-    ///
-    /// # Parameters
-    ///
-    /// * `depth` - Maximum depth.
-    #[inline(always)]
-    pub fn set_max_substitution_depth(&mut self, depth: usize) {
-        self.max_substitution_depth = depth;
     }
 
     /// Gets the global read parsing options.
@@ -817,10 +763,8 @@ impl Config {
     ///
     /// Core read API with type inference.
     ///
-    /// This method does not perform `${...}` variable substitution. Use
-    /// [`Self::get_string`], [`Self::get_string_list`], or
-    /// [`Self::deserialize`] when placeholders should be resolved while
-    /// reading.
+    /// String-backed values apply the active variable-substitution policy
+    /// before conversion. Strict reads preserve the stored representation.
     ///
     /// # Type Parameters
     ///
@@ -1255,180 +1199,6 @@ impl Config {
         })
     }
 
-    // ========================================================================
-    // String Special Handling (Variable Substitution)
-    // ========================================================================
-
-    /// Gets a string configuration value (with variable substitution)
-    ///
-    /// If variable substitution is enabled, replaces `${var_name}` placeholders
-    /// in the stored string.
-    ///
-    /// # Parameters
-    ///
-    /// * `name` - Configuration item name
-    ///
-    /// # Returns
-    ///
-    /// Returns the string value on success, or an error on failure
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use qubit_config::Config;
-    ///
-    /// let mut config = Config::new();
-    /// config.set("base_url", "http://localhost").unwrap();
-    /// config.set("api_url", "${base_url}/api").unwrap();
-    ///
-    /// let api_url = config.get_string("api_url").unwrap();
-    /// assert_eq!(api_url, "http://localhost/api");
-    /// ```
-    pub fn get_string(&self, name: impl ConfigName) -> ConfigResult<String> {
-        <Self as ConfigReader>::get_string(self, name)
-    }
-
-    /// Gets a string value from the first present and non-empty key in `names`.
-    ///
-    /// # Parameters
-    ///
-    /// * `names` - Candidate keys checked in priority order.
-    ///
-    /// # Returns
-    ///
-    /// Returns the string value on success, or an error on failure.
-    pub fn get_string_any(
-        &self,
-        names: impl ConfigNames,
-    ) -> ConfigResult<String> {
-        <Self as ConfigReader>::get_string_any(self, names)
-    }
-
-    /// Gets an optional string value from the first present and non-empty key.
-    ///
-    /// # Parameters
-    ///
-    /// * `names` - Candidate keys checked in priority order.
-    ///
-    /// # Returns
-    ///
-    /// `Ok(None)` when every key is absent or effectively missing.
-    pub fn get_optional_string_any(
-        &self,
-        names: impl ConfigNames,
-    ) -> ConfigResult<Option<String>> {
-        <Self as ConfigReader>::get_optional_string_any(self, names)
-    }
-
-    /// Gets a string from any key, or `default` when all keys are missing or
-    /// empty.
-    ///
-    /// # Parameters
-    ///
-    /// * `names` - Candidate keys checked in priority order.
-    /// * `default` - Fallback used only when every key is absent or effectively
-    ///   missing.
-    ///
-    /// # Returns
-    ///
-    /// Returns the string value or default value. Substitution errors are
-    /// returned instead of being hidden by the default.
-    pub fn get_string_any_or(
-        &self,
-        names: impl ConfigNames,
-        default: &str,
-    ) -> ConfigResult<String> {
-        <Self as ConfigReader>::get_string_any_or(self, names, default)
-    }
-
-    /// Gets a string with substitution, or `default` if the key is absent or
-    /// empty.
-    ///
-    /// # Parameters
-    ///
-    /// * `name` - Configuration item name
-    /// * `default` - Default value
-    ///
-    /// # Returns
-    ///
-    /// Returns the string value or default value. Substitution errors are
-    /// returned instead of being hidden by the default.
-    pub fn get_string_or(
-        &self,
-        name: impl ConfigName,
-        default: &str,
-    ) -> ConfigResult<String> {
-        <Self as ConfigReader>::get_string_or(self, name, default)
-    }
-
-    /// Gets a list of string configuration values (with variable substitution)
-    ///
-    /// If variable substitution is enabled, runs it on each list element
-    /// (same `${var_name}` rules as [`Self::get_string`]).
-    ///
-    /// # Parameters
-    ///
-    /// * `name` - Configuration item name
-    ///
-    /// # Returns
-    ///
-    /// Returns a list of strings on success, or an error on failure
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use qubit_config::Config;
-    ///
-    /// let mut config = Config::new();
-    /// config.set("base_path", "/opt/app").unwrap();
-    /// config.set("paths", vec!["${base_path}/bin", "${base_path}/lib"]).unwrap();
-    ///
-    /// let paths = config.get_string_list("paths").unwrap();
-    /// assert_eq!(paths, vec!["/opt/app/bin", "/opt/app/lib"]);
-    /// ```
-    pub fn get_string_list(
-        &self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Vec<String>> {
-        <Self as ConfigReader>::get_string_list(self, name)
-    }
-
-    /// Gets a list of string configuration values or returns a default value
-    /// (with variable substitution)
-    ///
-    /// # Parameters
-    ///
-    /// * `name` - Configuration item name
-    /// * `default` - Default value (can be array slice or vec)
-    ///
-    /// # Returns
-    ///
-    /// Returns the list of strings or default value. Substitution and parsing
-    /// errors are returned instead of being hidden by the default.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use qubit_config::Config;
-    ///
-    /// let config = Config::new();
-    ///
-    /// // Using array slice
-    /// let paths = config.get_string_list_or("paths", &["/default/path"]).unwrap();
-    /// assert_eq!(paths, vec!["/default/path"]);
-    ///
-    /// // Using vec
-    /// let paths = config.get_string_list_or("paths", &vec!["path1", "path2"]).unwrap();
-    /// assert_eq!(paths, vec!["path1", "path2"]);
-    /// ```
-    pub fn get_string_list_or(
-        &self,
-        name: impl ConfigName,
-        default: &[&str],
-    ) -> ConfigResult<Vec<String>> {
-        <Self as ConfigReader>::get_string_list_or(self, name, default)
-    }
-
     /// Merges configuration from a `ConfigSource`
     ///
     /// Loads all key-value pairs from the given source and merges them into
@@ -1629,8 +1399,6 @@ impl Config {
     ) -> ConfigResult<Config> {
         let mut sub = Config::new();
         sub.description = self.description.clone();
-        sub.enable_variable_substitution = self.enable_variable_substitution;
-        sub.max_substitution_depth = self.max_substitution_depth;
         sub.read_options = self.read_options.clone();
 
         // Empty prefix means "all keys"
@@ -1747,8 +1515,8 @@ impl Config {
 
     /// Gets an optional list of configuration values.
     ///
-    /// See also [`Self::get_optional_string_list`] for optional string lists
-    /// with variable substitution.
+    /// String elements apply the active variable-substitution policy before
+    /// conversion.
     ///
     /// Distinguishes between three states:
     /// - `Ok(Some(vec))` – key exists and has values
@@ -1789,79 +1557,6 @@ impl Config {
         T: DataConversionTarget,
     {
         <Self as ConfigReader>::get_optional(self, name)
-    }
-
-    /// Gets an optional string (with variable substitution when enabled).
-    ///
-    /// Same semantics as [`Self::get_optional`], but values are read via
-    /// [`Self::get_string`], so `${...}` substitution applies when enabled.
-    ///
-    /// # Parameters
-    ///
-    /// * `name` - Configuration item name
-    ///
-    /// # Returns
-    ///
-    /// `Ok(Some(s))`, `Ok(None)`, or `Err` as for [`Self::get_optional`].
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use qubit_config::Config;
-    ///
-    /// let mut config = Config::new();
-    /// config.set("base", "http://localhost").unwrap();
-    /// config.set("api", "${base}/api").unwrap();
-    ///
-    /// let api = config.get_optional_string("api").unwrap();
-    /// assert_eq!(api.as_deref(), Some("http://localhost/api"));
-    ///
-    /// let missing = config.get_optional_string("missing").unwrap();
-    /// assert_eq!(missing, None);
-    /// ```
-    pub fn get_optional_string(
-        &self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Option<String>> {
-        <Self as ConfigReader>::get_optional_string(self, name)
-    }
-
-    /// Gets an optional string list (substitution per element when enabled).
-    ///
-    /// Same semantics as [`Self::get_optional_list`], but elements use
-    /// [`Self::get_string_list`] (same `${...}` rules as [`Self::get_string`]).
-    ///
-    /// # Parameters
-    ///
-    /// * `name` - Configuration item name
-    ///
-    /// # Returns
-    ///
-    /// `Ok(Some(vec))`, `Ok(None)`, or `Err` like [`Self::get_optional_list`].
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use qubit_config::Config;
-    ///
-    /// let mut config = Config::new();
-    /// config.set("root", "/opt/app").unwrap();
-    /// config.set("paths", vec!["${root}/bin", "${root}/lib"]).unwrap();
-    ///
-    /// let paths = config.get_optional_string_list("paths").unwrap();
-    /// assert_eq!(
-    ///     paths,
-    ///     Some(vec![
-    ///         "/opt/app/bin".to_string(),
-    ///         "/opt/app/lib".to_string(),
-    ///     ]),
-    /// );
-    /// ```
-    pub fn get_optional_string_list(
-        &self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Option<Vec<String>>> {
-        <Self as ConfigReader>::get_optional_string_list(self, name)
     }
 
     // ========================================================================
@@ -2226,23 +1921,8 @@ impl Config {
 
 impl ConfigReader for Config {
     #[inline]
-    fn is_enable_variable_substitution(&self) -> bool {
-        Config::is_enable_variable_substitution(self)
-    }
-
-    #[inline]
-    fn max_substitution_depth(&self) -> usize {
-        Config::max_substitution_depth(self)
-    }
-
-    #[inline]
     fn read_options(&self) -> &ConfigReadOptions {
         Config::read_options(self)
-    }
-
-    #[inline]
-    fn description(&self) -> Option<&str> {
-        Config::description(self)
     }
 
     #[inline]
@@ -2333,23 +2013,6 @@ impl ConfigReader for Config {
     #[inline]
     fn is_null(&self, name: impl ConfigName) -> bool {
         Config::is_null(self, name)
-    }
-
-    #[inline]
-    fn subconfig(
-        &self,
-        prefix: &str,
-        strip_prefix: bool,
-    ) -> ConfigResult<Config> {
-        Config::subconfig(self, prefix, strip_prefix)
-    }
-
-    #[inline]
-    fn deserialize<T>(&self, prefix: &str) -> ConfigResult<T>
-    where
-        T: DeserializeOwned,
-    {
-        Config::deserialize(self, prefix)
     }
 
     #[inline]

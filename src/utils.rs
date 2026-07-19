@@ -26,7 +26,10 @@ use super::{
     ConfigReader,
     ConfigResult,
     Property,
-    options::ConfigReadOptions,
+    options::{
+        ConfigReadOptions,
+        VariableSubstitutionOptions,
+    },
 };
 
 /// Regular expression pattern for variables
@@ -144,7 +147,7 @@ pub(crate) fn ensure_unique_flattened_key(
 ///
 /// * `value` - Text containing optional `${name}` placeholders.
 /// * `config` - Reader used to resolve variables.
-/// * `max_depth` - Maximum recursive expansion depth.
+/// * `options` - Active substitution policy.
 /// * `path` - Configuration path whose value is being expanded.
 ///
 /// # Returns
@@ -157,11 +160,11 @@ pub(crate) fn ensure_unique_flattened_key(
 pub(crate) fn substitute_variables<R: ConfigReader + ?Sized>(
     value: &str,
     config: &R,
-    max_depth: usize,
+    options: &VariableSubstitutionOptions,
     path: &str,
 ) -> ConfigResult<String> {
-    substitute_variables_by(value, max_depth, path, |var_name| {
-        find_variable_value(var_name, config, path)
+    substitute_variables_by(value, options, path, |var_name| {
+        find_variable_value(var_name, config, options, path)
     })
 }
 
@@ -177,7 +180,7 @@ pub(crate) fn substitute_variables<R: ConfigReader + ?Sized>(
 /// * `value` - Text containing optional `${name}` placeholders.
 /// * `primary` - Reader checked first for each variable.
 /// * `fallback` - Reader checked for variables absent from `primary`.
-/// * `max_depth` - Maximum recursive expansion depth.
+/// * `options` - Active substitution policy.
 /// * `path` - Configuration path whose value is being expanded.
 ///
 /// # Returns
@@ -194,11 +197,13 @@ pub(crate) fn substitute_variables_with_fallback<
     value: &str,
     primary: &P,
     fallback: &F,
-    max_depth: usize,
+    options: &VariableSubstitutionOptions,
     path: &str,
 ) -> ConfigResult<String> {
-    substitute_variables_by(value, max_depth, path, |var_name| {
-        find_variable_value_with_fallback(var_name, primary, fallback, path)
+    substitute_variables_by(value, options, path, |var_name| {
+        find_variable_value_with_fallback(
+            var_name, primary, fallback, options, path,
+        )
     })
 }
 
@@ -207,7 +212,7 @@ pub(crate) fn substitute_variables_with_fallback<
 /// # Parameters
 ///
 /// * `value` - Text containing optional placeholders.
-/// * `max_depth` - Maximum recursive expansion depth.
+/// * `options` - Active substitution policy and resource limits.
 /// * `path` - Configuration path used for diagnostics.
 /// * `resolve` - Resolver invoked for each variable name.
 ///
@@ -220,18 +225,20 @@ pub(crate) fn substitute_variables_with_fallback<
 /// Returns resolver, depth, or cycle errors.
 fn substitute_variables_by(
     value: &str,
-    max_depth: usize,
+    options: &VariableSubstitutionOptions,
     path: &str,
     mut resolve: impl FnMut(&str) -> ConfigResult<String>,
 ) -> ConfigResult<String> {
     let pattern = get_variable_pattern();
     let mut stack = Vec::new();
+    let mut expansions = 0;
     substitute_variables_recursive(
         value,
-        max_depth,
+        options,
         path,
         pattern,
         &mut stack,
+        &mut expansions,
         &mut resolve,
     )
 }
@@ -241,7 +248,7 @@ fn substitute_variables_by(
 /// # Parameters
 ///
 /// * `value` - Text for the current recursive expansion step.
-/// * `max_depth` - Maximum active variable-chain length.
+/// * `options` - Active substitution policy and resource limits.
 /// * `path` - Configuration path used for diagnostics.
 /// * `pattern` - Compiled placeholder pattern.
 /// * `stack` - Active variable chain used for cycle detection.
@@ -256,13 +263,18 @@ fn substitute_variables_by(
 /// Returns resolver, depth, or cycle errors.
 fn substitute_variables_recursive(
     value: &str,
-    max_depth: usize,
+    options: &VariableSubstitutionOptions,
     path: &str,
     pattern: &Regex,
     stack: &mut Vec<String>,
+    expansions: &mut usize,
     resolve: &mut impl FnMut(&str) -> ConfigResult<String>,
 ) -> ConfigResult<String> {
+    let max_depth = options.max_depth();
+    let max_expansions = options.max_expansions();
+    let max_output_bytes = options.max_output_bytes();
     if value.is_empty() || !pattern.is_match(value) {
+        ensure_substitution_output_fits(value.len(), max_output_bytes, path)?;
         return Ok(value.to_string());
     }
     if stack.len() >= max_depth {
@@ -272,13 +284,18 @@ fn substitute_variables_recursive(
         });
     }
 
-    let mut result = String::with_capacity(value.len());
+    let mut result = String::with_capacity(value.len().min(max_output_bytes));
     let mut last_end = 0;
     for caps in pattern.captures_iter(value) {
         let full_match = caps
             .get(0)
             .expect("regex capture group 0 must be present for a match");
-        result.push_str(&value[last_end..full_match.start()]);
+        push_substitution_fragment(
+            &mut result,
+            &value[last_end..full_match.start()],
+            max_output_bytes,
+            path,
+        )?;
 
         let var_name = caps.get(1).map(|m| m.as_str()).unwrap_or_default();
         if let Some(index) = stack.iter().position(|name| name == var_name) {
@@ -290,17 +307,70 @@ fn substitute_variables_recursive(
             });
         }
 
+        if *expansions >= max_expansions {
+            return Err(ConfigError::SubstitutionExpansionLimitExceeded {
+                path: path.to_string(),
+                max_expansions,
+            });
+        }
+        *expansions += 1;
+
         stack.push(var_name.to_string());
         let raw_value = resolve(var_name)?;
         let expanded = substitute_variables_recursive(
-            &raw_value, max_depth, path, pattern, stack, resolve,
+            &raw_value, options, path, pattern, stack, expansions, resolve,
         )?;
         stack.pop();
-        result.push_str(&expanded);
+        push_substitution_fragment(
+            &mut result,
+            &expanded,
+            max_output_bytes,
+            path,
+        )?;
         last_end = full_match.end();
     }
-    result.push_str(&value[last_end..]);
+    push_substitution_fragment(
+        &mut result,
+        &value[last_end..],
+        max_output_bytes,
+        path,
+    )?;
     Ok(result)
+}
+
+/// Appends one substitution fragment after enforcing the output byte limit.
+fn push_substitution_fragment(
+    result: &mut String,
+    fragment: &str,
+    max_output_bytes: usize,
+    path: &str,
+) -> ConfigResult<()> {
+    let output_bytes =
+        result.len().checked_add(fragment.len()).ok_or_else(|| {
+            ConfigError::SubstitutionOutputTooLarge {
+                path: path.to_string(),
+                max_output_bytes,
+            }
+        })?;
+    ensure_substitution_output_fits(output_bytes, max_output_bytes, path)?;
+    result.push_str(fragment);
+    Ok(())
+}
+
+/// Rejects a substitution output length above the configured byte limit.
+fn ensure_substitution_output_fits(
+    output_bytes: usize,
+    max_output_bytes: usize,
+    path: &str,
+) -> ConfigResult<()> {
+    if output_bytes > max_output_bytes {
+        Err(ConfigError::SubstitutionOutputTooLarge {
+            path: path.to_string(),
+            max_output_bytes,
+        })
+    } else {
+        Ok(())
+    }
 }
 
 /// Finds the value of a variable
@@ -325,6 +395,7 @@ fn substitute_variables_recursive(
 fn find_variable_value<R: ConfigReader + ?Sized>(
     var_name: &str,
     config: &R,
+    options: &VariableSubstitutionOptions,
     path: &str,
 ) -> ConfigResult<String> {
     match config.get_property(var_name) {
@@ -334,9 +405,7 @@ fn find_variable_value<R: ConfigReader + ?Sized>(
                 Err(error) => Err(map_value_error(var_name, error)),
             }
         }
-        Some(_) | None
-            if config.read_options().is_env_variable_substitution_enabled() =>
-        {
+        Some(_) | None if options.is_environment_fallback_enabled() => {
             std::env::var(var_name).map_err(|_| {
                 ConfigError::SubstitutionError {
                     path: path.to_string(),
@@ -378,6 +447,7 @@ fn find_variable_value_with_fallback<
     var_name: &str,
     primary: &P,
     fallback: &F,
+    options: &VariableSubstitutionOptions,
     path: &str,
 ) -> ConfigResult<String> {
     match primary.get_property(var_name) {
@@ -387,7 +457,9 @@ fn find_variable_value_with_fallback<
                 Err(error) => Err(map_value_error(var_name, error)),
             }
         }
-        Some(_) | None => find_variable_value(var_name, fallback, path),
+        Some(_) | None => {
+            find_variable_value(var_name, fallback, options, path)
+        }
     }
 }
 
@@ -550,7 +622,8 @@ pub(crate) fn substitute_json_strings_with_fallback<
     primary: &P,
     fallback: &F,
 ) -> ConfigResult<()> {
-    if !primary.is_enable_variable_substitution() {
+    let substitution = primary.read_options().substitution();
+    if !substitution.is_enabled() {
         return Ok(());
     }
 
@@ -560,7 +633,7 @@ pub(crate) fn substitute_json_strings_with_fallback<
                 s,
                 primary,
                 fallback,
-                primary.max_substitution_depth(),
+                substitution,
                 path,
             )?;
         }

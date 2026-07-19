@@ -21,15 +21,17 @@ use serde::{
     Serialize,
 };
 
+use super::VariableSubstitutionOptions;
+
 /// Runtime options that control how configuration values are read and parsed.
+#[must_use]
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ConfigReadOptions {
     /// Common scalar, collection, boolean, and duration conversion options.
     conversion: DataConversionOptions,
-    /// Whether unresolved `${...}` placeholders may be read from process
-    /// environment variables.
-    env_variable_substitution_enabled: bool,
+    /// Variable-substitution policy and resource limits.
+    substitution: VariableSubstitutionOptions,
 }
 
 impl ConfigReadOptions {
@@ -41,13 +43,12 @@ impl ConfigReadOptions {
     /// common boolean aliases, and split scalar strings on commas while
     /// skipping empty collection items. Text-to-float conversion permits
     /// nearest-even rounding, while other numeric conversions remain exact.
-    /// Environment-variable substitution is still disabled; enable it with
-    /// [`Self::with_env_variable_substitution_enabled`].
-    #[must_use]
+    /// Environment-variable substitution is still disabled; enable it through
+    /// [`VariableSubstitutionOptions`](super::VariableSubstitutionOptions).
     pub fn env_friendly() -> Self {
         Self {
             conversion: DataConversionOptions::env_friendly(),
-            env_variable_substitution_enabled: false,
+            substitution: VariableSubstitutionOptions::default(),
         }
     }
 
@@ -61,34 +62,31 @@ impl ConfigReadOptions {
         &self.conversion
     }
 
-    /// Returns whether `${...}` substitution may read process environment
-    /// variables when a value is missing from config.
+    /// Gets the variable-substitution policy active for typed reads.
     ///
     /// # Returns
     ///
-    /// `true` when environment fallback is enabled.
-    #[inline]
-    pub fn is_env_variable_substitution_enabled(&self) -> bool {
-        self.env_variable_substitution_enabled
+    /// Substitution behavior and resource limits.
+    #[inline(always)]
+    pub const fn substitution(&self) -> &VariableSubstitutionOptions {
+        &self.substitution
     }
 
-    /// Returns a copy with environment-variable substitution enabled or
-    /// disabled.
+    /// Returns a copy with a different variable-substitution policy.
     ///
     /// # Parameters
     ///
-    /// * `enabled` - Whether unresolved config placeholders may fall back to
-    ///   process environment variables.
+    /// * `substitution` - Replacement behavior and resource limits.
     ///
     /// # Returns
     ///
     /// Updated options.
-    #[must_use]
-    pub fn with_env_variable_substitution_enabled(
+    #[inline(always)]
+    pub fn with_substitution(
         mut self,
-        enabled: bool,
+        substitution: VariableSubstitutionOptions,
     ) -> Self {
-        self.env_variable_substitution_enabled = enabled;
+        self.substitution = substitution;
         self
     }
 
@@ -101,7 +99,6 @@ impl ConfigReadOptions {
     /// # Returns
     ///
     /// Updated options.
-    #[must_use]
     pub fn with_blank_string_policy(
         mut self,
         policy: BlankStringPolicy,
@@ -119,7 +116,6 @@ impl ConfigReadOptions {
     /// # Returns
     ///
     /// Updated options.
-    #[must_use]
     pub fn with_empty_item_policy(mut self, policy: EmptyItemPolicy) -> Self {
         self.conversion = self.conversion.with_empty_item_policy(policy);
         self
@@ -134,7 +130,6 @@ impl ConfigReadOptions {
     /// # Returns
     ///
     /// Updated options.
-    #[must_use]
     pub fn with_string_options(
         mut self,
         string: StringConversionOptions,
@@ -152,7 +147,6 @@ impl ConfigReadOptions {
     /// # Returns
     ///
     /// Updated options.
-    #[must_use]
     pub fn with_boolean_options(
         mut self,
         boolean: BooleanConversionOptions,
@@ -170,7 +164,6 @@ impl ConfigReadOptions {
     /// # Returns
     ///
     /// Updated options.
-    #[must_use]
     pub fn with_collection_options(
         mut self,
         collection: CollectionConversionOptions,
@@ -188,7 +181,6 @@ impl ConfigReadOptions {
     /// # Returns
     ///
     /// Updated options.
-    #[must_use]
     pub fn with_duration_options(
         mut self,
         duration: DurationConversionOptions,
@@ -206,7 +198,6 @@ impl ConfigReadOptions {
     /// # Returns
     ///
     /// Updated options.
-    #[must_use]
     pub fn with_numeric_options(
         mut self,
         numeric: NumericConversionOptions,
@@ -233,7 +224,7 @@ impl From<DataConversionOptions> for ConfigReadOptions {
     fn from(conversion: DataConversionOptions) -> Self {
         Self {
             conversion,
-            env_variable_substitution_enabled: false,
+            substitution: VariableSubstitutionOptions::default(),
         }
     }
 }

@@ -97,6 +97,10 @@ name = "config_read_options_tests"
 path = "tests/options/config_read_options_tests.rs"
 
 [[test]]
+name = "variable_substitution_options_tests"
+path = "tests/options/variable_substitution_options_tests.rs"
+
+[[test]]
 name = "env_config_source_tests"
 path = "tests/source/env_config_source_tests.rs"
 

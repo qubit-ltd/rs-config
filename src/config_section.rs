@@ -197,27 +197,6 @@ impl<'a> ConfigSection<'a> {
         ))
     }
 
-    /// Resolves a relative subtree path against this section.
-    ///
-    /// # Arguments
-    ///
-    /// * `path` - Relative subtree path. Leading and trailing `.` separators
-    ///   are removed.
-    ///
-    /// # Returns
-    ///
-    /// The canonical root-relative subtree path.
-    fn effective_root_path(&self, path: &str) -> String {
-        let child = path.trim_matches('.');
-        if self.path.is_empty() {
-            child.to_string()
-        } else if child.is_empty() {
-            self.path.clone()
-        } else {
-            format!("{}.{}", self.path, child)
-        }
-    }
-
     /// Creates a missing-property error for an invisible relative name.
     ///
     /// # Arguments
@@ -235,23 +214,8 @@ impl<'a> ConfigSection<'a> {
 
 impl<'a> ConfigReader for ConfigSection<'a> {
     #[inline(always)]
-    fn is_enable_variable_substitution(&self) -> bool {
-        self.config.is_enable_variable_substitution()
-    }
-
-    #[inline(always)]
-    fn max_substitution_depth(&self) -> usize {
-        self.config.max_substitution_depth()
-    }
-
-    #[inline(always)]
     fn read_options(&self) -> &ConfigReadOptions {
         self.config.read_options()
-    }
-
-    #[inline(always)]
-    fn description(&self) -> Option<&str> {
-        self.config.description()
     }
 
     fn get_property(&self, name: impl ConfigName) -> Option<&Property> {
@@ -368,22 +332,6 @@ impl<'a> ConfigReader for ConfigSection<'a> {
             self.visible_property_key(name)
                 .is_some_and(|key| self.config.is_null(key.as_ref()))
         })
-    }
-
-    fn subconfig(
-        &self,
-        prefix: &str,
-        strip_prefix: bool,
-    ) -> ConfigResult<Config> {
-        self.config
-            .subconfig(&self.effective_root_path(prefix), strip_prefix)
-    }
-
-    fn deserialize<T>(&self, prefix: &str) -> ConfigResult<T>
-    where
-        T: serde::de::DeserializeOwned,
-    {
-        self.config.deserialize(&self.effective_root_path(prefix))
     }
 
     #[inline(always)]

@@ -26,6 +26,10 @@ pub enum ConfigErrorKind {
     Substitution,
     /// Variable expansion exceeded its configured depth.
     SubstitutionDepthExceeded,
+    /// Variable expansion resolved too many placeholders.
+    SubstitutionExpansionLimitExceeded,
+    /// Variable expansion produced too many UTF-8 bytes.
+    SubstitutionOutputTooLarge,
     /// Variable expansion encountered a reference cycle.
     SubstitutionCycle,
     /// Combining configurations failed.
