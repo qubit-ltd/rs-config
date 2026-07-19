@@ -16,9 +16,11 @@ use crate::from::{
     FromConfig,
     IntoConfigDefault,
     is_effectively_missing,
+    is_effectively_missing_interpolated,
     parse_property_from_reader,
+    parse_property_from_reader_interpolated,
 };
-use crate::options::ConfigReadOptions;
+use crate::options::ReadOptions;
 use crate::{
     Config,
     ConfigError,
@@ -113,6 +115,56 @@ pub trait ConfigReader: internal::Sealed {
         })
     }
 
+    /// Reads and interpolates the first stored value for `name`, then converts
+    /// it to `T`.
+    ///
+    /// String-backed values resolve `${...}` placeholders through this reader
+    /// and, when enabled by [`ReadOptions`], the process environment.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Target type parsed by [`FromConfig`] after interpolation.
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Configuration key.
+    ///
+    /// # Returns
+    ///
+    /// The interpolated and converted value.
+    ///
+    /// # Errors
+    ///
+    /// Returns missing-value, interpolation, resource-limit, or conversion
+    /// errors with key context.
+    fn get_interpolated<T>(&self, name: impl ConfigName) -> ConfigResult<T>
+    where
+        T: FromConfig,
+    {
+        name.with_config_name(|name| {
+            let resolved = self.resolve_key(name);
+            let property = self.get_property(name).ok_or_else(|| {
+                ConfigError::PropertyNotFound(resolved.clone())
+            })?;
+            if !property.is_unset()
+                && is_effectively_missing_interpolated(
+                    self,
+                    &resolved,
+                    property,
+                    self.read_options(),
+                )?
+            {
+                return Err(ConfigError::PropertyHasNoValue(resolved));
+            }
+            parse_property_from_reader_interpolated(
+                self,
+                &resolved,
+                property,
+                self.read_options(),
+            )
+        })
+    }
+
     /// Reads the first stored value for `name` without cross-type conversion.
     ///
     /// # Type parameters
@@ -169,8 +221,7 @@ pub trait ConfigReader: internal::Sealed {
 
     /// Gets a value or `default` if the key is absent or effectively missing.
     ///
-    /// Conversion and substitution errors are returned instead of being hidden
-    /// by the default.
+    /// Conversion errors are returned instead of being hidden by the default.
     #[inline]
     fn get_or<T>(
         &self,
@@ -181,6 +232,41 @@ pub trait ConfigReader: internal::Sealed {
         T: FromConfig,
     {
         self.get_optional(name)
+            .map(|value| value.unwrap_or_else(|| default.into_config_default()))
+    }
+
+    /// Gets an interpolated value or `default` when the key is missing.
+    ///
+    /// The typed default is returned directly and is never interpolated.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Target type parsed by [`FromConfig`] after interpolation.
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Configuration key.
+    /// * `default` - Fallback used only for an absent or effectively missing
+    ///   value.
+    ///
+    /// # Returns
+    ///
+    /// The interpolated value or the supplied default.
+    ///
+    /// # Errors
+    ///
+    /// Returns interpolation and conversion errors instead of hiding them
+    /// behind the default.
+    #[inline]
+    fn get_interpolated_or<T>(
+        &self,
+        name: impl ConfigName,
+        default: impl IntoConfigDefault<T>,
+    ) -> ConfigResult<T>
+    where
+        T: FromConfig,
+    {
+        self.get_optional_interpolated(name)
             .map(|value| value.unwrap_or_else(|| default.into_config_default()))
     }
 
@@ -228,12 +314,63 @@ pub trait ConfigReader: internal::Sealed {
         })
     }
 
+    /// Gets an optional value after interpolating string-backed values.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Target type parsed by [`FromConfig`] after interpolation.
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Configuration key.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(Some(value))` for a configured value, `Ok(None)` when absent or
+    /// effectively missing after interpolation, or `Err` on failure.
+    ///
+    /// # Errors
+    ///
+    /// Returns interpolation, resource-limit, or conversion errors with key
+    /// context.
+    fn get_optional_interpolated<T>(
+        &self,
+        name: impl ConfigName,
+    ) -> ConfigResult<Option<T>>
+    where
+        T: FromConfig,
+    {
+        name.with_config_name(|name| {
+            let resolved = self.resolve_key(name);
+            match self.get_property(name) {
+                None => Ok(None),
+                Some(property)
+                    if is_effectively_missing_interpolated(
+                        self,
+                        &resolved,
+                        property,
+                        self.read_options(),
+                    )? =>
+                {
+                    Ok(None)
+                }
+                Some(property) => parse_property_from_reader_interpolated(
+                    self,
+                    &resolved,
+                    property,
+                    self.read_options(),
+                )
+                .map(Some),
+            }
+        })
+    }
+
     /// Gets the read options active for this reader.
     ///
     /// # Returns
     ///
     /// Global read options inherited by field-less reads.
-    fn read_options(&self) -> &ConfigReadOptions;
+    fn read_options(&self) -> &ReadOptions;
 
     /// Reads a value from the first present and non-empty key in `names`.
     ///
@@ -259,6 +396,41 @@ pub trait ConfigReader: internal::Sealed {
         })
     }
 
+    /// Reads and interpolates the first configured value from `names`.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Target type parsed by [`FromConfig`] after interpolation.
+    ///
+    /// # Parameters
+    ///
+    /// * `names` - Candidate keys in priority order.
+    ///
+    /// # Returns
+    ///
+    /// The interpolated value from the first present, non-empty key.
+    ///
+    /// # Errors
+    ///
+    /// Returns missing-value, interpolation, resource-limit, or conversion
+    /// errors. An error from a selected key stops the search.
+    fn get_any_interpolated<T>(
+        &self,
+        names: impl ConfigNames,
+    ) -> ConfigResult<T>
+    where
+        T: FromConfig,
+    {
+        names.with_config_names(|names| {
+            self.get_optional_any_interpolated(names)?.ok_or_else(|| {
+                ConfigError::PropertyNotFound(format!(
+                    "one of: {}",
+                    names.join(", ")
+                ))
+            })
+        })
+    }
+
     /// Reads an optional value from the first present and non-empty key.
     ///
     /// # Parameters
@@ -276,7 +448,48 @@ pub trait ConfigReader: internal::Sealed {
         T: FromConfig,
     {
         names.with_config_names(|names| {
-            get_optional_any_with_options(self, names, self.read_options())
+            get_optional_any_with_options(
+                self,
+                names,
+                self.read_options(),
+                false,
+            )
+        })
+    }
+
+    /// Reads an optional interpolated value from the first configured key.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Target type parsed by [`FromConfig`] after interpolation.
+    ///
+    /// # Parameters
+    ///
+    /// * `names` - Candidate keys in priority order.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(Some(value))` for the first present, non-empty key or `Ok(None)`
+    /// when every candidate is absent or effectively missing.
+    ///
+    /// # Errors
+    ///
+    /// Returns interpolation, resource-limit, or conversion errors from the
+    /// selected key.
+    fn get_optional_any_interpolated<T>(
+        &self,
+        names: impl ConfigNames,
+    ) -> ConfigResult<Option<T>>
+    where
+        T: FromConfig,
+    {
+        names.with_config_names(|names| {
+            get_optional_any_with_options(
+                self,
+                names,
+                self.read_options(),
+                true,
+            )
         })
     }
 
@@ -306,31 +519,38 @@ pub trait ConfigReader: internal::Sealed {
         })
     }
 
-    /// Reads a value from any key with explicit read options, using `default`
-    /// only when every key is absent or effectively missing.
+    /// Reads an interpolated value from any key, using `default` only when all
+    /// candidates are absent or effectively missing.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Target type parsed by [`FromConfig`] after interpolation.
     ///
     /// # Parameters
     ///
     /// * `names` - Candidate keys in priority order.
     /// * `default` - Fallback when no candidate is configured.
-    /// * `read_options` - Parsing options for this read.
     ///
     /// # Returns
     ///
-    /// Parsed value or `default`; parsing errors are never swallowed.
-    fn get_any_or_with<T>(
+    /// Interpolated value or `default`; parsing errors are never swallowed.
+    ///
+    /// # Errors
+    ///
+    /// Returns interpolation, resource-limit, or conversion errors from the
+    /// selected key.
+    fn get_any_interpolated_or<T>(
         &self,
         names: impl ConfigNames,
         default: impl IntoConfigDefault<T>,
-        read_options: &ConfigReadOptions,
     ) -> ConfigResult<T>
     where
         T: FromConfig,
     {
         names.with_config_names(|names| {
-            get_optional_any_with_options(self, names, read_options).map(
-                |value| value.unwrap_or_else(|| default.into_config_default()),
-            )
+            self.get_optional_any_interpolated(names).map(|value| {
+                value.unwrap_or_else(|| default.into_config_default())
+            })
         })
     }
 
@@ -359,7 +579,7 @@ pub trait ConfigReader: internal::Sealed {
         let mut names = Vec::with_capacity(1 + aliases.len());
         names.push(name.as_str());
         names.extend(aliases.iter().map(String::as_str));
-        get_optional_any_with_options(self, &names, options)?
+        get_optional_any_with_options(self, &names, options, false)?
             .or(default)
             .ok_or_else(|| {
                 ConfigError::PropertyNotFound(format!(
@@ -393,7 +613,91 @@ pub trait ConfigReader: internal::Sealed {
         let mut names = Vec::with_capacity(1 + aliases.len());
         names.push(name.as_str());
         names.extend(aliases.iter().map(String::as_str));
-        get_optional_any_with_options(self, &names, options)
+        get_optional_any_with_options(self, &names, options, false)
+            .map(|value| value.or(default))
+    }
+
+    /// Reads a declared field after interpolating string-backed values.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Target type parsed by [`FromConfig`] after interpolation.
+    ///
+    /// # Parameters
+    ///
+    /// * `field` - Field declaration containing names, a default, and optional
+    ///   field-level read options.
+    ///
+    /// # Returns
+    ///
+    /// Interpolated field value or its typed default.
+    ///
+    /// # Errors
+    ///
+    /// Returns missing-value, interpolation, resource-limit, or conversion
+    /// errors.
+    fn read_interpolated<T>(&self, field: ConfigField<T>) -> ConfigResult<T>
+    where
+        T: FromConfig,
+    {
+        let ConfigField {
+            name,
+            aliases,
+            default,
+            read_options,
+        } = field;
+        let options =
+            read_options.as_ref().unwrap_or_else(|| self.read_options());
+        let mut names = Vec::with_capacity(1 + aliases.len());
+        names.push(name.as_str());
+        names.extend(aliases.iter().map(String::as_str));
+        get_optional_any_with_options(self, &names, options, true)?
+            .or(default)
+            .ok_or_else(|| {
+                ConfigError::PropertyNotFound(format!(
+                    "one of: {}",
+                    names.join(", ")
+                ))
+            })
+    }
+
+    /// Reads an optional declared field after interpolating string values.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Target type parsed by [`FromConfig`] after interpolation.
+    ///
+    /// # Parameters
+    ///
+    /// * `field` - Field declaration containing names, a default, and optional
+    ///   field-level read options.
+    ///
+    /// # Returns
+    ///
+    /// Interpolated field value, its typed default, or `None`.
+    ///
+    /// # Errors
+    ///
+    /// Returns interpolation, resource-limit, or conversion errors.
+    fn read_optional_interpolated<T>(
+        &self,
+        field: ConfigField<T>,
+    ) -> ConfigResult<Option<T>>
+    where
+        T: FromConfig,
+    {
+        let ConfigField {
+            name,
+            aliases,
+            default,
+            read_options,
+        } = field;
+        let options =
+            read_options.as_ref().unwrap_or_else(|| self.read_options());
+        let mut names = Vec::with_capacity(1 + aliases.len());
+        names.push(name.as_str());
+        names.extend(aliases.iter().map(String::as_str));
+        get_optional_any_with_options(self, &names, options, true)
             .map(|value| value.or(default))
     }
 
@@ -507,7 +811,8 @@ pub trait ConfigReader: internal::Sealed {
 fn get_optional_any_with_options<R, T>(
     reader: &R,
     names: impl ConfigNames,
-    options: &ConfigReadOptions,
+    options: &ReadOptions,
+    interpolate: bool,
 ) -> ConfigResult<Option<T>>
 where
     R: ConfigReader + ?Sized,
@@ -519,13 +824,25 @@ where
                 continue;
             };
             let resolved = reader.resolve_key(*name);
-            if is_effectively_missing(reader, &resolved, property, options)? {
+            let missing = if interpolate {
+                is_effectively_missing_interpolated(
+                    reader, &resolved, property, options,
+                )?
+            } else {
+                is_effectively_missing(reader, &resolved, property, options)?
+            };
+            if missing {
                 continue;
             }
-            return parse_property_from_reader(
-                reader, &resolved, property, options,
-            )
-            .map(Some);
+            return if interpolate {
+                parse_property_from_reader_interpolated(
+                    reader, &resolved, property, options,
+                )
+                .map(Some)
+            } else {
+                parse_property_from_reader(reader, &resolved, property, options)
+                    .map(Some)
+            };
         }
         Ok(None)
     })

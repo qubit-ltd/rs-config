@@ -32,7 +32,7 @@ fn test_config_parse_context_uses_resolved_key_in_errors() {
 }
 
 #[test]
-fn test_config_parse_context_applies_substitution_for_string_reads() {
+fn test_config_parse_context_applies_interpolation_for_explicit_reads() {
     let mut config = Config::new();
     config
         .set("http.host", "localhost")
@@ -43,8 +43,8 @@ fn test_config_parse_context_applies_substitution_for_string_reads() {
 
     let view = config.section("http");
     let url = view
-        .get::<String>("url")
-        .expect("string read should apply view substitution context");
+        .get_interpolated::<String>("url")
+        .expect("interpolated read should use the view context");
 
     assert_eq!(url, "http://localhost:8080");
 }

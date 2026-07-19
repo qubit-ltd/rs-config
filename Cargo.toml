@@ -61,7 +61,7 @@ toml = { version = "0.9", features = ["parse"], optional = true }
 serde_norway = { version = "0.9", optional = true }
 dotenvy = { version = "0.15", optional = true }
 
-qubit-datatype = { path = "../rs-datatype", version = "0.7", features = ["converter"] }
+qubit-datatype = { path = "../rs-datatype", version = "0.8", default-features = false, features = ["converter"] }
 qubit-sanitize = { path = "../rs-sanitize", version = "0.3", default-features = false }
 qubit-value = { path = "../rs-value", version = "0.10", default-features = false, features = ["converter", "json"] }
 
@@ -74,7 +74,7 @@ qubit-value = { path = "../rs-value", version = "0.10", default-features = false
 url = "2.5"
 
 [patch.crates-io]
-qubit-datatype = { path = "../rs-datatype" }
+qubit-datatype = { path = "../rs-datatype", version = "0.8" }
 
 [[test]]
 name = "composite_config_source_tests"
@@ -93,12 +93,12 @@ name = "config_field_name_builder_tests"
 path = "tests/field/config_field_name_builder_tests.rs"
 
 [[test]]
-name = "config_read_options_tests"
-path = "tests/options/config_read_options_tests.rs"
+name = "read_options_tests"
+path = "tests/options/read_options_tests.rs"
 
 [[test]]
-name = "variable_substitution_options_tests"
-path = "tests/options/variable_substitution_options_tests.rs"
+name = "explicit_interpolation_tests"
+path = "tests/explicit_interpolation_tests.rs"
 
 [[test]]
 name = "env_config_source_tests"

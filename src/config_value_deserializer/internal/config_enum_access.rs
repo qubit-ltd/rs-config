@@ -17,14 +17,14 @@ use serde_json::Value;
 
 use super::config_variant_access::ConfigVariantAccess;
 use crate::config_deserialize_error::ConfigDeserializeError;
-use crate::options::ConfigReadOptions;
+use crate::options::ReadOptions;
 
 /// Enum access over a configuration value.
 pub(in crate::config_value_deserializer) struct ConfigEnumAccess<'a> {
     variant: String,
     value: Option<Value>,
     key: String,
-    options: &'a ConfigReadOptions,
+    options: &'a ReadOptions,
 }
 
 impl<'a> ConfigEnumAccess<'a> {
@@ -33,7 +33,7 @@ impl<'a> ConfigEnumAccess<'a> {
         variant: String,
         value: Option<Value>,
         key: String,
-        options: &'a ConfigReadOptions,
+        options: &'a ReadOptions,
     ) -> Self {
         Self {
             variant,

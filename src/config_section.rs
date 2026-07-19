@@ -17,7 +17,7 @@ use qubit_value::{
 
 use crate::config::Config;
 use crate::config_reader::ConfigReader;
-use crate::options::ConfigReadOptions;
+use crate::options::ReadOptions;
 use crate::{
     ConfigError,
     ConfigName,
@@ -214,7 +214,7 @@ impl<'a> ConfigSection<'a> {
 
 impl<'a> ConfigReader for ConfigSection<'a> {
     #[inline(always)]
-    fn read_options(&self) -> &ConfigReadOptions {
+    fn read_options(&self) -> &ReadOptions {
         self.config.read_options()
     }
 

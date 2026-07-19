@@ -10,7 +10,7 @@
 use qubit_config::{
     Config,
     field::ConfigField,
-    options::ConfigReadOptions,
+    options::ReadOptions,
 };
 
 #[test]
@@ -26,7 +26,7 @@ fn test_config_field_builder_applies_alias_default_and_options() {
                 .name("feature.enabled")
                 .alias("FEATURE_ENABLED")
                 .default(false)
-                .read_options(ConfigReadOptions::env_friendly())
+                .read_options(ReadOptions::env_friendly())
                 .build(),
         )
         .expect("field-level options should parse env-friendly boolean");

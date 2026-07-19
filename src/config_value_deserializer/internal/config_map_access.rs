@@ -20,14 +20,14 @@ use serde_json::{
 
 use crate::config_deserialize_error::ConfigDeserializeError;
 use crate::config_value_deserializer::ConfigValueDeserializer;
-use crate::options::ConfigReadOptions;
+use crate::options::ReadOptions;
 
 /// Map access over configuration objects.
 pub(in crate::config_value_deserializer) struct ConfigMapAccess<'a> {
     entries: std::vec::IntoIter<(String, Value)>,
     next_value: Option<(String, Value)>,
     key: String,
-    options: &'a ConfigReadOptions,
+    options: &'a ReadOptions,
 }
 
 impl<'a> ConfigMapAccess<'a> {
@@ -35,7 +35,7 @@ impl<'a> ConfigMapAccess<'a> {
     pub(in crate::config_value_deserializer) fn new(
         values: Map<String, Value>,
         key: String,
-        options: &'a ConfigReadOptions,
+        options: &'a ReadOptions,
     ) -> Self {
         Self {
             entries: values.into_iter().collect::<Vec<_>>().into_iter(),

@@ -14,7 +14,7 @@ use qubit_config::{
     Config,
     ConfigError,
     Property,
-    options::ConfigReadOptions,
+    options::ReadOptions,
 };
 use qubit_datatype::{
     DataConversionError,
@@ -33,41 +33,16 @@ use qubit_value::{
 use serde::Deserialize;
 use std::collections::HashMap;
 
-fn set_substitution_enabled(config: &mut Config, enabled: bool) {
-    let substitution = config
-        .read_options()
-        .substitution()
-        .clone()
-        .with_enabled(enabled);
-    set_substitution_options(config, substitution);
-}
-
-fn set_substitution_max_depth(config: &mut Config, max_depth: usize) {
-    let substitution = config
-        .read_options()
-        .substitution()
-        .clone()
-        .with_max_depth(max_depth);
-    set_substitution_options(config, substitution);
-}
-
-fn set_substitution_options(
-    config: &mut Config,
-    substitution: qubit_config::options::VariableSubstitutionOptions,
-) {
+fn set_max_interpolation_depth(config: &mut Config, max_depth: usize) {
     let options = config
         .read_options()
         .clone()
-        .with_substitution(substitution);
+        .with_max_interpolation_depth(max_depth);
     config.set_read_options(options);
 }
 
-fn with_environment_fallback(options: ConfigReadOptions) -> ConfigReadOptions {
-    let substitution = options
-        .substitution()
-        .clone()
-        .with_environment_fallback_enabled(true);
-    options.with_substitution(substitution)
+fn with_environment_fallback(options: ReadOptions) -> ReadOptions {
+    options.with_environment_fallback_enabled(true)
 }
 
 // ============================================================================
@@ -81,7 +56,6 @@ mod test_deserialize {
     use super::{
         Config,
         ConfigError,
-        ConfigReadOptions,
         DataConversionError,
         DataType,
         Deserialize,
@@ -92,6 +66,7 @@ mod test_deserialize {
         MultiValues,
         NumericConversionOptions,
         Property,
+        ReadOptions,
         Value,
         ValueContainer,
     };
@@ -247,7 +222,7 @@ mod test_deserialize {
     #[test]
     fn test_deserialize_blank_field_with_missing_policy_behaves_as_absent() {
         let mut config =
-            Config::new().with_read_options(ConfigReadOptions::env_friendly());
+            Config::new().with_read_options(ReadOptions::env_friendly());
         config.set("srv.host", "localhost").unwrap();
         config.set("srv.port", "   ").unwrap();
 
@@ -475,7 +450,8 @@ mod test_deserialize {
             )
             .unwrap();
 
-        let svc: ServiceConfig = config.deserialize("svc").unwrap();
+        let svc: ServiceConfig =
+            config.deserialize_interpolated("svc").unwrap();
         assert_eq!(svc.base_url, "http://localhost:8080");
         assert_eq!(
             svc.endpoints,
@@ -497,7 +473,8 @@ mod test_deserialize {
         config.set("base_url", "http://example.test").unwrap();
         config.set("svc.url", "${base_url}/v1").unwrap();
 
-        let svc: ServiceConfig = config.deserialize("svc").unwrap();
+        let svc: ServiceConfig =
+            config.deserialize_interpolated("svc").unwrap();
 
         assert_eq!(svc.url, "http://example.test/v1");
     }
@@ -514,7 +491,9 @@ mod test_deserialize {
         config.set("svc.base_url", 123i32).unwrap();
         config.set("svc.url", "${base_url}/v1").unwrap();
 
-        let svc = config.deserialize::<ServiceConfig>("svc").unwrap();
+        let svc = config
+            .deserialize_interpolated::<ServiceConfig>("svc")
+            .unwrap();
 
         assert_eq!(svc.url, "123/v1");
     }
@@ -523,7 +502,7 @@ mod test_deserialize {
     fn test_deserialize_exact_blank_string_can_be_treated_as_null() {
         let mut config = Config::new();
         config.set_read_options(
-            ConfigReadOptions::env_friendly().with_blank_string_policy(
+            ReadOptions::env_friendly().with_blank_string_policy(
                 qubit_datatype::BlankStringPolicy::TreatAsMissing,
             ),
         );
@@ -566,7 +545,7 @@ mod test_deserialize {
         }
 
         let mut config = Config::new();
-        config.set_read_options(ConfigReadOptions::env_friendly());
+        config.set_read_options(ReadOptions::env_friendly());
         config.set("svc.enabled", "yes").unwrap();
         config.set("svc.ports", "8080, 8081,,8082").unwrap();
 
@@ -605,7 +584,8 @@ mod test_deserialize {
             )
             .unwrap();
 
-        let svc: ServiceConfig = config.deserialize("svc").unwrap();
+        let svc: ServiceConfig =
+            config.deserialize_interpolated("svc").unwrap();
         assert_eq!(
             svc.meta,
             serde_json::json!({
@@ -617,14 +597,13 @@ mod test_deserialize {
     }
 
     #[test]
-    fn test_deserialize_respects_substitution_disabled() {
+    fn test_deserialize_preserves_placeholders_by_default() {
         #[derive(Deserialize, Debug, PartialEq)]
         struct ServiceConfig {
             url: String,
         }
 
         let mut config = Config::new();
-        crate::set_substitution_enabled(&mut config, false);
         config.set("svc.host", "localhost").unwrap();
         config.set("svc.url", "http://${host}").unwrap();
 
@@ -644,9 +623,11 @@ mod test_deserialize {
             .set("svc.url", "${QUBIT_CONFIG_UNSET_DESERIALIZE_VAR_12345}")
             .unwrap();
 
-        let err = config.deserialize::<ServiceConfig>("svc").expect_err(
-            "unresolved variable should fail before serde deserialization",
-        );
+        let err = config
+            .deserialize_interpolated::<ServiceConfig>("svc")
+            .expect_err(
+                "unresolved variable should fail before serde deserialization",
+            );
         match err {
             ConfigError::SubstitutionError { path, message } => {
                 assert_eq!(path, "svc.url");
@@ -681,7 +662,7 @@ mod test_deserialize {
             .unwrap();
 
         let err = config
-            .deserialize::<ServiceConfig>("svc")
+            .deserialize_interpolated::<ServiceConfig>("svc")
             .expect_err("unresolved JSON leaf variable should fail before serde deserialization");
 
         match err {
@@ -706,22 +687,23 @@ mod test_variable_substitution {
     use super::{
         Config,
         ConfigError,
-        ConfigReadOptions,
         DataType,
         Deserialize,
         HashMap,
         MultiValues,
         Property,
+        ReadOptions,
     };
-    use qubit_config::options::VariableSubstitutionOptions;
-
     #[test]
     fn test_get_string_substitutes_simple_placeholder() {
         let mut config = Config::new();
         config.set("name", "world").unwrap();
         config.set("greeting", "Hello, ${name}!").unwrap();
 
-        assert_eq!(config.get::<String>("greeting").unwrap(), "Hello, world!");
+        assert_eq!(
+            config.get_interpolated::<String>("greeting").unwrap(),
+            "Hello, world!"
+        );
     }
 
     #[test]
@@ -732,7 +714,7 @@ mod test_variable_substitution {
         config.set("url", "http://${host}:${port}/api").unwrap();
 
         assert_eq!(
-            config.get::<String>("url").unwrap(),
+            config.get_interpolated::<String>("url").unwrap(),
             "http://localhost:8080/api"
         );
     }
@@ -743,7 +725,10 @@ mod test_variable_substitution {
         config.set("name", "world").unwrap();
         config.set("value", "${name}-${name}-${name}").unwrap();
 
-        assert_eq!(config.get::<String>("value").unwrap(), "world-world-world");
+        assert_eq!(
+            config.get_interpolated::<String>("value").unwrap(),
+            "world-world-world"
+        );
     }
 
     #[test]
@@ -753,21 +738,22 @@ mod test_variable_substitution {
         config.set("b", "${a}_b").unwrap();
         config.set("c", "${b}_c").unwrap();
 
-        assert_eq!(config.get::<String>("c").unwrap(), "value_a_b_c");
+        assert_eq!(
+            config.get_interpolated::<String>("c").unwrap(),
+            "value_a_b_c"
+        );
     }
 
     #[test]
     fn test_get_string_rejects_too_many_substitution_expansions() {
         let mut config = Config::new();
         config.set_read_options(
-            ConfigReadOptions::default().with_substitution(
-                VariableSubstitutionOptions::default().with_max_expansions(2),
-            ),
+            ReadOptions::default().with_max_interpolation_expansions(2),
         );
         config.set("name", "world").unwrap();
         config.set("value", "${name}-${name}-${name}").unwrap();
 
-        let result = config.get::<String>("value");
+        let result = config.get_interpolated::<String>("value");
 
         assert!(matches!(
             result,
@@ -782,14 +768,12 @@ mod test_variable_substitution {
     fn test_get_string_rejects_substitution_output_over_byte_limit() {
         let mut config = Config::new();
         config.set_read_options(
-            ConfigReadOptions::default().with_substitution(
-                VariableSubstitutionOptions::default().with_max_output_bytes(7),
-            ),
+            ReadOptions::default().with_max_interpolation_output_bytes(7),
         );
         config.set("part", "1234").unwrap();
         config.set("value", "${part}${part}").unwrap();
 
-        let result = config.get::<String>("value");
+        let result = config.get_interpolated::<String>("value");
 
         assert!(matches!(
             result,
@@ -804,14 +788,12 @@ mod test_variable_substitution {
     fn test_get_string_accepts_substitution_output_at_byte_limit() {
         let mut config = Config::new();
         config.set_read_options(
-            ConfigReadOptions::default().with_substitution(
-                VariableSubstitutionOptions::default().with_max_output_bytes(8),
-            ),
+            ReadOptions::default().with_max_interpolation_output_bytes(8),
         );
         config.set("part", "1234").unwrap();
         config.set("value", "${part}${part}").unwrap();
 
-        let value = config.get::<String>("value").unwrap();
+        let value = config.get_interpolated::<String>("value").unwrap();
 
         assert_eq!(value, "12341234");
     }
@@ -819,7 +801,7 @@ mod test_variable_substitution {
     #[test]
     fn test_get_string_substitution_depth_exceeded() {
         let mut config = Config::new();
-        crate::set_substitution_max_depth(&mut config, 5);
+        crate::set_max_interpolation_depth(&mut config, 5);
         config.set("a", "${b}").unwrap();
         config.set("b", "${c}").unwrap();
         config.set("c", "${d}").unwrap();
@@ -828,7 +810,7 @@ mod test_variable_substitution {
         config.set("f", "${g}").unwrap();
         config.set("g", "done").unwrap();
 
-        let result = config.get::<String>("a");
+        let result = config.get_interpolated::<String>("a");
 
         assert!(matches!(
             result,
@@ -846,13 +828,13 @@ mod test_variable_substitution {
         }
         let mut config = Config::new();
         config.set_read_options(crate::with_environment_fallback(
-            ConfigReadOptions::default(),
+            ReadOptions::default(),
         ));
         config
             .set("value", "Value: ${QUBIT_CONFIG_TEST_ENV_VAR}")
             .unwrap();
 
-        let result = config.get::<String>("value");
+        let result = config.get_interpolated::<String>("value");
 
         unsafe {
             std::env::remove_var("QUBIT_CONFIG_TEST_ENV_VAR");
@@ -861,16 +843,19 @@ mod test_variable_substitution {
     }
 
     #[test]
-    fn test_get_string_does_not_use_environment_fallback_by_default() {
+    fn test_get_string_can_disable_environment_fallback() {
         unsafe {
             std::env::set_var("QUBIT_CONFIG_TEST_ENV_DISABLED", "from_env");
         }
         let mut config = Config::new();
+        config.set_read_options(
+            ReadOptions::default().with_environment_fallback_enabled(false),
+        );
         config
             .set("value", "${QUBIT_CONFIG_TEST_ENV_DISABLED}")
             .unwrap();
 
-        let result = config.get::<String>("value");
+        let result = config.get_interpolated::<String>("value");
 
         unsafe {
             std::env::remove_var("QUBIT_CONFIG_TEST_ENV_DISABLED");
@@ -887,16 +872,19 @@ mod test_variable_substitution {
         let mut config = Config::new();
         config.set("empty", "").unwrap();
 
-        assert_eq!(config.get::<String>("empty").unwrap(), "");
+        assert_eq!(config.get_interpolated::<String>("empty").unwrap(), "");
     }
 
     #[test]
     fn test_get_string_zero_depth_without_placeholders_succeeds() {
         let mut config = Config::new();
-        crate::set_substitution_max_depth(&mut config, 0);
+        crate::set_max_interpolation_depth(&mut config, 0);
         config.set("plain", "plain text").unwrap();
 
-        assert_eq!(config.get::<String>("plain").unwrap(), "plain text");
+        assert_eq!(
+            config.get_interpolated::<String>("plain").unwrap(),
+            "plain text"
+        );
     }
 
     #[test]
@@ -910,7 +898,7 @@ mod test_variable_substitution {
             .unwrap();
 
         let err = config
-            .get::<String>("missing")
+            .get_interpolated::<String>("missing")
             .expect_err("unresolved variable should return an error");
 
         assert!(matches!(
@@ -934,7 +922,7 @@ mod test_variable_substitution {
             )
             .unwrap();
 
-        let err = config.get::<Vec<String>>("values").expect_err(
+        let err = config.get_interpolated::<Vec<String>>("values").expect_err(
             "unresolved variable in list read should return an error",
         );
 
@@ -955,7 +943,7 @@ mod test_variable_substitution {
         config.set("plain", "Plain text with no variables").unwrap();
 
         assert_eq!(
-            config.get::<String>("plain").unwrap(),
+            config.get_interpolated::<String>("plain").unwrap(),
             "Plain text with no variables"
         );
     }
@@ -967,7 +955,7 @@ mod test_variable_substitution {
         }
         let mut config = Config::new();
         config.set_read_options(crate::with_environment_fallback(
-            ConfigReadOptions::default(),
+            ReadOptions::default(),
         ));
         config.set("CONFIG_SOURCE", "from_config").unwrap();
         config
@@ -977,7 +965,7 @@ mod test_variable_substitution {
             )
             .unwrap();
 
-        let result = config.get::<String>("combined");
+        let result = config.get_interpolated::<String>("combined");
 
         unsafe {
             std::env::remove_var("QUBIT_CONFIG_TEST_ENV_SOURCE");
@@ -992,7 +980,7 @@ mod test_variable_substitution {
         }
         let mut config = Config::new();
         config.set_read_options(crate::with_environment_fallback(
-            ConfigReadOptions::default(),
+            ReadOptions::default(),
         ));
         config
             .set("QUBIT_CONFIG_TEST_SHARED_VAR", "from_config")
@@ -1001,7 +989,7 @@ mod test_variable_substitution {
             .set("value", "${QUBIT_CONFIG_TEST_SHARED_VAR}")
             .unwrap();
 
-        let result = config.get::<String>("value");
+        let result = config.get_interpolated::<String>("value");
 
         unsafe {
             std::env::remove_var("QUBIT_CONFIG_TEST_SHARED_VAR");
@@ -1016,14 +1004,14 @@ mod test_variable_substitution {
         }
         let mut config = Config::new();
         config.set_read_options(crate::with_environment_fallback(
-            ConfigReadOptions::default(),
+            ReadOptions::default(),
         ));
         config.set("QUBIT_CONFIG_TEST_STRICT_VAR", 8080i32).unwrap();
         config
             .set("value", "${QUBIT_CONFIG_TEST_STRICT_VAR}")
             .unwrap();
 
-        let result = config.get::<String>("value");
+        let result = config.get_interpolated::<String>("value");
 
         unsafe {
             std::env::remove_var("QUBIT_CONFIG_TEST_STRICT_VAR");
@@ -1035,13 +1023,13 @@ mod test_variable_substitution {
     fn test_get_string_environment_fallback_reports_missing_env_var() {
         let mut config = Config::new();
         config.set_read_options(crate::with_environment_fallback(
-            ConfigReadOptions::default(),
+            ReadOptions::default(),
         ));
         config
             .set("value", "${QUBIT_CONFIG_TEST_ENV_MISSING_FOR_FALLBACK}")
             .unwrap();
 
-        let result = config.get::<String>("value");
+        let result = config.get_interpolated::<String>("value");
 
         assert!(matches!(
             result,
@@ -1058,7 +1046,7 @@ mod test_variable_substitution {
         config.set("b", "${c}").unwrap();
         config.set("c", "${b}").unwrap();
 
-        let error = config.get::<String>("a").unwrap_err();
+        let error = config.get_interpolated::<String>("a").unwrap_err();
 
         assert!(matches!(
             &error,
@@ -1080,7 +1068,6 @@ mod test_property_to_json_value_deserialize_behavior {
     use super::{
         Config,
         ConfigError,
-        ConfigReadOptions,
         DataConversionError,
         DataType,
         Deserialize,
@@ -1091,6 +1078,7 @@ mod test_property_to_json_value_deserialize_behavior {
         InvalidValueReason,
         MultiValues,
         Property,
+        ReadOptions,
         Value,
     };
     #[cfg(feature = "bigdecimal")]
@@ -1304,7 +1292,7 @@ mod test_property_to_json_value_deserialize_behavior {
             Value::Duration(Duration::from_micros(1500)),
         );
         config.set_read_options(
-            ConfigReadOptions::default().with_duration_options(
+            ReadOptions::default().with_duration_options(
                 DurationConversionOptions::default()
                     .with_rounding_policy(DurationRoundingPolicy::HalfUp),
             ),
@@ -1322,7 +1310,7 @@ mod test_property_to_json_value_deserialize_behavior {
             Value::Duration(Duration::from_micros(1500)),
         );
         config.set_read_options(
-            ConfigReadOptions::default().with_duration_options(
+            ReadOptions::default().with_duration_options(
                 DurationConversionOptions::default()
                     .with_output_unit(DurationUnit::Microseconds),
             ),

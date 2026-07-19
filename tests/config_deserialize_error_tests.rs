@@ -14,7 +14,7 @@ use qubit_config::{
     ConfigError,
     ConfigErrorKind,
     Property,
-    options::ConfigReadOptions,
+    options::ReadOptions,
 };
 use qubit_datatype::{
     BlankStringPolicy,
@@ -57,7 +57,7 @@ fn test_deserialize_message_error_has_path_and_no_source() {
 fn test_deserialize_config_error_preserves_kind_and_leaf_path() {
     let mut config = Config::new();
     config.set_read_options(
-        ConfigReadOptions::default()
+        ReadOptions::default()
             .with_blank_string_policy(BlankStringPolicy::Reject),
     );
     config

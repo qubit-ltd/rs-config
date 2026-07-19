@@ -8,8 +8,6 @@
 
 //! Read parsing options for configuration values.
 
-mod config_read_options;
-mod variable_substitution_options;
+mod read_options;
 
-pub use config_read_options::ConfigReadOptions;
-pub use variable_substitution_options::VariableSubstitutionOptions;
+pub use read_options::ReadOptions;

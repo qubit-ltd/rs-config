@@ -313,11 +313,11 @@ impl ConfigError {
                 Self::from_data_conversion_error(key, source)
             }
             ValueError::DataListConversion(error) => {
-                let source_index = error.source_index();
+                let (source_index, source) = error.into_parts();
                 Self::ConversionError {
                     key: key.to_string(),
                     source_index: Some(source_index),
-                    source: error.into_conversion_error(),
+                    source,
                 }
             }
             source => Self::ValueError {

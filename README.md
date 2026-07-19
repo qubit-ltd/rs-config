@@ -14,13 +14,13 @@ A powerful, type-safe configuration management system for Rust, providing flexib
 - ✅ **Pure Generic API** - Use `get<T>()`, `read(ConfigField<T>)`, and `set<T>()` generic methods with full type inference support
 - ✅ **Rich Data Types** - Supports Rust primitives plus feature-gated temporal, URL, and arbitrary-precision value types
 - ✅ **Multi-Value Properties** - Each configuration property can contain multiple values with list operations
-- ✅ **Variable Substitution** - Support for `${var_name}` style variable substitution from config, with explicit opt-in fallback to process environment variables
+- ✅ **Explicit Interpolation** - `*_interpolated` reads resolve `${var_name}` from config and fall back to process environment variables by default
 - ✅ **Type-aware API** - Generic target types are checked at compile time; missing, malformed, or incompatible configuration data is reported at runtime through `ConfigError`
 - ✅ **Serde Integration** - Supports `Config` wire serialization and JSON-like subtree deserialization; native rich-type conversion remains available through typed reads
 - ✅ **Extensible** - Trait-based design for easy custom type support
 - ✅ **Configuration sources** - [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) trait with built-in loaders: TOML, YAML, Java-style `.properties`, `.env` files, process environment variables (with optional prefix / key normalization), and [`CompositeConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.CompositeConfigSource.html) to merge several sources in order (later entries override earlier ones for the same key); built-in sources load transactionally, validate ambiguous normalized keys, and reject duplicate flattened TOML/YAML keys
 - ✅ **Read-only API** - The sealed [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) trait provides typed, multi-key, and field-declaration reads for [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) and [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html)
-- ✅ **Configurable parsing** - [`ConfigReadOptions`](https://docs.rs/qubit-config/latest/qubit_config/options/struct.ConfigReadOptions.html) controls string trimming, blank handling, boolean literals, and scalar-string collection splitting globally or per field
+- ✅ **Configurable parsing** - [`ReadOptions`](https://docs.rs/qubit-config/latest/qubit_config/options/struct.ReadOptions.html) controls string trimming, blank handling, boolean literals, and scalar-string collection splitting globally or per field
 - ✅ **Strict sections** - [`Config::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.section) returns a [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html) with strictly relative keys; nest with [`ConfigSection::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html#method.section)
 - ✅ **Safe diagnostics** - `Debug` output preserves property metadata while redacting every stored configuration value through `qubit-sanitize`
 - ✅ **Structured errors** - [`ConfigError::kind`](https://docs.rs/qubit-config/latest/qubit_config/enum.ConfigError.html#method.kind) and [`ConfigError::path`](https://docs.rs/qubit-config/latest/qubit_config/enum.ConfigError.html#method.path) expose stable machine-readable context without downstream exhaustive variant matching
@@ -128,17 +128,19 @@ The main read APIs are:
 
 | API | Behavior |
 |-----|----------|
-| `get<T>(name)` | Read a required value through `FromConfig`, applying variable substitution to string-backed input. |
+| `get<T>(name)` | Read a required value through `FromConfig` without interpolation. |
 | `get_optional<T>(name)` | Return `Ok(None)` when the key is absent or effectively missing. |
 | `get_or<T>(name, default)` | Use `default` only when the key is absent or effectively missing. |
 | `get_any<T>(&[names])` | Read the first key whose value is not effectively missing. |
 | `get_optional_any<T>(&[names])` | Multi-key optional read. |
 | `get_any_or<T>(&[names], default)` | Multi-key defaulted read. |
-| `get_any_or_with<T>(&[names], default, options)` | Multi-key defaulted read with explicit read options. |
+| `get_interpolated<T>` / `get_optional_interpolated<T>` / `get_interpolated_or<T>` | Explicit single-key interpolation before conversion. |
+| `get_any_interpolated<T>` / `get_optional_any_interpolated<T>` / `get_any_interpolated_or<T>` | Explicit multi-key interpolation before conversion. |
 | `read(ConfigField<T>)` | Field declaration with name, aliases, default, and field-level read options. |
+| `read_interpolated(ConfigField<T>)` / `read_optional_interpolated(ConfigField<T>)` | Explicit field interpolation. |
 | `get_strict` / `get_list_strict` | Exact stored-type reads without cross-type conversion. |
 
-Defaults do not hide bad configuration. If a key exists and its value fails parsing, type conversion, or variable substitution, the error is returned immediately instead of falling back to a default or later alias.
+Defaults do not hide bad configuration. If a key exists and its value fails parsing or type conversion, the error is returned immediately instead of falling back to a default or later alias. Explicit interpolated reads likewise return interpolation errors.
 
 An unset property is effectively missing. A scalar string can also be treated
 as missing by the active string policy. A concrete empty collection is present:
@@ -157,7 +159,7 @@ let invalid = config.get_or("worker.threads", 4u16);
 assert!(matches!(invalid, Err(ConfigError::ConversionError { .. })));
 ```
 
-Defaulted reads such as `get_or`, `get_any_or`, and `get_any_or_with` accept convenient fallback values. Scalar defaults still use the target type directly, while string defaults can use borrowed literals and string-list defaults can use arrays, slices, or borrowed vectors. Single-key and multi-key arguments also accept direct arrays, slices, vectors, and borrowed vectors.
+Defaulted reads such as `get_or`, `get_any_or`, `get_interpolated_or`, and `get_any_interpolated_or` accept convenient fallback values. Scalar defaults still use the target type directly, while string defaults can use borrowed literals and string-list defaults can use arrays, slices, or borrowed vectors. Single-key and multi-key arguments also accept direct arrays, slices, vectors, and borrowed vectors.
 
 ```rust
 let host = config.get_or::<String>("server.host", "localhost")?;
@@ -189,9 +191,9 @@ let host: String = db.get("host")?;
 let port: i32 = db.get("port")?;
 ```
 
-### ConfigReadOptions
+### ReadOptions
 
-`ConfigReadOptions` controls how configured values are parsed. It can be set globally on a `Config`, or attached to a single `ConfigField<T>`.
+`ReadOptions` controls how configured values are parsed. It can be set globally on a `Config`, or attached to a single `ConfigField<T>`.
 
 | Option group | Controls |
 |--------------|----------|
@@ -200,16 +202,16 @@ let port: i32 = db.get("port")?;
 | `CollectionConversionOptions` | Splitting scalar strings into lists, delimiters, per-item trimming, and empty-item policy. |
 | `NumericConversionOptions` | Fractional-to-integer, numeric-to-float, and text-to-float policies, plus numeric text and `BigInt` materialization limits. |
 | `DurationConversionOptions` | Numeric input unit, text suffix rules, output unit and suffix, and independent Duration rounding. |
-| `VariableSubstitutionOptions` | Enables substitution, controls environment fallback, and bounds recursion depth, expansion count, and output bytes. |
+| Interpolation settings on `ReadOptions` | Environment fallback plus recursion depth, expansion count, and output byte limits for explicit interpolated reads. |
 
-`ConfigReadOptions::env_friendly()` is useful for environment-variable style values: it trims strings, treats blank scalar strings as missing, accepts `true/false`, `1/0`, `yes/no`, and `on/off`, and splits scalar strings on commas for `Vec<T>` reads while skipping empty items. It permits nearest-even text-to-float rounding, but keeps fractional-to-integer and existing-numeric-to-float conversions exact.
+`ReadOptions::env_friendly()` is useful for environment-variable style values: it trims strings, treats blank scalar strings as missing, accepts `true/false`, `1/0`, `yes/no`, and `on/off`, and splits scalar strings on commas for `Vec<T>` reads while skipping empty items. It permits nearest-even text-to-float rounding, but keeps fractional-to-integer and existing-numeric-to-float conversions exact.
 
-Environment-variable fallback for `${...}` substitution is disabled by default, including in `ConfigReadOptions::env_friendly()`, to avoid accidental injection from the process environment. Configure it explicitly through `VariableSubstitutionOptions`, which also bounds recursion depth, placeholder expansions, and output bytes.
+Ordinary reads never interpolate `${...}`. Explicit interpolated reads resolve configuration keys first and allow environment-variable fallback by default; `ReadOptions` can disable that fallback and adjust recursion depth, placeholder expansion, and output byte limits.
 
 ```rust
-use qubit_config::{Config, options::ConfigReadOptions};
+use qubit_config::{Config, options::ReadOptions};
 
-let mut config = Config::new().with_read_options(ConfigReadOptions::env_friendly());
+let mut config = Config::new().with_read_options(ReadOptions::env_friendly());
 config.set("HTTP_ENABLED", "yes")?;
 config.set("HTTP_PORTS", "8080, 8081,,8082")?;
 
@@ -228,11 +230,11 @@ customize them should depend on that crate directly:
 ```toml
 [dependencies]
 qubit-config = "0.14"
-qubit-datatype = { version = "0.7", features = ["converter"] }
+qubit-datatype = { version = "0.8", default-features = false, features = ["converter"] }
 ```
 
 ```rust
-use qubit_config::{Config, options::ConfigReadOptions};
+use qubit_config::{Config, options::ReadOptions};
 use qubit_datatype::{
     BlankStringPolicy,
     BooleanConversionOptions,
@@ -243,7 +245,7 @@ use qubit_datatype::{
     StringConversionOptions,
 };
 
-let options = ConfigReadOptions::default()
+let options = ReadOptions::default()
     .with_numeric_options(
         NumericConversionOptions::strict().with_limits(
             NumericConversionLimits::default().with_max_text_bytes(4096),
@@ -280,7 +282,7 @@ let ports: Vec<u16> = config.get("ports")?;
 Use `ConfigField<T>` when a logical setting has aliases, a default, or field-specific parsing rules. This keeps migration keys, legacy names, and environment-style keys out of application parsing code.
 
 ```rust
-use qubit_config::{Config, field::ConfigField, options::ConfigReadOptions};
+use qubit_config::{Config, field::ConfigField, options::ReadOptions};
 
 let mut config = Config::new();
 config.set("MIME_DETECTOR_ENABLE_PRECISE_DETECTION", "yes")?;
@@ -291,7 +293,7 @@ let enabled = config.read(
         .alias("MIME_DETECTOR_ENABLE_PRECISE_DETECTION")
         .alias("ANOTHER_MIME_DETECTOR_ENABLE_PRECISE_DETECTION_PROPERTY")
         .default(false)
-        .read_options(ConfigReadOptions::env_friendly())
+        .read_options(ReadOptions::env_friendly())
         .build(),
 )?;
 
@@ -302,22 +304,21 @@ The builder makes the primary name explicit: `build()` is available only after `
 
 ### Multi-Key Reads
 
-Use `get_any`, `get_optional_any`, `get_any_or`, and `get_any_or_with` for lightweight alias reads when a full `ConfigField<T>` would be too verbose.
+Use `get_any`, `get_optional_any`, and `get_any_or` for ordinary lightweight alias reads. Use the corresponding `*_interpolated` methods when placeholders must be resolved.
 
 ```rust
-use qubit_config::{Config, options::ConfigReadOptions};
+use qubit_config::{Config, options::ReadOptions};
 
-let mut config = Config::new().with_read_options(ConfigReadOptions::env_friendly());
+let mut config = Config::new().with_read_options(ReadOptions::env_friendly());
 config.set("SERVICE_URL", "http://localhost:8080")?;
 config.set("SERVER_TIMEOUT", "30")?;
 
 let url = config.get_any::<String>(["service.url", "SERVICE_URL"])?;
 let timeout = config.get_any_or(["server.timeout", "SERVER_TIMEOUT"], 10u64)?;
 let optional_port = config.get_optional_any::<u16>(["server.port", "SERVER_PORT"])?;
-let retries = config.get_any_or_with(
+let retries = config.get_any_or(
     ["server.retries", "SERVER_RETRIES"],
     3u8,
-    &ConfigReadOptions::env_friendly(),
 )?;
 
 assert_eq!(url, "http://localhost:8080");
@@ -417,28 +418,26 @@ config.set("host", "localhost")?;
 config.set("port", "8080")?;
 config.set("url", "http://${host}:${port}/api")?;
 
-// Variables are automatically substituted
-let url: String = config.get("url")?;
+// Ordinary reads preserve placeholders.
+let raw_url: String = config.get("url")?;
+assert_eq!(raw_url, "http://${host}:${port}/api");
+
+// Interpolation is explicit and may convert the result to any supported type.
+let url: String = config.get_interpolated("url")?;
 // Result: "http://localhost:8080/api"
 
-// Environment fallback is opt-in because process environment values can be
-// attacker-controlled in some deployments.
-config.set_read_options(
-    qubit_config::options::ConfigReadOptions::default()
-        .with_substitution(
-            qubit_config::options::VariableSubstitutionOptions::default()
-                .with_environment_fallback_enabled(true),
-        ),
-);
+// Explicit interpolated reads allow environment fallback by default. It can
+// be disabled through ReadOptions when process environment values are not a
+// trusted source.
 std::env::set_var("APP_ENV", "production");
 config.set("env", "${APP_ENV}")?;
-let env: String = config.get("env")?;
+let env: String = config.get_interpolated("env")?;
 // Result: "production"
 ```
 
 ### Structured Configuration
 
-`deserialize()` exposes a JSON-like Serde view containing mappings, sequences, booleans, strings, numbers, and null values. String-backed projections still apply `ConfigReadOptions`; for example, `ConfigReadOptions::env_friendly()` can parse numeric strings, boolean aliases, comma-separated scalar string lists, and blank strings treated as missing while building a serde struct. It does not promise the native conversion shapes used by typed `get<T>()` reads for rich values such as durations or arbitrary-precision integers.
+`deserialize()` exposes a JSON-like Serde view containing mappings, sequences, booleans, strings, numbers, and null values without interpolating placeholders. Use `deserialize_interpolated()` when string leaves must be resolved first. Both methods apply the conversion rules in `ReadOptions`; for example, `ReadOptions::env_friendly()` can parse numeric strings, boolean aliases, comma-separated scalar string lists, and blank strings treated as missing while building a serde struct.
 
 Lookup and conversion failures retain their original `ConfigError` kind, leaf path, and source. A mismatch raised only by the target type's Serde implementation returns a sanitized `DeserializeError` at the requested prefix.
 
@@ -449,7 +448,7 @@ an exact `prefix` property is deserialized as the root value, otherwise
 for example, `a` and `a.b` cannot both appear in the same deserialized object.
 
 ```rust
-use qubit_config::{Config, options::ConfigReadOptions};
+use qubit_config::{Config, options::ReadOptions};
 
 #[derive(Debug)]
 struct DatabaseConfig {
@@ -520,7 +519,7 @@ callback once after a successful closure.
 
 | Rust Type | Description | Example |
 |-----------|-------------|---------|
-| `bool` | Boolean value; string reads accept `true` / `false` and `1` / `0` by default; `ConfigReadOptions::env_friendly()` also accepts `yes` / `no` and `on` / `off` | `true`, `false`, `"0"`, `"yes"` |
+| `bool` | Boolean value; string reads accept `true` / `false` and `1` / `0` by default; `ReadOptions::env_friendly()` also accepts `yes` / `no` and `on` / `off` | `true`, `false`, `"0"`, `"yes"` |
 | `char` | Character | `'a'`, `'中'` |
 | `i8`, `i16`, `i32`, `i64`, `i128` | Signed integers | `42`, `-100` |
 | `u8`, `u16`, `u32`, `u64`, `u128` | Unsigned integers | `255`, `1000` |

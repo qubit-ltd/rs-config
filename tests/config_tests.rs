@@ -21,10 +21,7 @@ pub(crate) use qubit_config::{
     Config,
     ConfigError,
     Property,
-    options::{
-        ConfigReadOptions,
-        VariableSubstitutionOptions,
-    },
+    options::ReadOptions,
 };
 pub(crate) use qubit_datatype::{
     BlankStringPolicy,
@@ -49,39 +46,16 @@ pub(crate) fn create_test_config_with_description() -> Config {
     Config::with_description("Test Configuration")
 }
 
-/// Replaces the substitution policy while preserving other read options.
-pub(crate) fn set_substitution_options(
+/// Changes the interpolation recursion limit while preserving other options.
+pub(crate) fn set_max_interpolation_depth(
     config: &mut Config,
-    substitution: VariableSubstitutionOptions,
+    max_depth: usize,
 ) {
     let options = config
         .read_options()
         .clone()
-        .with_substitution(substitution);
+        .with_max_interpolation_depth(max_depth);
     config.set_read_options(options);
-}
-
-/// Enables or disables substitution while preserving its remaining limits.
-pub(crate) fn set_substitution_enabled(config: &mut Config, enabled: bool) {
-    let substitution = config
-        .read_options()
-        .substitution()
-        .clone()
-        .with_enabled(enabled);
-    set_substitution_options(config, substitution);
-}
-
-/// Changes the substitution recursion limit while preserving other options.
-pub(crate) fn set_substitution_max_depth(
-    config: &mut Config,
-    max_depth: usize,
-) {
-    let substitution = config
-        .read_options()
-        .substitution()
-        .clone()
-        .with_max_depth(max_depth);
-    set_substitution_options(config, substitution);
 }
 
 #[test]
@@ -104,7 +78,7 @@ fn test_config_preserves_scalar_and_collection_source_shapes() {
 #[test]
 fn test_config_splits_scalar_text_but_preserves_collection_items() {
     let mut config = Config::new();
-    config.set_read_options(ConfigReadOptions::env_friendly());
+    config.set_read_options(ReadOptions::env_friendly());
     config.set("scalar_text", "a,b").expect("set scalar text");
     config
         .set("collection_text", vec!["a,b"])
@@ -135,11 +109,11 @@ mod test_new {
         BlankStringPolicy,
         Config,
         ConfigError,
-        ConfigReadOptions,
         DataType,
         Deserialize,
         MultiValues,
         Property,
+        ReadOptions,
         create_test_config,
         create_test_config_with_description,
     };
@@ -150,15 +124,15 @@ mod test_new {
         assert!(config.is_empty());
         assert_eq!(config.len(), 0);
         assert!(config.description().is_none());
-        assert!(config.read_options().substitution().is_enabled());
-        assert_eq!(config.read_options().substitution().max_depth(), 64);
+        assert!(config.read_options().is_environment_fallback_enabled());
+        assert_eq!(config.read_options().max_interpolation_depth(), 64);
     }
 
     #[test]
     fn test_new_has_correct_default_values() {
         let config = Config::new();
-        assert!(config.read_options().substitution().is_enabled());
-        assert_eq!(config.read_options().substitution().max_depth(), 64);
+        assert!(config.read_options().is_environment_fallback_enabled());
+        assert_eq!(config.read_options().max_interpolation_depth(), 64);
     }
 }
 
@@ -169,11 +143,11 @@ mod test_with_description {
         BlankStringPolicy,
         Config,
         ConfigError,
-        ConfigReadOptions,
         DataType,
         Deserialize,
         MultiValues,
         Property,
+        ReadOptions,
         create_test_config,
         create_test_config_with_description,
     };
@@ -188,8 +162,8 @@ mod test_with_description {
     #[test]
     fn test_with_description_has_correct_default_values() {
         let config = Config::with_description("Test Configuration");
-        assert!(config.read_options().substitution().is_enabled());
-        assert_eq!(config.read_options().substitution().max_depth(), 64);
+        assert!(config.read_options().is_environment_fallback_enabled());
+        assert_eq!(config.read_options().max_interpolation_depth(), 64);
     }
 
     #[test]
@@ -210,11 +184,11 @@ mod test_description {
         BlankStringPolicy,
         Config,
         ConfigError,
-        ConfigReadOptions,
         DataType,
         Deserialize,
         MultiValues,
         Property,
+        ReadOptions,
         create_test_config,
         create_test_config_with_description,
     };
@@ -268,49 +242,33 @@ mod test_variable_substitution {
     };
 
     #[test]
-    fn test_is_enable_variable_substitution_returns_true_by_default() {
-        let config = Config::new();
-        assert!(config.read_options().substitution().is_enabled());
-    }
-
-    #[test]
-    fn test_set_enable_variable_substitution_enables() {
-        let mut config = Config::new();
-        crate::set_substitution_enabled(&mut config, true);
-        assert!(config.read_options().substitution().is_enabled());
-    }
-
-    #[test]
-    fn test_set_enable_variable_substitution_disables() {
-        let mut config = Config::new();
-        crate::set_substitution_enabled(&mut config, false);
-        assert!(!config.read_options().substitution().is_enabled());
-    }
-
-    #[test]
-    fn test_generic_get_string_applies_variable_substitution() {
+    fn test_generic_get_string_preserves_placeholder() {
         let mut config = Config::new();
         config.set("host", "localhost").unwrap();
         config.set("url", "http://${host}/api").unwrap();
 
         let url: String = config.get("url").unwrap();
 
-        assert_eq!(url, "http://localhost/api");
+        assert_eq!(url, "http://${host}/api");
     }
 
     #[test]
-    fn test_generic_get_converts_substituted_numeric_string() {
+    fn test_generic_get_does_not_convert_unexpanded_numeric_placeholder() {
         let mut config = Config::new();
         config.set("port", "8080").unwrap();
         config.set("server.port", "${port}").unwrap();
 
-        let port: u16 = config.get("server.port").unwrap();
+        let result = config.get::<u16>("server.port");
 
-        assert_eq!(port, 8080);
+        assert!(matches!(
+            result,
+            Err(ConfigError::ConversionError { key, .. })
+                if key == "server.port"
+        ));
     }
 
     #[test]
-    fn test_generic_get_string_list_applies_variable_substitution() {
+    fn test_generic_get_string_list_preserves_placeholders() {
         let mut config = Config::new();
         config.set("root", "/srv/app").unwrap();
         config
@@ -319,7 +277,7 @@ mod test_variable_substitution {
 
         let paths: Vec<String> = config.get("paths").unwrap();
 
-        assert_eq!(paths, vec!["/srv/app/bin", "/srv/app/lib"]);
+        assert_eq!(paths, vec!["${root}/bin", "${root}/lib"]);
     }
 
     #[test]
@@ -1503,12 +1461,11 @@ mod test_get_string {
     }
 
     #[test]
-    fn test_get_string_with_variable_substitution_disabled() {
+    fn test_get_string_preserves_placeholders() {
         let mut config = Config::new();
-        config.set("test", "value").unwrap();
-        crate::set_substitution_enabled(&mut config, false);
+        config.set("test", "${other}").unwrap();
         let value = config.get::<String>("test").unwrap();
-        assert_eq!(value, "value");
+        assert_eq!(value, "${other}");
     }
 }
 
@@ -1585,7 +1542,7 @@ mod test_get_string_list {
         config
             .set("urls", vec!["${base}/api", "${base}/admin"])
             .unwrap();
-        let urls = config.get::<Vec<String>>("urls").unwrap();
+        let urls = config.get_interpolated::<Vec<String>>("urls").unwrap();
         assert_eq!(
             urls,
             vec!["http://localhost/api", "http://localhost/admin"]
@@ -1600,7 +1557,7 @@ mod test_get_string_list {
         config
             .set("urls", vec!["${base}/api", "${base}/admin"])
             .unwrap();
-        let urls = config.get::<Vec<String>>("urls").unwrap();
+        let urls = config.get_interpolated::<Vec<String>>("urls").unwrap();
         assert_eq!(
             urls,
             vec!["http://localhost/api", "http://localhost/admin"]
@@ -1608,13 +1565,12 @@ mod test_get_string_list {
     }
 
     #[test]
-    fn test_get_string_list_with_variable_substitution_disabled() {
+    fn test_get_string_list_preserves_placeholders() {
         let mut config = Config::new();
         config.set("base", "http://localhost").unwrap();
         config
             .set("urls", vec!["${base}/api", "${base}/admin"])
             .unwrap();
-        crate::set_substitution_enabled(&mut config, false);
         let urls = config.get::<Vec<String>>("urls").unwrap();
         assert_eq!(urls, vec!["${base}/api", "${base}/admin"]);
     }
@@ -1696,7 +1652,9 @@ mod test_get_string_list_or {
         config
             .set("urls", vec!["${base}/api", "${base}/admin"])
             .unwrap();
-        let urls = config.get_or::<Vec<String>>("urls", &["default"]).unwrap();
+        let urls = config
+            .get_interpolated_or::<Vec<String>>("urls", &["default"])
+            .unwrap();
         assert_eq!(
             urls,
             vec!["http://localhost/api", "http://localhost/admin"]
@@ -1747,8 +1705,8 @@ mod test_default {
         assert!(config.is_empty());
         assert_eq!(config.len(), 0);
         assert!(config.description().is_none());
-        assert!(config.read_options().substitution().is_enabled());
-        assert_eq!(config.read_options().substitution().max_depth(), 64);
+        assert!(config.read_options().is_environment_fallback_enabled());
+        assert_eq!(config.read_options().max_interpolation_depth(), 64);
     }
 
     #[test]
@@ -2111,11 +2069,11 @@ mod test_subconfig {
         BlankStringPolicy,
         Config,
         ConfigError,
-        ConfigReadOptions,
         DataType,
         Deserialize,
         MultiValues,
         Property,
+        ReadOptions,
         create_test_config,
         create_test_config_with_description,
     };
@@ -2187,20 +2145,18 @@ mod test_subconfig {
     #[test]
     fn test_subconfig_preserves_variable_substitution_settings() {
         let mut config = Config::new();
-        crate::set_substitution_enabled(&mut config, false);
-        crate::set_substitution_max_depth(&mut config, 10);
+        crate::set_max_interpolation_depth(&mut config, 10);
         config.set("http.host", "localhost").unwrap();
 
         let sub = config.subconfig("http", true).unwrap();
-        assert!(!sub.read_options().substitution().is_enabled());
-        assert_eq!(sub.read_options().substitution().max_depth(), 10);
+        assert_eq!(sub.read_options().max_interpolation_depth(), 10);
     }
 
     #[test]
     fn test_subconfig_preserves_read_options_and_description() {
         let mut config = Config::with_description("root config");
         config.set_read_options(
-            ConfigReadOptions::default()
+            ReadOptions::default()
                 .with_blank_string_policy(BlankStringPolicy::TreatAsMissing),
         );
         config.set("http.host", "   ").unwrap();
@@ -2570,15 +2526,17 @@ mod test_get_optional_string {
         config.set("base", "http://localhost").unwrap();
         config.set("api", "${base}/api").unwrap();
         assert_eq!(
-            config.get_optional::<String>("api").unwrap().as_deref(),
+            config
+                .get_optional_interpolated::<String>("api")
+                .unwrap()
+                .as_deref(),
             Some("http://localhost/api")
         );
     }
 
     #[test]
-    fn test_get_optional_string_substitution_disabled_keeps_placeholders() {
+    fn test_get_optional_string_preserves_placeholders() {
         let mut config = Config::new();
-        crate::set_substitution_enabled(&mut config, false);
         config.set("raw", "${not_replaced}").unwrap();
         assert_eq!(
             config.get_optional::<String>("raw").unwrap().as_deref(),
@@ -2605,7 +2563,7 @@ mod test_get_optional_string {
                 "${qubit_cfg_test_var_that_must_not_exist_7a8b9c0d1e2f}",
             )
             .unwrap();
-        let result = config.get_optional::<String>("bad");
+        let result = config.get_optional_interpolated::<String>("bad");
         assert!(matches!(
             result,
             Err(ConfigError::SubstitutionError { path, .. }) if path == "bad"
@@ -2615,10 +2573,10 @@ mod test_get_optional_string {
     #[test]
     fn test_get_optional_string_substitution_depth_exceeded() {
         let mut config = Config::new();
-        crate::set_substitution_max_depth(&mut config, 0);
+        crate::set_max_interpolation_depth(&mut config, 0);
         config.set("a", "v").unwrap();
         config.set("b", "${a}").unwrap();
-        let result = config.get_optional::<String>("b");
+        let result = config.get_optional_interpolated::<String>("b");
         assert!(matches!(
             result,
             Err(ConfigError::SubstitutionDepthExceeded {
@@ -2655,7 +2613,9 @@ mod test_get_optional_string {
             .set("paths", vec!["${root}/bin", "${root}/lib"])
             .unwrap();
         assert_eq!(
-            config.get_optional::<Vec<String>>("paths").unwrap(),
+            config
+                .get_optional_interpolated::<Vec<String>>("paths")
+                .unwrap(),
             Some(vec!["/opt/app/bin".to_string(), "/opt/app/lib".to_string()])
         );
     }
@@ -2692,9 +2652,8 @@ mod test_get_optional_string {
     }
 
     #[test]
-    fn test_get_optional_string_list_substitution_disabled() {
+    fn test_get_optional_string_list_preserves_placeholders() {
         let mut config = Config::new();
-        crate::set_substitution_enabled(&mut config, false);
         config.set("items", vec!["${x}", "y"]).unwrap();
         assert_eq!(
             config.get_optional::<Vec<String>>("items").unwrap(),
@@ -2725,7 +2684,7 @@ mod test_get_optional_string {
                 ],
             )
             .unwrap();
-        let result = config.get_optional::<Vec<String>>("items");
+        let result = config.get_optional_interpolated::<Vec<String>>("items");
         assert!(matches!(
             result,
             Err(ConfigError::SubstitutionError { path, .. })
@@ -2736,10 +2695,10 @@ mod test_get_optional_string {
     #[test]
     fn test_get_optional_string_list_substitution_depth_exceeded() {
         let mut config = Config::new();
-        crate::set_substitution_max_depth(&mut config, 0);
+        crate::set_max_interpolation_depth(&mut config, 0);
         config.set("a", "x").unwrap();
         config.set("items", vec!["${a}"]).unwrap();
-        let result = config.get_optional::<Vec<String>>("items");
+        let result = config.get_optional_interpolated::<Vec<String>>("items");
         assert!(matches!(
             result,
             Err(ConfigError::SubstitutionDepthExceeded {
@@ -3542,7 +3501,7 @@ api_url = "${base_url}/api"
         config.merge_from_source(&source).unwrap();
 
         assert_eq!(
-            config.get::<String>("api_url").unwrap(),
+            config.get_interpolated::<String>("api_url").unwrap(),
             "http://localhost:8080/api"
         );
     }

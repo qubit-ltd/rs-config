@@ -36,32 +36,19 @@ fn create_test_config_with_description() -> Config {
     config
 }
 
-fn set_substitution_enabled(config: &mut Config, enabled: bool) {
-    let substitution = config
-        .read_options()
-        .substitution()
-        .clone()
-        .with_enabled(enabled);
-    set_substitution_options(config, substitution);
-}
-
-fn set_substitution_max_depth(config: &mut Config, max_depth: usize) {
-    let substitution = config
-        .read_options()
-        .substitution()
-        .clone()
-        .with_max_depth(max_depth);
-    set_substitution_options(config, substitution);
-}
-
-fn set_substitution_options(
-    config: &mut Config,
-    substitution: qubit_config::options::VariableSubstitutionOptions,
-) {
+fn set_environment_fallback_enabled(config: &mut Config, enabled: bool) {
     let options = config
         .read_options()
         .clone()
-        .with_substitution(substitution);
+        .with_environment_fallback_enabled(enabled);
+    config.set_read_options(options);
+}
+
+fn set_max_interpolation_depth(config: &mut Config, max_depth: usize) {
+    let options = config
+        .read_options()
+        .clone()
+        .with_max_interpolation_depth(max_depth);
     config.set_read_options(options);
 }
 
@@ -92,8 +79,8 @@ mod test_new {
         let configured = Configured::new();
         let config = configured.config();
         assert!(config.description().is_none());
-        assert!(config.read_options().substitution().is_enabled());
-        assert_eq!(config.read_options().substitution().max_depth(), 64);
+        assert!(config.read_options().is_environment_fallback_enabled());
+        assert_eq!(config.read_options().max_interpolation_depth(), 64);
     }
 }
 
@@ -282,64 +269,49 @@ mod test_config_mut {
     }
 
     #[test]
-    fn test_config_mut_allows_variable_substitution_change() {
+    fn test_config_mut_allows_environment_fallback_change() {
         let mut configured = Configured::new();
         assert!(
             configured
                 .config()
                 .read_options()
-                .substitution()
-                .is_enabled()
+                .is_environment_fallback_enabled()
         );
 
-        crate::set_substitution_enabled(configured.config_mut(), false);
+        crate::set_environment_fallback_enabled(configured.config_mut(), false);
         assert!(
             !configured
                 .config()
                 .read_options()
-                .substitution()
-                .is_enabled()
+                .is_environment_fallback_enabled()
         );
 
-        crate::set_substitution_enabled(configured.config_mut(), true);
+        crate::set_environment_fallback_enabled(configured.config_mut(), true);
         assert!(
             configured
                 .config()
                 .read_options()
-                .substitution()
-                .is_enabled()
+                .is_environment_fallback_enabled()
         );
     }
 
     #[test]
-    fn test_config_mut_allows_max_substitution_depth_change() {
+    fn test_config_mut_allows_max_interpolation_depth_change() {
         let mut configured = Configured::new();
         assert_eq!(
-            configured
-                .config()
-                .read_options()
-                .substitution()
-                .max_depth(),
+            configured.config().read_options().max_interpolation_depth(),
             64
         );
 
-        crate::set_substitution_max_depth(configured.config_mut(), 100);
+        crate::set_max_interpolation_depth(configured.config_mut(), 100);
         assert_eq!(
-            configured
-                .config()
-                .read_options()
-                .substitution()
-                .max_depth(),
+            configured.config().read_options().max_interpolation_depth(),
             100
         );
 
-        crate::set_substitution_max_depth(configured.config_mut(), 0);
+        crate::set_max_interpolation_depth(configured.config_mut(), 0);
         assert_eq!(
-            configured
-                .config()
-                .read_options()
-                .substitution()
-                .max_depth(),
+            configured.config().read_options().max_interpolation_depth(),
             0
         );
     }

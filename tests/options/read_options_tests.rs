@@ -11,10 +11,7 @@ use qubit_config::{
     Config,
     ConfigError,
     field::ConfigField,
-    options::{
-        ConfigReadOptions,
-        VariableSubstitutionOptions,
-    },
+    options::ReadOptions,
 };
 use qubit_datatype::{
     BlankStringPolicy,
@@ -34,7 +31,7 @@ use qubit_datatype::{
 fn test_global_env_friendly_options_parse_comma_separated_list() {
     let mut config = Config::new();
     config
-        .set_read_options(ConfigReadOptions::env_friendly())
+        .set_read_options(ReadOptions::env_friendly())
         .set("PORTS", "8080, 8081,,8082")
         .expect("setting test config should succeed");
 
@@ -52,7 +49,7 @@ fn test_field_options_can_add_custom_boolean_literals() {
         .set("feature.flag", "enabled")
         .expect("setting test config should succeed");
 
-    let options = ConfigReadOptions::default().with_boolean_options(
+    let options = ReadOptions::default().with_boolean_options(
         BooleanConversionOptions::strict()
             .with_true_literal("enabled")
             .expect("custom true literal should be distinct")
@@ -81,7 +78,7 @@ fn test_field_options_can_treat_blank_string_as_missing() {
         .set("legacy.name", "fallback")
         .expect("setting fallback config should succeed");
 
-    let options = ConfigReadOptions::default()
+    let options = ReadOptions::default()
         .with_blank_string_policy(BlankStringPolicy::TreatAsMissing);
     let name = config
         .read(
@@ -101,7 +98,7 @@ fn test_collection_options_can_reject_empty_items() {
     let mut config = Config::new();
     config
         .set_read_options(
-            ConfigReadOptions::env_friendly()
+            ReadOptions::env_friendly()
                 .with_empty_item_policy(EmptyItemPolicy::Reject),
         )
         .set("PORTS", "8080,,8082")
@@ -115,39 +112,51 @@ fn test_collection_options_can_reject_empty_items() {
 }
 
 #[test]
-fn test_env_variable_substitution_option_is_explicit() {
-    let default_options = ConfigReadOptions::default();
-    let enabled_options = default_options.clone().with_substitution(
-        VariableSubstitutionOptions::default()
-            .with_environment_fallback_enabled(true),
-    );
-    let disabled_options = enabled_options.clone().with_substitution(
-        enabled_options
-            .substitution()
-            .clone()
-            .with_environment_fallback_enabled(false),
-    );
+fn test_environment_fallback_is_enabled_by_default_and_configurable() {
+    let default_options = ReadOptions::default();
+    let disabled_options = default_options
+        .clone()
+        .with_environment_fallback_enabled(false);
 
-    assert!(
-        !default_options
-            .substitution()
-            .is_environment_fallback_enabled()
-    );
-    assert!(
-        enabled_options
-            .substitution()
-            .is_environment_fallback_enabled()
-    );
-    assert!(
-        !disabled_options
-            .substitution()
-            .is_environment_fallback_enabled()
-    );
-    assert!(
-        !ConfigReadOptions::env_friendly()
-            .substitution()
-            .is_environment_fallback_enabled()
-    );
+    assert!(default_options.is_environment_fallback_enabled());
+    assert!(!disabled_options.is_environment_fallback_enabled());
+    assert!(ReadOptions::env_friendly().is_environment_fallback_enabled());
+    assert_eq!(default_options.max_interpolation_depth(), 64);
+    assert_eq!(default_options.max_interpolation_expansions(), 4_096);
+    assert_eq!(default_options.max_interpolation_output_bytes(), 1_048_576,);
+}
+
+#[test]
+fn test_interpolation_limit_builders_replace_defaults() {
+    let options = ReadOptions::default()
+        .with_max_interpolation_depth(8)
+        .with_max_interpolation_expansions(16)
+        .with_max_interpolation_output_bytes(32);
+
+    assert_eq!(options.max_interpolation_depth(), 8);
+    assert_eq!(options.max_interpolation_expansions(), 16);
+    assert_eq!(options.max_interpolation_output_bytes(), 32);
+}
+
+#[test]
+fn test_read_options_serde_uses_direct_interpolation_fields() {
+    let options = ReadOptions::default()
+        .with_environment_fallback_enabled(false)
+        .with_max_interpolation_depth(8)
+        .with_max_interpolation_expansions(16)
+        .with_max_interpolation_output_bytes(32);
+
+    let json = serde_json::to_value(&options).expect("serialize read options");
+
+    assert_eq!(json["environment_fallback_enabled"], false);
+    assert_eq!(json["max_interpolation_depth"], 8);
+    assert_eq!(json["max_interpolation_expansions"], 16);
+    assert_eq!(json["max_interpolation_output_bytes"], 32);
+    assert!(json.get("enabled").is_none());
+    assert!(json.get("substitution").is_none());
+    let restored: ReadOptions =
+        serde_json::from_value(json).expect("deserialize read options");
+    assert_eq!(restored, options);
 }
 
 #[test]
@@ -155,7 +164,7 @@ fn test_string_and_duration_options_are_delegated_to_conversion_options() {
     let string_options = StringConversionOptions::default().with_trim(true);
     let duration_options = DurationConversionOptions::default()
         .with_numeric_input_unit(DurationUnit::Milliseconds);
-    let options = ConfigReadOptions::default()
+    let options = ReadOptions::default()
         .with_string_options(string_options.clone())
         .with_duration_options(duration_options.clone());
 
@@ -167,7 +176,7 @@ fn test_string_and_duration_options_are_delegated_to_conversion_options() {
 fn test_collection_options_builder_is_exposed_directly() {
     let collection_options =
         CollectionConversionOptions::default().with_split_scalar_strings(true);
-    let options = ConfigReadOptions::default()
+    let options = ReadOptions::default()
         .with_collection_options(collection_options.clone());
 
     assert_eq!(
@@ -180,7 +189,7 @@ fn test_collection_options_builder_is_exposed_directly() {
 fn test_from_and_as_ref_preserve_conversion_options() {
     let conversion = DataConversionOptions::env_friendly();
 
-    let options = ConfigReadOptions::from(conversion.clone());
+    let options = ReadOptions::from(conversion.clone());
     let as_ref: &DataConversionOptions = options.as_ref();
 
     assert_eq!(options.conversion_options(), &conversion);
@@ -192,12 +201,8 @@ fn test_config_serialization_preserves_read_options() {
     let mut config = Config::new();
     config
         .set_read_options(
-            ConfigReadOptions::env_friendly()
-                .with_empty_item_policy(EmptyItemPolicy::Reject)
-                .with_substitution(
-                    VariableSubstitutionOptions::default()
-                        .with_environment_fallback_enabled(true),
-                ),
+            ReadOptions::env_friendly()
+                .with_empty_item_policy(EmptyItemPolicy::Reject),
         )
         .set("PORTS", "8080,,8081")
         .expect("setting test config should succeed");
@@ -208,12 +213,7 @@ fn test_config_serialization_preserves_read_options() {
         .expect("deserializing config should succeed");
 
     assert_eq!(restored.read_options(), config.read_options());
-    assert!(
-        restored
-            .read_options()
-            .substitution()
-            .is_environment_fallback_enabled()
-    );
+    assert!(restored.read_options().is_environment_fallback_enabled());
     assert!(matches!(
         restored.get::<Vec<u16>>("PORTS"),
         Err(ConfigError::ConversionError { key, .. }) if key == "PORTS"
@@ -221,10 +221,10 @@ fn test_config_serialization_preserves_read_options() {
 }
 
 #[test]
-fn test_config_read_options_serde_defaults_are_readable() {
-    let default_options: ConfigReadOptions =
+fn test_read_options_serde_defaults_are_readable() {
+    let default_options: ReadOptions =
         serde_json::from_str("{}").expect("empty options should use defaults");
-    let nested_defaults: ConfigReadOptions =
+    let nested_defaults: ReadOptions =
         serde_json::from_value(serde_json::json!({
             "conversion": {
                 "string": {},
@@ -234,7 +234,7 @@ fn test_config_read_options_serde_defaults_are_readable() {
             }
         }))
         .expect("nested empty options should use defaults");
-    let missing_boolean_defaults: ConfigReadOptions =
+    let missing_boolean_defaults: ReadOptions =
         serde_json::from_value(serde_json::json!({
             "conversion": {
                 "string": {},
@@ -244,21 +244,20 @@ fn test_config_read_options_serde_defaults_are_readable() {
         }))
         .expect("omitted boolean options should use defaults");
 
-    assert_eq!(default_options, ConfigReadOptions::default());
-    assert_eq!(nested_defaults, ConfigReadOptions::default());
-    assert_eq!(missing_boolean_defaults, ConfigReadOptions::default());
+    assert_eq!(default_options, ReadOptions::default());
+    assert_eq!(nested_defaults, ReadOptions::default());
+    assert_eq!(missing_boolean_defaults, ReadOptions::default());
 }
 
 #[test]
-fn test_config_read_options_serde_round_trips_all_policy_variants() {
+fn test_read_options_serde_round_trips_all_policy_variants() {
     for policy in [
         BlankStringPolicy::Preserve,
         BlankStringPolicy::TreatAsMissing,
         BlankStringPolicy::Reject,
     ] {
-        let options =
-            ConfigReadOptions::default().with_blank_string_policy(policy);
-        let restored: ConfigReadOptions =
+        let options = ReadOptions::default().with_blank_string_policy(policy);
+        let restored: ReadOptions =
             serde_json::from_str(&serde_json::to_string(&options).unwrap())
                 .unwrap();
         assert_eq!(
@@ -272,9 +271,8 @@ fn test_config_read_options_serde_round_trips_all_policy_variants() {
         EmptyItemPolicy::Skip,
         EmptyItemPolicy::Reject,
     ] {
-        let options =
-            ConfigReadOptions::default().with_empty_item_policy(policy);
-        let restored: ConfigReadOptions =
+        let options = ReadOptions::default().with_empty_item_policy(policy);
+        let restored: ReadOptions =
             serde_json::from_str(&serde_json::to_string(&options).unwrap())
                 .unwrap();
         assert_eq!(
@@ -302,9 +300,8 @@ fn test_config_read_options_serde_round_trips_all_policy_variants() {
             ))
             .with_output_unit(unit)
             .with_append_unit_suffix(false);
-        let options =
-            ConfigReadOptions::default().with_duration_options(duration);
-        let restored: ConfigReadOptions =
+        let options = ReadOptions::default().with_duration_options(duration);
+        let restored: ReadOptions =
             serde_json::from_str(&serde_json::to_string(&options).unwrap())
                 .unwrap();
         assert_eq!(
@@ -336,19 +333,14 @@ fn test_config_read_options_serde_round_trips_all_policy_variants() {
 
 /// Test serde round-trips the shared conversion options without a mirror DTO.
 #[test]
-fn test_config_read_options_serde_round_trips_numeric_options() {
-    let options = ConfigReadOptions::default()
-        .with_numeric_options(
-            NumericConversionOptions::lossy().with_limits(
-                NumericConversionLimits::default()
-                    .with_max_text_bytes(128)
-                    .with_max_big_integer_digits(64),
-            ),
-        )
-        .with_substitution(
-            VariableSubstitutionOptions::default()
-                .with_environment_fallback_enabled(true),
-        );
+fn test_read_options_serde_round_trips_numeric_options() {
+    let options = ReadOptions::default().with_numeric_options(
+        NumericConversionOptions::lossy().with_limits(
+            NumericConversionLimits::default()
+                .with_max_text_bytes(128)
+                .with_max_big_integer_digits(64),
+        ),
+    );
     let json = serde_json::to_value(&options).expect("serialize options");
     assert_eq!(
         json["conversion"]["numeric"]["fractional_to_integer"],
@@ -359,14 +351,14 @@ fn test_config_read_options_serde_round_trips_numeric_options() {
         128,
     );
 
-    let restored: ConfigReadOptions =
+    let restored: ReadOptions =
         serde_json::from_value(json).expect("deserialize options");
     assert_eq!(restored, options);
 }
 
 #[test]
-fn test_config_read_options_serde_boolean_literals_and_errors() {
-    let options = ConfigReadOptions::default().with_boolean_options(
+fn test_read_options_serde_boolean_literals_and_errors() {
+    let options = ReadOptions::default().with_boolean_options(
         BooleanConversionOptions::strict()
             .with_true_literal("enabled")
             .expect("custom true literal should be distinct")
@@ -375,7 +367,7 @@ fn test_config_read_options_serde_boolean_literals_and_errors() {
             .with_case_sensitive(true)
             .expect("case sensitivity should preserve disjoint literals"),
     );
-    let restored: ConfigReadOptions =
+    let restored: ReadOptions =
         serde_json::from_str(&serde_json::to_string(&options).unwrap())
             .unwrap();
 
@@ -412,6 +404,6 @@ fn test_config_read_options_serde_boolean_literals_and_errors() {
         }
     });
 
-    assert!(serde_json::from_value::<ConfigReadOptions>(bad_true).is_err());
-    assert!(serde_json::from_value::<ConfigReadOptions>(bad_false).is_err());
+    assert!(serde_json::from_value::<ReadOptions>(bad_true).is_err());
+    assert!(serde_json::from_value::<ReadOptions>(bad_false).is_err());
 }

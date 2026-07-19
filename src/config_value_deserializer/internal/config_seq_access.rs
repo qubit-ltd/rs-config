@@ -15,14 +15,14 @@ use serde_json::Value;
 
 use crate::config_deserialize_error::ConfigDeserializeError;
 use crate::config_value_deserializer::ConfigValueDeserializer;
-use crate::options::ConfigReadOptions;
+use crate::options::ReadOptions;
 
 /// Sequence access over configuration values.
 pub(in crate::config_value_deserializer) struct ConfigSeqAccess<'a> {
     values: std::vec::IntoIter<Value>,
     key: String,
     index: usize,
-    options: &'a ConfigReadOptions,
+    options: &'a ReadOptions,
 }
 
 impl<'a> ConfigSeqAccess<'a> {
@@ -30,7 +30,7 @@ impl<'a> ConfigSeqAccess<'a> {
     pub(in crate::config_value_deserializer) fn new(
         values: Vec<Value>,
         key: String,
-        options: &'a ConfigReadOptions,
+        options: &'a ReadOptions,
     ) -> Self {
         Self {
             values: values.into_iter(),
