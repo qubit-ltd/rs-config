@@ -21,7 +21,10 @@ pub(crate) use qubit_config::{
     Config,
     ConfigError,
     Property,
-    options::ConfigReadOptions,
+    options::{
+        ConfigReadOptions,
+        VariableSubstitutionOptions,
+    },
 };
 pub(crate) use qubit_datatype::{
     BlankStringPolicy,
@@ -44,6 +47,41 @@ pub(crate) fn create_test_config() -> Config {
 #[allow(dead_code)]
 pub(crate) fn create_test_config_with_description() -> Config {
     Config::with_description("Test Configuration")
+}
+
+/// Replaces the substitution policy while preserving other read options.
+pub(crate) fn set_substitution_options(
+    config: &mut Config,
+    substitution: VariableSubstitutionOptions,
+) {
+    let options = config
+        .read_options()
+        .clone()
+        .with_substitution(substitution);
+    config.set_read_options(options);
+}
+
+/// Enables or disables substitution while preserving its remaining limits.
+pub(crate) fn set_substitution_enabled(config: &mut Config, enabled: bool) {
+    let substitution = config
+        .read_options()
+        .substitution()
+        .clone()
+        .with_enabled(enabled);
+    set_substitution_options(config, substitution);
+}
+
+/// Changes the substitution recursion limit while preserving other options.
+pub(crate) fn set_substitution_max_depth(
+    config: &mut Config,
+    max_depth: usize,
+) {
+    let substitution = config
+        .read_options()
+        .substitution()
+        .clone()
+        .with_max_depth(max_depth);
+    set_substitution_options(config, substitution);
 }
 
 #[test]
@@ -112,15 +150,15 @@ mod test_new {
         assert!(config.is_empty());
         assert_eq!(config.len(), 0);
         assert!(config.description().is_none());
-        assert!(config.is_enable_variable_substitution());
-        assert_eq!(config.max_substitution_depth(), 64);
+        assert!(config.read_options().substitution().is_enabled());
+        assert_eq!(config.read_options().substitution().max_depth(), 64);
     }
 
     #[test]
     fn test_new_has_correct_default_values() {
         let config = Config::new();
-        assert!(config.is_enable_variable_substitution());
-        assert_eq!(config.max_substitution_depth(), 64);
+        assert!(config.read_options().substitution().is_enabled());
+        assert_eq!(config.read_options().substitution().max_depth(), 64);
     }
 }
 
@@ -150,8 +188,8 @@ mod test_with_description {
     #[test]
     fn test_with_description_has_correct_default_values() {
         let config = Config::with_description("Test Configuration");
-        assert!(config.is_enable_variable_substitution());
-        assert_eq!(config.max_substitution_depth(), 64);
+        assert!(config.read_options().substitution().is_enabled());
+        assert_eq!(config.read_options().substitution().max_depth(), 64);
     }
 
     #[test]
@@ -232,43 +270,67 @@ mod test_variable_substitution {
     #[test]
     fn test_is_enable_variable_substitution_returns_true_by_default() {
         let config = Config::new();
-        assert!(config.is_enable_variable_substitution());
+        assert!(config.read_options().substitution().is_enabled());
     }
 
     #[test]
     fn test_set_enable_variable_substitution_enables() {
         let mut config = Config::new();
-        config.set_enable_variable_substitution(true);
-        assert!(config.is_enable_variable_substitution());
+        crate::set_substitution_enabled(&mut config, true);
+        assert!(config.read_options().substitution().is_enabled());
     }
 
     #[test]
     fn test_set_enable_variable_substitution_disables() {
         let mut config = Config::new();
-        config.set_enable_variable_substitution(false);
-        assert!(!config.is_enable_variable_substitution());
+        crate::set_substitution_enabled(&mut config, false);
+        assert!(!config.read_options().substitution().is_enabled());
     }
 
     #[test]
-    fn test_generic_get_string_does_not_apply_variable_substitution() {
+    fn test_generic_get_string_applies_variable_substitution() {
         let mut config = Config::new();
         config.set("host", "localhost").unwrap();
         config.set("url", "http://${host}/api").unwrap();
 
         let url: String = config.get("url").unwrap();
 
-        assert_eq!(url, "http://${host}/api");
+        assert_eq!(url, "http://localhost/api");
     }
 
     #[test]
-    fn test_get_string_explicitly_applies_variable_substitution() {
+    fn test_generic_get_converts_substituted_numeric_string() {
+        let mut config = Config::new();
+        config.set("port", "8080").unwrap();
+        config.set("server.port", "${port}").unwrap();
+
+        let port: u16 = config.get("server.port").unwrap();
+
+        assert_eq!(port, 8080);
+    }
+
+    #[test]
+    fn test_generic_get_string_list_applies_variable_substitution() {
+        let mut config = Config::new();
+        config.set("root", "/srv/app").unwrap();
+        config
+            .set("paths", vec!["${root}/bin", "${root}/lib"])
+            .unwrap();
+
+        let paths: Vec<String> = config.get("paths").unwrap();
+
+        assert_eq!(paths, vec!["/srv/app/bin", "/srv/app/lib"]);
+    }
+
+    #[test]
+    fn test_strict_string_read_preserves_raw_placeholder() {
         let mut config = Config::new();
         config.set("host", "localhost").unwrap();
         config.set("url", "http://${host}/api").unwrap();
 
-        let url = config.get_string("url").unwrap();
+        let url: String = config.get_strict("url").unwrap();
 
-        assert_eq!(url, "http://localhost/api");
+        assert_eq!(url, "http://${host}/api");
     }
 }
 
@@ -421,7 +483,7 @@ mod test_get_property_mut {
             ));
         }
 
-        assert_eq!(config.get_string("test").unwrap(), "value");
+        assert_eq!(config.get::<String>("test").unwrap(), "value");
     }
 
     #[test]
@@ -445,7 +507,7 @@ mod test_get_property_mut {
         }
 
         assert_eq!(
-            config.get_string_list("test").unwrap(),
+            config.get::<Vec<String>>("test").unwrap(),
             vec!["second".to_string(), "third".to_string()],
         );
         assert_eq!(
@@ -495,7 +557,7 @@ mod test_remove {
         let result = config.remove("test");
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
         assert!(config.contains("test"));
-        assert_eq!(config.get_string("test").unwrap(), "value");
+        assert_eq!(config.get::<String>("test").unwrap(), "value");
     }
 }
 
@@ -538,7 +600,7 @@ mod test_clear {
         let result = config.clear();
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
         assert_eq!(config.len(), 4);
-        assert_eq!(config.get_string("string_value").unwrap(), "test");
+        assert_eq!(config.get::<String>("string_value").unwrap(), "test");
     }
 }
 
@@ -1420,14 +1482,14 @@ mod test_get_string {
     fn test_get_string_returns_string_value() {
         let mut config = Config::new();
         config.set("test", "value").unwrap();
-        let value = config.get_string("test").unwrap();
+        let value = config.get::<String>("test").unwrap();
         assert_eq!(value, "value");
     }
 
     #[test]
     fn test_get_string_not_found() {
         let config = Config::new();
-        let result = config.get_string("nonexistent");
+        let result = config.get::<String>("nonexistent");
         assert!(result.is_err());
         assert!(matches!(result, Err(ConfigError::PropertyNotFound(_))));
     }
@@ -1436,7 +1498,7 @@ mod test_get_string {
     fn test_get_string_type_mismatch() {
         let mut config = Config::new();
         config.set("test", 42).unwrap();
-        let value = config.get_string("test").unwrap();
+        let value = config.get::<String>("test").unwrap();
         assert_eq!(value, "42");
     }
 
@@ -1444,8 +1506,8 @@ mod test_get_string {
     fn test_get_string_with_variable_substitution_disabled() {
         let mut config = Config::new();
         config.set("test", "value").unwrap();
-        config.set_enable_variable_substitution(false);
-        let value = config.get_string("test").unwrap();
+        crate::set_substitution_enabled(&mut config, false);
+        let value = config.get::<String>("test").unwrap();
         assert_eq!(value, "value");
     }
 }
@@ -1468,14 +1530,14 @@ mod test_get_string_or {
     fn test_get_string_or_returns_value_when_property_exists() {
         let mut config = Config::new();
         config.set("test", "value").unwrap();
-        let value = config.get_string_or("test", "default").unwrap();
+        let value = config.get_or::<String>("test", "default").unwrap();
         assert_eq!(value, "value");
     }
 
     #[test]
     fn test_get_string_or_returns_default_when_property_not_exists() {
         let config = Config::new();
-        let value = config.get_string_or("nonexistent", "default").unwrap();
+        let value = config.get_or::<String>("nonexistent", "default").unwrap();
         assert_eq!(value, "default");
     }
 
@@ -1483,7 +1545,7 @@ mod test_get_string_or {
     fn test_get_string_or_converts_non_string_value() {
         let mut config = Config::new();
         config.set("test", 42).unwrap();
-        let value = config.get_string_or("test", "default").unwrap();
+        let value = config.get_or::<String>("test", "default").unwrap();
         assert_eq!(value, "42");
     }
 }
@@ -1512,7 +1574,7 @@ mod test_get_string_list {
         config
             .set("test", vec!["value1", "value2", "value3"])
             .unwrap();
-        let values = config.get_string_list("test").unwrap();
+        let values = config.get::<Vec<String>>("test").unwrap();
         assert_eq!(values, vec!["value1", "value2", "value3"]);
     }
 
@@ -1523,7 +1585,7 @@ mod test_get_string_list {
         config
             .set("urls", vec!["${base}/api", "${base}/admin"])
             .unwrap();
-        let urls = config.get_string_list("urls").unwrap();
+        let urls = config.get::<Vec<String>>("urls").unwrap();
         assert_eq!(
             urls,
             vec!["http://localhost/api", "http://localhost/admin"]
@@ -1538,7 +1600,7 @@ mod test_get_string_list {
         config
             .set("urls", vec!["${base}/api", "${base}/admin"])
             .unwrap();
-        let urls = config.get_string_list("urls").unwrap();
+        let urls = config.get::<Vec<String>>("urls").unwrap();
         assert_eq!(
             urls,
             vec!["http://localhost/api", "http://localhost/admin"]
@@ -1552,15 +1614,15 @@ mod test_get_string_list {
         config
             .set("urls", vec!["${base}/api", "${base}/admin"])
             .unwrap();
-        config.set_enable_variable_substitution(false);
-        let urls = config.get_string_list("urls").unwrap();
+        crate::set_substitution_enabled(&mut config, false);
+        let urls = config.get::<Vec<String>>("urls").unwrap();
         assert_eq!(urls, vec!["${base}/api", "${base}/admin"]);
     }
 
     #[test]
     fn test_get_string_list_not_found() {
         let config = Config::new();
-        let result = config.get_string_list("nonexistent");
+        let result = config.get::<Vec<String>>("nonexistent");
         assert!(result.is_err());
         assert!(matches!(result, Err(ConfigError::PropertyNotFound(_))));
     }
@@ -1569,7 +1631,7 @@ mod test_get_string_list {
     fn test_get_string_list_type_mismatch() {
         let mut config = Config::new();
         config.set("test", vec![1, 2, 3]).unwrap();
-        let values = config.get_string_list("test").unwrap();
+        let values = config.get::<Vec<String>>("test").unwrap();
         assert_eq!(values, vec!["1", "2", "3"]);
     }
 
@@ -1577,7 +1639,7 @@ mod test_get_string_list {
     fn test_get_string_list_empty_list() {
         let mut config = Config::new();
         config.set("test", Vec::<String>::new()).unwrap();
-        let values = config.get_string_list("test").unwrap();
+        let values = config.get::<Vec<String>>("test").unwrap();
         assert_eq!(values, Vec::<String>::new());
     }
 }
@@ -1604,7 +1666,8 @@ mod test_get_string_list_or {
     fn test_get_string_list_or_returns_value_when_property_exists() {
         let mut config = Config::new();
         config.set("test", vec!["value1", "value2"]).unwrap();
-        let values = config.get_string_list_or("test", &["default"]).unwrap();
+        let values =
+            config.get_or::<Vec<String>>("test", &["default"]).unwrap();
         assert_eq!(values, vec!["value1", "value2"]);
     }
 
@@ -1612,7 +1675,7 @@ mod test_get_string_list_or {
     fn test_get_string_list_or_returns_default_when_property_not_exists() {
         let config = Config::new();
         let values = config
-            .get_string_list_or("nonexistent", &["default"])
+            .get_or::<Vec<String>>("nonexistent", &["default"])
             .unwrap();
         assert_eq!(values, vec!["default"]);
     }
@@ -1621,7 +1684,8 @@ mod test_get_string_list_or {
     fn test_get_string_list_or_converts_non_string_values() {
         let mut config = Config::new();
         config.set("test", vec![1, 2, 3]).unwrap();
-        let values = config.get_string_list_or("test", &["default"]).unwrap();
+        let values =
+            config.get_or::<Vec<String>>("test", &["default"]).unwrap();
         assert_eq!(values, vec!["1", "2", "3"]);
     }
 
@@ -1632,7 +1696,7 @@ mod test_get_string_list_or {
         config
             .set("urls", vec!["${base}/api", "${base}/admin"])
             .unwrap();
-        let urls = config.get_string_list_or("urls", &["default"]).unwrap();
+        let urls = config.get_or::<Vec<String>>("urls", &["default"]).unwrap();
         assert_eq!(
             urls,
             vec!["http://localhost/api", "http://localhost/admin"]
@@ -1643,7 +1707,7 @@ mod test_get_string_list_or {
     fn test_get_string_list_or_with_array_default() {
         let config = Config::new();
         let values = config
-            .get_string_list_or("nonexistent", &["default1", "default2"])
+            .get_or::<Vec<String>>("nonexistent", &["default1", "default2"])
             .unwrap();
         assert_eq!(values, vec!["default1", "default2"]);
     }
@@ -1653,7 +1717,7 @@ mod test_get_string_list_or {
         let config = Config::new();
         let default_vec = vec!["vec1", "vec2", "vec3"];
         let values = config
-            .get_string_list_or("nonexistent", &default_vec)
+            .get_or::<Vec<String>>("nonexistent", &default_vec)
             .unwrap();
         assert_eq!(values, vec!["vec1", "vec2", "vec3"]);
     }
@@ -1683,8 +1747,8 @@ mod test_default {
         assert!(config.is_empty());
         assert_eq!(config.len(), 0);
         assert!(config.description().is_none());
-        assert!(config.is_enable_variable_substitution());
-        assert_eq!(config.max_substitution_depth(), 64);
+        assert!(config.read_options().substitution().is_enabled());
+        assert_eq!(config.read_options().substitution().max_depth(), 64);
     }
 
     #[test]
@@ -1792,7 +1856,7 @@ mod test_final_property {
 
         let result = config.set_final("key", false);
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
-        assert_eq!(config.get_string("key").unwrap(), "value");
+        assert_eq!(config.get::<String>("key").unwrap(), "value");
     }
 
     #[test]
@@ -2123,13 +2187,13 @@ mod test_subconfig {
     #[test]
     fn test_subconfig_preserves_variable_substitution_settings() {
         let mut config = Config::new();
-        config.set_enable_variable_substitution(false);
-        config.set_max_substitution_depth(10);
+        crate::set_substitution_enabled(&mut config, false);
+        crate::set_substitution_max_depth(&mut config, 10);
         config.set("http.host", "localhost").unwrap();
 
         let sub = config.subconfig("http", true).unwrap();
-        assert!(!sub.is_enable_variable_substitution());
-        assert_eq!(sub.max_substitution_depth(), 10);
+        assert!(!sub.read_options().substitution().is_enabled());
+        assert_eq!(sub.read_options().substitution().max_depth(), 10);
     }
 
     #[test]
@@ -2145,7 +2209,7 @@ mod test_subconfig {
         let sub = config.subconfig("http", true).unwrap();
 
         assert_eq!(sub.description(), Some("root config"));
-        assert_eq!(sub.get_optional_string("host").unwrap(), None);
+        assert_eq!(sub.get_optional::<String>("host").unwrap(), None);
         assert_eq!(
             sub.get_any::<String>(["host", "fallback"]).unwrap(),
             "localhost"
@@ -2460,21 +2524,21 @@ mod test_get_optional_string {
     #[test]
     fn test_get_optional_string_missing_returns_none() {
         let config = Config::new();
-        assert_eq!(config.get_optional_string("missing").unwrap(), None);
+        assert_eq!(config.get_optional::<String>("missing").unwrap(), None);
     }
 
     #[test]
     fn test_get_optional_string_null_returns_none() {
         let mut config = Config::new();
         config.set_null("n", DataType::String).unwrap();
-        assert_eq!(config.get_optional_string("n").unwrap(), None);
+        assert_eq!(config.get_optional::<String>("n").unwrap(), None);
     }
 
     #[test]
     fn test_get_optional_string_null_non_string_empty_still_none() {
         let mut config = Config::new();
         config.set_null("nullable", DataType::Int32).unwrap();
-        assert_eq!(config.get_optional_string("nullable").unwrap(), None);
+        assert_eq!(config.get_optional::<String>("nullable").unwrap(), None);
     }
 
     #[test]
@@ -2482,7 +2546,10 @@ mod test_get_optional_string {
         let mut config = Config::new();
         config.set("greeting", "hello").unwrap();
         assert_eq!(
-            config.get_optional_string("greeting").unwrap().as_deref(),
+            config
+                .get_optional::<String>("greeting")
+                .unwrap()
+                .as_deref(),
             Some("hello")
         );
     }
@@ -2492,7 +2559,7 @@ mod test_get_optional_string {
         let mut config = Config::new();
         config.set("empty", "").unwrap();
         assert_eq!(
-            config.get_optional_string("empty").unwrap().as_deref(),
+            config.get_optional::<String>("empty").unwrap().as_deref(),
             Some("")
         );
     }
@@ -2503,7 +2570,7 @@ mod test_get_optional_string {
         config.set("base", "http://localhost").unwrap();
         config.set("api", "${base}/api").unwrap();
         assert_eq!(
-            config.get_optional_string("api").unwrap().as_deref(),
+            config.get_optional::<String>("api").unwrap().as_deref(),
             Some("http://localhost/api")
         );
     }
@@ -2511,10 +2578,10 @@ mod test_get_optional_string {
     #[test]
     fn test_get_optional_string_substitution_disabled_keeps_placeholders() {
         let mut config = Config::new();
-        config.set_enable_variable_substitution(false);
+        crate::set_substitution_enabled(&mut config, false);
         config.set("raw", "${not_replaced}").unwrap();
         assert_eq!(
-            config.get_optional_string("raw").unwrap().as_deref(),
+            config.get_optional::<String>("raw").unwrap().as_deref(),
             Some("${not_replaced}")
         );
     }
@@ -2524,7 +2591,7 @@ mod test_get_optional_string {
         let mut config = Config::new();
         config.set("port", 8080i32).unwrap();
         assert_eq!(
-            config.get_optional_string("port").unwrap(),
+            config.get_optional::<String>("port").unwrap(),
             Some("8080".to_string())
         );
     }
@@ -2538,7 +2605,7 @@ mod test_get_optional_string {
                 "${qubit_cfg_test_var_that_must_not_exist_7a8b9c0d1e2f}",
             )
             .unwrap();
-        let result = config.get_optional_string("bad");
+        let result = config.get_optional::<String>("bad");
         assert!(matches!(
             result,
             Err(ConfigError::SubstitutionError { path, .. }) if path == "bad"
@@ -2548,10 +2615,10 @@ mod test_get_optional_string {
     #[test]
     fn test_get_optional_string_substitution_depth_exceeded() {
         let mut config = Config::new();
-        config.set_max_substitution_depth(0);
+        crate::set_substitution_max_depth(&mut config, 0);
         config.set("a", "v").unwrap();
         config.set("b", "${a}").unwrap();
-        let result = config.get_optional_string("b");
+        let result = config.get_optional::<String>("b");
         assert!(matches!(
             result,
             Err(ConfigError::SubstitutionDepthExceeded {
@@ -2564,14 +2631,20 @@ mod test_get_optional_string {
     #[test]
     fn test_get_optional_string_list_missing_returns_none() {
         let config = Config::new();
-        assert_eq!(config.get_optional_string_list("missing").unwrap(), None);
+        assert_eq!(
+            config.get_optional::<Vec<String>>("missing").unwrap(),
+            None
+        );
     }
 
     #[test]
     fn test_get_optional_string_list_null_returns_none() {
         let mut config = Config::new();
         config.set_null("nullable", DataType::String).unwrap();
-        assert_eq!(config.get_optional_string_list("nullable").unwrap(), None);
+        assert_eq!(
+            config.get_optional::<Vec<String>>("nullable").unwrap(),
+            None
+        );
     }
 
     #[test]
@@ -2582,7 +2655,7 @@ mod test_get_optional_string {
             .set("paths", vec!["${root}/bin", "${root}/lib"])
             .unwrap();
         assert_eq!(
-            config.get_optional_string_list("paths").unwrap(),
+            config.get_optional::<Vec<String>>("paths").unwrap(),
             Some(vec!["/opt/app/bin".to_string(), "/opt/app/lib".to_string()])
         );
     }
@@ -2592,7 +2665,7 @@ mod test_get_optional_string {
         let mut config = Config::new();
         config.set("items", vec!["a", "b"]).unwrap();
         assert_eq!(
-            config.get_optional_string_list("items").unwrap(),
+            config.get_optional::<Vec<String>>("items").unwrap(),
             Some(vec!["a".to_string(), "b".to_string()])
         );
     }
@@ -2602,7 +2675,7 @@ mod test_get_optional_string {
         let mut config = Config::new();
         config.set("only", "solo").unwrap();
         assert_eq!(
-            config.get_optional_string_list("only").unwrap(),
+            config.get_optional::<Vec<String>>("only").unwrap(),
             Some(vec!["solo".to_string()])
         );
     }
@@ -2613,7 +2686,7 @@ mod test_get_optional_string {
         config.set("empty_list", Vec::<String>::new()).unwrap();
 
         assert_eq!(
-            config.get_optional_string_list("empty_list").unwrap(),
+            config.get_optional::<Vec<String>>("empty_list").unwrap(),
             Some(Vec::new())
         );
     }
@@ -2621,10 +2694,10 @@ mod test_get_optional_string {
     #[test]
     fn test_get_optional_string_list_substitution_disabled() {
         let mut config = Config::new();
-        config.set_enable_variable_substitution(false);
+        crate::set_substitution_enabled(&mut config, false);
         config.set("items", vec!["${x}", "y"]).unwrap();
         assert_eq!(
-            config.get_optional_string_list("items").unwrap(),
+            config.get_optional::<Vec<String>>("items").unwrap(),
             Some(vec!["${x}".to_string(), "y".to_string()])
         );
     }
@@ -2634,7 +2707,7 @@ mod test_get_optional_string {
         let mut config = Config::new();
         config.set("ports", vec![1i32, 2i32]).unwrap();
         assert_eq!(
-            config.get_optional_string_list("ports").unwrap(),
+            config.get_optional::<Vec<String>>("ports").unwrap(),
             Some(vec!["1".to_string(), "2".to_string()])
         );
     }
@@ -2652,7 +2725,7 @@ mod test_get_optional_string {
                 ],
             )
             .unwrap();
-        let result = config.get_optional_string_list("items");
+        let result = config.get_optional::<Vec<String>>("items");
         assert!(matches!(
             result,
             Err(ConfigError::SubstitutionError { path, .. })
@@ -2663,10 +2736,10 @@ mod test_get_optional_string {
     #[test]
     fn test_get_optional_string_list_substitution_depth_exceeded() {
         let mut config = Config::new();
-        config.set_max_substitution_depth(0);
+        crate::set_substitution_max_depth(&mut config, 0);
         config.set("a", "x").unwrap();
         config.set("items", vec!["${a}"]).unwrap();
-        let result = config.get_optional_string_list("items");
+        let result = config.get_optional::<Vec<String>>("items");
         assert!(matches!(
             result,
             Err(ConfigError::SubstitutionDepthExceeded {
@@ -2938,7 +3011,7 @@ mod test_toml_type_faithful {
     #[test]
     fn test_toml_string_stored_as_string() {
         let config = load_toml("host = \"localhost\"\n");
-        assert_eq!(config.get_string("host").unwrap(), "localhost");
+        assert_eq!(config.get::<String>("host").unwrap(), "localhost");
     }
 
     #[test]
@@ -2974,7 +3047,7 @@ mod test_toml_type_faithful {
     #[test]
     fn test_toml_nested_table_flattened() {
         let config = load_toml("[server]\nhost = \"localhost\"\nport = 9090\n");
-        assert_eq!(config.get_string("server.host").unwrap(), "localhost");
+        assert_eq!(config.get::<String>("server.host").unwrap(), "localhost");
         assert_eq!(config.get::<i64>("server.port").unwrap(), 9090);
     }
 
@@ -3055,7 +3128,7 @@ mod test_yaml_type_faithful {
     #[test]
     fn test_yaml_string_stored_as_string() {
         let config = load_yaml("host: localhost\n");
-        assert_eq!(config.get_string("host").unwrap(), "localhost");
+        assert_eq!(config.get::<String>("host").unwrap(), "localhost");
     }
 
     #[test]
@@ -3103,7 +3176,7 @@ mod test_yaml_type_faithful {
     #[test]
     fn test_yaml_nested_mapping_flattened() {
         let config = load_yaml("server:\n  host: localhost\n  port: 9090\n");
-        assert_eq!(config.get_string("server.host").unwrap(), "localhost");
+        assert_eq!(config.get::<String>("server.host").unwrap(), "localhost");
         assert_eq!(config.get::<i64>("server.port").unwrap(), 9090);
     }
 
@@ -3175,7 +3248,7 @@ mod test_property_insertion_api {
                 ),
             )
             .unwrap();
-        assert_eq!(config.get_string("direct").unwrap(), "hello");
+        assert_eq!(config.get::<String>("direct").unwrap(), "hello");
     }
 
     #[test]
@@ -3349,7 +3422,7 @@ mod test_subconfig_deserialize_integration {
         config.set("http.timeout", 30).unwrap();
 
         let proxy = config.subconfig("http.proxy", true).unwrap();
-        assert_eq!(proxy.get_string("host").unwrap(), "proxy.example.com");
+        assert_eq!(proxy.get::<String>("host").unwrap(), "proxy.example.com");
         assert_eq!(proxy.get::<i32>("port").unwrap(), 3128);
         assert!(!proxy.contains("timeout"));
     }
@@ -3413,7 +3486,7 @@ mod test_merge_from_source {
         let source = TomlConfigSource::from_file(fixture("basic.toml"));
         config.merge_from_source(&source).unwrap();
 
-        assert_eq!(config.get_string("host").unwrap(), "localhost");
+        assert_eq!(config.get::<String>("host").unwrap(), "localhost");
     }
 
     #[test]
@@ -3427,7 +3500,7 @@ mod test_merge_from_source {
 
         assert!(result.is_err());
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
-        assert_eq!(config.get_string("host").unwrap(), "final-host");
+        assert_eq!(config.get::<String>("host").unwrap(), "final-host");
     }
 
     #[test]
@@ -3438,7 +3511,7 @@ mod test_merge_from_source {
         let source = TomlConfigSource::from_file(fixture("basic.toml"));
         config.merge_from_source(&source).unwrap();
 
-        assert_eq!(config.get_string("existing").unwrap(), "value");
+        assert_eq!(config.get::<String>("existing").unwrap(), "value");
         assert!(config.contains("host"));
         assert!(config.contains("app.name"));
     }
@@ -3469,7 +3542,7 @@ api_url = "${base_url}/api"
         config.merge_from_source(&source).unwrap();
 
         assert_eq!(
-            config.get_string("api_url").unwrap(),
+            config.get::<String>("api_url").unwrap(),
             "http://localhost:8080/api"
         );
     }
@@ -3511,7 +3584,7 @@ mod test_source_backed_constructors {
 
         let config = Config::from_source(&source).unwrap();
 
-        assert_eq!(config.get_string("host").unwrap(), "localhost");
+        assert_eq!(config.get::<String>("host").unwrap(), "localhost");
         assert_eq!(config.get::<i64>("server.port").unwrap(), 9090);
     }
 
@@ -3519,7 +3592,7 @@ mod test_source_backed_constructors {
     fn test_from_toml_file_loads_toml_config() {
         let config = Config::from_toml_file(fixture("basic.toml")).unwrap();
 
-        assert_eq!(config.get_string("app.name").unwrap(), "MyApp");
+        assert_eq!(config.get::<String>("app.name").unwrap(), "MyApp");
         assert_eq!(config.get::<i64>("port").unwrap(), 8080);
     }
 
@@ -3527,7 +3600,7 @@ mod test_source_backed_constructors {
     fn test_from_yaml_file_loads_yaml_config() {
         let config = Config::from_yaml_file(fixture("basic.yaml")).unwrap();
 
-        assert_eq!(config.get_string("app.name").unwrap(), "MyApp");
+        assert_eq!(config.get::<String>("app.name").unwrap(), "MyApp");
         assert_eq!(config.get::<i64>("server.port").unwrap(), 9090);
     }
 
@@ -3536,16 +3609,16 @@ mod test_source_backed_constructors {
         let config =
             Config::from_properties_file(fixture("basic.properties")).unwrap();
 
-        assert_eq!(config.get_string("host").unwrap(), "localhost");
-        assert_eq!(config.get_string("app.version").unwrap(), "1.0.0");
+        assert_eq!(config.get::<String>("host").unwrap(), "localhost");
+        assert_eq!(config.get::<String>("app.version").unwrap(), "1.0.0");
     }
 
     #[test]
     fn test_from_env_file_loads_dotenv_config() {
         let config = Config::from_env_file(fixture("basic.env")).unwrap();
 
-        assert_eq!(config.get_string("HOST").unwrap(), "localhost");
-        assert_eq!(config.get_string("APP_NAME").unwrap(), "MyApp");
+        assert_eq!(config.get::<String>("HOST").unwrap(), "localhost");
+        assert_eq!(config.get::<String>("APP_NAME").unwrap(), "MyApp");
     }
 
     #[test]
@@ -3558,7 +3631,9 @@ mod test_source_backed_constructors {
         let config = Config::from_env().unwrap();
 
         assert_eq!(
-            config.get_string("QUBIT_CONFIG_FROM_ENV_TEST_KEY").unwrap(),
+            config
+                .get::<String>("QUBIT_CONFIG_FROM_ENV_TEST_KEY")
+                .unwrap(),
             "from-env"
         );
 
@@ -3578,8 +3653,8 @@ mod test_source_backed_constructors {
 
         let config = Config::from_env_prefix("QCFG_").unwrap();
 
-        assert_eq!(config.get_string("server.host").unwrap(), "env-host");
-        assert_eq!(config.get_string("server.port").unwrap(), "9091");
+        assert_eq!(config.get::<String>("server.host").unwrap(), "env-host");
+        assert_eq!(config.get::<String>("server.port").unwrap(), "9091");
         assert!(!config.contains("OTHER_QCFG_SERVER_HOST"));
 
         unsafe {
@@ -3599,7 +3674,7 @@ mod test_source_backed_constructors {
         let config =
             Config::from_env_options("QOPTS_", false, false, false).unwrap();
 
-        assert_eq!(config.get_string("QOPTS_MY_KEY").unwrap(), "raw-value");
+        assert_eq!(config.get::<String>("QOPTS_MY_KEY").unwrap(), "raw-value");
         assert!(!config.contains("my.key"));
 
         unsafe {

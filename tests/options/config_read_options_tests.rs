@@ -11,7 +11,10 @@ use qubit_config::{
     Config,
     ConfigError,
     field::ConfigField,
-    options::ConfigReadOptions,
+    options::{
+        ConfigReadOptions,
+        VariableSubstitutionOptions,
+    },
 };
 use qubit_datatype::{
     BlankStringPolicy,
@@ -114,19 +117,36 @@ fn test_collection_options_can_reject_empty_items() {
 #[test]
 fn test_env_variable_substitution_option_is_explicit() {
     let default_options = ConfigReadOptions::default();
-    let enabled_options = default_options
-        .clone()
-        .with_env_variable_substitution_enabled(true);
-    let disabled_options = enabled_options
-        .clone()
-        .with_env_variable_substitution_enabled(false);
+    let enabled_options = default_options.clone().with_substitution(
+        VariableSubstitutionOptions::default()
+            .with_environment_fallback_enabled(true),
+    );
+    let disabled_options = enabled_options.clone().with_substitution(
+        enabled_options
+            .substitution()
+            .clone()
+            .with_environment_fallback_enabled(false),
+    );
 
-    assert!(!default_options.is_env_variable_substitution_enabled());
-    assert!(enabled_options.is_env_variable_substitution_enabled());
-    assert!(!disabled_options.is_env_variable_substitution_enabled());
+    assert!(
+        !default_options
+            .substitution()
+            .is_environment_fallback_enabled()
+    );
+    assert!(
+        enabled_options
+            .substitution()
+            .is_environment_fallback_enabled()
+    );
+    assert!(
+        !disabled_options
+            .substitution()
+            .is_environment_fallback_enabled()
+    );
     assert!(
         !ConfigReadOptions::env_friendly()
-            .is_env_variable_substitution_enabled()
+            .substitution()
+            .is_environment_fallback_enabled()
     );
 }
 
@@ -174,7 +194,10 @@ fn test_config_serialization_preserves_read_options() {
         .set_read_options(
             ConfigReadOptions::env_friendly()
                 .with_empty_item_policy(EmptyItemPolicy::Reject)
-                .with_env_variable_substitution_enabled(true),
+                .with_substitution(
+                    VariableSubstitutionOptions::default()
+                        .with_environment_fallback_enabled(true),
+                ),
         )
         .set("PORTS", "8080,,8081")
         .expect("setting test config should succeed");
@@ -188,7 +211,8 @@ fn test_config_serialization_preserves_read_options() {
     assert!(
         restored
             .read_options()
-            .is_env_variable_substitution_enabled()
+            .substitution()
+            .is_environment_fallback_enabled()
     );
     assert!(matches!(
         restored.get::<Vec<u16>>("PORTS"),
@@ -321,7 +345,10 @@ fn test_config_read_options_serde_round_trips_numeric_options() {
                     .with_max_big_integer_digits(64),
             ),
         )
-        .with_env_variable_substitution_enabled(true);
+        .with_substitution(
+            VariableSubstitutionOptions::default()
+                .with_environment_fallback_enabled(true),
+        );
     let json = serde_json::to_value(&options).expect("serialize options");
     assert_eq!(
         json["conversion"]["numeric"]["fractional_to_integer"],

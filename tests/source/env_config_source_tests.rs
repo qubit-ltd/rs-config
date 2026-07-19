@@ -60,7 +60,7 @@ mod test_env_config_source {
         source.load(&mut config).unwrap();
 
         assert_eq!(
-            config.get_string("QUBIT_TEST_UNIQUE_KEY_12345").unwrap(),
+            config.get::<String>("QUBIT_TEST_UNIQUE_KEY_12345").unwrap(),
             "test_value"
         );
 
@@ -103,8 +103,8 @@ mod test_env_config_source {
         // After stripping prefix + lowercase + underscore→dot:
         // QTEST_HOST → host
         // QTEST_PORT → port
-        assert_eq!(config.get_string("host").unwrap(), "myhost");
-        assert_eq!(config.get_string("port").unwrap(), "9999");
+        assert_eq!(config.get::<String>("host").unwrap(), "myhost");
+        assert_eq!(config.get::<String>("port").unwrap(), "9999");
         assert!(!config.contains("OTHER_VAR"));
         assert!(!config.contains("other.var"));
 
@@ -128,7 +128,7 @@ mod test_env_config_source {
 
         // MYAPP_SERVER_HOST → server.host (strip prefix, lowercase,
         // underscore→dot)
-        assert_eq!(config.get_string("server.host").unwrap(), "app-host");
+        assert_eq!(config.get::<String>("server.host").unwrap(), "app-host");
         assert!(!config.contains("MYAPP_SERVER_HOST"));
 
         unsafe {
@@ -147,7 +147,7 @@ mod test_env_config_source {
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
-        assert_eq!(config.get_string("db.pool.size").unwrap(), "10");
+        assert_eq!(config.get::<String>("db.pool.size").unwrap(), "10");
 
         unsafe {
             std::env::remove_var("TAPP_DB_POOL_SIZE");
@@ -165,7 +165,7 @@ mod test_env_config_source {
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
-        assert_eq!(config.get_string("my.key").unwrap(), "val");
+        assert_eq!(config.get::<String>("my.key").unwrap(), "val");
 
         unsafe {
             std::env::remove_var("LAPP_MY_KEY");
@@ -195,7 +195,7 @@ mod test_env_config_source {
 
         // Key kept as-is (prefix not stripped, no lowercase, no underscore
         // conversion)
-        assert_eq!(config.get_string("RAWAPP_MY_KEY").unwrap(), "raw_val");
+        assert_eq!(config.get::<String>("RAWAPP_MY_KEY").unwrap(), "raw_val");
 
         unsafe {
             std::env::remove_var("RAWAPP_MY_KEY");
@@ -213,7 +213,7 @@ mod test_env_config_source {
         let mut config = Config::new();
         config.merge_from_source(&source).unwrap();
 
-        assert_eq!(config.get_string("key").unwrap(), "merge_value");
+        assert_eq!(config.get::<String>("key").unwrap(), "merge_value");
 
         unsafe {
             std::env::remove_var("MERGETEST_KEY");
@@ -309,7 +309,7 @@ mod test_env_config_source {
             result,
             Err(ConfigError::KeyConflict { path, .. }) if path.is_empty()
         ));
-        assert_eq!(config.get_string("existing").unwrap(), "old");
+        assert_eq!(config.get::<String>("existing").unwrap(), "old");
         assert_eq!(config.len(), 1);
     }
 

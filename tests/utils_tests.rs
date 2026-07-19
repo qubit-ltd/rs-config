@@ -33,6 +33,43 @@ use qubit_value::{
 use serde::Deserialize;
 use std::collections::HashMap;
 
+fn set_substitution_enabled(config: &mut Config, enabled: bool) {
+    let substitution = config
+        .read_options()
+        .substitution()
+        .clone()
+        .with_enabled(enabled);
+    set_substitution_options(config, substitution);
+}
+
+fn set_substitution_max_depth(config: &mut Config, max_depth: usize) {
+    let substitution = config
+        .read_options()
+        .substitution()
+        .clone()
+        .with_max_depth(max_depth);
+    set_substitution_options(config, substitution);
+}
+
+fn set_substitution_options(
+    config: &mut Config,
+    substitution: qubit_config::options::VariableSubstitutionOptions,
+) {
+    let options = config
+        .read_options()
+        .clone()
+        .with_substitution(substitution);
+    config.set_read_options(options);
+}
+
+fn with_environment_fallback(options: ConfigReadOptions) -> ConfigReadOptions {
+    let substitution = options
+        .substitution()
+        .clone()
+        .with_environment_fallback_enabled(true);
+    options.with_substitution(substitution)
+}
+
 // ============================================================================
 // Config::deserialize() (utils: property_to_json_value,
 // insert_deserialize_value)
@@ -587,7 +624,7 @@ mod test_deserialize {
         }
 
         let mut config = Config::new();
-        config.set_enable_variable_substitution(false);
+        crate::set_substitution_enabled(&mut config, false);
         config.set("svc.host", "localhost").unwrap();
         config.set("svc.url", "http://${host}").unwrap();
 
@@ -676,6 +713,7 @@ mod test_variable_substitution {
         MultiValues,
         Property,
     };
+    use qubit_config::options::VariableSubstitutionOptions;
 
     #[test]
     fn test_get_string_substitutes_simple_placeholder() {
@@ -683,7 +721,7 @@ mod test_variable_substitution {
         config.set("name", "world").unwrap();
         config.set("greeting", "Hello, ${name}!").unwrap();
 
-        assert_eq!(config.get_string("greeting").unwrap(), "Hello, world!");
+        assert_eq!(config.get::<String>("greeting").unwrap(), "Hello, world!");
     }
 
     #[test]
@@ -694,7 +732,7 @@ mod test_variable_substitution {
         config.set("url", "http://${host}:${port}/api").unwrap();
 
         assert_eq!(
-            config.get_string("url").unwrap(),
+            config.get::<String>("url").unwrap(),
             "http://localhost:8080/api"
         );
     }
@@ -705,7 +743,7 @@ mod test_variable_substitution {
         config.set("name", "world").unwrap();
         config.set("value", "${name}-${name}-${name}").unwrap();
 
-        assert_eq!(config.get_string("value").unwrap(), "world-world-world");
+        assert_eq!(config.get::<String>("value").unwrap(), "world-world-world");
     }
 
     #[test]
@@ -715,13 +753,73 @@ mod test_variable_substitution {
         config.set("b", "${a}_b").unwrap();
         config.set("c", "${b}_c").unwrap();
 
-        assert_eq!(config.get_string("c").unwrap(), "value_a_b_c");
+        assert_eq!(config.get::<String>("c").unwrap(), "value_a_b_c");
+    }
+
+    #[test]
+    fn test_get_string_rejects_too_many_substitution_expansions() {
+        let mut config = Config::new();
+        config.set_read_options(
+            ConfigReadOptions::default().with_substitution(
+                VariableSubstitutionOptions::default().with_max_expansions(2),
+            ),
+        );
+        config.set("name", "world").unwrap();
+        config.set("value", "${name}-${name}-${name}").unwrap();
+
+        let result = config.get::<String>("value");
+
+        assert!(matches!(
+            result,
+            Err(ConfigError::SubstitutionExpansionLimitExceeded {
+                path,
+                max_expansions: 2,
+            }) if path == "value"
+        ));
+    }
+
+    #[test]
+    fn test_get_string_rejects_substitution_output_over_byte_limit() {
+        let mut config = Config::new();
+        config.set_read_options(
+            ConfigReadOptions::default().with_substitution(
+                VariableSubstitutionOptions::default().with_max_output_bytes(7),
+            ),
+        );
+        config.set("part", "1234").unwrap();
+        config.set("value", "${part}${part}").unwrap();
+
+        let result = config.get::<String>("value");
+
+        assert!(matches!(
+            result,
+            Err(ConfigError::SubstitutionOutputTooLarge {
+                path,
+                max_output_bytes: 7,
+            }) if path == "value"
+        ));
+    }
+
+    #[test]
+    fn test_get_string_accepts_substitution_output_at_byte_limit() {
+        let mut config = Config::new();
+        config.set_read_options(
+            ConfigReadOptions::default().with_substitution(
+                VariableSubstitutionOptions::default().with_max_output_bytes(8),
+            ),
+        );
+        config.set("part", "1234").unwrap();
+        config.set("value", "${part}${part}").unwrap();
+
+        let value = config.get::<String>("value").unwrap();
+
+        assert_eq!(value, "12341234");
     }
 
     #[test]
     fn test_get_string_substitution_depth_exceeded() {
         let mut config = Config::new();
-        config.set_max_substitution_depth(5);
+        crate::set_substitution_max_depth(&mut config, 5);
         config.set("a", "${b}").unwrap();
         config.set("b", "${c}").unwrap();
         config.set("c", "${d}").unwrap();
@@ -730,7 +828,7 @@ mod test_variable_substitution {
         config.set("f", "${g}").unwrap();
         config.set("g", "done").unwrap();
 
-        let result = config.get_string("a");
+        let result = config.get::<String>("a");
 
         assert!(matches!(
             result,
@@ -747,15 +845,14 @@ mod test_variable_substitution {
             std::env::set_var("QUBIT_CONFIG_TEST_ENV_VAR", "test_value");
         }
         let mut config = Config::new();
-        config.set_read_options(
-            ConfigReadOptions::default()
-                .with_env_variable_substitution_enabled(true),
-        );
+        config.set_read_options(crate::with_environment_fallback(
+            ConfigReadOptions::default(),
+        ));
         config
             .set("value", "Value: ${QUBIT_CONFIG_TEST_ENV_VAR}")
             .unwrap();
 
-        let result = config.get_string("value");
+        let result = config.get::<String>("value");
 
         unsafe {
             std::env::remove_var("QUBIT_CONFIG_TEST_ENV_VAR");
@@ -773,7 +870,7 @@ mod test_variable_substitution {
             .set("value", "${QUBIT_CONFIG_TEST_ENV_DISABLED}")
             .unwrap();
 
-        let result = config.get_string("value");
+        let result = config.get::<String>("value");
 
         unsafe {
             std::env::remove_var("QUBIT_CONFIG_TEST_ENV_DISABLED");
@@ -790,16 +887,16 @@ mod test_variable_substitution {
         let mut config = Config::new();
         config.set("empty", "").unwrap();
 
-        assert_eq!(config.get_string("empty").unwrap(), "");
+        assert_eq!(config.get::<String>("empty").unwrap(), "");
     }
 
     #[test]
     fn test_get_string_zero_depth_without_placeholders_succeeds() {
         let mut config = Config::new();
-        config.set_max_substitution_depth(0);
+        crate::set_substitution_max_depth(&mut config, 0);
         config.set("plain", "plain text").unwrap();
 
-        assert_eq!(config.get_string("plain").unwrap(), "plain text");
+        assert_eq!(config.get::<String>("plain").unwrap(), "plain text");
     }
 
     #[test]
@@ -813,7 +910,7 @@ mod test_variable_substitution {
             .unwrap();
 
         let err = config
-            .get_string("missing")
+            .get::<String>("missing")
             .expect_err("unresolved variable should return an error");
 
         assert!(matches!(
@@ -837,7 +934,7 @@ mod test_variable_substitution {
             )
             .unwrap();
 
-        let err = config.get_string_list("values").expect_err(
+        let err = config.get::<Vec<String>>("values").expect_err(
             "unresolved variable in list read should return an error",
         );
 
@@ -858,7 +955,7 @@ mod test_variable_substitution {
         config.set("plain", "Plain text with no variables").unwrap();
 
         assert_eq!(
-            config.get_string("plain").unwrap(),
+            config.get::<String>("plain").unwrap(),
             "Plain text with no variables"
         );
     }
@@ -869,10 +966,9 @@ mod test_variable_substitution {
             std::env::set_var("QUBIT_CONFIG_TEST_ENV_SOURCE", "from_env");
         }
         let mut config = Config::new();
-        config.set_read_options(
-            ConfigReadOptions::default()
-                .with_env_variable_substitution_enabled(true),
-        );
+        config.set_read_options(crate::with_environment_fallback(
+            ConfigReadOptions::default(),
+        ));
         config.set("CONFIG_SOURCE", "from_config").unwrap();
         config
             .set(
@@ -881,7 +977,7 @@ mod test_variable_substitution {
             )
             .unwrap();
 
-        let result = config.get_string("combined");
+        let result = config.get::<String>("combined");
 
         unsafe {
             std::env::remove_var("QUBIT_CONFIG_TEST_ENV_SOURCE");
@@ -895,10 +991,9 @@ mod test_variable_substitution {
             std::env::set_var("QUBIT_CONFIG_TEST_SHARED_VAR", "from_env");
         }
         let mut config = Config::new();
-        config.set_read_options(
-            ConfigReadOptions::default()
-                .with_env_variable_substitution_enabled(true),
-        );
+        config.set_read_options(crate::with_environment_fallback(
+            ConfigReadOptions::default(),
+        ));
         config
             .set("QUBIT_CONFIG_TEST_SHARED_VAR", "from_config")
             .unwrap();
@@ -906,7 +1001,7 @@ mod test_variable_substitution {
             .set("value", "${QUBIT_CONFIG_TEST_SHARED_VAR}")
             .unwrap();
 
-        let result = config.get_string("value");
+        let result = config.get::<String>("value");
 
         unsafe {
             std::env::remove_var("QUBIT_CONFIG_TEST_SHARED_VAR");
@@ -920,16 +1015,15 @@ mod test_variable_substitution {
             std::env::set_var("QUBIT_CONFIG_TEST_STRICT_VAR", "from_env");
         }
         let mut config = Config::new();
-        config.set_read_options(
-            ConfigReadOptions::default()
-                .with_env_variable_substitution_enabled(true),
-        );
+        config.set_read_options(crate::with_environment_fallback(
+            ConfigReadOptions::default(),
+        ));
         config.set("QUBIT_CONFIG_TEST_STRICT_VAR", 8080i32).unwrap();
         config
             .set("value", "${QUBIT_CONFIG_TEST_STRICT_VAR}")
             .unwrap();
 
-        let result = config.get_string("value");
+        let result = config.get::<String>("value");
 
         unsafe {
             std::env::remove_var("QUBIT_CONFIG_TEST_STRICT_VAR");
@@ -940,15 +1034,14 @@ mod test_variable_substitution {
     #[test]
     fn test_get_string_environment_fallback_reports_missing_env_var() {
         let mut config = Config::new();
-        config.set_read_options(
-            ConfigReadOptions::default()
-                .with_env_variable_substitution_enabled(true),
-        );
+        config.set_read_options(crate::with_environment_fallback(
+            ConfigReadOptions::default(),
+        ));
         config
             .set("value", "${QUBIT_CONFIG_TEST_ENV_MISSING_FOR_FALLBACK}")
             .unwrap();
 
-        let result = config.get_string("value");
+        let result = config.get::<String>("value");
 
         assert!(matches!(
             result,
@@ -965,7 +1058,7 @@ mod test_variable_substitution {
         config.set("b", "${c}").unwrap();
         config.set("c", "${b}").unwrap();
 
-        let error = config.get_string("a").unwrap_err();
+        let error = config.get::<String>("a").unwrap_err();
 
         assert!(matches!(
             &error,

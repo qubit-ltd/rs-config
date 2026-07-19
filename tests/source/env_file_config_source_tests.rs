@@ -49,11 +49,11 @@ mod test_env_file_config_source {
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
-        assert_eq!(config.get_string("HOST").unwrap(), "localhost");
-        assert_eq!(config.get_string("PORT").unwrap(), "8080");
-        assert_eq!(config.get_string("DEBUG").unwrap(), "true");
-        assert_eq!(config.get_string("APP_NAME").unwrap(), "MyApp");
-        assert_eq!(config.get_string("APP_VERSION").unwrap(), "1.0.0");
+        assert_eq!(config.get::<String>("HOST").unwrap(), "localhost");
+        assert_eq!(config.get::<String>("PORT").unwrap(), "8080");
+        assert_eq!(config.get::<String>("DEBUG").unwrap(), "true");
+        assert_eq!(config.get::<String>("APP_NAME").unwrap(), "MyApp");
+        assert_eq!(config.get::<String>("APP_VERSION").unwrap(), "1.0.0");
     }
 
     #[test]
@@ -62,9 +62,12 @@ mod test_env_file_config_source {
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
-        assert_eq!(config.get_string("QUOTED_VALUE").unwrap(), "hello world");
         assert_eq!(
-            config.get_string("SINGLE_QUOTED").unwrap(),
+            config.get::<String>("QUOTED_VALUE").unwrap(),
+            "hello world"
+        );
+        assert_eq!(
+            config.get::<String>("SINGLE_QUOTED").unwrap(),
             "single quoted"
         );
     }
@@ -92,9 +95,9 @@ mod test_env_file_config_source {
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
-        assert_eq!(config.get_string("DB_HOST").unwrap(), "db.example.com");
-        assert_eq!(config.get_string("DB_PORT").unwrap(), "5432");
-        assert_eq!(config.get_string("DB_NAME").unwrap(), "mydb");
+        assert_eq!(config.get::<String>("DB_HOST").unwrap(), "db.example.com");
+        assert_eq!(config.get::<String>("DB_PORT").unwrap(), "5432");
+        assert_eq!(config.get::<String>("DB_NAME").unwrap(), "mydb");
     }
 
     #[test]
@@ -111,7 +114,7 @@ mod test_env_file_config_source {
         let result = source.load(&mut config);
 
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
-        assert_eq!(config.get_string("LOCKED").unwrap(), "old");
+        assert_eq!(config.get::<String>("LOCKED").unwrap(), "old");
     }
 
     #[test]

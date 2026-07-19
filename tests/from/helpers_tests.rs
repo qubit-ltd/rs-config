@@ -46,5 +46,5 @@ fn test_helpers_substitute_values_before_string_missing_check() {
         .set("server.host", "${empty}")
         .expect("setting substituted value should succeed");
 
-    assert_eq!(config.get_optional_string("server.host").unwrap(), None);
+    assert_eq!(config.get_optional::<String>("server.host").unwrap(), None);
 }

@@ -36,7 +36,7 @@ fn test_config_source_load_populates_config() {
         .load(&mut config)
         .expect("inline source should load successfully");
 
-    assert_eq!(config.get_string("server.host").unwrap(), "localhost");
+    assert_eq!(config.get::<String>("server.host").unwrap(), "localhost");
 }
 
 #[test]
@@ -66,5 +66,5 @@ fn test_config_source_default_load_into_delegates_to_load() {
         .load_into(&mut config)
         .expect("default load_into should delegate to load");
 
-    assert_eq!(config.get_string("server.name").unwrap(), "api");
+    assert_eq!(config.get::<String>("server.name").unwrap(), "api");
 }

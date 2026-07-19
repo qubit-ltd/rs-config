@@ -27,13 +27,13 @@ fn test_section_resolves_keys_strictly_relative() {
     assert_eq!(section.path(), "http");
     assert_eq!(
         section
-            .get_string("host")
+            .get::<String>("host")
             .expect("the direct host should be readable"),
         "direct",
     );
     assert_eq!(
         section
-            .get_string("http.host")
+            .get::<String>("http.host")
             .expect("the qualified-looking relative key should be readable"),
         "strict-relative",
     );
@@ -56,7 +56,7 @@ fn test_section_excludes_exact_root_property() {
     assert!(!section.contains(""));
     assert_eq!(
         config
-            .get_string("http")
+            .get::<String>("http")
             .expect("the root config should still expose the scalar"),
         "root",
     );
