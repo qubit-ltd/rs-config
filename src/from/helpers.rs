@@ -64,7 +64,7 @@ pub(crate) fn is_effectively_missing<R: ConfigReader + ?Sized>(
     property: &Property,
     options: &ConfigReadOptions,
 ) -> ConfigResult<bool> {
-    is_effectively_missing_by(reader, name, property, options, false)
+    is_effectively_missing_by(reader, name, property, options)
 }
 
 /// Parses a property through a reader-created parsing context.
@@ -98,43 +98,16 @@ where
     R: ConfigReader + ?Sized,
     T: FromConfig,
 {
-    parse_property_from_reader_by(reader, name, property, options, false)
+    parse_property_from_reader_by(reader, name, property, options)
 }
 
-/// Checks whether a property is missing after applying variable substitution.
-pub(crate) fn is_effectively_missing_with_substitution<
-    R: ConfigReader + ?Sized,
->(
-    reader: &R,
-    name: &str,
-    property: &Property,
-    options: &ConfigReadOptions,
-) -> ConfigResult<bool> {
-    is_effectively_missing_by(reader, name, property, options, true)
-}
-
-/// Parses a property and applies variable substitution to string values.
-pub(crate) fn parse_property_from_reader_with_substitution<R, T>(
-    reader: &R,
-    name: &str,
-    property: &Property,
-    options: &ConfigReadOptions,
-) -> ConfigResult<T>
-where
-    R: ConfigReader + ?Sized,
-    T: FromConfig,
-{
-    parse_property_from_reader_by(reader, name, property, options, true)
-}
-
-/// Checks whether a property is effectively missing, optionally substituting
-/// strings first.
+/// Checks whether a property is effectively missing after applying the active
+/// substitution policy.
 fn is_effectively_missing_by<R: ConfigReader + ?Sized>(
     reader: &R,
     name: &str,
     property: &Property,
     options: &ConfigReadOptions,
-    apply_substitution: bool,
 ) -> ConfigResult<bool> {
     if property.is_unset() {
         return Ok(true);
@@ -142,9 +115,8 @@ fn is_effectively_missing_by<R: ConfigReader + ?Sized>(
     let Some(value) = first_scalar_string(property) else {
         return Ok(false);
     };
-    let substitute = |value: &str| {
-        substitute_for_reader(reader, name, value, apply_substitution)
-    };
+    let substitute =
+        |value: &str| substitute_for_reader(reader, name, value, options);
     let ctx = ConfigParseContext::new(name, options, &substitute);
     let value = ctx.substitute_string(value)?;
     match options.conversion_options().string().normalize(&value) {
@@ -153,34 +125,32 @@ fn is_effectively_missing_by<R: ConfigReader + ?Sized>(
     }
 }
 
-/// Parses a property through a reader context, optionally substituting strings
-/// first.
+/// Parses a property through a reader context using the active substitution
+/// policy.
 fn parse_property_from_reader_by<R, T>(
     reader: &R,
     name: &str,
     property: &Property,
     options: &ConfigReadOptions,
-    apply_substitution: bool,
 ) -> ConfigResult<T>
 where
     R: ConfigReader + ?Sized,
     T: FromConfig,
 {
-    let substitute = |value: &str| {
-        substitute_for_reader(reader, name, value, apply_substitution)
-    };
+    let substitute =
+        |value: &str| substitute_for_reader(reader, name, value, options);
     let ctx = ConfigParseContext::new(name, options, &substitute);
     T::from_config(property, &ctx)
 }
 
-/// Applies variable substitution for explicit string reads.
+/// Applies the active variable-substitution policy before typed conversion.
 ///
 /// # Parameters
 ///
 /// * `reader` - Reader used to resolve variables.
 /// * `path` - Configuration path whose value is being expanded.
 /// * `value` - Source text.
-/// * `apply_substitution` - Whether this read path requests substitution.
+/// * `options` - Active read and substitution options.
 ///
 /// # Returns
 ///
@@ -194,15 +164,11 @@ fn substitute_for_reader<R: ConfigReader + ?Sized>(
     reader: &R,
     path: &str,
     value: &str,
-    apply_substitution: bool,
+    options: &ConfigReadOptions,
 ) -> ConfigResult<String> {
-    if apply_substitution && reader.is_enable_variable_substitution() {
-        utils::substitute_variables(
-            value,
-            reader,
-            reader.max_substitution_depth(),
-            path,
-        )
+    let substitution = options.substitution();
+    if substitution.is_enabled() {
+        utils::substitute_variables(value, reader, substitution, path)
     } else {
         no_substitution(value)
     }

@@ -6,10 +6,6 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-//! Read parsing options for configuration values.
+mod sealed;
 
-mod config_read_options;
-mod variable_substitution_options;
-
-pub use config_read_options::ConfigReadOptions;
-pub use variable_substitution_options::VariableSubstitutionOptions;
+pub(crate) use sealed::Sealed;

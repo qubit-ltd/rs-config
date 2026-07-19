@@ -6,10 +6,5 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-//! Read parsing options for configuration values.
-
-mod config_read_options;
-mod variable_substitution_options;
-
-pub use config_read_options::ConfigReadOptions;
-pub use variable_substitution_options::VariableSubstitutionOptions;
+/// Marker implemented only by configuration reader types owned by this crate.
+pub(crate) trait Sealed {}

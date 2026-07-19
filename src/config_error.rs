@@ -90,6 +90,28 @@ pub enum ConfigError {
         max_depth: usize,
     },
 
+    /// Variable substitution resolved too many placeholders.
+    #[error(
+        "Variable substitution at '{path}' exceeded maximum expansions: {max_expansions}"
+    )]
+    SubstitutionExpansionLimitExceeded {
+        /// Configuration path whose value was being expanded.
+        path: String,
+        /// Maximum permitted placeholder-resolution count.
+        max_expansions: usize,
+    },
+
+    /// Variable substitution produced an oversized value.
+    #[error(
+        "Variable substitution at '{path}' exceeded maximum output bytes: {max_output_bytes}"
+    )]
+    SubstitutionOutputTooLarge {
+        /// Configuration path whose value was being expanded.
+        path: String,
+        /// Maximum permitted UTF-8 byte length.
+        max_output_bytes: usize,
+    },
+
     /// Variable substitution cycle detected.
     #[error(
         "Variable substitution cycle at '{path}': {}",
@@ -182,6 +204,12 @@ impl ConfigError {
             Self::SubstitutionDepthExceeded { .. } => {
                 ConfigErrorKind::SubstitutionDepthExceeded
             }
+            Self::SubstitutionExpansionLimitExceeded { .. } => {
+                ConfigErrorKind::SubstitutionExpansionLimitExceeded
+            }
+            Self::SubstitutionOutputTooLarge { .. } => {
+                ConfigErrorKind::SubstitutionOutputTooLarge
+            }
             Self::SubstitutionCycle { .. } => {
                 ConfigErrorKind::SubstitutionCycle
             }
@@ -214,6 +242,8 @@ impl ConfigError {
             | Self::DeserializeError { path, .. }
             | Self::SubstitutionError { path, .. }
             | Self::SubstitutionDepthExceeded { path, .. }
+            | Self::SubstitutionExpansionLimitExceeded { path, .. }
+            | Self::SubstitutionOutputTooLarge { path, .. }
             | Self::SubstitutionCycle { path, .. } => Some(path),
             _ => None,
         }

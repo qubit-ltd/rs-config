@@ -8,12 +8,7 @@
 
 #![allow(private_bounds)]
 
-use qubit_datatype::DataConversionTarget;
-use qubit_value::{
-    StrictValueListRead,
-    StrictValueRead,
-};
-use serde::de::DeserializeOwned;
+mod internal;
 
 use crate::config_section::ConfigSection;
 use crate::field::ConfigField;
@@ -21,9 +16,7 @@ use crate::from::{
     FromConfig,
     IntoConfigDefault,
     is_effectively_missing,
-    is_effectively_missing_with_substitution,
     parse_property_from_reader,
-    parse_property_from_reader_with_substitution,
 };
 use crate::options::ConfigReadOptions;
 use crate::{
@@ -34,6 +27,11 @@ use crate::{
     ConfigResult,
     Property,
 };
+use qubit_datatype::DataConversionTarget;
+use qubit_value::{
+    StrictValueListRead,
+    StrictValueRead,
+};
 
 /// Read-only configuration interface.
 ///
@@ -41,34 +39,10 @@ use crate::{
 /// ownership of a [`crate::Config`]. Both [`crate::Config`] and
 /// [`crate::ConfigSection`] implement it.
 ///
-/// Its required methods mirror the read-only surface of [`crate::Config`]
-/// (metadata, raw properties, iteration, subtree extraction, and serde
-/// deserialization), with sections resolving keys relative to their logical
-/// path.
-pub trait ConfigReader {
-    /// Returns whether `${...}` variable substitution is applied when reading
-    /// string values.
-    ///
-    /// # Returns
-    ///
-    /// `true` if substitution is enabled for this reader.
-    fn is_enable_variable_substitution(&self) -> bool;
-
-    /// Returns the maximum recursion depth allowed when resolving nested
-    /// `${...}` references.
-    ///
-    /// # Returns
-    ///
-    /// Maximum substitution depth (see
-    /// `DEFAULT_MAX_SUBSTITUTION_DEPTH` for the default used by
-    /// [`crate::Config`]).
-    fn max_substitution_depth(&self) -> usize;
-
-    /// Returns the optional human-readable description attached to this
-    /// configuration (the whole document; sections expose the same value
-    /// as the underlying [`crate::Config`]).
-    fn description(&self) -> Option<&str>;
-
+/// The trait is sealed because its default methods rely on invariants shared by
+/// [`Config`] and [`ConfigSection`]. Consumers can use it as a generic bound
+/// but cannot provide third-party implementations.
+pub trait ConfigReader: internal::Sealed {
     /// Returns a reference to the raw [`Property`] for `name`, if present.
     ///
     /// For a [`ConfigSection`], `name` is resolved relative to the view
@@ -302,7 +276,7 @@ pub trait ConfigReader {
         T: FromConfig,
     {
         names.with_config_names(|names| {
-            self.get_optional_any_with_options(names, self.read_options())
+            get_optional_any_with_options(self, names, self.read_options())
         })
     }
 
@@ -354,7 +328,7 @@ pub trait ConfigReader {
         T: FromConfig,
     {
         names.with_config_names(|names| {
-            self.get_optional_any_with_options(names, read_options).map(
+            get_optional_any_with_options(self, names, read_options).map(
                 |value| value.unwrap_or_else(|| default.into_config_default()),
             )
         })
@@ -385,7 +359,7 @@ pub trait ConfigReader {
         let mut names = Vec::with_capacity(1 + aliases.len());
         names.push(name.as_str());
         names.extend(aliases.iter().map(String::as_str));
-        self.get_optional_any_with_options(&names, options)?
+        get_optional_any_with_options(self, &names, options)?
             .or(default)
             .ok_or_else(|| {
                 ConfigError::PropertyNotFound(format!(
@@ -419,35 +393,8 @@ pub trait ConfigReader {
         let mut names = Vec::with_capacity(1 + aliases.len());
         names.push(name.as_str());
         names.extend(aliases.iter().map(String::as_str));
-        self.get_optional_any_with_options(&names, options)
+        get_optional_any_with_options(self, &names, options)
             .map(|value| value.or(default))
-    }
-
-    /// Shared implementation for field-level and global multi-key reads.
-    fn get_optional_any_with_options<T>(
-        &self,
-        names: impl ConfigNames,
-        options: &ConfigReadOptions,
-    ) -> ConfigResult<Option<T>>
-    where
-        T: FromConfig,
-    {
-        names.with_config_names(|names| {
-            for name in names {
-                let Some(property) = self.get_property(*name) else {
-                    continue;
-                };
-                let resolved = self.resolve_key(*name);
-                if is_effectively_missing(self, &resolved, property, options)? {
-                    continue;
-                }
-                return parse_property_from_reader(
-                    self, &resolved, property, options,
-                )
-                .map(Some);
-            }
-            Ok(None)
-        })
     }
 
     /// Gets an optional list with the same semantics as
@@ -519,41 +466,6 @@ pub trait ConfigReader {
     /// as [`crate::Config::is_null`]).
     fn is_null(&self, name: impl ConfigName) -> bool;
 
-    /// Extracts a subtree as a new [`Config`] (same semantics as
-    /// [`crate::Config::subconfig`]; on a section, `prefix` is relative to
-    /// the view).
-    fn subconfig(
-        &self,
-        prefix: &str,
-        strip_prefix: bool,
-    ) -> ConfigResult<Config>;
-
-    /// Deserializes a subtree through [`Config::deserialize`].
-    ///
-    /// The method uses the same JSON-like Serde view and error-preservation
-    /// boundary documented by [`Config::deserialize`]. On a section, `prefix`
-    /// is relative.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `T` - Target type implementing [`DeserializeOwned`].
-    ///
-    /// # Parameters
-    ///
-    /// * `prefix` - Relative dot-delimited subtree path.
-    ///
-    /// # Returns
-    ///
-    /// The deserialized value.
-    ///
-    /// # Errors
-    ///
-    /// Returns lookup and conversion errors unchanged. Pure Serde type
-    /// mismatches return a sanitized [`ConfigError::DeserializeError`].
-    fn deserialize<T>(&self, prefix: &str) -> ConfigResult<T>
-    where
-        T: DeserializeOwned;
-
     /// Creates a read-only section; property keys resolve strictly relative to
     /// `path`.
     ///
@@ -589,308 +501,36 @@ pub trait ConfigReader {
     fn resolve_key(&self, name: impl ConfigName) -> String {
         name.with_config_name(str::to_string)
     }
-
-    /// Gets a string value, applying variable substitution when enabled.
-    ///
-    /// # Parameters
-    ///
-    /// * `name` - Configuration key.
-    ///
-    /// # Returns
-    ///
-    /// The string after `${...}` resolution, or a [`crate::ConfigError`].
-    fn get_string(&self, name: impl ConfigName) -> ConfigResult<String> {
-        name.with_config_name(|name| {
-            let resolved = self.resolve_key(name);
-            let property = self.get_property(name).ok_or_else(|| {
-                ConfigError::PropertyNotFound(resolved.clone())
-            })?;
-            if !property.is_unset()
-                && is_effectively_missing_with_substitution(
-                    self,
-                    &resolved,
-                    property,
-                    self.read_options(),
-                )?
-            {
-                return Err(ConfigError::PropertyHasNoValue(resolved));
-            }
-            parse_property_from_reader_with_substitution(
-                self,
-                &resolved,
-                property,
-                self.read_options(),
-            )
-        })
-    }
-
-    /// Gets a string value from the first present and non-empty key in `names`.
-    ///
-    /// # Parameters
-    ///
-    /// * `names` - Candidate keys in priority order.
-    ///
-    /// # Returns
-    ///
-    /// The resolved string from the first configured key.
-    #[inline]
-    fn get_string_any(&self, names: impl ConfigNames) -> ConfigResult<String> {
-        names.with_config_names(|names| {
-            self.get_optional_string_any(names)?.ok_or_else(|| {
-                ConfigError::PropertyNotFound(format!(
-                    "one of: {}",
-                    names.join(", ")
-                ))
-            })
-        })
-    }
-
-    /// Gets an optional string value from the first present and non-empty key.
-    ///
-    /// # Parameters
-    ///
-    /// * `names` - Candidate keys in priority order.
-    ///
-    /// # Returns
-    ///
-    /// `Ok(None)` only when every key is absent or effectively missing.
-    #[inline]
-    fn get_optional_string_any(
-        &self,
-        names: impl ConfigNames,
-    ) -> ConfigResult<Option<String>> {
-        names.with_config_names(|names| {
-            self.get_optional_any_with_options_and_substitution(
-                names,
-                self.read_options(),
-            )
-        })
-    }
-
-    /// Gets a string from any key, or `default` when all keys are missing or
-    /// empty.
-    ///
-    /// # Parameters
-    ///
-    /// * `names` - Candidate keys in priority order.
-    /// * `default` - Fallback string used only when every key is missing or
-    ///   empty.
-    ///
-    /// # Returns
-    ///
-    /// The resolved string or a clone of `default`; substitution errors are
-    /// returned.
-    #[inline]
-    fn get_string_any_or(
-        &self,
-        names: impl ConfigNames,
-        default: &str,
-    ) -> ConfigResult<String> {
-        names.with_config_names(|names| {
-            self.get_optional_any_with_options_and_substitution(
-                names,
-                self.read_options(),
-            )
-            .map(|value| value.unwrap_or_else(|| default.to_string()))
-        })
-    }
-
-    /// Gets a string value with substitution, or `default` if the key is
-    /// absent or effectively missing.
-    ///
-    /// # Parameters
-    ///
-    /// * `name` - Configuration key.
-    /// * `default` - Fallback string used only when the key is missing or
-    ///   empty.
-    ///
-    /// # Returns
-    ///
-    /// The resolved string or a clone of `default`; parsing and substitution
-    /// errors are returned.
-    #[inline]
-    fn get_string_or(
-        &self,
-        name: impl ConfigName,
-        default: &str,
-    ) -> ConfigResult<String> {
-        self.get_optional_string(name)
-            .map(|value| value.unwrap_or_else(|| default.to_string()))
-    }
-
-    /// Gets all string values for `name`, applying substitution to each element
-    /// when enabled.
-    ///
-    /// # Parameters
-    ///
-    /// * `name` - Configuration key.
-    ///
-    /// # Returns
-    ///
-    /// A vector of resolved strings, or a [`crate::ConfigError`].
-    fn get_string_list(
-        &self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Vec<String>> {
-        name.with_config_name(|name| {
-            let resolved = self.resolve_key(name);
-            let property = self.get_property(name).ok_or_else(|| {
-                ConfigError::PropertyNotFound(resolved.clone())
-            })?;
-            if !property.is_unset()
-                && is_effectively_missing_with_substitution(
-                    self,
-                    &resolved,
-                    property,
-                    self.read_options(),
-                )?
-            {
-                return Err(ConfigError::PropertyHasNoValue(resolved));
-            }
-            parse_property_from_reader_with_substitution(
-                self,
-                &resolved,
-                property,
-                self.read_options(),
-            )
-        })
-    }
-
-    /// Gets a string list with substitution, or copies `default` if the key is
-    /// absent or effectively missing.
-    ///
-    /// # Parameters
-    ///
-    /// * `name` - Configuration key.
-    /// * `default` - Fallback string slices used only when the key is missing
-    ///   or empty.
-    ///
-    /// # Returns
-    ///
-    /// The resolved list or `default` converted to owned `String`s`; parsing
-    /// and substitution errors are returned.
-    #[inline]
-    fn get_string_list_or(
-        &self,
-        name: impl ConfigName,
-        default: &[&str],
-    ) -> ConfigResult<Vec<String>> {
-        self.get_optional_string_list(name).map(|value| {
-            value.unwrap_or_else(|| {
-                default.iter().map(|item| (*item).to_string()).collect()
-            })
-        })
-    }
-
-    /// Gets an optional string with the same three-way semantics as
-    /// [`crate::Config::get_optional_string`].
-    ///
-    /// # Parameters
-    ///
-    /// * `name` - Configuration key.
-    ///
-    /// # Returns
-    ///
-    /// `Ok(None)` if the key is absent or effectively missing; `Ok(Some(s))`
-    /// with substitution applied; or `Err` if the value exists but cannot be
-    /// read as a string.
-    #[inline]
-    fn get_optional_string(
-        &self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Option<String>> {
-        name.with_config_name(|name| {
-            let resolved = self.resolve_key(name);
-            match self.get_property(name) {
-                None => Ok(None),
-                Some(property)
-                    if is_effectively_missing_with_substitution(
-                        self,
-                        &resolved,
-                        property,
-                        self.read_options(),
-                    )? =>
-                {
-                    Ok(None)
-                }
-                Some(property) => parse_property_from_reader_with_substitution(
-                    self,
-                    &resolved,
-                    property,
-                    self.read_options(),
-                )
-                .map(Some),
-            }
-        })
-    }
-
-    /// Gets an optional string list with per-element substitution when enabled.
-    ///
-    /// # Parameters
-    ///
-    /// * `name` - Configuration key.
-    ///
-    /// # Returns
-    ///
-    /// `Ok(None)` if the key is absent or effectively missing; `Ok(Some(vec))`
-    /// otherwise, including an empty vector for a concrete empty collection;
-    /// or `Err` on conversion/substitution failure.
-    #[inline]
-    fn get_optional_string_list(
-        &self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Option<Vec<String>>> {
-        name.with_config_name(|name| {
-            let resolved = self.resolve_key(name);
-            match self.get_property(name) {
-                None => Ok(None),
-                Some(property)
-                    if is_effectively_missing_with_substitution(
-                        self,
-                        &resolved,
-                        property,
-                        self.read_options(),
-                    )? =>
-                {
-                    Ok(None)
-                }
-                Some(property) => parse_property_from_reader_with_substitution(
-                    self,
-                    &resolved,
-                    property,
-                    self.read_options(),
-                )
-                .map(Some),
-            }
-        })
-    }
-
-    /// Shared implementation for string helper multi-key reads.
-    fn get_optional_any_with_options_and_substitution<T>(
-        &self,
-        names: impl ConfigNames,
-        options: &ConfigReadOptions,
-    ) -> ConfigResult<Option<T>>
-    where
-        T: FromConfig,
-    {
-        names.with_config_names(|names| {
-            for name in names {
-                let Some(property) = self.get_property(*name) else {
-                    continue;
-                };
-                let resolved = self.resolve_key(*name);
-                if is_effectively_missing_with_substitution(
-                    self, &resolved, property, options,
-                )? {
-                    continue;
-                }
-                return parse_property_from_reader_with_substitution(
-                    self, &resolved, property, options,
-                )
-                .map(Some);
-            }
-            Ok(None)
-        })
-    }
 }
+
+/// Shared implementation for field-level and global multi-key reads.
+fn get_optional_any_with_options<R, T>(
+    reader: &R,
+    names: impl ConfigNames,
+    options: &ConfigReadOptions,
+) -> ConfigResult<Option<T>>
+where
+    R: ConfigReader + ?Sized,
+    T: FromConfig,
+{
+    names.with_config_names(|names| {
+        for name in names {
+            let Some(property) = reader.get_property(*name) else {
+                continue;
+            };
+            let resolved = reader.resolve_key(*name);
+            if is_effectively_missing(reader, &resolved, property, options)? {
+                continue;
+            }
+            return parse_property_from_reader(
+                reader, &resolved, property, options,
+            )
+            .map(Some);
+        }
+        Ok(None)
+    })
+}
+
+impl internal::Sealed for Config {}
+
+impl internal::Sealed for ConfigSection<'_> {}
