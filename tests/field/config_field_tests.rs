@@ -10,7 +10,7 @@
 use qubit_config::{
     Config,
     field::ConfigField,
-    options::ConfigReadOptions,
+    options::ReadOptions,
 };
 
 #[test]
@@ -29,7 +29,7 @@ fn test_config_field_builder_reads_alias_with_env_friendly_bool() {
                     "ANOTHER_MIME_DETECTOR_ENABLE_PRECISE_DETECTION_PROPERTY",
                 )
                 .default(false)
-                .read_options(ConfigReadOptions::env_friendly())
+                .read_options(ReadOptions::env_friendly())
                 .build(),
         )
         .expect("env-friendly boolean alias should parse");

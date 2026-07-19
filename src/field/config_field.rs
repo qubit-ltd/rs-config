@@ -8,7 +8,7 @@
 
 use std::marker::PhantomData;
 
-use crate::options::ConfigReadOptions;
+use crate::options::ReadOptions;
 
 use super::config_field_name_builder::ConfigFieldNameBuilder;
 
@@ -23,7 +23,7 @@ pub struct ConfigField<T> {
     /// The default value.
     pub(crate) default: Option<T>,
     /// The read options.
-    pub(crate) read_options: Option<ConfigReadOptions>,
+    pub(crate) read_options: Option<ReadOptions>,
 }
 
 impl<T> ConfigField<T> {

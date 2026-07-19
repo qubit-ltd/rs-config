@@ -10,7 +10,7 @@
 use qubit_config::{
     Config,
     ConfigError,
-    options::ConfigReadOptions,
+    options::ReadOptions,
 };
 use qubit_datatype::BlankStringPolicy;
 
@@ -19,7 +19,7 @@ fn test_helpers_treat_blank_string_as_missing_when_policy_allows() {
     let mut config = Config::new();
     config
         .set_read_options(
-            ConfigReadOptions::default()
+            ReadOptions::default()
                 .with_blank_string_policy(BlankStringPolicy::TreatAsMissing),
         )
         .set("server.host", "   ")
@@ -33,11 +33,11 @@ fn test_helpers_treat_blank_string_as_missing_when_policy_allows() {
 }
 
 #[test]
-fn test_helpers_substitute_values_before_string_missing_check() {
+fn test_interpolated_helpers_resolve_values_before_missing_check() {
     let mut config = Config::new();
     config
         .set_read_options(
-            ConfigReadOptions::default()
+            ReadOptions::default()
                 .with_blank_string_policy(BlankStringPolicy::TreatAsMissing),
         )
         .set("empty", "   ")
@@ -46,5 +46,10 @@ fn test_helpers_substitute_values_before_string_missing_check() {
         .set("server.host", "${empty}")
         .expect("setting substituted value should succeed");
 
-    assert_eq!(config.get_optional::<String>("server.host").unwrap(), None);
+    assert_eq!(
+        config
+            .get_optional_interpolated::<String>("server.host")
+            .unwrap(),
+        None,
+    );
 }

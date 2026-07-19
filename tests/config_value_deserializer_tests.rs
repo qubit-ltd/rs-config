@@ -15,7 +15,7 @@ use qubit_config::{
     ConfigError,
     ConfigResult,
     Property,
-    options::ConfigReadOptions,
+    options::ReadOptions,
 };
 use qubit_datatype::{
     BlankStringPolicy,
@@ -462,7 +462,7 @@ fn deserialize_derived_shapes() -> ConfigResult<()> {
 #[test]
 fn deserialize_enum_string_uses_config_read_options() -> ConfigResult<()> {
     let mut config = Config::new();
-    config.set_read_options(ConfigReadOptions::env_friendly());
+    config.set_read_options(ReadOptions::env_friendly());
     config.set("mode.value", " Fast ")?;
 
     let actual = config.deserialize::<OneField<Mode>>("mode")?;
@@ -533,7 +533,7 @@ fn deserialize_externally_tagged_enum_variants() -> ConfigResult<()> {
     let root_unit = root_unit_config.deserialize::<Tagged>("")?;
 
     let mut newtype_config = Config::new();
-    newtype_config.set_read_options(ConfigReadOptions::env_friendly());
+    newtype_config.set_read_options(ReadOptions::env_friendly());
     newtype_config.set("case.value.Code", " 200 ")?;
     let newtype = newtype_config.deserialize::<OneField<Tagged>>("case")?;
 
@@ -542,7 +542,7 @@ fn deserialize_externally_tagged_enum_variants() -> ConfigResult<()> {
     let tuple = tuple_config.deserialize::<OneField<Tagged>>("case")?;
 
     let mut struct_config = Config::new();
-    struct_config.set_read_options(ConfigReadOptions::env_friendly());
+    struct_config.set_read_options(ReadOptions::env_friendly());
     struct_config.set("case.value.Record.id", " 7 ")?;
     let record = struct_config.deserialize::<OneField<Tagged>>("case")?;
 
@@ -672,7 +672,7 @@ fn deserialize_sequence_and_root_map_entry_points() -> ConfigResult<()> {
     }
 
     let mut sequence_config = Config::new();
-    sequence_config.set_read_options(ConfigReadOptions::env_friendly());
+    sequence_config.set_read_options(ReadOptions::env_friendly());
     sequence_config.set("seq.vec_u8", "1,2")?;
     sequence_config.set("seq.tuple", "3,4")?;
     sequence_config.set("seq.tuple_struct", "5,6")?;
@@ -937,7 +937,7 @@ fn deserialize_scalar_error_branches() -> ConfigResult<()> {
 fn deserialize_read_option_error_branches() -> ConfigResult<()> {
     let mut blank_config = Config::new();
     blank_config.set_read_options(
-        ConfigReadOptions::default()
+        ReadOptions::default()
             .with_blank_string_policy(BlankStringPolicy::Reject),
     );
     blank_config.set("blank_string.value", " ")?;
@@ -992,7 +992,7 @@ fn deserialize_read_option_error_branches() -> ConfigResult<()> {
 
     let mut list_config = Config::new();
     list_config.set_read_options(
-        ConfigReadOptions::env_friendly()
+        ReadOptions::env_friendly()
             .with_empty_item_policy(EmptyItemPolicy::Reject),
     );
     list_config.set("bad_list.value", "a,,b")?;
@@ -1010,7 +1010,7 @@ fn deserialize_json_string_conversion_errors_use_config_read_options()
 -> ConfigResult<()> {
     let mut config = Config::new();
     config.set_read_options(
-        ConfigReadOptions::default()
+        ReadOptions::default()
             .with_blank_string_policy(BlankStringPolicy::Reject),
     );
     config.insert_property(
@@ -1090,7 +1090,7 @@ fn deserialize_error_wrapper_formats_message_and_config_sources()
 -> ConfigResult<()> {
     let mut config_error = Config::new();
     config_error.set_read_options(
-        ConfigReadOptions::default()
+        ReadOptions::default()
             .with_blank_string_policy(BlankStringPolicy::Reject),
     );
     config_error.insert_property(

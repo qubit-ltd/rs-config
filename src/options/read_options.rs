@@ -21,34 +21,42 @@ use serde::{
     Serialize,
 };
 
-use super::VariableSubstitutionOptions;
+use crate::constants::{
+    DEFAULT_MAX_SUBSTITUTION_DEPTH,
+    DEFAULT_MAX_SUBSTITUTION_EXPANSIONS,
+    DEFAULT_MAX_SUBSTITUTION_OUTPUT_BYTES,
+};
 
-/// Runtime options that control how configuration values are read and parsed.
+/// Runtime options that control configuration conversion and interpolation.
 #[must_use]
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
-pub struct ConfigReadOptions {
+pub struct ReadOptions {
     /// Common scalar, collection, boolean, and duration conversion options.
     conversion: DataConversionOptions,
-    /// Variable-substitution policy and resource limits.
-    substitution: VariableSubstitutionOptions,
+    /// Whether unresolved placeholders may use process environment variables.
+    environment_fallback_enabled: bool,
+    /// Maximum active placeholder-reference chain length.
+    max_interpolation_depth: usize,
+    /// Maximum number of placeholder resolutions in one read.
+    max_interpolation_expansions: usize,
+    /// Maximum UTF-8 byte length of one interpolated value.
+    max_interpolation_output_bytes: usize,
 }
 
-impl ConfigReadOptions {
+impl ReadOptions {
     /// Creates options suitable for environment-variable style values.
     ///
     /// # Returns
     ///
     /// Options that trim strings, treat blank scalar strings as missing, accept
     /// common boolean aliases, and split scalar strings on commas while
-    /// skipping empty collection items. Text-to-float conversion permits
-    /// nearest-even rounding, while other numeric conversions remain exact.
-    /// Environment-variable substitution is still disabled; enable it through
-    /// [`VariableSubstitutionOptions`](super::VariableSubstitutionOptions).
+    /// skipping empty collection items. Interpolated reads may fall back to
+    /// process environment variables.
     pub fn env_friendly() -> Self {
         Self {
             conversion: DataConversionOptions::env_friendly(),
-            substitution: VariableSubstitutionOptions::default(),
+            ..Self::default()
         }
     }
 
@@ -57,36 +65,122 @@ impl ConfigReadOptions {
     /// # Returns
     ///
     /// Options used by the shared `qubit-datatype` conversion layer.
-    #[inline]
-    pub fn conversion_options(&self) -> &DataConversionOptions {
+    #[inline(always)]
+    pub const fn conversion_options(&self) -> &DataConversionOptions {
         &self.conversion
     }
 
-    /// Gets the variable-substitution policy active for typed reads.
+    /// Returns whether unresolved placeholders may use the environment.
     ///
     /// # Returns
     ///
-    /// Substitution behavior and resource limits.
+    /// `true` when interpolated reads may fall back to process environment
+    /// variables.
     #[inline(always)]
-    pub const fn substitution(&self) -> &VariableSubstitutionOptions {
-        &self.substitution
+    pub const fn is_environment_fallback_enabled(&self) -> bool {
+        self.environment_fallback_enabled
     }
 
-    /// Returns a copy with a different variable-substitution policy.
+    /// Returns the maximum recursive interpolation depth.
+    ///
+    /// # Returns
+    ///
+    /// The maximum active placeholder-reference chain length.
+    #[inline(always)]
+    pub const fn max_interpolation_depth(&self) -> usize {
+        self.max_interpolation_depth
+    }
+
+    /// Returns the maximum placeholder-resolution count per read.
+    ///
+    /// # Returns
+    ///
+    /// The configured interpolation expansion-count limit.
+    #[inline(always)]
+    pub const fn max_interpolation_expansions(&self) -> usize {
+        self.max_interpolation_expansions
+    }
+
+    /// Returns the maximum interpolated UTF-8 byte length.
+    ///
+    /// # Returns
+    ///
+    /// The configured output-size limit in bytes.
+    #[inline(always)]
+    pub const fn max_interpolation_output_bytes(&self) -> usize {
+        self.max_interpolation_output_bytes
+    }
+
+    /// Returns a copy with environment fallback enabled or disabled.
     ///
     /// # Parameters
     ///
-    /// * `substitution` - Replacement behavior and resource limits.
+    /// * `enabled` - Whether unresolved placeholders may use environment
+    ///   values.
     ///
     /// # Returns
     ///
     /// Updated options.
     #[inline(always)]
-    pub fn with_substitution(
+    pub const fn with_environment_fallback_enabled(
         mut self,
-        substitution: VariableSubstitutionOptions,
+        enabled: bool,
     ) -> Self {
-        self.substitution = substitution;
+        self.environment_fallback_enabled = enabled;
+        self
+    }
+
+    /// Returns a copy with a different recursive interpolation-depth limit.
+    ///
+    /// # Parameters
+    ///
+    /// * `max_depth` - Maximum active placeholder-reference chain length.
+    ///
+    /// # Returns
+    ///
+    /// Updated options.
+    #[inline(always)]
+    pub const fn with_max_interpolation_depth(
+        mut self,
+        max_depth: usize,
+    ) -> Self {
+        self.max_interpolation_depth = max_depth;
+        self
+    }
+
+    /// Returns a copy with a different placeholder-resolution limit.
+    ///
+    /// # Parameters
+    ///
+    /// * `max_expansions` - Maximum resolved placeholders per read.
+    ///
+    /// # Returns
+    ///
+    /// Updated options.
+    #[inline(always)]
+    pub const fn with_max_interpolation_expansions(
+        mut self,
+        max_expansions: usize,
+    ) -> Self {
+        self.max_interpolation_expansions = max_expansions;
+        self
+    }
+
+    /// Returns a copy with a different interpolated-output byte limit.
+    ///
+    /// # Parameters
+    ///
+    /// * `max_output_bytes` - Maximum UTF-8 bytes in one interpolated value.
+    ///
+    /// # Returns
+    ///
+    /// Updated options.
+    #[inline(always)]
+    pub const fn with_max_interpolation_output_bytes(
+        mut self,
+        max_output_bytes: usize,
+    ) -> Self {
+        self.max_interpolation_output_bytes = max_output_bytes;
         self
     }
 
@@ -207,24 +301,36 @@ impl ConfigReadOptions {
     }
 }
 
-impl AsRef<DataConversionOptions> for ConfigReadOptions {
-    /// Borrows the underlying data conversion options.
+impl Default for ReadOptions {
+    /// Creates the default conversion and bounded interpolation policy.
     #[inline]
+    fn default() -> Self {
+        Self {
+            conversion: DataConversionOptions::default(),
+            environment_fallback_enabled: true,
+            max_interpolation_depth: DEFAULT_MAX_SUBSTITUTION_DEPTH,
+            max_interpolation_expansions: DEFAULT_MAX_SUBSTITUTION_EXPANSIONS,
+            max_interpolation_output_bytes:
+                DEFAULT_MAX_SUBSTITUTION_OUTPUT_BYTES,
+        }
+    }
+}
+
+impl AsRef<DataConversionOptions> for ReadOptions {
+    /// Borrows the underlying data conversion options.
+    #[inline(always)]
     fn as_ref(&self) -> &DataConversionOptions {
         &self.conversion
     }
 }
 
-impl From<DataConversionOptions> for ConfigReadOptions {
-    /// Creates config read options from data conversion options.
-    ///
-    /// Environment-variable fallback for `${...}` substitution remains
-    /// disabled.
+impl From<DataConversionOptions> for ReadOptions {
+    /// Creates read options from data conversion options.
     #[inline]
     fn from(conversion: DataConversionOptions) -> Self {
         Self {
             conversion,
-            substitution: VariableSubstitutionOptions::default(),
+            ..Self::default()
         }
     }
 }

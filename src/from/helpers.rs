@@ -9,7 +9,7 @@
 use qubit_value::Value as QubitValue;
 
 use crate::config_reader::ConfigReader;
-use crate::options::ConfigReadOptions;
+use crate::options::ReadOptions;
 use crate::{
     ConfigResult,
     Property,
@@ -62,9 +62,39 @@ pub(crate) fn is_effectively_missing<R: ConfigReader + ?Sized>(
     reader: &R,
     name: &str,
     property: &Property,
-    options: &ConfigReadOptions,
+    options: &ReadOptions,
 ) -> ConfigResult<bool> {
-    is_effectively_missing_by(reader, name, property, options)
+    is_effectively_missing_by(reader, name, property, options, false)
+}
+
+/// Checks whether an interpolated property should be treated as missing.
+///
+/// # Type Parameters
+///
+/// * `R` - Reader used to resolve placeholders.
+///
+/// # Parameters
+///
+/// * `reader` - Reader that owns the interpolation context.
+/// * `name` - Root-relative property name used in diagnostics.
+/// * `property` - Property to inspect.
+/// * `options` - Active read options and interpolation limits.
+///
+/// # Returns
+///
+/// `true` when the property is unset or its interpolated scalar string is
+/// normalized as missing.
+///
+/// # Errors
+///
+/// Returns interpolation or string-normalization errors with key context.
+pub(crate) fn is_effectively_missing_interpolated<R: ConfigReader + ?Sized>(
+    reader: &R,
+    name: &str,
+    property: &Property,
+    options: &ReadOptions,
+) -> ConfigResult<bool> {
+    is_effectively_missing_by(reader, name, property, options, true)
 }
 
 /// Parses a property through a reader-created parsing context.
@@ -92,13 +122,48 @@ pub(crate) fn parse_property_from_reader<R, T>(
     reader: &R,
     name: &str,
     property: &Property,
-    options: &ConfigReadOptions,
+    options: &ReadOptions,
 ) -> ConfigResult<T>
 where
     R: ConfigReader + ?Sized,
     T: FromConfig,
 {
-    parse_property_from_reader_by(reader, name, property, options)
+    parse_property_from_reader_by(reader, name, property, options, false)
+}
+
+/// Parses a property after interpolating its string values.
+///
+/// # Type Parameters
+///
+/// * `R` - Reader used to resolve placeholders.
+/// * `T` - Target type parsed from the interpolated property.
+///
+/// # Parameters
+///
+/// * `reader` - Reader that owns the interpolation context.
+/// * `name` - Root-relative property name used in diagnostics.
+/// * `property` - Property to interpolate and parse.
+/// * `options` - Active conversion options and interpolation limits.
+///
+/// # Returns
+///
+/// Parsed value after interpolation.
+///
+/// # Errors
+///
+/// Returns interpolation, missing-value, or conversion errors with key
+/// context.
+pub(crate) fn parse_property_from_reader_interpolated<R, T>(
+    reader: &R,
+    name: &str,
+    property: &Property,
+    options: &ReadOptions,
+) -> ConfigResult<T>
+where
+    R: ConfigReader + ?Sized,
+    T: FromConfig,
+{
+    parse_property_from_reader_by(reader, name, property, options, true)
 }
 
 /// Checks whether a property is effectively missing after applying the active
@@ -107,7 +172,8 @@ fn is_effectively_missing_by<R: ConfigReader + ?Sized>(
     reader: &R,
     name: &str,
     property: &Property,
-    options: &ConfigReadOptions,
+    options: &ReadOptions,
+    interpolate: bool,
 ) -> ConfigResult<bool> {
     if property.is_unset() {
         return Ok(true);
@@ -115,13 +181,18 @@ fn is_effectively_missing_by<R: ConfigReader + ?Sized>(
     let Some(value) = first_scalar_string(property) else {
         return Ok(false);
     };
-    let substitute =
-        |value: &str| substitute_for_reader(reader, name, value, options);
+    let substitute = |value: &str| {
+        substitute_for_reader(reader, name, value, options, interpolate)
+    };
     let ctx = ConfigParseContext::new(name, options, &substitute);
     let value = ctx.substitute_string(value)?;
-    match options.conversion_options().string().normalize(&value) {
-        Ok(_) => Ok(false),
-        Err(error) => Ok(error.is_missing()),
+    match options
+        .conversion_options()
+        .string()
+        .normalize_optional(&value)
+    {
+        Ok(Some(_)) | Err(_) => Ok(false),
+        Ok(None) => Ok(true),
     }
 }
 
@@ -131,14 +202,16 @@ fn parse_property_from_reader_by<R, T>(
     reader: &R,
     name: &str,
     property: &Property,
-    options: &ConfigReadOptions,
+    options: &ReadOptions,
+    interpolate: bool,
 ) -> ConfigResult<T>
 where
     R: ConfigReader + ?Sized,
     T: FromConfig,
 {
-    let substitute =
-        |value: &str| substitute_for_reader(reader, name, value, options);
+    let substitute = |value: &str| {
+        substitute_for_reader(reader, name, value, options, interpolate)
+    };
     let ctx = ConfigParseContext::new(name, options, &substitute);
     T::from_config(property, &ctx)
 }
@@ -151,6 +224,7 @@ where
 /// * `path` - Configuration path whose value is being expanded.
 /// * `value` - Source text.
 /// * `options` - Active read and substitution options.
+/// * `interpolate` - Whether placeholders should be resolved.
 ///
 /// # Returns
 ///
@@ -164,26 +238,12 @@ fn substitute_for_reader<R: ConfigReader + ?Sized>(
     reader: &R,
     path: &str,
     value: &str,
-    options: &ConfigReadOptions,
+    options: &ReadOptions,
+    interpolate: bool,
 ) -> ConfigResult<String> {
-    let substitution = options.substitution();
-    if substitution.is_enabled() {
-        utils::substitute_variables(value, reader, substitution, path)
+    if interpolate {
+        utils::substitute_variables(value, reader, options, path)
     } else {
-        no_substitution(value)
+        Ok(value.to_string())
     }
-}
-
-/// Returns `value` unchanged as an owned string.
-///
-/// # Parameters
-///
-/// * `value` - Text to clone.
-///
-/// # Returns
-///
-/// An owned copy of `value`.
-#[inline(always)]
-fn no_substitution(value: &str) -> ConfigResult<String> {
-    Ok(value.to_string())
 }

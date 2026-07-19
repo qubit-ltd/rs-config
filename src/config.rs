@@ -35,7 +35,7 @@ use crate::from::{
     FromConfig,
     IntoConfigDefault,
 };
-use crate::options::ConfigReadOptions;
+use crate::options::ReadOptions;
 #[cfg(feature = "env-file")]
 use crate::source::EnvFileConfigSource;
 #[cfg(feature = "toml")]
@@ -68,7 +68,7 @@ use qubit_value::{
 
 pub(crate) fn convert_deserialize_number<T>(
     key: &str,
-    options: &ConfigReadOptions,
+    options: &ReadOptions,
     value: String,
 ) -> ConfigResult<T>
 where
@@ -89,31 +89,48 @@ fn is_child_key(key: &str, prefix: &str) -> bool {
 
 /// Returns whether a scalar string property is missing under deserialization
 /// options.
+///
+/// # Parameters
+///
+/// * `primary` - Reader used for relative placeholder lookup.
+/// * `fallback` - Reader used when the primary reader has no matching key.
+/// * `key` - Absolute key used for diagnostics.
+/// * `property` - Property whose scalar value is inspected.
+/// * `options` - Conversion and interpolation limits.
+/// * `interpolate` - Whether to resolve placeholders before normalization.
+///
+/// # Returns
+///
+/// `true` when the value is effectively missing.
+///
+/// # Errors
+///
+/// Returns interpolation or normalization errors with key context.
 fn scalar_string_is_missing_for_deserialize(
     primary: &impl ConfigReader,
     fallback: &impl ConfigReader,
     key: &str,
     property: &Property,
-    options: &ConfigReadOptions,
+    options: &ReadOptions,
+    interpolate: bool,
 ) -> ConfigResult<bool> {
     let Some(QubitValue::String(value)) = property.value().as_scalar() else {
         return Ok(false);
     };
-    let substitution = options.substitution();
-    let value = if substitution.is_enabled() {
+    let value = if interpolate {
         utils::substitute_variables_with_fallback(
-            value,
-            primary,
-            fallback,
-            substitution,
-            key,
+            value, primary, fallback, options, key,
         )?
     } else {
         value.to_string()
     };
-    match options.conversion_options().string().normalize(&value) {
-        Ok(_) => Ok(false),
-        Err(error) if error.is_missing() => Ok(true),
+    match options
+        .conversion_options()
+        .string()
+        .normalize_optional(&value)
+    {
+        Ok(Some(_)) => Ok(false),
+        Ok(None) => Ok(true),
         Err(error) => Err(ConfigError::from_data_conversion_error(
             key,
             error.into_data_conversion_error(qubit_datatype::DataType::String),
@@ -176,7 +193,7 @@ pub struct Config {
     pub(crate) properties: HashMap<String, Property>,
     /// Runtime read parsing options
     #[serde(default)]
-    read_options: ConfigReadOptions,
+    read_options: ReadOptions,
 }
 
 impl TryFrom<ConfigSerdeRepr> for Config {
@@ -235,7 +252,7 @@ impl Config {
         Self {
             description: None,
             properties: HashMap::new(),
-            read_options: ConfigReadOptions::default(),
+            read_options: ReadOptions::default(),
         }
     }
 
@@ -262,7 +279,7 @@ impl Config {
         Self {
             description: Some(description.to_string()),
             properties: HashMap::new(),
-            read_options: ConfigReadOptions::default(),
+            read_options: ReadOptions::default(),
         }
     }
 
@@ -494,7 +511,7 @@ impl Config {
     /// The options used by `get`, `get_any`, and field reads when no
     /// field-level override is provided.
     #[inline(always)]
-    pub fn read_options(&self) -> &ConfigReadOptions {
+    pub fn read_options(&self) -> &ReadOptions {
         &self.read_options
     }
 
@@ -502,17 +519,14 @@ impl Config {
     ///
     /// # Parameters
     ///
-    /// * `read_options` - New read parsing options.
+    /// * `options` - New read parsing options.
     ///
     /// # Returns
     ///
     /// Mutable reference to this configuration for chaining.
     #[inline(always)]
-    pub fn set_read_options(
-        &mut self,
-        read_options: ConfigReadOptions,
-    ) -> &mut Self {
-        self.read_options = read_options;
+    pub fn set_read_options(&mut self, options: ReadOptions) -> &mut Self {
+        self.read_options = options;
         self
     }
 
@@ -520,15 +534,15 @@ impl Config {
     ///
     /// # Parameters
     ///
-    /// * `read_options` - Read options for the returned configuration.
+    /// * `options` - Read options for the returned configuration.
     ///
     /// # Returns
     ///
-    /// A cloned [`Config`] using `read_options`.
+    /// A cloned [`Config`] using `options`.
     #[inline]
-    pub fn with_read_options(&self, read_options: ConfigReadOptions) -> Self {
+    pub fn with_read_options(&self, options: ReadOptions) -> Self {
         let mut config = self.clone();
-        config.read_options = read_options;
+        config.read_options = options;
         config
     }
 
@@ -763,8 +777,8 @@ impl Config {
     ///
     /// Core read API with type inference.
     ///
-    /// String-backed values apply the active variable-substitution policy
-    /// before conversion. Strict reads preserve the stored representation.
+    /// String-backed values are converted without interpolating placeholders.
+    /// Use [`Self::get_interpolated`] for explicit interpolation.
     ///
     /// # Type Parameters
     ///
@@ -814,6 +828,32 @@ impl Config {
         <Self as ConfigReader>::get(self, name)
     }
 
+    /// Gets a configuration value after interpolating string-backed values.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Target type supported by [`FromConfig`].
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Configuration item name.
+    ///
+    /// # Returns
+    ///
+    /// The interpolated and converted value.
+    ///
+    /// # Errors
+    ///
+    /// Returns missing-value, interpolation, resource-limit, or conversion
+    /// errors with key context.
+    #[inline(always)]
+    pub fn get_interpolated<T>(&self, name: impl ConfigName) -> ConfigResult<T>
+    where
+        T: FromConfig,
+    {
+        <Self as ConfigReader>::get_interpolated(self, name)
+    }
+
     /// Gets a configuration value only when the stored value already has the
     /// exact requested type.
     ///
@@ -849,7 +889,7 @@ impl Config {
     /// Gets a configuration value or returns a default value.
     ///
     /// Returns `default` only if the key is missing or explicitly empty.
-    /// Conversion and substitution errors are returned.
+    /// Conversion errors are returned.
     ///
     /// # Type Parameters
     ///
@@ -862,8 +902,8 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// Returns the configuration value or default value. Conversion and
-    /// substitution errors are returned instead of being hidden by the default.
+    /// Returns the configuration value or default value. Conversion errors are
+    /// returned instead of being hidden by the default.
     ///
     /// # Examples
     ///
@@ -889,6 +929,37 @@ impl Config {
         <Self as ConfigReader>::get_or(self, name, default)
     }
 
+    /// Gets an interpolated configuration value or a typed default.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Target type supported by [`FromConfig`].
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Configuration item name.
+    /// * `default` - Fallback used only when the value is absent or missing.
+    ///
+    /// # Returns
+    ///
+    /// The interpolated value or supplied default.
+    ///
+    /// # Errors
+    ///
+    /// Returns interpolation and conversion errors instead of hiding them
+    /// behind the default.
+    #[inline(always)]
+    pub fn get_interpolated_or<T>(
+        &self,
+        name: impl ConfigName,
+        default: impl IntoConfigDefault<T>,
+    ) -> ConfigResult<T>
+    where
+        T: FromConfig,
+    {
+        <Self as ConfigReader>::get_interpolated_or(self, name, default)
+    }
+
     /// Gets the first configured value from `names`.
     ///
     /// # Parameters
@@ -903,6 +974,35 @@ impl Config {
         T: FromConfig,
     {
         <Self as ConfigReader>::get_any(self, names)
+    }
+
+    /// Gets the first configured value after interpolation.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Target type supported by [`FromConfig`].
+    ///
+    /// # Parameters
+    ///
+    /// * `names` - Candidate keys checked in priority order.
+    ///
+    /// # Returns
+    ///
+    /// The interpolated value from the first present, non-empty key.
+    ///
+    /// # Errors
+    ///
+    /// Returns missing-value, interpolation, resource-limit, or conversion
+    /// errors.
+    #[inline(always)]
+    pub fn get_any_interpolated<T>(
+        &self,
+        names: impl ConfigNames,
+    ) -> ConfigResult<T>
+    where
+        T: FromConfig,
+    {
+        <Self as ConfigReader>::get_any_interpolated(self, names)
     }
 
     /// Gets an optional value from the first configured key.
@@ -922,6 +1022,35 @@ impl Config {
         T: FromConfig,
     {
         <Self as ConfigReader>::get_optional_any(self, names)
+    }
+
+    /// Gets an optional interpolated value from the first configured key.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Target type supported by [`FromConfig`].
+    ///
+    /// # Parameters
+    ///
+    /// * `names` - Candidate keys checked in priority order.
+    ///
+    /// # Returns
+    ///
+    /// `Some` for the first configured value or `None` when every candidate is
+    /// absent or effectively missing.
+    ///
+    /// # Errors
+    ///
+    /// Returns interpolation, resource-limit, or conversion errors.
+    #[inline(always)]
+    pub fn get_optional_any_interpolated<T>(
+        &self,
+        names: impl ConfigNames,
+    ) -> ConfigResult<Option<T>>
+    where
+        T: FromConfig,
+    {
+        <Self as ConfigReader>::get_optional_any_interpolated(self, names)
     }
 
     /// Gets the first configured value from `names`, or `default` when absent.
@@ -946,34 +1075,36 @@ impl Config {
         <Self as ConfigReader>::get_any_or(self, names, default)
     }
 
-    /// Gets the first configured value from `names` with explicit read options,
-    /// or `default` when absent.
+    /// Gets the first interpolated value from `names`, or `default` when all
+    /// candidates are absent.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Target type supported by [`FromConfig`].
     ///
     /// # Parameters
     ///
     /// * `names` - Candidate keys checked in priority order.
     /// * `default` - Fallback used only when every key is absent or effectively
     ///   missing.
-    /// * `read_options` - Parsing options for this read.
-    ///
     /// # Returns
     ///
-    /// Parsed value or `default`; conversion errors are returned.
-    pub fn get_any_or_with<T>(
+    /// Interpolated value or `default`.
+    ///
+    /// # Errors
+    ///
+    /// Returns interpolation and conversion errors instead of hiding them
+    /// behind the default.
+    #[inline(always)]
+    pub fn get_any_interpolated_or<T>(
         &self,
         names: impl ConfigNames,
         default: impl IntoConfigDefault<T>,
-        read_options: &ConfigReadOptions,
     ) -> ConfigResult<T>
     where
         T: FromConfig,
     {
-        <Self as ConfigReader>::get_any_or_with(
-            self,
-            names,
-            default,
-            read_options,
-        )
+        <Self as ConfigReader>::get_any_interpolated_or(self, names, default)
     }
 
     /// Reads a declared configuration field.
@@ -1010,6 +1141,62 @@ impl Config {
         T: FromConfig,
     {
         <Self as ConfigReader>::read_optional(self, field)
+    }
+
+    /// Reads a declared field after interpolating string-backed values.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Target type supported by [`FromConfig`].
+    ///
+    /// # Parameters
+    ///
+    /// * `field` - Field declaration with names, a default, and optional read
+    ///   options.
+    ///
+    /// # Returns
+    ///
+    /// Interpolated field value or its typed default.
+    ///
+    /// # Errors
+    ///
+    /// Returns missing-value, interpolation, resource-limit, or conversion
+    /// errors.
+    #[inline(always)]
+    pub fn read_interpolated<T>(&self, field: ConfigField<T>) -> ConfigResult<T>
+    where
+        T: FromConfig,
+    {
+        <Self as ConfigReader>::read_interpolated(self, field)
+    }
+
+    /// Reads an optional declared field after interpolation.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Target type supported by [`FromConfig`].
+    ///
+    /// # Parameters
+    ///
+    /// * `field` - Field declaration with names, a default, and optional read
+    ///   options.
+    ///
+    /// # Returns
+    ///
+    /// Interpolated field value, its typed default, or `None`.
+    ///
+    /// # Errors
+    ///
+    /// Returns interpolation, resource-limit, or conversion errors.
+    #[inline(always)]
+    pub fn read_optional_interpolated<T>(
+        &self,
+        field: ConfigField<T>,
+    ) -> ConfigResult<Option<T>>
+    where
+        T: FromConfig,
+    {
+        <Self as ConfigReader>::read_optional_interpolated(self, field)
     }
 
     /// Gets a list of configuration values, converting each stored element to
@@ -1513,10 +1700,39 @@ impl Config {
         <Self as ConfigReader>::get_optional(self, name)
     }
 
+    /// Gets an optional value after interpolating string-backed values.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Target type supported by [`FromConfig`].
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Configuration item name.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(Some(value))` for a configured value, `Ok(None)` when absent or
+    /// effectively missing after interpolation, or `Err` on failure.
+    ///
+    /// # Errors
+    ///
+    /// Returns interpolation, resource-limit, or conversion errors with key
+    /// context.
+    #[inline(always)]
+    pub fn get_optional_interpolated<T>(
+        &self,
+        name: impl ConfigName,
+    ) -> ConfigResult<Option<T>>
+    where
+        T: FromConfig,
+    {
+        <Self as ConfigReader>::get_optional_interpolated(self, name)
+    }
+
     /// Gets an optional list of configuration values.
     ///
-    /// String elements apply the active variable-substitution policy before
-    /// conversion.
+    /// String elements are converted without interpolating placeholders.
     ///
     /// Distinguishes between three states:
     /// - `Ok(Some(vec))` – key exists and has values
@@ -1567,8 +1783,8 @@ impl Config {
     /// view.
     ///
     /// String-backed scalar and collection projections apply this config's
-    /// [`ConfigReadOptions`], including enabled substitution and explicit
-    /// conversion policies.
+    /// [`ReadOptions`] conversion policies without interpolating placeholders.
+    /// Use [`Self::deserialize_interpolated`] for explicit interpolation.
     ///
     /// The Serde view is JSON-like: mappings, sequences, booleans, strings,
     /// numbers, and null values are exposed according to Serde's data model.
@@ -1638,7 +1854,65 @@ impl Config {
     where
         T: DeserializeOwned,
     {
-        let value = self.deserialize_root_value(prefix)?;
+        self.deserialize_by(prefix, false)
+    }
+
+    /// Deserializes an exact value or subtree after interpolating strings.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Target type implementing `serde::de::DeserializeOwned`.
+    ///
+    /// # Parameters
+    ///
+    /// * `prefix` - Exact property key or dotted subtree path; an empty string
+    ///   selects the root map.
+    ///
+    /// # Returns
+    ///
+    /// The interpolated and deserialized value.
+    ///
+    /// # Errors
+    ///
+    /// Returns lookup, interpolation, resource-limit, conversion, key-conflict,
+    /// or sanitized Serde errors with their original configuration path.
+    pub fn deserialize_interpolated<T>(&self, prefix: &str) -> ConfigResult<T>
+    where
+        T: DeserializeOwned,
+    {
+        self.deserialize_by(prefix, true)
+    }
+
+    /// Deserializes an exact value or subtree with explicit interpolation
+    /// behavior.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Target type implementing `serde::de::DeserializeOwned`.
+    ///
+    /// # Parameters
+    ///
+    /// * `prefix` - Exact property key or dotted subtree path.
+    /// * `interpolate` - Whether to interpolate string leaves.
+    /// * `interpolate` - Whether string leaves resolve placeholders first.
+    ///
+    /// # Returns
+    ///
+    /// The deserialized value.
+    ///
+    /// # Errors
+    ///
+    /// Returns lookup, interpolation, conversion, key-conflict, or sanitized
+    /// Serde errors.
+    fn deserialize_by<T>(
+        &self,
+        prefix: &str,
+        interpolate: bool,
+    ) -> ConfigResult<T>
+    where
+        T: DeserializeOwned,
+    {
+        let value = self.deserialize_root_value(prefix, interpolate)?;
 
         match T::deserialize(ConfigValueDeserializer::new(
             value,
@@ -1800,11 +2074,15 @@ impl Config {
     ///
     /// Returns [`ConfigError::KeyConflict`] when `prefix` has both an exact
     /// value and child keys, or when dotted child keys cannot form an
-    /// unambiguous object tree. Returns substitution/conversion errors if
+    /// unambiguous object tree. Returns interpolation/conversion errors if
     /// configured string handling fails before deserialization starts.
-    fn deserialize_root_value(&self, prefix: &str) -> ConfigResult<JsonValue> {
+    fn deserialize_root_value(
+        &self,
+        prefix: &str,
+        interpolate: bool,
+    ) -> ConfigResult<JsonValue> {
         if prefix.is_empty() {
-            return self.deserialize_subtree_value(prefix);
+            return self.deserialize_subtree_value(prefix, interpolate);
         }
 
         let exact = self.properties.get(prefix);
@@ -1817,9 +2095,9 @@ impl Config {
                 incoming: "nested child keys".to_string(),
             }),
             (Some(property), false) => {
-                self.deserialize_exact_value(prefix, property)
+                self.deserialize_exact_value(prefix, property, interpolate)
             }
-            (None, _) => self.deserialize_subtree_value(prefix),
+            (None, _) => self.deserialize_subtree_value(prefix, interpolate),
         }
     }
 
@@ -1829,6 +2107,7 @@ impl Config {
     ///
     /// * `key` - Absolute property key used for error context.
     /// * `property` - Property to project into JSON.
+    /// * `interpolate` - Whether to interpolate string leaves.
     ///
     /// # Returns
     ///
@@ -1836,13 +2115,14 @@ impl Config {
     ///
     /// # Errors
     ///
-    /// Returns substitution errors when string leaves contain unresolved
+    /// Returns interpolation errors when string leaves contain unresolved
     /// placeholders, or conversion errors when the configured projection is
     /// not exact.
     fn deserialize_exact_value(
         &self,
         key: &str,
         property: &Property,
+        interpolate: bool,
     ) -> ConfigResult<JsonValue> {
         if scalar_string_is_missing_for_deserialize(
             self,
@@ -1850,15 +2130,18 @@ impl Config {
             key,
             property,
             self.read_options(),
+            interpolate,
         )? {
             return Ok(JsonValue::Null);
         }
 
         let mut value =
             utils::property_to_json_value(property, key, self.read_options())?;
-        utils::substitute_json_strings_with_fallback(
-            &mut value, key, self, self,
-        )?;
+        if interpolate {
+            utils::substitute_json_strings_with_fallback(
+                &mut value, key, self, self,
+            )?;
+        }
         Ok(value)
     }
 
@@ -1867,6 +2150,7 @@ impl Config {
     /// # Parameters
     ///
     /// * `prefix` - Dotted subtree path to project.
+    /// * `interpolate` - Whether to interpolate string leaves.
     ///
     /// # Returns
     ///
@@ -1875,10 +2159,11 @@ impl Config {
     /// # Errors
     ///
     /// Returns key-conflict errors for ambiguous dotted paths, and propagates
-    /// substitution/conversion errors from active read options.
+    /// interpolation/conversion errors from active read options.
     fn deserialize_subtree_value(
         &self,
         prefix: &str,
+        interpolate: bool,
     ) -> ConfigResult<JsonValue> {
         let sub = self.subconfig(prefix, true)?;
 
@@ -1898,6 +2183,7 @@ impl Config {
                 &absolute_path,
                 prop,
                 self.read_options(),
+                interpolate,
             )? {
                 continue;
             }
@@ -1907,12 +2193,14 @@ impl Config {
                 &absolute_path,
                 self.read_options(),
             )?;
-            utils::substitute_json_strings_with_fallback(
-                &mut json_val,
-                &absolute_path,
-                &sub,
-                self,
-            )?;
+            if interpolate {
+                utils::substitute_json_strings_with_fallback(
+                    &mut json_val,
+                    &absolute_path,
+                    &sub,
+                    self,
+                )?;
+            }
             utils::insert_deserialize_value(&mut map, key, json_val)?;
         }
         Ok(JsonValue::Object(map))
@@ -1921,7 +2209,7 @@ impl Config {
 
 impl ConfigReader for Config {
     #[inline]
-    fn read_options(&self) -> &ConfigReadOptions {
+    fn read_options(&self) -> &ReadOptions {
         Config::read_options(self)
     }
 

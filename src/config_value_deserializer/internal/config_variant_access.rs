@@ -17,13 +17,13 @@ use serde_json::Value;
 
 use crate::config_deserialize_error::ConfigDeserializeError;
 use crate::config_value_deserializer::ConfigValueDeserializer;
-use crate::options::ConfigReadOptions;
+use crate::options::ReadOptions;
 
 /// Variant access over a configuration enum payload.
 pub(in crate::config_value_deserializer) struct ConfigVariantAccess<'a> {
     value: Option<Value>,
     key: String,
-    options: &'a ConfigReadOptions,
+    options: &'a ReadOptions,
 }
 
 impl<'a> ConfigVariantAccess<'a> {
@@ -31,7 +31,7 @@ impl<'a> ConfigVariantAccess<'a> {
     pub(in crate::config_value_deserializer) fn new(
         value: Option<Value>,
         key: String,
-        options: &'a ConfigReadOptions,
+        options: &'a ReadOptions,
     ) -> Self {
         Self {
             value,

@@ -21,7 +21,7 @@ use crate::config_value_deserializer::internal::{
     ConfigMapAccess,
     ConfigSeqAccess,
 };
-use crate::options::ConfigReadOptions;
+use crate::options::ReadOptions;
 
 mod internal;
 
@@ -29,7 +29,7 @@ mod internal;
 pub(crate) struct ConfigValueDeserializer<'a> {
     value: Value,
     key: String,
-    options: &'a ConfigReadOptions,
+    options: &'a ReadOptions,
 }
 
 impl<'a> ConfigValueDeserializer<'a> {
@@ -37,7 +37,7 @@ impl<'a> ConfigValueDeserializer<'a> {
     pub(crate) fn new(
         value: Value,
         key: String,
-        options: &'a ConfigReadOptions,
+        options: &'a ReadOptions,
     ) -> Self {
         Self {
             value,
@@ -73,7 +73,7 @@ impl<'a> ConfigValueDeserializer<'a> {
 /// Converts a scalar string using the shared conversion layer.
 fn convert_string_value(
     key: &str,
-    options: &ConfigReadOptions,
+    options: &ReadOptions,
     value: &str,
 ) -> Result<String, ConfigDeserializeError> {
     match QubitValue::String(value.to_string())
@@ -89,7 +89,7 @@ fn convert_string_value(
 /// Converts a scalar string into a boolean using the shared conversion layer.
 fn convert_bool_value(
     key: &str,
-    options: &ConfigReadOptions,
+    options: &ReadOptions,
     value: &str,
 ) -> Result<bool, ConfigDeserializeError> {
     match QubitValue::String(value.to_string())
@@ -106,7 +106,7 @@ fn convert_bool_value(
 /// layer.
 fn convert_char_value(
     key: &str,
-    options: &ConfigReadOptions,
+    options: &ReadOptions,
     value: &str,
 ) -> Result<char, ConfigDeserializeError> {
     match QubitValue::String(value.to_string())
@@ -346,10 +346,10 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
                     .options
                     .conversion_options()
                     .string()
-                    .normalize(&value)
+                    .normalize_optional(&value)
                 {
-                    Ok(value) => value,
-                    Err(error) if error.is_missing() => {
+                    Ok(Some(value)) => value,
+                    Ok(None) => {
                         return Err(ConfigDeserializeError::from_config(
                             ConfigError::PropertyHasNoValue(self.key.clone()),
                         ));

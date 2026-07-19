@@ -7,14 +7,14 @@
 // =============================================================================
 
 use crate::ConfigResult;
-use crate::options::ConfigReadOptions;
+use crate::options::ReadOptions;
 
 /// Context passed to [`crate::from::FromConfig`] implementations.
 pub struct ConfigParseContext<'a> {
     /// The root-relative configuration key.
     key: &'a str,
     /// The read options used for this parse operation.
-    options: &'a ConfigReadOptions,
+    options: &'a ReadOptions,
     /// The substitution function used for this parse operation.
     substitute: &'a dyn Fn(&str) -> ConfigResult<String>,
 }
@@ -34,7 +34,7 @@ impl<'a> ConfigParseContext<'a> {
     /// A new parsing context.
     pub(crate) fn new(
         key: &'a str,
-        options: &'a ConfigReadOptions,
+        options: &'a ReadOptions,
         substitute: &'a dyn Fn(&str) -> ConfigResult<String>,
     ) -> Self {
         Self {
@@ -60,7 +60,7 @@ impl<'a> ConfigParseContext<'a> {
     ///
     /// Read options selected by the field or reader.
     #[inline]
-    pub fn options(&self) -> &ConfigReadOptions {
+    pub fn options(&self) -> &ReadOptions {
         self.options
     }
 

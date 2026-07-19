@@ -8,10 +8,7 @@
 //! [`qubit_config::ConfigReader`] tests.
 
 use qubit_config::field::ConfigField;
-use qubit_config::options::{
-    ConfigReadOptions,
-    VariableSubstitutionOptions,
-};
+use qubit_config::options::ReadOptions;
 use qubit_config::{
     Config,
     ConfigError,
@@ -35,19 +32,6 @@ fn create_test_config() -> Config {
     config
 }
 
-fn set_substitution_enabled(config: &mut Config, enabled: bool) {
-    let substitution = config
-        .read_options()
-        .substitution()
-        .clone()
-        .with_enabled(enabled);
-    let options = config
-        .read_options()
-        .clone()
-        .with_substitution(substitution);
-    config.set_read_options(options);
-}
-
 #[cfg(test)]
 mod test_config_reader_smoke {
     #[allow(unused_imports)]
@@ -56,14 +40,13 @@ mod test_config_reader_smoke {
         Config,
         ConfigError,
         ConfigField,
-        ConfigReadOptions,
         ConfigReader,
         ConfigResult,
         ConfigSection,
         DataConversionTarget,
         DataType,
         Deserialize,
-        VariableSubstitutionOptions,
+        ReadOptions,
         create_test_config,
     };
 
@@ -85,13 +68,13 @@ mod test_config_reader {
         Config,
         ConfigError,
         ConfigField,
-        ConfigReadOptions,
         ConfigReader,
         ConfigResult,
         ConfigSection,
         DataConversionTarget,
         DataType,
         Deserialize,
+        ReadOptions,
         create_test_config,
     };
 
@@ -143,9 +126,8 @@ mod test_config_reader {
         assert_eq!(addr, "127.0.0.1");
     }
     #[test]
-    fn test_trait_default_methods_with_substitution_disabled_branches() {
+    fn test_trait_default_methods_preserve_placeholders() {
         let mut config = Config::new();
-        crate::set_substitution_enabled(&mut config, false);
         config.set("name", "${who}").unwrap();
         config.set("names", vec!["${a}", "${b}"]).unwrap();
 
@@ -167,7 +149,7 @@ mod test_config_reader {
 
         let reader = &config;
         assert_eq!(
-            <Config as ConfigReader>::get_or::<String>(
+            <Config as ConfigReader>::get_interpolated_or::<String>(
                 reader, "missing", "fallback"
             )
             .unwrap(),
@@ -208,7 +190,7 @@ mod test_config_reader {
             None
         );
         assert_eq!(
-            <Config as ConfigReader>::get_or::<String>(
+            <Config as ConfigReader>::get_interpolated_or::<String>(
                 reader, "url", "fallback"
             )
             .unwrap(),
@@ -226,7 +208,7 @@ mod test_config_reader {
 
         let view = config.section("http");
         assert_eq!(
-            <ConfigSection<'_> as ConfigReader>::get_or::<String>(
+            <ConfigSection<'_> as ConfigReader>::get_interpolated_or::<String>(
                 &view, "missing", "fallback"
             )
             .unwrap(),
@@ -271,7 +253,7 @@ mod test_config_reader {
                 .collect();
         assert_eq!(keys, vec!["host"]);
         assert_eq!(
-            <ConfigSection<'_> as ConfigReader>::get_or::<String>(
+            <ConfigSection<'_> as ConfigReader>::get_interpolated_or::<String>(
                 &view, "url", "fallback"
             )
             .unwrap(),
@@ -413,10 +395,10 @@ mod test_config_reader_extended_surface {
         Config,
         ConfigError,
         ConfigField,
-        ConfigReadOptions,
         ConfigReader,
         ConfigSection,
         DataType,
+        ReadOptions,
         create_test_config,
     };
 
@@ -601,12 +583,11 @@ mod test_config_reader_alias_reads {
         Config,
         ConfigError,
         ConfigField,
-        ConfigReadOptions,
         ConfigReader,
         ConfigSection,
         DataType,
         Deserialize,
-        VariableSubstitutionOptions,
+        ReadOptions,
         create_test_config,
     };
 
@@ -710,15 +691,14 @@ mod test_config_reader_alias_reads {
     }
 
     #[test]
-    fn test_get_any_or_with_accepts_str_slice_default_for_string_list() {
+    fn test_get_any_or_accepts_str_slice_default_for_string_list() {
         let config = Config::new();
         let defaults = ["bin", "lib"];
 
         let value = config
-            .get_any_or_with::<Vec<String>>(
+            .get_any_or::<Vec<String>>(
                 &["new.paths", "old.paths"],
                 defaults.as_slice(),
-                &ConfigReadOptions::default(),
             )
             .expect("missing aliases should use string slice default");
 
@@ -757,7 +737,7 @@ mod test_config_reader_alias_reads {
             .expect("setting fallback config should succeed");
 
         let result = config
-            .with_read_options(ConfigReadOptions::env_friendly())
+            .with_read_options(ReadOptions::env_friendly())
             .get_any_or::<bool>(&["feature.enabled", "FEATURE_ENABLED"], false);
 
         assert!(matches!(
@@ -767,27 +747,26 @@ mod test_config_reader_alias_reads {
     }
 
     #[test]
-    fn test_get_any_or_with_uses_explicit_read_options() {
+    fn test_get_any_or_uses_config_read_options() {
         let mut config = Config::new();
         config
             .set("server.port", "   ")
             .expect("setting blank value should succeed");
 
         let value = config
-            .get_any_or_with::<u16>(
-                &["server.port", "SERVER_PORT"],
-                8080,
-                &ConfigReadOptions::default().with_blank_string_policy(
+            .with_read_options(
+                ReadOptions::default().with_blank_string_policy(
                     BlankStringPolicy::TreatAsMissing,
                 ),
             )
+            .get_any_or::<u16>(&["server.port", "SERVER_PORT"], 8080)
             .expect("blank value should use default with explicit options");
 
         assert_eq!(value, 8080);
     }
 
     #[test]
-    fn test_get_any_or_with_applies_variable_substitution() {
+    fn test_get_any_interpolated_or_applies_interpolation() {
         let mut config = Config::new();
         config
             .set("host", "localhost")
@@ -797,10 +776,9 @@ mod test_config_reader_alias_reads {
             .expect("setting alias should succeed");
 
         let value = config
-            .get_any_or_with::<String>(
+            .get_any_interpolated_or::<String>(
                 ["service.url", "SERVICE_URL"],
                 "http://fallback",
-                &ConfigReadOptions::default(),
             )
             .expect("generic alias read should substitute strings");
 
@@ -816,7 +794,7 @@ mod test_config_reader_alias_reads {
 
         let result = config
             .with_read_options(
-                ConfigReadOptions::default().with_blank_string_policy(
+                ReadOptions::default().with_blank_string_policy(
                     BlankStringPolicy::TreatAsMissing,
                 ),
             )
@@ -837,7 +815,7 @@ mod test_config_reader_alias_reads {
 
         let result = config
             .with_read_options(
-                ConfigReadOptions::default()
+                ReadOptions::default()
                     .with_blank_string_policy(BlankStringPolicy::Reject),
             )
             .get_optional::<String>("server.host");
@@ -861,7 +839,7 @@ mod test_config_reader_alias_reads {
         let mut config = Config::new();
         config
             .set_read_options(
-                ConfigReadOptions::default().with_blank_string_policy(
+                ReadOptions::default().with_blank_string_policy(
                     BlankStringPolicy::TreatAsMissing,
                 ),
             )
@@ -923,7 +901,7 @@ mod test_config_reader_alias_reads {
     fn test_read_uses_global_options_and_reports_missing_field() {
         let mut config = Config::new();
         config
-            .set_read_options(ConfigReadOptions::env_friendly())
+            .set_read_options(ReadOptions::env_friendly())
             .set("FEATURE_ENABLED", "yes")
             .expect("setting alias value should succeed");
 
@@ -947,7 +925,7 @@ mod test_config_reader_alias_reads {
     }
 
     #[test]
-    fn test_read_string_field_applies_variable_substitution() {
+    fn test_read_string_field_preserves_placeholder() {
         let mut config = Config::new();
         config
             .set("host", "localhost")
@@ -963,43 +941,34 @@ mod test_config_reader_alias_reads {
                     .alias("SERVICE_URL")
                     .build(),
             )
-            .expect("field read should substitute strings");
+            .expect("field read should preserve the stored string");
 
-        assert_eq!(value, "http://localhost:8080");
+        assert_eq!(value, "http://${host}:8080");
     }
 
     #[test]
-    fn test_read_field_can_disable_variable_substitution() {
+    fn test_read_field_does_not_interpolate() {
         let mut config = Config::new();
         config.set("host", "localhost").unwrap();
         config.set("url", "http://${host}").unwrap();
-        let options = ConfigReadOptions::default().with_substitution(
-            VariableSubstitutionOptions::default().with_enabled(false),
-        );
-
         let url = config
-            .read(
-                ConfigField::<String>::builder()
-                    .name("url")
-                    .read_options(options)
-                    .build(),
-            )
+            .read(ConfigField::<String>::builder().name("url").build())
             .unwrap();
 
         assert_eq!(url, "http://${host}");
     }
 
     #[test]
-    fn test_get_any_or_with_honors_substitution_limits() {
+    fn test_get_any_interpolated_or_honors_substitution_limits() {
         let mut config = Config::new();
         config.set("host", "localhost").unwrap();
         config.set("url", "http://${host}").unwrap();
-        let options = ConfigReadOptions::default().with_substitution(
-            VariableSubstitutionOptions::default().with_max_expansions(0),
-        );
+        let options =
+            ReadOptions::default().with_max_interpolation_expansions(0);
 
-        let result =
-            config.get_any_or_with::<String>(["url"], "fallback", &options);
+        let result = config
+            .with_read_options(options)
+            .get_any_interpolated_or::<String>(["url"], "fallback");
 
         assert!(matches!(
             result,
@@ -1033,7 +1002,7 @@ mod test_config_reader_alias_reads {
             )
             .expect("missing aliases should use fallback");
 
-        assert_eq!(value, "http://localhost:8080");
+        assert_eq!(value, "http://${host}:8080");
         assert_eq!(fallback, "http://fallback");
     }
 
@@ -1057,17 +1026,17 @@ mod test_config_reader_alias_reads {
             .get_optional_any::<String>(["server.url", "SERVER_URL"])
             .expect("missing optional string aliases should not fail");
 
-        assert_eq!(value, "http://localhost:8080");
-        assert_eq!(optional.as_deref(), Some("http://localhost:8080"));
+        assert_eq!(value, "http://${host}:8080");
+        assert_eq!(optional.as_deref(), Some("http://${host}:8080"));
         assert_eq!(missing, None);
     }
 
     #[test]
-    fn test_string_helpers_cover_missing_after_substitution() {
+    fn test_interpolated_reads_cover_missing_after_substitution() {
         let mut config = Config::new();
         config
             .set_read_options(
-                ConfigReadOptions::default().with_blank_string_policy(
+                ReadOptions::default().with_blank_string_policy(
                     BlankStringPolicy::TreatAsMissing,
                 ),
             )
@@ -1084,16 +1053,22 @@ mod test_config_reader_alias_reads {
             .expect("setting fallback should succeed");
 
         let missing_string = config
-            .get::<String>("empty.string")
+            .get_interpolated::<String>("empty.string")
             .expect_err("blank substitution should be treated as no value");
-        let missing_list = config.get::<Vec<String>>("empty.list").expect_err(
-            "blank list substitution should be treated as no value",
-        );
+        let missing_list = config
+            .get_interpolated::<Vec<String>>("empty.list")
+            .expect_err(
+                "blank list substitution should be treated as no value",
+            );
         let first_present = config
-            .get_any::<String>(["missing", "empty.string", "fallback"])
+            .get_any_interpolated::<String>([
+                "missing",
+                "empty.string",
+                "fallback",
+            ])
             .expect("alias reader should skip effectively missing values");
         let missing_any = config
-            .get_any::<String>(["missing", "also.missing"])
+            .get_any_interpolated::<String>(["missing", "also.missing"])
             .expect_err("all missing aliases should report not found");
 
         assert!(

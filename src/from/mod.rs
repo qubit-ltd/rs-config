@@ -19,5 +19,7 @@ pub use into_config_default::IntoConfigDefault;
 
 pub(crate) use helpers::{
     is_effectively_missing,
+    is_effectively_missing_interpolated,
     parse_property_from_reader,
+    parse_property_from_reader_interpolated,
 };

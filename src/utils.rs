@@ -8,7 +8,7 @@
 //! # Configuration Utility Functions
 //!
 //! Provides configuration-related utility functions, such as variable
-//! substitution and JSON map construction for [`crate::Config::deserialize`].
+//! interpolation and JSON map construction for configuration deserialization.
 
 use qubit_value::ValueError;
 use regex::Regex;
@@ -26,10 +26,7 @@ use super::{
     ConfigReader,
     ConfigResult,
     Property,
-    options::{
-        ConfigReadOptions,
-        VariableSubstitutionOptions,
-    },
+    options::ReadOptions,
 };
 
 /// Regular expression pattern for variables
@@ -141,13 +138,13 @@ pub(crate) fn ensure_unique_flattened_key(
 /// Replaces variables in a string (`${name}`).
 ///
 /// Used internally by [`crate::Config`] and [`crate::ConfigReader`] when
-/// variable substitution is enabled.
+/// an explicitly interpolated read is requested.
 ///
 /// # Parameters
 ///
 /// * `value` - Text containing optional `${name}` placeholders.
 /// * `config` - Reader used to resolve variables.
-/// * `options` - Active substitution policy.
+/// * `options` - Active interpolation limits and environment policy.
 /// * `path` - Configuration path whose value is being expanded.
 ///
 /// # Returns
@@ -160,7 +157,7 @@ pub(crate) fn ensure_unique_flattened_key(
 pub(crate) fn substitute_variables<R: ConfigReader + ?Sized>(
     value: &str,
     config: &R,
-    options: &VariableSubstitutionOptions,
+    options: &ReadOptions,
     path: &str,
 ) -> ConfigResult<String> {
     substitute_variables_by(value, options, path, |var_name| {
@@ -172,7 +169,7 @@ pub(crate) fn substitute_variables<R: ConfigReader + ?Sized>(
 ///
 /// The primary reader is checked first. Absent or unset values fall back to
 /// the fallback reader, then to environment variables only when the active
-/// read options explicitly enable environment fallback. Type and conversion
+/// read options permit environment fallback. Type and conversion
 /// errors in the primary reader are returned directly.
 ///
 /// # Parameters
@@ -197,7 +194,7 @@ pub(crate) fn substitute_variables_with_fallback<
     value: &str,
     primary: &P,
     fallback: &F,
-    options: &VariableSubstitutionOptions,
+    options: &ReadOptions,
     path: &str,
 ) -> ConfigResult<String> {
     substitute_variables_by(value, options, path, |var_name| {
@@ -225,7 +222,7 @@ pub(crate) fn substitute_variables_with_fallback<
 /// Returns resolver, depth, or cycle errors.
 fn substitute_variables_by(
     value: &str,
-    options: &VariableSubstitutionOptions,
+    options: &ReadOptions,
     path: &str,
     mut resolve: impl FnMut(&str) -> ConfigResult<String>,
 ) -> ConfigResult<String> {
@@ -263,16 +260,16 @@ fn substitute_variables_by(
 /// Returns resolver, depth, or cycle errors.
 fn substitute_variables_recursive(
     value: &str,
-    options: &VariableSubstitutionOptions,
+    options: &ReadOptions,
     path: &str,
     pattern: &Regex,
     stack: &mut Vec<String>,
     expansions: &mut usize,
     resolve: &mut impl FnMut(&str) -> ConfigResult<String>,
 ) -> ConfigResult<String> {
-    let max_depth = options.max_depth();
-    let max_expansions = options.max_expansions();
-    let max_output_bytes = options.max_output_bytes();
+    let max_depth = options.max_interpolation_depth();
+    let max_expansions = options.max_interpolation_expansions();
+    let max_output_bytes = options.max_interpolation_output_bytes();
     if value.is_empty() || !pattern.is_match(value) {
         ensure_substitution_output_fits(value.len(), max_output_bytes, path)?;
         return Ok(value.to_string());
@@ -377,12 +374,13 @@ fn ensure_substitution_output_fits(
 ///
 /// First looks in the configuration. It falls back to environment variables
 /// only when the key is absent or unset/null in config and the
-/// active read options explicitly enable environment fallback.
+/// active read options permit environment fallback.
 ///
 /// # Parameters
 ///
 /// * `var_name` - Variable name
 /// * `config` - Configuration object
+/// * `options` - Active interpolation limits and environment policy.
 /// * `path` - Configuration path whose value is being expanded.
 ///
 /// # Returns
@@ -395,7 +393,7 @@ fn ensure_substitution_output_fits(
 fn find_variable_value<R: ConfigReader + ?Sized>(
     var_name: &str,
     config: &R,
-    options: &VariableSubstitutionOptions,
+    options: &ReadOptions,
     path: &str,
 ) -> ConfigResult<String> {
     match config.get_property(var_name) {
@@ -431,6 +429,7 @@ fn find_variable_value<R: ConfigReader + ?Sized>(
 /// * `var_name` - Variable name to resolve.
 /// * `primary` - Reader checked first.
 /// * `fallback` - Reader checked when `primary` has no value.
+/// * `options` - Active interpolation limits and environment policy.
 /// * `path` - Configuration path whose value is being expanded.
 ///
 /// # Returns
@@ -447,7 +446,7 @@ fn find_variable_value_with_fallback<
     var_name: &str,
     primary: &P,
     fallback: &F,
-    options: &VariableSubstitutionOptions,
+    options: &ReadOptions,
     path: &str,
 ) -> ConfigResult<String> {
     match primary.get_property(var_name) {
@@ -587,7 +586,7 @@ fn json_value_kind(value: &Value) -> &'static str {
 pub(crate) fn property_to_json_value(
     prop: &Property,
     path: &str,
-    options: &ConfigReadOptions,
+    options: &ReadOptions,
 ) -> ConfigResult<Value> {
     prop.value()
         .to_json_value_with(options.conversion_options())
@@ -622,19 +621,12 @@ pub(crate) fn substitute_json_strings_with_fallback<
     primary: &P,
     fallback: &F,
 ) -> ConfigResult<()> {
-    let substitution = primary.read_options().substitution();
-    if !substitution.is_enabled() {
-        return Ok(());
-    }
+    let options = primary.read_options();
 
     match value {
         Value::String(s) => {
             *s = substitute_variables_with_fallback(
-                s,
-                primary,
-                fallback,
-                substitution,
-                path,
+                s, primary, fallback, options, path,
             )?;
         }
         Value::Array(values) => {

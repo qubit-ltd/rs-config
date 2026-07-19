@@ -21,7 +21,7 @@ use num_bigint::BigInt;
 use qubit_config::{
     Config,
     ConfigError,
-    options::ConfigReadOptions,
+    options::ReadOptions,
 };
 use qubit_datatype::{
     InvalidValueReason,
@@ -160,7 +160,7 @@ fn test_from_config_numeric_options_are_explicit() {
     ));
 
     config.set_read_options(
-        ConfigReadOptions::default()
+        ReadOptions::default()
             .with_numeric_options(NumericConversionOptions::lossy()),
     );
     assert_eq!(config.get::<Vec<i32>>("values").unwrap(), vec![1, 2]);

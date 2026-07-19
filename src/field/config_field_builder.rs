@@ -6,7 +6,7 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-use crate::options::ConfigReadOptions;
+use crate::options::ReadOptions;
 
 use super::config_field::ConfigField;
 
@@ -20,7 +20,7 @@ pub struct ConfigFieldBuilder<T> {
     /// The default value.
     pub(crate) default: Option<T>,
     /// The read options.
-    pub(crate) read_options: Option<ConfigReadOptions>,
+    pub(crate) read_options: Option<ReadOptions>,
 }
 
 impl<T> ConfigFieldBuilder<T> {
@@ -58,14 +58,14 @@ impl<T> ConfigFieldBuilder<T> {
     ///
     /// # Parameters
     ///
-    /// * `read_options` - Options that override the reader's global options.
+    /// * `options` - Options that override the reader's global options.
     ///
     /// # Returns
     ///
     /// Updated builder.
     #[must_use = "use the updated builder"]
-    pub fn read_options(mut self, read_options: ConfigReadOptions) -> Self {
-        self.read_options = Some(read_options);
+    pub fn read_options(mut self, options: ReadOptions) -> Self {
+        self.read_options = Some(options);
         self
     }
 
