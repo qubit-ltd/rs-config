@@ -5,33 +5,31 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! [`qubit_config::constants`] behavior via [`qubit_config::Config`]
-//! (`DEFAULT_MAX_SUBSTITUTION_DEPTH`).
+//! [`qubit_config::constants`] behavior via substitution options.
 
-use qubit_config::Config;
+use qubit_config::options::VariableSubstitutionOptions;
 
 #[cfg(test)]
 mod test_max_substitution_depth {
     #[allow(unused_imports)]
-    use super::Config;
+    use super::VariableSubstitutionOptions;
 
     #[test]
     fn test_max_substitution_depth_returns_default_value() {
-        let config = Config::new();
-        assert_eq!(config.max_substitution_depth(), 64);
+        let options = VariableSubstitutionOptions::default();
+        assert_eq!(options.max_depth(), 64);
     }
 
     #[test]
     fn test_set_max_substitution_depth_sets_value() {
-        let mut config = Config::new();
-        config.set_max_substitution_depth(100);
-        assert_eq!(config.max_substitution_depth(), 100);
+        let options =
+            VariableSubstitutionOptions::default().with_max_depth(100);
+        assert_eq!(options.max_depth(), 100);
     }
 
     #[test]
     fn test_set_max_substitution_depth_sets_zero() {
-        let mut config = Config::new();
-        config.set_max_substitution_depth(0);
-        assert_eq!(config.max_substitution_depth(), 0);
+        let options = VariableSubstitutionOptions::default().with_max_depth(0);
+        assert_eq!(options.max_depth(), 0);
     }
 }

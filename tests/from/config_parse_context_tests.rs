@@ -43,7 +43,7 @@ fn test_config_parse_context_applies_substitution_for_string_reads() {
 
     let view = config.section("http");
     let url = view
-        .get_string("url")
+        .get::<String>("url")
         .expect("string read should apply view substitution context");
 
     assert_eq!(url, "http://localhost:8080");

@@ -45,8 +45,8 @@ fn test_config_names_accepts_owned_string_lists() {
     let array = [String::from("server.host"), String::from("APP_HOST")];
     let vec_names = vec![String::from("server.host"), String::from("APP_HOST")];
 
-    assert_eq!(config.get_string_any(&array).unwrap(), "localhost");
-    assert_eq!(config.get_string_any(array).unwrap(), "localhost");
-    assert_eq!(config.get_string_any(&vec_names).unwrap(), "localhost");
-    assert_eq!(config.get_string_any(vec_names).unwrap(), "localhost");
+    assert_eq!(config.get_any::<String>(&array).unwrap(), "localhost");
+    assert_eq!(config.get_any::<String>(array).unwrap(), "localhost");
+    assert_eq!(config.get_any::<String>(&vec_names).unwrap(), "localhost");
+    assert_eq!(config.get_any::<String>(vec_names).unwrap(), "localhost");
 }

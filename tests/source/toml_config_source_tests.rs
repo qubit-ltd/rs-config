@@ -50,7 +50,7 @@ mod test_toml_config_source {
         source.load(&mut config).unwrap();
 
         // String values remain strings
-        assert_eq!(config.get_string("host").unwrap(), "localhost");
+        assert_eq!(config.get::<String>("host").unwrap(), "localhost");
         // Integer values are stored as i64 (type-faithful)
         assert_eq!(config.get::<i64>("port").unwrap(), 8080);
         // Boolean values are stored as bool
@@ -65,9 +65,9 @@ mod test_toml_config_source {
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
-        assert_eq!(config.get_string("app.name").unwrap(), "MyApp");
-        assert_eq!(config.get_string("app.version").unwrap(), "1.0.0");
-        assert_eq!(config.get_string("server.host").unwrap(), "0.0.0.0");
+        assert_eq!(config.get::<String>("app.name").unwrap(), "MyApp");
+        assert_eq!(config.get::<String>("app.version").unwrap(), "1.0.0");
+        assert_eq!(config.get::<String>("server.host").unwrap(), "0.0.0.0");
         // Integer values are stored as i64
         assert_eq!(config.get::<i64>("server.port").unwrap(), 9090);
     }
@@ -78,7 +78,7 @@ mod test_toml_config_source {
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
-        let tags = config.get_string_list("tags.list").unwrap();
+        let tags = config.get::<Vec<String>>("tags.list").unwrap();
         assert_eq!(tags.len(), 3);
         assert!(tags.contains(&"web".to_string()));
         assert!(tags.contains(&"api".to_string()));
@@ -151,13 +151,13 @@ pool = 5
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
-        assert_eq!(config.get_string("name").unwrap(), "test");
+        assert_eq!(config.get::<String>("name").unwrap(), "test");
         // Integer values are stored as i64 (type-faithful)
         assert_eq!(config.get::<i64>("value").unwrap(), 42);
         // Boolean values are stored as bool
         assert!(!config.get::<bool>("enabled").unwrap());
         assert_eq!(
-            config.get_string("db.url").unwrap(),
+            config.get::<String>("db.url").unwrap(),
             "postgres://localhost/mydb"
         );
         // Integer values are stored as i64
@@ -222,7 +222,7 @@ port = 9090
             result,
             Err(ConfigError::KeyConflict { path, .. }) if path == "server.port"
         ));
-        assert_eq!(config.get_string("existing").unwrap(), "old");
+        assert_eq!(config.get::<String>("existing").unwrap(), "old");
         assert_eq!(config.len(), 1);
     }
 }
@@ -249,7 +249,7 @@ mod test_toml_edge_cases {
         let mut config = Config::new();
         source.load(&mut config).unwrap();
         assert!(config.contains("created_at"));
-        let val = config.get_string("created_at").unwrap();
+        let val = config.get::<String>("created_at").unwrap();
         assert!(val.contains("2026"));
     }
 
@@ -264,7 +264,7 @@ mod test_toml_edge_cases {
 
         assert!(config.contains("empty"));
         assert_eq!(
-            config.get_string_list("empty").unwrap(),
+            config.get::<Vec<String>>("empty").unwrap(),
             Vec::<String>::new()
         );
         assert_eq!(config.get_list::<i64>("empty").unwrap(), Vec::<i64>::new());
@@ -330,7 +330,7 @@ mod test_toml_edge_cases {
         let result = source.load(&mut config);
 
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
-        assert_eq!(config.get_string_list("locked").unwrap(), vec!["old"]);
+        assert_eq!(config.get::<Vec<String>>("locked").unwrap(), vec!["old"]);
     }
 
     // ---- toml: mixed array (int + string) falls back to string ----
@@ -388,7 +388,7 @@ dates = [2026-04-09T12:00:00Z, 2026-04-10T12:00:00Z]
             config.get_list::<bool>("flags").unwrap(),
             vec![true, false]
         );
-        let dates = config.get_string_list("dates").unwrap();
+        let dates = config.get::<Vec<String>>("dates").unwrap();
         assert_eq!(dates.len(), 2);
         assert!(dates[0].contains("2026-04-09"));
     }
@@ -439,7 +439,7 @@ locked_datetime = 1979-05-27T07:32:00Z
             let result = source.load(&mut config);
 
             assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
-            assert_eq!(config.get_string(key).unwrap(), "old");
+            assert_eq!(config.get::<String>(key).unwrap(), "old");
         }
     }
 
@@ -474,7 +474,7 @@ locked_strings = ["one", "two"]
             let result = source.load(&mut config);
 
             assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
-            assert_eq!(config.get_string_list(key).unwrap(), vec!["old"]);
+            assert_eq!(config.get::<Vec<String>>(key).unwrap(), vec!["old"]);
         }
     }
 
@@ -498,7 +498,7 @@ locked = "attempted"
         let result = source.load(&mut config);
 
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
-        assert_eq!(config.get_string("locked").unwrap(), "old");
+        assert_eq!(config.get::<String>("locked").unwrap(), "old");
         assert!(!config.contains("new_key"));
     }
 }

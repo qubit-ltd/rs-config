@@ -22,9 +22,9 @@ fn test_config_name_accepts_str_string_and_string_ref() {
     let owned = String::from("server.host");
     let borrowed = String::from("server.host");
 
-    assert_eq!(config.get_string("server.host").unwrap(), "localhost");
-    assert_eq!(config.get_string(owned).unwrap(), "localhost");
-    assert_eq!(config.get_string(&borrowed).unwrap(), "localhost");
+    assert_eq!(config.get::<String>("server.host").unwrap(), "localhost");
+    assert_eq!(config.get::<String>(owned).unwrap(), "localhost");
+    assert_eq!(config.get::<String>(&borrowed).unwrap(), "localhost");
 }
 
 #[test]
@@ -38,5 +38,5 @@ fn test_config_name_resolves_relative_to_section() {
     let name = String::from("host");
 
     assert!(ConfigReader::contains(&view, &name));
-    assert_eq!(view.get_string(name).unwrap(), "localhost");
+    assert_eq!(view.get::<String>(name).unwrap(), "localhost");
 }

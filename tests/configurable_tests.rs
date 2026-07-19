@@ -275,7 +275,7 @@ mod test_set_config {
             matches!(result, Err(ConfigError::Other(message)) if message == "update failed")
         );
         assert_eq!(obj.changed_count(), 0);
-        assert_eq!(obj.config().get_string("host").unwrap(), "old-host");
+        assert_eq!(obj.config().get::<String>("host").unwrap(), "old-host");
         assert!(!obj.config().contains("port"));
     }
 }

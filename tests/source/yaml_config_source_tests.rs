@@ -54,7 +54,7 @@ mod test_yaml_config_source {
         source.load(&mut config).unwrap();
 
         // String values remain strings
-        assert_eq!(config.get_string("host").unwrap(), "localhost");
+        assert_eq!(config.get::<String>("host").unwrap(), "localhost");
         // Integer values are stored as i64 (type-faithful)
         assert_eq!(config.get::<i64>("port").unwrap(), 8080);
         // Boolean values are stored as bool
@@ -102,9 +102,9 @@ mod test_yaml_config_source {
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
-        assert_eq!(config.get_string("app.name").unwrap(), "MyApp");
-        assert_eq!(config.get_string("app.version").unwrap(), "1.0.0");
-        assert_eq!(config.get_string("server.host").unwrap(), "0.0.0.0");
+        assert_eq!(config.get::<String>("app.name").unwrap(), "MyApp");
+        assert_eq!(config.get::<String>("app.version").unwrap(), "1.0.0");
+        assert_eq!(config.get::<String>("server.host").unwrap(), "0.0.0.0");
         // Integer values are stored as i64
         assert_eq!(config.get::<i64>("server.port").unwrap(), 9090);
     }
@@ -115,7 +115,7 @@ mod test_yaml_config_source {
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
-        let tags = config.get_string_list("tags").unwrap();
+        let tags = config.get::<Vec<String>>("tags").unwrap();
         assert_eq!(tags.len(), 3);
         assert!(tags.contains(&"web".to_string()));
         assert!(tags.contains(&"api".to_string()));
@@ -187,13 +187,13 @@ db:
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
-        assert_eq!(config.get_string("name").unwrap(), "test");
+        assert_eq!(config.get::<String>("name").unwrap(), "test");
         // Integer values are stored as i64 (type-faithful)
         assert_eq!(config.get::<i64>("value").unwrap(), 42);
         // Boolean values are stored as bool
         assert!(!config.get::<bool>("enabled").unwrap());
         assert_eq!(
-            config.get_string("db.url").unwrap(),
+            config.get::<String>("db.url").unwrap(),
             "postgres://localhost/mydb"
         );
         // Integer values are stored as i64
@@ -216,7 +216,7 @@ db:
         // get_optional returns None for null values
         let val: Option<String> = config.get_optional("key").unwrap();
         assert_eq!(val, None);
-        assert_eq!(config.get_string("other").unwrap(), "value");
+        assert_eq!(config.get::<String>("other").unwrap(), "value");
     }
 
     #[test]
@@ -255,7 +255,7 @@ db:
         let result = source.load(&mut config);
 
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
-        assert_eq!(config.get_string("locked").unwrap(), "old");
+        assert_eq!(config.get::<String>("locked").unwrap(), "old");
     }
 
     #[test]
@@ -270,7 +270,7 @@ db:
 
         assert!(config.contains("empty"));
         assert_eq!(
-            config.get_string_list("empty").unwrap(),
+            config.get::<Vec<String>>("empty").unwrap(),
             Vec::<String>::new()
         );
         assert_eq!(config.get_list::<i64>("empty").unwrap(), Vec::<i64>::new());
@@ -340,7 +340,7 @@ db:
         let result = source.load(&mut config);
 
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
-        assert_eq!(config.get_string_list("locked").unwrap(), vec!["old"]);
+        assert_eq!(config.get::<Vec<String>>("locked").unwrap(), vec!["old"]);
     }
 
     #[test]
@@ -397,7 +397,7 @@ server:
             result,
             Err(ConfigError::KeyConflict { path, .. }) if path == "server.port"
         ));
-        assert_eq!(config.get_string("existing").unwrap(), "old");
+        assert_eq!(config.get::<String>("existing").unwrap(), "old");
         assert_eq!(config.len(), 1);
     }
 
@@ -593,7 +593,7 @@ flags:
 
         source.load(&mut config).unwrap();
 
-        assert_eq!(config.get_string("key").unwrap(), "hello");
+        assert_eq!(config.get::<String>("key").unwrap(), "hello");
     }
 
     #[test]
@@ -629,7 +629,7 @@ locked_tagged: !custom tagged
             let result = source.load(&mut config);
 
             assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
-            assert_eq!(config.get_string(key).unwrap(), "old");
+            assert_eq!(config.get::<String>(key).unwrap(), "old");
         }
     }
 
@@ -676,7 +676,7 @@ locked_mixed:
             let result = source.load(&mut config);
 
             assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
-            assert_eq!(config.get_string_list(key).unwrap(), vec!["old"]);
+            assert_eq!(config.get::<Vec<String>>(key).unwrap(), vec!["old"]);
         }
     }
 }

@@ -233,11 +233,11 @@ mod test_properties_config_source {
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
-        assert_eq!(config.get_string("host").unwrap(), "localhost");
-        assert_eq!(config.get_string("port").unwrap(), "8080");
-        assert_eq!(config.get_string("debug").unwrap(), "true");
-        assert_eq!(config.get_string("app.name").unwrap(), "MyApp");
-        assert_eq!(config.get_string("app.version").unwrap(), "1.0.0");
+        assert_eq!(config.get::<String>("host").unwrap(), "localhost");
+        assert_eq!(config.get::<String>("port").unwrap(), "8080");
+        assert_eq!(config.get::<String>("debug").unwrap(), "true");
+        assert_eq!(config.get::<String>("app.name").unwrap(), "MyApp");
+        assert_eq!(config.get::<String>("app.version").unwrap(), "1.0.0");
     }
 
     #[test]
@@ -247,11 +247,11 @@ mod test_properties_config_source {
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
-        assert_eq!(config.get_string("greeting").unwrap(), "中文测试");
-        assert_eq!(config.get_string("empty.value").unwrap(), "");
-        assert_eq!(config.get_string("colon.key").unwrap(), "colon value");
+        assert_eq!(config.get::<String>("greeting").unwrap(), "中文测试");
+        assert_eq!(config.get::<String>("empty.value").unwrap(), "");
+        assert_eq!(config.get::<String>("colon.key").unwrap(), "colon value");
         assert_eq!(
-            config.get_string("spaces.key").unwrap(),
+            config.get::<String>("spaces.key").unwrap(),
             "value with spaces"
         );
     }

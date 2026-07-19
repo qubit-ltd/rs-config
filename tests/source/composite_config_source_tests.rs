@@ -86,11 +86,11 @@ mod test_composite_config_source {
         composite.load(&mut config).unwrap();
 
         // Later source wins
-        assert_eq!(config.get_string("host").unwrap(), "production-server");
+        assert_eq!(config.get::<String>("host").unwrap(), "production-server");
         // Integer values are stored as i64 (type-faithful)
         assert_eq!(config.get::<i64>("port").unwrap(), 443);
         // Keys only in first source are still present
-        assert_eq!(config.get_string("app.name").unwrap(), "MyApp");
+        assert_eq!(config.get::<String>("app.name").unwrap(), "MyApp");
     }
 
     #[test]
@@ -132,9 +132,9 @@ mod test_composite_config_source {
         composite.load(&mut config).unwrap();
 
         // env source overrides toml
-        assert_eq!(config.get_string("host").unwrap(), "env-host");
+        assert_eq!(config.get::<String>("host").unwrap(), "env-host");
         // toml-only keys still present
-        assert_eq!(config.get_string("app.name").unwrap(), "MyApp");
+        assert_eq!(config.get::<String>("app.name").unwrap(), "MyApp");
 
         unsafe {
             std::env::remove_var("CTEST_HOST");
@@ -150,7 +150,7 @@ mod test_composite_config_source {
         let mut config = Config::new();
         config.merge_from_source(&composite).unwrap();
 
-        assert_eq!(config.get_string("host").unwrap(), "production-server");
+        assert_eq!(config.get::<String>("host").unwrap(), "production-server");
     }
 
     #[test]
@@ -183,7 +183,7 @@ mod test_composite_config_source {
         let result = composite.load(&mut config);
 
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
-        assert_eq!(config.get_string("locked").unwrap(), "old");
+        assert_eq!(config.get::<String>("locked").unwrap(), "old");
         assert!(!config.contains("new_key"));
     }
 }
