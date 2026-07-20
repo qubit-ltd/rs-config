@@ -24,7 +24,7 @@
 - ✅ **只读访问（ConfigReader）** - 封闭的 [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) trait 为 [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) 与 [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html) 提供泛型、多 key 和字段声明读取
 - ✅ **可配置解析** - [`ReadOptions`](https://docs.rs/qubit-config/latest/qubit_config/options/struct.ReadOptions.html) 可在全局或单个字段上控制字符串 trim、空白值处理、布尔字面量和标量字符串拆分列表
 - ✅ **严格 section（ConfigSection）** - [`Config::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.section) 返回严格相对键视图；可通过 [`ConfigSection::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html#method.section) 继续嵌套
-- ✅ **安全诊断** - `Debug` 输出保留配置项元数据，并通过 `qubit-sanitize` 脱敏所有存储值
+- ✅ **安全诊断** - `Debug` 输出保留配置项元数据，并通过 `qubit-redact` 遮盖所有存储值
 - ✅ **结构化错误** - [`ConfigError::kind`](https://docs.rs/qubit-config/latest/qubit_config/enum.ConfigError.html#method.kind) 与 [`ConfigError::path`](https://docs.rs/qubit-config/latest/qubit_config/enum.ConfigError.html#method.path) 提供稳定的机器可读上下文，下游无需穷举错误变体
 - ✅ **高效核心表示** - 核心值使用枚举表示，并通过 staged source loading 控制合并成本；可插拔 source 在需要动态组合时仍可使用 trait object
 
@@ -640,7 +640,7 @@ key 上下文。把值层错误转换为配置错误时，必须使用
 
 - `qubit-datatype` - 核心工具和数据类型定义
 - `qubit-value` - 值处理框架
-- `qubit-sanitize` - 配置诊断的固定标记脱敏工具
+- `qubit-redact` - 配置诊断的固定标记遮盖工具
 - `serde` - 序列化框架
 - `regex` - 正则表达式支持
 - `chrono`、`url`、`num-bigint`、`bigdecimal` - 各自同名原子 feature 下的可选富类型支持

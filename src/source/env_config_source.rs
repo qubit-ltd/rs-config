@@ -23,15 +23,11 @@
 
 use std::{
     collections::HashMap,
-    ffi::{
-        OsStr,
-        OsString,
-    },
+    ffi::OsStr,
 };
 
-use qubit_sanitize::{
-    EnvSanitizer,
-    NameMatchMode,
+use qubit_redact::{
+    EnvRedactor,
     redacted_debug,
 };
 
@@ -245,7 +241,8 @@ impl EnvConfigSource {
     ///
     /// # Parameters
     ///
-    /// * `value` - Environment key returned by [`std::env::vars_os`].
+    /// * `key` - Environment key returned by [`std::env::vars_os`].
+    /// * `value` - Environment value paired with `key`.
     ///
     /// # Returns
     ///
@@ -255,11 +252,13 @@ impl EnvConfigSource {
     ///
     /// Returns [`ConfigError::ParseError`] with a fixed redaction marker when
     /// the key is not valid Unicode.
-    fn env_key_to_string(value: OsString) -> ConfigResult<String> {
-        value.into_string().map_err(|value| {
+    #[inline]
+    fn env_key_to_string(key: &OsStr, value: &OsStr) -> ConfigResult<String> {
+        key.to_str().map(str::to_owned).ok_or_else(|| {
+            let pair = EnvRedactor::default().redact_os_pair(key, value);
             ConfigError::ParseError(format!(
                 "Environment variable key is not valid Unicode: {:?}",
-                redacted_debug(&value),
+                redacted_debug(&pair),
             ))
         })
     }
@@ -268,7 +267,7 @@ impl EnvConfigSource {
     ///
     /// # Parameters
     ///
-    /// * `key` - Valid UTF-8 environment variable key used as safe context.
+    /// * `key` - Environment variable key used as diagnostic context.
     /// * `value` - Environment value returned by [`std::env::vars_os`].
     ///
     /// # Returns
@@ -277,19 +276,14 @@ impl EnvConfigSource {
     ///
     /// # Errors
     ///
-    /// Returns [`ConfigError::ParseError`] with the value redacted by
-    /// [`EnvSanitizer`] when it is not valid Unicode.
-    fn env_value_to_string(key: &str, value: OsString) -> ConfigResult<String> {
-        value.into_string().map_err(|value| {
-            let (_, sanitized_value) = EnvSanitizer::default()
-                .sanitize_os_pair(
-                    OsStr::new(key),
-                    &value,
-                    NameMatchMode::ExactOrSuffix,
-                );
+    /// Returns [`ConfigError::ParseError`] containing a log-safe pair produced
+    /// by [`EnvRedactor`] when the value is not valid Unicode.
+    #[inline]
+    fn env_value_to_string(key: &OsStr, value: &OsStr) -> ConfigResult<String> {
+        value.to_str().map(str::to_owned).ok_or_else(|| {
+            let pair = EnvRedactor::default().redact_os_pair(key, value);
             ConfigError::ParseError(format!(
-                "Value for environment variable {key:?} is not valid Unicode: \
-                 {sanitized_value}",
+                "Environment variable value is not valid Unicode: {pair}",
             ))
         })
     }
@@ -318,8 +312,8 @@ impl ConfigSource for EnvConfigSource {
                 continue;
             }
 
-            let key = Self::env_key_to_string(key_os)?;
-            let value = Self::env_value_to_string(&key, value_os)?;
+            let key = Self::env_key_to_string(&key_os, &value_os)?;
+            let value = Self::env_value_to_string(&key_os, &value_os)?;
             let transformed_key = self.transform_key(&key);
             if self.strip_prefix || self.convert_underscores {
                 utils::validate_normalized_config_key(&transformed_key, &key)?;

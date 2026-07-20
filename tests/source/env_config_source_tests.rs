@@ -15,6 +15,7 @@ use qubit_config::{
         EnvConfigSource,
     },
 };
+use qubit_redact::EnvRedactor;
 use std::sync::{
     Mutex,
     MutexGuard,
@@ -41,11 +42,24 @@ mod test_env_config_source {
         ConfigError,
         ConfigSource,
         EnvConfigSource,
+        EnvRedactor,
         Mutex,
         MutexGuard,
         OnceLock,
         env_test_lock,
     };
+
+    /// Verifies the default environment policy redacts an ordinary UTF-8
+    /// sensitive pair.
+    #[test]
+    fn test_default_env_policy_redacts_sensitive_utf8_value() {
+        let rendered = EnvRedactor::default()
+            .redact_os_pair("APP_PASSWORD".as_ref(), "plain-secret".as_ref())
+            .to_string();
+
+        assert_eq!(rendered, "APP_PASSWORD=<redacted>");
+        assert!(!rendered.contains("plain-secret"));
+    }
 
     #[test]
     fn test_load_all_env_vars() {
@@ -228,8 +242,11 @@ mod test_env_config_source {
         use std::os::unix::ffi::OsStringExt;
 
         const SECRET_MARKER: &str = "RS_CONFIG_ENV_VALUE_SECRET_MARKER";
+        const INJECTION_MARKER: &str = "FORGED_ENV_VALUE_LINE";
         let key = "QUNICODE_BAD_VALUE";
         let mut raw_value = SECRET_MARKER.as_bytes().to_vec();
+        raw_value
+            .extend_from_slice(format!("\n{INJECTION_MARKER}\r").as_bytes());
         raw_value.push(0xFF);
         unsafe {
             std::env::set_var(key, OsString::from_vec(raw_value));
@@ -251,7 +268,13 @@ mod test_env_config_source {
         assert!(display.contains("not valid Unicode"));
         assert!(display.contains("<redacted>"));
         assert!(!display.contains(SECRET_MARKER));
+        assert!(!display.contains(INJECTION_MARKER));
+        assert!(!display.contains('\n'));
+        assert!(!display.contains('\r'));
         assert!(!debug.contains(SECRET_MARKER));
+        assert!(!debug.contains(INJECTION_MARKER));
+        assert!(!debug.contains('\n'));
+        assert!(!debug.contains('\r'));
     }
 
     #[cfg(unix)]
@@ -262,8 +285,10 @@ mod test_env_config_source {
         use std::os::unix::ffi::OsStringExt;
 
         const SECRET_MARKER: &str = "RS_CONFIG_ENV_KEY_SECRET_MARKER";
+        const INJECTION_MARKER: &str = "FORGED_ENV_KEY_LINE";
         let mut raw_key = b"QUNICODE_".to_vec();
         raw_key.extend_from_slice(SECRET_MARKER.as_bytes());
+        raw_key.extend_from_slice(format!("\n{INJECTION_MARKER}\r").as_bytes());
         raw_key.push(0xFF);
         let key = OsString::from_vec(raw_key);
         unsafe {
@@ -286,7 +311,13 @@ mod test_env_config_source {
         assert!(display.contains("not valid Unicode"));
         assert!(display.contains("<redacted>"));
         assert!(!display.contains(SECRET_MARKER));
+        assert!(!display.contains(INJECTION_MARKER));
+        assert!(!display.contains('\n'));
+        assert!(!display.contains('\r'));
         assert!(!debug.contains(SECRET_MARKER));
+        assert!(!debug.contains(INJECTION_MARKER));
+        assert!(!debug.contains('\n'));
+        assert!(!debug.contains('\r'));
     }
 
     #[test]
