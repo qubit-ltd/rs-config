@@ -512,7 +512,7 @@ dependencies = [
  "dotenvy",
  "num-bigint",
  "qubit-datatype",
- "qubit-sanitize",
+ "qubit-redact",
  "qubit-value",
  "regex",
  "serde",
@@ -541,8 +541,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "qubit-sanitize"
-version = "0.3.0"
+name = "qubit-redact"
+version = "0.1.0"
 
 [[package]]
 name = "qubit-value"

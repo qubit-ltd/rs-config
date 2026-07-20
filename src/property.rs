@@ -25,7 +25,7 @@ use std::ops::{
 };
 
 use qubit_datatype::DataType;
-use qubit_sanitize::redacted_debug;
+use qubit_redact::redacted_debug;
 use qubit_value::ValueContainer;
 
 /// Configuration Property

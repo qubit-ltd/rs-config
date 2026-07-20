@@ -22,7 +22,7 @@ use std::path::{
     PathBuf,
 };
 
-use qubit_sanitize::redacted_debug;
+use qubit_redact::redacted_debug;
 
 use crate::{
     Config,

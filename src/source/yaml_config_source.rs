@@ -30,7 +30,7 @@ use std::path::{
     PathBuf,
 };
 
-use qubit_sanitize::redacted_debug;
+use qubit_redact::redacted_debug;
 use serde_norway as yaml_backend;
 use yaml_backend::Value as YamlValue;
 

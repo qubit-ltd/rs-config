@@ -22,7 +22,7 @@ A powerful, type-safe configuration management system for Rust, providing flexib
 - ✅ **Read-only API** - The sealed [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) trait provides typed, multi-key, and field-declaration reads for [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) and [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html)
 - ✅ **Configurable parsing** - [`ReadOptions`](https://docs.rs/qubit-config/latest/qubit_config/options/struct.ReadOptions.html) controls string trimming, blank handling, boolean literals, and scalar-string collection splitting globally or per field
 - ✅ **Strict sections** - [`Config::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.section) returns a [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html) with strictly relative keys; nest with [`ConfigSection::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html#method.section)
-- ✅ **Safe diagnostics** - `Debug` output preserves property metadata while redacting every stored configuration value through `qubit-sanitize`
+- ✅ **Safe diagnostics** - `Debug` output preserves property metadata while redacting every stored configuration value through `qubit-redact`
 - ✅ **Structured errors** - [`ConfigError::kind`](https://docs.rs/qubit-config/latest/qubit_config/enum.ConfigError.html#method.kind) and [`ConfigError::path`](https://docs.rs/qubit-config/latest/qubit_config/enum.ConfigError.html#method.path) expose stable machine-readable context without downstream exhaustive variant matching
 - ✅ **Efficient core representation** - Uses enum-backed values and staged source loading; pluggable sources can still use trait objects where dynamic composition is useful
 
@@ -654,7 +654,7 @@ For detailed API documentation, visit [docs.rs/qubit-config](https://docs.rs/qub
 
 - `qubit-datatype` - Core utilities and data type definitions
 - `qubit-value` - Value handling framework
-- `qubit-sanitize` - Fixed-marker redaction for configuration diagnostics
+- `qubit-redact` - Fixed-marker redaction for configuration diagnostics
 - `serde` - Serialization framework
 - `regex` - Regular expression support
 - `chrono`, `url`, `num-bigint`, `bigdecimal` - optional rich-value support behind their matching atomic features
