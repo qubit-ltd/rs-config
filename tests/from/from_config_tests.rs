@@ -34,7 +34,7 @@ use std::str::FromStr;
 fn test_from_config_converts_scalar_string_to_duration() {
     let mut config = Config::new();
     config
-        .set("server.timeout_secs", "30")
+        .set("server.timeout_secs", "30ms")
         .expect("setting config value should succeed");
 
     let timeout = config

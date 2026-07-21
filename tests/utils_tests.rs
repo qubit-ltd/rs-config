@@ -1318,7 +1318,7 @@ mod test_property_to_json_value_deserialize_behavior {
 
         let value: AnyStruct = config.deserialize("x").unwrap();
 
-        assert_eq!(value.val, serde_json::json!("1500us"));
+        assert_eq!(value.val, serde_json::json!("1500µs"));
     }
 
     #[cfg(feature = "url")]
