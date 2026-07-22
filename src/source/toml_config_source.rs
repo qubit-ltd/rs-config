@@ -35,6 +35,8 @@ use toml::{
     Value as TomlValue,
 };
 
+use qubit_value::ValueContainer;
+
 use crate::{
     Config,
     ConfigError,
@@ -224,7 +226,24 @@ pub(crate) fn flatten_toml_value(
 ///
 /// Homogeneous scalar arrays are stored with their native types. Empty arrays
 /// are stored as explicit empty string lists because TOML carries no element
-/// type for them. Mixed or nested arrays fall back to string representation.
+/// type for them. Mixed scalar arrays fall back to string representation.
+/// Nested arrays and tables are rejected because flattening them would lose
+/// structure information.
+///
+/// # Parameters
+///
+/// * `prefix` - Flattened configuration path receiving the array values.
+/// * `arr` - TOML array to flatten.
+/// * `config` - Configuration mutated with the flattened values.
+///
+/// # Returns
+///
+/// `Ok(())` after storing the array values.
+///
+/// # Errors
+///
+/// Returns an error when the array contains nested structures or when the
+/// configuration rejects the write, for example because the property is final.
 fn flatten_toml_array(
     prefix: &str,
     arr: &[TomlValue],
@@ -239,61 +258,90 @@ fn flatten_toml_array(
         TomlValue::Integer(_)
             if all_toml_values_match(arr, TomlValue::is_integer) =>
         {
-            let values = arr
-                .iter()
-                .filter_map(TomlValue::as_integer)
-                .collect::<Vec<_>>();
-            config.set(prefix, values)?;
+            set_toml_array_values(prefix, arr, config, TomlValue::as_integer)
         }
         TomlValue::Float(_)
             if all_toml_values_match(arr, TomlValue::is_float) =>
         {
-            let values = arr
-                .iter()
-                .filter_map(TomlValue::as_float)
-                .collect::<Vec<_>>();
-            config.set(prefix, values)?;
+            set_toml_array_values(prefix, arr, config, TomlValue::as_float)
         }
         TomlValue::Boolean(_)
             if all_toml_values_match(arr, TomlValue::is_bool) =>
         {
-            let values = arr
-                .iter()
-                .filter_map(TomlValue::as_bool)
-                .collect::<Vec<_>>();
-            config.set(prefix, values)?;
+            set_toml_array_values(prefix, arr, config, TomlValue::as_bool)
         }
         TomlValue::String(_) | TomlValue::Datetime(_)
             if arr.iter().all(|value| {
                 matches!(value, TomlValue::String(_) | TomlValue::Datetime(_))
             }) =>
         {
-            let values = arr
-                .iter()
-                .map(|value| toml_scalar_to_string(value, prefix))
-                .collect::<ConfigResult<Vec<_>>>()?;
-            config.set(prefix, values)?;
+            set_toml_string_array(prefix, arr, config)
         }
-        TomlValue::Table(_) => {
-            return Err(ConfigError::ParseError(format!(
-                "Unsupported nested TOML table inside array at key '{prefix}'"
-            )));
-        }
-        TomlValue::Array(_) => {
-            return Err(ConfigError::ParseError(format!(
-                "Unsupported nested TOML array at key '{prefix}'"
-            )));
-        }
-        _ => {
-            let values = arr
-                .iter()
-                .map(|value| toml_scalar_to_string(value, prefix))
-                .collect::<ConfigResult<Vec<_>>>()?;
-            config.set(prefix, values)?;
-        }
+        TomlValue::Table(_) => Err(ConfigError::ParseError(format!(
+            "Unsupported nested TOML table inside array at key '{prefix}'"
+        ))),
+        TomlValue::Array(_) => Err(ConfigError::ParseError(format!(
+            "Unsupported nested TOML array at key '{prefix}'"
+        ))),
+        _ => set_toml_string_array(prefix, arr, config),
     }
+}
 
-    Ok(())
+/// Collects homogeneous TOML scalar values and writes them as one property.
+///
+/// # Parameters
+///
+/// * `prefix` - Flattened configuration path receiving the values.
+/// * `arr` - Homogeneous TOML scalar array.
+/// * `config` - Configuration mutated with the collected values.
+/// * `convert` - Conversion used for each scalar value.
+///
+/// # Returns
+///
+/// `Ok(())` after storing the collected values.
+///
+/// # Errors
+///
+/// Returns an error when the configuration rejects the write.
+fn set_toml_array_values<T>(
+    prefix: &str,
+    arr: &[TomlValue],
+    config: &mut Config,
+    convert: impl Fn(&TomlValue) -> Option<T>,
+) -> ConfigResult<()>
+where
+    Vec<T>: Into<ValueContainer>,
+{
+    let values = arr.iter().filter_map(convert).collect::<Vec<_>>();
+    config.set(prefix, values)
+}
+
+/// Converts TOML scalar values to strings and writes them as one property.
+///
+/// # Parameters
+///
+/// * `prefix` - Flattened configuration path receiving the values.
+/// * `arr` - TOML scalar array to convert.
+/// * `config` - Configuration mutated with the converted values.
+///
+/// # Returns
+///
+/// `Ok(())` after storing the converted values.
+///
+/// # Errors
+///
+/// Returns an error when `arr` contains a nested structure or when the
+/// configuration rejects the write.
+fn set_toml_string_array(
+    prefix: &str,
+    arr: &[TomlValue],
+    config: &mut Config,
+) -> ConfigResult<()> {
+    let values = arr
+        .iter()
+        .map(|value| toml_scalar_to_string(value, prefix))
+        .collect::<ConfigResult<Vec<_>>>()?;
+    config.set(prefix, values)
 }
 
 /// Tests whether all TOML values satisfy a scalar type predicate.

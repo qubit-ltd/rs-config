@@ -31,6 +31,7 @@ use std::path::{
 };
 
 use qubit_redact::redacted_debug;
+use qubit_value::ValueContainer;
 use serde_norway as yaml_backend;
 use yaml_backend::Value as YamlValue;
 
@@ -210,6 +211,21 @@ pub(crate) fn flatten_yaml_value(
 ///
 /// Nested structures inside sequences (mapping/sequence/tagged) are rejected
 /// with a parse error to avoid silently losing structure information.
+///
+/// # Parameters
+///
+/// * `prefix` - Flattened configuration path receiving the sequence values.
+/// * `seq` - YAML sequence to flatten.
+/// * `config` - Configuration mutated with the flattened values.
+///
+/// # Returns
+///
+/// `Ok(())` after storing the sequence values.
+///
+/// # Errors
+///
+/// Returns an error when the sequence contains nested structures or when the
+/// configuration rejects the write, for example because the property is final.
 fn flatten_yaml_sequence(
     prefix: &str,
     seq: &[YamlValue],
@@ -227,56 +243,94 @@ fn flatten_yaml_sequence(
                     .iter()
                     .all(|value| matches!(value, YamlValue::Number(number) if number.is_i64())) =>
         {
-            let values = seq.iter().filter_map(YamlValue::as_i64).collect::<Vec<_>>();
-            config.set(prefix, values)?;
+            set_yaml_sequence_values(prefix, seq, config, YamlValue::as_i64)
         }
         YamlValue::Number(_)
             if seq
                 .iter()
                 .all(|value| matches!(value, YamlValue::Number(number) if number.is_u64())) =>
         {
-            let values = seq.iter().filter_map(YamlValue::as_u64).collect::<Vec<_>>();
-            config.set(prefix, values)?;
+            set_yaml_sequence_values(prefix, seq, config, YamlValue::as_u64)
         }
         YamlValue::Number(_)
             if seq
                 .iter()
                 .all(|value| matches!(value, YamlValue::Number(number) if number.is_f64())) =>
         {
-            let values = seq.iter().filter_map(YamlValue::as_f64).collect::<Vec<_>>();
-            config.set(prefix, values)?;
+            set_yaml_sequence_values(prefix, seq, config, YamlValue::as_f64)
         }
         YamlValue::Bool(_) if seq.iter().all(|value| matches!(value, YamlValue::Bool(_))) => {
-            let values = seq
-                .iter()
-                .filter_map(YamlValue::as_bool)
-                .collect::<Vec<_>>();
-            config.set(prefix, values)?;
+            set_yaml_sequence_values(prefix, seq, config, YamlValue::as_bool)
         }
         YamlValue::String(_)
             if seq
                 .iter()
                 .all(|value| matches!(value, YamlValue::String(_))) =>
         {
-            let values = seq
-                .iter()
-                .map(|value| yaml_scalar_to_string(value, prefix))
-                .collect::<ConfigResult<Vec<_>>>()?;
-            config.set(prefix, values)?;
+            set_yaml_string_sequence(prefix, seq, config)
         }
         YamlValue::Mapping(_) | YamlValue::Sequence(_) | YamlValue::Tagged(_) => {
-            return Err(unsupported_yaml_sequence_element_error(prefix, &seq[0]));
+            Err(unsupported_yaml_sequence_element_error(prefix, &seq[0]))
         }
-        _ => {
-            let values = seq
-                .iter()
-                .map(|value| yaml_scalar_to_string(value, prefix))
-                .collect::<ConfigResult<Vec<_>>>()?;
-            config.set(prefix, values)?;
-        }
+        _ => set_yaml_string_sequence(prefix, seq, config),
     }
+}
 
-    Ok(())
+/// Collects homogeneous YAML scalar values and writes them as one property.
+///
+/// # Parameters
+///
+/// * `prefix` - Flattened configuration path receiving the values.
+/// * `seq` - Homogeneous YAML scalar sequence.
+/// * `config` - Configuration mutated with the collected values.
+/// * `convert` - Conversion used for each scalar value.
+///
+/// # Returns
+///
+/// `Ok(())` after storing the collected values.
+///
+/// # Errors
+///
+/// Returns an error when the configuration rejects the write.
+fn set_yaml_sequence_values<T>(
+    prefix: &str,
+    seq: &[YamlValue],
+    config: &mut Config,
+    convert: impl Fn(&YamlValue) -> Option<T>,
+) -> ConfigResult<()>
+where
+    Vec<T>: Into<ValueContainer>,
+{
+    let values = seq.iter().filter_map(convert).collect::<Vec<_>>();
+    config.set(prefix, values)
+}
+
+/// Converts YAML scalar values to strings and writes them as one property.
+///
+/// # Parameters
+///
+/// * `prefix` - Flattened configuration path receiving the values.
+/// * `seq` - YAML scalar sequence to convert.
+/// * `config` - Configuration mutated with the converted values.
+///
+/// # Returns
+///
+/// `Ok(())` after storing the converted values.
+///
+/// # Errors
+///
+/// Returns an error when `seq` contains a nested structure or when the
+/// configuration rejects the write.
+fn set_yaml_string_sequence(
+    prefix: &str,
+    seq: &[YamlValue],
+    config: &mut Config,
+) -> ConfigResult<()> {
+    let values = seq
+        .iter()
+        .map(|value| yaml_scalar_to_string(value, prefix))
+        .collect::<ConfigResult<Vec<_>>>()?;
+    config.set(prefix, values)
 }
 
 /// Converts a YAML key to a string
