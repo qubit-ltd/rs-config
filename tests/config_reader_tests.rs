@@ -722,7 +722,11 @@ mod test_config_reader_alias_reads {
 
         assert_eq!(value, 8080);
         assert_eq!(optional, Some(8080));
-        assert!(matches!(missing, Err(ConfigError::PropertyNotFound(_))));
+        assert!(matches!(
+            missing,
+            Err(ConfigError::PropertyCandidatesNotFound { paths })
+                if paths == ["server.host", "HOST"]
+        ));
     }
 
     #[test]
@@ -921,7 +925,11 @@ mod test_config_reader_alias_reads {
         );
 
         assert!(enabled);
-        assert!(matches!(missing, Err(ConfigError::PropertyNotFound(_))));
+        assert!(matches!(
+            missing,
+            Err(ConfigError::PropertyCandidatesNotFound { paths })
+                if paths == ["server.port", "PORT"]
+        ));
     }
 
     #[test]
@@ -1083,9 +1091,29 @@ mod test_config_reader_alias_reads {
             } if key == "empty.list" && source.is_missing()
         ));
         assert_eq!(first_present, "value");
-        assert!(
-            matches!(missing_any, ConfigError::PropertyNotFound(message) if message == "one of: missing, also.missing")
-        );
+        assert!(matches!(
+            missing_any,
+            ConfigError::PropertyCandidatesNotFound { paths }
+                if paths == ["missing", "also.missing"]
+        ));
+    }
+
+    #[test]
+    fn test_section_interpolation_reference_error_uses_root_path() {
+        let mut config = Config::new();
+        config
+            .set("service.endpoint", "${payload}")
+            .expect("setting interpolated endpoint should succeed");
+        config
+            .set("service.payload", Vec::<String>::new())
+            .expect("setting empty payload should succeed");
+
+        let error = config
+            .section("service")
+            .get_interpolated::<String>("endpoint")
+            .expect_err("empty payload should not convert to string");
+
+        assert_eq!(error.path(), Some("service.payload"));
     }
 
     #[test]
