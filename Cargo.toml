@@ -61,15 +61,12 @@ toml = { version = "0.9", features = ["parse"], optional = true }
 serde_norway = { version = "0.9", optional = true }
 dotenvy = { version = "0.15", optional = true }
 
-qubit-datatype = { path = "../rs-datatype", version = "0.8", default-features = false, features = ["converter"] }
+qubit-datatype = { version = "0.8", default-features = false, features = ["converter"] }
 qubit-redact = { version = "0.3", path = "../rs-redact", default-features = false }
 qubit-value = { path = "../rs-value", version = "0.10", default-features = false, features = ["converter", "json"] }
 
 [dev-dependencies]
 tempfile = "3.27"
-
-[patch.crates-io]
-qubit-datatype = { path = "../rs-datatype", version = "0.8" }
 
 [[test]]
 name = "composite_config_source_tests"
