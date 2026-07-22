@@ -47,7 +47,7 @@ fn test_property_new() {
     assert_eq!(prop.name(), "test.property");
     assert_eq!(prop.value(), &ValueContainer::Collection(values));
     assert!(!prop.is_empty());
-    assert_eq!(prop.count(), 1);
+    assert_eq!(prop.len(), 1);
     assert_eq!(prop.data_type(), DataType::String);
     assert!(prop.description().is_none());
     assert!(!prop.is_final());
@@ -60,7 +60,7 @@ fn test_property_new_collection() {
     let prop = Property::new("test.string", value);
 
     assert_eq!(prop.name(), "test.string");
-    assert_eq!(prop.count(), 2);
+    assert_eq!(prop.len(), 2);
     assert_eq!(prop.data_type(), DataType::String);
     assert!(!prop.is_empty());
 }
@@ -89,7 +89,7 @@ fn test_property_value_mut() {
     let value_mut = prop.value_mut();
     value_mut.add(43).unwrap();
 
-    assert_eq!(prop.count(), 2);
+    assert_eq!(prop.len(), 2);
 }
 
 #[test]
@@ -100,11 +100,11 @@ fn test_property_set_value() {
 
     prop.set_value(value1.clone());
     assert_eq!(prop.data_type(), DataType::Int32);
-    assert_eq!(prop.count(), 2);
+    assert_eq!(prop.len(), 2);
 
     prop.set_value(value2.clone());
     assert_eq!(prop.data_type(), DataType::String);
-    assert_eq!(prop.count(), 1);
+    assert_eq!(prop.len(), 1);
 }
 
 #[test]
@@ -155,19 +155,22 @@ fn test_property_data_type() {
 }
 
 #[test]
-fn test_property_count() {
+fn test_property_len() {
     let mut prop = new_unset_int32_property("test");
 
-    // Empty value
-    assert_eq!(prop.count(), 0);
+    assert_eq!(prop.len(), 0);
+    assert!(prop.is_empty());
 
-    // Single value
     prop.set_value(MultiValues::Int32(vec![42]));
-    assert_eq!(prop.count(), 1);
+    assert_eq!(prop.len(), 1);
+    assert!(!prop.is_empty());
 
-    // Multiple values
     prop.set_value(MultiValues::Int32(vec![1, 2, 3, 4, 5]));
-    assert_eq!(prop.count(), 5);
+    assert_eq!(prop.len(), 5);
+
+    prop.set_value(MultiValues::Int32(Vec::new()));
+    assert_eq!(prop.len(), 0);
+    assert!(prop.is_empty());
 }
 
 #[test]
@@ -191,9 +194,9 @@ fn test_property_clear() {
     let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int32(vec![1, 2, 3]));
 
-    assert_eq!(prop.count(), 3);
+    assert_eq!(prop.len(), 3);
     prop.clear();
-    assert_eq!(prop.count(), 0);
+    assert_eq!(prop.len(), 0);
     assert_eq!(prop.data_type(), DataType::Int32); // Type remains unchanged
 }
 
@@ -1673,9 +1676,9 @@ fn test_property_empty_after_clear() {
     let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int32(vec![1, 2, 3, 4, 5]));
 
-    assert_eq!(prop.count(), 5);
+    assert_eq!(prop.len(), 5);
     prop.clear();
-    assert_eq!(prop.count(), 0);
+    assert_eq!(prop.len(), 0);
     assert!(prop.is_empty());
     assert_eq!(prop.data_type(), DataType::Int32); // Type remains unchanged
 }
@@ -1686,7 +1689,7 @@ fn test_property_large_collection() {
     let large_vec: Vec<i32> = (1..=1000).collect();
     prop.set_value(MultiValues::Int32(large_vec.clone()));
 
-    assert_eq!(prop.count(), 1000);
+    assert_eq!(prop.len(), 1000);
     let values = prop.get_list::<i32>().unwrap();
     assert_eq!(values.len(), 1000);
     assert_eq!(values[0], 1);
@@ -1706,7 +1709,7 @@ fn test_property_clone() {
     let prop2 = prop1.clone();
 
     assert_eq!(prop1.name(), prop2.name());
-    assert_eq!(prop1.count(), prop2.count());
+    assert_eq!(prop1.len(), prop2.len());
     assert_eq!(prop1.data_type(), prop2.data_type());
     assert_eq!(prop1.description(), prop2.description());
     assert_eq!(prop1.is_final(), prop2.is_final());
