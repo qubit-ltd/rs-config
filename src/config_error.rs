@@ -30,6 +30,16 @@ pub enum ConfigError {
         String,
     ),
 
+    /// None of several candidate properties was found.
+    #[error(
+        "None of the candidate properties was found: {}",
+        paths.join(", ")
+    )]
+    PropertyCandidatesNotFound {
+        /// Missing root-relative configuration paths in lookup order.
+        paths: Vec<String>,
+    },
+
     /// Property has no value.
     #[error("Property '{0}' has no value")]
     PropertyHasNoValue(
@@ -196,6 +206,9 @@ impl ConfigError {
     pub const fn kind(&self) -> ConfigErrorKind {
         match self {
             Self::PropertyNotFound(_) => ConfigErrorKind::PropertyNotFound,
+            Self::PropertyCandidatesNotFound { .. } => {
+                ConfigErrorKind::PropertyNotFound
+            }
             Self::PropertyHasNoValue(_) => ConfigErrorKind::PropertyHasNoValue,
             Self::TypeMismatch { .. } => ConfigErrorKind::TypeMismatch,
             Self::ConversionError { .. } => ConfigErrorKind::Conversion,
@@ -235,6 +248,12 @@ impl ConfigError {
             Self::PropertyNotFound(path)
             | Self::PropertyHasNoValue(path)
             | Self::PropertyIsFinal(path) => Some(path),
+            Self::PropertyCandidatesNotFound { paths } => {
+                match paths.as_slice() {
+                    [path] => Some(path),
+                    _ => None,
+                }
+            }
             Self::TypeMismatch { key, .. }
             | Self::ConversionError { key, .. }
             | Self::ValueError { key, .. } => Some(key),
@@ -245,6 +264,22 @@ impl ConfigError {
             | Self::SubstitutionExpansionLimitExceeded { path, .. }
             | Self::SubstitutionOutputTooLarge { path, .. }
             | Self::SubstitutionCycle { path, .. } => Some(path),
+            _ => None,
+        }
+    }
+
+    /// Returns missing candidate paths carried by a property lookup error.
+    ///
+    /// # Returns
+    ///
+    /// A one-element slice for [`Self::PropertyNotFound`], all ordered
+    /// candidates for [`Self::PropertyCandidatesNotFound`], or `None` for
+    /// other error kinds.
+    #[inline(always)]
+    pub fn candidate_paths(&self) -> Option<&[String]> {
+        match self {
+            Self::PropertyNotFound(path) => Some(std::slice::from_ref(path)),
+            Self::PropertyCandidatesNotFound { paths } => Some(paths),
             _ => None,
         }
     }

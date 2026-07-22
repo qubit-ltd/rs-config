@@ -40,6 +40,37 @@ fn test_basic_error_messages() {
 }
 
 #[test]
+fn test_candidate_property_error_exposes_canonical_paths() {
+    let error = ConfigError::PropertyCandidatesNotFound {
+        paths: vec!["service.port".to_string(), "service.PORT".to_string()],
+    };
+
+    assert_eq!(
+        error.kind(),
+        qubit_config::ConfigErrorKind::PropertyNotFound
+    );
+    assert_eq!(error.path(), None);
+    assert_eq!(
+        error.candidate_paths(),
+        Some(
+            ["service.port".to_string(), "service.PORT".to_string()].as_slice(),
+        ),
+    );
+    assert!(error.to_string().contains("service.port"));
+    assert!(error.to_string().contains("service.PORT"));
+}
+
+#[test]
+fn test_single_property_error_exposes_one_candidate_path() {
+    let error = ConfigError::PropertyNotFound("service.port".to_string());
+
+    assert_eq!(
+        error.candidate_paths(),
+        Some(["service.port".to_string()].as_slice()),
+    );
+}
+
+#[test]
 fn test_structured_conversion_error_is_redacted() {
     let error = ConfigError::ConversionError {
         key: "secret".to_string(),

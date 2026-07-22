@@ -92,23 +92,25 @@ pub trait ConfigReader: internal::Sealed {
         T: FromConfig,
     {
         name.with_config_name(|name| {
-            let resolved = self.resolve_key(name);
             let property = self.get_property(name).ok_or_else(|| {
-                ConfigError::PropertyNotFound(resolved.clone())
+                ConfigError::PropertyNotFound(self.resolve_key(name))
             })?;
+            let resolved = property.name();
             if !property.is_unset()
                 && is_effectively_missing(
                     self,
-                    &resolved,
+                    resolved,
                     property,
                     self.read_options(),
                 )?
             {
-                return Err(ConfigError::PropertyHasNoValue(resolved));
+                return Err(ConfigError::PropertyHasNoValue(
+                    resolved.to_owned(),
+                ));
             }
             parse_property_from_reader(
                 self,
-                &resolved,
+                resolved,
                 property,
                 self.read_options(),
             )
@@ -142,23 +144,25 @@ pub trait ConfigReader: internal::Sealed {
         T: FromConfig,
     {
         name.with_config_name(|name| {
-            let resolved = self.resolve_key(name);
             let property = self.get_property(name).ok_or_else(|| {
-                ConfigError::PropertyNotFound(resolved.clone())
+                ConfigError::PropertyNotFound(self.resolve_key(name))
             })?;
+            let resolved = property.name();
             if !property.is_unset()
                 && is_effectively_missing_interpolated(
                     self,
-                    &resolved,
+                    resolved,
                     property,
                     self.read_options(),
                 )?
             {
-                return Err(ConfigError::PropertyHasNoValue(resolved));
+                return Err(ConfigError::PropertyHasNoValue(
+                    resolved.to_owned(),
+                ));
             }
             parse_property_from_reader_interpolated(
                 self,
-                &resolved,
+                resolved,
                 property,
                 self.read_options(),
             )
@@ -289,27 +293,26 @@ pub trait ConfigReader: internal::Sealed {
     where
         T: FromConfig,
     {
-        name.with_config_name(|name| {
-            let resolved = self.resolve_key(name);
-            match self.get_property(name) {
-                None => Ok(None),
-                Some(property)
-                    if is_effectively_missing(
-                        self,
-                        &resolved,
-                        property,
-                        self.read_options(),
-                    )? =>
-                {
-                    Ok(None)
-                }
-                Some(property) => parse_property_from_reader(
+        name.with_config_name(|name| match self.get_property(name) {
+            None => Ok(None),
+            Some(property) => {
+                let resolved = property.name();
+                if is_effectively_missing(
                     self,
-                    &resolved,
+                    resolved,
                     property,
                     self.read_options(),
-                )
-                .map(Some),
+                )? {
+                    Ok(None)
+                } else {
+                    parse_property_from_reader(
+                        self,
+                        resolved,
+                        property,
+                        self.read_options(),
+                    )
+                    .map(Some)
+                }
             }
         })
     }
@@ -340,27 +343,26 @@ pub trait ConfigReader: internal::Sealed {
     where
         T: FromConfig,
     {
-        name.with_config_name(|name| {
-            let resolved = self.resolve_key(name);
-            match self.get_property(name) {
-                None => Ok(None),
-                Some(property)
-                    if is_effectively_missing_interpolated(
-                        self,
-                        &resolved,
-                        property,
-                        self.read_options(),
-                    )? =>
-                {
-                    Ok(None)
-                }
-                Some(property) => parse_property_from_reader_interpolated(
+        name.with_config_name(|name| match self.get_property(name) {
+            None => Ok(None),
+            Some(property) => {
+                let resolved = property.name();
+                if is_effectively_missing_interpolated(
                     self,
-                    &resolved,
+                    resolved,
                     property,
                     self.read_options(),
-                )
-                .map(Some),
+                )? {
+                    Ok(None)
+                } else {
+                    parse_property_from_reader_interpolated(
+                        self,
+                        resolved,
+                        property,
+                        self.read_options(),
+                    )
+                    .map(Some)
+                }
             }
         })
     }
@@ -371,6 +373,33 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// Global read options inherited by field-less reads.
     fn read_options(&self) -> &ReadOptions;
+
+    /// Creates a borrowed reader view using `options` for typed reads.
+    ///
+    /// # Parameters
+    ///
+    /// * `options` - Read options borrowed by the returned view.
+    ///
+    /// # Returns
+    ///
+    /// A view preserving this reader's current scope.
+    #[inline]
+    fn with_read_options_view<'a>(
+        &'a self,
+        options: &'a ReadOptions,
+    ) -> ConfigSection<'a> {
+        self.section("").with_read_options_override(options)
+    }
+
+    /// Returns this reader's normalized root-relative scope path.
+    ///
+    /// # Returns
+    ///
+    /// The root reader returns an empty string.
+    #[inline(always)]
+    fn scope_path(&self) -> &str {
+        ""
+    }
 
     /// Reads a value from the first present and non-empty key in `names`.
     ///
@@ -387,12 +416,8 @@ pub trait ConfigReader: internal::Sealed {
         T: FromConfig,
     {
         names.with_config_names(|names| {
-            self.get_optional_any(names)?.ok_or_else(|| {
-                ConfigError::PropertyNotFound(format!(
-                    "one of: {}",
-                    names.join(", ")
-                ))
-            })
+            self.get_optional_any(names)?
+                .ok_or_else(|| missing_candidates_error(self, names))
         })
     }
 
@@ -422,12 +447,8 @@ pub trait ConfigReader: internal::Sealed {
         T: FromConfig,
     {
         names.with_config_names(|names| {
-            self.get_optional_any_interpolated(names)?.ok_or_else(|| {
-                ConfigError::PropertyNotFound(format!(
-                    "one of: {}",
-                    names.join(", ")
-                ))
-            })
+            self.get_optional_any_interpolated(names)?
+                .ok_or_else(|| missing_candidates_error(self, names))
         })
     }
 
@@ -581,12 +602,7 @@ pub trait ConfigReader: internal::Sealed {
         names.extend(aliases.iter().map(String::as_str));
         get_optional_any_with_options(self, &names, options, false)?
             .or(default)
-            .ok_or_else(|| {
-                ConfigError::PropertyNotFound(format!(
-                    "one of: {}",
-                    names.join(", ")
-                ))
-            })
+            .ok_or_else(|| missing_candidates_error(self, &names))
     }
 
     /// Reads an optional declared field.
@@ -653,12 +669,7 @@ pub trait ConfigReader: internal::Sealed {
         names.extend(aliases.iter().map(String::as_str));
         get_optional_any_with_options(self, &names, options, true)?
             .or(default)
-            .ok_or_else(|| {
-                ConfigError::PropertyNotFound(format!(
-                    "one of: {}",
-                    names.join(", ")
-                ))
-            })
+            .ok_or_else(|| missing_candidates_error(self, &names))
     }
 
     /// Reads an optional declared field after interpolating string values.
@@ -807,6 +818,16 @@ pub trait ConfigReader: internal::Sealed {
     }
 }
 
+/// Creates a structured error for an unsuccessful multi-key lookup.
+fn missing_candidates_error<R>(reader: &R, names: &[&str]) -> ConfigError
+where
+    R: ConfigReader + ?Sized,
+{
+    ConfigError::PropertyCandidatesNotFound {
+        paths: names.iter().map(|name| reader.resolve_key(*name)).collect(),
+    }
+}
+
 /// Shared implementation for field-level and global multi-key reads.
 fn get_optional_any_with_options<R, T>(
     reader: &R,
@@ -823,24 +844,24 @@ where
             let Some(property) = reader.get_property(*name) else {
                 continue;
             };
-            let resolved = reader.resolve_key(*name);
+            let resolved = property.name();
             let missing = if interpolate {
                 is_effectively_missing_interpolated(
-                    reader, &resolved, property, options,
+                    reader, resolved, property, options,
                 )?
             } else {
-                is_effectively_missing(reader, &resolved, property, options)?
+                is_effectively_missing(reader, resolved, property, options)?
             };
             if missing {
                 continue;
             }
             return if interpolate {
                 parse_property_from_reader_interpolated(
-                    reader, &resolved, property, options,
+                    reader, resolved, property, options,
                 )
                 .map(Some)
             } else {
-                parse_property_from_reader(reader, &resolved, property, options)
+                parse_property_from_reader(reader, resolved, property, options)
                     .map(Some)
             };
         }
