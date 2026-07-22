@@ -80,10 +80,12 @@ impl<'de> MapAccess<'de> for ConfigMapAccess<'_> {
         } else {
             format!("{}.{}", self.key, key)
         };
+        let error_path = child_key.clone();
         seed.deserialize(ConfigValueDeserializer::new(
             value,
             child_key,
             self.options,
         ))
+        .map_err(|error| error.with_path(error_path))
     }
 }

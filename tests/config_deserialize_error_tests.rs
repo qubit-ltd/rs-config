@@ -29,6 +29,12 @@ struct RequiredString {
     value: String,
 }
 
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+struct RequiredItems {
+    items: Vec<RequiredString>,
+}
+
 #[test]
 fn test_deserialize_message_error_has_path_and_no_source() {
     let mut config = Config::new();
@@ -41,7 +47,7 @@ fn test_deserialize_message_error_has_path_and_no_source() {
         .expect_err("null string should fail during serde deserialization");
 
     assert_eq!(error.kind(), ConfigErrorKind::Deserialize);
-    assert_eq!(error.path(), Some("app"));
+    assert_eq!(error.path(), Some("app.value"));
     assert!(matches!(
         &error,
         ConfigError::DeserializeError {
@@ -51,6 +57,27 @@ fn test_deserialize_message_error_has_path_and_no_source() {
         } if message == "configuration value does not match the requested type"
     ));
     assert!(error.source().is_none());
+}
+
+#[test]
+fn test_nested_sequence_message_error_has_leaf_path() {
+    let mut config = Config::new();
+    config
+        .insert_property(
+            "app.items",
+            Property::new(
+                "app.items",
+                Value::Json(serde_json::json!([{ "value": null }])),
+            ),
+        )
+        .expect("inserting nested items should succeed");
+
+    let error = config
+        .deserialize::<RequiredItems>("app")
+        .expect_err("null nested string should fail deserialization");
+
+    assert_eq!(error.kind(), ConfigErrorKind::Deserialize);
+    assert_eq!(error.path(), Some("app.items[0].value"));
 }
 
 #[test]
