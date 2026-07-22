@@ -57,7 +57,9 @@ impl<'de> SeqAccess<'de> for ConfigSeqAccess<'_> {
         };
         let key = format!("{}[{}]", self.key, self.index);
         self.index += 1;
+        let error_path = key.clone();
         seed.deserialize(ConfigValueDeserializer::new(value, key, self.options))
+            .map_err(|error| error.with_path(error_path))
             .map(Some)
     }
 }
