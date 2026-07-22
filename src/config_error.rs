@@ -202,7 +202,6 @@ impl ConfigError {
     /// # Returns
     ///
     /// The category corresponding to the concrete error variant.
-    #[inline(always)]
     pub const fn kind(&self) -> ConfigErrorKind {
         match self {
             Self::PropertyNotFound(_) => ConfigErrorKind::PropertyNotFound,
@@ -242,7 +241,6 @@ impl ConfigError {
     ///
     /// `Some(path)` for errors tied to one configuration key, otherwise
     /// `None`.
-    #[inline(always)]
     pub fn path(&self) -> Option<&str> {
         match self {
             Self::PropertyNotFound(path)

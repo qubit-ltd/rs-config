@@ -66,12 +66,7 @@ qubit-redact = { version = "0.3", path = "../rs-redact", default-features = fals
 qubit-value = { path = "../rs-value", version = "0.10", default-features = false, features = ["converter", "json"] }
 
 [dev-dependencies]
-bigdecimal = "0.4"
-chrono = { version = "0.4", features = ["serde"] }
-num-bigint = "0.4"
 tempfile = "3.27"
-qubit-value = { path = "../rs-value", version = "0.10", default-features = false, features = ["all"] }
-url = "2.5"
 
 [patch.crates-io]
 qubit-datatype = { path = "../rs-datatype", version = "0.8" }
