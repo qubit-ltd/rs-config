@@ -39,6 +39,8 @@ pub struct ConfigSection<'a> {
     path: String,
     /// Prefix used to select and strip visible descendant keys.
     child_prefix: Option<String>,
+    /// Read options borrowed by this view, when explicitly overridden.
+    read_options: Option<&'a ReadOptions>,
 }
 
 impl<'a> ConfigSection<'a> {
@@ -56,11 +58,23 @@ impl<'a> ConfigSection<'a> {
     pub fn section(&self, path: &str) -> ConfigSection<'a> {
         let child = path.trim_matches('.');
         if self.path.is_empty() {
-            ConfigSection::new(self.config, child)
+            ConfigSection::new_with_read_options(
+                self.config,
+                child,
+                self.read_options,
+            )
         } else if child.is_empty() {
-            ConfigSection::new(self.config, self.path.as_str())
+            ConfigSection::new_with_read_options(
+                self.config,
+                self.path.as_str(),
+                self.read_options,
+            )
         } else {
-            ConfigSection::new(self.config, &format!("{}.{}", self.path, child))
+            ConfigSection::new_with_read_options(
+                self.config,
+                &format!("{}.{}", self.path, child),
+                self.read_options,
+            )
         }
     }
 
@@ -77,6 +91,16 @@ impl<'a> ConfigSection<'a> {
     /// A newly created configuration section.
     #[inline]
     pub(crate) fn new(config: &'a Config, path: &str) -> Self {
+        Self::new_with_read_options(config, path, None)
+    }
+
+    /// Creates a section with an optional borrowed read-options override.
+    #[inline]
+    fn new_with_read_options(
+        config: &'a Config,
+        path: &str,
+        read_options: Option<&'a ReadOptions>,
+    ) -> Self {
         let path = path.trim_matches('.').to_string();
         let child_prefix = if path.is_empty() {
             None
@@ -87,7 +111,18 @@ impl<'a> ConfigSection<'a> {
             config,
             path,
             child_prefix,
+            read_options,
         }
+    }
+
+    /// Applies a borrowed read-options override to this view.
+    #[inline(always)]
+    pub(crate) fn with_read_options_override(
+        mut self,
+        options: &'a ReadOptions,
+    ) -> Self {
+        self.read_options = Some(options);
+        self
     }
 
     /// Returns this section's normalized root-relative path.
@@ -99,6 +134,33 @@ impl<'a> ConfigSection<'a> {
     #[inline(always)]
     pub fn path(&self) -> &str {
         &self.path
+    }
+
+    /// Returns this section with a borrowed read-options override.
+    ///
+    /// Nested sections inherit the same override.
+    ///
+    /// # Parameters
+    ///
+    /// * `options` - Read options borrowed by the returned section.
+    ///
+    /// # Returns
+    ///
+    /// This scoped section with the override applied.
+    #[inline(always)]
+    pub fn with_read_options_view<'b>(
+        self,
+        options: &'b ReadOptions,
+    ) -> ConfigSection<'b>
+    where
+        'a: 'b,
+    {
+        ConfigSection {
+            config: self.config,
+            path: self.path,
+            child_prefix: self.child_prefix,
+            read_options: Some(options),
+        }
     }
 
     /// Returns whether a visible key starts with the raw character prefix.
@@ -180,21 +242,17 @@ impl<'a> ConfigSection<'a> {
     /// the section prefix stripped for a non-root section.
     fn visible_entries<'b>(
         &'b self,
-    ) -> Box<dyn Iterator<Item = (&'b str, &'b Property)> + 'b> {
-        let Some(child_prefix) = self.child_prefix.as_deref() else {
-            return Box::new(
-                self.config
-                    .properties
-                    .iter()
-                    .map(|(key, value)| (key.as_str(), value)),
-            );
-        };
-        Box::new(self.config.properties.iter().filter_map(
-            move |(key, value)| {
-                key.strip_prefix(child_prefix)
-                    .map(|relative| (relative, value))
-            },
-        ))
+    ) -> impl Iterator<Item = (&'b str, &'b Property)> + 'b {
+        let child_prefix = self.child_prefix.as_deref();
+        self.config
+            .properties
+            .iter()
+            .filter_map(move |(key, value)| match child_prefix {
+                Some(prefix) => {
+                    key.strip_prefix(prefix).map(|relative| (relative, value))
+                }
+                None => Some((key.as_str(), value)),
+            })
     }
 
     /// Creates a missing-property error for an invisible relative name.
@@ -215,7 +273,13 @@ impl<'a> ConfigSection<'a> {
 impl<'a> ConfigReader for ConfigSection<'a> {
     #[inline(always)]
     fn read_options(&self) -> &ReadOptions {
-        self.config.read_options()
+        self.read_options
+            .unwrap_or_else(|| self.config.read_options())
+    }
+
+    #[inline(always)]
+    fn scope_path(&self) -> &str {
+        &self.path
     }
 
     fn get_property(&self, name: impl ConfigName) -> Option<&Property> {
@@ -324,7 +388,7 @@ impl<'a> ConfigReader for ConfigSection<'a> {
     fn iter<'b>(
         &'b self,
     ) -> Box<dyn Iterator<Item = (&'b str, &'b Property)> + 'b> {
-        self.visible_entries()
+        Box::new(self.visible_entries())
     }
 
     fn is_null(&self, name: impl ConfigName) -> bool {
