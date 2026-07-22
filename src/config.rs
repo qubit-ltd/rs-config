@@ -66,6 +66,25 @@ use qubit_value::{
     ValueContainer,
 };
 
+/// Converts deserialized numeric text with the configured conversion policy.
+///
+/// # Type Parameters
+///
+/// * `T` - Target numeric type.
+///
+/// # Parameters
+///
+/// * `key` - Configuration path used for error context.
+/// * `options` - Read options controlling conversion.
+/// * `value` - Numeric text to convert.
+///
+/// # Returns
+///
+/// The converted number.
+///
+/// # Errors
+///
+/// Returns a keyed conversion error when `value` cannot be converted to `T`.
 pub(crate) fn convert_deserialize_number<T>(
     key: &str,
     options: &ReadOptions,
@@ -1276,13 +1295,12 @@ impl Config {
     ///
     /// # Type Parameters
     ///
-    /// * `T` - Element type, automatically inferred from the `values` parameter
+    /// * `S` - Input value container type inferred from `values`.
     ///
     /// # Parameters
     ///
     /// * `name` - Configuration item name
-    /// * `values` - Value to store; supports `T`, `Vec<T>`, `&[T]`, and related
-    ///   forms accepted by [`ValueContainer`]
+    /// * `values` - Scalar or collection accepted by [`ValueContainer`].
     ///
     /// # Returns
     ///
@@ -1300,16 +1318,16 @@ impl Config {
     /// let mut config = Config::new();
     ///
     /// // Set single values (type auto-inference)
-    /// config.set("port", 8080).unwrap();                    // T inferred as i32
+    /// config.set("port", 8080).unwrap();                    // scalar i32
     /// config.set("host", "localhost").unwrap();
-    /// // T inferred as String; &str is converted
-    /// config.set("debug", true).unwrap();                   // T inferred as bool
-    /// config.set("timeout", 30.5).unwrap();                 // T inferred as f64
+    /// // &str is converted
+    /// config.set("debug", true).unwrap();                   // scalar bool
+    /// config.set("timeout", 30.5).unwrap();                 // scalar f64
     ///
     /// // Set multiple values (type auto-inference)
-    /// config.set("ports", vec![8080, 8081, 8082]).unwrap(); // T inferred as i32
+    /// config.set("ports", vec![8080, 8081, 8082]).unwrap(); // i32 collection
     /// config.set("hosts", vec!["host1", "host2"]).unwrap();
-    /// // T inferred as &str (then converted)
+    /// // &str collection (then converted)
     /// ```
     pub fn set<S>(
         &mut self,
@@ -1338,7 +1356,7 @@ impl Config {
     ///
     /// # Type Parameters
     ///
-    /// * `T` - Element type, automatically inferred from the `values` parameter
+    /// * `S` - Input value container type inferred from `values`.
     ///
     /// # Parameters
     ///
@@ -1348,6 +1366,11 @@ impl Config {
     /// # Returns
     ///
     /// Returns Ok(()) on success, or an error on failure
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::PropertyIsFinal`] for a final property, or a
+    /// value error when appended values are incompatible with existing ones.
     ///
     /// # Examples
     ///
@@ -1661,8 +1684,11 @@ impl Config {
     ///
     /// Distinguishes between three states:
     /// - `Ok(Some(value))` – key exists and has a value
-    /// - `Ok(None)` – key does not exist, **or** exists but is null/empty
+    /// - `Ok(None)` – key does not exist or is effectively missing
     /// - `Err(e)` – key exists and has a value, but conversion failed
+    ///
+    /// Concrete empty collections remain present and deserialize as an empty
+    /// collection when `T` is a collection type.
     ///
     /// # Type Parameters
     ///
@@ -1675,6 +1701,11 @@ impl Config {
     /// # Returns
     ///
     /// `Ok(Some(value))`, `Ok(None)`, or `Err` as described above.
+    ///
+    /// # Errors
+    ///
+    /// Returns conversion errors for configured values that cannot be read as
+    /// `T`.
     ///
     /// # Examples
     ///
@@ -1736,12 +1767,14 @@ impl Config {
     ///
     /// Distinguishes between three states:
     /// - `Ok(Some(vec))` – key exists and has values
-    /// - `Ok(None)` – key does not exist, **or** exists but is null/empty
+    /// - `Ok(None)` – key does not exist or is effectively missing
     /// - `Err(e)` – key exists and has values, but conversion failed
+    ///
+    /// A concrete empty collection returns `Ok(Some(Vec::new()))`.
     ///
     /// # Type Parameters
     ///
-    /// * `T` - Target element type supported by [`FromConfig`]
+    /// * `T` - Target element type supported by [`DataConversionTarget`].
     ///
     /// # Parameters
     ///
@@ -1750,6 +1783,11 @@ impl Config {
     /// # Returns
     ///
     /// `Ok(Some(vec))`, `Ok(None)`, or `Err` as described above.
+    ///
+    /// # Errors
+    ///
+    /// Returns conversion errors for configured list elements that cannot be
+    /// read as `T`.
     ///
     /// # Examples
     ///
@@ -1893,7 +1931,6 @@ impl Config {
     /// # Parameters
     ///
     /// * `prefix` - Exact property key or dotted subtree path.
-    /// * `interpolate` - Whether to interpolate string leaves.
     /// * `interpolate` - Whether string leaves resolve placeholders first.
     ///
     /// # Returns
