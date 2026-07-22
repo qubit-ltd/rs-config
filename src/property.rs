@@ -48,11 +48,11 @@ use qubit_value::ValueContainer;
 /// let mut port = Property::new("port", 8080);
 /// port.set_description(Some("Server port".to_string()));
 /// assert_eq!(port.name(), "port");
-/// assert_eq!(port.count(), 1);
+/// assert_eq!(port.len(), 1);
 ///
 /// let mut code = Property::new("code", 42u8);
 /// code.add(1u8).unwrap();
-/// assert_eq!(code.count(), 2);
+/// assert_eq!(code.len(), 2);
 /// ```
 #[must_use]
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
@@ -102,7 +102,7 @@ impl Property {
     ///
     /// let prop = Property::new("server.port", 8080);
     /// assert_eq!(prop.name(), "server.port");
-    /// assert_eq!(prop.count(), 1);
+    /// assert_eq!(prop.len(), 1);
     /// ```
     #[inline]
     pub fn new(
@@ -207,14 +207,15 @@ impl Property {
         self.value.data_type()
     }
 
-    /// Gets the number of values
+    /// Gets the number of values.
     ///
     /// # Returns
     ///
-    /// Returns the number of values in the property
+    /// The number of values in the property.
     #[inline(always)]
-    pub fn count(&self) -> usize {
-        self.value.count()
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.value.len()
     }
 
     /// Checks if the property is empty
@@ -225,8 +226,9 @@ impl Property {
     /// Use [`ValueContainer::is_unset`] when those states must be
     /// distinguished.
     #[inline(always)]
+    #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.value.count() == 0
+        self.value.is_empty()
     }
 
     /// Clears the property value
