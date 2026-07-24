@@ -25,6 +25,7 @@ pub(crate) use qubit_config::{
 };
 pub(crate) use qubit_datatype::{
     BlankStringPolicy,
+    DataConversionErrorKind,
     DataType,
 };
 pub(crate) use qubit_value::MultiValues;
@@ -2196,6 +2197,7 @@ mod test_get_and_get_list_error_mapping_additional_paths {
     use super::{
         Config,
         ConfigError,
+        DataConversionErrorKind,
         DataType,
         Deserialize,
         MultiValues,
@@ -2252,16 +2254,23 @@ mod test_get_and_get_list_error_mapping_additional_paths {
             Err(ConfigError::PropertyHasNoValue(key)) if key == "empty_list"
         ));
 
-        // get_list on incompatible scalar may normalize to empty list in
-        // current implementation. Keep this assertion to lock current
-        // behavior.
-        match config.get_list::<i32>("map_value") {
-            Ok(values) => assert!(values.is_empty()),
-            Err(err) => assert!(matches!(
-                err,
-                ConfigError::ConversionError { .. }
-                    | ConfigError::TypeMismatch { .. }
-            )),
+        let error = config
+            .get_list::<i32>("map_value")
+            .expect_err("a JSON object cannot convert to an integer list");
+        match error {
+            ConfigError::ConversionError {
+                key,
+                source_index,
+                source,
+            } => {
+                assert_eq!(key, "map_value");
+                assert_eq!(source_index, None);
+                assert_eq!(
+                    source.kind(),
+                    DataConversionErrorKind::Unsupported,
+                );
+            }
+            error => panic!("expected ConversionError, got {error:?}"),
         }
     }
 }
