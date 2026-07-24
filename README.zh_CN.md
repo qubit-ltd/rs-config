@@ -225,7 +225,7 @@ assert_eq!(ports, vec![8080, 8081, 8082]);
 ```toml
 [dependencies]
 qubit-config = "0.14"
-qubit-datatype = { version = "0.8", default-features = false, features = ["converter"] }
+qubit-datatype = { version = "0.9", default-features = false, features = ["converter"] }
 ```
 
 ```rust
@@ -420,9 +420,8 @@ assert_eq!(raw_url, "http://${host}:${port}/api");
 let url: String = config.get_interpolated("url")?;
 // 结果: "http://localhost:8080/api"
 
-// 显式插值读取默认允许回退到环境变量；若环境变量不是可信来源，可通过
-// ReadOptions 关闭环境回退。
-std::env::set_var("APP_ENV", "production");
+// 配置键优先于可选的环境变量回退。
+config.set("APP_ENV", "production")?;
 config.set("env", "${APP_ENV}")?;
 let env: String = config.get_interpolated("env")?;
 // 结果: "production"
@@ -437,9 +436,10 @@ let env: String = config.get_interpolated("env")?;
 当 `prefix` 非空时，`deserialize(prefix)` 使用严格的根选择语义：如果存在精确的 `prefix` 属性，就把该属性作为反序列化根值；否则用 `prefix.*` 子键组成根对象。同时定义 `prefix` 和 `prefix.*` 会返回 key conflict。带点号的键也必须能组成无歧义对象树，例如同一反序列化对象中不能同时存在 `a` 和 `a.b`。
 
 ```rust
-use qubit_config::{Config, options::ReadOptions};
+use qubit_config::Config;
+use serde::Deserialize;
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, PartialEq)]
 struct DatabaseConfig {
     host: String,
     port: i32,
@@ -453,12 +453,9 @@ config.set("db.port", 5432)?;
 config.set("db.username", "admin")?;
 config.set("db.password", "secret")?;
 
-let db_config = DatabaseConfig {
-    host: config.get("db.host")?,
-    port: config.get("db.port")?,
-    username: config.get("db.username")?,
-    password: config.get("db.password")?,
-};
+let db_config: DatabaseConfig = config.deserialize("db")?;
+assert_eq!(db_config.host, "localhost");
+assert_eq!(db_config.port, 5432);
 ```
 
 ### 可配置对象

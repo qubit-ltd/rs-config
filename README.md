@@ -230,7 +230,7 @@ customize them should depend on that crate directly:
 ```toml
 [dependencies]
 qubit-config = "0.14"
-qubit-datatype = { version = "0.8", default-features = false, features = ["converter"] }
+qubit-datatype = { version = "0.9", default-features = false, features = ["converter"] }
 ```
 
 ```rust
@@ -426,10 +426,8 @@ assert_eq!(raw_url, "http://${host}:${port}/api");
 let url: String = config.get_interpolated("url")?;
 // Result: "http://localhost:8080/api"
 
-// Explicit interpolated reads allow environment fallback by default. It can
-// be disabled through ReadOptions when process environment values are not a
-// trusted source.
-std::env::set_var("APP_ENV", "production");
+// Configuration keys are resolved before the optional environment fallback.
+config.set("APP_ENV", "production")?;
 config.set("env", "${APP_ENV}")?;
 let env: String = config.get_interpolated("env")?;
 // Result: "production"
@@ -448,9 +446,10 @@ an exact `prefix` property is deserialized as the root value, otherwise
 for example, `a` and `a.b` cannot both appear in the same deserialized object.
 
 ```rust
-use qubit_config::{Config, options::ReadOptions};
+use qubit_config::Config;
+use serde::Deserialize;
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, PartialEq)]
 struct DatabaseConfig {
     host: String,
     port: i32,
@@ -464,12 +463,9 @@ config.set("db.port", 5432)?;
 config.set("db.username", "admin")?;
 config.set("db.password", "secret")?;
 
-let db_config = DatabaseConfig {
-    host: config.get("db.host")?,
-    port: config.get("db.port")?,
-    username: config.get("db.username")?,
-    password: config.get("db.password")?,
-};
+let db_config: DatabaseConfig = config.deserialize("db")?;
+assert_eq!(db_config.host, "localhost");
+assert_eq!(db_config.port, 5432);
 ```
 
 ### Configurable Objects
