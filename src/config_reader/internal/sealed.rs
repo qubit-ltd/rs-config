@@ -6,5 +6,10 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-/// Marker implemented only by configuration reader types owned by this crate.
-pub(crate) trait Sealed {}
+use crate::Config;
+
+/// Internal capabilities implemented only by readers owned by this crate.
+pub(crate) trait Sealed {
+    /// Returns the root configuration backing this reader.
+    fn root_config(&self) -> &Config;
+}
