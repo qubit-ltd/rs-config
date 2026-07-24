@@ -18,10 +18,6 @@ use serde::{
     Deserialize,
     Serialize,
 };
-use serde_json::{
-    Map,
-    Value as JsonValue,
-};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -29,7 +25,7 @@ use self::internal::ConfigSerdeRepr;
 use crate::ConfigPropertyMut;
 use crate::config_reader::ConfigReader;
 use crate::config_section::ConfigSection;
-use crate::config_value_deserializer::ConfigValueDeserializer;
+use crate::config_serde_ext::ConfigSerdeExt;
 use crate::field::ConfigField;
 use crate::from::{
     FromConfig,
@@ -96,64 +92,6 @@ where
     match QubitValue::String(value).to_with::<T>(options.conversion_options()) {
         Ok(value) => Ok(value),
         Err(error) => Err(ConfigError::from((key, error))),
-    }
-}
-
-/// Returns `true` when `key` is strictly below `prefix`.
-fn is_child_key(key: &str, prefix: &str) -> bool {
-    key.len() > prefix.len()
-        && key.starts_with(prefix)
-        && key.as_bytes().get(prefix.len()) == Some(&b'.')
-}
-
-/// Returns whether a scalar string property is missing under deserialization
-/// options.
-///
-/// # Parameters
-///
-/// * `primary` - Reader used for relative placeholder lookup.
-/// * `fallback` - Reader used when the primary reader has no matching key.
-/// * `key` - Absolute key used for diagnostics.
-/// * `property` - Property whose scalar value is inspected.
-/// * `options` - Conversion and interpolation limits.
-/// * `interpolate` - Whether to resolve placeholders before normalization.
-///
-/// # Returns
-///
-/// `true` when the value is effectively missing.
-///
-/// # Errors
-///
-/// Returns interpolation or normalization errors with key context.
-fn scalar_string_is_missing_for_deserialize(
-    primary: &impl ConfigReader,
-    fallback: &impl ConfigReader,
-    key: &str,
-    property: &Property,
-    options: &ReadOptions,
-    interpolate: bool,
-) -> ConfigResult<bool> {
-    let Some(QubitValue::String(value)) = property.value().as_scalar() else {
-        return Ok(false);
-    };
-    let value = if interpolate {
-        utils::substitute_variables_with_fallback(
-            value, primary, fallback, options, key,
-        )?
-    } else {
-        value.to_string()
-    };
-    match options
-        .conversion_options()
-        .string()
-        .normalize_optional(&value)
-    {
-        Ok(Some(_)) => Ok(false),
-        Ok(None) => Ok(true),
-        Err(error) => Err(ConfigError::from_data_conversion_error(
-            key,
-            error.into_data_conversion_error(qubit_datatype::DataType::String),
-        )),
     }
 }
 
@@ -1892,7 +1830,7 @@ impl Config {
     where
         T: DeserializeOwned,
     {
-        self.deserialize_by(prefix, false)
+        ConfigSerdeExt::deserialize(self, prefix)
     }
 
     /// Deserializes an exact value or subtree after interpolating strings.
@@ -1918,47 +1856,7 @@ impl Config {
     where
         T: DeserializeOwned,
     {
-        self.deserialize_by(prefix, true)
-    }
-
-    /// Deserializes an exact value or subtree with explicit interpolation
-    /// behavior.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `T` - Target type implementing `serde::de::DeserializeOwned`.
-    ///
-    /// # Parameters
-    ///
-    /// * `prefix` - Exact property key or dotted subtree path.
-    /// * `interpolate` - Whether string leaves resolve placeholders first.
-    ///
-    /// # Returns
-    ///
-    /// The deserialized value.
-    ///
-    /// # Errors
-    ///
-    /// Returns lookup, interpolation, conversion, key-conflict, or sanitized
-    /// Serde errors.
-    fn deserialize_by<T>(
-        &self,
-        prefix: &str,
-        interpolate: bool,
-    ) -> ConfigResult<T>
-    where
-        T: DeserializeOwned,
-    {
-        let value = self.deserialize_root_value(prefix, interpolate)?;
-
-        match T::deserialize(ConfigValueDeserializer::new(
-            value,
-            prefix.to_string(),
-            self.read_options(),
-        )) {
-            Ok(value) => Ok(value),
-            Err(error) => Err(error.into_config_error(prefix)),
-        }
+        ConfigSerdeExt::deserialize_interpolated(self, prefix)
     }
 
     /// Inserts or replaces a property using an explicit [`Property`] object.
@@ -2097,151 +1995,6 @@ impl Config {
         Ok(())
     }
 
-    /// Builds the JSON root consumed by structured serde deserialization.
-    ///
-    /// # Parameters
-    ///
-    /// * `prefix` - Exact property key or dotted subtree path.
-    ///
-    /// # Returns
-    ///
-    /// The scalar or object representation consumed by serde.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ConfigError::KeyConflict`] when `prefix` has both an exact
-    /// value and child keys, or when dotted child keys cannot form an
-    /// unambiguous object tree. Returns interpolation/conversion errors if
-    /// configured string handling fails before deserialization starts.
-    fn deserialize_root_value(
-        &self,
-        prefix: &str,
-        interpolate: bool,
-    ) -> ConfigResult<JsonValue> {
-        if prefix.is_empty() {
-            return self.deserialize_subtree_value(prefix, interpolate);
-        }
-
-        let exact = self.properties.get(prefix);
-        let has_children =
-            self.properties.keys().any(|key| is_child_key(key, prefix));
-        match (exact, has_children) {
-            (Some(_), true) => Err(ConfigError::KeyConflict {
-                path: prefix.to_string(),
-                existing: "exact value".to_string(),
-                incoming: "nested child keys".to_string(),
-            }),
-            (Some(property), false) => {
-                self.deserialize_exact_value(prefix, property, interpolate)
-            }
-            (None, _) => self.deserialize_subtree_value(prefix, interpolate),
-        }
-    }
-
-    /// Builds a JSON value from a single exact property for deserialization.
-    ///
-    /// # Parameters
-    ///
-    /// * `key` - Absolute property key used for error context.
-    /// * `property` - Property to project into JSON.
-    /// * `interpolate` - Whether to interpolate string leaves.
-    ///
-    /// # Returns
-    ///
-    /// A JSON scalar, collection, object, or null value.
-    ///
-    /// # Errors
-    ///
-    /// Returns interpolation errors when string leaves contain unresolved
-    /// placeholders, or conversion errors when the configured projection is
-    /// not exact.
-    fn deserialize_exact_value(
-        &self,
-        key: &str,
-        property: &Property,
-        interpolate: bool,
-    ) -> ConfigResult<JsonValue> {
-        if scalar_string_is_missing_for_deserialize(
-            self,
-            self,
-            key,
-            property,
-            self.read_options(),
-            interpolate,
-        )? {
-            return Ok(JsonValue::Null);
-        }
-
-        let mut value =
-            utils::property_to_json_value(property, key, self.read_options())?;
-        if interpolate {
-            utils::substitute_json_strings_with_fallback(
-                &mut value, key, self, self,
-            )?;
-        }
-        Ok(value)
-    }
-
-    /// Builds a JSON object from keys under `prefix` for deserialization.
-    ///
-    /// # Parameters
-    ///
-    /// * `prefix` - Dotted subtree path to project.
-    /// * `interpolate` - Whether to interpolate string leaves.
-    ///
-    /// # Returns
-    ///
-    /// A JSON object containing relative child paths.
-    ///
-    /// # Errors
-    ///
-    /// Returns key-conflict errors for ambiguous dotted paths, and propagates
-    /// interpolation/conversion errors from active read options.
-    fn deserialize_subtree_value(
-        &self,
-        prefix: &str,
-        interpolate: bool,
-    ) -> ConfigResult<JsonValue> {
-        let sub = self.subconfig(prefix, true)?;
-
-        let mut properties = sub.properties.iter().collect::<Vec<_>>();
-        properties.sort_by_key(|(left_key, _)| *left_key);
-
-        let mut map = Map::new();
-        for (key, prop) in properties {
-            let absolute_path = if prefix.is_empty() {
-                key.to_string()
-            } else {
-                format!("{prefix}.{key}")
-            };
-            if scalar_string_is_missing_for_deserialize(
-                &sub,
-                self,
-                &absolute_path,
-                prop,
-                self.read_options(),
-                interpolate,
-            )? {
-                continue;
-            }
-
-            let mut json_val = utils::property_to_json_value(
-                prop,
-                &absolute_path,
-                self.read_options(),
-            )?;
-            if interpolate {
-                utils::substitute_json_strings_with_fallback(
-                    &mut json_val,
-                    &absolute_path,
-                    &sub,
-                    self,
-                )?;
-            }
-            utils::insert_deserialize_value(&mut map, key, json_val)?;
-        }
-        Ok(JsonValue::Object(map))
-    }
 }
 
 impl ConfigReader for Config {

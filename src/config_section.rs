@@ -125,6 +125,12 @@ impl<'a> ConfigSection<'a> {
         self
     }
 
+    /// Returns the root configuration backing this section.
+    #[inline(always)]
+    pub(crate) fn root_config(&self) -> &'a Config {
+        self.config
+    }
+
     /// Returns this section's normalized root-relative path.
     ///
     /// # Returns

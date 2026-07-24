@@ -818,6 +818,15 @@ pub trait ConfigReader: internal::Sealed {
     }
 }
 
+/// Returns the root configuration backing a supported reader.
+#[inline(always)]
+pub(crate) fn root_config<R>(reader: &R) -> &Config
+where
+    R: ConfigReader + ?Sized,
+{
+    internal::Sealed::root_config(reader)
+}
+
 /// Creates a structured error for an unsuccessful multi-key lookup.
 fn missing_candidates_error<R>(reader: &R, names: &[&str]) -> ConfigError
 where
@@ -869,6 +878,16 @@ where
     })
 }
 
-impl internal::Sealed for Config {}
+impl internal::Sealed for Config {
+    #[inline(always)]
+    fn root_config(&self) -> &Config {
+        self
+    }
+}
 
-impl internal::Sealed for ConfigSection<'_> {}
+impl internal::Sealed for ConfigSection<'_> {
+    #[inline(always)]
+    fn root_config(&self) -> &Config {
+        ConfigSection::root_config(self)
+    }
+}

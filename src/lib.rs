@@ -19,6 +19,7 @@ mod config_names;
 mod config_property_mut;
 mod config_reader;
 mod config_section;
+mod config_serde_ext;
 mod config_value_deserializer;
 mod configurable;
 mod configured;
@@ -38,6 +39,7 @@ pub use config_names::ConfigNames;
 pub use config_property_mut::ConfigPropertyMut;
 pub use config_reader::ConfigReader;
 pub use config_section::ConfigSection;
+pub use config_serde_ext::ConfigSerdeExt;
 pub use configurable::Configurable;
 pub use configured::Configured;
 pub use error::{
