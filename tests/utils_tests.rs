@@ -1325,7 +1325,7 @@ mod test_property_to_json_value_deserialize_behavior {
     #[test]
     fn test_deserialize_url() {
         let url = Url::parse("https://example.com").unwrap();
-        let config = config_with_value("x.val", Value::Url(url));
+        let config = config_with_value("x.val", Value::new(url));
         let s: AnyStruct = config.deserialize("x").unwrap();
         assert!(s.val.as_str().unwrap().contains("example.com"));
     }

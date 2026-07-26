@@ -6,6 +6,7 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -97,28 +98,30 @@ where
 ///
 /// # Returns
 ///
-/// A [`ValueContainer`] with string entries substituted and its original shape
-/// preserved; non-string entries are cloned unchanged.
+/// A borrowed or owned [`ValueContainer`] with string entries substituted and
+/// its original shape preserved; non-string entries remain borrowed.
 ///
 /// # Errors
 ///
 /// Returns a substitution error if any string entry cannot be resolved.
-fn substituted_values(
-    property: &Property,
+fn substituted_values<'a>(
+    property: &'a Property,
     ctx: &ConfigParseContext<'_>,
-) -> ConfigResult<ValueContainer> {
+) -> ConfigResult<Cow<'a, ValueContainer>> {
     match property.value() {
         ValueContainer::Scalar(QubitValue::String(value)) => ctx
             .substitute_string(value)
             .map(QubitValue::String)
-            .map(ValueContainer::Scalar),
+            .map(ValueContainer::Scalar)
+            .map(Cow::Owned),
         ValueContainer::Collection(MultiValues::String(values)) => values
             .iter()
             .map(|value| ctx.substitute_string(value))
             .collect::<ConfigResult<Vec<_>>>()
             .map(MultiValues::String)
-            .map(ValueContainer::Collection),
-        values => Ok(values.clone()),
+            .map(ValueContainer::Collection)
+            .map(Cow::Owned),
+        values => Ok(Cow::Borrowed(values)),
     }
 }
 
