@@ -9,13 +9,23 @@
 
 use qubit_value::Value as QubitValue;
 use serde::de::DeserializeOwned;
-use serde_json::{Map, Value as JsonValue};
+use serde_json::{
+    Map,
+    Value as JsonValue,
+};
 
-use crate::config_reader::{ConfigReader, root_config};
+use crate::config_reader::{
+    ConfigReader,
+    root_config,
+};
 use crate::config_value_deserializer::ConfigValueDeserializer;
 use crate::options::ReadOptions;
 use crate::utils;
-use crate::{ConfigError, ConfigResult, Property};
+use crate::{
+    ConfigError,
+    ConfigResult,
+    Property,
+};
 
 /// Adds Serde-based structured reads to every supported configuration reader.
 ///
@@ -88,7 +98,11 @@ impl<R> ConfigSerdeExt for R where R: ConfigReader + ?Sized {}
 /// # Errors
 ///
 /// Returns structured configuration or sanitized Serde errors.
-fn deserialize_by<R, T>(reader: &R, prefix: &str, interpolate: bool) -> ConfigResult<T>
+fn deserialize_by<R, T>(
+    reader: &R,
+    prefix: &str,
+    interpolate: bool,
+) -> ConfigResult<T>
 where
     R: ConfigReader + ?Sized,
     T: DeserializeOwned,
@@ -111,7 +125,11 @@ where
 ///
 /// Returns a key conflict when an exact property and descendants coexist, or
 /// propagates conversion and interpolation errors.
-fn deserialize_root_value<R>(reader: &R, prefix: &str, interpolate: bool) -> ConfigResult<JsonValue>
+fn deserialize_root_value<R>(
+    reader: &R,
+    prefix: &str,
+    interpolate: bool,
+) -> ConfigResult<JsonValue>
 where
     R: ConfigReader + ?Sized,
 {
@@ -165,9 +183,12 @@ where
         return Ok(JsonValue::Null);
     }
 
-    let mut value = utils::property_to_json_value(property, path, primary.read_options())?;
+    let mut value =
+        utils::property_to_json_value(property, path, primary.read_options())?;
     if interpolate {
-        utils::substitute_json_strings_with_fallback(&mut value, path, primary, fallback)?;
+        utils::substitute_json_strings_with_fallback(
+            &mut value, path, primary, fallback,
+        )?;
     }
     Ok(value)
 }
@@ -205,9 +226,15 @@ where
             continue;
         }
 
-        let mut value = utils::property_to_json_value(property, path, subtree.read_options())?;
+        let mut value = utils::property_to_json_value(
+            property,
+            path,
+            subtree.read_options(),
+        )?;
         if interpolate {
-            utils::substitute_json_strings_with_fallback(&mut value, path, &subtree, fallback)?;
+            utils::substitute_json_strings_with_fallback(
+                &mut value, path, &subtree, fallback,
+            )?;
         }
         utils::insert_deserialize_value(&mut map, key, value)?;
     }
@@ -235,7 +262,9 @@ where
         return Ok(false);
     };
     let value = if interpolate {
-        utils::substitute_variables_with_fallback(value, primary, fallback, options, path)?
+        utils::substitute_variables_with_fallback(
+            value, primary, fallback, options, path,
+        )?
     } else {
         value.to_string()
     };

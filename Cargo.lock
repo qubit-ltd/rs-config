@@ -527,6 +527,8 @@ dependencies = [
 [[package]]
 name = "qubit-datatype"
 version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b9dd16b80a75460ac639b745af90ef486a7544574c63d0949994678afe05dd83"
 dependencies = [
  "bigdecimal",
  "chrono",
