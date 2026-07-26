@@ -7,7 +7,12 @@
 // =============================================================================
 
 use qubit_config::{
-    Config, ConfigError, ConfigReader, ConfigResult, ConfigSerdeExt, options::ReadOptions,
+    Config,
+    ConfigError,
+    ConfigReader,
+    ConfigResult,
+    ConfigSerdeExt,
+    options::ReadOptions,
 };
 use serde::Deserialize;
 
@@ -60,8 +65,8 @@ fn test_deserialize_interpolated_supports_generic_scoped_reader() {
         .set("retry.enabled", "true")
         .expect("retry enabled value should be set");
 
-    let settings =
-        read_retry(&config.section("retry")).expect("scoped retry settings should deserialize");
+    let settings = read_retry(&config.section("retry"))
+        .expect("scoped retry settings should deserialize");
 
     assert_eq!(
         settings,
@@ -86,8 +91,9 @@ fn test_deserialize_matches_config_inherent_method() {
     let inherent: ServerSettings = config
         .deserialize("server")
         .expect("inherent method should deserialize");
-    let extension: ServerSettings = ConfigSerdeExt::deserialize(&config, "server")
-        .expect("extension method should deserialize");
+    let extension: ServerSettings =
+        ConfigSerdeExt::deserialize(&config, "server")
+            .expect("extension method should deserialize");
 
     assert_eq!(extension, inherent);
 }
