@@ -398,7 +398,7 @@ fn find_variable_value<R: ConfigReader + ?Sized>(
 ) -> ConfigResult<String> {
     match config.get_property(var_name) {
         Some(property) if !property.is_unset() => {
-            match property.value().to::<String>() {
+            match property.value().to_first::<String>() {
                 Ok(value) => Ok(value),
                 Err(error) => {
                     let resolved = config.resolve_key(var_name);
@@ -454,7 +454,7 @@ fn find_variable_value_with_fallback<
 ) -> ConfigResult<String> {
     match primary.get_property(var_name) {
         Some(property) if !property.is_unset() => {
-            match property.value().to::<String>() {
+            match property.value().to_first::<String>() {
                 Ok(value) => Ok(value),
                 Err(error) => {
                     let resolved = primary.resolve_key(var_name);
