@@ -2265,10 +2265,7 @@ mod test_get_and_get_list_error_mapping_additional_paths {
             } => {
                 assert_eq!(key, "map_value");
                 assert_eq!(source_index, None);
-                assert_eq!(
-                    source.kind(),
-                    DataConversionErrorKind::Unsupported,
-                );
+                assert_eq!(source.kind(), DataConversionErrorKind::Unsupported,);
             }
             error => panic!("expected ConversionError, got {error:?}"),
         }

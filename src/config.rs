@@ -838,7 +838,7 @@ impl Config {
             let property = self.get_property_by_name(name)?;
 
             property
-                .get::<T>()
+                .get_first::<T>()
                 .map_err(|e| utils::map_value_error(name, e))
         })
     }
@@ -1994,7 +1994,6 @@ impl Config {
         }
         Ok(())
     }
-
 }
 
 impl ConfigReader for Config {

@@ -84,7 +84,7 @@ where
     } else {
         property
             .value()
-            .to_with::<T>(ctx.options().conversion_options())
+            .to_first_with::<T>(ctx.options().conversion_options())
             .map_err(|e| utils::map_value_error(ctx.key(), e))
     }
 }
@@ -200,7 +200,7 @@ impl FromConfig for String {
         } else {
             property
                 .value()
-                .to_with::<String>(ctx.options().conversion_options())
+                .to_first_with::<String>(ctx.options().conversion_options())
                 .map_err(|e| utils::map_value_error(ctx.key(), e))
         }
     }

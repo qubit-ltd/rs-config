@@ -12,7 +12,9 @@
 
 use serde::{
     Deserialize,
+    Deserializer,
     Serialize,
+    Serializer,
 };
 use std::fmt::{
     self,
@@ -26,7 +28,12 @@ use std::ops::{
 
 use qubit_datatype::DataType;
 use qubit_redact::redacted_debug;
-use qubit_value::ValueContainer;
+use qubit_value::{
+    StrictValueRead,
+    ValueContainer,
+    ValueResult,
+    ValueWireV1,
+};
 
 /// Configuration Property
 ///
@@ -55,7 +62,7 @@ use qubit_value::ValueContainer;
 /// assert_eq!(code.len(), 2);
 /// ```
 #[must_use]
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq)]
 pub struct Property {
     /// Property name
     name: String,
@@ -64,6 +71,33 @@ pub struct Property {
     /// Property description
     description: Option<String>,
     /// Whether this is a final value (cannot be overridden)
+    is_final: bool,
+}
+
+/// Borrowed wire representation of a property.
+#[derive(Serialize)]
+struct PropertyWireRef<'a> {
+    /// Property name.
+    name: &'a str,
+    /// Explicitly versioned property value.
+    value: ValueWireV1,
+    /// Optional human-readable description.
+    description: &'a Option<String>,
+    /// Whether overriding is prohibited.
+    is_final: bool,
+}
+
+/// Owned wire representation of a property.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PropertyWireOwned {
+    /// Property name.
+    name: String,
+    /// Explicitly versioned property value.
+    value: ValueWireV1,
+    /// Optional human-readable description.
+    description: Option<String>,
+    /// Whether overriding is prohibited.
     is_final: bool,
 }
 
@@ -78,6 +112,45 @@ impl Debug for Property {
             .field("description", &self.description)
             .field("is_final", &self.is_final)
             .finish()
+    }
+}
+
+impl Serialize for Property {
+    /// Serializes a property through the explicit V1 value envelope.
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let value = ValueWireV1::try_from(self.value.clone())
+            .map_err(<S::Error as serde::ser::Error>::custom)?;
+        PropertyWireRef {
+            name: self.name(),
+            value,
+            description: &self.description,
+            is_final: self.is_final,
+        }
+        .serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Property {
+    /// Deserializes a property with an explicit V1 value envelope.
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let PropertyWireOwned {
+            name,
+            value,
+            description,
+            is_final,
+        } = PropertyWireOwned::deserialize(deserializer)?;
+        Ok(Self {
+            name,
+            value: value.into_container(),
+            description,
+            is_final,
+        })
     }
 }
 
@@ -135,6 +208,31 @@ impl Property {
     #[inline(always)]
     pub fn value(&self) -> &ValueContainer {
         &self.value
+    }
+
+    /// Strictly reads the property's scalar value or first collection item.
+    ///
+    /// Configuration properties intentionally use first-item semantics for
+    /// scalar reads. The delegated [`ValueContainer::get_first`] call keeps
+    /// that shape decision explicit at the value boundary.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Strict target type.
+    ///
+    /// # Returns
+    ///
+    /// The scalar value or the first stored collection item.
+    ///
+    /// # Errors
+    ///
+    /// Returns the strict read error from the underlying value container.
+    #[inline(always)]
+    pub fn get<T>(&self) -> ValueResult<T>
+    where
+        T: StrictValueRead,
+    {
+        self.value.get_first()
     }
 
     /// Gets a mutable reference to the property value
