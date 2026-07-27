@@ -45,6 +45,18 @@ pub struct ReadOptions {
 }
 
 impl ReadOptions {
+    /// Creates options that resolve placeholders from configuration only.
+    ///
+    /// # Returns
+    ///
+    /// Default conversion and interpolation limits with process-environment
+    /// fallback disabled. Use this preset when configuration content is not
+    /// trusted to select arbitrary environment variable names.
+    #[inline]
+    pub fn config_only() -> Self {
+        Self::default().with_environment_fallback_enabled(false)
+    }
+
     /// Creates options suitable for environment-variable style values.
     ///
     /// # Returns

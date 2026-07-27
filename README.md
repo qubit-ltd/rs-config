@@ -16,7 +16,7 @@ A powerful, type-safe configuration management system for Rust, providing flexib
 - ✅ **Multi-Value Properties** - Each configuration property can contain multiple values with list operations
 - ✅ **Explicit Interpolation** - `*_interpolated` reads resolve `${var_name}` from config and fall back to process environment variables by default
 - ✅ **Type-aware API** - Generic target types are checked at compile time; missing, malformed, or incompatible configuration data is reported at runtime through `ConfigError`
-- ✅ **Serde Integration** - Supports `Config` wire serialization and JSON-like subtree deserialization; native rich-type conversion remains available through typed reads
+- ✅ **Stable Persistence Wire** - `Config` serialization emits a deterministic, versioned V1 JSON contract and continues to read legacy unversioned payloads
 - ✅ **Extensible** - Trait-based design for easy custom type support
 - ✅ **Configuration sources** - [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) trait with built-in loaders: TOML, YAML, Java-style `.properties`, `.env` files, process environment variables (with optional prefix / key normalization), and [`CompositeConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.CompositeConfigSource.html) to merge several sources in order (later entries override earlier ones for the same key); built-in sources load transactionally, validate ambiguous normalized keys, and reject duplicate flattened TOML/YAML keys
 - ✅ **Read-only API** - The sealed [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) trait provides typed, multi-key, and field-declaration reads for [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) and [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html)
@@ -124,6 +124,8 @@ split again.
 
 [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) is the read-only configuration surface. Functions or types that only need settings can take `&impl ConfigReader` (or a generic `R: ConfigReader`) instead of `&Config`; the same API works for [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) and [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html). `ConfigReader` has generic typed methods, so it is not object-safe and should not be used as `dyn ConfigReader`.
 
+For new integrations, prefer `ConfigReader`, `ConfigSection`, `ReadOptions`, and `ConfigSerdeExt`. `ConfigField`, `Configured`, `Configurable`, and custom `ConfigSource` implementations remain supported specialized APIs, but are not the recommended starting point for ordinary application reads.
+
 The main read APIs are:
 
 | API | Behavior |
@@ -206,7 +208,7 @@ let port: i32 = db.get("port")?;
 
 `ReadOptions::env_friendly()` is useful for environment-variable style values: it trims strings, treats blank scalar strings as missing, accepts `true/false`, `1/0`, `yes/no`, and `on/off`, and splits scalar strings on commas for `Vec<T>` reads while skipping empty items. It permits nearest-even text-to-float rounding, but keeps fractional-to-integer and existing-numeric-to-float conversions exact.
 
-Ordinary reads never interpolate `${...}`. Explicit interpolated reads resolve configuration keys first and allow environment-variable fallback by default; `ReadOptions` can disable that fallback and adjust recursion depth, placeholder expansion, and output byte limits.
+Ordinary reads never interpolate `${...}`. Explicit interpolated reads resolve configuration keys first and allow environment-variable fallback by default; `ReadOptions` can disable that fallback and adjust recursion depth, placeholder expansion, and output byte limits. Treat an interpolated configuration as trusted when environment fallback is enabled: it can select the names of process environment variables to read. Use `ReadOptions::config_only()` for untrusted configuration content, or explicitly disable fallback with `with_environment_fallback_enabled(false)`.
 
 ```rust
 use qubit_config::{Config, options::ReadOptions};
@@ -339,6 +341,8 @@ Built-in sources and `Config::merge_from_source` are transactional: if parsing o
 
 Environment sources that normalize keys reject empty or malformed dotted paths such as `APP_`, `APP__DB`, and `APP_DB__HOST`. TOML and YAML sources also reject duplicate flattened keys inside one document, for example a literal `"server.port"` key colliding with a nested `server.port` mapping.
 
+TOML and YAML loaders intentionally support a flattened configuration subset. Nested maps/tables become dotted keys and homogeneous scalar sequences become multi-value properties. Nested arrays, arrays/tables/mappings inside a sequence, and YAML tagged sequence elements are rejected because flattening would lose structure; mixed scalar sequences are represented as strings.
+
 | Type | Role |
 |------|------|
 | [`TomlConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.TomlConfigSource.html) | TOML files; nested tables are flattened to dot-separated keys |
@@ -438,6 +442,16 @@ let env: String = config.get_interpolated("env")?;
 `deserialize()` exposes a JSON-like Serde view containing mappings, sequences, booleans, strings, numbers, and null values without interpolating placeholders. Use `deserialize_interpolated()` when string leaves must be resolved first. Both methods apply the conversion rules in `ReadOptions`; for example, `ReadOptions::env_friendly()` can parse numeric strings, boolean aliases, comma-separated scalar string lists, and blank strings treated as missing while building a serde struct.
 
 Lookup and conversion failures retain their original `ConfigError` kind, leaf path, and source. A mismatch raised only by the target type's Serde implementation returns a sanitized `DeserializeError` at the requested prefix.
+
+### Persistence Wire Format
+
+`serde_json::to_string(&config)` emits the stable V1 JSON persistence format:
+`{ "version": 1, "description": ..., "properties": ..., "read_options": ... }`.
+Property keys are emitted in lexical order, so equivalent configurations have the
+same JSON bytes. V1 preserves property value shapes through `ValueWireV1` and
+is the cross-version persistence contract for JSON. Future incompatible wire
+changes will use a new version; readers continue to accept the legacy
+unversioned top-level format emitted before V1.
 
 When `prefix` is non-empty, `deserialize(prefix)` uses strict root selection:
 an exact `prefix` property is deserialized as the root value, otherwise
@@ -601,37 +615,11 @@ let server = Server {
 
 ## Error Handling
 
-The configuration system uses `ConfigResult<T>` for error handling:
-
-```rust
-#[non_exhaustive]
-pub enum ConfigError {
-    PropertyNotFound(String),           // Property does not exist
-    PropertyHasNoValue(String),         // Property has no value
-    TypeMismatch { key: String, expected: DataType, actual: DataType }, // Type mismatch
-    ConversionError { // Structured, value-redacted conversion failure
-        key: String,
-        source_index: Option<usize>,
-        source: DataConversionError,
-    },
-    ValueError { key: String, source: ValueError },
-    SubstitutionError { path: String, message: String },
-    SubstitutionDepthExceeded { path: String, max_depth: usize },
-    SubstitutionExpansionLimitExceeded { path: String, max_expansions: usize },
-    SubstitutionOutputTooLarge { path: String, max_output_bytes: usize },
-    SubstitutionCycle { path: String, chain: Vec<String> },
-    MergeError(String),                 // Configuration merge failed
-    PropertyIsFinal(String),            // Property is final and cannot be overwritten
-    KeyConflict { path: String, existing: String, incoming: String }, // Ambiguous key shape
-    IoError(std::io::Error),            // IO error
-    ParseError(String),                 // Parse error
-    DeserializeError { path: String, message: String, source: Option<Box<ConfigError>> },
-    Other(String),                      // Other errors
-}
-```
-
-Consumers should branch on `ConfigError::kind()` and read optional key context
-through `ConfigError::path()`. Converting a value-layer error requires explicit
+The configuration system uses the non-exhaustive `ConfigResult<T>` and
+`ConfigError` types. Consumers should branch on `ConfigError::kind()`, read
+single-key context through `ConfigError::path()`, and use
+`ConfigError::candidate_paths()` for ordered multi-key lookup failures such as
+`PropertyCandidatesNotFound`. Converting a value-layer error requires explicit
 key context via `ConfigError::from((path, value_error))`; pathless conversion is
 not supported.
 
@@ -639,7 +627,7 @@ not supported.
 
 - **Enum-backed values** - Core property values use enums for predictable storage and conversion paths
 - **Variable Substitution Optimization** - Uses `OnceLock` to cache regex patterns, avoiding repeated compilation
-- **Efficient Storage** - Properties stored in `HashMap` with O(1) lookup time complexity
+- **Efficient Storage** - Exact property lookup uses `HashMap` with O(1) expected complexity; prefix and section enumeration scan the stored properties and are O(n)
 - **Staged Source Loading** - Built-in source loaders write into an already staged `Config` during composite and merge operations, preserving transaction semantics without repeated full-config clones
 
 ## Documentation
@@ -666,6 +654,9 @@ cargo test
 
 # Run tests with all declared features
 cargo test --all-features
+
+# Run representative exact-key, prefix, section, and wire benchmarks
+cargo bench --bench config_lookup_bench
 
 # Project CI checks
 ./ci-check.sh

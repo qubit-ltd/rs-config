@@ -61,7 +61,13 @@ qubit-redact = { version = "0.3", path = "../rs-redact", default-features = fals
 qubit-value = { path = "../rs-value", version = "0.10", default-features = false, features = ["converter", "json"] }
 
 [dev-dependencies]
+criterion = { version = "0.8", default-features = false }
 tempfile = "3.27"
+
+[[bench]]
+name = "config_lookup_bench"
+path = "benches/config_lookup_bench.rs"
+harness = false
 
 [[test]]
 name = "composite_config_source_tests"

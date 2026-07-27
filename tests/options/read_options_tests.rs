@@ -127,6 +127,17 @@ fn test_environment_fallback_is_enabled_by_default_and_configurable() {
 }
 
 #[test]
+fn test_config_only_options_disable_environment_fallback() {
+    let options = ReadOptions::config_only();
+
+    assert!(!options.is_environment_fallback_enabled());
+    assert_eq!(options.conversion_options(), ReadOptions::default().conversion_options());
+    assert_eq!(options.max_interpolation_depth(), 64);
+    assert_eq!(options.max_interpolation_expansions(), 4_096);
+    assert_eq!(options.max_interpolation_output_bytes(), 1_048_576);
+}
+
+#[test]
 fn test_interpolation_limit_builders_replace_defaults() {
     let options = ReadOptions::default()
         .with_max_interpolation_depth(8)

@@ -18,7 +18,7 @@
 - ✅ **多值属性** - 每个配置项可以包含多个值，支持列表操作
 - ✅ **显式插值** - `*_interpolated` 读取会解析配置中的 `${var_name}`，并默认允许回退到进程环境变量
 - ✅ **类型感知 API** - 泛型目标类型在编译期检查；缺失、格式错误或不兼容的配置数据仍会在运行期通过 `ConfigError` 报告
-- ✅ **Serde 集成** - 支持 `Config` wire 序列化与 JSON-like 子树反序列化；富类型的原生转换继续通过 typed read 提供
+- ✅ **稳定持久化 wire** - `Config` 序列化输出确定性、带版本的 V1 JSON 契约，并继续读取旧的无版本载荷
 - ✅ **可扩展** - 基于 trait 的设计，易于支持自定义类型
 - ✅ **配置来源（ConfigSource）** - 提供 [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) trait 与多种内置实现：TOML、YAML、Java 风格 `.properties`、`.env` 文件、进程环境变量（可选前缀与键名规范化），以及按顺序合并多个来源的 [`CompositeConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.CompositeConfigSource.html)（后加载的来源覆盖同名键）；内置来源按事务语义加载，会校验有歧义的规范化 key，并拒绝 TOML/YAML 单文档内展平后的重复 key
 - ✅ **只读访问（ConfigReader）** - 封闭的 [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) trait 为 [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) 与 [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html) 提供泛型、多 key 和字段声明读取
@@ -121,6 +121,8 @@ config.set("database.port", 5432)?;
 
 [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) 是配置的只读抽象。仅需读取配置时，函数或类型可以接受 `&impl ConfigReader`（或泛型 `R: ConfigReader`），而不必暴露完整的 `&Config`；同一套 API 可用于完整 [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) 和 [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html)。`ConfigReader` 包含泛型类型读取方法，因此不是 object-safe，不能用作 `dyn ConfigReader`。
 
+新接入优先使用 `ConfigReader`、`ConfigSection`、`ReadOptions` 与 `ConfigSerdeExt`。`ConfigField`、`Configured`、`Configurable` 以及自定义 `ConfigSource` 仍是受支持的专用 API，但不应作为普通应用读取配置的首选入口。
+
 主要读取 API 如下：
 
 | API | 行为 |
@@ -202,7 +204,7 @@ let port: i32 = db.get("port")?;
 
 `ReadOptions::env_friendly()` 适合环境变量风格配置：会 trim 字符串，把空白标量字符串当作缺失，布尔值接受 `true/false`、`1/0`、`yes/no`、`on/off`，并在读取 `Vec<T>` 时按逗号拆分标量字符串、跳过空元素。它允许文本转浮点采用 nearest-even 舍入，但小数转整数与已有数值转浮点仍保持精确。
 
-普通读取永远不会插值 `${...}`。显式插值读取先解析配置项，并默认允许回退到环境变量；可以通过 `ReadOptions` 关闭环境回退，也可以调整递归深度、占位符展开次数和输出字节数上限。
+普通读取永远不会插值 `${...}`。显式插值读取先解析配置项，并默认允许回退到环境变量；可以通过 `ReadOptions` 关闭环境回退，也可以调整递归深度、占位符展开次数和输出字节数上限。启用环境回退时，应把插值配置视为受信任输入：它能够选择要读取的进程环境变量名称。对于不受信任的配置内容，请使用 `ReadOptions::config_only()`，或显式调用 `with_environment_fallback_enabled(false)`。
 
 ```rust
 use qubit_config::{Config, options::ReadOptions};
@@ -333,6 +335,8 @@ assert_eq!(retries, 3);
 
 会规范化 key 的环境变量 source 会拒绝空 key 或畸形点号路径，例如 `APP_`、`APP__DB`、`APP_DB__HOST`。TOML 和 YAML source 也会拒绝单个文档内展平后的重复 key，例如字面量 `"server.port"` 与嵌套的 `server.port` 发生冲突。
 
+TOML 与 YAML source 有意只支持可展平的配置子集：嵌套 mapping/table 会变成点号 key，同质标量序列会变成多值属性。序列中嵌套的数组、table/mapping 以及 YAML tagged 元素会被拒绝，因为展平会丢失结构；混合标量序列会按字符串表示。
+
 | 类型 | 作用 |
 |------|------|
 | [`TomlConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.TomlConfigSource.html) | 读取 TOML 文件；嵌套表展平为点号分隔键 |
@@ -432,6 +436,14 @@ let env: String = config.get_interpolated("env")?;
 `deserialize()` 暴露由 mapping、sequence、布尔值、字符串、数字和 null 组成的 JSON-like Serde 视图，并默认保留占位符。需要先解析字符串叶节点时使用 `deserialize_interpolated()`。两者都会应用 `ReadOptions` 的转换规则，例如用 `ReadOptions::env_friendly()` 解析数字字符串、布尔别名、逗号分隔的标量字符串列表，并把空白字符串按缺失值处理。
 
 查找与转换失败会保留原始 `ConfigError` 的 kind、叶子 path 与 source。只有目标类型自身触发的纯 Serde 不匹配，才会在请求的 prefix 返回固定脱敏消息的 `DeserializeError`。
+
+### 持久化 Wire 格式
+
+`serde_json::to_string(&config)` 会输出稳定的 V1 JSON 持久化格式：
+`{ "version": 1, "description": ..., "properties": ..., "read_options": ... }`。
+属性 key 按字典序输出，因此等价配置产生相同 JSON 字节。V1 通过 `ValueWireV1`
+保留属性值形状，并且是 JSON 的跨版本持久化契约。未来不兼容的 wire 变更会使用
+新版本；读取端仍接受 V1 出现前写出的无版本顶层格式。
 
 当 `prefix` 非空时，`deserialize(prefix)` 使用严格的根选择语义：如果存在精确的 `prefix` 属性，就把该属性作为反序列化根值；否则用 `prefix.*` 子键组成根对象。同时定义 `prefix` 和 `prefix.*` 会返回 key conflict。带点号的键也必须能组成无歧义对象树，例如同一反序列化对象中不能同时存在 `a` 和 `a.b`。
 
@@ -589,44 +601,17 @@ let server = Server {
 
 ## 错误处理
 
-配置系统使用 `ConfigResult<T>` 类型进行错误处理：
-
-```rust
-#[non_exhaustive]
-pub enum ConfigError {
-    PropertyNotFound(String),           // 配置项不存在
-    PropertyHasNoValue(String),         // 配置项没有值
-    TypeMismatch { key: String, expected: DataType, actual: DataType }, // 类型不匹配
-    ConversionError { // 结构化且不包含原值的转换失败
-        key: String,
-        source_index: Option<usize>,
-        source: DataConversionError,
-    },
-    ValueError { key: String, source: ValueError },
-    SubstitutionError { path: String, message: String },
-    SubstitutionDepthExceeded { path: String, max_depth: usize },
-    SubstitutionExpansionLimitExceeded { path: String, max_expansions: usize },
-    SubstitutionOutputTooLarge { path: String, max_output_bytes: usize },
-    SubstitutionCycle { path: String, chain: Vec<String> },
-    MergeError(String),                 // 配置合并失败
-    PropertyIsFinal(String),            // 配置项是最终的，不能被覆盖
-    KeyConflict { path: String, existing: String, incoming: String }, // key 结构有歧义
-    IoError(std::io::Error),            // IO 错误
-    ParseError(String),                 // 解析错误
-    DeserializeError { path: String, message: String, source: Option<Box<ConfigError>> },
-    Other(String),                      // 其他错误
-}
-```
-
-下游应通过 `ConfigError::kind()` 分支，并通过 `ConfigError::path()` 获取可选的
-key 上下文。把值层错误转换为配置错误时，必须使用
-`ConfigError::from((path, value_error))` 显式提供 key；不再支持无路径转换。
+配置系统使用非穷举的 `ConfigResult<T>` 与 `ConfigError` 类型。下游应通过
+`ConfigError::kind()` 分支，通过 `ConfigError::path()` 获取单 key 上下文，并在
+`PropertyCandidatesNotFound` 等多 key 查找失败时用
+`ConfigError::candidate_paths()` 获取有序候选路径。把值层错误转换为配置错误时，必须
+使用 `ConfigError::from((path, value_error))` 显式提供 key；不再支持无路径转换。
 
 ## 性能考虑
 
 - **枚举值存储** - 核心配置值使用枚举表示，便于稳定地存储和转换
 - **变量替换优化** - 使用 `OnceLock` 缓存正则表达式，避免重复编译
-- **高效存储** - 配置项使用 `HashMap` 存储，查找时间复杂度 O(1)
+- **高效存储** - 精确 key 查找使用 `HashMap`，期望复杂度为 O(1)；prefix 与 section 枚举会扫描已存储配置项，复杂度为 O(n)
 - **分阶段 source 加载** - 内置 source 在 composite 和 merge 路径中直接写入已 staged 的 `Config`，保留事务语义，同时避免重复整份配置克隆
 
 ## 文档
@@ -653,6 +638,9 @@ cargo test
 
 # 使用项目声明的全部 feature 运行测试
 cargo test --all-features
+
+# 运行精确 key、prefix、section 与 wire 的代表性基准
+cargo bench --bench config_lookup_bench
 
 # 运行项目 CI 检查
 ./ci-check.sh

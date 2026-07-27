@@ -6,12 +6,8 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-mod config_wire;
-mod config_wire_v1;
-mod config_wire_v1_ref;
-mod config_serde_repr;
+mod property_wire_owned;
+mod property_wire_ref;
 
-pub(super) use config_wire::ConfigWire;
-pub(super) use config_serde_repr::ConfigSerdeRepr;
-pub(super) use config_wire_v1::ConfigWireV1;
-pub(super) use config_wire_v1_ref::ConfigWireV1Ref;
+pub(super) use property_wire_owned::PropertyWireOwned;
+pub(super) use property_wire_ref::PropertyWireRef;
