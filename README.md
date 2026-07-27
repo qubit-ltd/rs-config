@@ -188,7 +188,7 @@ let mut config = Config::new();
 config.set("db.host", "localhost")?;
 config.set("db.port", 5432i32)?;
 
-let db = config.section("db");
+let db = config.section("db")?;
 let host: String = db.get("host")?;
 let port: i32 = db.get("port")?;
 ```
@@ -208,7 +208,7 @@ let port: i32 = db.get("port")?;
 
 `ReadOptions::env_friendly()` is useful for environment-variable style values: it trims strings, treats blank scalar strings as missing, accepts `true/false`, `1/0`, `yes/no`, and `on/off`, and splits scalar strings on commas for `Vec<T>` reads while skipping empty items. It permits nearest-even text-to-float rounding, but keeps fractional-to-integer and existing-numeric-to-float conversions exact.
 
-Ordinary reads never interpolate `${...}`. Explicit interpolated reads resolve configuration keys first and allow environment-variable fallback by default; `ReadOptions` can disable that fallback and adjust recursion depth, placeholder expansion, and output byte limits. Treat an interpolated configuration as trusted when environment fallback is enabled: it can select the names of process environment variables to read. Use `ReadOptions::config_only()` for untrusted configuration content, or explicitly disable fallback with `with_environment_fallback_enabled(false)`.
+Ordinary reads never interpolate `${...}`. Explicit interpolated reads resolve configuration keys first. Environment-variable fallback is disabled by default and is enabled explicitly by `ReadOptions::env_friendly()` or `with_environment_fallback_enabled(true)`. Treat an interpolated configuration as trusted when environment fallback is enabled: it can select the names of process environment variables to read.
 
 ```rust
 use qubit_config::{Config, options::ReadOptions};
@@ -223,6 +223,48 @@ let ports: Vec<u16> = config.get("HTTP_PORTS")?;
 assert!(enabled);
 assert_eq!(ports, vec![8080, 8081, 8082]);
 ```
+
+### Breaking safety contracts
+
+Property keys are canonical, non-empty dotted names. `server` and
+`server.port` are valid; `.server`, `server.`, and `server..port` are rejected
+without trimming or normalization. The empty string is valid only as a root
+`ConfigPath`, such as `section("")` or root structured deserialization.
+
+Path-sensitive predicates and views are fallible. This includes `contains`,
+`get_property`, `is_null`, `remove`, `section`, `contains_section`,
+`subconfig`, and `ConfigReader::resolve_key`:
+
+```rust
+use qubit_config::{Config, ConfigResult};
+
+fn inspect(config: &Config) -> ConfigResult<()> {
+    let http = config.section("http")?;
+    if config.contains_section("http.proxy")? {
+        let proxy = config.section("http.proxy")?;
+        let _: Option<&str> = proxy.get_property("host")?.map(|p| p.name());
+    }
+    let _ = http;
+    Ok(())
+}
+```
+
+`Config::with_read_options` consumes and returns `self`, so it configures a
+newly built value without cloning:
+
+```rust
+use qubit_config::{Config, options::ReadOptions};
+
+let options = ReadOptions::env_friendly();
+let config = Config::new().with_read_options(options);
+assert!(config.read_options().is_environment_fallback_enabled());
+```
+
+Built-in text sources default to `SourceLimits` of 8 MiB input, 65,536
+assignments, and 64 nesting levels. File and in-memory constructors share
+these checks; trusted callers can opt out explicitly with
+`SourceLimits::unbounded()`. Valid version-1 serialized configurations need no
+migration, while serialized properties with malformed keys are now rejected.
 
 You can build stricter or domain-specific options with builder-style methods:
 
