@@ -16,7 +16,7 @@
 - ✅ **纯泛型 API** - 使用 `get<T>()`、`read(ConfigField<T>)` 和 `set<T>()` 泛型方法，支持完整的类型推断
 - ✅ **丰富的数据类型** - 支持 Rust 基础类型，以及由 feature 控制的时间、URL 和任意精度数值类型
 - ✅ **多值属性** - 每个配置项可以包含多个值，支持列表操作
-- ✅ **显式插值** - `*_interpolated` 读取会解析配置中的 `${var_name}`，并默认允许回退到进程环境变量
+- ✅ **显式插值** - `*_interpolated` 读取会解析配置中的 `${var_name}`；回退到进程环境变量必须显式开启
 - ✅ **类型感知 API** - 泛型目标类型在编译期检查；缺失、格式错误或不兼容的配置数据仍会在运行期通过 `ConfigError` 报告
 - ✅ **稳定持久化 wire** - `Config` 序列化输出确定性、带版本的 V1 JSON 契约，并继续读取旧的无版本载荷
 - ✅ **可扩展** - 基于 trait 的设计，易于支持自定义类型
@@ -184,7 +184,7 @@ let mut config = Config::new();
 config.set("db.host", "localhost")?;
 config.set("db.port", 5432i32)?;
 
-let db = config.section("db");
+let db = config.section("db")?;
 let host: String = db.get("host")?;
 let port: i32 = db.get("port")?;
 ```
@@ -204,7 +204,7 @@ let port: i32 = db.get("port")?;
 
 `ReadOptions::env_friendly()` 适合环境变量风格配置：会 trim 字符串，把空白标量字符串当作缺失，布尔值接受 `true/false`、`1/0`、`yes/no`、`on/off`，并在读取 `Vec<T>` 时按逗号拆分标量字符串、跳过空元素。它允许文本转浮点采用 nearest-even 舍入，但小数转整数与已有数值转浮点仍保持精确。
 
-普通读取永远不会插值 `${...}`。显式插值读取先解析配置项，并默认允许回退到环境变量；可以通过 `ReadOptions` 关闭环境回退，也可以调整递归深度、占位符展开次数和输出字节数上限。启用环境回退时，应把插值配置视为受信任输入：它能够选择要读取的进程环境变量名称。对于不受信任的配置内容，请使用 `ReadOptions::config_only()`，或显式调用 `with_environment_fallback_enabled(false)`。
+普通读取永远不会插值 `${...}`。显式插值读取先解析配置项；环境变量回退默认关闭，只能通过 `ReadOptions::env_friendly()` 或 `with_environment_fallback_enabled(true)` 显式开启。启用环境回退时，应把插值配置视为受信任输入：它能够选择要读取的进程环境变量名称。
 
 ```rust
 use qubit_config::{Config, options::ReadOptions};
@@ -219,6 +219,45 @@ let ports: Vec<u16> = config.get("HTTP_PORTS")?;
 assert!(enabled);
 assert_eq!(ports, vec![8080, 8081, 8082]);
 ```
+
+### 破坏性安全契约
+
+property key 必须是非空、规范的点分名称。`server`、`server.port` 合法；
+`.server`、`server.`、`server..port` 会直接报错，不会 trim 或自动规范化。空字符串
+只在 root `ConfigPath` 语境合法，例如 `section("")` 或根结构化反序列化。
+
+所有 path-sensitive predicate 和 view 都显式返回 `ConfigResult`，包括
+`contains`、`get_property`、`is_null`、`remove`、`section`、
+`contains_section`、`subconfig` 与 `ConfigReader::resolve_key`：
+
+```rust
+use qubit_config::{Config, ConfigResult};
+
+fn inspect(config: &Config) -> ConfigResult<()> {
+    let http = config.section("http")?;
+    if config.contains_section("http.proxy")? {
+        let proxy = config.section("http.proxy")?;
+        let _: Option<&str> = proxy.get_property("host")?.map(|p| p.name());
+    }
+    let _ = http;
+    Ok(())
+}
+```
+
+`Config::with_read_options` 会消费并返回 `self`，因此构建新配置时不会发生隐式 clone：
+
+```rust
+use qubit_config::{Config, options::ReadOptions};
+
+let options = ReadOptions::env_friendly();
+let config = Config::new().with_read_options(options);
+assert!(config.read_options().is_environment_fallback_enabled());
+```
+
+内置文本 source 默认使用 `SourceLimits`：输入 8 MiB、65,536 次 assignment、
+64 层嵌套。文件入口和内存入口遵循同一限制；仅受信任输入可以显式选择
+`SourceLimits::unbounded()`。合法 V1 序列化配置无需迁移，但带畸形 key 的序列化
+property 现在会被拒绝。
 
 也可以用 builder 风格方法构造更严格或更贴合业务的解析选项：
 
