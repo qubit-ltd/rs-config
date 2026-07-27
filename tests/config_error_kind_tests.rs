@@ -56,14 +56,20 @@ fn test_config_error_kind_covers_every_public_variant() {
         )
     };
     let cases = [
-        (ConfigError::PropertyNotFound("key".to_string()), ConfigErrorKind::PropertyNotFound),
+        (
+            ConfigError::PropertyNotFound("key".to_string()),
+            ConfigErrorKind::PropertyNotFound,
+        ),
         (
             ConfigError::PropertyCandidatesNotFound {
                 paths: vec!["first".to_string(), "second".to_string()],
             },
             ConfigErrorKind::PropertyNotFound,
         ),
-        (ConfigError::PropertyHasNoValue("key".to_string()), ConfigErrorKind::PropertyHasNoValue),
+        (
+            ConfigError::PropertyHasNoValue("key".to_string()),
+            ConfigErrorKind::PropertyHasNoValue,
+        ),
         (
             ConfigError::TypeMismatch {
                 key: "key".to_string(),
@@ -125,8 +131,14 @@ fn test_config_error_kind_covers_every_public_variant() {
             },
             ConfigErrorKind::SubstitutionCycle,
         ),
-        (ConfigError::MergeError("failed".to_string()), ConfigErrorKind::Merge),
-        (ConfigError::PropertyIsFinal("key".to_string()), ConfigErrorKind::PropertyIsFinal),
+        (
+            ConfigError::MergeError("failed".to_string()),
+            ConfigErrorKind::Merge,
+        ),
+        (
+            ConfigError::PropertyIsFinal("key".to_string()),
+            ConfigErrorKind::PropertyIsFinal,
+        ),
         (
             ConfigError::KeyConflict {
                 path: "key".to_string(),
@@ -139,7 +151,10 @@ fn test_config_error_kind_covers_every_public_variant() {
             ConfigError::IoError(std::io::Error::other("failed")),
             ConfigErrorKind::Io,
         ),
-        (ConfigError::ParseError("failed".to_string()), ConfigErrorKind::Parse),
+        (
+            ConfigError::ParseError("failed".to_string()),
+            ConfigErrorKind::Parse,
+        ),
         (
             ConfigError::DeserializeError {
                 path: "key".to_string(),
@@ -148,11 +163,18 @@ fn test_config_error_kind_covers_every_public_variant() {
             },
             ConfigErrorKind::Deserialize,
         ),
-        (ConfigError::Other("failed".to_string()), ConfigErrorKind::Other),
+        (
+            ConfigError::Other("failed".to_string()),
+            ConfigErrorKind::Other,
+        ),
     ];
 
     for (error, expected_kind) in cases {
-        assert_eq!(error.kind(), expected_kind, "unexpected error kind for {error}");
+        assert_eq!(
+            error.kind(),
+            expected_kind,
+            "unexpected error kind for {error}"
+        );
     }
 }
 

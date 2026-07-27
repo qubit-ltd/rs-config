@@ -10,9 +10,9 @@ use std::collections::BTreeMap;
 
 use serde::Serialize;
 
+use crate::Property;
 use crate::config::Config;
 use crate::options::ReadOptions;
-use crate::Property;
 
 /// Borrowed V1 persistence representation with deterministic property order.
 #[derive(Serialize)]
@@ -21,7 +21,8 @@ pub(in crate::config) struct ConfigWireV1Ref<'a> {
     version: u8,
     /// Optional human-readable configuration description.
     description: &'a Option<String>,
-    /// Properties indexed by their canonical names in deterministic wire order.
+    /// Properties indexed by their canonical names in deterministic wire
+    /// order.
     properties: BTreeMap<&'a str, &'a Property>,
     /// Runtime conversion and explicit interpolation options.
     read_options: &'a ReadOptions,
