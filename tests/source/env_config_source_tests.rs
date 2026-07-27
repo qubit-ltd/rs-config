@@ -119,8 +119,8 @@ mod test_env_config_source {
         // QTEST_PORT → port
         assert_eq!(config.get::<String>("host").unwrap(), "myhost");
         assert_eq!(config.get::<String>("port").unwrap(), "9999");
-        assert!(!config.contains("OTHER_VAR"));
-        assert!(!config.contains("other.var"));
+        assert!(!config.contains("OTHER_VAR").unwrap());
+        assert!(!config.contains("other.var").unwrap());
 
         unsafe {
             std::env::remove_var("QTEST_HOST");
@@ -143,7 +143,7 @@ mod test_env_config_source {
         // MYAPP_SERVER_HOST → server.host (strip prefix, lowercase,
         // underscore→dot)
         assert_eq!(config.get::<String>("server.host").unwrap(), "app-host");
-        assert!(!config.contains("MYAPP_SERVER_HOST"));
+        assert!(!config.contains("MYAPP_SERVER_HOST").unwrap());
 
         unsafe {
             std::env::remove_var("MYAPP_SERVER_HOST");
@@ -424,7 +424,7 @@ mod test_env_edge_cases {
         let mut config = Config::new();
         source.load(&mut config).unwrap();
         // Key kept as-is (not stripped, not lowercased, not converted)
-        assert!(config.contains("COVTEST_FOO"));
+        assert!(config.contains("COVTEST_FOO").unwrap());
         unsafe {
             std::env::remove_var("COVTEST_FOO");
         }

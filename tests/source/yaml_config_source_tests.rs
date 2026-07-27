@@ -162,8 +162,8 @@ mod test_yaml_config_source {
         let mut config = Config::new();
         config.merge_from_source(&source).unwrap();
 
-        assert!(config.contains("host"));
-        assert!(config.contains("app.name"));
+        assert!(config.contains("host").unwrap());
+        assert!(config.contains("app.name").unwrap());
     }
 
     #[test]
@@ -211,8 +211,8 @@ db:
         source.load(&mut config).unwrap();
 
         // Null values are preserved as empty properties (is_null returns true)
-        assert!(config.contains("key"));
-        assert!(config.is_null("key"));
+        assert!(config.contains("key").unwrap());
+        assert!(config.is_null("key").unwrap());
         // get_optional returns None for null values
         let val: Option<String> = config.get_optional("key").unwrap();
         assert_eq!(val, None);
@@ -231,8 +231,8 @@ db:
 
         source.load(&mut config).unwrap();
 
-        assert!(config.contains("key"));
-        assert!(config.is_null("key"));
+        assert!(config.contains("key").unwrap());
+        assert!(config.is_null("key").unwrap());
         let value: Option<String> = config.get_optional("key").unwrap();
         assert_eq!(value, None);
     }
@@ -248,7 +248,8 @@ db:
         let mut property = Property::new(
             "locked",
             MultiValues::String(vec!["old".to_string()]),
-        );
+        )
+        .unwrap();
         property.set_final(true);
         config.insert_property("locked", property).unwrap();
 
@@ -268,7 +269,7 @@ db:
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
-        assert!(config.contains("empty"));
+        assert!(config.contains("empty").unwrap());
         assert_eq!(
             config.get::<Vec<String>>("empty").unwrap(),
             Vec::<String>::new()
@@ -449,7 +450,7 @@ mod test_yaml_edge_cases {
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
         source.load(&mut config).unwrap();
-        assert!(config.contains("val"));
+        assert!(config.contains("val").unwrap());
         let v: f64 = config.get("val").unwrap();
         assert!(v > 1e9);
     }
@@ -475,7 +476,7 @@ mod test_yaml_edge_cases {
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
         source.load(&mut config).unwrap();
-        assert!(config.contains("null"));
+        assert!(config.contains("null").unwrap());
     }
 
     // ---- yaml: bool key ----
@@ -487,7 +488,7 @@ mod test_yaml_edge_cases {
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
         source.load(&mut config).unwrap();
-        assert!(config.contains("true"));
+        assert!(config.contains("true").unwrap());
     }
 
     // ---- yaml: number key ----
@@ -499,7 +500,7 @@ mod test_yaml_edge_cases {
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
         source.load(&mut config).unwrap();
-        assert!(config.contains("42"));
+        assert!(config.contains("42").unwrap());
     }
 
     // ---- yaml: yaml_scalar_to_string for null/bool/sequence/mapping ----
@@ -512,7 +513,7 @@ mod test_yaml_edge_cases {
         let mut config = Config::new();
         source.load(&mut config).unwrap();
         // Mixed (int + null) → falls back to string
-        assert!(config.contains("vals"));
+        assert!(config.contains("vals").unwrap());
     }
 
     #[test]

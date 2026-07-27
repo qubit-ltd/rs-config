@@ -10,6 +10,7 @@
 use qubit_config::{
     ConfigError,
     ConfigErrorKind,
+    ConfigPathViolation,
 };
 use qubit_datatype::{
     DataConversionError,
@@ -56,6 +57,20 @@ fn test_config_error_kind_covers_every_public_variant() {
         )
     };
     let cases = [
+        (
+            ConfigError::InvalidKey {
+                key: "bad..key".to_string(),
+                violation: ConfigPathViolation::EmptySegment,
+            },
+            ConfigErrorKind::InvalidKey,
+        ),
+        (
+            ConfigError::InvalidPath {
+                path: ".server".to_string(),
+                violation: ConfigPathViolation::LeadingSeparator,
+            },
+            ConfigErrorKind::InvalidPath,
+        ),
         (
             ConfigError::PropertyNotFound("key".to_string()),
             ConfigErrorKind::PropertyNotFound,

@@ -133,8 +133,8 @@ mod test_env_file_config_source {
         let mut config = Config::new();
         config.merge_from_source(&source).unwrap();
 
-        assert!(config.contains("HOST"));
-        assert!(config.contains("PORT"));
+        assert!(config.contains("HOST").unwrap());
+        assert!(config.contains("PORT").unwrap());
     }
 }
 

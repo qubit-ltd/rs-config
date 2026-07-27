@@ -68,6 +68,7 @@ impl ReadOptions {
     pub fn env_friendly() -> Self {
         Self {
             conversion: DataConversionOptions::env_friendly(),
+            environment_fallback_enabled: true,
             ..Self::default()
         }
     }
@@ -319,7 +320,7 @@ impl Default for ReadOptions {
     fn default() -> Self {
         Self {
             conversion: DataConversionOptions::default(),
-            environment_fallback_enabled: true,
+            environment_fallback_enabled: false,
             max_interpolation_depth: DEFAULT_MAX_SUBSTITUTION_DEPTH,
             max_interpolation_expansions: DEFAULT_MAX_SUBSTITUTION_EXPANSIONS,
             max_interpolation_output_bytes:

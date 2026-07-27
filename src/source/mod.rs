@@ -53,6 +53,10 @@ mod env_config_source;
 #[cfg(feature = "env-file")]
 mod env_file_config_source;
 mod properties_config_source;
+mod source_budget;
+mod source_input;
+mod source_limit_kind;
+mod source_limits;
 #[cfg(feature = "toml")]
 mod toml_config_source;
 #[cfg(feature = "yaml")]
@@ -64,6 +68,13 @@ pub use env_config_source::EnvConfigSource;
 #[cfg(feature = "env-file")]
 pub use env_file_config_source::EnvFileConfigSource;
 pub use properties_config_source::PropertiesConfigSource;
+pub use source_limit_kind::SourceLimitKind;
+pub use source_limits::{
+    DEFAULT_MAX_SOURCE_DEPTH,
+    DEFAULT_MAX_SOURCE_INPUT_BYTES,
+    DEFAULT_MAX_SOURCE_PROPERTIES,
+    SourceLimits,
+};
 #[cfg(feature = "toml")]
 pub use toml_config_source::TomlConfigSource;
 #[cfg(feature = "yaml")]

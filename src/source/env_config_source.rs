@@ -34,13 +34,16 @@ use qubit_redact::{
 use crate::{
     Config,
     ConfigError,
+    ConfigKey,
     ConfigResult,
     utils,
 };
 
 use super::{
     ConfigSource,
+    SourceLimits,
     config_source::load_transactionally,
+    source_budget::SourceBudget,
 };
 
 /// Configuration source that loads from system environment variables
@@ -70,6 +73,8 @@ pub struct EnvConfigSource {
     convert_underscores: bool,
     /// Whether to lowercase the key
     lowercase_keys: bool,
+    /// Resource limits for one environment scan.
+    limits: SourceLimits,
 }
 
 impl EnvConfigSource {
@@ -87,6 +92,7 @@ impl EnvConfigSource {
             strip_prefix: false,
             convert_underscores: false,
             lowercase_keys: false,
+            limits: SourceLimits::default(),
         }
     }
 
@@ -110,6 +116,7 @@ impl EnvConfigSource {
             strip_prefix: true,
             convert_underscores: true,
             lowercase_keys: true,
+            limits: SourceLimits::default(),
         }
     }
 
@@ -138,7 +145,14 @@ impl EnvConfigSource {
             strip_prefix,
             convert_underscores,
             lowercase_keys,
+            limits: SourceLimits::default(),
         }
+    }
+
+    /// Applies resource limits to this source.
+    pub const fn with_limits(mut self, limits: SourceLimits) -> Self {
+        self.limits = limits;
+        self
     }
 
     /// Transforms an environment variable key according to the source's
@@ -303,6 +317,7 @@ impl ConfigSource for EnvConfigSource {
 
     fn load_into(&self, config: &mut Config) -> ConfigResult<()> {
         let mut normalized_keys = HashMap::new();
+        let mut budget = SourceBudget::new("process environment", self.limits);
 
         for (key_os, value_os) in std::env::vars_os() {
             // Filter by prefix if set
@@ -314,6 +329,8 @@ impl ConfigSource for EnvConfigSource {
 
             let key = Self::env_key_to_string(&key_os, &value_os)?;
             let value = Self::env_value_to_string(&key_os, &value_os)?;
+            budget
+                .consume_input_bytes(key.len().saturating_add(value.len()))?;
             let transformed_key = self.transform_key(&key);
             if self.strip_prefix || self.convert_underscores {
                 utils::validate_normalized_config_key(&transformed_key, &key)?;
@@ -328,6 +345,9 @@ impl ConfigSource for EnvConfigSource {
                     incoming: format!("environment variable '{key}'"),
                 });
             }
+            let _ = ConfigKey::parse(transformed_key.as_str())?;
+            budget.check_depth(transformed_key.split('.').count())?;
+            budget.consume_properties(1)?;
             config.set(&transformed_key, value)?;
         }
 

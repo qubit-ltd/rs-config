@@ -10,6 +10,10 @@
 
 mod internal;
 
+use crate::config_path::{
+    ensure_config_key,
+    ensure_config_path,
+};
 use crate::config_section::ConfigSection;
 use crate::field::ConfigField;
 use crate::from::{
@@ -49,7 +53,10 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// For a [`ConfigSection`], `name` is resolved relative to the view
     /// prefix (same rules as [`Self::get`]).
-    fn get_property(&self, name: impl ConfigName) -> Option<&Property>;
+    fn get_property(
+        &self,
+        name: impl ConfigName,
+    ) -> ConfigResult<Option<&Property>>;
 
     /// Number of configuration entries visible to this reader (all keys for
     /// [`crate::Config`]; relative keys only for a [`ConfigSection`]).
@@ -71,7 +78,7 @@ pub trait ConfigReader: internal::Sealed {
     /// # Returns
     ///
     /// `true` if the key is present.
-    fn contains(&self, name: impl ConfigName) -> bool;
+    fn contains(&self, name: impl ConfigName) -> ConfigResult<bool>;
 
     /// Reads the first stored value for `name` and converts it to `T`.
     ///
@@ -92,9 +99,14 @@ pub trait ConfigReader: internal::Sealed {
         T: FromConfig,
     {
         name.with_config_name(|name| {
-            let property = self.get_property(name).ok_or_else(|| {
-                ConfigError::PropertyNotFound(self.resolve_key(name))
-            })?;
+            let property = match self.get_property(name)? {
+                Some(property) => property,
+                None => {
+                    return Err(ConfigError::PropertyNotFound(
+                        self.resolve_key(name)?,
+                    ));
+                }
+            };
             let resolved = property.name();
             if !property.is_unset()
                 && is_effectively_missing(
@@ -144,9 +156,14 @@ pub trait ConfigReader: internal::Sealed {
         T: FromConfig,
     {
         name.with_config_name(|name| {
-            let property = self.get_property(name).ok_or_else(|| {
-                ConfigError::PropertyNotFound(self.resolve_key(name))
-            })?;
+            let property = match self.get_property(name)? {
+                Some(property) => property,
+                None => {
+                    return Err(ConfigError::PropertyNotFound(
+                        self.resolve_key(name)?,
+                    ));
+                }
+            };
             let resolved = property.name();
             if !property.is_unset()
                 && is_effectively_missing_interpolated(
@@ -293,7 +310,7 @@ pub trait ConfigReader: internal::Sealed {
     where
         T: FromConfig,
     {
-        name.with_config_name(|name| match self.get_property(name) {
+        name.with_config_name(|name| match self.get_property(name)? {
             None => Ok(None),
             Some(property) => {
                 let resolved = property.name();
@@ -343,7 +360,7 @@ pub trait ConfigReader: internal::Sealed {
     where
         T: FromConfig,
     {
-        name.with_config_name(|name| match self.get_property(name) {
+        name.with_config_name(|name| match self.get_property(name)? {
             None => Ok(None),
             Some(property) => {
                 let resolved = property.name();
@@ -387,8 +404,8 @@ pub trait ConfigReader: internal::Sealed {
     fn with_read_options_view<'a>(
         &'a self,
         options: &'a ReadOptions,
-    ) -> ConfigSection<'a> {
-        self.section("").with_read_options_override(options)
+    ) -> ConfigResult<ConfigSection<'a>> {
+        Ok(self.section("")?.with_read_options_override(options))
     }
 
     /// Returns this reader's normalized root-relative scope path.
@@ -417,7 +434,7 @@ pub trait ConfigReader: internal::Sealed {
     {
         names.with_config_names(|names| {
             self.get_optional_any(names)?
-                .ok_or_else(|| missing_candidates_error(self, names))
+                .ok_or(missing_candidates_error(self, names)?)
         })
     }
 
@@ -448,7 +465,7 @@ pub trait ConfigReader: internal::Sealed {
     {
         names.with_config_names(|names| {
             self.get_optional_any_interpolated(names)?
-                .ok_or_else(|| missing_candidates_error(self, names))
+                .ok_or(missing_candidates_error(self, names)?)
         })
     }
 
@@ -602,7 +619,7 @@ pub trait ConfigReader: internal::Sealed {
         names.extend(aliases.iter().map(String::as_str));
         get_optional_any_with_options(self, &names, options, false)?
             .or(default)
-            .ok_or_else(|| missing_candidates_error(self, &names))
+            .ok_or(missing_candidates_error(self, &names)?)
     }
 
     /// Reads an optional declared field.
@@ -669,7 +686,7 @@ pub trait ConfigReader: internal::Sealed {
         names.extend(aliases.iter().map(String::as_str));
         get_optional_any_with_options(self, &names, options, true)?
             .or(default)
-            .ok_or_else(|| missing_candidates_error(self, &names))
+            .ok_or(missing_candidates_error(self, &names)?)
     }
 
     /// Reads an optional declared field after interpolating string values.
@@ -755,7 +772,7 @@ pub trait ConfigReader: internal::Sealed {
     /// # Returns
     ///
     /// `true` when at least one descendant belongs to that exact dotted path.
-    fn contains_section(&self, path: &str) -> bool;
+    fn contains_section(&self, path: &str) -> ConfigResult<bool>;
 
     /// Iterates `(key, property)` pairs for keys that start with `prefix`.
     ///
@@ -779,7 +796,7 @@ pub trait ConfigReader: internal::Sealed {
 
     /// Returns `true` if the key exists and the property has no values (same
     /// as [`crate::Config::is_null`]).
-    fn is_null(&self, name: impl ConfigName) -> bool;
+    fn is_null(&self, name: impl ConfigName) -> ConfigResult<bool>;
 
     /// Creates a read-only section; property keys resolve strictly relative to
     /// `path`.
@@ -796,7 +813,7 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// A [`ConfigSection`] borrowing this reader's underlying
     /// [`crate::Config`].
-    fn section(&self, path: &str) -> ConfigSection<'_>;
+    fn section(&self, path: &str) -> ConfigResult<ConfigSection<'_>>;
 
     /// Resolves `name` into the canonical key path against the root
     /// [`crate::Config`].
@@ -813,8 +830,11 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// Root-relative key path string.
     #[inline]
-    fn resolve_key(&self, name: impl ConfigName) -> String {
-        name.with_config_name(str::to_string)
+    fn resolve_key(&self, name: impl ConfigName) -> ConfigResult<String> {
+        name.with_config_name(|name| {
+            ensure_config_path(name)?;
+            Ok(name.to_string())
+        })
     }
 }
 
@@ -828,13 +848,18 @@ where
 }
 
 /// Creates a structured error for an unsuccessful multi-key lookup.
-fn missing_candidates_error<R>(reader: &R, names: &[&str]) -> ConfigError
+fn missing_candidates_error<R>(
+    reader: &R,
+    names: &[&str],
+) -> ConfigResult<ConfigError>
 where
     R: ConfigReader + ?Sized,
 {
-    ConfigError::PropertyCandidatesNotFound {
-        paths: names.iter().map(|name| reader.resolve_key(*name)).collect(),
-    }
+    let paths = names
+        .iter()
+        .map(|name| reader.resolve_key(*name))
+        .collect::<ConfigResult<Vec<_>>>()?;
+    Ok(ConfigError::PropertyCandidatesNotFound { paths })
 }
 
 /// Shared implementation for field-level and global multi-key reads.
@@ -850,7 +875,10 @@ where
 {
     names.with_config_names(|names| {
         for name in names {
-            let Some(property) = reader.get_property(*name) else {
+            ensure_config_key(name)?;
+        }
+        for name in names {
+            let Some(property) = reader.get_property(*name)? else {
                 continue;
             };
             let resolved = property.name();

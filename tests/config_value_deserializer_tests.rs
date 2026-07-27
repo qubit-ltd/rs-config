@@ -562,7 +562,7 @@ fn deserialize_enum_reports_invalid_shapes() -> ConfigResult<()> {
         Property::new(
             "case.value",
             MultiValues::Json(vec![serde_json::json!({})]),
-        ),
+        )?,
     )?;
     assert!(
         empty_object
@@ -579,7 +579,7 @@ fn deserialize_enum_reports_invalid_shapes() -> ConfigResult<()> {
                 "Unit": null,
                 "Code": 200
             })]),
-        ),
+        )?,
     )?;
     assert!(
         multiple_variants
@@ -599,7 +599,7 @@ fn deserialize_enum_reports_invalid_shapes() -> ConfigResult<()> {
             MultiValues::Json(vec![serde_json::json!({
                 "Unit": { "extra": true }
             })]),
-        ),
+        )?,
     )?;
     assert!(
         bad_unit_payload
@@ -1018,56 +1018,56 @@ fn deserialize_json_string_conversion_errors_use_config_read_options()
         Property::new(
             "string_value",
             MultiValues::Json(vec![serde_json::json!(" ")]),
-        ),
+        )?,
     )?;
     config.insert_property(
         "bool_value",
         Property::new(
             "bool_value",
             MultiValues::Json(vec![serde_json::json!(" ")]),
-        ),
+        )?,
     )?;
     config.insert_property(
         "list_value",
         Property::new(
             "list_value",
             MultiValues::Json(vec![serde_json::json!(" ")]),
-        ),
+        )?,
     )?;
     config.insert_property(
         "any_value",
         Property::new(
             "any_value",
             MultiValues::Json(vec![serde_json::json!(" ")]),
-        ),
+        )?,
     )?;
     config.insert_property(
         "char_value",
         Property::new(
             "char_value",
             MultiValues::Json(vec![serde_json::json!(" ")]),
-        ),
+        )?,
     )?;
     config.insert_property(
         "str_value",
         Property::new(
             "str_value",
             MultiValues::Json(vec![serde_json::json!(" ")]),
-        ),
+        )?,
     )?;
     config.insert_property(
         "bytes_value",
         Property::new(
             "bytes_value",
             MultiValues::Json(vec![serde_json::json!(" ")]),
-        ),
+        )?,
     )?;
     config.insert_property(
         "byte_buf_value",
         Property::new(
             "byte_buf_value",
             MultiValues::Json(vec![serde_json::json!(" ")]),
-        ),
+        )?,
     )?;
 
     assert!(config.deserialize::<String>("string_value").is_err());
@@ -1098,7 +1098,7 @@ fn deserialize_error_wrapper_formats_message_and_config_sources()
         Property::new(
             "config_error",
             MultiValues::Json(vec![serde_json::json!(" ")]),
-        ),
+        )?,
     )?;
     assert!(
         config_error

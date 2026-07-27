@@ -32,6 +32,7 @@ fn test_config_property_mut_updates_non_final_property() {
 
     let property = config
         .get_property("server.port")
+        .expect("property lookup should succeed")
         .expect("property should remain present");
     assert_eq!(property.description(), Some("HTTP port"));
     assert_eq!(config.get::<i32>("server.port").unwrap(), 9090);

@@ -17,12 +17,50 @@ use qubit_datatype::{
 };
 use qubit_value::ValueError;
 
-use crate::ConfigErrorKind;
+use crate::{
+    ConfigErrorKind,
+    ConfigPathViolation,
+    SourceLimitKind,
+};
 
 /// Configuration error type.
 #[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum ConfigError {
+    /// Configuration property key is not canonical.
+    #[error("Invalid configuration key '{key}': {violation}")]
+    InvalidKey {
+        /// Rejected property key.
+        key: String,
+        /// Structural key violation.
+        violation: ConfigPathViolation,
+    },
+
+    /// Configuration section path is not canonical.
+    #[error("Invalid configuration path '{path}': {violation}")]
+    InvalidPath {
+        /// Rejected section path.
+        path: String,
+        /// Structural path violation.
+        violation: ConfigPathViolation,
+    },
+
+    /// A configuration source exceeded a resource limit.
+    #[error(
+        "Configuration source '{source_id}' exceeded {kind}: observed at least \
+         {observed_at_least}, limit {limit}"
+    )]
+    SourceLimitExceeded {
+        /// Source identifier or path.
+        source_id: String,
+        /// Bounded resource dimension.
+        kind: SourceLimitKind,
+        /// Configured maximum.
+        limit: usize,
+        /// Minimum resource usage observed before rejection.
+        observed_at_least: usize,
+    },
+
     /// Property not found.
     #[error("Property not found: {0}")]
     PropertyNotFound(
@@ -204,6 +242,11 @@ impl ConfigError {
     /// The category corresponding to the concrete error variant.
     pub const fn kind(&self) -> ConfigErrorKind {
         match self {
+            Self::InvalidKey { .. } => ConfigErrorKind::InvalidKey,
+            Self::InvalidPath { .. } => ConfigErrorKind::InvalidPath,
+            Self::SourceLimitExceeded { .. } => {
+                ConfigErrorKind::SourceLimitExceeded
+            }
             Self::PropertyNotFound(_) => ConfigErrorKind::PropertyNotFound,
             Self::PropertyCandidatesNotFound { .. } => {
                 ConfigErrorKind::PropertyNotFound
@@ -243,7 +286,9 @@ impl ConfigError {
     /// `None`.
     pub fn path(&self) -> Option<&str> {
         match self {
-            Self::PropertyNotFound(path)
+            Self::InvalidKey { key: path, .. }
+            | Self::InvalidPath { path, .. }
+            | Self::PropertyNotFound(path)
             | Self::PropertyHasNoValue(path)
             | Self::PropertyIsFinal(path) => Some(path),
             Self::PropertyCandidatesNotFound { paths } => {

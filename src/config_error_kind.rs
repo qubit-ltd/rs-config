@@ -12,6 +12,12 @@
 #[must_use]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ConfigErrorKind {
+    /// A property key is not a canonical dotted key.
+    InvalidKey,
+    /// A section path is not a canonical dotted path.
+    InvalidPath,
+    /// A configuration source exceeded an ingestion resource limit.
+    SourceLimitExceeded,
     /// A requested property does not exist.
     PropertyNotFound,
     /// A property exists but has no usable value.

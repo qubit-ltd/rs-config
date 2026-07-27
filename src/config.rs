@@ -33,6 +33,10 @@ use self::internal::{
     ConfigWireV1Ref,
 };
 use crate::ConfigPropertyMut;
+use crate::config_path::{
+    ensure_config_key,
+    ensure_config_path,
+};
 use crate::config_reader::ConfigReader;
 use crate::config_section::ConfigSection;
 use crate::config_serde_ext::ConfigSerdeExt;
@@ -261,6 +265,21 @@ impl Config {
         properties: HashMap<String, Property>,
         read_options: ReadOptions,
     ) -> Result<Self, String> {
+        if let Some((key, violation)) = properties
+            .keys()
+            .filter_map(|key| {
+                crate::config_path::validate_config_key(key)
+                    .err()
+                    .map(|violation| (key, violation))
+            })
+            .min_by_key(|(key, _)| *key)
+        {
+            return Err(ConfigError::InvalidKey {
+                key: key.clone(),
+                violation,
+            }
+            .to_string());
+        }
         if let Some((key, property)) = properties
             .iter()
             .filter(|(key, property)| key.as_str() != property.name())
@@ -574,7 +593,7 @@ impl Config {
         self
     }
 
-    /// Returns a cloned configuration with different read parsing options.
+    /// Returns this configuration with different read parsing options.
     ///
     /// # Parameters
     ///
@@ -582,29 +601,28 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// A cloned [`Config`] using `options`.
+    /// This [`Config`] using `options`.
     #[inline]
-    pub fn with_read_options(&self, options: ReadOptions) -> Self {
-        let mut config = self.clone();
-        config.read_options = options;
-        config
+    pub fn with_read_options(mut self, options: ReadOptions) -> Self {
+        self.read_options = options;
+        self
     }
 
     /// Creates a read-only section rooted at `path`.
     ///
     /// Property names read through the returned section are interpreted
-    /// strictly relative to its normalized path.
+    /// strictly relative to its canonical path.
     ///
     /// # Arguments
     ///
-    /// * `path` - Root-relative section path. Leading and trailing `.`
-    ///   separators are removed; an empty path represents the root.
+    /// * `path` - Canonical root-relative section path. An empty path
+    ///   represents the root.
     ///
     /// # Returns
     ///
     /// A section borrowing this configuration.
     #[inline(always)]
-    pub fn section(&self, path: &str) -> ConfigSection<'_> {
+    pub fn section(&self, path: &str) -> ConfigResult<ConfigSection<'_>> {
         ConfigSection::new(self, path)
     }
 
@@ -630,12 +648,15 @@ impl Config {
     /// let mut config = Config::new();
     /// config.set("port", 8080).unwrap();
     ///
-    /// assert!(config.contains("port"));
-    /// assert!(!config.contains("host"));
+    /// assert!(config.contains("port").unwrap());
+    /// assert!(!config.contains("host").unwrap());
     /// ```
     #[inline]
-    pub fn contains(&self, name: impl ConfigName) -> bool {
-        name.with_config_name(|name| self.properties.contains_key(name))
+    pub fn contains(&self, name: impl ConfigName) -> ConfigResult<bool> {
+        name.with_config_name(|name| {
+            ensure_config_key(name)?;
+            Ok(self.properties.contains_key(name))
+        })
     }
 
     /// Gets a reference to a configuration item
@@ -648,8 +669,14 @@ impl Config {
     ///
     /// Returns Option containing the configuration item
     #[inline]
-    pub fn get_property(&self, name: impl ConfigName) -> Option<&Property> {
-        name.with_config_name(|name| self.properties.get(name))
+    pub fn get_property(
+        &self,
+        name: impl ConfigName,
+    ) -> ConfigResult<Option<&Property>> {
+        name.with_config_name(|name| {
+            ensure_config_key(name)?;
+            Ok(self.properties.get(name))
+        })
     }
 
     /// Gets guarded mutable access to a non-final configuration item.
@@ -670,6 +697,7 @@ impl Config {
         name: impl ConfigName,
     ) -> ConfigResult<Option<ConfigPropertyMut<'_>>> {
         name.with_config_name(|name| {
+            ensure_config_key(name)?;
             self.ensure_property_not_final(name)?;
             Ok(self.properties.get_mut(name).map(ConfigPropertyMut::new))
         })
@@ -700,6 +728,7 @@ impl Config {
         is_final: bool,
     ) -> ConfigResult<()> {
         name.with_config_name(|name| {
+            ensure_config_key(name)?;
             let property = self.properties.get_mut(name).ok_or_else(|| {
                 ConfigError::PropertyNotFound(name.to_string())
             })?;
@@ -731,7 +760,7 @@ impl Config {
     ///
     /// let removed = config.remove("port").unwrap();
     /// assert!(removed.is_some());
-    /// assert!(!config.contains("port"));
+    /// assert!(!config.contains("port").unwrap());
     /// ```
     #[inline]
     pub fn remove(
@@ -739,6 +768,7 @@ impl Config {
         name: impl ConfigName,
     ) -> ConfigResult<Option<Property>> {
         name.with_config_name(|name| {
+            ensure_config_key(name)?;
             self.ensure_property_not_final(name)?;
             Ok(self.properties.remove(name))
         })
@@ -1363,13 +1393,14 @@ impl Config {
         S: Into<ValueContainer>,
     {
         name.with_config_name(|name| {
+            ensure_config_key(name)?;
             self.ensure_property_not_final(name)?;
             let value = values.into();
             if let Some(property) = self.properties.get_mut(name) {
                 property.set(value);
             } else {
-                self.properties
-                    .insert(name.to_string(), Property::new(name, value));
+                let property = Property::new(name, value)?;
+                self.properties.insert(name.to_string(), property);
             }
             Ok(())
         })
@@ -1420,6 +1451,7 @@ impl Config {
         S: Into<ValueContainer>,
     {
         name.with_config_name(|name| {
+            ensure_config_key(name)?;
             self.ensure_property_not_final(name)?;
             let value = values.into();
             if let Some(property) = self.properties.get_mut(name) {
@@ -1427,8 +1459,8 @@ impl Config {
                     .add(value)
                     .map_err(|error| ConfigError::from((name, error)))
             } else {
-                self.properties
-                    .insert(name.to_string(), Property::new(name, value));
+                let property = Property::new(name, value)?;
+                self.properties.insert(name.to_string(), property);
                 Ok(())
             }
         })
@@ -1580,20 +1612,20 @@ impl Config {
     ///
     /// # Parameters
     ///
-    /// * `path` - Dotted section path. Leading and trailing separators are
-    ///   ignored; an empty path represents the root.
+    /// * `path` - Canonical dotted section path. An empty path represents the
+    ///   root.
     ///
     /// # Returns
     ///
     /// `true` when at least one descendant key belongs to the section.
     #[inline]
-    pub fn contains_section(&self, path: &str) -> bool {
-        let path = path.trim_matches('.');
+    pub fn contains_section(&self, path: &str) -> ConfigResult<bool> {
+        ensure_config_path(path)?;
         if path.is_empty() {
-            return !self.properties.is_empty();
+            return Ok(!self.properties.is_empty());
         }
         let child_prefix = format!("{path}.");
-        self.contains_key_prefix(&child_prefix)
+        Ok(self.contains_key_prefix(&child_prefix))
     }
 
     /// Extracts a sub-configuration for child keys below `prefix`.
@@ -1623,15 +1655,16 @@ impl Config {
     /// config.set("db.host", "dbhost").unwrap();
     ///
     /// let http_config = config.subconfig("http", true).unwrap();
-    /// assert!(http_config.contains("host"));
-    /// assert!(http_config.contains("port"));
-    /// assert!(!http_config.contains("db.host"));
+    /// assert!(http_config.contains("host").unwrap());
+    /// assert!(http_config.contains("port").unwrap());
+    /// assert!(!http_config.contains("db.host").unwrap());
     /// ```
     pub fn subconfig(
         &self,
         prefix: &str,
         strip_prefix: bool,
     ) -> ConfigResult<Config> {
+        ensure_config_path(prefix)?;
         let mut sub = Config::new();
         sub.description = self.description.clone();
         sub.read_options = self.read_options.clone();
@@ -1693,15 +1726,17 @@ impl Config {
     /// let mut config = Config::new();
     /// config.set_null("nullable", DataType::String).unwrap();
     ///
-    /// assert!(config.is_null("nullable"));
-    /// assert!(!config.is_null("missing"));
+    /// assert!(config.is_null("nullable").unwrap());
+    /// assert!(!config.is_null("missing").unwrap());
     /// ```
-    pub fn is_null(&self, name: impl ConfigName) -> bool {
+    pub fn is_null(&self, name: impl ConfigName) -> ConfigResult<bool> {
         name.with_config_name(|name| {
-            self.properties
+            ensure_config_key(name)?;
+            Ok(self
+                .properties
                 .get(name)
                 .map(|p| p.is_empty())
-                .unwrap_or(false)
+                .unwrap_or(false))
         })
     }
 
@@ -1973,6 +2008,7 @@ impl Config {
         property: Property,
     ) -> ConfigResult<()> {
         name.with_config_name(|name| {
+            ensure_config_key(name)?;
             if property.name() != name {
                 return Err(ConfigError::MergeError(format!(
                     "Property name mismatch: key '{name}' != property '{}'",
@@ -2010,13 +2046,11 @@ impl Config {
         data_type: DataType,
     ) -> ConfigResult<()> {
         name.with_config_name(|name| {
-            self.insert_property(
+            let property = Property::new(
                 name,
-                Property::new(
-                    name,
-                    ValueContainer::Scalar(QubitValue::new_unset(data_type)),
-                ),
-            )
+                ValueContainer::Scalar(QubitValue::new_unset(data_type)),
+            )?;
+            self.insert_property(name, property)
         })
     }
 
@@ -2032,6 +2066,7 @@ impl Config {
     /// otherwise.
     #[inline]
     fn get_property_by_name(&self, name: &str) -> ConfigResult<&Property> {
+        ensure_config_key(name)?;
         self.properties
             .get(name)
             .ok_or_else(|| ConfigError::PropertyNotFound(name.to_string()))
@@ -2090,7 +2125,10 @@ impl ConfigReader for Config {
     }
 
     #[inline]
-    fn get_property(&self, name: impl ConfigName) -> Option<&Property> {
+    fn get_property(
+        &self,
+        name: impl ConfigName,
+    ) -> ConfigResult<Option<&Property>> {
         Config::get_property(self, name)
     }
 
@@ -2110,7 +2148,7 @@ impl ConfigReader for Config {
     }
 
     #[inline]
-    fn contains(&self, name: impl ConfigName) -> bool {
+    fn contains(&self, name: impl ConfigName) -> ConfigResult<bool> {
         Config::contains(self, name)
     }
 
@@ -2155,7 +2193,7 @@ impl ConfigReader for Config {
     }
 
     #[inline]
-    fn contains_section(&self, path: &str) -> bool {
+    fn contains_section(&self, path: &str) -> ConfigResult<bool> {
         Config::contains_section(self, path)
     }
 
@@ -2175,12 +2213,12 @@ impl ConfigReader for Config {
     }
 
     #[inline]
-    fn is_null(&self, name: impl ConfigName) -> bool {
+    fn is_null(&self, name: impl ConfigName) -> ConfigResult<bool> {
         Config::is_null(self, name)
     }
 
     #[inline]
-    fn section(&self, path: &str) -> ConfigSection<'_> {
+    fn section(&self, path: &str) -> ConfigResult<ConfigSection<'_>> {
         Config::section(self, path)
     }
 }

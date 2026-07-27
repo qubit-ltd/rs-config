@@ -17,22 +17,23 @@
 //! - Quoted values: `KEY="value with spaces"` or `KEY='value'`
 //! - Export prefix: `export KEY=VALUE` (the `export` keyword is ignored)
 
-use std::path::{
-    Path,
-    PathBuf,
-};
+use std::path::Path;
 
 use qubit_redact::redacted_debug;
 
 use crate::{
     Config,
     ConfigError,
+    ConfigKey,
     ConfigResult,
 };
 
 use super::{
     ConfigSource,
+    SourceLimits,
     config_source::load_transactionally,
+    source_budget::SourceBudget,
+    source_input::SourceInput,
 };
 
 /// Configuration source that loads from `.env` format files
@@ -54,7 +55,8 @@ use super::{
 /// ```
 #[derive(Debug, Clone)]
 pub struct EnvFileConfigSource {
-    path: PathBuf,
+    input: SourceInput,
+    limits: SourceLimits,
 }
 
 /// Maps a dotenv parser error without exposing the offending assignment.
@@ -68,28 +70,25 @@ pub struct EnvFileConfigSource {
 ///
 /// A [`ConfigError::IoError`] preserving its I/O kind, or a value-redacted
 /// [`ConfigError::ParseError`].
-fn map_dotenv_error(path: &Path, error: dotenvy::Error) -> ConfigError {
+fn map_dotenv_error(label: &str, error: dotenvy::Error) -> ConfigError {
     match error {
         dotenvy::Error::Io(source) => {
             ConfigError::IoError(std::io::Error::new(
                 source.kind(),
-                format!(
-                    "Failed to read .env file '{}': {source}",
-                    path.display(),
-                ),
+                format!("Failed to read .env source '{label}': {source}"),
             ))
         }
         dotenvy::Error::LineParse(line, error_index) => {
             ConfigError::ParseError(format!(
                 "Failed to parse .env file '{}' at line index \
                  {error_index}: {:?}",
-                path.display(),
+                label,
                 redacted_debug(&line),
             ))
         }
         error => ConfigError::ParseError(format!(
             "Failed to parse .env file '{}': {:?}",
-            path.display(),
+            label,
             redacted_debug(&error),
         )),
     }
@@ -104,8 +103,23 @@ impl EnvFileConfigSource {
     #[inline]
     pub fn from_file<P: AsRef<Path>>(path: P) -> Self {
         Self {
-            path: path.as_ref().to_path_buf(),
+            input: SourceInput::File(path.as_ref().to_path_buf()),
+            limits: SourceLimits::default(),
         }
+    }
+
+    /// Creates a dotenv source backed by in-memory text.
+    pub fn from_content(content: impl Into<String>) -> Self {
+        Self {
+            input: SourceInput::Content(content.into()),
+            limits: SourceLimits::default(),
+        }
+    }
+
+    /// Applies resource limits to this source.
+    pub const fn with_limits(mut self, limits: SourceLimits) -> Self {
+        self.limits = limits;
+        self
     }
 }
 
@@ -115,12 +129,17 @@ impl ConfigSource for EnvFileConfigSource {
     }
 
     fn load_into(&self, config: &mut Config) -> ConfigResult<()> {
-        let iter = dotenvy::from_path_iter(&self.path)
-            .map_err(|error| map_dotenv_error(&self.path, error))?;
+        let label = self.input.label(".env");
+        let content = self.input.read_to_string(".env", self.limits)?;
+        let iter = dotenvy::from_read_iter(content.as_bytes());
 
+        let mut budget = SourceBudget::new(&label, self.limits);
         for item in iter {
             let (key, value) =
-                item.map_err(|error| map_dotenv_error(&self.path, error))?;
+                item.map_err(|error| map_dotenv_error(&label, error))?;
+            let _ = ConfigKey::parse(key.as_str())?;
+            budget.check_depth(key.split('.').count())?;
+            budget.consume_properties(1)?;
             config.set(&key, value)?;
         }
 

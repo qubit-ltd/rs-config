@@ -6,19 +6,80 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-use serde::Deserialize;
+use std::collections::BTreeMap;
+
+use serde::{
+    Deserialize,
+    Deserializer,
+};
 
 use super::{
     ConfigSerdeRepr,
     ConfigWireV1,
 };
+use crate::Property;
+use crate::options::ReadOptions;
 
 /// Accepted persisted `Config` wire representations.
-#[derive(Deserialize)]
-#[serde(untagged)]
 pub(in crate::config) enum ConfigWire {
     /// The explicit, stable V1 persistence format.
     V1(ConfigWireV1),
     /// The unversioned format emitted before the V1 persistence contract.
     Legacy(ConfigSerdeRepr),
+}
+
+/// Common fields decoded before selecting the versioned or legacy contract.
+///
+/// Avoiding Serde's untagged-enum fallback here preserves detailed nested
+/// deserialization errors, including the rejected property key.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ConfigWireFields {
+    /// Optional stable format revision.
+    #[serde(default)]
+    version: WireVersion,
+    /// Optional human-readable configuration description.
+    #[serde(default)]
+    description: Option<String>,
+    /// Properties indexed by their persisted names.
+    #[serde(default)]
+    properties: BTreeMap<String, Property>,
+    /// Runtime conversion and explicit interpolation options.
+    #[serde(default)]
+    read_options: ReadOptions,
+}
+
+/// Distinguishes an absent legacy version from every explicitly supplied byte.
+#[derive(Default)]
+struct WireVersion(Option<u8>);
+
+impl<'de> Deserialize<'de> for WireVersion {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        u8::deserialize(deserializer).map(|version| Self(Some(version)))
+    }
+}
+
+impl<'de> Deserialize<'de> for ConfigWire {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let fields = ConfigWireFields::deserialize(deserializer)?;
+        Ok(match fields.version.0 {
+            Some(version) => Self::V1(ConfigWireV1 {
+                version,
+                description: fields.description,
+                properties: fields.properties,
+                read_options: fields.read_options,
+            }),
+            None => Self::Legacy(ConfigSerdeRepr {
+                description: fields.description,
+                properties: fields.properties.into_iter().collect(),
+                read_options: fields.read_options,
+            }),
+        })
+    }
 }

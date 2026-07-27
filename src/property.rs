@@ -41,6 +41,10 @@ use self::internal::{
     PropertyWireOwned,
     PropertyWireRef,
 };
+use crate::{
+    ConfigKey,
+    ConfigResult,
+};
 
 /// Configuration Property
 ///
@@ -59,12 +63,12 @@ use self::internal::{
 /// ```rust
 /// use qubit_config::Property;
 ///
-/// let mut port = Property::new("port", 8080);
+/// let mut port = Property::new("port", 8080).unwrap();
 /// port.set_description(Some("Server port".to_string()));
 /// assert_eq!(port.name(), "port");
 /// assert_eq!(port.len(), 1);
 ///
-/// let mut code = Property::new("code", 42u8);
+/// let mut code = Property::new("code", 42u8).unwrap();
 /// code.add(1u8).unwrap();
 /// assert_eq!(code.len(), 2);
 /// ```
@@ -125,6 +129,9 @@ impl<'de> Deserialize<'de> for Property {
             description,
             is_final,
         } = PropertyWireOwned::deserialize(deserializer)?;
+        let name = ConfigKey::parse(name)
+            .map_err(<D::Error as serde::de::Error>::custom)?
+            .into_string();
         Ok(Self {
             name,
             value: value.into_container(),
@@ -146,14 +153,19 @@ impl Property {
     ///
     /// # Returns
     ///
-    /// Returns a new property instance
+    /// Returns a new property instance.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::ConfigError::InvalidKey`] when `name` is not a
+    /// canonical, non-empty dotted key.
     ///
     /// # Examples
     ///
     /// ```rust
     /// use qubit_config::Property;
     ///
-    /// let prop = Property::new("server.port", 8080);
+    /// let prop = Property::new("server.port", 8080).unwrap();
     /// assert_eq!(prop.name(), "server.port");
     /// assert_eq!(prop.len(), 1);
     /// ```
@@ -161,13 +173,14 @@ impl Property {
     pub fn new(
         name: impl Into<String>,
         value: impl Into<ValueContainer>,
-    ) -> Self {
-        Self {
-            name: name.into(),
+    ) -> ConfigResult<Self> {
+        let name = ConfigKey::parse(name.into())?.into_string();
+        Ok(Self {
+            name,
             value: value.into(),
             description: None,
             is_final: false,
-        }
+        })
     }
 
     /// Gets the property name

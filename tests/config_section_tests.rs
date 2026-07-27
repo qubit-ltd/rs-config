@@ -23,7 +23,7 @@ fn test_section_resolves_keys_strictly_relative() {
         .set("http.http.host", "strict-relative")
         .expect("the nested host should be set");
 
-    let section = config.section("http");
+    let section = config.section("http").unwrap();
 
     assert_eq!(section.path(), "http");
     assert_eq!(
@@ -50,11 +50,14 @@ fn test_section_excludes_exact_root_property() {
         .set("http.host", "localhost")
         .expect("the section child should be set");
 
-    let section = config.section("http");
+    let section = config.section("http").unwrap();
 
     assert_eq!(section.len(), 1);
     assert_eq!(section.keys(), vec!["host".to_string()]);
-    assert!(!section.contains(""));
+    assert!(matches!(
+        section.contains(""),
+        Err(qubit_config::ConfigError::InvalidKey { .. })
+    ));
     assert_eq!(
         config
             .get::<String>("http")
@@ -66,11 +69,11 @@ fn test_section_excludes_exact_root_property() {
 #[test]
 fn test_section_nests_and_reports_root_paths() {
     let config = Config::new();
-    let proxy = config.section(".http.").section(".proxy.");
+    let proxy = config.section("http").unwrap().section("proxy").unwrap();
 
     assert_eq!(proxy.path(), "http.proxy");
-    assert_eq!(proxy.resolve_key("host"), "http.proxy.host");
-    assert_eq!(proxy.resolve_key(""), "http.proxy");
+    assert_eq!(proxy.resolve_key("host").unwrap(), "http.proxy.host");
+    assert_eq!(proxy.resolve_key("").unwrap(), "http.proxy");
 }
 
 #[test]
@@ -81,8 +84,11 @@ fn test_read_options_view_is_borrowed_and_inherited_by_nested_sections() {
         .expect("the list should be configurable");
     let options = ReadOptions::env_friendly().with_max_interpolation_depth(7);
 
-    let service = config.section("service").with_read_options_view(&options);
-    let child = service.section("child");
+    let service = config
+        .section("service")
+        .unwrap()
+        .with_read_options_view(&options);
+    let child = service.section("child").unwrap();
 
     assert_eq!(service.scope_path(), "service");
     assert_eq!(child.scope_path(), "service.child");
@@ -109,6 +115,7 @@ fn test_section_missing_candidates_report_root_relative_paths() {
 
     let error = config
         .section("service")
+        .unwrap()
         .get_any::<u16>(["port", "PORT"])
         .expect_err("missing candidates should fail");
 
