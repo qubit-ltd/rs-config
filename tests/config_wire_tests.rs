@@ -81,10 +81,32 @@ fn test_config_wire_rejects_unknown_version() {
     let error = serde_json::from_value::<Config>(wire)
         .expect_err("unsupported config wire versions must be rejected");
 
-    assert!(error.to_string().contains("unsupported config wire version"));
+    assert!(
+        error
+            .to_string()
+            .contains("unsupported config wire version")
+    );
 }
 
-/// Verifies persisted map keys cannot disagree with their embedded property name.
+/// Verifies V1 rejects fields that are outside its published wire contract.
+#[test]
+fn test_config_wire_rejects_unknown_v1_fields() {
+    let mut config = Config::new();
+    config
+        .set("server.port", 8080_u16)
+        .expect("setting the property should succeed");
+
+    let mut wire = serde_json::to_value(&config)
+        .expect("serializing config should succeed");
+    wire["future_field"] = json!(true);
+
+    serde_json::from_value::<Config>(wire).expect_err(
+        "unknown V1 fields must not silently deserialize as legacy",
+    );
+}
+
+/// Verifies persisted map keys cannot disagree with their embedded property
+/// name.
 #[test]
 fn test_config_wire_rejects_property_name_mismatch() {
     let mut config = Config::new();
