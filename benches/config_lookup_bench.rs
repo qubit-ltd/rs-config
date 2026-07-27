@@ -55,11 +55,7 @@ fn benchmark_config_lookup(c: &mut Criterion) {
     });
     group.bench_function("prefix_scan", |b| {
         b.iter(|| {
-            black_box(
-                config
-                    .iter_prefix(black_box("service."))
-                    .count(),
-            );
+            black_box(config.iter_prefix(black_box("service.")).count());
         });
     });
     group.bench_function("section_scan", |b| {
