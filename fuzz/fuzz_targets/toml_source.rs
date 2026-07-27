@@ -7,12 +7,17 @@
 // =============================================================================
 #![no_main]
 
-//! Fuzzes bounded Java-properties parsing through the public source API.
+//! Fuzzes bounded TOML parsing and flattening.
 
 use libfuzzer_sys::fuzz_target;
-use qubit_config::source::PropertiesConfigSource;
+use qubit_config::{
+    Config,
+    source::{
+        ConfigSource,
+        TomlConfigSource,
+    },
+};
 
-/// Limits parser work while preserving multiline and Unicode coverage.
 const MAX_INPUT_BYTES: usize = 64 * 1024;
 
 fuzz_target!(|data: &[u8]| {
@@ -22,6 +27,7 @@ fuzz_target!(|data: &[u8]| {
     let Ok(content) = std::str::from_utf8(data) else {
         return;
     };
-
-    let _ = PropertiesConfigSource::parse_content(content);
+    let source = TomlConfigSource::from_content(content);
+    let mut config = Config::new();
+    let _ = source.load(&mut config);
 });
