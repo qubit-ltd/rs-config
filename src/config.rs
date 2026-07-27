@@ -121,8 +121,9 @@ where
 /// # Persistence
 ///
 /// Serde serialization emits the stable V1 JSON persistence format with an
-/// explicit `version` field and lexically ordered property keys. Deserialization
-/// accepts both V1 and the unversioned top-level form emitted before V1.
+/// explicit `version` field and lexically ordered property keys.
+/// Deserialization accepts both V1 and the unversioned top-level form emitted
+/// before V1.
 ///
 /// # Examples
 ///

@@ -22,7 +22,8 @@ pub(in crate::config) struct ConfigWireV1 {
     /// Optional human-readable configuration description.
     #[serde(default)]
     pub(in crate::config) description: Option<String>,
-    /// Properties indexed by their canonical names in deterministic wire order.
+    /// Properties indexed by their canonical names in deterministic wire
+    /// order.
     #[serde(default)]
     pub(in crate::config) properties: BTreeMap<String, Property>,
     /// Runtime conversion and explicit interpolation options.

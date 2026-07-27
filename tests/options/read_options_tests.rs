@@ -131,7 +131,10 @@ fn test_config_only_options_disable_environment_fallback() {
     let options = ReadOptions::config_only();
 
     assert!(!options.is_environment_fallback_enabled());
-    assert_eq!(options.conversion_options(), ReadOptions::default().conversion_options());
+    assert_eq!(
+        options.conversion_options(),
+        ReadOptions::default().conversion_options()
+    );
     assert_eq!(options.max_interpolation_depth(), 64);
     assert_eq!(options.max_interpolation_expansions(), 4_096);
     assert_eq!(options.max_interpolation_output_bytes(), 1_048_576);
