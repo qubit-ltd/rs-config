@@ -1,0 +1,9 @@
+target
+corpus/*
+!corpus/properties_parser/
+!corpus/properties_parser/**
+!corpus/interpolation/
+!corpus/interpolation/**
+!corpus/config_wire/
+!corpus/config_wire/**
+artifacts

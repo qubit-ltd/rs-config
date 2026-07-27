@@ -13,15 +13,25 @@
 
 mod internal;
 
-use serde::de::DeserializeOwned;
+use serde::de::{
+    DeserializeOwned,
+    Error as _,
+};
 use serde::{
     Deserialize,
+    Deserializer,
     Serialize,
+    Serializer,
 };
 use std::collections::HashMap;
 use std::path::Path;
 
-use self::internal::ConfigSerdeRepr;
+use self::internal::{
+    ConfigSerdeRepr,
+    ConfigWire,
+    ConfigWireV1,
+    ConfigWireV1Ref,
+};
 use crate::ConfigPropertyMut;
 use crate::config_reader::ConfigReader;
 use crate::config_section::ConfigSection;
@@ -108,6 +118,12 @@ where
 /// - Supports final value protection
 /// - Thread-safe (when wrapped in `Arc<RwLock<Config>>`)
 ///
+/// # Persistence
+///
+/// Serde serialization emits the stable V1 JSON persistence format with an
+/// explicit `version` field and lexically ordered property keys. Deserialization
+/// accepts both V1 and the unversioned top-level form emitted before V1.
+///
 /// # Examples
 ///
 /// ```rust
@@ -141,16 +157,35 @@ where
 /// let timeout: f64 = config.get_or("timeout", 30.0).unwrap();
 /// ```
 #[must_use]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(try_from = "ConfigSerdeRepr")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Config {
     /// Configuration description
     description: Option<String>,
     /// Configuration property mapping
     pub(crate) properties: HashMap<String, Property>,
     /// Runtime read parsing options
-    #[serde(default)]
     read_options: ReadOptions,
+}
+
+impl Serialize for Config {
+    /// Serializes this configuration through the stable V1 persistence format.
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        ConfigWireV1Ref::from(self).serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Config {
+    /// Deserializes either the stable V1 format or the legacy unversioned form.
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        ConfigWire::deserialize(deserializer)
+            .and_then(|wire| Self::try_from(wire).map_err(D::Error::custom))
+    }
 }
 
 impl TryFrom<ConfigSerdeRepr> for Config {
@@ -170,8 +205,62 @@ impl TryFrom<ConfigSerdeRepr> for Config {
     ///
     /// Returns an error naming the first mismatched map key and property name.
     fn try_from(value: ConfigSerdeRepr) -> Result<Self, Self::Error> {
-        if let Some((key, property)) = value
-            .properties
+        Self::from_wire_parts(
+            value.description,
+            value.properties,
+            value.read_options,
+        )
+    }
+}
+
+impl TryFrom<ConfigWireV1> for Config {
+    type Error = String;
+
+    /// Builds a configuration from the stable V1 persistence format.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the wire version is unsupported or a map key does
+    /// not match its embedded property name.
+    fn try_from(value: ConfigWireV1) -> Result<Self, Self::Error> {
+        if value.version != 1 {
+            return Err(format!(
+                "unsupported config wire version {}; expected 1",
+                value.version,
+            ));
+        }
+        Self::from_wire_parts(
+            value.description,
+            value.properties.into_iter().collect(),
+            value.read_options,
+        )
+    }
+}
+
+impl TryFrom<ConfigWire> for Config {
+    type Error = String;
+
+    /// Builds a configuration from any accepted persisted representation.
+    ///
+    /// # Errors
+    ///
+    /// Returns the validation failure for the selected wire representation.
+    fn try_from(value: ConfigWire) -> Result<Self, Self::Error> {
+        match value {
+            ConfigWire::V1(value) => Self::try_from(value),
+            ConfigWire::Legacy(value) => Self::try_from(value),
+        }
+    }
+}
+
+impl Config {
+    /// Validates shared fields decoded from an accepted persisted wire format.
+    fn from_wire_parts(
+        description: Option<String>,
+        properties: HashMap<String, Property>,
+        read_options: ReadOptions,
+    ) -> Result<Self, String> {
+        if let Some((key, property)) = properties
             .iter()
             .filter(|(key, property)| key.as_str() != property.name())
             .min_by_key(|(key, _)| *key)
@@ -182,14 +271,11 @@ impl TryFrom<ConfigSerdeRepr> for Config {
             ));
         }
         Ok(Self {
-            description: value.description,
-            properties: value.properties,
-            read_options: value.read_options,
+            description,
+            properties,
+            read_options,
         })
     }
-}
-
-impl Config {
     /// Creates a new empty configuration
     ///
     /// # Returns

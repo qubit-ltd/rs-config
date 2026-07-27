@@ -10,6 +10,8 @@
 //! Defines the property structure for configuration items, including name,
 //! value, description, and other information.
 
+mod internal;
+
 use serde::{
     Deserialize,
     Deserializer,
@@ -32,7 +34,12 @@ use qubit_value::{
     StrictValueRead,
     ValueContainer,
     ValueResult,
-    ValueWireV1,
+    ValueWireRefV1,
+};
+
+use self::internal::{
+    PropertyWireOwned,
+    PropertyWireRef,
 };
 
 /// Configuration Property
@@ -74,33 +81,6 @@ pub struct Property {
     is_final: bool,
 }
 
-/// Borrowed wire representation of a property.
-#[derive(Serialize)]
-struct PropertyWireRef<'a> {
-    /// Property name.
-    name: &'a str,
-    /// Explicitly versioned property value.
-    value: ValueWireV1,
-    /// Optional human-readable description.
-    description: &'a Option<String>,
-    /// Whether overriding is prohibited.
-    is_final: bool,
-}
-
-/// Owned wire representation of a property.
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct PropertyWireOwned {
-    /// Property name.
-    name: String,
-    /// Explicitly versioned property value.
-    value: ValueWireV1,
-    /// Optional human-readable description.
-    description: Option<String>,
-    /// Whether overriding is prohibited.
-    is_final: bool,
-}
-
 impl Debug for Property {
     /// Formats property metadata while redacting the stored value.
     #[inline]
@@ -121,7 +101,7 @@ impl Serialize for Property {
     where
         S: Serializer,
     {
-        let value = ValueWireV1::try_from(self.value.clone())
+        let value = ValueWireRefV1::try_from(&self.value)
             .map_err(<S::Error as serde::ser::Error>::custom)?;
         PropertyWireRef {
             name: self.name(),
