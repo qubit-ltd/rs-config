@@ -33,3 +33,24 @@ path = "fuzz_targets/config_wire.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "toml_source"
+path = "fuzz_targets/toml_source.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "yaml_source"
+path = "fuzz_targets/yaml_source.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "structured_deserialize"
+path = "fuzz_targets/structured_deserialize.rs"
+test = false
+doc = false
+bench = false

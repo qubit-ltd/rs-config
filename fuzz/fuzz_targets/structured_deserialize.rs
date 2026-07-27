@@ -7,21 +7,22 @@
 // =============================================================================
 #![no_main]
 
-//! Fuzzes bounded Java-properties parsing through the public source API.
+//! Fuzzes structured deserialization from validated wire configurations.
 
 use libfuzzer_sys::fuzz_target;
-use qubit_config::source::PropertiesConfigSource;
+use qubit_config::Config;
 
-/// Limits parser work while preserving multiline and Unicode coverage.
 const MAX_INPUT_BYTES: usize = 64 * 1024;
 
 fuzz_target!(|data: &[u8]| {
     if data.len() > MAX_INPUT_BYTES {
         return;
     }
-    let Ok(content) = std::str::from_utf8(data) else {
+    let Ok(config) = serde_json::from_slice::<Config>(data) else {
         return;
     };
-
-    let _ = PropertiesConfigSource::parse_content(content);
+    let _ = config.deserialize::<serde_json::Value>("");
+    for key in config.keys().into_iter().take(8) {
+        let _ = config.deserialize::<serde_json::Value>(&key);
+    }
 });
