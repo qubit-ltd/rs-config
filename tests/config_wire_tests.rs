@@ -123,3 +123,35 @@ fn test_config_wire_rejects_property_name_mismatch() {
 
     assert!(error.to_string().contains("does not match property name"));
 }
+
+/// Verifies matching map/property names are still rejected when the common
+/// name is not a canonical dotted key.
+#[test]
+fn test_config_wire_rejects_malformed_map_key() {
+    let mut config = Config::new();
+    config
+        .set("server.port", 8080_u16)
+        .expect("setting the property should succeed");
+
+    let mut wire = serde_json::to_value(&config)
+        .expect("serializing config should succeed");
+    let property = wire["properties"]
+        .as_object_mut()
+        .expect("properties should be an object")
+        .remove("server.port")
+        .expect("the serialized property should exist");
+    let mut property = property;
+    property["name"] = json!("bad..key");
+    wire["properties"]
+        .as_object_mut()
+        .expect("properties should be an object")
+        .insert("bad..key".to_string(), property);
+
+    let error = serde_json::from_value::<Config>(wire)
+        .expect_err("malformed config wire keys must be rejected");
+
+    assert!(
+        error.to_string().contains("bad..key"),
+        "unexpected deserialization error: {error}"
+    );
+}

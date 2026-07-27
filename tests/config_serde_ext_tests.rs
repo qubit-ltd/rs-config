@@ -65,7 +65,7 @@ fn test_deserialize_interpolated_supports_generic_scoped_reader() {
         .set("retry.enabled", "true")
         .expect("retry enabled value should be set");
 
-    let settings = read_retry(&config.section("retry"))
+    let settings = read_retry(&config.section("retry").unwrap())
         .expect("scoped retry settings should deserialize");
 
     assert_eq!(
@@ -108,6 +108,7 @@ fn test_deserialize_does_not_interpolate_scoped_values() {
 
     let settings: RawSettings = config
         .section("retry")
+        .unwrap()
         .deserialize("")
         .expect("raw scoped settings should deserialize");
 
@@ -125,7 +126,10 @@ fn test_deserialize_uses_section_read_options_override() {
         .set("service.ports", "8080, 8081")
         .expect("service ports should be set");
     let options = ReadOptions::env_friendly();
-    let section = config.section("service").with_read_options_view(&options);
+    let section = config
+        .section("service")
+        .unwrap()
+        .with_read_options_view(&options);
 
     let settings: EnvironmentSettings = section
         .deserialize("")
@@ -159,6 +163,7 @@ fn test_deserialize_interpolated_prefers_selected_subtree() {
 
     let settings: RetrySettings = config
         .section("retry")
+        .unwrap()
         .deserialize_interpolated("settings")
         .expect("nested settings should deserialize");
 
@@ -178,6 +183,7 @@ fn test_deserialize_reports_root_relative_exact_subtree_conflict() {
 
     let error = config
         .section("retry")
+        .unwrap()
         .deserialize::<serde_json::Value>("policy")
         .expect_err("exact property and descendants should conflict");
 
@@ -201,7 +207,10 @@ fn test_deserialize_interpolated_preserves_expansion_limit_error() {
         .set("retry.label", "${first}-${second}")
         .expect("label placeholders should be set");
     let options = ReadOptions::default().with_max_interpolation_expansions(1);
-    let section = config.section("retry").with_read_options_view(&options);
+    let section = config
+        .section("retry")
+        .unwrap()
+        .with_read_options_view(&options);
 
     let error = section
         .deserialize_interpolated::<LabelSettings>("")

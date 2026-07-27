@@ -34,9 +34,9 @@ fn test_config_name_resolves_relative_to_section() {
         .set("http.host", "localhost")
         .expect("setting config value should succeed");
 
-    let view = config.section("http");
+    let view = config.section("http").unwrap();
     let name = String::from("host");
 
-    assert!(ConfigReader::contains(&view, &name));
+    assert!(ConfigReader::contains(&view, &name).unwrap());
     assert_eq!(view.get::<String>(name).unwrap(), "localhost");
 }

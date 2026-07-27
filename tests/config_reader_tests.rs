@@ -83,7 +83,11 @@ mod test_config_reader {
     }
 
     fn read_http_host_via_section(reader: &impl ConfigReader) -> String {
-        reader.section("http").get::<String>("host").unwrap()
+        reader
+            .section("http")
+            .unwrap()
+            .get::<String>("host")
+            .unwrap()
     }
 
     fn read_converted_list<T>(
@@ -119,8 +123,9 @@ mod test_config_reader {
         config.set("http.host", "localhost").unwrap();
         config.set("http.proxy.addr", "127.0.0.1").unwrap();
         assert_eq!(read_http_host_via_section(&config), "localhost");
-        let http = ConfigReader::section(&config, "http");
+        let http = ConfigReader::section(&config, "http").unwrap();
         let addr: String = ConfigReader::section(&http, "proxy")
+            .unwrap()
             .get::<String>("addr")
             .unwrap();
         assert_eq!(addr, "127.0.0.1");
@@ -206,7 +211,7 @@ mod test_config_reader {
         config.set("http.timeout", 30).unwrap();
         config.set("http.url", "http://${host}").unwrap();
 
-        let view = config.section("http");
+        let view = config.section("http").unwrap();
         assert_eq!(
             <ConfigSection<'_> as ConfigReader>::get_interpolated_or::<String>(
                 &view, "missing", "fallback"
@@ -281,7 +286,7 @@ mod test_config_reader {
             Some(true)
         );
 
-        let http = config.section("http");
+        let http = config.section("http").unwrap();
         assert_eq!(
             <ConfigSection<'_> as ConfigReader>::get_optional::<bool>(
                 &http,
@@ -336,7 +341,7 @@ mod test_config_reader {
             .is_err()
         );
 
-        let http = config.section("http");
+        let http = config.section("http").unwrap();
         assert!(
             <ConfigSection<'_> as ConfigReader>::get::<bool>(&http, "enabled")
                 .unwrap()
@@ -369,7 +374,7 @@ mod test_config_reader {
         config.set("db.port", 5432).unwrap();
 
         let reader = &config;
-        assert!(<Config as ConfigReader>::contains(reader, "db.host"));
+        assert!(<Config as ConfigReader>::contains(reader, "db.host").unwrap());
         assert!(<Config as ConfigReader>::contains_key_prefix(reader, "db."));
         let host: String =
             <Config as ConfigReader>::get(reader, "db.host").unwrap();
@@ -407,29 +412,39 @@ mod test_config_reader_extended_surface {
         let mut config = Config::new();
         config.set("http.proxy.host", "proxy").unwrap();
 
-        assert_eq!(<Config as ConfigReader>::resolve_key(&config, "k"), "k");
-        assert_eq!(<Config as ConfigReader>::resolve_key(&config, ""), "");
+        assert_eq!(
+            <Config as ConfigReader>::resolve_key(&config, "k").unwrap(),
+            "k"
+        );
+        assert_eq!(
+            <Config as ConfigReader>::resolve_key(&config, "").unwrap(),
+            ""
+        );
 
-        let http = config.section("http");
+        let http = config.section("http").unwrap();
         assert_eq!(
             <ConfigSection<'_> as ConfigReader>::resolve_key(
                 &http,
                 "proxy.host"
-            ),
+            )
+            .unwrap(),
             "http.proxy.host"
         );
         assert_eq!(
-            <ConfigSection<'_> as ConfigReader>::resolve_key(&http, ""),
+            <ConfigSection<'_> as ConfigReader>::resolve_key(&http, "")
+                .unwrap(),
             "http"
         );
 
-        let proxy = http.section("proxy");
+        let proxy = http.section("proxy").unwrap();
         assert_eq!(
-            <ConfigSection<'_> as ConfigReader>::resolve_key(&proxy, "host"),
+            <ConfigSection<'_> as ConfigReader>::resolve_key(&proxy, "host")
+                .unwrap(),
             "http.proxy.host"
         );
         assert_eq!(
-            <ConfigSection<'_> as ConfigReader>::resolve_key(&proxy, ""),
+            <ConfigSection<'_> as ConfigReader>::resolve_key(&proxy, "")
+                .unwrap(),
             "http.proxy"
         );
     }
@@ -441,14 +456,21 @@ mod test_config_reader_extended_surface {
         config.set_null("nullish", DataType::Int32).unwrap();
         config.set_null("empty.names", DataType::String).unwrap();
 
-        assert!(<Config as ConfigReader>::get_property(&config, "k").is_some());
         assert!(
-            <Config as ConfigReader>::get_property(&config, "nullish")
+            <Config as ConfigReader>::get_property(&config, "k")
+                .unwrap()
                 .is_some()
         );
-        assert!(<Config as ConfigReader>::is_null(&config, "nullish"));
-        assert!(!<Config as ConfigReader>::is_null(&config, "k"));
-        assert!(!<Config as ConfigReader>::is_null(&config, "missing"));
+        assert!(
+            <Config as ConfigReader>::get_property(&config, "nullish")
+                .unwrap()
+                .is_some()
+        );
+        assert!(<Config as ConfigReader>::is_null(&config, "nullish").unwrap());
+        assert!(!<Config as ConfigReader>::is_null(&config, "k").unwrap());
+        assert!(
+            !<Config as ConfigReader>::is_null(&config, "missing").unwrap()
+        );
 
         assert_eq!(<Config as ConfigReader>::len(&config), 3);
         assert!(!<Config as ConfigReader>::is_empty(&config));
@@ -501,7 +523,7 @@ mod test_config_reader_extended_surface {
         config.set("b.z", 3i32).unwrap();
         config.set_null("a.empty", DataType::String).unwrap();
 
-        let view = config.section("a");
+        let view = config.section("a").unwrap();
         assert_eq!(<ConfigSection<'_> as ConfigReader>::len(&view), 3);
         let mut keys = <ConfigSection<'_> as ConfigReader>::keys(&view);
         keys.sort();
@@ -513,9 +535,13 @@ mod test_config_reader_extended_surface {
 
         assert!(
             <ConfigSection<'_> as ConfigReader>::get_property(&view, "x")
+                .unwrap()
                 .is_some()
         );
-        assert!(<ConfigSection<'_> as ConfigReader>::is_null(&view, "empty"));
+        assert!(
+            <ConfigSection<'_> as ConfigReader>::is_null(&view, "empty")
+                .unwrap()
+        );
         assert_eq!(
             <ConfigSection<'_> as ConfigReader>::get_optional::<String>(
                 &view, "empty"
@@ -553,10 +579,10 @@ mod test_config_reader_extended_surface {
         let mut config = Config::new();
         config.set("svc.ports", vec![8080i32, 8081]).unwrap();
 
-        let missing = config.section("missing");
+        let missing = config.section("missing").unwrap();
         assert!(<ConfigSection<'_> as ConfigReader>::is_empty(&missing));
 
-        let view = config.section("svc");
+        let view = config.section("svc").unwrap();
         assert!(!<ConfigSection<'_> as ConfigReader>::is_empty(&view));
         assert_eq!(
             <ConfigSection<'_> as ConfigReader>::get_optional_list::<i32>(
@@ -853,7 +879,7 @@ mod test_config_reader_alias_reads {
         assert_eq!(config.get_optional::<String>("svc.name").unwrap(), None);
         assert_eq!(config.get_optional::<String>("svc.name").unwrap(), None);
 
-        let svc = config.section("svc");
+        let svc = config.section("svc").unwrap();
         assert_eq!(svc.get_optional::<String>("name").unwrap(), None);
         assert_eq!(svc.get_optional::<String>("name").unwrap(), None);
     }
@@ -1110,6 +1136,7 @@ mod test_config_reader_alias_reads {
 
         let error = config
             .section("service")
+            .unwrap()
             .get_interpolated::<String>("endpoint")
             .expect_err("empty payload should not convert to string");
 
@@ -1163,7 +1190,7 @@ mod test_config_reader_alias_reads {
             .set("db.port", "invalid")
             .expect("setting invalid value should succeed");
 
-        let db = config.section("db");
+        let db = config.section("db").unwrap();
         let result = db.get_optional::<u16>("port");
 
         assert!(matches!(

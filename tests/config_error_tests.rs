@@ -7,13 +7,36 @@
 // =============================================================================
 //! Focused tests for public configuration errors.
 
-use qubit_config::ConfigError;
+use qubit_config::{
+    ConfigError,
+    ConfigErrorKind,
+    ConfigPathViolation,
+};
 use qubit_datatype::{
     DataConversionError,
     DataType,
     InvalidValueReason,
 };
 use qubit_value::ValueError;
+
+#[test]
+fn test_invalid_key_and_path_errors_keep_structured_context() {
+    let key_error = ConfigError::InvalidKey {
+        key: "bad..key".to_string(),
+        violation: ConfigPathViolation::EmptySegment,
+    };
+    assert_eq!(key_error.kind(), ConfigErrorKind::InvalidKey);
+    assert_eq!(key_error.path(), Some("bad..key"));
+    assert!(key_error.to_string().contains("empty segment"));
+
+    let path_error = ConfigError::InvalidPath {
+        path: ".server".to_string(),
+        violation: ConfigPathViolation::LeadingSeparator,
+    };
+    assert_eq!(path_error.kind(), ConfigErrorKind::InvalidPath);
+    assert_eq!(path_error.path(), Some(".server"));
+    assert!(path_error.to_string().contains("starts with a separator"));
+}
 
 #[test]
 fn test_config_error_maps_data_conversion_missing_with_key() {

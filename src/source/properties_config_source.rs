@@ -21,21 +21,21 @@
 //! - Java properties escape sequences (`\uXXXX`, `\=`, `\:`, `\ `, etc.)
 
 use std::iter::Peekable;
-use std::path::{
-    Path,
-    PathBuf,
-};
+use std::path::Path;
 use std::str::Chars;
 
 use crate::{
     Config,
-    ConfigError,
+    ConfigKey,
     ConfigResult,
 };
 
 use super::{
     ConfigSource,
+    SourceLimits,
     config_source::load_transactionally,
+    source_budget::SourceBudget,
+    source_input::SourceInput,
 };
 
 /// Configuration source that loads from Java `.properties` format files
@@ -57,7 +57,8 @@ use super::{
 /// ```
 #[derive(Debug, Clone)]
 pub struct PropertiesConfigSource {
-    path: PathBuf,
+    input: SourceInput,
+    limits: SourceLimits,
 }
 
 impl PropertiesConfigSource {
@@ -69,8 +70,23 @@ impl PropertiesConfigSource {
     #[inline]
     pub fn from_file<P: AsRef<Path>>(path: P) -> Self {
         Self {
-            path: path.as_ref().to_path_buf(),
+            input: SourceInput::File(path.as_ref().to_path_buf()),
+            limits: SourceLimits::default(),
         }
+    }
+
+    /// Creates a properties source backed by in-memory text.
+    pub fn from_content(content: impl Into<String>) -> Self {
+        Self {
+            input: SourceInput::Content(content.into()),
+            limits: SourceLimits::default(),
+        }
+    }
+
+    /// Applies resource limits to this source.
+    pub const fn with_limits(mut self, limits: SourceLimits) -> Self {
+        self.limits = limits;
+        self
     }
 
     /// Parses a `.properties` format string into key-value pairs
@@ -82,7 +98,17 @@ impl PropertiesConfigSource {
     /// # Returns
     ///
     /// Returns a vector of `(key, value)` pairs
-    pub fn parse_content(content: &str) -> Vec<(String, String)> {
+    pub fn parse_content(content: &str) -> ConfigResult<Vec<(String, String)>> {
+        Self::parse_content_with_limits(content, SourceLimits::default())
+    }
+
+    /// Parses properties text under explicit source limits.
+    pub fn parse_content_with_limits(
+        content: &str,
+        limits: SourceLimits,
+    ) -> ConfigResult<Vec<(String, String)>> {
+        let mut budget = SourceBudget::new("properties:<memory>", limits);
+        budget.consume_input_bytes(content.len())?;
         let mut result = Vec::new();
         let mut lines = content.lines().peekable();
 
@@ -112,11 +138,14 @@ impl PropertiesConfigSource {
             if let Some((key, value)) = parse_key_value(&full_line) {
                 let key = unescape_properties(key);
                 let value = unescape_properties(value);
+                let _ = ConfigKey::parse(key.as_str())?;
+                budget.check_depth(key.split('.').count())?;
+                budget.consume_properties(1)?;
                 result.push((key, value));
             }
         }
 
-        result
+        Ok(result)
     }
 }
 
@@ -352,18 +381,10 @@ impl ConfigSource for PropertiesConfigSource {
     }
 
     fn load_into(&self, config: &mut Config) -> ConfigResult<()> {
-        let content = std::fs::read_to_string(&self.path).map_err(|e| {
-            ConfigError::IoError(std::io::Error::new(
-                e.kind(),
-                format!(
-                    "Failed to read properties file '{}': {}",
-                    self.path.display(),
-                    e
-                ),
-            ))
-        })?;
-
-        for (key, value) in Self::parse_content(&content) {
+        let content = self.input.read_to_string("properties", self.limits)?;
+        let properties =
+            Self::parse_content_with_limits(&content, self.limits)?;
+        for (key, value) in properties {
             config.set(&key, value)?;
         }
 

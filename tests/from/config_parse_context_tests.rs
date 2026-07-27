@@ -20,7 +20,7 @@ fn test_config_parse_context_uses_resolved_key_in_errors() {
         .set("http.port", "invalid")
         .expect("setting config value should succeed");
 
-    let view = config.section("http");
+    let view = config.section("http").unwrap();
     let error = view
         .get::<u16>("port")
         .expect_err("invalid integer should fail conversion");
@@ -41,7 +41,7 @@ fn test_config_parse_context_applies_interpolation_for_explicit_reads() {
         .set("http.url", "http://${host}:8080")
         .expect("setting URL should succeed");
 
-    let view = config.section("http");
+    let view = config.section("http").unwrap();
     let url = view
         .get_interpolated::<String>("url")
         .expect("interpolated read should use the view context");

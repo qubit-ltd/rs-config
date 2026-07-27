@@ -184,6 +184,6 @@ mod test_composite_config_source {
 
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
         assert_eq!(config.get::<String>("locked").unwrap(), "old");
-        assert!(!config.contains("new_key"));
+        assert!(!config.contains("new_key").unwrap());
     }
 }

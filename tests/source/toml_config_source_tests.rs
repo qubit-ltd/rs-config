@@ -125,8 +125,8 @@ mod test_toml_config_source {
         let mut config = Config::new();
         config.merge_from_source(&source).unwrap();
 
-        assert!(config.contains("host"));
-        assert!(config.contains("app.name"));
+        assert!(config.contains("host").unwrap());
+        assert!(config.contains("app.name").unwrap());
     }
 
     #[test]
@@ -248,7 +248,7 @@ mod test_toml_edge_cases {
         let source = TomlConfigSource::from_file(&path);
         let mut config = Config::new();
         source.load(&mut config).unwrap();
-        assert!(config.contains("created_at"));
+        assert!(config.contains("created_at").unwrap());
         let val = config.get::<String>("created_at").unwrap();
         assert!(val.contains("2026"));
     }
@@ -262,7 +262,7 @@ mod test_toml_edge_cases {
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
-        assert!(config.contains("empty"));
+        assert!(config.contains("empty").unwrap());
         assert_eq!(
             config.get::<Vec<String>>("empty").unwrap(),
             Vec::<String>::new()
@@ -499,6 +499,6 @@ locked = "attempted"
 
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
         assert_eq!(config.get::<String>("locked").unwrap(), "old");
-        assert!(!config.contains("new_key"));
+        assert!(!config.contains("new_key").unwrap());
     }
 }

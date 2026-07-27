@@ -25,10 +25,7 @@
 //! Arrays are stored as multi-value properties.
 
 use std::collections::HashSet;
-use std::path::{
-    Path,
-    PathBuf,
-};
+use std::path::Path;
 
 use toml::{
     Table as TomlTable,
@@ -46,7 +43,10 @@ use crate::{
 
 use super::{
     ConfigSource,
+    SourceLimits,
     config_source::load_transactionally,
+    source_budget::SourceBudget,
+    source_input::SourceInput,
 };
 
 /// Configuration source that loads from TOML format files
@@ -67,7 +67,8 @@ use super::{
 /// ```
 #[derive(Debug, Clone)]
 pub struct TomlConfigSource {
-    path: PathBuf,
+    input: SourceInput,
+    limits: SourceLimits,
 }
 
 /// Computes a one-based TOML error location from a parser span.
@@ -108,7 +109,7 @@ fn toml_error_location(
 /// A [`ConfigError::ParseError`] containing safe path, message, and location
 /// context.
 fn toml_parse_error(
-    path: &Path,
+    label: &str,
     content: &str,
     error: &toml::de::Error,
 ) -> ConfigError {
@@ -116,12 +117,12 @@ fn toml_parse_error(
         Some((line, column)) => format!(
             "Failed to parse TOML file '{}' at line {line}, column \
              {column}: {}",
-            path.display(),
+            label,
             error.message(),
         ),
         None => format!(
             "Failed to parse TOML file '{}': {}",
-            path.display(),
+            label,
             error.message(),
         ),
     };
@@ -137,8 +138,23 @@ impl TomlConfigSource {
     #[inline]
     pub fn from_file<P: AsRef<Path>>(path: P) -> Self {
         Self {
-            path: path.as_ref().to_path_buf(),
+            input: SourceInput::File(path.as_ref().to_path_buf()),
+            limits: SourceLimits::default(),
         }
+    }
+
+    /// Creates a TOML source backed by in-memory text.
+    pub fn from_content(content: impl Into<String>) -> Self {
+        Self {
+            input: SourceInput::Content(content.into()),
+            limits: SourceLimits::default(),
+        }
+    }
+
+    /// Applies resource limits to this source.
+    pub const fn with_limits(mut self, limits: SourceLimits) -> Self {
+        self.limits = limits;
+        self
     }
 }
 
@@ -148,23 +164,23 @@ impl ConfigSource for TomlConfigSource {
     }
 
     fn load_into(&self, config: &mut Config) -> ConfigResult<()> {
-        let content = std::fs::read_to_string(&self.path).map_err(|e| {
-            ConfigError::IoError(std::io::Error::new(
-                e.kind(),
-                format!(
-                    "Failed to read TOML file '{}': {}",
-                    self.path.display(),
-                    e
-                ),
-            ))
-        })?;
+        let label = self.input.label("TOML");
+        let content = self.input.read_to_string("TOML", self.limits)?;
 
         let table: TomlTable = content
             .parse()
-            .map_err(|error| toml_parse_error(&self.path, &content, &error))?;
+            .map_err(|error| toml_parse_error(&label, &content, &error))?;
 
         let mut seen = HashSet::new();
-        flatten_toml_value("", &TomlValue::Table(table), config, &mut seen)?;
+        let mut budget = SourceBudget::new(&label, self.limits);
+        flatten_toml_value(
+            "",
+            &TomlValue::Table(table),
+            config,
+            &mut seen,
+            &mut budget,
+            0,
+        )?;
         Ok(())
     }
 }
@@ -179,7 +195,10 @@ pub(crate) fn flatten_toml_value(
     value: &TomlValue,
     config: &mut Config,
     seen: &mut HashSet<String>,
+    budget: &mut SourceBudget<'_>,
+    depth: usize,
 ) -> ConfigResult<()> {
+    budget.check_depth(depth)?;
     match value {
         TomlValue::Table(table) => {
             for (k, v) in table {
@@ -188,38 +207,55 @@ pub(crate) fn flatten_toml_value(
                 } else {
                     format!("{}.{}", prefix, k)
                 };
-                flatten_toml_value(&key, v, config, seen)?;
+                flatten_toml_value(
+                    &key,
+                    v,
+                    config,
+                    seen,
+                    budget,
+                    depth.saturating_add(1),
+                )?;
             }
         }
         TomlValue::Array(arr) => {
             // Detect the element type of the first non-table/non-array item.
             // All elements must be the same scalar type; mixed-type arrays fall
             // back to string representation to avoid silent data loss.
-            utils::ensure_unique_flattened_key(seen, prefix)?;
+            ensure_toml_property(seen, prefix, budget)?;
             flatten_toml_array(prefix, arr, config)?;
         }
         TomlValue::String(s) => {
-            utils::ensure_unique_flattened_key(seen, prefix)?;
+            ensure_toml_property(seen, prefix, budget)?;
             config.set(prefix, s.clone())?;
         }
         TomlValue::Integer(i) => {
-            utils::ensure_unique_flattened_key(seen, prefix)?;
+            ensure_toml_property(seen, prefix, budget)?;
             config.set(prefix, *i)?;
         }
         TomlValue::Float(f) => {
-            utils::ensure_unique_flattened_key(seen, prefix)?;
+            ensure_toml_property(seen, prefix, budget)?;
             config.set(prefix, *f)?;
         }
         TomlValue::Boolean(b) => {
-            utils::ensure_unique_flattened_key(seen, prefix)?;
+            ensure_toml_property(seen, prefix, budget)?;
             config.set(prefix, *b)?;
         }
         TomlValue::Datetime(dt) => {
-            utils::ensure_unique_flattened_key(seen, prefix)?;
+            ensure_toml_property(seen, prefix, budget)?;
             config.set(prefix, dt.to_string())?;
         }
     }
     Ok(())
+}
+
+/// Records one flattened TOML property and enforces the property-count limit.
+fn ensure_toml_property(
+    seen: &mut HashSet<String>,
+    key: &str,
+    budget: &mut SourceBudget<'_>,
+) -> ConfigResult<()> {
+    utils::ensure_unique_flattened_key(seen, key)?;
+    budget.consume_properties(1)
 }
 
 /// Flattens a TOML array into multi-value config entries.

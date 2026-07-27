@@ -112,14 +112,14 @@ fn test_collection_options_can_reject_empty_items() {
 }
 
 #[test]
-fn test_environment_fallback_is_enabled_by_default_and_configurable() {
+fn test_environment_fallback_is_disabled_by_default_and_configurable() {
     let default_options = ReadOptions::default();
-    let disabled_options = default_options
+    let enabled_options = default_options
         .clone()
-        .with_environment_fallback_enabled(false);
+        .with_environment_fallback_enabled(true);
 
-    assert!(default_options.is_environment_fallback_enabled());
-    assert!(!disabled_options.is_environment_fallback_enabled());
+    assert!(!default_options.is_environment_fallback_enabled());
+    assert!(enabled_options.is_environment_fallback_enabled());
     assert!(ReadOptions::env_friendly().is_environment_fallback_enabled());
     assert_eq!(default_options.max_interpolation_depth(), 64);
     assert_eq!(default_options.max_interpolation_expansions(), 4_096);

@@ -25,10 +25,7 @@
 //! Arrays are stored as multi-value properties.
 
 use std::collections::HashSet;
-use std::path::{
-    Path,
-    PathBuf,
-};
+use std::path::Path;
 
 use qubit_redact::redacted_debug;
 use qubit_value::ValueContainer;
@@ -44,7 +41,10 @@ use crate::{
 
 use super::{
     ConfigSource,
+    SourceLimits,
     config_source::load_transactionally,
+    source_budget::SourceBudget,
+    source_input::SourceInput,
 };
 
 /// Configuration source that loads from YAML format files
@@ -65,7 +65,8 @@ use super::{
 /// ```
 #[derive(Debug, Clone)]
 pub struct YamlConfigSource {
-    path: PathBuf,
+    input: SourceInput,
+    limits: SourceLimits,
 }
 
 /// Builds a YAML parse error without formatting parser-owned input details.
@@ -79,18 +80,18 @@ pub struct YamlConfigSource {
 ///
 /// A [`ConfigError::ParseError`] containing only file and public location
 /// context.
-fn yaml_parse_error(path: &Path, error: &yaml_backend::Error) -> ConfigError {
+fn yaml_parse_error(label: &str, error: &yaml_backend::Error) -> ConfigError {
     let message = match error.location() {
         Some(location) => format!(
             "Failed to parse YAML file '{}' at line {}, column {}: \
              invalid YAML syntax",
-            path.display(),
+            label,
             location.line(),
             location.column(),
         ),
         None => format!(
             "Failed to parse YAML file '{}': invalid YAML syntax",
-            path.display(),
+            label,
         ),
     };
     ConfigError::ParseError(message)
@@ -105,8 +106,23 @@ impl YamlConfigSource {
     #[inline]
     pub fn from_file<P: AsRef<Path>>(path: P) -> Self {
         Self {
-            path: path.as_ref().to_path_buf(),
+            input: SourceInput::File(path.as_ref().to_path_buf()),
+            limits: SourceLimits::default(),
         }
+    }
+
+    /// Creates a YAML source backed by in-memory text.
+    pub fn from_content(content: impl Into<String>) -> Self {
+        Self {
+            input: SourceInput::Content(content.into()),
+            limits: SourceLimits::default(),
+        }
+    }
+
+    /// Applies resource limits to this source.
+    pub const fn with_limits(mut self, limits: SourceLimits) -> Self {
+        self.limits = limits;
+        self
     }
 }
 
@@ -116,22 +132,15 @@ impl ConfigSource for YamlConfigSource {
     }
 
     fn load_into(&self, config: &mut Config) -> ConfigResult<()> {
-        let content = std::fs::read_to_string(&self.path).map_err(|e| {
-            ConfigError::IoError(std::io::Error::new(
-                e.kind(),
-                format!(
-                    "Failed to read YAML file '{}': {}",
-                    self.path.display(),
-                    e
-                ),
-            ))
-        })?;
+        let label = self.input.label("YAML");
+        let content = self.input.read_to_string("YAML", self.limits)?;
 
         let value: YamlValue = yaml_backend::from_str(&content)
-            .map_err(|error| yaml_parse_error(&self.path, &error))?;
+            .map_err(|error| yaml_parse_error(&label, &error))?;
 
         let mut seen = HashSet::new();
-        flatten_yaml_value("", &value, config, &mut seen)?;
+        let mut budget = SourceBudget::new(&label, self.limits);
+        flatten_yaml_value("", &value, config, &mut seen, &mut budget, 0)?;
         Ok(())
     }
 }
@@ -150,7 +159,10 @@ pub(crate) fn flatten_yaml_value(
     value: &YamlValue,
     config: &mut Config,
     seen: &mut HashSet<String>,
+    budget: &mut SourceBudget<'_>,
+    depth: usize,
 ) -> ConfigResult<()> {
+    budget.check_depth(depth)?;
     match value {
         YamlValue::Mapping(map) => {
             for (k, v) in map {
@@ -160,26 +172,33 @@ pub(crate) fn flatten_yaml_value(
                 } else {
                     format!("{}.{}", prefix, key_str)
                 };
-                flatten_yaml_value(&key, v, config, seen)?;
+                flatten_yaml_value(
+                    &key,
+                    v,
+                    config,
+                    seen,
+                    budget,
+                    depth.saturating_add(1),
+                )?;
             }
         }
         YamlValue::Sequence(seq) => {
-            utils::ensure_unique_flattened_key(seen, prefix)?;
+            ensure_yaml_property(seen, prefix, budget)?;
             flatten_yaml_sequence(prefix, seq, config)?;
         }
         YamlValue::Null => {
             // Null values are stored as empty properties to preserve null
             // semantics.
             use qubit_datatype::DataType;
-            utils::ensure_unique_flattened_key(seen, prefix)?;
+            ensure_yaml_property(seen, prefix, budget)?;
             config.set_null(prefix, DataType::String)?;
         }
         YamlValue::Bool(b) => {
-            utils::ensure_unique_flattened_key(seen, prefix)?;
+            ensure_yaml_property(seen, prefix, budget)?;
             config.set(prefix, *b)?;
         }
         YamlValue::Number(n) => {
-            utils::ensure_unique_flattened_key(seen, prefix)?;
+            ensure_yaml_property(seen, prefix, budget)?;
             if let Some(i) = n.as_i64() {
                 config.set(prefix, i)?;
             } else if let Some(i) = n.as_u64() {
@@ -192,14 +211,31 @@ pub(crate) fn flatten_yaml_value(
             }
         }
         YamlValue::String(s) => {
-            utils::ensure_unique_flattened_key(seen, prefix)?;
+            ensure_yaml_property(seen, prefix, budget)?;
             config.set(prefix, s.clone())?;
         }
         YamlValue::Tagged(tagged) => {
-            flatten_yaml_value(prefix, &tagged.value, config, seen)?;
+            flatten_yaml_value(
+                prefix,
+                &tagged.value,
+                config,
+                seen,
+                budget,
+                depth,
+            )?;
         }
     }
     Ok(())
+}
+
+/// Records one flattened YAML property and enforces the property-count limit.
+fn ensure_yaml_property(
+    seen: &mut HashSet<String>,
+    key: &str,
+    budget: &mut SourceBudget<'_>,
+) -> ConfigResult<()> {
+    utils::ensure_unique_flattened_key(seen, key)?;
+    budget.consume_properties(1)
 }
 
 /// Flattens a YAML sequence into multi-value config entries.

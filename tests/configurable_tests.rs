@@ -148,8 +148,8 @@ mod test_config_mut {
         obj.config_mut().remove("key1").unwrap();
 
         assert_eq!(obj.config().len(), 1);
-        assert!(obj.config().contains("key2"));
-        assert!(!obj.config().contains("key1"));
+        assert!(obj.config().contains("key2").unwrap());
+        assert!(!obj.config().contains("key1").unwrap());
     }
 }
 
@@ -173,8 +173,8 @@ mod test_set_config {
 
         obj.set_config(new_config);
 
-        assert!(!obj.config().contains("old_key"));
-        assert!(obj.config().contains("new_key"));
+        assert!(!obj.config().contains("old_key").unwrap());
+        assert!(obj.config().contains("new_key").unwrap());
         assert_eq!(obj.config().get::<String>("new_key").unwrap(), "new_value");
     }
 
@@ -236,7 +236,7 @@ mod test_set_config {
         fn update_or_fail(
             config: &mut Config,
         ) -> qubit_config::ConfigResult<()> {
-            if config.contains("fail_update") {
+            if config.contains("fail_update").unwrap() {
                 return Err(ConfigError::Other("update failed".to_string()));
             }
             config.set("host", "localhost")?;
@@ -276,7 +276,7 @@ mod test_set_config {
         );
         assert_eq!(obj.changed_count(), 0);
         assert_eq!(obj.config().get::<String>("host").unwrap(), "old-host");
-        assert!(!obj.config().contains("port"));
+        assert!(!obj.config().contains("port").unwrap());
     }
 }
 

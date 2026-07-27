@@ -14,8 +14,11 @@ mod config;
 mod config_deserialize_error;
 mod config_error;
 mod config_error_kind;
+mod config_key;
 mod config_name;
 mod config_names;
+mod config_path;
+mod config_path_violation;
 mod config_property_mut;
 mod config_reader;
 mod config_section;
@@ -34,8 +37,11 @@ mod utils;
 
 pub use config::Config;
 pub use config_error_kind::ConfigErrorKind;
+pub use config_key::ConfigKey;
 pub use config_name::ConfigName;
 pub use config_names::ConfigNames;
+pub use config_path::ConfigPath;
+pub use config_path_violation::ConfigPathViolation;
 pub use config_property_mut::ConfigPropertyMut;
 pub use config_reader::ConfigReader;
 pub use config_section::ConfigSection;
@@ -47,4 +53,8 @@ pub use error::{
     ConfigResult,
 };
 pub use property::Property;
-pub use source::ConfigSource;
+pub use source::{
+    ConfigSource,
+    SourceLimitKind,
+    SourceLimits,
+};

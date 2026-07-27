@@ -46,7 +46,7 @@ mod test_properties_config_source {
     #[test]
     fn test_parse_basic_key_value_equals() {
         let content = "key=value\nhost=localhost";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 2);
         assert_eq!(pairs[0], ("key".to_string(), "value".to_string()));
         assert_eq!(pairs[1], ("host".to_string(), "localhost".to_string()));
@@ -55,7 +55,7 @@ mod test_properties_config_source {
     #[test]
     fn test_parse_colon_separator() {
         let content = "key: value\nhost: localhost";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 2);
         assert_eq!(pairs[0], ("key".to_string(), "value".to_string()));
         assert_eq!(pairs[1], ("host".to_string(), "localhost".to_string()));
@@ -64,7 +64,7 @@ mod test_properties_config_source {
     #[test]
     fn test_parse_whitespace_separator() {
         let content = "server.port 8080\nhost\tlocalhost";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 2);
         assert_eq!(pairs[0], ("server.port".to_string(), "8080".to_string()));
         assert_eq!(pairs[1], ("host".to_string(), "localhost".to_string()));
@@ -73,7 +73,7 @@ mod test_properties_config_source {
     #[test]
     fn test_parse_whitespace_before_colon_separator() {
         let content = "key   :   value";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0], ("key".to_string(), "value".to_string()));
     }
@@ -81,7 +81,7 @@ mod test_properties_config_source {
     #[test]
     fn test_parse_escaped_space_in_key_not_separator() {
         let content = "key\\ name=value";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0], ("key name".to_string(), "value".to_string()));
     }
@@ -89,7 +89,7 @@ mod test_properties_config_source {
     #[test]
     fn test_parse_skips_hash_comments() {
         let content = "# This is a comment\nkey=value";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0].0, "key");
     }
@@ -97,7 +97,7 @@ mod test_properties_config_source {
     #[test]
     fn test_parse_skips_exclamation_comments() {
         let content = "! Another comment style\nkey=value";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0].0, "key");
     }
@@ -105,7 +105,7 @@ mod test_properties_config_source {
     #[test]
     fn test_parse_skips_blank_lines() {
         let content = "\n\nkey=value\n\n";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0].0, "key");
     }
@@ -113,7 +113,7 @@ mod test_properties_config_source {
     #[test]
     fn test_parse_line_continuation() {
         let content = "key=val\\\nue";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0], ("key".to_string(), "value".to_string()));
     }
@@ -121,7 +121,7 @@ mod test_properties_config_source {
     #[test]
     fn test_parse_unicode_escape() {
         let content = "greeting=\\u4e2d\\u6587";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0], ("greeting".to_string(), "中文".to_string()));
     }
@@ -129,7 +129,7 @@ mod test_properties_config_source {
     #[test]
     fn test_parse_unicode_surrogate_pair_escape() {
         let content = "emoji=\\uD83D\\uDE00";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0], ("emoji".to_string(), "😀".to_string()));
     }
@@ -137,7 +137,7 @@ mod test_properties_config_source {
     #[test]
     fn test_parse_invalid_unicode_surrogates_are_preserved() {
         let content = "high=\\uD83D\\u0041\nlow=\\uDE00";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 2);
         assert_eq!(pairs[0], ("high".to_string(), "\\uD83DA".to_string()));
         assert_eq!(pairs[1], ("low".to_string(), "\\uDE00".to_string()));
@@ -146,7 +146,7 @@ mod test_properties_config_source {
     #[test]
     fn test_parse_empty_value() {
         let content = "empty=";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0], ("empty".to_string(), "".to_string()));
     }
@@ -154,7 +154,7 @@ mod test_properties_config_source {
     #[test]
     fn test_parse_value_with_spaces() {
         let content = "key = value with spaces";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 1);
         assert_eq!(
             pairs[0],
@@ -164,27 +164,27 @@ mod test_properties_config_source {
 
     #[test]
     fn test_parse_empty_content() {
-        let pairs = PropertiesConfigSource::parse_content("");
+        let pairs = PropertiesConfigSource::parse_content("").unwrap();
         assert!(pairs.is_empty());
     }
 
     #[test]
     fn test_parse_whitespace_only_content() {
-        let pairs = PropertiesConfigSource::parse_content("   \n\t\n");
+        let pairs = PropertiesConfigSource::parse_content("   \n\t\n").unwrap();
         assert!(pairs.is_empty());
     }
 
     #[test]
     fn test_parse_only_comments() {
         let content = "# comment1\n# comment2\n! comment3";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert!(pairs.is_empty());
     }
 
     #[test]
     fn test_parse_multiple_line_continuation() {
         let content = "key=first \\\n    second \\\n    third";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0].0, "key");
         assert!(pairs[0].1.contains("first"));
@@ -195,7 +195,7 @@ mod test_properties_config_source {
     #[test]
     fn test_parse_newline_escape() {
         let content = "key=line1\\nline2";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0], ("key".to_string(), "line1\nline2".to_string()));
     }
@@ -203,7 +203,7 @@ mod test_properties_config_source {
     #[test]
     fn test_parse_tab_escape() {
         let content = "key=col1\\tcol2";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0], ("key".to_string(), "col1\tcol2".to_string()));
     }
@@ -211,7 +211,7 @@ mod test_properties_config_source {
     #[test]
     fn test_parse_backslash_escape() {
         let content = "key=path\\\\to\\\\file";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0], ("key".to_string(), "path\\to\\file".to_string()));
     }
@@ -219,7 +219,7 @@ mod test_properties_config_source {
     #[test]
     fn test_parse_even_backslashes_before_separator() {
         let content = r"path\\=value";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0], ("path\\".to_string(), "value".to_string()));
     }
@@ -276,8 +276,8 @@ mod test_properties_config_source {
         let mut config = Config::new();
         config.merge_from_source(&source).unwrap();
 
-        assert!(config.contains("host"));
-        assert!(config.contains("port"));
+        assert!(config.contains("host").unwrap());
+        assert!(config.contains("port").unwrap());
     }
 }
 
@@ -296,7 +296,7 @@ mod test_properties_edge_cases {
     #[test]
     fn test_properties_key_only_line() {
         let content = "standalone_key";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0].0, "standalone_key");
         assert_eq!(pairs[0].1, "");
@@ -306,7 +306,7 @@ mod test_properties_edge_cases {
     #[test]
     fn test_properties_line_continuation_at_eof() {
         let content = "key=value\\";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0].0, "key");
         assert_eq!(pairs[0].1, "value");
@@ -315,7 +315,7 @@ mod test_properties_edge_cases {
     #[test]
     fn test_properties_even_trailing_backslashes_do_not_continue() {
         let content = "path=C:\\\\\nnext=value";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 2);
         assert_eq!(pairs[0], ("path".to_string(), "C:\\".to_string()));
         assert_eq!(pairs[1], ("next".to_string(), "value".to_string()));
@@ -324,7 +324,7 @@ mod test_properties_edge_cases {
     #[test]
     fn test_properties_escaped_trailing_space_preserved_without_continuation() {
         let content = "key=value\\ \nnext=ok";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 2);
         assert_eq!(pairs[0], ("key".to_string(), "value ".to_string()));
         assert_eq!(pairs[1], ("next".to_string(), "ok".to_string()));
@@ -333,7 +333,7 @@ mod test_properties_edge_cases {
     #[test]
     fn test_properties_key_followed_by_trailing_whitespace_has_empty_value() {
         let content = "standalone_key   ";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0], ("standalone_key".to_string(), "".to_string()));
     }
@@ -343,7 +343,7 @@ mod test_properties_edge_cases {
     fn test_properties_invalid_unicode_escape_kept_as_is() {
         // \uXX is only 2 hex digits, not 4 → kept as-is
         let content = "key=\\uFF";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 1);
         // partial hex → kept as literal
         assert!(pairs[0].1.contains("\\u") || pairs[0].1.contains("FF"));
@@ -353,7 +353,7 @@ mod test_properties_edge_cases {
     #[test]
     fn test_properties_carriage_return_escape() {
         let content = "key=line1\\rline2";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0].1, "line1\rline2");
     }
@@ -361,7 +361,7 @@ mod test_properties_edge_cases {
     #[test]
     fn test_properties_form_feed_escape() {
         let content = "key=left\\fright";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0].1, "left\u{000C}right");
     }
@@ -370,7 +370,7 @@ mod test_properties_edge_cases {
     #[test]
     fn test_properties_unknown_escape_drops_backslash() {
         let content = "key=hello\\xworld";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0].1, "helloxworld");
     }
@@ -379,7 +379,7 @@ mod test_properties_edge_cases {
     #[test]
     fn test_properties_escaped_equals_in_key() {
         let content = r"key\=name=value";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 1);
         assert_eq!(pairs[0], ("key=name".to_string(), "value".to_string()));
     }
@@ -387,7 +387,7 @@ mod test_properties_edge_cases {
     #[test]
     fn test_properties_escaped_separator_and_space_are_unescaped() {
         let content = "path\\:home:some\\ value\nhash\\#key=bang\\!value";
-        let pairs = PropertiesConfigSource::parse_content(content);
+        let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 2);
         assert_eq!(
             pairs[0],

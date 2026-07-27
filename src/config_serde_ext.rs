@@ -107,7 +107,7 @@ where
     R: ConfigReader + ?Sized,
     T: DeserializeOwned,
 {
-    let path = reader.resolve_key(prefix);
+    let path = reader.resolve_key(prefix)?;
     let value = deserialize_root_value(reader, prefix, interpolate)?;
     match T::deserialize(ConfigValueDeserializer::new(
         value,
@@ -137,11 +137,11 @@ where
         return deserialize_subtree_value(reader, prefix, interpolate);
     }
 
-    let exact = reader.get_property(prefix);
+    let exact = reader.get_property(prefix)?;
     let has_children = reader.iter().any(|(key, _)| is_child_key(key, prefix));
     match (exact, has_children) {
         (Some(_), true) => Err(ConfigError::KeyConflict {
-            path: reader.resolve_key(prefix),
+            path: reader.resolve_key(prefix)?,
             existing: "exact value".to_string(),
             incoming: "nested child keys".to_string(),
         }),
@@ -207,7 +207,7 @@ fn deserialize_subtree_value<R>(
 where
     R: ConfigReader + ?Sized,
 {
-    let subtree = reader.section(prefix);
+    let subtree = reader.section(prefix)?;
     let fallback = root_config(reader);
     let mut properties = subtree.iter().collect::<Vec<_>>();
     properties.sort_by_key(|(key, _)| *key);

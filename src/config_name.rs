@@ -8,6 +8,8 @@
 
 //! Ergonomic configuration key argument adapters.
 
+use crate::ConfigKey;
+
 /// Provides borrowed access to a configuration key argument.
 pub trait ConfigName {
     /// Invokes `operation` with this argument as a string slice.
@@ -29,6 +31,20 @@ impl ConfigName for String {
 }
 
 impl ConfigName for &String {
+    #[inline]
+    fn with_config_name<R>(self, operation: impl FnOnce(&str) -> R) -> R {
+        operation(self.as_str())
+    }
+}
+
+impl ConfigName for ConfigKey {
+    #[inline]
+    fn with_config_name<R>(self, operation: impl FnOnce(&str) -> R) -> R {
+        operation(self.as_str())
+    }
+}
+
+impl ConfigName for &ConfigKey {
     #[inline]
     fn with_config_name<R>(self, operation: impl FnOnce(&str) -> R) -> R {
         operation(self.as_str())

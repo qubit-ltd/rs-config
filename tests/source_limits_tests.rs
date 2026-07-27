@@ -1,0 +1,154 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+//! Tests for bounded configuration source ingestion.
+
+#[cfg(feature = "env-file")]
+use qubit_config::source::EnvFileConfigSource;
+#[cfg(feature = "toml")]
+use qubit_config::source::TomlConfigSource;
+#[cfg(feature = "yaml")]
+use qubit_config::source::YamlConfigSource;
+use qubit_config::{
+    Config,
+    ConfigError,
+    source::{
+        ConfigSource,
+        PropertiesConfigSource,
+        SourceLimitKind,
+        SourceLimits,
+    },
+};
+
+#[test]
+fn source_limits_are_bounded_by_default_and_can_be_unbounded() {
+    let limits = SourceLimits::default();
+    assert_eq!(limits.max_input_bytes(), 8 * 1024 * 1024);
+    assert_eq!(limits.max_properties(), 65_536);
+    assert_eq!(limits.max_nesting_depth(), 64);
+
+    let limits = SourceLimits::unbounded();
+    assert_eq!(limits.max_input_bytes(), usize::MAX);
+    assert_eq!(limits.max_properties(), usize::MAX);
+    assert_eq!(limits.max_nesting_depth(), usize::MAX);
+
+    let zero = SourceLimits::default()
+        .with_max_input_bytes(0)
+        .with_max_properties(0)
+        .with_max_nesting_depth(0);
+    assert_eq!(zero.max_input_bytes(), 0);
+    assert_eq!(zero.max_properties(), 0);
+    assert_eq!(zero.max_nesting_depth(), 0);
+}
+
+#[test]
+fn properties_source_rejects_oversized_input_transactionally() {
+    let source = PropertiesConfigSource::from_content("a=1\n")
+        .with_limits(SourceLimits::default().with_max_input_bytes(3));
+    let mut config = Config::new();
+    config.set("existing", "kept").unwrap();
+
+    let result = source.load(&mut config);
+
+    assert!(matches!(
+        result,
+        Err(ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::InputBytes,
+            limit: 3,
+            observed_at_least: 4,
+            ..
+        })
+    ));
+    assert_eq!(config.get::<String>("existing").unwrap(), "kept");
+    assert_eq!(config.len(), 1);
+}
+
+#[test]
+fn properties_source_counts_duplicate_assignments() {
+    let source = PropertiesConfigSource::from_content("same=1\nsame=2\n")
+        .with_limits(SourceLimits::default().with_max_properties(1));
+
+    assert!(matches!(
+        source.load(&mut Config::new()),
+        Err(ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::PropertyCount,
+            limit: 1,
+            observed_at_least: 2,
+            ..
+        })
+    ));
+}
+
+#[test]
+fn properties_source_rejects_invalid_keys_and_excessive_key_depth() {
+    assert!(matches!(
+        PropertiesConfigSource::from_content("bad..key=1\n")
+            .load(&mut Config::new()),
+        Err(ConfigError::InvalidKey { .. })
+    ));
+
+    let deep_key = std::iter::repeat_n("a", 65).collect::<Vec<_>>().join(".");
+    let source = PropertiesConfigSource::from_content(format!("{deep_key}=1"))
+        .with_limits(SourceLimits::default().with_max_nesting_depth(64));
+    assert!(matches!(
+        source.load(&mut Config::new()),
+        Err(ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::NestingDepth,
+            limit: 64,
+            observed_at_least: 65,
+            ..
+        })
+    ));
+}
+
+#[cfg(feature = "env-file")]
+#[test]
+fn env_file_memory_source_enforces_property_budget() {
+    let source = EnvFileConfigSource::from_content("FIRST=1\nSECOND=2\n")
+        .with_limits(SourceLimits::default().with_max_properties(1));
+    assert!(matches!(
+        source.load(&mut Config::new()),
+        Err(ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::PropertyCount,
+            limit: 1,
+            observed_at_least: 2,
+            ..
+        })
+    ));
+}
+
+#[cfg(feature = "toml")]
+#[test]
+fn toml_source_rejects_excessive_nesting_depth() {
+    let source = TomlConfigSource::from_content("[server]\nport = 8080\n")
+        .with_limits(SourceLimits::default().with_max_nesting_depth(1));
+    assert!(matches!(
+        source.load(&mut Config::new()),
+        Err(ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::NestingDepth,
+            limit: 1,
+            observed_at_least: 2,
+            ..
+        })
+    ));
+}
+
+#[cfg(feature = "yaml")]
+#[test]
+fn yaml_source_rejects_excessive_nesting_depth() {
+    let source = YamlConfigSource::from_content("server:\n  port: 8080\n")
+        .with_limits(SourceLimits::default().with_max_nesting_depth(1));
+    assert!(matches!(
+        source.load(&mut Config::new()),
+        Err(ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::NestingDepth,
+            limit: 1,
+            observed_at_least: 2,
+            ..
+        })
+    ));
+}

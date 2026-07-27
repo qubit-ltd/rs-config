@@ -313,7 +313,10 @@ mod test_deserialize {
         for (parent_value, expected_kind, message) in cases {
             let mut config = Config::new();
             config
-                .insert_property("ctx.a", Property::new("ctx.a", parent_value))
+                .insert_property(
+                    "ctx.a",
+                    Property::new("ctx.a", parent_value).unwrap(),
+                )
                 .unwrap();
             config.set("ctx.a.b", "conflict").unwrap();
 
@@ -343,7 +346,8 @@ mod test_deserialize {
                         "b": "from-object",
                         "other": true,
                     })),
-                ),
+                )
+                .unwrap(),
             )
             .unwrap();
         config.set("ctx.a.b", "from-dotted").unwrap();
@@ -362,15 +366,12 @@ mod test_deserialize {
     }
 
     #[test]
-    fn test_deserialize_malformed_dotted_key_returns_key_conflict() {
+    fn test_config_rejects_malformed_dotted_key_before_deserialize() {
         let mut config = Config::new();
-        config.set("bad..key", "value").unwrap();
-
-        let result =
-            config.deserialize::<HashMap<String, serde_json::Value>>("");
+        let result = config.set("bad..key", "value");
         assert!(matches!(
             result,
-            Err(ConfigError::KeyConflict { path, .. }) if path == "bad..key"
+            Err(ConfigError::InvalidKey { key, .. }) if key == "bad..key"
         ));
     }
 
@@ -386,7 +387,8 @@ mod test_deserialize {
                         "host": "localhost",
                         "port": "8080",
                     })),
-                ),
+                )
+                .unwrap(),
             )
             .unwrap();
 
@@ -580,7 +582,8 @@ mod test_deserialize {
                         "tags": ["${host}", "static"],
                         "url": "${base_url}/v1",
                     })),
-                ),
+                )
+                .unwrap(),
             )
             .unwrap();
 
@@ -657,7 +660,8 @@ mod test_deserialize {
                     MultiValues::Json(vec![serde_json::json!({
                         "url": "${QUBIT_CONFIG_UNSET_JSON_LEAF_VAR_12345}/v1",
                     })]),
-                ),
+                )
+                .unwrap(),
             )
             .unwrap();
 
@@ -1107,16 +1111,18 @@ mod test_property_to_json_value_deserialize_behavior {
     /// Builds a config containing one collection-shaped property.
     fn config_with_mv(key: &str, mv: MultiValues) -> Config {
         let mut config = Config::new();
-        config.insert_property(key, Property::new(key, mv)).unwrap();
+        let property = Property::new(key, mv)
+            .expect("the test property key should be canonical");
+        config.insert_property(key, property).unwrap();
         config
     }
 
     /// Builds a config containing one scalar-shaped property.
     fn config_with_value(key: &str, value: Value) -> Config {
         let mut config = Config::new();
-        config
-            .insert_property(key, Property::new(key, value))
-            .unwrap();
+        let property = Property::new(key, value)
+            .expect("the test property key should be canonical");
+        config.insert_property(key, property).unwrap();
         config
     }
 

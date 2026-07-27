@@ -16,6 +16,10 @@ use qubit_value::{
 };
 
 use crate::config::Config;
+use crate::config_path::{
+    ensure_config_key,
+    ensure_config_path,
+};
 use crate::config_reader::ConfigReader;
 use crate::options::ReadOptions;
 use crate::{
@@ -48,22 +52,22 @@ impl<'a> ConfigSection<'a> {
     ///
     /// # Arguments
     ///
-    /// * `path` - Relative child path. Leading and trailing `.` separators are
-    ///   removed; an empty path keeps the current section.
+    /// * `path` - Canonical relative child path. An empty path keeps the
+    ///   current section.
     ///
     /// # Returns
     ///
     /// A section borrowing the same root configuration.
     #[inline]
-    pub fn section(&self, path: &str) -> ConfigSection<'a> {
-        let child = path.trim_matches('.');
+    pub fn section(&self, path: &str) -> ConfigResult<ConfigSection<'a>> {
+        ensure_config_path(path)?;
         if self.path.is_empty() {
             ConfigSection::new_with_read_options(
                 self.config,
-                child,
+                path,
                 self.read_options,
             )
-        } else if child.is_empty() {
+        } else if path.is_empty() {
             ConfigSection::new_with_read_options(
                 self.config,
                 self.path.as_str(),
@@ -72,7 +76,7 @@ impl<'a> ConfigSection<'a> {
         } else {
             ConfigSection::new_with_read_options(
                 self.config,
-                &format!("{}.{}", self.path, child),
+                &format!("{}.{}", self.path, path),
                 self.read_options,
             )
         }
@@ -83,14 +87,14 @@ impl<'a> ConfigSection<'a> {
     /// # Arguments
     ///
     /// * `config` - Root configuration borrowed by the section.
-    /// * `path` - Root-relative section path. Leading and trailing `.`
-    ///   separators are removed; an empty path represents the root.
+    /// * `path` - Canonical root-relative section path. An empty path
+    ///   represents the root.
     ///
     /// # Returns
     ///
     /// A newly created configuration section.
     #[inline]
-    pub(crate) fn new(config: &'a Config, path: &str) -> Self {
+    pub(crate) fn new(config: &'a Config, path: &str) -> ConfigResult<Self> {
         Self::new_with_read_options(config, path, None)
     }
 
@@ -100,19 +104,20 @@ impl<'a> ConfigSection<'a> {
         config: &'a Config,
         path: &str,
         read_options: Option<&'a ReadOptions>,
-    ) -> Self {
-        let path = path.trim_matches('.').to_string();
+    ) -> ConfigResult<Self> {
+        ensure_config_path(path)?;
+        let path = path.to_string();
         let child_prefix = if path.is_empty() {
             None
         } else {
             Some(format!("{path}."))
         };
-        Self {
+        Ok(Self {
             config,
             path,
             child_prefix,
             read_options,
-        }
+        })
     }
 
     /// Applies a borrowed read-options override to this view.
@@ -193,7 +198,7 @@ impl<'a> ConfigSection<'a> {
     ///
     /// `true` when at least one descendant belongs to the exact section.
     #[inline(always)]
-    pub fn contains_section(&self, path: &str) -> bool {
+    pub fn contains_section(&self, path: &str) -> ConfigResult<bool> {
         <Self as ConfigReader>::contains_section(self, path)
     }
 
@@ -232,11 +237,12 @@ impl<'a> ConfigSection<'a> {
     fn visible_property_key<'b>(
         &'b self,
         name: &'b str,
-    ) -> Option<Cow<'b, str>> {
+    ) -> ConfigResult<Option<Cow<'b, str>>> {
+        ensure_config_key(name)?;
         if !self.path.is_empty() && name.is_empty() {
-            None
+            Ok(None)
         } else {
-            Some(self.resolve_key_cow(name))
+            Ok(Some(self.resolve_key_cow(name)))
         }
     }
 
@@ -288,9 +294,14 @@ impl<'a> ConfigReader for ConfigSection<'a> {
         &self.path
     }
 
-    fn get_property(&self, name: impl ConfigName) -> Option<&Property> {
+    fn get_property(
+        &self,
+        name: impl ConfigName,
+    ) -> ConfigResult<Option<&Property>> {
         name.with_config_name(|name| {
-            let key = self.visible_property_key(name)?;
+            let Some(key) = self.visible_property_key(name)? else {
+                return Ok(None);
+            };
             self.config.get_property(key.as_ref())
         })
     }
@@ -309,10 +320,12 @@ impl<'a> ConfigReader for ConfigSection<'a> {
             .collect()
     }
 
-    fn contains(&self, name: impl ConfigName) -> bool {
+    fn contains(&self, name: impl ConfigName) -> ConfigResult<bool> {
         name.with_config_name(|name| {
-            self.visible_property_key(name)
-                .is_some_and(|key| self.config.contains(key.as_ref()))
+            let Some(key) = self.visible_property_key(name)? else {
+                return Ok(false);
+            };
+            self.config.contains(key.as_ref())
         })
     }
 
@@ -322,7 +335,7 @@ impl<'a> ConfigReader for ConfigSection<'a> {
     {
         name.with_config_name(|name| {
             let key = self
-                .visible_property_key(name)
+                .visible_property_key(name)?
                 .ok_or_else(|| self.missing_property_error(name))?;
             self.config.get_strict(key.as_ref())
         })
@@ -334,7 +347,7 @@ impl<'a> ConfigReader for ConfigSection<'a> {
     {
         name.with_config_name(|name| {
             let key = self
-                .visible_property_key(name)
+                .visible_property_key(name)?
                 .ok_or_else(|| self.missing_property_error(name))?;
             self.config.get_list(key.as_ref())
         })
@@ -346,7 +359,7 @@ impl<'a> ConfigReader for ConfigSection<'a> {
     {
         name.with_config_name(|name| {
             let key = self
-                .visible_property_key(name)
+                .visible_property_key(name)?
                 .ok_or_else(|| self.missing_property_error(name))?;
             self.config.get_list_strict(key.as_ref())
         })
@@ -360,7 +373,7 @@ impl<'a> ConfigReader for ConfigSection<'a> {
         T: DataConversionTarget,
     {
         name.with_config_name(|name| {
-            let Some(key) = self.visible_property_key(name) else {
+            let Some(key) = self.visible_property_key(name)? else {
                 return Ok(None);
             };
             self.config.get_optional_list(key.as_ref())
@@ -372,13 +385,13 @@ impl<'a> ConfigReader for ConfigSection<'a> {
             .any(|(key, _)| key.starts_with(prefix))
     }
 
-    fn contains_section(&self, path: &str) -> bool {
-        let path = path.trim_matches('.');
+    fn contains_section(&self, path: &str) -> ConfigResult<bool> {
+        ensure_config_path(path)?;
         if path.is_empty() {
-            return self.visible_entries().next().is_some();
+            return Ok(self.visible_entries().next().is_some());
         }
         let child_prefix = format!("{path}.");
-        self.contains_key_prefix(&child_prefix)
+        Ok(self.contains_key_prefix(&child_prefix))
     }
 
     fn iter_prefix<'b>(
@@ -397,19 +410,24 @@ impl<'a> ConfigReader for ConfigSection<'a> {
         Box::new(self.visible_entries())
     }
 
-    fn is_null(&self, name: impl ConfigName) -> bool {
+    fn is_null(&self, name: impl ConfigName) -> ConfigResult<bool> {
         name.with_config_name(|name| {
-            self.visible_property_key(name)
-                .is_some_and(|key| self.config.is_null(key.as_ref()))
+            let Some(key) = self.visible_property_key(name)? else {
+                return Ok(false);
+            };
+            self.config.is_null(key.as_ref())
         })
     }
 
     #[inline(always)]
-    fn section(&self, path: &str) -> ConfigSection<'a> {
+    fn section(&self, path: &str) -> ConfigResult<ConfigSection<'a>> {
         ConfigSection::section(self, path)
     }
 
-    fn resolve_key(&self, name: impl ConfigName) -> String {
-        name.with_config_name(|name| self.resolve_key_cow(name).into_owned())
+    fn resolve_key(&self, name: impl ConfigName) -> ConfigResult<String> {
+        name.with_config_name(|name| {
+            ensure_config_path(name)?;
+            Ok(self.resolve_key_cow(name).into_owned())
+        })
     }
 }

@@ -79,7 +79,7 @@ mod test_new {
         let configured = Configured::new();
         let config = configured.config();
         assert!(config.description().is_none());
-        assert!(config.read_options().is_environment_fallback_enabled());
+        assert!(!config.read_options().is_environment_fallback_enabled());
         assert_eq!(config.read_options().max_interpolation_depth(), 64);
     }
 }
@@ -102,9 +102,9 @@ mod test_with_config {
 
         assert!(!configured.config().is_empty());
         assert_eq!(configured.config().len(), 3);
-        assert!(configured.config().contains("test_string"));
-        assert!(configured.config().contains("test_int"));
-        assert!(configured.config().contains("test_bool"));
+        assert!(configured.config().contains("test_string").unwrap());
+        assert!(configured.config().contains("test_int").unwrap());
+        assert!(configured.config().contains("test_bool").unwrap());
     }
 
     #[test]
@@ -138,7 +138,7 @@ mod test_with_config {
             configured.config().description(),
             Some("Test Configuration")
         );
-        assert!(configured.config().contains("test"));
+        assert!(configured.config().contains("test").unwrap());
     }
 }
 
@@ -203,7 +203,7 @@ mod test_config_mut {
         let config_mut = configured.config_mut();
         config_mut.set("test", "value").unwrap();
 
-        assert!(configured.config().contains("test"));
+        assert!(configured.config().contains("test").unwrap());
         let value: String = configured.config().get("test").unwrap();
         assert_eq!(value, "value");
     }
@@ -219,9 +219,9 @@ mod test_config_mut {
 
         // Verify values are set correctly
         assert_eq!(configured.config().len(), 3);
-        assert!(configured.config().contains("key1"));
-        assert!(configured.config().contains("key2"));
-        assert!(configured.config().contains("key3"));
+        assert!(configured.config().contains("key1").unwrap());
+        assert!(configured.config().contains("key2").unwrap());
+        assert!(configured.config().contains("key3").unwrap());
 
         let value1: String = configured.config().get("key1").unwrap();
         let value2: i32 = configured.config().get("key2").unwrap();
@@ -236,10 +236,10 @@ mod test_config_mut {
     fn test_config_mut_allows_removal() {
         let mut configured = Configured::new();
         configured.config_mut().set("test", "value").unwrap();
-        assert!(configured.config().contains("test"));
+        assert!(configured.config().contains("test").unwrap());
 
         configured.config_mut().remove("test").unwrap();
-        assert!(!configured.config().contains("test"));
+        assert!(!configured.config().contains("test").unwrap());
     }
 
     #[test]
@@ -272,7 +272,7 @@ mod test_config_mut {
     fn test_config_mut_allows_environment_fallback_change() {
         let mut configured = Configured::new();
         assert!(
-            configured
+            !configured
                 .config()
                 .read_options()
                 .is_environment_fallback_enabled()
@@ -341,9 +341,9 @@ mod test_set_config {
         configured.set_config(new_config);
 
         assert_eq!(configured.config().len(), 2);
-        assert!(!configured.config().contains("old_key"));
-        assert!(configured.config().contains("new_key"));
-        assert!(configured.config().contains("another_key"));
+        assert!(!configured.config().contains("old_key").unwrap());
+        assert!(configured.config().contains("new_key").unwrap());
+        assert!(configured.config().contains("another_key").unwrap());
 
         let new_value: String = configured.config().get("new_key").unwrap();
         let another_value: i32 =
@@ -378,7 +378,7 @@ mod test_set_config {
             configured.config().description(),
             Some("New configuration")
         );
-        assert!(configured.config().contains("test"));
+        assert!(configured.config().contains("test").unwrap());
     }
 
     #[test]
@@ -569,7 +569,7 @@ mod integration_tests {
         // Remove configuration
         configured.config_mut().remove("server.debug").unwrap();
         assert_eq!(configured.config().len(), 3);
-        assert!(!configured.config().contains("server.debug"));
+        assert!(!configured.config().contains("server.debug").unwrap());
 
         // Replace entire configuration
         let mut new_config =
@@ -584,8 +584,8 @@ mod integration_tests {
             configured.config().description(),
             Some("New server configuration")
         );
-        assert!(!configured.config().contains("server.port"));
-        assert!(configured.config().contains("app.name"));
+        assert!(!configured.config().contains("server.port").unwrap());
+        assert!(configured.config().contains("app.name").unwrap());
 
         let app_name: String = configured.config().get("app.name").unwrap();
         let app_version: String =

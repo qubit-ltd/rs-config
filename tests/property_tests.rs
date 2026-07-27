@@ -20,7 +20,10 @@ use chrono::{
 };
 #[cfg(feature = "num-bigint")]
 use num_bigint::BigInt;
-use qubit_config::Property;
+use qubit_config::{
+    ConfigError,
+    Property,
+};
 use qubit_datatype::DataType;
 use qubit_value::{
     MultiValues,
@@ -38,12 +41,21 @@ use std::str::FromStr;
 /// tests.
 fn new_unset_int32_property(name: &str) -> Property {
     Property::new(name, Value::new_unset(DataType::Int32))
+        .expect("the test property name should be canonical")
+}
+
+#[test]
+fn test_property_new_rejects_malformed_name() {
+    assert!(matches!(
+        Property::new("bad..key", "value"),
+        Err(ConfigError::InvalidKey { .. })
+    ));
 }
 
 #[test]
 fn test_property_new() {
     let values = MultiValues::String(vec!["primary".to_owned()]);
-    let prop = Property::new("test.property", values.clone());
+    let prop = Property::new("test.property", values.clone()).unwrap();
     assert_eq!(prop.name(), "test.property");
     assert_eq!(prop.value(), &ValueContainer::Collection(values));
     assert!(!prop.is_empty());
@@ -57,7 +69,7 @@ fn test_property_new() {
 fn test_property_new_collection() {
     let value =
         MultiValues::String(vec!["hello".to_string(), "world".to_string()]);
-    let prop = Property::new("test.string", value);
+    let prop = Property::new("test.string", value).unwrap();
 
     assert_eq!(prop.name(), "test.string");
     assert_eq!(prop.len(), 2);

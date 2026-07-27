@@ -125,14 +125,14 @@ mod test_new {
         assert!(config.is_empty());
         assert_eq!(config.len(), 0);
         assert!(config.description().is_none());
-        assert!(config.read_options().is_environment_fallback_enabled());
+        assert!(!config.read_options().is_environment_fallback_enabled());
         assert_eq!(config.read_options().max_interpolation_depth(), 64);
     }
 
     #[test]
     fn test_new_has_correct_default_values() {
         let config = Config::new();
-        assert!(config.read_options().is_environment_fallback_enabled());
+        assert!(!config.read_options().is_environment_fallback_enabled());
         assert_eq!(config.read_options().max_interpolation_depth(), 64);
     }
 }
@@ -163,7 +163,7 @@ mod test_with_description {
     #[test]
     fn test_with_description_has_correct_default_values() {
         let config = Config::with_description("Test Configuration");
-        assert!(config.read_options().is_environment_fallback_enabled());
+        assert!(!config.read_options().is_environment_fallback_enabled());
         assert_eq!(config.read_options().max_interpolation_depth(), 64);
     }
 
@@ -314,21 +314,21 @@ mod test_contains {
     #[test]
     fn test_contains_returns_false_for_empty_config() {
         let config = Config::new();
-        assert!(!config.contains("nonexistent"));
+        assert!(!config.contains("nonexistent").unwrap());
     }
 
     #[test]
     fn test_contains_returns_true_for_existing_property() {
         let mut config = Config::new();
         config.set("test", "value").unwrap();
-        assert!(config.contains("test"));
+        assert!(config.contains("test").unwrap());
     }
 
     #[test]
     fn test_contains_returns_false_for_nonexistent_property() {
         let mut config = Config::new();
         config.set("test", "value").unwrap();
-        assert!(!config.contains("other"));
+        assert!(!config.contains("other").unwrap());
     }
 }
 
@@ -349,14 +349,14 @@ mod test_get_property {
     #[test]
     fn test_get_property_returns_none_for_nonexistent_property() {
         let config = Config::new();
-        assert!(config.get_property("nonexistent").is_none());
+        assert!(config.get_property("nonexistent").unwrap().is_none());
     }
 
     #[test]
     fn test_get_property_returns_some_for_existing_property() {
         let mut config = Config::new();
         config.set("test", "value").unwrap();
-        let property = config.get_property("test");
+        let property = config.get_property("test").unwrap();
         assert!(property.is_some());
     }
 }
@@ -470,7 +470,7 @@ mod test_get_property_mut {
             vec!["second".to_string(), "third".to_string()],
         );
         assert_eq!(
-            config.get_property("test").unwrap().description(),
+            config.get_property("test").unwrap().unwrap().description(),
             Some("updated description"),
         );
     }
@@ -500,11 +500,11 @@ mod test_remove {
     fn test_remove_returns_property_and_removes_it() {
         let mut config = Config::new();
         config.set("test", "value").unwrap();
-        assert!(config.contains("test"));
+        assert!(config.contains("test").unwrap());
 
         let removed = config.remove("test").unwrap();
         assert!(removed.is_some());
-        assert!(!config.contains("test"));
+        assert!(!config.contains("test").unwrap());
     }
 
     #[test]
@@ -515,7 +515,7 @@ mod test_remove {
 
         let result = config.remove("test");
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
-        assert!(config.contains("test"));
+        assert!(config.contains("test").unwrap());
         assert_eq!(config.get::<String>("test").unwrap(), "value");
     }
 }
@@ -1706,7 +1706,7 @@ mod test_default {
         assert!(config.is_empty());
         assert_eq!(config.len(), 0);
         assert!(config.description().is_none());
-        assert!(config.read_options().is_environment_fallback_enabled());
+        assert!(!config.read_options().is_environment_fallback_enabled());
         assert_eq!(config.read_options().max_interpolation_depth(), 64);
     }
 
@@ -2039,23 +2039,23 @@ mod test_contains_prefix {
         config.set("proxy", "scalar").unwrap();
         config.set("proxy2.host", "sibling").unwrap();
 
-        assert!(!config.contains_section("proxy"));
+        assert!(!config.contains_section("proxy").unwrap());
 
         config.set("proxy.host", "localhost").unwrap();
-        assert!(config.contains_section("proxy"));
+        assert!(config.contains_section("proxy").unwrap());
     }
 
     #[test]
     fn test_section_contains_section_uses_relative_boundary() {
         let mut config = Config::new();
         config.set("http.proxy2.host", "sibling").unwrap();
-        let http = config.section("http");
+        let http = config.section("http").unwrap();
 
-        assert!(!http.contains_section("proxy"));
+        assert!(!http.contains_section("proxy").unwrap());
 
         config.set("http.proxy.host", "localhost").unwrap();
-        let http = config.section("http");
-        assert!(http.contains_section("proxy"));
+        let http = config.section("http").unwrap();
+        assert!(http.contains_section("proxy").unwrap());
     }
 }
 
@@ -2087,11 +2087,11 @@ mod test_subconfig {
         config.set("db.host", "dbhost").unwrap();
 
         let sub = config.subconfig("http", true).unwrap();
-        assert!(sub.contains("host"));
-        assert!(sub.contains("port"));
-        assert!(!sub.contains("db.host"));
-        assert!(!sub.contains("http.host"));
-        assert_eq!(sub.get_property("host").unwrap().name(), "host");
+        assert!(sub.contains("host").unwrap());
+        assert!(sub.contains("port").unwrap());
+        assert!(!sub.contains("db.host").unwrap());
+        assert!(!sub.contains("http.host").unwrap());
+        assert_eq!(sub.get_property("host").unwrap().unwrap().name(), "host");
     }
 
     #[test]
@@ -2116,9 +2116,9 @@ mod test_subconfig {
         config.set("db.host", "dbhost").unwrap();
 
         let sub = config.subconfig("http", false).unwrap();
-        assert!(sub.contains("http.host"));
-        assert!(sub.contains("http.port"));
-        assert!(!sub.contains("db.host"));
+        assert!(sub.contains("http.host").unwrap());
+        assert!(sub.contains("http.port").unwrap());
+        assert!(!sub.contains("db.host").unwrap());
     }
 
     #[test]
@@ -2138,9 +2138,9 @@ mod test_subconfig {
 
         let sub = config.subconfig("http", true).unwrap();
         // "http" itself is an exact value, not part of the "http.*" subtree.
-        assert!(!sub.contains("http"));
+        assert!(!sub.contains("http").unwrap());
         // "http.host" belongs to the subtree and becomes "host".
-        assert!(sub.contains("host"));
+        assert!(sub.contains("host").unwrap());
     }
 
     #[test]
@@ -2181,9 +2181,9 @@ mod test_subconfig {
         config.set("http.timeout", 30).unwrap();
 
         let sub = config.subconfig("http.proxy", true).unwrap();
-        assert!(sub.contains("host"));
-        assert!(sub.contains("port"));
-        assert!(!sub.contains("timeout"));
+        assert!(sub.contains("host").unwrap());
+        assert!(sub.contains("port").unwrap());
+        assert!(!sub.contains("timeout").unwrap());
     }
 }
 
@@ -2293,21 +2293,21 @@ mod test_is_null {
     #[test]
     fn test_is_null_missing_key_returns_false() {
         let config = Config::new();
-        assert!(!config.is_null("missing"));
+        assert!(!config.is_null("missing").unwrap());
     }
 
     #[test]
     fn test_is_null_key_with_value_returns_false() {
         let mut config = Config::new();
         config.set("host", "localhost").unwrap();
-        assert!(!config.is_null("host"));
+        assert!(!config.is_null("host").unwrap());
     }
 
     #[test]
     fn test_is_null_empty_property_returns_true() {
         let mut config = Config::new();
         config.set_null("nullable", DataType::String).unwrap();
-        assert!(config.is_null("nullable"));
+        assert!(config.is_null("nullable").unwrap());
     }
 
     #[test]
@@ -2320,7 +2320,7 @@ mod test_is_null {
             .unwrap()
             .clear()
             .unwrap();
-        assert!(config.is_null("host"));
+        assert!(config.is_null("host").unwrap());
     }
 }
 
@@ -3099,15 +3099,15 @@ mod test_yaml_type_faithful {
     #[test]
     fn test_yaml_null_stored_as_empty_property() {
         let config = load_yaml("key: ~\n");
-        assert!(config.contains("key"));
-        assert!(config.is_null("key"));
+        assert!(config.contains("key").unwrap());
+        assert!(config.is_null("key").unwrap());
     }
 
     #[test]
     fn test_yaml_null_keyword() {
         let config = load_yaml("key: null\n");
-        assert!(config.contains("key"));
-        assert!(config.is_null("key"));
+        assert!(config.contains("key").unwrap());
+        assert!(config.is_null("key").unwrap());
     }
 
     #[test]
@@ -3157,13 +3157,13 @@ mod test_yaml_type_faithful {
         // Tagged values should be unwrapped
         let config = load_yaml("key: !!str 42\n");
         // The YAML backend treats !!str 42 as a string.
-        assert!(config.contains("key"));
+        assert!(config.contains("key").unwrap());
     }
 
     #[test]
     fn test_yaml_empty_sequence() {
         let config = load_yaml("empty: []\n");
-        assert!(config.contains("empty"));
+        assert!(config.contains("empty").unwrap());
         assert_eq!(
             config.get_list::<String>("empty").unwrap(),
             Vec::<String>::new()
@@ -3210,7 +3210,8 @@ mod test_property_insertion_api {
                 Property::new(
                     "direct",
                     MultiValues::String(vec!["hello".to_string()]),
-                ),
+                )
+                .unwrap(),
             )
             .unwrap();
         assert_eq!(config.get::<String>("direct").unwrap(), "hello");
@@ -3220,20 +3221,19 @@ mod test_property_insertion_api {
     fn test_set_null_success() {
         let mut config = Config::new();
         config.set_null("null_key", DataType::String).unwrap();
-        assert!(config.is_null("null_key"));
-        assert!(config.contains("null_key"));
+        assert!(config.is_null("null_key").unwrap());
+        assert!(config.contains("null_key").unwrap());
     }
 
     #[test]
     fn test_insert_property_name_mismatch_returns_error() {
         let mut config = Config::new();
-        let result = config.insert_property(
-            "expected.key",
-            Property::new(
-                "actual.key",
-                MultiValues::String(vec!["hello".to_string()]),
-            ),
-        );
+        let property = Property::new(
+            "actual.key",
+            MultiValues::String(vec!["hello".to_string()]),
+        )
+        .unwrap();
+        let result = config.insert_property("expected.key", property);
         assert!(matches!(result, Err(ConfigError::MergeError(_))));
     }
 
@@ -3248,7 +3248,8 @@ mod test_property_insertion_api {
             Property::new(
                 "final.key",
                 MultiValues::String(vec!["v2".to_string()]),
-            ),
+            )
+            .unwrap(),
         );
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
     }
@@ -3389,7 +3390,7 @@ mod test_subconfig_deserialize_integration {
         let proxy = config.subconfig("http.proxy", true).unwrap();
         assert_eq!(proxy.get::<String>("host").unwrap(), "proxy.example.com");
         assert_eq!(proxy.get::<i32>("port").unwrap(), 3128);
-        assert!(!proxy.contains("timeout"));
+        assert!(!proxy.contains("timeout").unwrap());
     }
 
     #[test]
@@ -3406,9 +3407,9 @@ mod test_subconfig_deserialize_integration {
         assert_eq!(sub_a.get::<i32>("x").unwrap(), 1);
         assert_eq!(sub_a.get::<i32>("y").unwrap(), 2);
         assert!(
-            !sub_a.contains(
-                "x".to_string().as_str().replace("x", "b.x").as_str()
-            )
+            !sub_a
+                .contains("x".to_string().as_str().replace("x", "b.x").as_str())
+                .unwrap()
         );
     }
 }
@@ -3440,7 +3441,7 @@ mod test_merge_from_source {
         config.merge_from_source(&source).unwrap();
 
         assert!(!config.is_empty());
-        assert!(config.contains("host"));
+        assert!(config.contains("host").unwrap());
     }
 
     #[test]
@@ -3477,8 +3478,8 @@ mod test_merge_from_source {
         config.merge_from_source(&source).unwrap();
 
         assert_eq!(config.get::<String>("existing").unwrap(), "value");
-        assert!(config.contains("host"));
-        assert!(config.contains("app.name"));
+        assert!(config.contains("host").unwrap());
+        assert!(config.contains("app.name").unwrap());
     }
 
     #[test]
@@ -3620,7 +3621,7 @@ mod test_source_backed_constructors {
 
         assert_eq!(config.get::<String>("server.host").unwrap(), "env-host");
         assert_eq!(config.get::<String>("server.port").unwrap(), "9091");
-        assert!(!config.contains("OTHER_QCFG_SERVER_HOST"));
+        assert!(!config.contains("OTHER_QCFG_SERVER_HOST").unwrap());
 
         unsafe {
             std::env::remove_var("QCFG_SERVER_HOST");
@@ -3640,7 +3641,7 @@ mod test_source_backed_constructors {
             Config::from_env_options("QOPTS_", false, false, false).unwrap();
 
         assert_eq!(config.get::<String>("QOPTS_MY_KEY").unwrap(), "raw-value");
-        assert!(!config.contains("my.key"));
+        assert!(!config.contains("my.key").unwrap());
 
         unsafe {
             std::env::remove_var("QOPTS_MY_KEY");
