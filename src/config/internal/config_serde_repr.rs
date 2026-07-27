@@ -15,6 +15,7 @@ use crate::options::ReadOptions;
 
 /// Deserialization-only representation validated before constructing a config.
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(in crate::config) struct ConfigSerdeRepr {
     /// Optional configuration description.
     #[serde(default)]
