@@ -21,10 +21,18 @@ use std::path::Path;
 
 use qubit_redact::redacted_debug;
 
-use crate::{Config, ConfigError, ConfigKey, ConfigResult};
+use crate::{
+    Config,
+    ConfigError,
+    ConfigKey,
+    ConfigResult,
+};
 
 use super::{
-    ConfigSource, SourceLimits, config_source::load_transactionally, source_budget::SourceBudget,
+    ConfigSource,
+    SourceLimits,
+    config_source::load_transactionally,
+    source_budget::SourceBudget,
     source_input::SourceInput,
 };
 
@@ -64,16 +72,20 @@ pub struct EnvFileConfigSource {
 /// [`ConfigError::ParseError`].
 fn map_dotenv_error(label: &str, error: dotenvy::Error) -> ConfigError {
     match error {
-        dotenvy::Error::Io(source) => ConfigError::IoError(std::io::Error::new(
-            source.kind(),
-            format!("Failed to read .env source '{label}': {source}"),
-        )),
-        dotenvy::Error::LineParse(line, error_index) => ConfigError::ParseError(format!(
-            "Failed to parse .env file '{}' at line index \
+        dotenvy::Error::Io(source) => {
+            ConfigError::IoError(std::io::Error::new(
+                source.kind(),
+                format!("Failed to read .env source '{label}': {source}"),
+            ))
+        }
+        dotenvy::Error::LineParse(line, error_index) => {
+            ConfigError::ParseError(format!(
+                "Failed to parse .env file '{}' at line index \
                  {error_index}: {:?}",
-            label,
-            redacted_debug(&line),
-        )),
+                label,
+                redacted_debug(&line),
+            ))
+        }
         error => ConfigError::ParseError(format!(
             "Failed to parse .env file '{}': {:?}",
             label,
@@ -123,7 +135,8 @@ impl ConfigSource for EnvFileConfigSource {
 
         let mut budget = SourceBudget::new(&label, self.limits);
         for item in iter {
-            let (key, value) = item.map_err(|error| map_dotenv_error(&label, error))?;
+            let (key, value) =
+                item.map_err(|error| map_dotenv_error(&label, error))?;
             let _ = ConfigKey::parse(key.as_str())?;
             budget.check_depth(key.split('.').count())?;
             budget.consume_properties(1)?;

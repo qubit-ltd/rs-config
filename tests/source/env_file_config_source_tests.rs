@@ -7,11 +7,15 @@
 // =============================================================================
 #![cfg(feature = "env-file")]
 
-//! # `EnvFileConfigSource` tests
+// # `EnvFileConfigSource` tests
 
 use qubit_config::{
-    Config, ConfigError,
-    source::{ConfigSource, EnvFileConfigSource},
+    Config,
+    ConfigError,
+    source::{
+        ConfigSource,
+        EnvFileConfigSource,
+    },
 };
 
 use std::path::PathBuf;
@@ -30,7 +34,14 @@ fn fixture(name: &str) -> PathBuf {
 #[cfg(test)]
 mod test_env_file_config_source {
     #[allow(unused_imports)]
-    use super::{Config, ConfigError, ConfigSource, EnvFileConfigSource, PathBuf, fixture};
+    use super::{
+        Config,
+        ConfigError,
+        ConfigSource,
+        EnvFileConfigSource,
+        PathBuf,
+        fixture,
+    };
 
     #[test]
     fn test_load_basic_env_file() {
@@ -51,7 +62,10 @@ mod test_env_file_config_source {
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
-        assert_eq!(config.get::<String>("QUOTED_VALUE").unwrap(), "hello world");
+        assert_eq!(
+            config.get::<String>("QUOTED_VALUE").unwrap(),
+            "hello world"
+        );
         assert_eq!(
             config.get::<String>("SINGLE_QUOTED").unwrap(),
             "single quoted"
@@ -127,7 +141,14 @@ mod test_env_file_config_source {
 #[cfg(test)]
 mod test_env_file_edge_cases {
     #[allow(unused_imports)]
-    use super::{Config, ConfigError, ConfigSource, EnvFileConfigSource, PathBuf, fixture};
+    use super::{
+        Config,
+        ConfigError,
+        ConfigSource,
+        EnvFileConfigSource,
+        PathBuf,
+        fixture,
+    };
 
     // ---- env_file: non-existent file returns IoError ----
     #[test]
@@ -142,7 +163,8 @@ mod test_env_file_edge_cases {
     #[test]
     fn test_env_file_invalid_content_returns_redacted_parse_error() {
         const SECRET_MARKER: &str = "RS_CONFIG_DOTENV_SECRET_MARKER";
-        let dir = tempfile::tempdir().expect("temporary directory should be created");
+        let dir =
+            tempfile::tempdir().expect("temporary directory should be created");
         let path = dir.path().join("bad.env");
         std::fs::write(&path, format!("PASSWORD=\"{SECRET_MARKER}\n"))
             .expect("invalid .env fixture should be written");

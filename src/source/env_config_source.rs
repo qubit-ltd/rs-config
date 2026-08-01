@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+// qubit-style: allow multiple-public-types
 //! # System Environment Variable Configuration Source
 //!
 //! Loads configuration from the current process's environment variables.
@@ -21,14 +22,29 @@
 //!
 //! Without a prefix, all environment variables are loaded as-is.
 
-use std::{collections::HashMap, ffi::OsStr};
+use std::{
+    collections::HashMap,
+    ffi::OsStr,
+};
 
-use qubit_redact::{EnvRedactor, redacted_debug};
+use qubit_redact::{
+    EnvRedactor,
+    redacted_debug,
+};
 
-use crate::{Config, ConfigError, ConfigKey, ConfigResult, utils};
+use crate::{
+    Config,
+    ConfigError,
+    ConfigKey,
+    ConfigResult,
+    utils,
+};
 
 use super::{
-    ConfigSource, SourceLimits, config_source::load_transactionally, source_budget::SourceBudget,
+    ConfigSource,
+    SourceLimits,
+    config_source::load_transactionally,
+    source_budget::SourceBudget,
 };
 
 /// Options controlling environment-variable key selection and normalization.
@@ -223,7 +239,9 @@ impl EnvConfigSource {
     /// by a single load operation.
     #[inline]
     fn can_collapse_distinct_keys(&self) -> bool {
-        self.options.strip_prefix || self.options.underscores_to_dots || self.options.lowercase_keys
+        self.options.strip_prefix
+            || self.options.underscores_to_dots
+            || self.options.lowercase_keys
     }
 
     /// Checks whether an environment variable key matches a UTF-8 prefix.
@@ -357,13 +375,15 @@ impl ConfigSource for EnvConfigSource {
 
             let key = Self::env_key_to_string(&key_os, &value_os)?;
             let value = Self::env_value_to_string(&key_os, &value_os)?;
-            budget.consume_input_bytes(key.len().saturating_add(value.len()))?;
+            budget
+                .consume_input_bytes(key.len().saturating_add(value.len()))?;
             let transformed_key = self.transform_key(&key);
             if self.options.strip_prefix || self.options.underscores_to_dots {
                 utils::validate_normalized_config_key(&transformed_key, &key)?;
             }
             if self.can_collapse_distinct_keys()
-                && let Some(existing) = normalized_keys.insert(transformed_key.clone(), key.clone())
+                && let Some(existing) =
+                    normalized_keys.insert(transformed_key.clone(), key.clone())
             {
                 return Err(ConfigError::KeyConflict {
                     path: transformed_key,

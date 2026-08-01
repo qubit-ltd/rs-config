@@ -8,6 +8,7 @@
 
 //! Read parsing options for configuration values.
 
-mod read_policy;
-
-pub use read_policy::{InterpolationSources, ReadPolicy};
+pub use crate::read_policy::{
+    InterpolationSources,
+    ReadPolicy,
+};

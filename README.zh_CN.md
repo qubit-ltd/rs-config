@@ -228,7 +228,7 @@ property key 必须是非空、规范的点分名称。`server`、`server.port` 
 只在 root `ConfigPath` 语境合法，例如 `section("")` 或根结构化反序列化。
 
 所有 path-sensitive predicate 和 view 都显式返回 `ConfigResult`，包括
-`contains`、`get_property`、`is_null`、`remove`、`section`、
+`contains`、`get_property`、`is_unset`、`remove`、`section`、
 `contains_section`、`subconfig` 与 `ConfigReader::resolve_key`：
 
 ```rust
