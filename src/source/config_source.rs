@@ -5,10 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use crate::{
-    Config,
-    ConfigResult,
-};
+use crate::{Config, ConfigResult};
 
 /// Trait for configuration sources
 ///
@@ -71,10 +68,7 @@ pub trait ConfigSource {
 ///
 /// Returns `Ok(())` after committing the staged config, or propagates the
 /// source error while leaving `config` unchanged.
-pub(crate) fn load_transactionally<S>(
-    source: &S,
-    config: &mut Config,
-) -> ConfigResult<()>
+pub(crate) fn load_transactionally<S>(source: &S, config: &mut Config) -> ConfigResult<()>
 where
     S: ConfigSource + ?Sized,
 {

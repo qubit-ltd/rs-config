@@ -7,22 +7,12 @@
 // =============================================================================
 //! Canonical configuration property keys.
 
-use std::fmt::{
-    Display,
-    Formatter,
-};
+use std::fmt::{Display, Formatter};
 
-use serde::{
-    Deserialize,
-    Deserializer,
-    Serialize,
-};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::config_path::validate_config_key;
-use crate::{
-    ConfigError,
-    ConfigResult,
-};
+use crate::{ConfigError, ConfigResult};
 
 /// Owned canonical configuration property key.
 #[must_use]
@@ -47,11 +37,9 @@ impl ConfigKey {
     /// ends with `.`, or contains an empty dotted segment.
     pub fn parse(value: impl Into<String>) -> ConfigResult<Self> {
         let value = value.into();
-        validate_config_key(&value).map_err(|violation| {
-            ConfigError::InvalidKey {
-                key: value.clone(),
-                violation,
-            }
+        validate_config_key(&value).map_err(|violation| ConfigError::InvalidKey {
+            key: value.clone(),
+            violation,
         })?;
         Ok(Self(value))
     }

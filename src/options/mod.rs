@@ -8,6 +8,6 @@
 
 //! Read parsing options for configuration values.
 
-mod read_options;
+mod read_policy;
 
-pub use read_options::ReadOptions;
+pub use read_policy::{InterpolationSources, ReadPolicy};

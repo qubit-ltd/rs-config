@@ -13,7 +13,7 @@
 
 ## 特性
 
-- ✅ **纯泛型 API** - 使用 `get<T>()`、`read(ConfigField<T>)` 和 `set<T>()` 泛型方法，支持完整的类型推断
+- ✅ **纯泛型 API** - 使用 `get<T>()`、`get_any<T>()` 和 `set<T>()` 泛型方法，支持完整的类型推断
 - ✅ **丰富的数据类型** - 支持 Rust 基础类型，以及由 feature 控制的时间、URL 和任意精度数值类型
 - ✅ **多值属性** - 每个配置项可以包含多个值，支持列表操作
 - ✅ **显式插值** - `*_interpolated` 读取会解析配置中的 `${var_name}`；回退到进程环境变量必须显式开启
@@ -21,8 +21,8 @@
 - ✅ **稳定持久化 wire** - `Config` 序列化输出确定性、带版本的 V1 JSON 契约，并继续读取旧的无版本载荷
 - ✅ **可扩展** - 基于 trait 的设计，易于支持自定义类型
 - ✅ **配置来源（ConfigSource）** - 提供 [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) trait 与多种内置实现：TOML、YAML、Java 风格 `.properties`、`.env` 文件、进程环境变量（可选前缀与键名规范化），以及按顺序合并多个来源的 [`CompositeConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.CompositeConfigSource.html)（后加载的来源覆盖同名键）；内置来源按事务语义加载，会校验有歧义的规范化 key，并拒绝 TOML/YAML 单文档内展平后的重复 key
-- ✅ **只读访问（ConfigReader）** - 封闭的 [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) trait 为 [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) 与 [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html) 提供泛型、多 key 和字段声明读取
-- ✅ **可配置解析** - [`ReadOptions`](https://docs.rs/qubit-config/latest/qubit_config/options/struct.ReadOptions.html) 可在全局或单个字段上控制字符串 trim、空白值处理、布尔字面量和标量字符串拆分列表
+- ✅ **只读访问（ConfigReader）** - 封闭的 [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) trait 为 [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) 与 [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html) 提供泛型和多 key 读取
+- ✅ **可配置解析** - [`ReadPolicy`](https://docs.rs/qubit-config/latest/qubit_config/options/struct.ReadPolicy.html) 可通过默认策略或临时 `read_with` 视图控制转换规则
 - ✅ **严格 section（ConfigSection）** - [`Config::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.section) 返回严格相对键视图；可通过 [`ConfigSection::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html#method.section) 继续嵌套
 - ✅ **安全诊断** - `Debug` 输出保留配置项元数据，并通过 `qubit-redact` 遮盖所有存储值
 - ✅ **结构化错误** - [`ConfigError::kind`](https://docs.rs/qubit-config/latest/qubit_config/enum.ConfigError.html#method.kind) 与 [`ConfigError::path`](https://docs.rs/qubit-config/latest/qubit_config/enum.ConfigError.html#method.path) 提供稳定的机器可读上下文，下游无需穷举错误变体
@@ -121,7 +121,7 @@ config.set("database.port", 5432)?;
 
 [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) 是配置的只读抽象。仅需读取配置时，函数或类型可以接受 `&impl ConfigReader`（或泛型 `R: ConfigReader`），而不必暴露完整的 `&Config`；同一套 API 可用于完整 [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) 和 [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html)。`ConfigReader` 包含泛型类型读取方法，因此不是 object-safe，不能用作 `dyn ConfigReader`。
 
-新接入优先使用 `ConfigReader`、`ConfigSection`、`ReadOptions` 与 `ConfigSerdeExt`。`ConfigField`、`Configured`、`Configurable` 以及自定义 `ConfigSource` 仍是受支持的专用 API，但不应作为普通应用读取配置的首选入口。
+新接入优先使用 `ConfigReader`、`ConfigSection`、`ReadPolicy` 与 `ConfigSerdeExt`。`Configured`、`Configurable` 以及自定义 `ConfigSource` 仍是受支持的专用 API，但不应作为普通应用读取配置的首选入口。
 
 主要读取 API 如下：
 
@@ -135,8 +135,7 @@ config.set("database.port", 5432)?;
 | `get_any_or<T>(&[names], default)` | 多 key 默认值读取。 |
 | `get_interpolated<T>` / `get_optional_interpolated<T>` / `get_interpolated_or<T>` | 转换前显式执行单 key 插值。 |
 | `get_any_interpolated<T>` / `get_optional_any_interpolated<T>` / `get_any_interpolated_or<T>` | 转换前显式执行多 key 插值。 |
-| `read(ConfigField<T>)` | 通过字段声明读取，支持 name、alias、default 和字段级解析选项。 |
-| `read_interpolated(ConfigField<T>)` / `read_optional_interpolated(ConfigField<T>)` | 显式执行字段插值。 |
+| `read_with(&ReadPolicy)` | 使用临时策略创建借用的只读视图，不修改配置本身。 |
 | `get_strict` / `get_list_strict` | 精确存储类型读取，不做跨类型转换。 |
 
 默认值不会隐藏错误配置。如果 key 存在，但值解析或类型转换失败，会直接返回错误，不会回退到默认值，也不会继续尝试后面的 alias；显式插值读取同样会直接返回插值错误。
@@ -189,9 +188,9 @@ let host: String = db.get("host")?;
 let port: i32 = db.get("port")?;
 ```
 
-### ReadOptions（读取解析选项）
+### ReadPolicy（读取解析选项）
 
-`ReadOptions` 控制配置值如何被解析。它可以设置在 `Config` 全局上，也可以附加到单个 `ConfigField<T>` 上。
+`ReadPolicy` 控制配置值如何被解析。`Config` 持有只用于直接读取的 transient `default_read_policy`；需要临时策略时使用 `read_with(&policy)` 创建借用视图。
 
 | 选项组 | 控制内容 |
 |--------|----------|
@@ -200,16 +199,18 @@ let port: i32 = db.get("port")?;
 | `CollectionConversionOptions` | 是否把标量字符串拆成列表、分隔符、元素 trim，以及空元素策略。 |
 | `NumericConversionOptions` | 小数转整数、已有数值转浮点、文本转浮点策略，以及数值文本和 `BigInt` 物化上限。 |
 | `DurationConversionOptions` | 数值输入单位、文本后缀规则、输出单位与后缀，以及独立的 Duration 舍入策略。 |
-| `ReadOptions` 上的插值设置 | 控制环境变量回退，以及显式插值读取的递归深度、展开次数和输出字节数上限。 |
+| `InterpolationSources` 与插值限制 | 控制显式插值读取只查 `Config`，还是在未命中时查询进程环境变量，以及递归、展开次数和输出大小上限。 |
 
-`ReadOptions::env_friendly()` 适合环境变量风格配置：会 trim 字符串，把空白标量字符串当作缺失，布尔值接受 `true/false`、`1/0`、`yes/no`、`on/off`，并在读取 `Vec<T>` 时按逗号拆分标量字符串、跳过空元素。它允许文本转浮点采用 nearest-even 舍入，但小数转整数与已有数值转浮点仍保持精确。
+`ReadPolicy::env_friendly()` 适合环境变量风格配置：会 trim 字符串，把空白标量字符串当作缺失，布尔值接受 `true/false`、`1/0`、`yes/no`、`on/off`，并在读取 `Vec<T>` 时按逗号拆分标量字符串、跳过空元素。它允许文本转浮点采用 nearest-even 舍入，但小数转整数与已有数值转浮点仍保持精确。
 
-普通读取永远不会插值 `${...}`。显式插值读取先解析配置项；环境变量回退默认关闭，只能通过 `ReadOptions::env_friendly()` 或 `with_environment_fallback_enabled(true)` 显式开启。启用环境回退时，应把插值配置视为受信任输入：它能够选择要读取的进程环境变量名称。
+普通读取永远不会插值 `${...}`。显式插值读取先解析配置项。`ReadPolicy::env_friendly()` 只改变转换规则，不会开启环境变量回退；必须通过 `with_interpolation_sources(InterpolationSources::ConfigThenEnv)` 显式启用。启用后应把插值配置视为受信任输入，因为它能够选择要读取的进程环境变量名称。
 
 ```rust
-use qubit_config::{Config, options::ReadOptions};
+use qubit_config::{Config, options::{InterpolationSources, ReadPolicy}};
 
-let mut config = Config::new().with_read_options(ReadOptions::env_friendly());
+let mut config = Config::new().with_default_read_policy(
+    ReadPolicy::env_friendly().with_interpolation_sources(InterpolationSources::ConfigThenEnv),
+);
 config.set("HTTP_ENABLED", "yes")?;
 config.set("HTTP_PORTS", "8080, 8081,,8082")?;
 
@@ -244,14 +245,17 @@ fn inspect(config: &Config) -> ConfigResult<()> {
 }
 ```
 
-`Config::with_read_options` 会消费并返回 `self`，因此构建新配置时不会发生隐式 clone：
+`Config::with_default_read_policy` 会消费并返回 `self`，因此构建新配置时不会发生隐式 clone：
 
 ```rust
-use qubit_config::{Config, options::ReadOptions};
+use qubit_config::{Config, options::ReadPolicy};
 
-let options = ReadOptions::env_friendly();
-let config = Config::new().with_read_options(options);
-assert!(config.read_options().is_environment_fallback_enabled());
+let options = ReadPolicy::env_friendly();
+let config = Config::new().with_default_read_policy(options);
+assert_eq!(
+    config.default_read_policy().interpolation_sources(),
+    qubit_config::options::InterpolationSources::ConfigOnly,
+);
 ```
 
 内置文本 source 默认使用 `SourceLimits`：输入 8 MiB、65,536 次 assignment、
@@ -270,7 +274,7 @@ qubit-datatype = { version = "0.10", default-features = false, features = ["conv
 ```
 
 ```rust
-use qubit_config::{Config, options::ReadOptions};
+use qubit_config::{Config, options::ReadPolicy};
 use qubit_datatype::{
     BlankStringPolicy,
     BooleanConversionOptions,
@@ -281,7 +285,7 @@ use qubit_datatype::{
     StringConversionOptions,
 };
 
-let options = ReadOptions::default()
+let options = ReadPolicy::default()
     .with_numeric_options(
         NumericConversionOptions::strict().with_limits(
             NumericConversionLimits::default().with_max_text_bytes(4096),
@@ -305,7 +309,7 @@ let options = ReadOptions::default()
             .with_empty_item_policy(EmptyItemPolicy::Reject),
     );
 
-let mut config = Config::new().with_read_options(options);
+let mut config = Config::new().with_default_read_policy(options);
 config.set("feature", "enabled")?;
 config.set("ports", "8080; 8081")?;
 
@@ -313,39 +317,14 @@ let feature: bool = config.get("feature")?;
 let ports: Vec<u16> = config.get("ports")?;
 ```
 
-### ConfigField（字段声明读取）
-
-当一个逻辑配置项有别名、默认值或字段级解析规则时，使用 `ConfigField<T>`。这样迁移 key、旧 key 和环境变量风格 key 都可以留在配置声明里，而不是散落到业务代码中。
-
-```rust
-use qubit_config::{Config, field::ConfigField, options::ReadOptions};
-
-let mut config = Config::new();
-config.set("MIME_DETECTOR_ENABLE_PRECISE_DETECTION", "yes")?;
-
-let enabled = config.read(
-    ConfigField::<bool>::builder()
-        .name("mime.enable_precise_detection")
-        .alias("MIME_DETECTOR_ENABLE_PRECISE_DETECTION")
-        .alias("ANOTHER_MIME_DETECTOR_ENABLE_PRECISE_DETECTION_PROPERTY")
-        .default(false)
-        .read_options(ReadOptions::env_friendly())
-        .build(),
-)?;
-
-assert!(enabled);
-```
-
-builder 会强制主 key 明确出现：只有调用 `name(...)` 后，才可以调用 `build()` 生成 `ConfigField<T>`。
-
 ### 多 Key 读取
 
-当完整的 `ConfigField<T>` 显得过重时，可以使用 `get_any`、`get_optional_any` 和 `get_any_or` 做普通 alias 读取；需要解析占位符时使用对应的 `*_interpolated` 方法。
+需要读取多个候选 key 时，可以使用 `get_any`、`get_optional_any` 和 `get_any_or`；需要解析占位符时使用对应的 `*_interpolated` 方法。
 
 ```rust
-use qubit_config::{Config, options::ReadOptions};
+use qubit_config::{Config, options::ReadPolicy};
 
-let mut config = Config::new().with_read_options(ReadOptions::env_friendly());
+let mut config = Config::new().with_default_read_policy(ReadPolicy::env_friendly());
 config.set("SERVICE_URL", "http://localhost:8080")?;
 config.set("SERVER_TIMEOUT", "30")?;
 
@@ -403,6 +382,13 @@ use qubit_config::Config;
 
 let config = Config::from_toml_file("config.toml")?;
 let env_config = Config::from_env_prefix("APP_")?;
+
+let env_options = qubit_config::source::EnvConfigOptions::new()
+    .prefix("APP_")
+    .strip_prefix()
+    .underscores_to_dots()
+    .lowercase_keys();
+let normalized_env_config = Config::from_env_options(env_options)?;
 ```
 
 ## 使用示例
@@ -463,26 +449,29 @@ assert_eq!(raw_url, "http://${host}:${port}/api");
 let url: String = config.get_interpolated("url")?;
 // 结果: "http://localhost:8080/api"
 
-// 配置键优先于可选的环境变量回退。
+// 配置键优先于显式启用的环境变量回退。
 config.set("APP_ENV", "production")?;
 config.set("env", "${APP_ENV}")?;
-let env: String = config.get_interpolated("env")?;
+let policy = qubit_config::options::ReadPolicy::default()
+    .with_interpolation_sources(qubit_config::options::InterpolationSources::ConfigThenEnv);
+let env: String = config.read_with(&policy).get_interpolated("env")?;
 // 结果: "production"
 ```
 
 ### 结构化配置
 
-`deserialize()` 暴露由 mapping、sequence、布尔值、字符串、数字和 null 组成的 JSON-like Serde 视图，并默认保留占位符。需要先解析字符串叶节点时使用 `deserialize_interpolated()`。两者都会应用 `ReadOptions` 的转换规则，例如用 `ReadOptions::env_friendly()` 解析数字字符串、布尔别名、逗号分隔的标量字符串列表，并把空白字符串按缺失值处理。
+`deserialize()` 暴露由 mapping、sequence、布尔值、字符串、数字和 null 组成的 JSON-like Serde 视图，并默认保留占位符。需要先解析字符串叶节点时使用 `deserialize_interpolated()`。两者都会应用 `ReadPolicy` 的转换规则，例如用 `ReadPolicy::env_friendly()` 解析数字字符串、布尔别名、逗号分隔的标量字符串列表，并把空白字符串按缺失值处理。
 
 查找与转换失败会保留原始 `ConfigError` 的 kind、叶子 path 与 source。只有目标类型自身触发的纯 Serde 不匹配，才会在请求的 prefix 返回固定脱敏消息的 `DeserializeError`。
 
 ### 持久化 Wire 格式
 
 `serde_json::to_string(&config)` 会输出稳定的 V1 JSON 持久化格式：
-`{ "version": 1, "description": ..., "properties": ..., "read_options": ... }`。
+`{ "version": 1, "description": ..., "properties": ... }`。
 属性 key 按字典序输出，因此等价配置产生相同 JSON 字节。V1 通过 `ValueWireV1`
-保留属性值形状，并且是 JSON 的跨版本持久化契约。未来不兼容的 wire 变更会使用
-新版本；读取端仍接受 V1 出现前写出的无版本顶层格式。
+保留属性值形状，并且是 JSON 的跨版本持久化契约。`Config` 的默认读取策略是
+transient 状态，不影响相等性，也不会写入或从 wire 恢复。未来不兼容的 wire
+变更会使用新版本；读取端仍接受 V1 出现前写出的无版本顶层格式。
 
 当 `prefix` 非空时，`deserialize(prefix)` 使用严格的根选择语义：如果存在精确的 `prefix` 属性，就把该属性作为反序列化根值；否则用 `prefix.*` 子键组成根对象。同时定义 `prefix` 和 `prefix.*` 会返回 key conflict。带点号的键也必须能组成无歧义对象树，例如同一反序列化对象中不能同时存在 `a` 和 `a.b`。
 
@@ -554,7 +543,7 @@ app.config_mut().set("port", 3000)?;
 
 | Rust 类型 | 说明 | 示例 |
 |----------|------|------|
-| `bool` | 布尔值；字符串读取默认接受 `true` / `false` 和 `1` / `0`；`ReadOptions::env_friendly()` 还接受 `yes` / `no` 和 `on` / `off` | `true`, `false`, `"0"`, `"yes"` |
+| `bool` | 布尔值；字符串读取默认接受 `true` / `false` 和 `1` / `0`；`ReadPolicy::env_friendly()` 还接受 `yes` / `no` 和 `on` / `off` | `true`, `false`, `"0"`, `"yes"` |
 | `char` | 字符 | `'a'`, `'中'` |
 | `i8`, `i16`, `i32`, `i64`, `i128` | 有符号整数 | `42`, `-100` |
 | `u8`, `u16`, `u32`, `u64`, `u128` | 无符号整数 | `255`, `1000` |
@@ -568,7 +557,7 @@ app.config_mut().set("port", 3000)?;
 
 ## 扩展自定义类型
 
-要支持业务特定的配置读取，为目标类型实现 `FromConfig`。实现中可以复用内置的 `FromConfig` 解析，再叠加业务校验；调用方仍然使用 `config.get::<T>()`、`config.get_or::<T>()` 或 `config.read(ConfigField::<T>)`，不需要在每个调用点手写 parse 代码。
+要支持业务特定的配置读取，为目标类型实现 `FromConfig`。实现中可以复用内置的 `FromConfig` 解析，再叠加业务校验；调用方仍然使用 `config.get::<T>()` 或 `config.get_or::<T>()`，不需要在每个调用点手写 parse 代码。
 
 ```rust
 use qubit_config::{Config, ConfigError, ConfigResult, Property};
@@ -613,7 +602,7 @@ let fallback = config.get_or("fallback_port", Port::new(8080).unwrap())?;
 
 ### 为什么选择纯泛型 API？
 
-我们采用纯泛型方案（如 `get<T>()`、`set<T>()`、`get_or<T>()`、`read(ConfigField<T>)`），而不是为每个类型提供专门的方法（如 `get_i32()`、`get_bool()` 等），原因如下：
+我们采用纯泛型方案（如 `get<T>()`、`set<T>()`、`get_or<T>()`），而不是为每个类型提供专门的方法（如 `get_i32()`、`get_bool()` 等），原因如下：
 
 1. **通用性强** - 泛型方法可以处理任何实现了相应 trait 的类型，包括自定义类型
 2. **代码简洁** - 避免大量重复的类型特定方法

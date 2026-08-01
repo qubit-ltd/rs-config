@@ -7,14 +7,14 @@
 // =============================================================================
 
 use crate::ConfigResult;
-use crate::options::ReadOptions;
+use crate::options::ReadPolicy;
 
 /// Context passed to [`crate::from::FromConfig`] implementations.
 pub struct ConfigParseContext<'a> {
     /// The root-relative configuration key.
     key: &'a str,
-    /// The read options used for this parse operation.
-    options: &'a ReadOptions,
+    /// The read policy used for this parse operation.
+    options: &'a ReadPolicy,
     /// The substitution function used for this parse operation.
     substitute: &'a dyn Fn(&str) -> ConfigResult<String>,
 }
@@ -25,7 +25,7 @@ impl<'a> ConfigParseContext<'a> {
     /// # Parameters
     ///
     /// * `key` - The root-relative configuration key.
-    /// * `options` - The read options used for this parse operation.
+    /// * `options` - The read policy used for this parse operation.
     /// * `substitute` - The substitution function used for this parse
     ///   operation.
     ///
@@ -34,7 +34,7 @@ impl<'a> ConfigParseContext<'a> {
     /// A new parsing context.
     pub(crate) fn new(
         key: &'a str,
-        options: &'a ReadOptions,
+        options: &'a ReadPolicy,
         substitute: &'a dyn Fn(&str) -> ConfigResult<String>,
     ) -> Self {
         Self {
@@ -54,13 +54,13 @@ impl<'a> ConfigParseContext<'a> {
         self.key
     }
 
-    /// Gets the read options used for this parse operation.
+    /// Gets the read policy used for this parse operation.
     ///
     /// # Returns
     ///
-    /// Read options selected by the field or reader.
+    /// Read policy selected by the reader.
     #[inline]
-    pub fn options(&self) -> &ReadOptions {
+    pub fn options(&self) -> &ReadPolicy {
         self.options
     }
 
@@ -73,10 +73,7 @@ impl<'a> ConfigParseContext<'a> {
     /// # Returns
     ///
     /// The substituted string value.
-    pub(crate) fn substitute_string(
-        &self,
-        value: &str,
-    ) -> ConfigResult<String> {
+    pub(crate) fn substitute_string(&self, value: &str) -> ConfigResult<String> {
         (self.substitute)(value)
     }
 }

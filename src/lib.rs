@@ -28,7 +28,6 @@ mod configurable;
 mod configured;
 mod constants;
 mod error;
-pub mod field;
 pub mod from;
 pub mod options;
 mod property;
@@ -48,13 +47,6 @@ pub use config_section::ConfigSection;
 pub use config_serde_ext::ConfigSerdeExt;
 pub use configurable::Configurable;
 pub use configured::Configured;
-pub use error::{
-    ConfigError,
-    ConfigResult,
-};
+pub use error::{ConfigError, ConfigResult};
 pub use property::Property;
-pub use source::{
-    ConfigSource,
-    SourceLimitKind,
-    SourceLimits,
-};
+pub use source::{ConfigSource, SourceLimitKind, SourceLimits};

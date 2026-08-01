@@ -72,7 +72,7 @@ masking missing feature wiring.
 the smaller integer types. The implementation must preserve:
 
 - native `Int128` and `UInt128` values;
-- accepted string-to-number conversion under the current read options;
+- accepted string-to-number conversion under the current read policy;
 - overflow and signedness errors with the original configuration path;
 - value redaction in public error messages.
 

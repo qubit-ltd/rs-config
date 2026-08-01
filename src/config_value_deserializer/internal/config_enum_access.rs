@@ -7,24 +7,19 @@
 // =============================================================================
 //! Serde enum access over a configuration value.
 
-use serde::de::{
-    DeserializeSeed,
-    EnumAccess,
-    IntoDeserializer,
-    value::StringDeserializer,
-};
+use serde::de::{DeserializeSeed, EnumAccess, IntoDeserializer, value::StringDeserializer};
 use serde_json::Value;
 
 use super::config_variant_access::ConfigVariantAccess;
 use crate::config_deserialize_error::ConfigDeserializeError;
-use crate::options::ReadOptions;
+use crate::options::ReadPolicy;
 
 /// Enum access over a configuration value.
 pub(in crate::config_value_deserializer) struct ConfigEnumAccess<'a> {
     variant: String,
     value: Option<Value>,
     key: String,
-    options: &'a ReadOptions,
+    options: &'a ReadPolicy,
 }
 
 impl<'a> ConfigEnumAccess<'a> {
@@ -33,7 +28,7 @@ impl<'a> ConfigEnumAccess<'a> {
         variant: String,
         value: Option<Value>,
         key: String,
-        options: &'a ReadOptions,
+        options: &'a ReadPolicy,
     ) -> Self {
         Self {
             variant,
@@ -49,10 +44,7 @@ impl<'de, 'a> EnumAccess<'de> for ConfigEnumAccess<'a> {
     type Variant = ConfigVariantAccess<'a>;
 
     /// Deserializes the enum variant identifier.
-    fn variant_seed<V>(
-        self,
-        seed: V,
-    ) -> Result<(V::Value, Self::Variant), Self::Error>
+    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), Self::Error>
     where
         V: DeserializeSeed<'de>,
     {

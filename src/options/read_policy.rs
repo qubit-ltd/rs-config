@@ -7,35 +7,45 @@
 // =============================================================================
 
 use qubit_datatype::{
-    BlankStringPolicy,
-    BooleanConversionOptions,
-    CollectionConversionOptions,
-    DataConversionOptions,
-    DurationConversionOptions,
-    EmptyItemPolicy,
-    NumericConversionOptions,
+    BlankStringPolicy, BooleanConversionOptions, CollectionConversionOptions,
+    DataConversionOptions, DurationConversionOptions, EmptyItemPolicy, NumericConversionOptions,
     StringConversionOptions,
 };
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use serde::{Deserialize, Serialize};
 
 use crate::constants::{
-    DEFAULT_MAX_SUBSTITUTION_DEPTH,
-    DEFAULT_MAX_SUBSTITUTION_EXPANSIONS,
+    DEFAULT_MAX_SUBSTITUTION_DEPTH, DEFAULT_MAX_SUBSTITUTION_EXPANSIONS,
     DEFAULT_MAX_SUBSTITUTION_OUTPUT_BYTES,
 };
 
-/// Runtime options that control configuration conversion and interpolation.
+/// Sources consulted while resolving an interpolated variable.
+#[must_use]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum InterpolationSources {
+    /// Resolve variables from configuration data only.
+    ConfigOnly,
+    /// Resolve from configuration data, then fall back to the process
+    /// environment.
+    ConfigThenEnv,
+}
+
+impl Default for InterpolationSources {
+    /// Uses configuration data as the only interpolation source.
+    #[inline]
+    fn default() -> Self {
+        Self::ConfigOnly
+    }
+}
+
+/// Runtime policy that controls configuration conversion and interpolation.
 #[must_use]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
-pub struct ReadOptions {
+pub struct ReadPolicy {
     /// Common scalar, collection, boolean, and duration conversion options.
     conversion: DataConversionOptions,
-    /// Whether unresolved placeholders may use process environment variables.
-    environment_fallback_enabled: bool,
+    /// Sources consulted when resolving interpolated placeholders.
+    interpolation_sources: InterpolationSources,
     /// Maximum active placeholder-reference chain length.
     max_interpolation_depth: usize,
     /// Maximum number of placeholder resolutions in one read.
@@ -44,8 +54,8 @@ pub struct ReadOptions {
     max_interpolation_output_bytes: usize,
 }
 
-impl ReadOptions {
-    /// Creates options that resolve placeholders from configuration only.
+impl ReadPolicy {
+    /// Creates a policy that resolves placeholders from configuration only.
     ///
     /// # Returns
     ///
@@ -54,21 +64,19 @@ impl ReadOptions {
     /// trusted to select arbitrary environment variable names.
     #[inline]
     pub fn config_only() -> Self {
-        Self::default().with_environment_fallback_enabled(false)
+        Self::default()
     }
 
-    /// Creates options suitable for environment-variable style values.
+    /// Creates a policy suitable for environment-variable style values.
     ///
     /// # Returns
     ///
-    /// Options that trim strings, treat blank scalar strings as missing, accept
-    /// common boolean aliases, and split scalar strings on commas while
-    /// skipping empty collection items. Interpolated reads may fall back to
-    /// process environment variables.
+    /// The returned policy changes only conversion behavior. Interpolated
+    /// reads still resolve from configuration data unless callers explicitly
+    /// select [`InterpolationSources::ConfigThenEnv`].
     pub fn env_friendly() -> Self {
         Self {
             conversion: DataConversionOptions::env_friendly(),
-            environment_fallback_enabled: true,
             ..Self::default()
         }
     }
@@ -83,15 +91,14 @@ impl ReadOptions {
         &self.conversion
     }
 
-    /// Returns whether unresolved placeholders may use the environment.
+    /// Returns the configured interpolation sources.
     ///
     /// # Returns
     ///
-    /// `true` when interpolated reads may fall back to process environment
-    /// variables.
+    /// The source order used by interpolated reads.
     #[inline(always)]
-    pub const fn is_environment_fallback_enabled(&self) -> bool {
-        self.environment_fallback_enabled
+    pub const fn interpolation_sources(&self) -> InterpolationSources {
+        self.interpolation_sources
     }
 
     /// Returns the maximum recursive interpolation depth.
@@ -124,22 +131,18 @@ impl ReadOptions {
         self.max_interpolation_output_bytes
     }
 
-    /// Returns a copy with environment fallback enabled or disabled.
+    /// Returns a copy with different interpolation sources.
     ///
     /// # Parameters
     ///
-    /// * `enabled` - Whether unresolved placeholders may use environment
-    ///   values.
+    /// * `sources` - Sources consulted for unresolved placeholders.
     ///
     /// # Returns
     ///
-    /// Updated options.
+    /// Updated policy.
     #[inline(always)]
-    pub const fn with_environment_fallback_enabled(
-        mut self,
-        enabled: bool,
-    ) -> Self {
-        self.environment_fallback_enabled = enabled;
+    pub const fn with_interpolation_sources(mut self, sources: InterpolationSources) -> Self {
+        self.interpolation_sources = sources;
         self
     }
 
@@ -151,12 +154,9 @@ impl ReadOptions {
     ///
     /// # Returns
     ///
-    /// Updated options.
+    /// Updated policy.
     #[inline(always)]
-    pub const fn with_max_interpolation_depth(
-        mut self,
-        max_depth: usize,
-    ) -> Self {
+    pub const fn with_max_interpolation_depth(mut self, max_depth: usize) -> Self {
         self.max_interpolation_depth = max_depth;
         self
     }
@@ -169,12 +169,9 @@ impl ReadOptions {
     ///
     /// # Returns
     ///
-    /// Updated options.
+    /// Updated policy.
     #[inline(always)]
-    pub const fn with_max_interpolation_expansions(
-        mut self,
-        max_expansions: usize,
-    ) -> Self {
+    pub const fn with_max_interpolation_expansions(mut self, max_expansions: usize) -> Self {
         self.max_interpolation_expansions = max_expansions;
         self
     }
@@ -187,12 +184,9 @@ impl ReadOptions {
     ///
     /// # Returns
     ///
-    /// Updated options.
+    /// Updated policy.
     #[inline(always)]
-    pub const fn with_max_interpolation_output_bytes(
-        mut self,
-        max_output_bytes: usize,
-    ) -> Self {
+    pub const fn with_max_interpolation_output_bytes(mut self, max_output_bytes: usize) -> Self {
         self.max_interpolation_output_bytes = max_output_bytes;
         self
     }
@@ -205,11 +199,8 @@ impl ReadOptions {
     ///
     /// # Returns
     ///
-    /// Updated options.
-    pub fn with_blank_string_policy(
-        mut self,
-        policy: BlankStringPolicy,
-    ) -> Self {
+    /// Updated policy.
+    pub fn with_blank_string_policy(mut self, policy: BlankStringPolicy) -> Self {
         self.conversion = self.conversion.with_blank_string_policy(policy);
         self
     }
@@ -222,7 +213,7 @@ impl ReadOptions {
     ///
     /// # Returns
     ///
-    /// Updated options.
+    /// Updated policy.
     pub fn with_empty_item_policy(mut self, policy: EmptyItemPolicy) -> Self {
         self.conversion = self.conversion.with_empty_item_policy(policy);
         self
@@ -232,15 +223,12 @@ impl ReadOptions {
     ///
     /// # Parameters
     ///
-    /// * `string` - New string conversion options.
+    /// * `string` - New string conversion policy.
     ///
     /// # Returns
     ///
-    /// Updated options.
-    pub fn with_string_options(
-        mut self,
-        string: StringConversionOptions,
-    ) -> Self {
+    /// Updated policy.
+    pub fn with_string_options(mut self, string: StringConversionOptions) -> Self {
         self.conversion = self.conversion.with_string_options(string);
         self
     }
@@ -249,15 +237,12 @@ impl ReadOptions {
     ///
     /// # Parameters
     ///
-    /// * `boolean` - New boolean conversion options.
+    /// * `boolean` - New boolean conversion policy.
     ///
     /// # Returns
     ///
-    /// Updated options.
-    pub fn with_boolean_options(
-        mut self,
-        boolean: BooleanConversionOptions,
-    ) -> Self {
+    /// Updated policy.
+    pub fn with_boolean_options(mut self, boolean: BooleanConversionOptions) -> Self {
         self.conversion = self.conversion.with_boolean_options(boolean);
         self
     }
@@ -266,15 +251,12 @@ impl ReadOptions {
     ///
     /// # Parameters
     ///
-    /// * `collection` - New collection conversion options.
+    /// * `collection` - New collection conversion policy.
     ///
     /// # Returns
     ///
-    /// Updated options.
-    pub fn with_collection_options(
-        mut self,
-        collection: CollectionConversionOptions,
-    ) -> Self {
+    /// Updated policy.
+    pub fn with_collection_options(mut self, collection: CollectionConversionOptions) -> Self {
         self.conversion = self.conversion.with_collection_options(collection);
         self
     }
@@ -283,15 +265,12 @@ impl ReadOptions {
     ///
     /// # Parameters
     ///
-    /// * `duration` - New duration conversion options.
+    /// * `duration` - New duration conversion policy.
     ///
     /// # Returns
     ///
-    /// Updated options.
-    pub fn with_duration_options(
-        mut self,
-        duration: DurationConversionOptions,
-    ) -> Self {
+    /// Updated policy.
+    pub fn with_duration_options(mut self, duration: DurationConversionOptions) -> Self {
         self.conversion = self.conversion.with_duration_options(duration);
         self
     }
@@ -300,36 +279,32 @@ impl ReadOptions {
     ///
     /// # Parameters
     ///
-    /// * `numeric` - New numeric conversion policies and resource limits.
+    /// * `numeric` - New numeric conversion policy and resource limits.
     ///
     /// # Returns
     ///
-    /// Updated options.
-    pub fn with_numeric_options(
-        mut self,
-        numeric: NumericConversionOptions,
-    ) -> Self {
+    /// Updated policy.
+    pub fn with_numeric_options(mut self, numeric: NumericConversionOptions) -> Self {
         self.conversion = self.conversion.with_numeric_options(numeric);
         self
     }
 }
 
-impl Default for ReadOptions {
+impl Default for ReadPolicy {
     /// Creates the default conversion and bounded interpolation policy.
     #[inline]
     fn default() -> Self {
         Self {
             conversion: DataConversionOptions::default(),
-            environment_fallback_enabled: false,
+            interpolation_sources: InterpolationSources::ConfigOnly,
             max_interpolation_depth: DEFAULT_MAX_SUBSTITUTION_DEPTH,
             max_interpolation_expansions: DEFAULT_MAX_SUBSTITUTION_EXPANSIONS,
-            max_interpolation_output_bytes:
-                DEFAULT_MAX_SUBSTITUTION_OUTPUT_BYTES,
+            max_interpolation_output_bytes: DEFAULT_MAX_SUBSTITUTION_OUTPUT_BYTES,
         }
     }
 }
 
-impl AsRef<DataConversionOptions> for ReadOptions {
+impl AsRef<DataConversionOptions> for ReadPolicy {
     /// Borrows the underlying data conversion options.
     #[inline(always)]
     fn as_ref(&self) -> &DataConversionOptions {
@@ -337,8 +312,8 @@ impl AsRef<DataConversionOptions> for ReadOptions {
     }
 }
 
-impl From<DataConversionOptions> for ReadOptions {
-    /// Creates read options from data conversion options.
+impl From<DataConversionOptions> for ReadPolicy {
+    /// Creates a read policy from data conversion options.
     #[inline]
     fn from(conversion: DataConversionOptions) -> Self {
         Self {

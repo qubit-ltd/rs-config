@@ -7,14 +7,7 @@
 // =============================================================================
 //! Tests for canonical configuration keys and paths.
 
-use qubit_config::{
-    Config,
-    ConfigError,
-    ConfigKey,
-    ConfigPath,
-    ConfigPathViolation,
-    ConfigReader,
-};
+use qubit_config::{Config, ConfigError, ConfigKey, ConfigPath, ConfigPathViolation, ConfigReader};
 
 #[test]
 fn config_key_accepts_canonical_dotted_names() {
