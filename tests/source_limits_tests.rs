@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! Tests for bounded configuration source ingestion.
+// Tests for bounded configuration source ingestion.
 
 #[cfg(feature = "env-file")]
 use qubit_config::source::EnvFileConfigSource;
@@ -14,8 +14,14 @@ use qubit_config::source::TomlConfigSource;
 #[cfg(feature = "yaml")]
 use qubit_config::source::YamlConfigSource;
 use qubit_config::{
-    Config, ConfigError,
-    source::{ConfigSource, PropertiesConfigSource, SourceLimitKind, SourceLimits},
+    Config,
+    ConfigError,
+    source::{
+        ConfigSource,
+        PropertiesConfigSource,
+        SourceLimitKind,
+        SourceLimits,
+    },
 };
 
 #[test]
@@ -80,7 +86,8 @@ fn properties_source_counts_duplicate_assignments() {
 #[test]
 fn properties_source_rejects_invalid_keys_and_excessive_key_depth() {
     assert!(matches!(
-        PropertiesConfigSource::from_content("bad..key=1\n").load(&mut Config::new()),
+        PropertiesConfigSource::from_content("bad..key=1\n")
+            .load(&mut Config::new()),
         Err(ConfigError::InvalidKey { .. })
     ));
 

@@ -233,7 +233,7 @@ without trimming or normalization. The empty string is valid only as a root
 `ConfigPath`, such as `section("")` or root structured deserialization.
 
 Path-sensitive predicates and views are fallible. This includes `contains`,
-`get_property`, `is_null`, `remove`, `section`, `contains_section`,
+`get_property`, `is_unset`, `remove`, `section`, `contains_section`,
 `subconfig`, and `ConfigReader::resolve_key`:
 
 ```rust

@@ -5,20 +5,34 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! # Configuration Utility Function Tests
-//!
-//! Integration tests for deserialize JSON building (`property_to_json_value` /
-//! dotted-key insertion) and variable substitution behavior.
+// # Configuration Utility Function Tests
+//
+// Integration tests for deserialize JSON building (`property_to_json_value` /
+// dotted-key insertion) and variable substitution behavior.
 
 use qubit_config::{
-    Config, ConfigError, Property,
-    options::{InterpolationSources, ReadPolicy},
+    Config,
+    ConfigError,
+    Property,
+    options::{
+        InterpolationSources,
+        ReadPolicy,
+    },
 };
 use qubit_datatype::{
-    DataConversionError, DataType, DurationConversionOptions, DurationRoundingPolicy, DurationUnit,
-    InvalidValueReason, NumericConversionOptions,
+    DataConversionError,
+    DataType,
+    DurationConversionOptions,
+    DurationRoundingPolicy,
+    DurationUnit,
+    InvalidValueReason,
+    NumericConversionOptions,
 };
-use qubit_value::{MultiValues, Value, ValueContainer};
+use qubit_value::{
+    MultiValues,
+    Value,
+    ValueContainer,
+};
 use serde::Deserialize;
 use std::collections::HashMap;
 
@@ -43,9 +57,21 @@ fn with_environment_fallback(options: ReadPolicy) -> ReadPolicy {
 mod test_deserialize {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataConversionError, DataType, Deserialize, DurationConversionOptions,
-        DurationUnit, HashMap, InvalidValueReason, MultiValues, NumericConversionOptions, Property,
-        ReadPolicy, Value, ValueContainer,
+        Config,
+        ConfigError,
+        DataConversionError,
+        DataType,
+        Deserialize,
+        DurationConversionOptions,
+        DurationUnit,
+        HashMap,
+        InvalidValueReason,
+        MultiValues,
+        NumericConversionOptions,
+        Property,
+        ReadPolicy,
+        Value,
+        ValueContainer,
     };
 
     #[derive(Deserialize, Debug, PartialEq)]
@@ -198,7 +224,8 @@ mod test_deserialize {
 
     #[test]
     fn test_deserialize_blank_field_with_missing_policy_behaves_as_absent() {
-        let mut config = Config::new().with_default_read_policy(ReadPolicy::env_friendly());
+        let mut config =
+            Config::new().with_default_read_policy(ReadPolicy::env_friendly());
         config.set("srv.host", "localhost").unwrap();
         config.set("srv.port", "   ").unwrap();
 
@@ -217,7 +244,8 @@ mod test_deserialize {
             .set("headers.content-type", "application/json")
             .unwrap();
 
-        let headers: HashMap<String, String> = config.deserialize("headers").unwrap();
+        let headers: HashMap<String, String> =
+            config.deserialize("headers").unwrap();
         assert_eq!(
             headers.get("authorization"),
             Some(&"Bearer token".to_string())
@@ -252,7 +280,8 @@ mod test_deserialize {
         config.set("ctx.a", 1).unwrap();
         config.set("ctx.a.b", "conflict").unwrap();
 
-        let result = config.deserialize::<HashMap<String, serde_json::Value>>("ctx");
+        let result =
+            config.deserialize::<HashMap<String, serde_json::Value>>("ctx");
         assert!(matches!(
             result,
             Err(ConfigError::KeyConflict { path, .. }) if path == "a"
@@ -287,11 +316,15 @@ mod test_deserialize {
         for (parent_value, expected_kind, message) in cases {
             let mut config = Config::new();
             config
-                .insert_property("ctx.a", Property::new("ctx.a", parent_value).unwrap())
+                .insert_property(
+                    "ctx.a",
+                    Property::new("ctx.a", parent_value).unwrap(),
+                )
                 .unwrap();
             config.set("ctx.a.b", "conflict").unwrap();
 
-            let result = config.deserialize::<HashMap<String, serde_json::Value>>("ctx");
+            let result =
+                config.deserialize::<HashMap<String, serde_json::Value>>("ctx");
 
             assert!(
                 matches!(
@@ -422,7 +455,8 @@ mod test_deserialize {
             )
             .unwrap();
 
-        let svc: ServiceConfig = config.deserialize_interpolated("svc").unwrap();
+        let svc: ServiceConfig =
+            config.deserialize_interpolated("svc").unwrap();
         assert_eq!(svc.base_url, "http://localhost:8080");
         assert_eq!(
             svc.endpoints,
@@ -444,7 +478,8 @@ mod test_deserialize {
         config.set("base_url", "http://example.test").unwrap();
         config.set("svc.url", "${base_url}/v1").unwrap();
 
-        let svc: ServiceConfig = config.deserialize_interpolated("svc").unwrap();
+        let svc: ServiceConfig =
+            config.deserialize_interpolated("svc").unwrap();
 
         assert_eq!(svc.url, "http://example.test/v1");
     }
@@ -472,8 +507,9 @@ mod test_deserialize {
     fn test_deserialize_exact_blank_string_can_be_treated_as_null() {
         let mut config = Config::new();
         config.set_default_read_policy(
-            ReadPolicy::env_friendly()
-                .with_blank_string_policy(qubit_datatype::BlankStringPolicy::TreatAsMissing),
+            ReadPolicy::env_friendly().with_blank_string_policy(
+                qubit_datatype::BlankStringPolicy::TreatAsMissing,
+            ),
         );
         config.set("value", "   ").unwrap();
 
@@ -554,7 +590,8 @@ mod test_deserialize {
             )
             .unwrap();
 
-        let svc: ServiceConfig = config.deserialize_interpolated("svc").unwrap();
+        let svc: ServiceConfig =
+            config.deserialize_interpolated("svc").unwrap();
         assert_eq!(
             svc.meta,
             serde_json::json!({
@@ -594,18 +631,24 @@ mod test_deserialize {
 
         let err = config
             .deserialize_interpolated::<ServiceConfig>("svc")
-            .expect_err("unresolved variable should fail before serde deserialization");
+            .expect_err(
+                "unresolved variable should fail before serde deserialization",
+            );
         match err {
             ConfigError::SubstitutionError { path, message } => {
                 assert_eq!(path, "svc.url");
-                assert!(message.contains("QUBIT_CONFIG_UNSET_DESERIALIZE_VAR_12345"));
+                assert!(
+                    message
+                        .contains("QUBIT_CONFIG_UNSET_DESERIALIZE_VAR_12345")
+                );
             }
             other => panic!("Expected SubstitutionError, got {:?}", other),
         }
     }
 
     #[test]
-    fn test_deserialize_unresolved_variable_in_json_leaf_returns_substitution_error() {
+    fn test_deserialize_unresolved_variable_in_json_leaf_returns_substitution_error()
+     {
         #[derive(Deserialize, Debug, PartialEq)]
         struct ServiceConfig {
             meta: serde_json::Value,
@@ -632,7 +675,9 @@ mod test_deserialize {
         match err {
             ConfigError::SubstitutionError { path, message } => {
                 assert_eq!(path, "svc.meta");
-                assert!(message.contains("QUBIT_CONFIG_UNSET_JSON_LEAF_VAR_12345"));
+                assert!(
+                    message.contains("QUBIT_CONFIG_UNSET_JSON_LEAF_VAR_12345")
+                );
             }
             other => panic!("Expected SubstitutionError, got {:?}", other),
         }
@@ -647,7 +692,14 @@ mod test_deserialize {
 mod test_variable_substitution {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataType, Deserialize, HashMap, MultiValues, Property, ReadPolicy,
+        Config,
+        ConfigError,
+        DataType,
+        Deserialize,
+        HashMap,
+        MultiValues,
+        Property,
+        ReadPolicy,
     };
     #[test]
     fn test_get_string_substitutes_simple_placeholder() {
@@ -702,7 +754,9 @@ mod test_variable_substitution {
     #[test]
     fn test_get_string_rejects_too_many_substitution_expansions() {
         let mut config = Config::new();
-        config.set_default_read_policy(ReadPolicy::default().with_max_interpolation_expansions(2));
+        config.set_default_read_policy(
+            ReadPolicy::default().with_max_interpolation_expansions(2),
+        );
         config.set("name", "world").unwrap();
         config.set("value", "${name}-${name}-${name}").unwrap();
 
@@ -720,8 +774,9 @@ mod test_variable_substitution {
     #[test]
     fn test_get_string_rejects_substitution_output_over_byte_limit() {
         let mut config = Config::new();
-        config
-            .set_default_read_policy(ReadPolicy::default().with_max_interpolation_output_bytes(7));
+        config.set_default_read_policy(
+            ReadPolicy::default().with_max_interpolation_output_bytes(7),
+        );
         config.set("part", "1234").unwrap();
         config.set("value", "${part}${part}").unwrap();
 
@@ -739,8 +794,9 @@ mod test_variable_substitution {
     #[test]
     fn test_get_string_accepts_substitution_output_at_byte_limit() {
         let mut config = Config::new();
-        config
-            .set_default_read_policy(ReadPolicy::default().with_max_interpolation_output_bytes(8));
+        config.set_default_read_policy(
+            ReadPolicy::default().with_max_interpolation_output_bytes(8),
+        );
         config.set("part", "1234").unwrap();
         config.set("value", "${part}${part}").unwrap();
 
@@ -778,7 +834,9 @@ mod test_variable_substitution {
             std::env::set_var("QUBIT_CONFIG_TEST_ENV_VAR", "test_value");
         }
         let mut config = Config::new();
-        config.set_default_read_policy(crate::with_environment_fallback(ReadPolicy::default()));
+        config.set_default_read_policy(crate::with_environment_fallback(
+            ReadPolicy::default(),
+        ));
         config
             .set("value", "Value: ${QUBIT_CONFIG_TEST_ENV_VAR}")
             .unwrap();
@@ -869,9 +927,9 @@ mod test_variable_substitution {
             )
             .unwrap();
 
-        let err = config
-            .get_interpolated::<Vec<String>>("values")
-            .expect_err("unresolved variable in list read should return an error");
+        let err = config.get_interpolated::<Vec<String>>("values").expect_err(
+            "unresolved variable in list read should return an error",
+        );
 
         assert!(matches!(
             err,
@@ -901,7 +959,9 @@ mod test_variable_substitution {
             std::env::set_var("QUBIT_CONFIG_TEST_ENV_SOURCE", "from_env");
         }
         let mut config = Config::new();
-        config.set_default_read_policy(crate::with_environment_fallback(ReadPolicy::default()));
+        config.set_default_read_policy(crate::with_environment_fallback(
+            ReadPolicy::default(),
+        ));
         config.set("CONFIG_SOURCE", "from_config").unwrap();
         config
             .set(
@@ -924,7 +984,9 @@ mod test_variable_substitution {
             std::env::set_var("QUBIT_CONFIG_TEST_SHARED_VAR", "from_env");
         }
         let mut config = Config::new();
-        config.set_default_read_policy(crate::with_environment_fallback(ReadPolicy::default()));
+        config.set_default_read_policy(crate::with_environment_fallback(
+            ReadPolicy::default(),
+        ));
         config
             .set("QUBIT_CONFIG_TEST_SHARED_VAR", "from_config")
             .unwrap();
@@ -946,7 +1008,9 @@ mod test_variable_substitution {
             std::env::set_var("QUBIT_CONFIG_TEST_STRICT_VAR", "from_env");
         }
         let mut config = Config::new();
-        config.set_default_read_policy(crate::with_environment_fallback(ReadPolicy::default()));
+        config.set_default_read_policy(crate::with_environment_fallback(
+            ReadPolicy::default(),
+        ));
         config.set("QUBIT_CONFIG_TEST_STRICT_VAR", 8080i32).unwrap();
         config
             .set("value", "${QUBIT_CONFIG_TEST_STRICT_VAR}")
@@ -963,7 +1027,9 @@ mod test_variable_substitution {
     #[test]
     fn test_get_string_environment_fallback_reports_missing_env_var() {
         let mut config = Config::new();
-        config.set_default_read_policy(crate::with_environment_fallback(ReadPolicy::default()));
+        config.set_default_read_policy(crate::with_environment_fallback(
+            ReadPolicy::default(),
+        ));
         config
             .set("value", "${QUBIT_CONFIG_TEST_ENV_MISSING_FOR_FALLBACK}")
             .unwrap();
@@ -1005,14 +1071,31 @@ mod test_variable_substitution {
 mod test_property_to_json_value_deserialize_behavior {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, DataConversionError, DataType, Deserialize, DurationConversionOptions,
-        DurationRoundingPolicy, DurationUnit, HashMap, InvalidValueReason, MultiValues, Property,
-        ReadPolicy, Value,
+        Config,
+        ConfigError,
+        DataConversionError,
+        DataType,
+        Deserialize,
+        DurationConversionOptions,
+        DurationRoundingPolicy,
+        DurationUnit,
+        HashMap,
+        InvalidValueReason,
+        MultiValues,
+        Property,
+        ReadPolicy,
+        Value,
     };
     #[cfg(feature = "bigdecimal")]
     use bigdecimal::BigDecimal;
     #[cfg(feature = "chrono")]
-    use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
+    use chrono::{
+        DateTime,
+        NaiveDate,
+        NaiveDateTime,
+        NaiveTime,
+        Utc,
+    };
     #[cfg(feature = "num-bigint")]
     use num_bigint::BigInt;
     #[cfg(feature = "bigdecimal")]
@@ -1029,7 +1112,8 @@ mod test_property_to_json_value_deserialize_behavior {
     /// Builds a config containing one collection-shaped property.
     fn config_with_mv(key: &str, mv: MultiValues) -> Config {
         let mut config = Config::new();
-        let property = Property::new(key, mv).expect("the test property key should be canonical");
+        let property = Property::new(key, mv)
+            .expect("the test property key should be canonical");
         config.insert_property(key, property).unwrap();
         config
     }
@@ -1037,8 +1121,8 @@ mod test_property_to_json_value_deserialize_behavior {
     /// Builds a config containing one scalar-shaped property.
     fn config_with_value(key: &str, value: Value) -> Config {
         let mut config = Config::new();
-        let property =
-            Property::new(key, value).expect("the test property key should be canonical");
+        let property = Property::new(key, value)
+            .expect("the test property key should be canonical");
         config.insert_property(key, property).unwrap();
         config
     }
@@ -1131,7 +1215,8 @@ mod test_property_to_json_value_deserialize_behavior {
 
     #[test]
     fn test_deserialize_float32_nan_is_rejected() {
-        let config = config_with_mv("x.val", MultiValues::Float32(vec![f32::NAN]));
+        let config =
+            config_with_mv("x.val", MultiValues::Float32(vec![f32::NAN]));
         let error = config.deserialize::<AnyStruct>("x").unwrap_err();
 
         let ConfigError::ConversionError {
@@ -1156,7 +1241,10 @@ mod test_property_to_json_value_deserialize_behavior {
 
     #[test]
     fn test_deserialize_float64_infinity_is_rejected_with_source_index() {
-        let config = config_with_mv("x.val", MultiValues::Float64(vec![1.0, f64::INFINITY]));
+        let config = config_with_mv(
+            "x.val",
+            MultiValues::Float64(vec![1.0, f64::INFINITY]),
+        );
         let error = config.deserialize::<AnyStruct>("x").unwrap_err();
 
         let ConfigError::ConversionError {
@@ -1181,14 +1269,20 @@ mod test_property_to_json_value_deserialize_behavior {
 
     #[test]
     fn test_deserialize_duration() {
-        let config = config_with_value("x.val", Value::Duration(Duration::from_millis(500)));
+        let config = config_with_value(
+            "x.val",
+            Value::Duration(Duration::from_millis(500)),
+        );
         let s: AnyStruct = config.deserialize("x").unwrap();
         assert_eq!(s.val, serde_json::json!("500ms"));
     }
 
     #[test]
     fn test_deserialize_duration_rejects_implicit_precision_loss() {
-        let config = config_with_value("x.val", Value::Duration(Duration::from_micros(1500)));
+        let config = config_with_value(
+            "x.val",
+            Value::Duration(Duration::from_micros(1500)),
+        );
         let error = config.deserialize::<AnyStruct>("x").unwrap_err();
 
         assert!(matches!(
@@ -1200,7 +1294,10 @@ mod test_property_to_json_value_deserialize_behavior {
 
     #[test]
     fn test_deserialize_duration_allows_explicit_half_up_rounding() {
-        let mut config = config_with_value("x.val", Value::Duration(Duration::from_micros(1500)));
+        let mut config = config_with_value(
+            "x.val",
+            Value::Duration(Duration::from_micros(1500)),
+        );
         config.set_default_read_policy(
             ReadPolicy::default().with_duration_options(
                 DurationConversionOptions::default()
@@ -1215,10 +1312,16 @@ mod test_property_to_json_value_deserialize_behavior {
 
     #[test]
     fn test_deserialize_duration_honors_output_unit() {
-        let mut config = config_with_value("x.val", Value::Duration(Duration::from_micros(1500)));
-        config.set_default_read_policy(ReadPolicy::default().with_duration_options(
-            DurationConversionOptions::default().with_output_unit(DurationUnit::Microseconds),
-        ));
+        let mut config = config_with_value(
+            "x.val",
+            Value::Duration(Duration::from_micros(1500)),
+        );
+        config.set_default_read_policy(
+            ReadPolicy::default().with_duration_options(
+                DurationConversionOptions::default()
+                    .with_output_unit(DurationUnit::Microseconds),
+            ),
+        );
 
         let value: AnyStruct = config.deserialize("x").unwrap();
 
@@ -1250,7 +1353,8 @@ mod test_property_to_json_value_deserialize_behavior {
         map1.insert("k1".to_string(), "v1".to_string());
         let mut map2 = std::collections::HashMap::new();
         map2.insert("k2".to_string(), "v2".to_string());
-        let config = config_with_mv("x.val", MultiValues::StringMap(vec![map1, map2]));
+        let config =
+            config_with_mv("x.val", MultiValues::StringMap(vec![map1, map2]));
         let s: AnyStruct = config.deserialize("x").unwrap();
         assert!(s.val.is_array());
     }
@@ -1300,7 +1404,11 @@ mod test_property_to_json_value_deserialize_behavior {
     #[cfg(feature = "chrono")]
     #[test]
     fn test_deserialize_datetime() {
-        let dt = NaiveDateTime::parse_from_str("2026-04-09 12:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
+        let dt = NaiveDateTime::parse_from_str(
+            "2026-04-09 12:00:00",
+            "%Y-%m-%d %H:%M:%S",
+        )
+        .unwrap();
         let config = config_with_value("x.val", Value::DateTime(dt));
         let s: AnyStruct = config.deserialize("x").unwrap();
         assert!(s.val.is_string());
@@ -1327,9 +1435,10 @@ mod test_property_to_json_value_deserialize_behavior {
     #[cfg(feature = "chrono")]
     #[test]
     fn test_deserialize_instant() {
-        let instant: DateTime<Utc> = DateTime::parse_from_rfc3339("2026-04-09T12:00:00Z")
-            .unwrap()
-            .into();
+        let instant: DateTime<Utc> =
+            DateTime::parse_from_rfc3339("2026-04-09T12:00:00Z")
+                .unwrap()
+                .into();
         let config = config_with_value("x.val", Value::Instant(instant));
         let s: AnyStruct = config.deserialize("x").unwrap();
         assert!(s.val.is_string());
@@ -1351,7 +1460,8 @@ mod test_property_to_json_value_deserialize_behavior {
 
     #[test]
     fn test_deserialize_unset_multivalue_is_null() {
-        let config = config_with_mv("x.val", MultiValues::Unset(DataType::String));
+        let config =
+            config_with_mv("x.val", MultiValues::Unset(DataType::String));
         let s: AnyStruct = config.deserialize("x").unwrap();
         assert!(s.val.is_null());
     }

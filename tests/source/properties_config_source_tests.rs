@@ -5,11 +5,15 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! # `PropertiesConfigSource` tests
+// # `PropertiesConfigSource` tests
 
 use qubit_config::{
-    Config, ConfigError,
-    source::{ConfigSource, PropertiesConfigSource},
+    Config,
+    ConfigError,
+    source::{
+        ConfigSource,
+        PropertiesConfigSource,
+    },
 };
 
 use std::path::PathBuf;
@@ -28,7 +32,14 @@ fn fixture(name: &str) -> PathBuf {
 #[cfg(test)]
 mod test_properties_config_source {
     #[allow(unused_imports)]
-    use super::{Config, ConfigError, ConfigSource, PathBuf, PropertiesConfigSource, fixture};
+    use super::{
+        Config,
+        ConfigError,
+        ConfigSource,
+        PathBuf,
+        PropertiesConfigSource,
+        fixture,
+    };
 
     // ---- parse_content unit tests ----
 
@@ -217,7 +228,8 @@ mod test_properties_config_source {
 
     #[test]
     fn test_load_basic_properties_file() {
-        let source = PropertiesConfigSource::from_file(fixture("basic.properties"));
+        let source =
+            PropertiesConfigSource::from_file(fixture("basic.properties"));
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
@@ -230,7 +242,8 @@ mod test_properties_config_source {
 
     #[test]
     fn test_load_multivalue_properties_file() {
-        let source = PropertiesConfigSource::from_file(fixture("multivalue.properties"));
+        let source =
+            PropertiesConfigSource::from_file(fixture("multivalue.properties"));
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
@@ -245,7 +258,9 @@ mod test_properties_config_source {
 
     #[test]
     fn test_load_nonexistent_file_returns_error() {
-        let source = PropertiesConfigSource::from_file("/nonexistent/path/config.properties");
+        let source = PropertiesConfigSource::from_file(
+            "/nonexistent/path/config.properties",
+        );
         let mut config = Config::new();
         let result = source.load(&mut config);
         assert!(result.is_err());
@@ -256,7 +271,8 @@ mod test_properties_config_source {
 
     #[test]
     fn test_merge_from_properties_config_source() {
-        let source = PropertiesConfigSource::from_file(fixture("basic.properties"));
+        let source =
+            PropertiesConfigSource::from_file(fixture("basic.properties"));
         let mut config = Config::new();
         config.merge_from_source(&source).unwrap();
 
@@ -268,7 +284,14 @@ mod test_properties_config_source {
 #[cfg(test)]
 mod test_properties_edge_cases {
     #[allow(unused_imports)]
-    use super::{Config, ConfigError, ConfigSource, PathBuf, PropertiesConfigSource, fixture};
+    use super::{
+        Config,
+        ConfigError,
+        ConfigSource,
+        PathBuf,
+        PropertiesConfigSource,
+        fixture,
+    };
 
     #[test]
     fn test_properties_key_only_line() {
@@ -370,6 +393,9 @@ mod test_properties_edge_cases {
             pairs[0],
             ("path:home".to_string(), "some value".to_string()),
         );
-        assert_eq!(pairs[1], ("hash#key".to_string(), "bang!value".to_string()),);
+        assert_eq!(
+            pairs[1],
+            ("hash#key".to_string(), "bang!value".to_string()),
+        );
     }
 }

@@ -5,15 +5,22 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+// qubit-style: allow source-test-pair
 //! Shared file and in-memory input handling for text sources.
 
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
 
-use crate::{ConfigError, ConfigResult};
+use crate::{
+    ConfigError,
+    ConfigResult,
+};
 
-use super::{SourceLimits, source_budget::SourceBudget};
+use super::{
+    SourceLimits,
+    source_budget::SourceBudget,
+};
 
 /// Input backing one built-in text configuration source.
 #[derive(Debug, Clone)]
@@ -46,14 +53,24 @@ impl SourceInput {
                 let file = File::open(path).map_err(|error| {
                     ConfigError::IoError(std::io::Error::new(
                         error.kind(),
-                        format!("Failed to open {format} file '{}': {error}", path.display()),
+                        format!(
+                            "Failed to open {format} file '{}': {error}",
+                            path.display()
+                        ),
                     ))
                 })?;
                 read_file_bytes(file, limits.max_input_bytes(), path, format)?
             }
-            Self::Content(content) => content.as_bytes().to_vec(),
+            Self::Content(content) => {
+                // Check the declared in-memory length before allocating a
+                // second owned buffer for the source bytes.
+                budget.consume_input_bytes(content.len())?;
+                content.as_bytes().to_vec()
+            }
         };
-        budget.consume_input_bytes(bytes.len())?;
+        if matches!(self, Self::File(_)) {
+            budget.consume_input_bytes(bytes.len())?;
+        }
         String::from_utf8(bytes).map_err(|error| {
             ConfigError::IoError(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
@@ -76,7 +93,10 @@ fn read_file_bytes(
         reader.read_to_end(&mut bytes).map_err(|error| {
             ConfigError::IoError(std::io::Error::new(
                 error.kind(),
-                format!("Failed to read {format} file '{}': {error}", path.display()),
+                format!(
+                    "Failed to read {format} file '{}': {error}",
+                    path.display()
+                ),
             ))
         })?;
     } else {
@@ -84,9 +104,37 @@ fn read_file_bytes(
         reader.read_to_end(&mut bytes).map_err(|error| {
             ConfigError::IoError(std::io::Error::new(
                 error.kind(),
-                format!("Failed to read {format} file '{}': {error}", path.display()),
+                format!(
+                    "Failed to read {format} file '{}': {error}",
+                    path.display()
+                ),
             ))
         })?;
     }
     Ok(bytes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SourceInput;
+    use crate::source::SourceLimits;
+
+    #[test]
+    fn in_memory_input_is_rejected_before_copying_when_over_limit() {
+        let input = SourceInput::Content("abcd".to_owned());
+        let limits = SourceLimits::default().with_max_input_bytes(3);
+
+        let error = input
+            .read_to_string("properties", limits)
+            .expect_err("oversized in-memory input must be rejected");
+        assert!(matches!(
+            error,
+            crate::ConfigError::SourceLimitExceeded {
+                kind: crate::SourceLimitKind::InputBytes,
+                limit: 3,
+                observed_at_least: 4,
+                ..
+            }
+        ));
+    }
 }

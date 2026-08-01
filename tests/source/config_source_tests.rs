@@ -5,9 +5,13 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! Tests for the `ConfigSource` trait contract.
+// Tests for the `ConfigSource` trait contract.
 
-use qubit_config::{Config, ConfigResult, source::ConfigSource};
+use qubit_config::{
+    Config,
+    ConfigResult,
+    source::ConfigSource,
+};
 
 struct InlineSource {
     key: &'static str,

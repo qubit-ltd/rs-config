@@ -8,16 +8,13 @@
 
 //! Parsing support for typed configuration reads.
 
-mod config_parse_context;
-mod from_config;
-mod helpers;
-mod into_config_default;
+pub use crate::conversion::ConfigParseContext;
+pub use crate::conversion::FromConfig;
+pub use crate::conversion::IntoConfigDefault;
 
-pub use config_parse_context::ConfigParseContext;
-pub use from_config::FromConfig;
-pub use into_config_default::IntoConfigDefault;
-
-pub(crate) use helpers::{
-    is_effectively_missing, is_effectively_missing_interpolated, parse_property_from_reader,
+pub(crate) use crate::helpers::{
+    is_effectively_missing,
+    is_effectively_missing_interpolated,
+    parse_property_from_reader,
     parse_property_from_reader_interpolated,
 };

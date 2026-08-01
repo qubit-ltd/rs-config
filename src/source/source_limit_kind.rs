@@ -5,11 +5,19 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+// qubit-style: allow source-test-pair
 //! Configuration source resource dimensions.
 
-use std::fmt::{self, Display, Formatter};
+use std::fmt::{
+    self,
+    Display,
+    Formatter,
+};
 
-use serde::{Deserialize, Serialize};
+use serde::{
+    Deserialize,
+    Serialize,
+};
 
 /// Resource dimension enforced during source ingestion.
 #[non_exhaustive]

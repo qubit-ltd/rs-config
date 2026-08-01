@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! Crate root re-exports (`lib.rs`) smoke test.
+// Crate root re-exports (`lib.rs`) smoke test.
 
 const README: &str = include_str!("../README.md");
 const README_ZH_CN: &str = include_str!("../README.zh_CN.md");

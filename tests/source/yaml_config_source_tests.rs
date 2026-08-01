@@ -7,11 +7,16 @@
 // =============================================================================
 #![cfg(feature = "yaml")]
 
-//! # `YamlConfigSource` tests
+// # `YamlConfigSource` tests
 
 use qubit_config::{
-    Config, ConfigError, Property,
-    source::{ConfigSource, YamlConfigSource},
+    Config,
+    ConfigError,
+    Property,
+    source::{
+        ConfigSource,
+        YamlConfigSource,
+    },
 };
 use qubit_value::MultiValues;
 
@@ -32,7 +37,13 @@ fn fixture(name: &str) -> PathBuf {
 mod test_yaml_config_source {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, ConfigSource, MultiValues, PathBuf, Property, YamlConfigSource,
+        Config,
+        ConfigError,
+        ConfigSource,
+        MultiValues,
+        PathBuf,
+        Property,
+        YamlConfigSource,
         fixture,
     };
 
@@ -113,7 +124,8 @@ mod test_yaml_config_source {
 
     #[test]
     fn test_load_nonexistent_yaml_file_returns_error() {
-        let source = YamlConfigSource::from_file("/nonexistent/path/config.yaml");
+        let source =
+            YamlConfigSource::from_file("/nonexistent/path/config.yaml");
         let mut config = Config::new();
         let result = source.load(&mut config);
         assert!(result.is_err());
@@ -123,7 +135,8 @@ mod test_yaml_config_source {
     #[test]
     fn test_load_invalid_yaml_returns_redacted_parse_error() {
         const SECRET_MARKER: &str = "RS_CONFIG_YAML_PARSER_SECRET_MARKER";
-        let dir = tempfile::tempdir().expect("temporary directory should be created");
+        let dir =
+            tempfile::tempdir().expect("temporary directory should be created");
         let path = dir.path().join("invalid.yaml");
         std::fs::write(&path, format!("password: \"{SECRET_MARKER}\n"))
             .expect("invalid YAML fixture should be written");
@@ -197,9 +210,9 @@ db:
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
-        // Null values are preserved as empty properties (is_null returns true)
+        // Null values are preserved as empty properties (is_unset returns true)
         assert!(config.contains("key").unwrap());
-        assert!(config.is_null("key").unwrap());
+        assert!(config.is_unset("key").unwrap());
         // get_optional returns None for null values
         let val: Option<String> = config.get_optional("key").unwrap();
         assert_eq!(val, None);
@@ -219,7 +232,7 @@ db:
         source.load(&mut config).unwrap();
 
         assert!(config.contains("key").unwrap());
-        assert!(config.is_null("key").unwrap());
+        assert!(config.is_unset("key").unwrap());
         let value: Option<String> = config.get_optional("key").unwrap();
         assert_eq!(value, None);
     }
@@ -232,8 +245,11 @@ db:
 
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
-        let mut property =
-            Property::new("locked", MultiValues::String(vec!["old".to_string()])).unwrap();
+        let mut property = Property::new(
+            "locked",
+            MultiValues::String(vec!["old".to_string()]),
+        )
+        .unwrap();
         property.set_final(true);
         config.insert_property("locked", property).unwrap();
 
@@ -331,7 +347,8 @@ db:
     #[test]
     fn test_load_yaml_complex_keys_returns_redacted_error() {
         const SECRET_MARKER: &str = "RS_CONFIG_YAML_KEY_SECRET_MARKER";
-        let dir = tempfile::tempdir().expect("temporary directory should be created");
+        let dir =
+            tempfile::tempdir().expect("temporary directory should be created");
         let path = dir.path().join("complex_key.yaml");
         std::fs::write(&path, format!("? [{SECRET_MARKER}, b]\n: 1\n"))
             .expect("complex YAML key fixture should be written");
@@ -414,7 +431,13 @@ true: enabled
 mod test_yaml_edge_cases {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, ConfigSource, MultiValues, PathBuf, Property, YamlConfigSource,
+        Config,
+        ConfigError,
+        ConfigSource,
+        MultiValues,
+        PathBuf,
+        Property,
+        YamlConfigSource,
         fixture,
     };
 
@@ -519,7 +542,10 @@ flags:
 
         assert_eq!(config.get_list::<i64>("ints").unwrap(), vec![1, 2]);
         assert_eq!(config.get_list::<f64>("floats").unwrap(), vec![1.25, 2.5]);
-        assert_eq!(config.get_list::<bool>("flags").unwrap(), vec![true, false]);
+        assert_eq!(
+            config.get_list::<bool>("flags").unwrap(),
+            vec![true, false]
+        );
     }
 
     #[test]
@@ -536,10 +562,14 @@ flags:
     #[test]
     fn test_yaml_sequence_with_mapping_returns_redacted_parse_error() {
         const SECRET_MARKER: &str = "RS_CONFIG_YAML_NESTED_SECRET_MARKER";
-        let dir = tempfile::tempdir().expect("temporary directory should be created");
+        let dir =
+            tempfile::tempdir().expect("temporary directory should be created");
         let path = dir.path().join("seq_map.yaml");
-        std::fs::write(&path, format!("items:\n  - password: {SECRET_MARKER}\n"))
-            .expect("nested YAML mapping fixture should be written");
+        std::fs::write(
+            &path,
+            format!("items:\n  - password: {SECRET_MARKER}\n"),
+        )
+        .expect("nested YAML mapping fixture should be written");
 
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();

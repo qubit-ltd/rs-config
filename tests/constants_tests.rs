@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! [`qubit_config::constants`] behavior via read policies.
+// [`qubit_config::constants`] behavior via read policies.
 
 use qubit_config::options::ReadPolicy;
 

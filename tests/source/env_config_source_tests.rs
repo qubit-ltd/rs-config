@@ -5,14 +5,23 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! # `EnvConfigSource` tests
+// # `EnvConfigSource` tests
 
 use qubit_config::{
-    Config, ConfigError,
-    source::{ConfigSource, EnvConfigOptions, EnvConfigSource},
+    Config,
+    ConfigError,
+    source::{
+        ConfigSource,
+        EnvConfigOptions,
+        EnvConfigSource,
+    },
 };
 use qubit_redact::EnvRedactor;
-use std::sync::{Mutex, MutexGuard, OnceLock};
+use std::sync::{
+    Mutex,
+    MutexGuard,
+    OnceLock,
+};
 
 /// Serializes tests that mutate or read process environment variables.
 fn env_test_lock() -> MutexGuard<'static, ()> {
@@ -30,8 +39,16 @@ fn env_test_lock() -> MutexGuard<'static, ()> {
 mod test_env_config_source {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, ConfigSource, EnvConfigOptions, EnvConfigSource, EnvRedactor, Mutex,
-        MutexGuard, OnceLock, env_test_lock,
+        Config,
+        ConfigError,
+        ConfigSource,
+        EnvConfigOptions,
+        EnvConfigSource,
+        EnvRedactor,
+        Mutex,
+        MutexGuard,
+        OnceLock,
+        env_test_lock,
     };
 
     /// Verifies the default environment policy redacts an ordinary UTF-8
@@ -187,7 +204,9 @@ mod test_env_config_source {
             std::env::set_var("RAWAPP_MY_KEY", "raw_val");
         }
 
-        let source = EnvConfigSource::with_options(EnvConfigOptions::new().prefix("RAWAPP_"));
+        let source = EnvConfigSource::with_options(
+            EnvConfigOptions::new().prefix("RAWAPP_"),
+        );
         let mut config = Config::new();
         source.load(&mut config).unwrap();
 
@@ -229,7 +248,8 @@ mod test_env_config_source {
         const INJECTION_MARKER: &str = "FORGED_ENV_VALUE_LINE";
         let key = "QUNICODE_BAD_VALUE";
         let mut raw_value = SECRET_MARKER.as_bytes().to_vec();
-        raw_value.extend_from_slice(format!("\n{INJECTION_MARKER}\r").as_bytes());
+        raw_value
+            .extend_from_slice(format!("\n{INJECTION_MARKER}\r").as_bytes());
         raw_value.push(0xFF);
         unsafe {
             std::env::set_var(key, OsString::from_vec(raw_value));
@@ -384,8 +404,15 @@ mod test_env_config_source {
 mod test_env_edge_cases {
     #[allow(unused_imports)]
     use super::{
-        Config, ConfigError, ConfigSource, EnvConfigOptions, EnvConfigSource, Mutex, MutexGuard,
-        OnceLock, env_test_lock,
+        Config,
+        ConfigError,
+        ConfigSource,
+        EnvConfigOptions,
+        EnvConfigSource,
+        Mutex,
+        MutexGuard,
+        OnceLock,
+        env_test_lock,
     };
 
     // ---- env: transform_key without strip_prefix ----
@@ -396,7 +423,9 @@ mod test_env_edge_cases {
         unsafe {
             std::env::set_var("COVTEST_FOO", "bar");
         }
-        let source = EnvConfigSource::with_options(EnvConfigOptions::new().prefix("COVTEST_"));
+        let source = EnvConfigSource::with_options(
+            EnvConfigOptions::new().prefix("COVTEST_"),
+        );
         let mut config = Config::new();
         source.load(&mut config).unwrap();
         // Key kept as-is (not stripped, not lowercased, not converted)
@@ -414,15 +443,19 @@ mod test_env_edge_cases {
         }
 
         let mut config = Config::new();
-        EnvConfigSource::with_options(EnvConfigOptions::new().prefix("OPTTEST_"))
-            .load(&mut config)
-            .unwrap();
+        EnvConfigSource::with_options(
+            EnvConfigOptions::new().prefix("OPTTEST_"),
+        )
+        .load(&mut config)
+        .unwrap();
         assert!(config.contains("OPTTEST_Mixed_Key").unwrap());
 
         let mut config = Config::new();
-        EnvConfigSource::with_options(EnvConfigOptions::new().prefix("OPTTEST_").strip_prefix())
-            .load(&mut config)
-            .unwrap();
+        EnvConfigSource::with_options(
+            EnvConfigOptions::new().prefix("OPTTEST_").strip_prefix(),
+        )
+        .load(&mut config)
+        .unwrap();
         assert!(config.contains("Mixed_Key").unwrap());
 
         let mut config = Config::new();
@@ -436,9 +469,11 @@ mod test_env_edge_cases {
         assert!(config.contains("OPTTEST.Mixed.Key").unwrap());
 
         let mut config = Config::new();
-        EnvConfigSource::with_options(EnvConfigOptions::new().prefix("OPTTEST_").lowercase_keys())
-            .load(&mut config)
-            .unwrap();
+        EnvConfigSource::with_options(
+            EnvConfigOptions::new().prefix("OPTTEST_").lowercase_keys(),
+        )
+        .load(&mut config)
+        .unwrap();
         assert!(config.contains("opttest_mixed_key").unwrap());
 
         let mut config = Config::new();

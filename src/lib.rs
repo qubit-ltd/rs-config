@@ -11,27 +11,57 @@
 //! types and variable substitution.
 
 mod config;
+#[path = "error/config_deserialize_error.rs"]
 mod config_deserialize_error;
+#[path = "error/config_error.rs"]
 mod config_error;
+#[path = "error/config_error_kind.rs"]
 mod config_error_kind;
+#[path = "key/config_key.rs"]
 mod config_key;
+#[path = "key/config_name.rs"]
 mod config_name;
+#[path = "key/config_names.rs"]
 mod config_names;
+#[path = "conversion/config_parse_context.rs"]
+mod config_parse_context;
+#[path = "key/config_path.rs"]
 mod config_path;
+#[path = "key/config_path_violation.rs"]
 mod config_path_violation;
+#[path = "property/property_mut.rs"]
 mod config_property_mut;
+#[path = "reader/config_reader.rs"]
 mod config_reader;
+#[path = "reader/config_section.rs"]
 mod config_section;
+#[path = "conversion/config_serde_ext.rs"]
 mod config_serde_ext;
+#[path = "conversion/config_value_deserializer.rs"]
 mod config_value_deserializer;
+#[path = "lifecycle/configurable.rs"]
 mod configurable;
+#[path = "lifecycle/configured.rs"]
 mod configured;
 mod constants;
-mod error;
+pub mod conversion;
+pub mod error;
 pub mod from;
+#[path = "conversion/from_config.rs"]
+mod from_config;
+#[path = "conversion/helpers.rs"]
+mod helpers;
+#[path = "conversion/into_config_default.rs"]
+mod into_config_default;
+pub mod key;
+pub mod lifecycle;
 pub mod options;
-mod property;
+pub mod property;
+#[path = "reader/read_policy.rs"]
+mod read_policy;
+pub mod reader;
 pub mod source;
+mod transient;
 mod utils;
 
 pub use config::Config;
@@ -39,6 +69,7 @@ pub use config_error_kind::ConfigErrorKind;
 pub use config_key::ConfigKey;
 pub use config_name::ConfigName;
 pub use config_names::ConfigNames;
+pub use config_parse_context::ConfigParseContext;
 pub use config_path::ConfigPath;
 pub use config_path_violation::ConfigPathViolation;
 pub use config_property_mut::ConfigPropertyMut;
@@ -47,6 +78,20 @@ pub use config_section::ConfigSection;
 pub use config_serde_ext::ConfigSerdeExt;
 pub use configurable::Configurable;
 pub use configured::Configured;
-pub use error::{ConfigError, ConfigResult};
+pub use error::{
+    ConfigError,
+    ConfigResult,
+};
+pub use from_config::FromConfig;
+pub use into_config_default::IntoConfigDefault;
 pub use property::Property;
-pub use source::{ConfigSource, SourceLimitKind, SourceLimits};
+pub use read_policy::{
+    InterpolationSources,
+    ReadPolicy,
+};
+pub use source::{
+    ConfigSource,
+    SourceLimitKind,
+    SourceLimits,
+};
+pub use transient::Transient;
