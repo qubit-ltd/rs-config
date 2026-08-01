@@ -7,16 +7,9 @@
 // =============================================================================
 //! Canonical configuration path validation failures.
 
-use std::fmt::{
-    self,
-    Display,
-    Formatter,
-};
+use std::fmt::{self, Display, Formatter};
 
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use serde::{Deserialize, Serialize};
 
 /// Describes why a configuration key or path is not canonical.
 #[non_exhaustive]
@@ -38,15 +31,9 @@ impl Display for ConfigPathViolation {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::Empty => formatter.write_str("the key is empty"),
-            Self::LeadingSeparator => {
-                formatter.write_str("the path starts with a separator")
-            }
-            Self::TrailingSeparator => {
-                formatter.write_str("the path ends with a separator")
-            }
-            Self::EmptySegment => {
-                formatter.write_str("the path contains an empty segment")
-            }
+            Self::LeadingSeparator => formatter.write_str("the path starts with a separator"),
+            Self::TrailingSeparator => formatter.write_str("the path ends with a separator"),
+            Self::EmptySegment => formatter.write_str("the path contains an empty segment"),
         }
     }
 }

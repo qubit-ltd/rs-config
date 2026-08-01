@@ -7,11 +7,7 @@
 // =============================================================================
 //! [`qubit_config::ConfigSection`] tests.
 
-use qubit_config::{
-    Config,
-    ConfigReader,
-    options::ReadOptions,
-};
+use qubit_config::{Config, ConfigReader, options::ReadPolicy};
 
 #[test]
 fn test_section_resolves_keys_strictly_relative() {
@@ -77,23 +73,20 @@ fn test_section_nests_and_reports_root_paths() {
 }
 
 #[test]
-fn test_read_options_view_is_borrowed_and_inherited_by_nested_sections() {
+fn test_read_policy_view_is_borrowed_and_inherited_by_nested_sections() {
     let mut config = Config::new();
     config
         .set("service.child.values", "alpha,beta")
         .expect("the list should be configurable");
-    let options = ReadOptions::env_friendly().with_max_interpolation_depth(7);
+    let options = ReadPolicy::env_friendly().with_max_interpolation_depth(7);
 
-    let service = config
-        .section("service")
-        .unwrap()
-        .with_read_options_view(&options);
+    let service = config.section("service").unwrap().read_with(&options);
     let child = service.section("child").unwrap();
 
     assert_eq!(service.scope_path(), "service");
     assert_eq!(child.scope_path(), "service.child");
-    assert_eq!(service.read_options(), &options);
-    assert_eq!(child.read_options(), &options);
+    assert_eq!(service.read_policy(), &options);
+    assert_eq!(child.read_policy(), &options);
     assert_eq!(
         child
             .get::<Vec<String>>("values")
@@ -122,8 +115,6 @@ fn test_section_missing_candidates_report_root_relative_paths() {
     assert_eq!(error.path(), None);
     assert_eq!(
         error.candidate_paths(),
-        Some(
-            ["service.port".to_string(), "service.PORT".to_string()].as_slice(),
-        ),
+        Some(["service.port".to_string(), "service.PORT".to_string()].as_slice(),),
     );
 }

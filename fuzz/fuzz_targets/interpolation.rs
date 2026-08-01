@@ -12,7 +12,7 @@
 use libfuzzer_sys::fuzz_target;
 use qubit_config::{
     Config,
-    options::ReadOptions,
+    options::ReadPolicy,
 };
 
 /// Bounds interpolation source length before configuration allocation.
@@ -26,7 +26,7 @@ fuzz_target!(|data: &[u8]| {
         return;
     };
 
-    let mut config = Config::new().with_read_options(ReadOptions::config_only());
+    let mut config = Config::new().with_default_read_policy(ReadPolicy::config_only());
     config
         .set("value", value)
         .expect("the fixed fuzzing key should always be valid");

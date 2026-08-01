@@ -13,20 +13,14 @@
 use qubit_value::ValueError;
 use regex::Regex;
 use serde_json::map::Entry;
-use serde_json::{
-    Map,
-    Value,
-};
+use serde_json::{Map, Value};
 #[cfg(any(feature = "toml", feature = "yaml"))]
 use std::collections::HashSet;
 use std::sync::OnceLock;
 
 use super::{
-    ConfigError,
-    ConfigReader,
-    ConfigResult,
-    Property,
-    options::ReadOptions,
+    ConfigError, ConfigReader, ConfigResult, Property,
+    options::{InterpolationSources, ReadPolicy},
 };
 
 /// Regular expression pattern for variables
@@ -42,8 +36,7 @@ static VARIABLE_PATTERN: OnceLock<Regex> = OnceLock::new();
 #[inline]
 fn get_variable_pattern() -> &'static Regex {
     VARIABLE_PATTERN.get_or_init(|| {
-        Regex::new(r"\$\{([^}]+)\}")
-            .expect("Failed to compile variable pattern regex")
+        Regex::new(r"\$\{([^}]+)\}").expect("Failed to compile variable pattern regex")
     })
 }
 
@@ -81,10 +74,7 @@ pub(crate) fn map_value_error(key: &str, err: ValueError) -> ConfigError {
 ///
 /// Returns [`ConfigError::KeyConflict`] when the normalized key is empty or has
 /// malformed dotted segments.
-pub(crate) fn validate_normalized_config_key(
-    key: &str,
-    origin: &str,
-) -> ConfigResult<()> {
+pub(crate) fn validate_normalized_config_key(key: &str, origin: &str) -> ConfigResult<()> {
     if key.is_empty() {
         return Err(ConfigError::KeyConflict {
             path: key.to_string(),
@@ -157,7 +147,7 @@ pub(crate) fn ensure_unique_flattened_key(
 pub(crate) fn substitute_variables<R: ConfigReader + ?Sized>(
     value: &str,
     config: &R,
-    options: &ReadOptions,
+    options: &ReadPolicy,
     path: &str,
 ) -> ConfigResult<String> {
     substitute_variables_by(value, options, path, |var_name| {
@@ -169,7 +159,7 @@ pub(crate) fn substitute_variables<R: ConfigReader + ?Sized>(
 ///
 /// The primary reader is checked first. Absent or unset values fall back to
 /// the fallback reader, then to environment variables only when the active
-/// read options permit environment fallback. Type and conversion
+/// read policy permits environment fallback. Type and conversion
 /// errors in the primary reader are returned directly.
 ///
 /// # Parameters
@@ -194,13 +184,11 @@ pub(crate) fn substitute_variables_with_fallback<
     value: &str,
     primary: &P,
     fallback: &F,
-    options: &ReadOptions,
+    options: &ReadPolicy,
     path: &str,
 ) -> ConfigResult<String> {
     substitute_variables_by(value, options, path, |var_name| {
-        find_variable_value_with_fallback(
-            var_name, primary, fallback, options, path,
-        )
+        find_variable_value_with_fallback(var_name, primary, fallback, options, path)
     })
 }
 
@@ -222,7 +210,7 @@ pub(crate) fn substitute_variables_with_fallback<
 /// Returns resolver, depth, or cycle errors.
 fn substitute_variables_by(
     value: &str,
-    options: &ReadOptions,
+    options: &ReadPolicy,
     path: &str,
     mut resolve: impl FnMut(&str) -> ConfigResult<String>,
 ) -> ConfigResult<String> {
@@ -260,7 +248,7 @@ fn substitute_variables_by(
 /// Returns resolver, depth, or cycle errors.
 fn substitute_variables_recursive(
     value: &str,
-    options: &ReadOptions,
+    options: &ReadPolicy,
     path: &str,
     pattern: &Regex,
     stack: &mut Vec<String>,
@@ -318,20 +306,10 @@ fn substitute_variables_recursive(
             &raw_value, options, path, pattern, stack, expansions, resolve,
         )?;
         stack.pop();
-        push_substitution_fragment(
-            &mut result,
-            &expanded,
-            max_output_bytes,
-            path,
-        )?;
+        push_substitution_fragment(&mut result, &expanded, max_output_bytes, path)?;
         last_end = full_match.end();
     }
-    push_substitution_fragment(
-        &mut result,
-        &value[last_end..],
-        max_output_bytes,
-        path,
-    )?;
+    push_substitution_fragment(&mut result, &value[last_end..], max_output_bytes, path)?;
     Ok(result)
 }
 
@@ -342,13 +320,12 @@ fn push_substitution_fragment(
     max_output_bytes: usize,
     path: &str,
 ) -> ConfigResult<()> {
-    let output_bytes =
-        result.len().checked_add(fragment.len()).ok_or_else(|| {
-            ConfigError::SubstitutionOutputTooLarge {
-                path: path.to_string(),
-                max_output_bytes,
-            }
-        })?;
+    let output_bytes = result.len().checked_add(fragment.len()).ok_or_else(|| {
+        ConfigError::SubstitutionOutputTooLarge {
+            path: path.to_string(),
+            max_output_bytes,
+        }
+    })?;
     ensure_substitution_output_fits(output_bytes, max_output_bytes, path)?;
     result.push_str(fragment);
     Ok(())
@@ -374,7 +351,7 @@ fn ensure_substitution_output_fits(
 ///
 /// First looks in the configuration. It falls back to environment variables
 /// only when the key is absent or unset/null in config and the
-/// active read options permit environment fallback.
+/// active read policy permits environment fallback.
 ///
 /// # Parameters
 ///
@@ -393,25 +370,23 @@ fn ensure_substitution_output_fits(
 fn find_variable_value<R: ConfigReader + ?Sized>(
     var_name: &str,
     config: &R,
-    options: &ReadOptions,
+    options: &ReadPolicy,
     path: &str,
 ) -> ConfigResult<String> {
     match config.get_property(var_name)? {
-        Some(property) if !property.is_unset() => {
-            match property.value().to_first::<String>() {
-                Ok(value) => Ok(value),
-                Err(error) => {
-                    let resolved = config.resolve_key(var_name)?;
-                    Err(map_value_error(&resolved, error))
-                }
+        Some(property) if !property.is_unset() => match property.value().to_first::<String>() {
+            Ok(value) => Ok(value),
+            Err(error) => {
+                let resolved = config.resolve_key(var_name)?;
+                Err(map_value_error(&resolved, error))
             }
-        }
-        Some(_) | None if options.is_environment_fallback_enabled() => {
-            std::env::var(var_name).map_err(|_| {
-                ConfigError::SubstitutionError {
-                    path: path.to_string(),
-                    message: format!("Cannot resolve variable: {var_name}"),
-                }
+        },
+        Some(_) | None
+            if options.interpolation_sources() == InterpolationSources::ConfigThenEnv =>
+        {
+            std::env::var(var_name).map_err(|_| ConfigError::SubstitutionError {
+                path: path.to_string(),
+                message: format!("Cannot resolve variable: {var_name}"),
             })
         }
         Some(_) | None => Err(ConfigError::SubstitutionError {
@@ -442,29 +417,22 @@ fn find_variable_value<R: ConfigReader + ?Sized>(
 /// # Errors
 ///
 /// Returns a keyed conversion or unresolved-variable error.
-fn find_variable_value_with_fallback<
-    P: ConfigReader + ?Sized,
-    F: ConfigReader + ?Sized,
->(
+fn find_variable_value_with_fallback<P: ConfigReader + ?Sized, F: ConfigReader + ?Sized>(
     var_name: &str,
     primary: &P,
     fallback: &F,
-    options: &ReadOptions,
+    options: &ReadPolicy,
     path: &str,
 ) -> ConfigResult<String> {
     match primary.get_property(var_name)? {
-        Some(property) if !property.is_unset() => {
-            match property.value().to_first::<String>() {
-                Ok(value) => Ok(value),
-                Err(error) => {
-                    let resolved = primary.resolve_key(var_name)?;
-                    Err(map_value_error(&resolved, error))
-                }
+        Some(property) if !property.is_unset() => match property.value().to_first::<String>() {
+            Ok(value) => Ok(value),
+            Err(error) => {
+                let resolved = primary.resolve_key(var_name)?;
+                Err(map_value_error(&resolved, error))
             }
-        }
-        Some(_) | None => {
-            find_variable_value(var_name, fallback, options, path)
-        }
+        },
+        Some(_) | None => find_variable_value(var_name, fallback, options, path),
     }
 }
 
@@ -592,7 +560,7 @@ fn json_value_kind(value: &Value) -> &'static str {
 pub(crate) fn property_to_json_value(
     prop: &Property,
     path: &str,
-    options: &ReadOptions,
+    options: &ReadPolicy,
 ) -> ConfigResult<Value> {
     prop.value()
         .to_json_value_with(options.conversion_options())
@@ -627,26 +595,20 @@ pub(crate) fn substitute_json_strings_with_fallback<
     primary: &P,
     fallback: &F,
 ) -> ConfigResult<()> {
-    let options = primary.read_options();
+    let options = primary.read_policy();
 
     match value {
         Value::String(s) => {
-            *s = substitute_variables_with_fallback(
-                s, primary, fallback, options, path,
-            )?;
+            *s = substitute_variables_with_fallback(s, primary, fallback, options, path)?;
         }
         Value::Array(values) => {
             for value in values {
-                substitute_json_strings_with_fallback(
-                    value, path, primary, fallback,
-                )?;
+                substitute_json_strings_with_fallback(value, path, primary, fallback)?;
             }
         }
         Value::Object(map) => {
             for value in map.values_mut() {
-                substitute_json_strings_with_fallback(
-                    value, path, primary, fallback,
-                )?;
+                substitute_json_strings_with_fallback(value, path, primary, fallback)?;
             }
         }
         _ => {}

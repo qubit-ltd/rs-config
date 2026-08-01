@@ -7,12 +7,7 @@
 // =============================================================================
 //! Tests for explicit configuration interpolation.
 
-use qubit_config::field::ConfigField;
-use qubit_config::options::ReadOptions;
-use qubit_config::{
-    Config,
-    ConfigError,
-};
+use qubit_config::{Config, ConfigError};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize, PartialEq, Eq)]
@@ -69,24 +64,6 @@ fn test_get_or_uses_default_only_when_value_is_missing() {
         invalid,
         Err(ConfigError::ConversionError { key, .. }) if key == "port"
     ));
-}
-
-#[test]
-fn test_read_field_preserves_placeholder() {
-    let mut config = Config::new();
-    config.set("host", "localhost").expect("set host");
-    config.set("URL", "http://${host}/api").expect("set URL");
-
-    let value = config
-        .read(
-            ConfigField::<String>::builder()
-                .name("url")
-                .alias("URL")
-                .build(),
-        )
-        .expect("read URL field");
-
-    assert_eq!(value, "http://${host}/api");
 }
 
 #[test]
@@ -153,54 +130,6 @@ fn test_get_optional_any_interpolated_and_or_handle_missing_values() {
 
     assert_eq!(optional, None);
     assert_eq!(default, 8080);
-}
-
-#[test]
-fn test_read_interpolated_uses_field_alias() {
-    let mut config = Config::new();
-    config.set("host", "localhost").expect("set host");
-    config.set("URL", "http://${host}/api").expect("set URL");
-
-    let value = config
-        .read_interpolated(
-            ConfigField::<String>::builder()
-                .name("url")
-                .alias("URL")
-                .build(),
-        )
-        .expect("read interpolated field");
-    let missing = config
-        .read_optional_interpolated(
-            ConfigField::<String>::builder().name("missing").build(),
-        )
-        .expect("read missing interpolated field");
-
-    assert_eq!(value, "http://localhost/api");
-    assert_eq!(missing, None);
-}
-
-#[test]
-fn test_read_interpolated_uses_field_level_limits() {
-    let mut config = Config::new();
-    config.set("host", "localhost").expect("set host");
-    config.set("url", "http://${host}/api").expect("set URL");
-
-    let result = config.read_interpolated(
-        ConfigField::<String>::builder()
-            .name("url")
-            .read_options(
-                ReadOptions::default().with_max_interpolation_expansions(0),
-            )
-            .build(),
-    );
-
-    assert!(matches!(
-        result,
-        Err(ConfigError::SubstitutionExpansionLimitExceeded {
-            path,
-            max_expansions: 0,
-        }) if path == "url"
-    ));
 }
 
 #[test]

@@ -9,23 +9,13 @@
 
 use qubit_value::Value as QubitValue;
 use serde::de::DeserializeOwned;
-use serde_json::{
-    Map,
-    Value as JsonValue,
-};
+use serde_json::{Map, Value as JsonValue};
 
-use crate::config_reader::{
-    ConfigReader,
-    root_config,
-};
+use crate::config_reader::{ConfigReader, root_config};
 use crate::config_value_deserializer::ConfigValueDeserializer;
-use crate::options::ReadOptions;
+use crate::options::ReadPolicy;
 use crate::utils;
-use crate::{
-    ConfigError,
-    ConfigResult,
-    Property,
-};
+use crate::{ConfigError, ConfigResult, Property};
 
 /// Adds Serde-based structured reads to every supported configuration reader.
 ///
@@ -64,7 +54,7 @@ pub trait ConfigSerdeExt: ConfigReader {
     ///
     /// Placeholder lookup first uses the selected scope, then the root
     /// configuration, and finally the process environment when enabled by the
-    /// active [`ReadOptions`].
+    /// active [`ReadPolicy`]'s [`crate::options::InterpolationSources`].
     ///
     /// # Type Parameters
     ///
@@ -98,11 +88,7 @@ impl<R> ConfigSerdeExt for R where R: ConfigReader + ?Sized {}
 /// # Errors
 ///
 /// Returns structured configuration or sanitized Serde errors.
-fn deserialize_by<R, T>(
-    reader: &R,
-    prefix: &str,
-    interpolate: bool,
-) -> ConfigResult<T>
+fn deserialize_by<R, T>(reader: &R, prefix: &str, interpolate: bool) -> ConfigResult<T>
 where
     R: ConfigReader + ?Sized,
     T: DeserializeOwned,
@@ -112,7 +98,7 @@ where
     match T::deserialize(ConfigValueDeserializer::new(
         value,
         path.clone(),
-        reader.read_options(),
+        reader.read_policy(),
     )) {
         Ok(value) => Ok(value),
         Err(error) => Err(error.into_config_error(&path)),
@@ -125,11 +111,7 @@ where
 ///
 /// Returns a key conflict when an exact property and descendants coexist, or
 /// propagates conversion and interpolation errors.
-fn deserialize_root_value<R>(
-    reader: &R,
-    prefix: &str,
-    interpolate: bool,
-) -> ConfigResult<JsonValue>
+fn deserialize_root_value<R>(reader: &R, prefix: &str, interpolate: bool) -> ConfigResult<JsonValue>
 where
     R: ConfigReader + ?Sized,
 {
@@ -177,18 +159,15 @@ where
         fallback,
         path,
         property,
-        primary.read_options(),
+        primary.read_policy(),
         interpolate,
     )? {
         return Ok(JsonValue::Null);
     }
 
-    let mut value =
-        utils::property_to_json_value(property, path, primary.read_options())?;
+    let mut value = utils::property_to_json_value(property, path, primary.read_policy())?;
     if interpolate {
-        utils::substitute_json_strings_with_fallback(
-            &mut value, path, primary, fallback,
-        )?;
+        utils::substitute_json_strings_with_fallback(&mut value, path, primary, fallback)?;
     }
     Ok(value)
 }
@@ -220,21 +199,15 @@ where
             fallback,
             path,
             property,
-            subtree.read_options(),
+            subtree.read_policy(),
             interpolate,
         )? {
             continue;
         }
 
-        let mut value = utils::property_to_json_value(
-            property,
-            path,
-            subtree.read_options(),
-        )?;
+        let mut value = utils::property_to_json_value(property, path, subtree.read_policy())?;
         if interpolate {
-            utils::substitute_json_strings_with_fallback(
-                &mut value, path, &subtree, fallback,
-            )?;
+            utils::substitute_json_strings_with_fallback(&mut value, path, &subtree, fallback)?;
         }
         utils::insert_deserialize_value(&mut map, key, value)?;
     }
@@ -251,7 +224,7 @@ fn scalar_string_is_missing_for_deserialize<P, F>(
     fallback: &F,
     path: &str,
     property: &Property,
-    options: &ReadOptions,
+    options: &ReadPolicy,
     interpolate: bool,
 ) -> ConfigResult<bool>
 where
@@ -262,9 +235,7 @@ where
         return Ok(false);
     };
     let value = if interpolate {
-        utils::substitute_variables_with_fallback(
-            value, primary, fallback, options, path,
-        )?
+        utils::substitute_variables_with_fallback(value, primary, fallback, options, path)?
     } else {
         value.to_string()
     };

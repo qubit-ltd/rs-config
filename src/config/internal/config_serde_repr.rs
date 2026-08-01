@@ -8,10 +8,9 @@
 
 use std::collections::HashMap;
 
-use serde::Deserialize;
+use serde::{Deserialize, de::IgnoredAny};
 
 use crate::Property;
-use crate::options::ReadOptions;
 
 /// Deserialization-only representation validated before constructing a config.
 #[derive(Deserialize)]
@@ -23,7 +22,9 @@ pub(in crate::config) struct ConfigSerdeRepr {
     /// Properties indexed by their canonical names.
     #[serde(default)]
     pub(in crate::config) properties: HashMap<String, Property>,
-    /// Runtime conversion and explicit interpolation options.
+    /// Legacy runtime options accepted for backward input compatibility and
+    /// intentionally ignored.
+    #[allow(dead_code)]
     #[serde(default)]
-    pub(in crate::config) read_options: ReadOptions,
+    pub(in crate::config) read_options: Option<IgnoredAny>,
 }

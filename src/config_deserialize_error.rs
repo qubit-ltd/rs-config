@@ -55,9 +55,7 @@ impl ConfigDeserializeError {
                 path: message_path, ..
             } => ConfigError::DeserializeError {
                 path: message_path.unwrap_or_else(|| path.to_string()),
-                message:
-                    "configuration value does not match the requested type"
-                        .to_string(),
+                message: "configuration value does not match the requested type".to_string(),
                 source: None,
             },
             ConfigDeserializeError::Config(error) => error,
@@ -79,9 +77,7 @@ impl fmt::Display for ConfigDeserializeError {
     /// Formats the error message.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ConfigDeserializeError::Message { message, .. } => {
-                f.write_str(message)
-            }
+            ConfigDeserializeError::Message { message, .. } => f.write_str(message),
             ConfigDeserializeError::Config(error) => error.fmt(f),
         }
     }

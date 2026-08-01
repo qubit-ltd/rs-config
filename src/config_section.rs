@@ -10,24 +10,13 @@
 use std::borrow::Cow;
 
 use qubit_datatype::DataConversionTarget;
-use qubit_value::{
-    StrictValueListRead,
-    StrictValueRead,
-};
+use qubit_value::{StrictValueListRead, StrictValueRead};
 
 use crate::config::Config;
-use crate::config_path::{
-    ensure_config_key,
-    ensure_config_path,
-};
+use crate::config_path::{ensure_config_key, ensure_config_path};
 use crate::config_reader::ConfigReader;
-use crate::options::ReadOptions;
-use crate::{
-    ConfigError,
-    ConfigName,
-    ConfigResult,
-    Property,
-};
+use crate::options::ReadPolicy;
+use crate::{ConfigError, ConfigName, ConfigResult, Property};
 
 /// Read-only view of the descendants under a configuration path.
 ///
@@ -43,8 +32,8 @@ pub struct ConfigSection<'a> {
     path: String,
     /// Prefix used to select and strip visible descendant keys.
     child_prefix: Option<String>,
-    /// Read options borrowed by this view, when explicitly overridden.
-    read_options: Option<&'a ReadOptions>,
+    /// Read policy borrowed by this view, when explicitly overridden.
+    read_policy: Option<&'a ReadPolicy>,
 }
 
 impl<'a> ConfigSection<'a> {
@@ -62,22 +51,14 @@ impl<'a> ConfigSection<'a> {
     pub fn section(&self, path: &str) -> ConfigResult<ConfigSection<'a>> {
         ensure_config_path(path)?;
         if self.path.is_empty() {
-            ConfigSection::new_with_read_options(
-                self.config,
-                path,
-                self.read_options,
-            )
+            ConfigSection::new_with_read_policy(self.config, path, self.read_policy)
         } else if path.is_empty() {
-            ConfigSection::new_with_read_options(
-                self.config,
-                self.path.as_str(),
-                self.read_options,
-            )
+            ConfigSection::new_with_read_policy(self.config, self.path.as_str(), self.read_policy)
         } else {
-            ConfigSection::new_with_read_options(
+            ConfigSection::new_with_read_policy(
                 self.config,
                 &format!("{}.{}", self.path, path),
-                self.read_options,
+                self.read_policy,
             )
         }
     }
@@ -95,15 +76,15 @@ impl<'a> ConfigSection<'a> {
     /// A newly created configuration section.
     #[inline]
     pub(crate) fn new(config: &'a Config, path: &str) -> ConfigResult<Self> {
-        Self::new_with_read_options(config, path, None)
+        Self::new_with_read_policy(config, path, None)
     }
 
-    /// Creates a section with an optional borrowed read-options override.
+    /// Creates a section with an optional borrowed read-policy override.
     #[inline]
-    fn new_with_read_options(
+    fn new_with_read_policy(
         config: &'a Config,
         path: &str,
-        read_options: Option<&'a ReadOptions>,
+        read_policy: Option<&'a ReadPolicy>,
     ) -> ConfigResult<Self> {
         ensure_config_path(path)?;
         let path = path.to_string();
@@ -116,17 +97,14 @@ impl<'a> ConfigSection<'a> {
             config,
             path,
             child_prefix,
-            read_options,
+            read_policy,
         })
     }
 
-    /// Applies a borrowed read-options override to this view.
+    /// Applies a borrowed read-policy override to this view.
     #[inline(always)]
-    pub(crate) fn with_read_options_override(
-        mut self,
-        options: &'a ReadOptions,
-    ) -> Self {
-        self.read_options = Some(options);
+    pub(crate) fn with_read_policy_override(mut self, policy: &'a ReadPolicy) -> Self {
+        self.read_policy = Some(policy);
         self
     }
 
@@ -147,22 +125,19 @@ impl<'a> ConfigSection<'a> {
         &self.path
     }
 
-    /// Returns this section with a borrowed read-options override.
+    /// Returns this section with a borrowed read-policy override.
     ///
     /// Nested sections inherit the same override.
     ///
     /// # Parameters
     ///
-    /// * `options` - Read options borrowed by the returned section.
+    /// * `policy` - Read policy borrowed by the returned section.
     ///
     /// # Returns
     ///
     /// This scoped section with the override applied.
     #[inline(always)]
-    pub fn with_read_options_view<'b>(
-        self,
-        options: &'b ReadOptions,
-    ) -> ConfigSection<'b>
+    pub fn read_with<'b>(self, policy: &'b ReadPolicy) -> ConfigSection<'b>
     where
         'a: 'b,
     {
@@ -170,7 +145,7 @@ impl<'a> ConfigSection<'a> {
             config: self.config,
             path: self.path,
             child_prefix: self.child_prefix,
-            read_options: Some(options),
+            read_policy: Some(policy),
         }
     }
 
@@ -234,10 +209,7 @@ impl<'a> ConfigSection<'a> {
     /// `None` for an empty property name on a non-root section; otherwise the
     /// resolved key.
     #[inline]
-    fn visible_property_key<'b>(
-        &'b self,
-        name: &'b str,
-    ) -> ConfigResult<Option<Cow<'b, str>>> {
+    fn visible_property_key<'b>(&'b self, name: &'b str) -> ConfigResult<Option<Cow<'b, str>>> {
         ensure_config_key(name)?;
         if !self.path.is_empty() && name.is_empty() {
             Ok(None)
@@ -252,17 +224,13 @@ impl<'a> ConfigSection<'a> {
     ///
     /// Root entries unchanged for the root section, or descendant entries with
     /// the section prefix stripped for a non-root section.
-    fn visible_entries<'b>(
-        &'b self,
-    ) -> impl Iterator<Item = (&'b str, &'b Property)> + 'b {
+    fn visible_entries<'b>(&'b self) -> impl Iterator<Item = (&'b str, &'b Property)> + 'b {
         let child_prefix = self.child_prefix.as_deref();
         self.config
             .properties
             .iter()
             .filter_map(move |(key, value)| match child_prefix {
-                Some(prefix) => {
-                    key.strip_prefix(prefix).map(|relative| (relative, value))
-                }
+                Some(prefix) => key.strip_prefix(prefix).map(|relative| (relative, value)),
                 None => Some((key.as_str(), value)),
             })
     }
@@ -284,9 +252,9 @@ impl<'a> ConfigSection<'a> {
 
 impl<'a> ConfigReader for ConfigSection<'a> {
     #[inline(always)]
-    fn read_options(&self) -> &ReadOptions {
-        self.read_options
-            .unwrap_or_else(|| self.config.read_options())
+    fn read_policy(&self) -> &ReadPolicy {
+        self.read_policy
+            .unwrap_or_else(|| self.config.default_read_policy())
     }
 
     #[inline(always)]
@@ -294,10 +262,7 @@ impl<'a> ConfigReader for ConfigSection<'a> {
         &self.path
     }
 
-    fn get_property(
-        &self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Option<&Property>> {
+    fn get_property(&self, name: impl ConfigName) -> ConfigResult<Option<&Property>> {
         name.with_config_name(|name| {
             let Some(key) = self.visible_property_key(name)? else {
                 return Ok(None);
@@ -365,10 +330,7 @@ impl<'a> ConfigReader for ConfigSection<'a> {
         })
     }
 
-    fn get_optional_list<T>(
-        &self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Option<Vec<T>>>
+    fn get_optional_list<T>(&self, name: impl ConfigName) -> ConfigResult<Option<Vec<T>>>
     where
         T: DataConversionTarget,
     {
@@ -404,9 +366,7 @@ impl<'a> ConfigReader for ConfigSection<'a> {
         )
     }
 
-    fn iter<'b>(
-        &'b self,
-    ) -> Box<dyn Iterator<Item = (&'b str, &'b Property)> + 'b> {
+    fn iter<'b>(&'b self) -> Box<dyn Iterator<Item = (&'b str, &'b Property)> + 'b> {
         Box::new(self.visible_entries())
     }
 

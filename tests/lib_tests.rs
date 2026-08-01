@@ -20,10 +20,9 @@ fn crate_public_modules_are_reachable() {
     fn assert_from_config<T: qubit_config::from::FromConfig>() {}
 
     assert_from_config::<u16>();
-    let _ = qubit_config::options::ReadOptions::default();
-    let _ = qubit_config::field::ConfigField::<bool>::builder()
-        .name("enabled")
-        .build();
+    let _ = qubit_config::options::ReadPolicy::default();
+    let _ = qubit_config::options::InterpolationSources::ConfigThenEnv;
+    let _ = qubit_config::source::EnvConfigOptions::new();
 }
 
 /// Verifies both README files use current and process-safe examples.

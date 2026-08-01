@@ -9,16 +9,12 @@
 use std::collections::BTreeMap;
 
 use serde::{
-    Deserialize,
-    Deserializer,
+    Deserialize, Deserializer,
+    de::{Error as _, IgnoredAny},
 };
 
-use super::{
-    ConfigSerdeRepr,
-    ConfigWireV1,
-};
+use super::{ConfigSerdeRepr, ConfigWireV1};
 use crate::Property;
-use crate::options::ReadOptions;
 
 /// Accepted persisted `Config` wire representations.
 pub(in crate::config) enum ConfigWire {
@@ -44,9 +40,10 @@ struct ConfigWireFields {
     /// Properties indexed by their persisted names.
     #[serde(default)]
     properties: BTreeMap<String, Property>,
-    /// Runtime conversion and explicit interpolation options.
+    /// Legacy runtime options accepted for backward input compatibility and
+    /// intentionally ignored.
     #[serde(default)]
-    read_options: ReadOptions,
+    read_options: Option<IgnoredAny>,
 }
 
 /// Distinguishes an absent legacy version from every explicitly supplied byte.
@@ -69,12 +66,18 @@ impl<'de> Deserialize<'de> for ConfigWire {
     {
         let fields = ConfigWireFields::deserialize(deserializer)?;
         Ok(match fields.version.0 {
-            Some(version) => Self::V1(ConfigWireV1 {
-                version,
-                description: fields.description,
-                properties: fields.properties,
-                read_options: fields.read_options,
-            }),
+            Some(version) => {
+                if fields.read_options.is_some() {
+                    return Err(D::Error::custom(
+                        "read_options is only accepted in legacy unversioned config wire",
+                    ));
+                }
+                Self::V1(ConfigWireV1 {
+                    version,
+                    description: fields.description,
+                    properties: fields.properties,
+                })
+            }
             None => Self::Legacy(ConfigSerdeRepr {
                 description: fields.description,
                 properties: fields.properties.into_iter().collect(),

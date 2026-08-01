@@ -9,12 +9,8 @@
 use qubit_value::Value as QubitValue;
 
 use crate::config_reader::ConfigReader;
-use crate::options::ReadOptions;
-use crate::{
-    ConfigResult,
-    Property,
-    utils,
-};
+use crate::options::ReadPolicy;
+use crate::{ConfigResult, Property, utils};
 
 use super::config_parse_context::ConfigParseContext;
 use super::from_config::FromConfig;
@@ -46,7 +42,7 @@ pub(crate) fn first_scalar_string(property: &Property) -> Option<&str> {
 /// * `reader` - Reader that owns the substitution context.
 /// * `name` - Root-relative property name used in diagnostics.
 /// * `property` - Property to inspect.
-/// * `options` - Active read options.
+/// * `options` - Active read policy.
 ///
 /// # Returns
 ///
@@ -62,7 +58,7 @@ pub(crate) fn is_effectively_missing<R: ConfigReader + ?Sized>(
     reader: &R,
     name: &str,
     property: &Property,
-    options: &ReadOptions,
+    options: &ReadPolicy,
 ) -> ConfigResult<bool> {
     is_effectively_missing_by(reader, name, property, options, false)
 }
@@ -78,7 +74,7 @@ pub(crate) fn is_effectively_missing<R: ConfigReader + ?Sized>(
 /// * `reader` - Reader that owns the interpolation context.
 /// * `name` - Root-relative property name used in diagnostics.
 /// * `property` - Property to inspect.
-/// * `options` - Active read options and interpolation limits.
+/// * `options` - Active read policy and interpolation limits.
 ///
 /// # Returns
 ///
@@ -92,7 +88,7 @@ pub(crate) fn is_effectively_missing_interpolated<R: ConfigReader + ?Sized>(
     reader: &R,
     name: &str,
     property: &Property,
-    options: &ReadOptions,
+    options: &ReadPolicy,
 ) -> ConfigResult<bool> {
     is_effectively_missing_by(reader, name, property, options, true)
 }
@@ -109,7 +105,7 @@ pub(crate) fn is_effectively_missing_interpolated<R: ConfigReader + ?Sized>(
 /// * `reader` - Reader that owns the substitution context.
 /// * `name` - Root-relative property name used in diagnostics.
 /// * `property` - Property to parse.
-/// * `options` - Active read options.
+/// * `options` - Active read policy.
 ///
 /// # Returns
 ///
@@ -122,7 +118,7 @@ pub(crate) fn parse_property_from_reader<R, T>(
     reader: &R,
     name: &str,
     property: &Property,
-    options: &ReadOptions,
+    options: &ReadPolicy,
 ) -> ConfigResult<T>
 where
     R: ConfigReader + ?Sized,
@@ -157,7 +153,7 @@ pub(crate) fn parse_property_from_reader_interpolated<R, T>(
     reader: &R,
     name: &str,
     property: &Property,
-    options: &ReadOptions,
+    options: &ReadPolicy,
 ) -> ConfigResult<T>
 where
     R: ConfigReader + ?Sized,
@@ -172,7 +168,7 @@ fn is_effectively_missing_by<R: ConfigReader + ?Sized>(
     reader: &R,
     name: &str,
     property: &Property,
-    options: &ReadOptions,
+    options: &ReadPolicy,
     interpolate: bool,
 ) -> ConfigResult<bool> {
     if property.is_unset() {
@@ -181,9 +177,7 @@ fn is_effectively_missing_by<R: ConfigReader + ?Sized>(
     let Some(value) = first_scalar_string(property) else {
         return Ok(false);
     };
-    let substitute = |value: &str| {
-        substitute_for_reader(reader, name, value, options, interpolate)
-    };
+    let substitute = |value: &str| substitute_for_reader(reader, name, value, options, interpolate);
     let ctx = ConfigParseContext::new(name, options, &substitute);
     let value = ctx.substitute_string(value)?;
     match options
@@ -202,16 +196,14 @@ fn parse_property_from_reader_by<R, T>(
     reader: &R,
     name: &str,
     property: &Property,
-    options: &ReadOptions,
+    options: &ReadPolicy,
     interpolate: bool,
 ) -> ConfigResult<T>
 where
     R: ConfigReader + ?Sized,
     T: FromConfig,
 {
-    let substitute = |value: &str| {
-        substitute_for_reader(reader, name, value, options, interpolate)
-    };
+    let substitute = |value: &str| substitute_for_reader(reader, name, value, options, interpolate);
     let ctx = ConfigParseContext::new(name, options, &substitute);
     T::from_config(property, &ctx)
 }
@@ -238,7 +230,7 @@ fn substitute_for_reader<R: ConfigReader + ?Sized>(
     reader: &R,
     path: &str,
     value: &str,
-    options: &ReadOptions,
+    options: &ReadPolicy,
     interpolate: bool,
 ) -> ConfigResult<String> {
     if interpolate {

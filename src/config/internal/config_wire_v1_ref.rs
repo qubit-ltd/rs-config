@@ -12,7 +12,6 @@ use serde::Serialize;
 
 use crate::Property;
 use crate::config::Config;
-use crate::options::ReadOptions;
 
 /// Borrowed V1 persistence representation with deterministic property order.
 #[derive(Serialize)]
@@ -24,8 +23,6 @@ pub(in crate::config) struct ConfigWireV1Ref<'a> {
     /// Properties indexed by their canonical names in deterministic wire
     /// order.
     properties: BTreeMap<&'a str, &'a Property>,
-    /// Runtime conversion and explicit interpolation options.
-    read_options: &'a ReadOptions,
 }
 
 impl<'a> From<&'a Config> for ConfigWireV1Ref<'a> {
@@ -40,7 +37,6 @@ impl<'a> From<&'a Config> for ConfigWireV1Ref<'a> {
                 .iter()
                 .map(|(key, property)| (key.as_str(), property))
                 .collect(),
-            read_options: &config.read_options,
         }
     }
 }

@@ -12,39 +12,16 @@
 
 mod internal;
 
-use serde::{
-    Deserialize,
-    Deserializer,
-    Serialize,
-    Serializer,
-};
-use std::fmt::{
-    self,
-    Debug,
-    Formatter,
-};
-use std::ops::{
-    Deref,
-    DerefMut,
-};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::fmt::{self, Debug, Formatter};
+use std::ops::{Deref, DerefMut};
 
 use qubit_datatype::DataType;
 use qubit_redact::redacted_debug;
-use qubit_value::{
-    StrictValueRead,
-    ValueContainer,
-    ValueResult,
-    ValueWireRefV1,
-};
+use qubit_value::{StrictValueRead, ValueContainer, ValueResult, ValueWireRefV1};
 
-use self::internal::{
-    PropertyWireOwned,
-    PropertyWireRef,
-};
-use crate::{
-    ConfigKey,
-    ConfigResult,
-};
+use self::internal::{PropertyWireOwned, PropertyWireRef};
+use crate::{ConfigKey, ConfigResult};
 
 /// Configuration Property
 ///
@@ -170,10 +147,7 @@ impl Property {
     /// assert_eq!(prop.len(), 1);
     /// ```
     #[inline]
-    pub fn new(
-        name: impl Into<String>,
-        value: impl Into<ValueContainer>,
-    ) -> ConfigResult<Self> {
+    pub fn new(name: impl Into<String>, value: impl Into<ValueContainer>) -> ConfigResult<Self> {
         let name = ConfigKey::parse(name.into())?.into_string();
         Ok(Self {
             name,

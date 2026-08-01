@@ -7,12 +7,7 @@
 // =============================================================================
 
 use qubit_config::{
-    Config,
-    ConfigError,
-    ConfigReader,
-    ConfigResult,
-    ConfigSerdeExt,
-    options::ReadOptions,
+    Config, ConfigError, ConfigReader, ConfigResult, ConfigSerdeExt, options::ReadPolicy,
 };
 use serde::Deserialize;
 
@@ -91,9 +86,8 @@ fn test_deserialize_matches_config_inherent_method() {
     let inherent: ServerSettings = config
         .deserialize("server")
         .expect("inherent method should deserialize");
-    let extension: ServerSettings =
-        ConfigSerdeExt::deserialize(&config, "server")
-            .expect("extension method should deserialize");
+    let extension: ServerSettings = ConfigSerdeExt::deserialize(&config, "server")
+        .expect("extension method should deserialize");
 
     assert_eq!(extension, inherent);
 }
@@ -117,7 +111,7 @@ fn test_deserialize_does_not_interpolate_scoped_values() {
 
 /// Verifies a section read-options override controls structured conversion.
 #[test]
-fn test_deserialize_uses_section_read_options_override() {
+fn test_deserialize_uses_section_read_policy_override() {
     let mut config = Config::new();
     config
         .set("service.enabled", "yes")
@@ -125,11 +119,8 @@ fn test_deserialize_uses_section_read_options_override() {
     config
         .set("service.ports", "8080, 8081")
         .expect("service ports should be set");
-    let options = ReadOptions::env_friendly();
-    let section = config
-        .section("service")
-        .unwrap()
-        .with_read_options_view(&options);
+    let options = ReadPolicy::env_friendly();
+    let section = config.section("service").unwrap().read_with(&options);
 
     let settings: EnvironmentSettings = section
         .deserialize("")
@@ -206,11 +197,8 @@ fn test_deserialize_interpolated_preserves_expansion_limit_error() {
     config
         .set("retry.label", "${first}-${second}")
         .expect("label placeholders should be set");
-    let options = ReadOptions::default().with_max_interpolation_expansions(1);
-    let section = config
-        .section("retry")
-        .unwrap()
-        .with_read_options_view(&options);
+    let options = ReadPolicy::default().with_max_interpolation_expansions(1);
+    let section = config.section("retry").unwrap().read_with(&options);
 
     let error = section
         .deserialize_interpolated::<LabelSettings>("")

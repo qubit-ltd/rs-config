@@ -11,15 +11,9 @@ use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
 
-use crate::{
-    ConfigError,
-    ConfigResult,
-};
+use crate::{ConfigError, ConfigResult};
 
-use super::{
-    SourceLimits,
-    source_budget::SourceBudget,
-};
+use super::{SourceLimits, source_budget::SourceBudget};
 
 /// Input backing one built-in text configuration source.
 #[derive(Debug, Clone)]
@@ -52,10 +46,7 @@ impl SourceInput {
                 let file = File::open(path).map_err(|error| {
                     ConfigError::IoError(std::io::Error::new(
                         error.kind(),
-                        format!(
-                            "Failed to open {format} file '{}': {error}",
-                            path.display()
-                        ),
+                        format!("Failed to open {format} file '{}': {error}", path.display()),
                     ))
                 })?;
                 read_file_bytes(file, limits.max_input_bytes(), path, format)?
@@ -85,10 +76,7 @@ fn read_file_bytes(
         reader.read_to_end(&mut bytes).map_err(|error| {
             ConfigError::IoError(std::io::Error::new(
                 error.kind(),
-                format!(
-                    "Failed to read {format} file '{}': {error}",
-                    path.display()
-                ),
+                format!("Failed to read {format} file '{}': {error}", path.display()),
             ))
         })?;
     } else {
@@ -96,10 +84,7 @@ fn read_file_bytes(
         reader.read_to_end(&mut bytes).map_err(|error| {
             ConfigError::IoError(std::io::Error::new(
                 error.kind(),
-                format!(
-                    "Failed to read {format} file '{}': {error}",
-                    path.display()
-                ),
+                format!("Failed to read {format} file '{}': {error}", path.display()),
             ))
         })?;
     }

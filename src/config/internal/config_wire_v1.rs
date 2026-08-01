@@ -11,7 +11,6 @@ use std::collections::BTreeMap;
 use serde::Deserialize;
 
 use crate::Property;
-use crate::options::ReadOptions;
 
 /// Owned V1 persistence representation validated before constructing a config.
 #[derive(Deserialize)]
@@ -26,7 +25,4 @@ pub(in crate::config) struct ConfigWireV1 {
     /// order.
     #[serde(default)]
     pub(in crate::config) properties: BTreeMap<String, Property>,
-    /// Runtime conversion and explicit interpolation options.
-    #[serde(default)]
-    pub(in crate::config) read_options: ReadOptions,
 }

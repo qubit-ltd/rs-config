@@ -7,22 +7,19 @@
 // =============================================================================
 //! Serde sequence access over configuration values.
 
-use serde::de::{
-    self,
-    SeqAccess,
-};
+use serde::de::{self, SeqAccess};
 use serde_json::Value;
 
 use crate::config_deserialize_error::ConfigDeserializeError;
 use crate::config_value_deserializer::ConfigValueDeserializer;
-use crate::options::ReadOptions;
+use crate::options::ReadPolicy;
 
 /// Sequence access over configuration values.
 pub(in crate::config_value_deserializer) struct ConfigSeqAccess<'a> {
     values: std::vec::IntoIter<Value>,
     key: String,
     index: usize,
-    options: &'a ReadOptions,
+    options: &'a ReadPolicy,
 }
 
 impl<'a> ConfigSeqAccess<'a> {
@@ -30,7 +27,7 @@ impl<'a> ConfigSeqAccess<'a> {
     pub(in crate::config_value_deserializer) fn new(
         values: Vec<Value>,
         key: String,
-        options: &'a ReadOptions,
+        options: &'a ReadPolicy,
     ) -> Self {
         Self {
             values: values.into_iter(),
@@ -45,10 +42,7 @@ impl<'de> SeqAccess<'de> for ConfigSeqAccess<'_> {
     type Error = ConfigDeserializeError;
 
     /// Deserializes the next element.
-    fn next_element_seed<T>(
-        &mut self,
-        seed: T,
-    ) -> Result<Option<T::Value>, Self::Error>
+    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
     where
         T: de::DeserializeSeed<'de>,
     {
