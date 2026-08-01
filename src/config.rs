@@ -2048,7 +2048,7 @@ impl Config {
         name.with_config_name(|name| {
             let property = Property::new(
                 name,
-                ValueContainer::Scalar(QubitValue::new_unset(data_type)),
+                ValueContainer::new_unset_scalar(data_type),
             )?;
             self.insert_property(name, property)
         })

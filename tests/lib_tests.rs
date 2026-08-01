@@ -30,7 +30,7 @@ fn crate_public_modules_are_reachable() {
 #[test]
 fn readmes_use_current_dependency_and_safe_examples() {
     for readme in [README, README_ZH_CN] {
-        assert!(readme.contains("qubit-datatype = { version = \"0.9\""));
+        assert!(readme.contains("qubit-datatype = { version = \"0.10\""));
         assert!(readme.contains("config.deserialize(\"db\")?"));
         assert!(!readme.contains("std::env::set_var"));
     }
