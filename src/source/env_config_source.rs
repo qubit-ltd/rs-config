@@ -21,30 +21,78 @@
 //!
 //! Without a prefix, all environment variables are loaded as-is.
 
-use std::{
-    collections::HashMap,
-    ffi::OsStr,
-};
+use std::{collections::HashMap, ffi::OsStr};
 
-use qubit_redact::{
-    EnvRedactor,
-    redacted_debug,
-};
+use qubit_redact::{EnvRedactor, redacted_debug};
 
-use crate::{
-    Config,
-    ConfigError,
-    ConfigKey,
-    ConfigResult,
-    utils,
-};
+use crate::{Config, ConfigError, ConfigKey, ConfigResult, utils};
 
 use super::{
-    ConfigSource,
-    SourceLimits,
-    config_source::load_transactionally,
-    source_budget::SourceBudget,
+    ConfigSource, SourceLimits, config_source::load_transactionally, source_budget::SourceBudget,
 };
+
+/// Options controlling environment-variable key selection and normalization.
+#[must_use]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EnvConfigOptions {
+    /// Optional prefix used to select environment variables.
+    prefix: Option<String>,
+    /// Whether the configured prefix is removed from loaded keys.
+    strip_prefix: bool,
+    /// Whether underscores are converted to dots.
+    underscores_to_dots: bool,
+    /// Whether loaded keys are lowercased.
+    lowercase_keys: bool,
+}
+
+impl EnvConfigOptions {
+    /// Creates environment options with no prefix filter or key transformation.
+    #[inline]
+    pub const fn new() -> Self {
+        Self {
+            prefix: None,
+            strip_prefix: false,
+            underscores_to_dots: false,
+            lowercase_keys: false,
+        }
+    }
+
+    /// Restricts loading to variables whose names start with `prefix`.
+    #[inline]
+    pub fn prefix(mut self, prefix: &str) -> Self {
+        self.prefix = Some(prefix.to_string());
+        self
+    }
+
+    /// Removes the configured prefix from loaded keys.
+    #[inline]
+    pub const fn strip_prefix(mut self) -> Self {
+        self.strip_prefix = true;
+        self
+    }
+
+    /// Converts underscores in loaded keys to dots.
+    #[inline]
+    pub const fn underscores_to_dots(mut self) -> Self {
+        self.underscores_to_dots = true;
+        self
+    }
+
+    /// Lowercases loaded keys.
+    #[inline]
+    pub const fn lowercase_keys(mut self) -> Self {
+        self.lowercase_keys = true;
+        self
+    }
+}
+
+impl Default for EnvConfigOptions {
+    /// Creates environment options with no prefix filter or key transformation.
+    #[inline]
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 /// Configuration source that loads from system environment variables
 ///
@@ -65,14 +113,8 @@ use super::{
 /// ```
 #[derive(Debug, Clone)]
 pub struct EnvConfigSource {
-    /// Optional prefix filter; only variables with this prefix are loaded
-    prefix: Option<String>,
-    /// Whether to strip the prefix from the key
-    strip_prefix: bool,
-    /// Whether to convert underscores to dots in the key
-    convert_underscores: bool,
-    /// Whether to lowercase the key
-    lowercase_keys: bool,
+    /// Key selection and normalization options.
+    options: EnvConfigOptions,
     /// Resource limits for one environment scan.
     limits: SourceLimits,
 }
@@ -88,10 +130,7 @@ impl EnvConfigSource {
     #[inline]
     pub fn new() -> Self {
         Self {
-            prefix: None,
-            strip_prefix: false,
-            convert_underscores: false,
-            lowercase_keys: false,
+            options: EnvConfigOptions::default(),
             limits: SourceLimits::default(),
         }
     }
@@ -112,39 +151,28 @@ impl EnvConfigSource {
     #[inline]
     pub fn with_prefix(prefix: &str) -> Self {
         Self {
-            prefix: Some(prefix.to_string()),
-            strip_prefix: true,
-            convert_underscores: true,
-            lowercase_keys: true,
+            options: EnvConfigOptions::new()
+                .prefix(prefix)
+                .strip_prefix()
+                .underscores_to_dots()
+                .lowercase_keys(),
             limits: SourceLimits::default(),
         }
     }
 
-    /// Creates a new `EnvConfigSource` with a custom prefix and explicit
-    /// options.
+    /// Creates a new `EnvConfigSource` with explicit key options.
     ///
     /// # Parameters
     ///
-    /// * `prefix` - The prefix to filter by
-    /// * `strip_prefix` - Whether to strip the prefix from the key
-    /// * `convert_underscores` - Whether to convert underscores to dots
-    /// * `lowercase_keys` - Whether to lowercase the key
+    /// * `options` - Prefix and key transformation options.
     ///
     /// # Returns
     ///
     /// A configured [`EnvConfigSource`].
     #[inline]
-    pub fn with_options(
-        prefix: &str,
-        strip_prefix: bool,
-        convert_underscores: bool,
-        lowercase_keys: bool,
-    ) -> Self {
+    pub fn with_options(options: EnvConfigOptions) -> Self {
         Self {
-            prefix: Some(prefix.to_string()),
-            strip_prefix,
-            convert_underscores,
-            lowercase_keys,
+            options,
             limits: SourceLimits::default(),
         }
     }
@@ -169,18 +197,18 @@ impl EnvConfigSource {
     fn transform_key(&self, key: &str) -> String {
         let mut result = key.to_string();
 
-        if self.strip_prefix
-            && let Some(prefix) = &self.prefix
+        if self.options.strip_prefix
+            && let Some(prefix) = &self.options.prefix
             && result.starts_with(prefix.as_str())
         {
             result = result[prefix.len()..].to_string();
         }
 
-        if self.lowercase_keys {
+        if self.options.lowercase_keys {
             result = result.to_lowercase();
         }
 
-        if self.convert_underscores {
+        if self.options.underscores_to_dots {
             result = result.replace('_', ".");
         }
 
@@ -195,7 +223,7 @@ impl EnvConfigSource {
     /// by a single load operation.
     #[inline]
     fn can_collapse_distinct_keys(&self) -> bool {
-        self.strip_prefix || self.convert_underscores || self.lowercase_keys
+        self.options.strip_prefix || self.options.underscores_to_dots || self.options.lowercase_keys
     }
 
     /// Checks whether an environment variable key matches a UTF-8 prefix.
@@ -321,7 +349,7 @@ impl ConfigSource for EnvConfigSource {
 
         for (key_os, value_os) in std::env::vars_os() {
             // Filter by prefix if set
-            if let Some(prefix) = &self.prefix
+            if let Some(prefix) = &self.options.prefix
                 && !Self::env_key_matches_prefix(&key_os, prefix)
             {
                 continue;
@@ -329,15 +357,13 @@ impl ConfigSource for EnvConfigSource {
 
             let key = Self::env_key_to_string(&key_os, &value_os)?;
             let value = Self::env_value_to_string(&key_os, &value_os)?;
-            budget
-                .consume_input_bytes(key.len().saturating_add(value.len()))?;
+            budget.consume_input_bytes(key.len().saturating_add(value.len()))?;
             let transformed_key = self.transform_key(&key);
-            if self.strip_prefix || self.convert_underscores {
+            if self.options.strip_prefix || self.options.underscores_to_dots {
                 utils::validate_normalized_config_key(&transformed_key, &key)?;
             }
             if self.can_collapse_distinct_keys()
-                && let Some(existing) =
-                    normalized_keys.insert(transformed_key.clone(), key.clone())
+                && let Some(existing) = normalized_keys.insert(transformed_key.clone(), key.clone())
             {
                 return Err(ConfigError::KeyConflict {
                     path: transformed_key,

@@ -13,68 +13,30 @@
 
 mod internal;
 
-use serde::de::{
-    DeserializeOwned,
-    Error as _,
-};
-use serde::{
-    Deserialize,
-    Deserializer,
-    Serialize,
-    Serializer,
-};
+use serde::de::{DeserializeOwned, Error as _};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashMap;
 use std::path::Path;
 
-use self::internal::{
-    ConfigSerdeRepr,
-    ConfigWire,
-    ConfigWireV1,
-    ConfigWireV1Ref,
-};
+use self::internal::{ConfigSerdeRepr, ConfigWire, ConfigWireV1, ConfigWireV1Ref};
 use crate::ConfigPropertyMut;
-use crate::config_path::{
-    ensure_config_key,
-    ensure_config_path,
-};
+use crate::config_path::{ensure_config_key, ensure_config_path};
 use crate::config_reader::ConfigReader;
 use crate::config_section::ConfigSection;
 use crate::config_serde_ext::ConfigSerdeExt;
-use crate::field::ConfigField;
-use crate::from::{
-    FromConfig,
-    IntoConfigDefault,
-};
-use crate::options::ReadOptions;
+use crate::from::{FromConfig, IntoConfigDefault};
+use crate::options::ReadPolicy;
 #[cfg(feature = "env-file")]
 use crate::source::EnvFileConfigSource;
 #[cfg(feature = "toml")]
 use crate::source::TomlConfigSource;
 #[cfg(feature = "yaml")]
 use crate::source::YamlConfigSource;
-use crate::source::{
-    ConfigSource,
-    EnvConfigSource,
-    PropertiesConfigSource,
-};
+use crate::source::{ConfigSource, EnvConfigOptions, EnvConfigSource, PropertiesConfigSource};
 use crate::utils;
-use crate::{
-    ConfigError,
-    ConfigName,
-    ConfigNames,
-    ConfigResult,
-    Property,
-};
-use qubit_datatype::{
-    DataConversionTarget,
-    DataType,
-};
-use qubit_value::{
-    StrictValueListRead,
-    StrictValueRead,
-    Value as QubitValue,
-    ValueContainer,
-};
+use crate::{ConfigError, ConfigName, ConfigNames, ConfigResult, Property};
+use qubit_datatype::{DataConversionTarget, DataType};
+use qubit_value::{StrictValueListRead, StrictValueRead, Value as QubitValue, ValueContainer};
 
 /// Converts deserialized numeric text with the configured conversion policy.
 ///
@@ -85,7 +47,7 @@ use qubit_value::{
 /// # Parameters
 ///
 /// * `key` - Configuration path used for error context.
-/// * `options` - Read options controlling conversion.
+/// * `options` - Read policy controlling conversion.
 /// * `value` - Numeric text to convert.
 ///
 /// # Returns
@@ -97,7 +59,7 @@ use qubit_value::{
 /// Returns a keyed conversion error when `value` cannot be converted to `T`.
 pub(crate) fn convert_deserialize_number<T>(
     key: &str,
-    options: &ReadOptions,
+    options: &ReadPolicy,
     value: String,
 ) -> ConfigResult<T>
 where
@@ -162,14 +124,22 @@ where
 /// let timeout: f64 = config.get_or("timeout", 30.0).unwrap();
 /// ```
 #[must_use]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Config {
     /// Configuration description
     description: Option<String>,
     /// Configuration property mapping
     pub(crate) properties: HashMap<String, Property>,
-    /// Runtime read parsing options
-    read_options: ReadOptions,
+    /// Runtime policy used by direct reads on this configuration.
+    default_read_policy: ReadPolicy,
+}
+
+impl PartialEq for Config {
+    /// Compares only the persisted configuration data.
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.description == other.description && self.properties == other.properties
+    }
 }
 
 impl Serialize for Config {
@@ -210,11 +180,12 @@ impl TryFrom<ConfigSerdeRepr> for Config {
     ///
     /// Returns an error naming the first mismatched map key and property name.
     fn try_from(value: ConfigSerdeRepr) -> Result<Self, Self::Error> {
-        Self::from_wire_parts(
-            value.description,
-            value.properties,
-            value.read_options,
-        )
+        let ConfigSerdeRepr {
+            description,
+            properties,
+            read_options: _,
+        } = value;
+        Self::from_wire_parts(description, properties)
     }
 }
 
@@ -234,11 +205,7 @@ impl TryFrom<ConfigWireV1> for Config {
                 value.version,
             ));
         }
-        Self::from_wire_parts(
-            value.description,
-            value.properties.into_iter().collect(),
-            value.read_options,
-        )
+        Self::from_wire_parts(value.description, value.properties.into_iter().collect())
     }
 }
 
@@ -263,7 +230,6 @@ impl Config {
     fn from_wire_parts(
         description: Option<String>,
         properties: HashMap<String, Property>,
-        read_options: ReadOptions,
     ) -> Result<Self, String> {
         if let Some((key, violation)) = properties
             .keys()
@@ -293,7 +259,7 @@ impl Config {
         Ok(Self {
             description,
             properties,
-            read_options,
+            default_read_policy: ReadPolicy::default(),
         })
     }
     /// Creates a new empty configuration
@@ -315,7 +281,7 @@ impl Config {
         Self {
             description: None,
             properties: HashMap::new(),
-            read_options: ReadOptions::default(),
+            default_read_policy: ReadPolicy::default(),
         }
     }
 
@@ -342,7 +308,7 @@ impl Config {
         Self {
             description: Some(description.to_string()),
             properties: HashMap::new(),
-            read_options: ReadOptions::default(),
+            default_read_policy: ReadPolicy::default(),
         }
     }
 
@@ -420,14 +386,11 @@ impl Config {
     }
 
     /// Creates a configuration from environment variables with explicit key
-    /// transformation options.
+    /// selection and transformation options.
     ///
     /// # Parameters
     ///
-    /// * `prefix` - Prefix used to select environment variables.
-    /// * `strip_prefix` - Whether to strip the prefix from loaded keys.
-    /// * `convert_underscores` - Whether to convert underscores to dots.
-    /// * `lowercase_keys` - Whether to lowercase loaded keys.
+    /// * `options` - Prefix and key transformation options.
     ///
     /// # Returns
     ///
@@ -438,18 +401,8 @@ impl Config {
     /// Returns [`ConfigError`] if a matching environment key or value is not
     /// valid Unicode, or if setting a loaded property fails.
     #[inline]
-    pub fn from_env_options(
-        prefix: &str,
-        strip_prefix: bool,
-        convert_underscores: bool,
-        lowercase_keys: bool,
-    ) -> ConfigResult<Self> {
-        let source = EnvConfigSource::with_options(
-            prefix,
-            strip_prefix,
-            convert_underscores,
-            lowercase_keys,
-        );
+    pub fn from_env_options(options: EnvConfigOptions) -> ConfigResult<Self> {
+        let source = EnvConfigSource::with_options(options);
         Self::from_source(&source)
     }
 
@@ -567,45 +520,51 @@ impl Config {
         self.description = description;
     }
 
-    /// Gets the global read parsing options.
+    /// Gets the default runtime read policy.
     ///
     /// # Returns
     ///
-    /// The options used by `get`, `get_any`, and field reads when no
-    /// field-level override is provided.
+    /// The policy used by direct reads such as `get` and `get_any`.
     #[inline(always)]
-    pub fn read_options(&self) -> &ReadOptions {
-        &self.read_options
+    pub fn default_read_policy(&self) -> &ReadPolicy {
+        &self.default_read_policy
     }
 
-    /// Sets the global read parsing options.
+    /// Sets the default runtime read policy.
     ///
     /// # Parameters
     ///
-    /// * `options` - New read parsing options.
+    /// * `policy` - New default read policy.
     ///
     /// # Returns
     ///
     /// Mutable reference to this configuration for chaining.
     #[inline(always)]
-    pub fn set_read_options(&mut self, options: ReadOptions) -> &mut Self {
-        self.read_options = options;
+    pub fn set_default_read_policy(&mut self, policy: ReadPolicy) -> &mut Self {
+        self.default_read_policy = policy;
         self
     }
 
-    /// Returns this configuration with different read parsing options.
+    /// Returns this configuration with a different default read policy.
     ///
     /// # Parameters
     ///
-    /// * `options` - Read options for the returned configuration.
+    /// * `policy` - Default read policy for the returned configuration.
     ///
     /// # Returns
     ///
-    /// This [`Config`] using `options`.
+    /// This [`Config`] using `policy`.
     #[inline]
-    pub fn with_read_options(mut self, options: ReadOptions) -> Self {
-        self.read_options = options;
+    pub fn with_default_read_policy(mut self, policy: ReadPolicy) -> Self {
+        self.default_read_policy = policy;
         self
+    }
+
+    /// Creates a read-only root view using `policy` without changing this
+    /// configuration's default policy.
+    #[inline]
+    pub fn read_with<'a>(&'a self, policy: &'a ReadPolicy) -> ConfigSection<'a> {
+        <Self as ConfigReader>::read_with(self, policy)
     }
 
     /// Creates a read-only section rooted at `path`.
@@ -669,10 +628,7 @@ impl Config {
     ///
     /// Returns Option containing the configuration item
     #[inline]
-    pub fn get_property(
-        &self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Option<&Property>> {
+    pub fn get_property(&self, name: impl ConfigName) -> ConfigResult<Option<&Property>> {
         name.with_config_name(|name| {
             ensure_config_key(name)?;
             Ok(self.properties.get(name))
@@ -722,16 +678,13 @@ impl Config {
     /// - [`ConfigError::PropertyNotFound`] if the key does not exist.
     /// - [`ConfigError::PropertyIsFinal`] when trying to unset a final
     ///   property.
-    pub fn set_final(
-        &mut self,
-        name: impl ConfigName,
-        is_final: bool,
-    ) -> ConfigResult<()> {
+    pub fn set_final(&mut self, name: impl ConfigName, is_final: bool) -> ConfigResult<()> {
         name.with_config_name(|name| {
             ensure_config_key(name)?;
-            let property = self.properties.get_mut(name).ok_or_else(|| {
-                ConfigError::PropertyNotFound(name.to_string())
-            })?;
+            let property = self
+                .properties
+                .get_mut(name)
+                .ok_or_else(|| ConfigError::PropertyNotFound(name.to_string()))?;
             if property.is_final() && !is_final {
                 return Err(ConfigError::PropertyIsFinal(name.to_string()));
             }
@@ -763,10 +716,7 @@ impl Config {
     /// assert!(!config.contains("port").unwrap());
     /// ```
     #[inline]
-    pub fn remove(
-        &mut self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Option<Property>> {
+    pub fn remove(&mut self, name: impl ConfigName) -> ConfigResult<Option<Property>> {
         name.with_config_name(|name| {
             ensure_config_key(name)?;
             self.ensure_property_not_final(name)?;
@@ -1069,10 +1019,7 @@ impl Config {
     /// Returns missing-value, interpolation, resource-limit, or conversion
     /// errors.
     #[inline(always)]
-    pub fn get_any_interpolated<T>(
-        &self,
-        names: impl ConfigNames,
-    ) -> ConfigResult<T>
+    pub fn get_any_interpolated<T>(&self, names: impl ConfigNames) -> ConfigResult<T>
     where
         T: FromConfig,
     {
@@ -1088,10 +1035,7 @@ impl Config {
     /// # Returns
     ///
     /// `Ok(None)` when every key is absent or effectively missing.
-    pub fn get_optional_any<T>(
-        &self,
-        names: impl ConfigNames,
-    ) -> ConfigResult<Option<T>>
+    pub fn get_optional_any<T>(&self, names: impl ConfigNames) -> ConfigResult<Option<T>>
     where
         T: FromConfig,
     {
@@ -1181,98 +1125,6 @@ impl Config {
         <Self as ConfigReader>::get_any_interpolated_or(self, names, default)
     }
 
-    /// Reads a declared configuration field.
-    ///
-    /// # Parameters
-    ///
-    /// * `field` - Field declaration with name, aliases, defaults, and optional
-    ///   read options.
-    ///
-    /// # Returns
-    ///
-    /// Parsed field value or default.
-    pub fn read<T>(&self, field: ConfigField<T>) -> ConfigResult<T>
-    where
-        T: FromConfig,
-    {
-        <Self as ConfigReader>::read(self, field)
-    }
-
-    /// Reads an optional declared configuration field.
-    ///
-    /// # Parameters
-    ///
-    /// * `field` - Field declaration.
-    ///
-    /// # Returns
-    ///
-    /// Parsed field value, default, or `None`.
-    pub fn read_optional<T>(
-        &self,
-        field: ConfigField<T>,
-    ) -> ConfigResult<Option<T>>
-    where
-        T: FromConfig,
-    {
-        <Self as ConfigReader>::read_optional(self, field)
-    }
-
-    /// Reads a declared field after interpolating string-backed values.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `T` - Target type supported by [`FromConfig`].
-    ///
-    /// # Parameters
-    ///
-    /// * `field` - Field declaration with names, a default, and optional read
-    ///   options.
-    ///
-    /// # Returns
-    ///
-    /// Interpolated field value or its typed default.
-    ///
-    /// # Errors
-    ///
-    /// Returns missing-value, interpolation, resource-limit, or conversion
-    /// errors.
-    #[inline(always)]
-    pub fn read_interpolated<T>(&self, field: ConfigField<T>) -> ConfigResult<T>
-    where
-        T: FromConfig,
-    {
-        <Self as ConfigReader>::read_interpolated(self, field)
-    }
-
-    /// Reads an optional declared field after interpolation.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `T` - Target type supported by [`FromConfig`].
-    ///
-    /// # Parameters
-    ///
-    /// * `field` - Field declaration with names, a default, and optional read
-    ///   options.
-    ///
-    /// # Returns
-    ///
-    /// Interpolated field value, its typed default, or `None`.
-    ///
-    /// # Errors
-    ///
-    /// Returns interpolation, resource-limit, or conversion errors.
-    #[inline(always)]
-    pub fn read_optional_interpolated<T>(
-        &self,
-        field: ConfigField<T>,
-    ) -> ConfigResult<Option<T>>
-    where
-        T: FromConfig,
-    {
-        <Self as ConfigReader>::read_optional_interpolated(self, field)
-    }
-
     /// Gets a list of configuration values, converting each stored element to
     /// `T`.
     ///
@@ -1328,10 +1180,7 @@ impl Config {
     ///
     /// A vector of exact typed values on success, or a [`ConfigError`] on
     /// failure.
-    pub fn get_list_strict<T>(
-        &self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Vec<T>>
+    pub fn get_list_strict<T>(&self, name: impl ConfigName) -> ConfigResult<Vec<T>>
     where
         T: StrictValueListRead,
     {
@@ -1384,11 +1233,7 @@ impl Config {
     /// config.set("hosts", vec!["host1", "host2"]).unwrap();
     /// // &str collection (then converted)
     /// ```
-    pub fn set<S>(
-        &mut self,
-        name: impl ConfigName,
-        values: S,
-    ) -> ConfigResult<()>
+    pub fn set<S>(&mut self, name: impl ConfigName, values: S) -> ConfigResult<()>
     where
         S: Into<ValueContainer>,
     {
@@ -1442,11 +1287,7 @@ impl Config {
     /// let ports: Vec<i32> = config.get_list("port").unwrap();
     /// assert_eq!(ports, vec![8080, 8081, 8082, 8083, 8084, 8085]);
     /// ```
-    pub fn add<S>(
-        &mut self,
-        name: impl ConfigName,
-        values: S,
-    ) -> ConfigResult<()>
+    pub fn add<S>(&mut self, name: impl ConfigName, values: S) -> ConfigResult<()>
     where
         S: Into<ValueContainer>,
     {
@@ -1507,10 +1348,7 @@ impl Config {
     /// # }
     /// ```
     #[inline]
-    pub fn merge_from_source(
-        &mut self,
-        source: &dyn ConfigSource,
-    ) -> ConfigResult<()> {
+    pub fn merge_from_source(&mut self, source: &dyn ConfigSource) -> ConfigResult<()> {
         let mut staged = self.clone();
         source.load_into(&mut staged)?;
         *self = staged;
@@ -1659,15 +1497,11 @@ impl Config {
     /// assert!(http_config.contains("port").unwrap());
     /// assert!(!http_config.contains("db.host").unwrap());
     /// ```
-    pub fn subconfig(
-        &self,
-        prefix: &str,
-        strip_prefix: bool,
-    ) -> ConfigResult<Config> {
+    pub fn subconfig(&self, prefix: &str, strip_prefix: bool) -> ConfigResult<Config> {
         ensure_config_path(prefix)?;
         let mut sub = Config::new();
         sub.description = self.description.clone();
-        sub.read_options = self.read_options.clone();
+        sub.default_read_policy = self.default_read_policy.clone();
 
         // Empty prefix means "all keys"
         if prefix.is_empty() {
@@ -1781,10 +1615,7 @@ impl Config {
     /// let missing: Option<i32> = config.get_optional("missing").unwrap();
     /// assert_eq!(missing, None);
     /// ```
-    pub fn get_optional<T>(
-        &self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Option<T>>
+    pub fn get_optional<T>(&self, name: impl ConfigName) -> ConfigResult<Option<T>>
     where
         T: FromConfig,
     {
@@ -1811,10 +1642,7 @@ impl Config {
     /// Returns interpolation, resource-limit, or conversion errors with key
     /// context.
     #[inline(always)]
-    pub fn get_optional_interpolated<T>(
-        &self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Option<T>>
+    pub fn get_optional_interpolated<T>(&self, name: impl ConfigName) -> ConfigResult<Option<T>>
     where
         T: FromConfig,
     {
@@ -1863,10 +1691,7 @@ impl Config {
     /// let missing: Option<Vec<i32>> = config.get_optional_list("missing").unwrap();
     /// assert_eq!(missing, None);
     /// ```
-    pub fn get_optional_list<T>(
-        &self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Option<Vec<T>>>
+    pub fn get_optional_list<T>(&self, name: impl ConfigName) -> ConfigResult<Option<Vec<T>>>
     where
         T: DataConversionTarget,
     {
@@ -1881,7 +1706,7 @@ impl Config {
     /// view.
     ///
     /// String-backed scalar and collection projections apply this config's
-    /// [`ReadOptions`] conversion policies without interpolating placeholders.
+    /// [`ReadPolicy`] conversion policies without interpolating placeholders.
     /// Use [`Self::deserialize_interpolated`] for explicit interpolation.
     ///
     /// The Serde view is JSON-like: mappings, sequences, booleans, strings,
@@ -2040,16 +1865,9 @@ impl Config {
     /// - [`ConfigError::PropertyIsFinal`] when trying to override a final
     ///   property.
     #[inline]
-    pub fn set_null(
-        &mut self,
-        name: impl ConfigName,
-        data_type: DataType,
-    ) -> ConfigResult<()> {
+    pub fn set_null(&mut self, name: impl ConfigName, data_type: DataType) -> ConfigResult<()> {
         name.with_config_name(|name| {
-            let property = Property::new(
-                name,
-                ValueContainer::new_unset_scalar(data_type),
-            )?;
+            let property = Property::new(name, ValueContainer::new_unset_scalar(data_type))?;
             self.insert_property(name, property)
         })
     }
@@ -2109,9 +1927,7 @@ impl Config {
     /// Returns [`ConfigError::PropertyIsFinal`] for the first final property.
     #[inline]
     fn ensure_no_final_properties(&self) -> ConfigResult<()> {
-        if let Some((name, _)) =
-            self.properties.iter().find(|(_, prop)| prop.is_final())
-        {
+        if let Some((name, _)) = self.properties.iter().find(|(_, prop)| prop.is_final()) {
             return Err(ConfigError::PropertyIsFinal(name.clone()));
         }
         Ok(())
@@ -2120,15 +1936,12 @@ impl Config {
 
 impl ConfigReader for Config {
     #[inline]
-    fn read_options(&self) -> &ReadOptions {
-        Config::read_options(self)
+    fn read_policy(&self) -> &ReadPolicy {
+        Config::default_read_policy(self)
     }
 
     #[inline]
-    fn get_property(
-        &self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Option<&Property>> {
+    fn get_property(&self, name: impl ConfigName) -> ConfigResult<Option<&Property>> {
         Config::get_property(self, name)
     }
 
@@ -2177,10 +1990,7 @@ impl ConfigReader for Config {
     }
 
     #[inline]
-    fn get_optional_list<T>(
-        &self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Option<Vec<T>>>
+    fn get_optional_list<T>(&self, name: impl ConfigName) -> ConfigResult<Option<Vec<T>>>
     where
         T: DataConversionTarget,
     {
@@ -2206,9 +2016,7 @@ impl ConfigReader for Config {
     }
 
     #[inline]
-    fn iter<'a>(
-        &'a self,
-    ) -> Box<dyn Iterator<Item = (&'a str, &'a Property)> + 'a> {
+    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a str, &'a Property)> + 'a> {
         Box::new(Config::iter(self))
     }
 
