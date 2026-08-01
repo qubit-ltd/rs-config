@@ -46,8 +46,8 @@ impl Config {
     ///
     /// # Errors
     ///
-    /// Returns any [`ConfigError`] produced by the source while loading or by
-    /// the underlying config mutation methods.
+    /// Returns any [`crate::ConfigError`] produced by the source while loading
+    /// or by the underlying config mutation methods.
     #[inline]
     pub fn from_source(source: &dyn ConfigSource) -> ConfigResult<Self> {
         let mut config = Self::new();
@@ -67,8 +67,8 @@ impl Config {
     ///
     /// # Errors
     ///
-    /// Returns [`ConfigError`] if a matching environment key or value is not
-    /// valid Unicode, or if setting a loaded property fails.
+    /// Returns [`crate::ConfigError`] if a matching environment key or value is
+    /// not valid Unicode, or if setting a loaded property fails.
     #[inline]
     pub fn from_env() -> ConfigResult<Self> {
         let source = EnvConfigSource::new();
@@ -91,8 +91,8 @@ impl Config {
     ///
     /// # Errors
     ///
-    /// Returns [`ConfigError`] if a matching environment key or value is not
-    /// valid Unicode, or if setting a loaded property fails.
+    /// Returns [`crate::ConfigError`] if a matching environment key or value is
+    /// not valid Unicode, or if setting a loaded property fails.
     #[inline]
     pub fn from_env_prefix(prefix: &str) -> ConfigResult<Self> {
         let source = EnvConfigSource::with_prefix(prefix);
@@ -112,8 +112,8 @@ impl Config {
     ///
     /// # Errors
     ///
-    /// Returns [`ConfigError`] if a matching environment key or value is not
-    /// valid Unicode, or if setting a loaded property fails.
+    /// Returns [`crate::ConfigError`] if a matching environment key or value is
+    /// not valid Unicode, or if setting a loaded property fails.
     #[inline]
     pub fn from_env_options(options: EnvConfigOptions) -> ConfigResult<Self> {
         let source = EnvConfigSource::with_options(options);
@@ -132,9 +132,9 @@ impl Config {
     ///
     /// # Errors
     ///
-    /// Returns [`ConfigError::IoError`] if the file cannot be read,
-    /// [`ConfigError::ParseError`] if the TOML cannot be parsed, or another
-    /// [`ConfigError`] if setting a loaded property fails.
+    /// Returns [`crate::ConfigError::IoError`] if the file cannot be read,
+    /// [`crate::ConfigError::ParseError`] if the TOML cannot be parsed, or
+    /// another [`crate::ConfigError`] if setting a loaded property fails.
     #[cfg(feature = "toml")]
     #[inline]
     pub fn from_toml_file<P: AsRef<Path>>(path: P) -> ConfigResult<Self> {
@@ -154,9 +154,9 @@ impl Config {
     ///
     /// # Errors
     ///
-    /// Returns [`ConfigError::IoError`] if the file cannot be read,
-    /// [`ConfigError::ParseError`] if the YAML cannot be parsed, or another
-    /// [`ConfigError`] if setting a loaded property fails.
+    /// Returns [`crate::ConfigError::IoError`] if the file cannot be read,
+    /// [`crate::ConfigError::ParseError`] if the YAML cannot be parsed, or
+    /// another [`crate::ConfigError`] if setting a loaded property fails.
     #[cfg(feature = "yaml")]
     #[inline]
     pub fn from_yaml_file<P: AsRef<Path>>(path: P) -> ConfigResult<Self> {
@@ -176,8 +176,8 @@ impl Config {
     ///
     /// # Errors
     ///
-    /// Returns [`ConfigError::IoError`] if the file cannot be read, or another
-    /// [`ConfigError`] if setting a loaded property fails.
+    /// Returns [`crate::ConfigError::IoError`] if the file cannot be read, or
+    /// another [`crate::ConfigError`] if setting a loaded property fails.
     #[inline]
     pub fn from_properties_file<P: AsRef<Path>>(path: P) -> ConfigResult<Self> {
         let source = PropertiesConfigSource::from_file(path);
@@ -196,9 +196,9 @@ impl Config {
     ///
     /// # Errors
     ///
-    /// Returns [`ConfigError::IoError`] if the file cannot be read,
-    /// [`ConfigError::ParseError`] if dotenv parsing fails, or another
-    /// [`ConfigError`] if setting a loaded property fails.
+    /// Returns [`crate::ConfigError::IoError`] if the file cannot be read,
+    /// [`crate::ConfigError::ParseError`] if dotenv parsing fails, or another
+    /// [`crate::ConfigError`] if setting a loaded property fails.
     #[cfg(feature = "env-file")]
     #[inline]
     pub fn from_env_file<P: AsRef<Path>>(path: P) -> ConfigResult<Self> {
