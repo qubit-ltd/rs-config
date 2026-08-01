@@ -274,7 +274,7 @@ customize them should depend on that crate directly:
 ```toml
 [dependencies]
 qubit-config = "0.14"
-qubit-datatype = { version = "0.9", default-features = false, features = ["converter"] }
+qubit-datatype = { version = "0.10", default-features = false, features = ["converter"] }
 ```
 
 ```rust
