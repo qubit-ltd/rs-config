@@ -58,7 +58,7 @@ fn test_property_new() {
     let prop = Property::new("test.property", values.clone()).unwrap();
     assert_eq!(prop.name(), "test.property");
     assert_eq!(prop.value(), &ValueContainer::Collection(values));
-    assert!(!prop.is_empty());
+    assert!(!prop.is_unset());
     assert_eq!(prop.len(), 1);
     assert_eq!(prop.data_type(), DataType::String);
     assert!(prop.description().is_none());
@@ -74,7 +74,7 @@ fn test_property_new_collection() {
     assert_eq!(prop.name(), "test.string");
     assert_eq!(prop.len(), 2);
     assert_eq!(prop.data_type(), DataType::String);
-    assert!(!prop.is_empty());
+    assert!(!prop.is_unset());
 }
 
 #[test]
@@ -171,43 +171,43 @@ fn test_property_len() {
     let mut prop = new_unset_int32_property("test");
 
     assert_eq!(prop.len(), 0);
-    assert!(prop.is_empty());
+    assert!(prop.is_unset());
 
     prop.set_value(MultiValues::Int32(vec![42]));
     assert_eq!(prop.len(), 1);
-    assert!(!prop.is_empty());
+    assert!(!prop.is_unset());
 
     prop.set_value(MultiValues::Int32(vec![1, 2, 3, 4, 5]));
     assert_eq!(prop.len(), 5);
 
     prop.set_value(MultiValues::Int32(Vec::new()));
     assert_eq!(prop.len(), 0);
-    assert!(prop.is_empty());
+    assert!(!prop.is_unset());
 }
 
 #[test]
-fn test_property_is_empty() {
+fn test_property_is_unset() {
     let mut prop = new_unset_int32_property("test");
 
     // Empty
-    assert!(prop.is_empty());
+    assert!(prop.is_unset());
 
     // Has value
     prop.set_value(MultiValues::Int32(vec![42]));
-    assert!(!prop.is_empty());
+    assert!(!prop.is_unset());
 
-    // After clearing
-    prop.clear();
-    assert!(prop.is_empty());
+    // After unsetting
+    prop.unset();
+    assert!(prop.is_unset());
 }
 
 #[test]
-fn test_property_clear() {
+fn test_property_unset() {
     let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int32(vec![1, 2, 3]));
 
     assert_eq!(prop.len(), 3);
-    prop.clear();
+    prop.unset();
     assert_eq!(prop.len(), 0);
     assert_eq!(prop.data_type(), DataType::Int32); // Type remains unchanged
 }
@@ -1684,14 +1684,14 @@ fn test_property_generic_add_slice_float64() {
 // ============================================================================
 
 #[test]
-fn test_property_empty_after_clear() {
+fn test_property_unset_after_unset() {
     let mut prop = new_unset_int32_property("test");
     prop.set_value(MultiValues::Int32(vec![1, 2, 3, 4, 5]));
 
     assert_eq!(prop.len(), 5);
-    prop.clear();
+    prop.unset();
     assert_eq!(prop.len(), 0);
-    assert!(prop.is_empty());
+    assert!(prop.is_unset());
     assert_eq!(prop.data_type(), DataType::Int32); // Type remains unchanged
 }
 

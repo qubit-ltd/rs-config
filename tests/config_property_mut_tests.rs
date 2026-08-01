@@ -59,7 +59,7 @@ fn test_config_property_mut_rejects_mutation_after_marking_final() {
             Err(ConfigError::PropertyIsFinal(name)) if name == "server.host"
         ));
         assert!(matches!(
-            property.clear(),
+            property.unset(),
             Err(ConfigError::PropertyIsFinal(name)) if name == "server.host"
         ));
     }

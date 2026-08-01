@@ -190,7 +190,7 @@ impl<'a> ConfigPropertyMut<'a> {
             .map_err(|error| ConfigError::from((self.property.name(), error)))
     }
 
-    /// Clears the property value when the property is not final.
+    /// Removes the property value when the property is not final.
     ///
     /// # Returns
     ///
@@ -201,9 +201,9 @@ impl<'a> ConfigPropertyMut<'a> {
     /// Returns [`ConfigError::PropertyIsFinal`] if the property has already
     /// been marked final.
     #[inline]
-    pub fn clear(&mut self) -> ConfigResult<()> {
+    pub fn unset(&mut self) -> ConfigResult<()> {
         self.ensure_not_final()?;
-        self.property.clear();
+        self.property.unset();
         Ok(())
     }
 

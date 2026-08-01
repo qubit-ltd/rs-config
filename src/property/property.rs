@@ -306,29 +306,30 @@ impl Property {
     /// The number of values in the property.
     #[inline(always)]
     #[must_use]
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         self.value.len()
     }
 
-    /// Checks if the property is empty
+    /// Checks whether the property value is unset.
+    ///
+    /// A concrete empty collection is not unset. Inspect the collection's
+    /// [`qubit_value::MultiValues::is_empty`] method when the number of stored
+    /// elements is relevant.
     ///
     /// # Returns
     ///
-    /// Returns `true` for both an unset value and a concrete empty collection.
-    /// Use [`ValueContainer::is_unset`] when those states must be
-    /// distinguished.
+    /// Returns `true` only when the property stores no concrete value.
     #[inline(always)]
     #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.value.is_empty()
+    pub fn is_unset(&self) -> bool {
+        self.value.is_unset()
     }
 
-    /// Clears the property value
-    ///
-    /// Clears all values in the property but keeps type information
+    /// Removes the property value while preserving its shape and data type.
     #[inline(always)]
-    pub fn clear(&mut self) {
-        self.value.clear();
+    pub fn unset(&mut self) {
+        self.value.unset();
     }
 
     /// Clones this property with a replacement name.

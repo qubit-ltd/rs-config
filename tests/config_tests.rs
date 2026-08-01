@@ -495,9 +495,9 @@ mod test_get_property_mut {
             let add_result = property.add("new-value");
             assert!(matches!(add_result, Err(ConfigError::PropertyIsFinal(_))));
 
-            let clear_result = property.clear();
+            let unset_result = property.unset();
             assert!(matches!(
-                clear_result,
+                unset_result,
                 Err(ConfigError::PropertyIsFinal(_))
             ));
 
@@ -1973,7 +1973,7 @@ mod test_iter {
         config.set("x", 42).unwrap();
         for (key, prop) in config.iter() {
             assert_eq!(key, "x");
-            assert!(!prop.is_empty());
+            assert!(!prop.is_unset());
         }
     }
 }
@@ -2381,14 +2381,14 @@ mod test_is_unset {
     }
 
     #[test]
-    fn test_is_unset_after_clear() {
+    fn test_is_unset_after_unset() {
         let mut config = Config::new();
         config.set("host", "localhost").unwrap();
         config
             .get_property_mut("host")
             .unwrap()
             .unwrap()
-            .clear()
+            .unset()
             .unwrap();
         assert!(config.is_unset("host").unwrap());
     }
