@@ -6,15 +6,11 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-use qubit_value::Value as QubitValue;
+use qubit_value::ValueRef;
 
 use crate::config_reader::ConfigReader;
 use crate::options::ReadPolicy;
-use crate::{
-    ConfigResult,
-    Property,
-    utils,
-};
+use crate::{ConfigResult, Property, utils};
 
 use super::config_parse_context::ConfigParseContext;
 use super::from_config::FromConfig;
@@ -29,10 +25,13 @@ use super::from_config::FromConfig;
 ///
 /// Returns `Some(&str)` only when the property has scalar string shape.
 pub(crate) fn first_scalar_string(property: &Property) -> Option<&str> {
-    match property.value().as_scalar() {
-        Some(QubitValue::String(value)) => Some(value.as_str()),
-        _ => None,
-    }
+    property
+        .value()
+        .as_scalar()
+        .and_then(|value| match value.view() {
+            ValueRef::String(value) => Some(value),
+            _ => None,
+        })
 }
 
 /// Checks whether a property should be treated as missing for read operations.
@@ -181,9 +180,7 @@ fn is_effectively_missing_by<R: ConfigReader + ?Sized>(
     let Some(value) = first_scalar_string(property) else {
         return Ok(false);
     };
-    let substitute = |value: &str| {
-        substitute_for_reader(reader, name, value, options, interpolate)
-    };
+    let substitute = |value: &str| substitute_for_reader(reader, name, value, options, interpolate);
     let ctx = ConfigParseContext::new(name, options, &substitute);
     let value = ctx.substitute_string(value)?;
     match options
@@ -209,9 +206,7 @@ where
     R: ConfigReader + ?Sized,
     T: FromConfig,
 {
-    let substitute = |value: &str| {
-        substitute_for_reader(reader, name, value, options, interpolate)
-    };
+    let substitute = |value: &str| substitute_for_reader(reader, name, value, options, interpolate);
     let ctx = ConfigParseContext::new(name, options, &substitute);
     T::from_config(property, &ctx)
 }
