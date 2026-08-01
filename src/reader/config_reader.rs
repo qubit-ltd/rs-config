@@ -132,7 +132,8 @@ pub trait ConfigReader: internal::Sealed {
     /// it to `T`.
     ///
     /// String-backed values resolve `${...}` placeholders through this reader
-    /// and, when enabled by [`ReadPolicy`], the process environment.
+    /// and, when enabled by [`crate::options::ReadPolicy`], the process
+    /// environment.
     ///
     /// # Type Parameters
     ///
@@ -659,7 +660,8 @@ pub trait ConfigReader: internal::Sealed {
     /// Returns whether `name` exists as an unset property.
     ///
     /// A missing key and a concrete empty collection both return `false`.
-    /// Only a property backed by an unset [`ValueContainer`] returns `true`.
+    /// Only a property backed by an unset [`qubit_value::ValueContainer`]
+    /// returns `true`.
     fn is_unset(&self, name: impl ConfigName) -> ConfigResult<bool> {
         name.with_config_name(|name| {
             Ok(self

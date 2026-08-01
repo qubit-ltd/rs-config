@@ -22,8 +22,9 @@ impl Config {
     /// view.
     ///
     /// String-backed scalar and collection projections apply this config's
-    /// [`ReadPolicy`] conversion policies without interpolating placeholders.
-    /// Use [`Self::deserialize_interpolated`] for explicit interpolation.
+    /// [`crate::options::ReadPolicy`] conversion policies without interpolating
+    /// placeholders. Use [`Self::deserialize_interpolated`] for explicit
+    /// interpolation.
     ///
     /// The Serde view is JSON-like: mappings, sequences, booleans, strings,
     /// numbers, and null values are exposed according to Serde's data model.

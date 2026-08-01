@@ -51,14 +51,15 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// The value of the specified type on success, or a [`ConfigError`] on
-    /// failure.
+    /// The value of the specified type on success, or a [`crate::ConfigError`]
+    /// on failure.
     ///
     /// # Errors
     ///
-    /// - [`ConfigError::PropertyNotFound`] if the key does not exist
-    /// - [`ConfigError::PropertyHasNoValue`] if the property has no value
-    /// - [`ConfigError::ConversionError`] if the stored value cannot be
+    /// - [`crate::ConfigError::PropertyNotFound`] if the key does not exist
+    /// - [`crate::ConfigError::PropertyHasNoValue`] if the property has no
+    ///   value
+    /// - [`crate::ConfigError::ConversionError`] if the stored value cannot be
     ///   converted to `T`
     ///
     /// # Examples
@@ -121,7 +122,7 @@ impl Config {
     /// Unlike [`Self::get`], this method preserves the pre-conversion read
     /// semantics. For example, a stored string `"1"` can be read as `bool` by
     /// [`Self::get`], but [`Self::get_strict`] returns
-    /// [`ConfigError::TypeMismatch`].
+    /// [`crate::ConfigError::TypeMismatch`].
     ///
     /// # Type Parameters
     ///
@@ -133,7 +134,8 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// The exact typed value on success, or a [`ConfigError`] on failure.
+    /// The exact typed value on success, or a [`crate::ConfigError`] on
+    /// failure.
     pub fn get_strict<T>(&self, name: impl ConfigName) -> ConfigResult<T>
     where
         T: StrictValueRead,
@@ -408,8 +410,8 @@ impl Config {
     ///
     /// Unlike [`Self::get_list`], this method preserves the pre-conversion
     /// list read semantics. It returns an empty vector for empty properties and
-    /// [`ConfigError::TypeMismatch`] for non-empty values of another stored
-    /// type.
+    /// [`crate::ConfigError::TypeMismatch`] for non-empty values of another
+    /// stored type.
     ///
     /// # Type Parameters
     ///
@@ -421,8 +423,8 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// A vector of exact typed values on success, or a [`ConfigError`] on
-    /// failure.
+    /// A vector of exact typed values on success, or a [`crate::ConfigError`]
+    /// on failure.
     pub fn get_list_strict<T>(
         &self,
         name: impl ConfigName,

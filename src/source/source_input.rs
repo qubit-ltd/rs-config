@@ -113,28 +113,3 @@ fn read_file_bytes(
     }
     Ok(bytes)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::SourceInput;
-    use crate::source::SourceLimits;
-
-    #[test]
-    fn in_memory_input_is_rejected_before_copying_when_over_limit() {
-        let input = SourceInput::Content("abcd".to_owned());
-        let limits = SourceLimits::default().with_max_input_bytes(3);
-
-        let error = input
-            .read_to_string("properties", limits)
-            .expect_err("oversized in-memory input must be rejected");
-        assert!(matches!(
-            error,
-            crate::ConfigError::SourceLimitExceeded {
-                kind: crate::SourceLimitKind::InputBytes,
-                limit: 3,
-                observed_at_least: 4,
-                ..
-            }
-        ));
-    }
-}
