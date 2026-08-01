@@ -13,30 +13,16 @@ use std::time::Duration;
 #[cfg(feature = "bigdecimal")]
 use bigdecimal::BigDecimal;
 #[cfg(feature = "chrono")]
-use chrono::{
-    DateTime,
-    NaiveDate,
-    NaiveDateTime,
-    NaiveTime,
-    Utc,
-};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 #[cfg(feature = "num-bigint")]
 use num_bigint::BigInt;
 use qubit_datatype::DataConversionTarget;
-use qubit_value::{
-    MultiValues,
-    Value as QubitValue,
-    ValueContainer,
-};
+use qubit_value::{MultiValues, MultiValuesRef, Value as QubitValue, ValueContainer, ValueRef};
 use serde_json::Value as JsonValue;
 #[cfg(feature = "url")]
 use url::Url;
 
-use crate::{
-    ConfigResult,
-    Property,
-    utils,
-};
+use crate::{ConfigResult, Property, utils};
 
 use super::config_parse_context::ConfigParseContext;
 use super::helpers::first_scalar_string;
@@ -53,10 +39,7 @@ pub trait FromConfig: Sized {
     /// # Returns
     ///
     /// Parsed value, or a [`crate::ConfigError`] with key context.
-    fn from_config(
-        property: &Property,
-        ctx: &ConfigParseContext<'_>,
-    ) -> ConfigResult<Self>;
+    fn from_config(property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<Self>;
 }
 
 /// Converts the first scalar string value of a property to a target type.
@@ -69,10 +52,7 @@ pub trait FromConfig: Sized {
 /// # Returns
 ///
 /// The converted value, or a [`ConfigError`] with key context.
-fn convert_first<T>(
-    property: &Property,
-    ctx: &ConfigParseContext<'_>,
-) -> ConfigResult<T>
+fn convert_first<T>(property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<T>
 where
     T: DataConversionTarget,
 {
@@ -109,19 +89,24 @@ fn substituted_values<'a>(
     ctx: &ConfigParseContext<'_>,
 ) -> ConfigResult<Cow<'a, ValueContainer>> {
     match property.value() {
-        ValueContainer::Scalar(QubitValue::String(value)) => ctx
-            .substitute_string(value)
-            .map(QubitValue::String)
-            .map(ValueContainer::Scalar)
-            .map(Cow::Owned),
-        ValueContainer::Collection(MultiValues::String(values)) => values
-            .iter()
-            .map(|value| ctx.substitute_string(value))
-            .collect::<ConfigResult<Vec<_>>>()
-            .map(MultiValues::String)
-            .map(ValueContainer::Collection)
-            .map(Cow::Owned),
-        values => Ok(Cow::Borrowed(values)),
+        ValueContainer::Scalar(value) => match value.view() {
+            ValueRef::String(value) => ctx
+                .substitute_string(value)
+                .map(QubitValue::String)
+                .map(ValueContainer::Scalar)
+                .map(Cow::Owned),
+            _ => Ok(Cow::Borrowed(property.value())),
+        },
+        ValueContainer::Collection(values) => match values.view() {
+            MultiValuesRef::String(values) => values
+                .iter()
+                .map(|value| ctx.substitute_string(value))
+                .collect::<ConfigResult<Vec<_>>>()
+                .map(MultiValues::String)
+                .map(ValueContainer::Collection)
+                .map(Cow::Owned),
+            _ => Ok(Cow::Borrowed(property.value())),
+        },
     }
 }
 
@@ -188,10 +173,7 @@ impl FromConfig for String {
     /// # Returns
     ///
     /// Parsed value, or a [`crate::ConfigError`] with key context.
-    fn from_config(
-        property: &Property,
-        ctx: &ConfigParseContext<'_>,
-    ) -> ConfigResult<Self> {
+    fn from_config(property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<Self> {
         if let Some(value) = first_scalar_string(property) {
             let value = ctx.substitute_string(value)?;
             QubitValue::String(value)
@@ -220,10 +202,7 @@ where
     /// # Returns
     ///
     /// Parsed value, or a [`crate::ConfigError`] with key context.
-    fn from_config(
-        property: &Property,
-        ctx: &ConfigParseContext<'_>,
-    ) -> ConfigResult<Self> {
+    fn from_config(property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<Self> {
         substituted_values(property, ctx)?
             .to_list_with::<T>(ctx.options().conversion_options())
             .map_err(|error| utils::map_value_error(ctx.key(), error))
