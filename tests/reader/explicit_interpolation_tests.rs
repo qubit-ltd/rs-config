@@ -10,6 +10,7 @@
 use qubit_config::{
     Config,
     ConfigError,
+    ConfigReader,
 };
 use serde::Deserialize;
 
@@ -90,6 +91,27 @@ fn test_get_interpolated_resolves_string_and_numeric_values() {
 
     assert_eq!(url, "http://localhost:8080/api");
     assert_eq!(port, 8080);
+}
+
+/// Verifies scoped interpolated reads fall back to root configuration keys.
+#[test]
+fn test_section_get_interpolated_falls_back_to_root_configuration() {
+    let mut config = Config::new();
+    config
+        .set("global.host", "api.example.test")
+        .expect("root host should be set");
+    config
+        .set("service.url", "https://${global.host}/v1")
+        .expect("scoped URL should be set");
+
+    let service = config
+        .section("service")
+        .expect("service section should be valid");
+    let url = service
+        .get_interpolated::<String>("url")
+        .expect("scoped interpolation should fall back to root keys");
+
+    assert_eq!(url, "https://api.example.test/v1");
 }
 
 #[test]

@@ -6,20 +6,30 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-use qubit_config::source::{SourceInput, SourceLimits};
+use qubit_config::{
+    Config,
+    ConfigError,
+    SourceLimitKind,
+    source::{
+        ConfigSource,
+        PropertiesConfigSource,
+        SourceLimits,
+    },
+};
 
 #[test]
-fn in_memory_input_is_rejected_before_copying_when_over_limit() {
-    let input = SourceInput::Content("abcd".to_owned());
-    let limits = SourceLimits::default().with_max_input_bytes(3);
+fn properties_source_rejects_oversized_in_memory_input_before_loading() {
+    let source = PropertiesConfigSource::from_content("key=abcd\n")
+        .with_limits(SourceLimits::default().with_max_input_bytes(3));
+    let mut config = Config::new();
 
-    let error = input
-        .read_to_string("properties", limits)
+    let error = source
+        .load(&mut config)
         .expect_err("oversized in-memory input must be rejected");
     assert!(matches!(
         error,
-        qubit_config::ConfigError::SourceLimitExceeded {
-            kind: qubit_config::SourceLimitKind::InputBytes,
+        ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::InputBytes,
             limit: 3,
             observed_at_least: 4,
             ..
