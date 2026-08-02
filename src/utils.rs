@@ -138,36 +138,6 @@ pub(crate) fn ensure_unique_flattened_key(
     })
 }
 
-/// Replaces variables in a string (`${name}`).
-///
-/// Used internally by [`crate::Config`] and [`crate::ConfigReader`] when
-/// an explicitly interpolated read is requested.
-///
-/// # Parameters
-///
-/// * `value` - Text containing optional `${name}` placeholders.
-/// * `config` - Reader used to resolve variables.
-/// * `options` - Active interpolation limits and environment policy.
-/// * `path` - Configuration path whose value is being expanded.
-///
-/// # Returns
-///
-/// Fully expanded text.
-///
-/// # Errors
-///
-/// Returns keyed lookup, conversion, depth, or cycle errors.
-pub(crate) fn substitute_variables<R: ConfigReader + ?Sized>(
-    value: &str,
-    config: &R,
-    options: &ReadPolicy,
-    path: &str,
-) -> ConfigResult<String> {
-    substitute_variables_by(value, options, path, |var_name| {
-        find_variable_value(var_name, config, options, path)
-    })
-}
-
 /// Replaces variables using a primary reader and a fallback reader.
 ///
 /// The primary reader is checked first. Absent or unset values fall back to
