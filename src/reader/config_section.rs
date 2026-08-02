@@ -9,24 +9,13 @@
 
 use std::borrow::Cow;
 
-use qubit_value::{
-    StrictValueListRead,
-    StrictValueRead,
-};
+use qubit_value::StrictValueRead;
 
 use crate::config::Config;
-use crate::config_path::{
-    ensure_config_key,
-    ensure_config_path,
-};
+use crate::config_path::{ensure_config_key, ensure_config_path};
 use crate::config_reader::ConfigReader;
 use crate::options::ReadPolicy;
-use crate::{
-    ConfigError,
-    ConfigName,
-    ConfigResult,
-    Property,
-};
+use crate::{ConfigError, ConfigName, ConfigResult, Property};
 
 /// Read-only view of the descendants under a configuration path.
 ///
@@ -61,17 +50,9 @@ impl<'a> ConfigSection<'a> {
     pub fn section(&self, path: &str) -> ConfigResult<ConfigSection<'a>> {
         ensure_config_path(path)?;
         if self.path.is_empty() {
-            ConfigSection::new_with_read_policy(
-                self.config,
-                path,
-                self.read_policy,
-            )
+            ConfigSection::new_with_read_policy(self.config, path, self.read_policy)
         } else if path.is_empty() {
-            ConfigSection::new_with_read_policy(
-                self.config,
-                self.path.as_str(),
-                self.read_policy,
-            )
+            ConfigSection::new_with_read_policy(self.config, self.path.as_str(), self.read_policy)
         } else {
             ConfigSection::new_with_read_policy(
                 self.config,
@@ -121,10 +102,7 @@ impl<'a> ConfigSection<'a> {
 
     /// Applies a borrowed read-policy override to this view.
     #[inline(always)]
-    pub(crate) fn with_read_policy_override(
-        mut self,
-        policy: &'a ReadPolicy,
-    ) -> Self {
+    pub(crate) fn with_read_policy_override(mut self, policy: &'a ReadPolicy) -> Self {
         self.read_policy = Some(policy);
         self
     }
@@ -230,10 +208,7 @@ impl<'a> ConfigSection<'a> {
     /// `None` for an empty property name on a non-root section; otherwise the
     /// resolved key.
     #[inline]
-    fn visible_property_key<'b>(
-        &'b self,
-        name: &'b str,
-    ) -> ConfigResult<Option<Cow<'b, str>>> {
+    fn visible_property_key<'b>(&'b self, name: &'b str) -> ConfigResult<Option<Cow<'b, str>>> {
         ensure_config_key(name)?;
         if !self.path.is_empty() && name.is_empty() {
             Ok(None)
@@ -248,17 +223,13 @@ impl<'a> ConfigSection<'a> {
     ///
     /// Root entries unchanged for the root section, or descendant entries with
     /// the section prefix stripped for a non-root section.
-    fn visible_entries<'b>(
-        &'b self,
-    ) -> impl Iterator<Item = (&'b str, &'b Property)> + 'b {
+    fn visible_entries<'b>(&'b self) -> impl Iterator<Item = (&'b str, &'b Property)> + 'b {
         let child_prefix = self.child_prefix.as_deref();
         self.config
             .properties
             .iter()
             .filter_map(move |(key, value)| match child_prefix {
-                Some(prefix) => {
-                    key.strip_prefix(prefix).map(|relative| (relative, value))
-                }
+                Some(prefix) => key.strip_prefix(prefix).map(|relative| (relative, value)),
                 None => Some((key.as_str(), value)),
             })
     }
@@ -290,10 +261,7 @@ impl<'a> ConfigReader for ConfigSection<'a> {
         &self.path
     }
 
-    fn get_property(
-        &self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Option<&Property>> {
+    fn get_property(&self, name: impl ConfigName) -> ConfigResult<Option<&Property>> {
         name.with_config_name(|name| {
             let Some(key) = self.visible_property_key(name)? else {
                 return Ok(None);
@@ -339,7 +307,7 @@ impl<'a> ConfigReader for ConfigSection<'a> {
 
     fn get_list_strict<T>(&self, name: impl ConfigName) -> ConfigResult<Vec<T>>
     where
-        T: StrictValueListRead,
+        T: StrictValueRead,
     {
         name.with_config_name(|name| {
             let key = self
@@ -373,9 +341,7 @@ impl<'a> ConfigReader for ConfigSection<'a> {
         )
     }
 
-    fn iter<'b>(
-        &'b self,
-    ) -> Box<dyn Iterator<Item = (&'b str, &'b Property)> + 'b> {
+    fn iter<'b>(&'b self) -> Box<dyn Iterator<Item = (&'b str, &'b Property)> + 'b> {
         Box::new(self.visible_entries())
     }
 

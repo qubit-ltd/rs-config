@@ -10,24 +10,12 @@
 
 use super::Config;
 use crate::config_reader::ConfigReader;
-use crate::from::{
-    FromConfig,
-    IntoConfigDefault,
-};
+use crate::from::{FromConfig, IntoConfigDefault};
 use crate::options::ReadPolicy;
 use crate::utils;
-use crate::{
-    ConfigName,
-    ConfigNames,
-    ConfigResult,
-    ConfigSection,
-    Property,
-};
+use crate::{ConfigName, ConfigNames, ConfigResult, ConfigSection, Property};
 use qubit_datatype::DataConversionTarget;
-use qubit_value::{
-    StrictValueListRead,
-    StrictValueRead,
-};
+use qubit_value::StrictValueRead;
 
 impl Config {
     // ========================================================================
@@ -258,10 +246,7 @@ impl Config {
     /// Returns missing-value, interpolation, resource-limit, or conversion
     /// errors.
     #[inline(always)]
-    pub fn get_any_interpolated<T>(
-        &self,
-        names: impl ConfigNames,
-    ) -> ConfigResult<T>
+    pub fn get_any_interpolated<T>(&self, names: impl ConfigNames) -> ConfigResult<T>
     where
         T: FromConfig,
     {
@@ -277,10 +262,7 @@ impl Config {
     /// # Returns
     ///
     /// `Ok(None)` when every key is absent or effectively missing.
-    pub fn get_optional_any<T>(
-        &self,
-        names: impl ConfigNames,
-    ) -> ConfigResult<Option<T>>
+    pub fn get_optional_any<T>(&self, names: impl ConfigNames) -> ConfigResult<Option<T>>
     where
         T: FromConfig,
     {
@@ -425,12 +407,9 @@ impl Config {
     ///
     /// A vector of exact typed values on success, or a [`crate::ConfigError`]
     /// on failure.
-    pub fn get_list_strict<T>(
-        &self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Vec<T>>
+    pub fn get_list_strict<T>(&self, name: impl ConfigName) -> ConfigResult<Vec<T>>
     where
-        T: StrictValueListRead,
+        T: StrictValueRead,
     {
         name.with_config_name(|name| {
             let property = self.get_property_by_name(name)?;
@@ -518,10 +497,7 @@ impl Config {
     /// let missing: Option<i32> = config.get_optional("missing").unwrap();
     /// assert_eq!(missing, None);
     /// ```
-    pub fn get_optional<T>(
-        &self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Option<T>>
+    pub fn get_optional<T>(&self, name: impl ConfigName) -> ConfigResult<Option<T>>
     where
         T: FromConfig,
     {
@@ -548,10 +524,7 @@ impl Config {
     /// Returns interpolation, resource-limit, or conversion errors with key
     /// context.
     #[inline(always)]
-    pub fn get_optional_interpolated<T>(
-        &self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Option<T>>
+    pub fn get_optional_interpolated<T>(&self, name: impl ConfigName) -> ConfigResult<Option<T>>
     where
         T: FromConfig,
     {
@@ -600,10 +573,7 @@ impl Config {
     /// let missing: Option<Vec<i32>> = config.get_optional_list("missing").unwrap();
     /// assert_eq!(missing, None);
     /// ```
-    pub fn get_optional_list<T>(
-        &self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Option<Vec<T>>>
+    pub fn get_optional_list<T>(&self, name: impl ConfigName) -> ConfigResult<Option<Vec<T>>>
     where
         T: DataConversionTarget,
     {
@@ -617,10 +587,7 @@ impl ConfigReader for Config {
     }
 
     #[inline]
-    fn get_property(
-        &self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Option<&Property>> {
+    fn get_property(&self, name: impl ConfigName) -> ConfigResult<Option<&Property>> {
         Config::get_property(self, name)
     }
 
@@ -655,7 +622,7 @@ impl ConfigReader for Config {
     #[inline]
     fn get_list_strict<T>(&self, name: impl ConfigName) -> ConfigResult<Vec<T>>
     where
-        T: StrictValueListRead,
+        T: StrictValueRead,
     {
         Config::get_list_strict(self, name)
     }
@@ -679,9 +646,7 @@ impl ConfigReader for Config {
     }
 
     #[inline]
-    fn iter<'a>(
-        &'a self,
-    ) -> Box<dyn Iterator<Item = (&'a str, &'a Property)> + 'a> {
+    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a str, &'a Property)> + 'a> {
         Box::new(Config::iter(self))
     }
 
