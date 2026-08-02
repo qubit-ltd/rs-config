@@ -9,7 +9,7 @@
 use crate::ConfigResult;
 use crate::options::ReadPolicy;
 
-/// Context passed to [`crate::from::FromConfig`] implementations.
+/// Context passed to [`crate::conversion::FromConfig`] implementations.
 pub struct ConfigParseContext<'a> {
     /// The root-relative configuration key.
     key: &'a str,

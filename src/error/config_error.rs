@@ -11,10 +11,17 @@
 
 use thiserror::Error;
 
-use qubit_datatype::{DataConversionError, DataType};
+use qubit_datatype::{
+    DataConversionError,
+    DataType,
+};
 use qubit_value::ValueError;
 
-use crate::{ConfigErrorKind, ConfigPathViolation, SourceLimitKind};
+use crate::{
+    ConfigErrorKind,
+    ConfigPathViolation,
+    SourceLimitKind,
+};
 
 /// Configuration error type.
 #[non_exhaustive]
@@ -121,7 +128,9 @@ pub enum ConfigError {
     },
 
     /// Variable substitution depth exceeded.
-    #[error("Variable substitution at '{path}' exceeded maximum depth: {max_depth}")]
+    #[error(
+        "Variable substitution at '{path}' exceeded maximum depth: {max_depth}"
+    )]
     SubstitutionDepthExceeded {
         /// Configuration path whose value was being expanded.
         path: String,
@@ -130,7 +139,9 @@ pub enum ConfigError {
     },
 
     /// Variable substitution resolved too many placeholders.
-    #[error("Variable substitution at '{path}' exceeded maximum expansions: {max_expansions}")]
+    #[error(
+        "Variable substitution at '{path}' exceeded maximum expansions: {max_expansions}"
+    )]
     SubstitutionExpansionLimitExceeded {
         /// Configuration path whose value was being expanded.
         path: String,
@@ -139,7 +150,9 @@ pub enum ConfigError {
     },
 
     /// Variable substitution produced an oversized value.
-    #[error("Variable substitution at '{path}' exceeded maximum output bytes: {max_output_bytes}")]
+    #[error(
+        "Variable substitution at '{path}' exceeded maximum output bytes: {max_output_bytes}"
+    )]
     SubstitutionOutputTooLarge {
         /// Configuration path whose value was being expanded.
         path: String,
@@ -174,7 +187,9 @@ pub enum ConfigError {
     ),
 
     /// Configuration key path cannot be represented without ambiguity.
-    #[error("Configuration key conflict at '{path}': existing {existing}, incoming {incoming}")]
+    #[error(
+        "Configuration key conflict at '{path}': existing {existing}, incoming {incoming}"
+    )]
     KeyConflict {
         /// Conflicting configuration key/path.
         path: String,
@@ -229,20 +244,30 @@ impl ConfigError {
         match self {
             Self::InvalidKey { .. } => ConfigErrorKind::InvalidKey,
             Self::InvalidPath { .. } => ConfigErrorKind::InvalidPath,
-            Self::SourceLimitExceeded { .. } => ConfigErrorKind::SourceLimitExceeded,
+            Self::SourceLimitExceeded { .. } => {
+                ConfigErrorKind::SourceLimitExceeded
+            }
             Self::PropertyNotFound(_) => ConfigErrorKind::PropertyNotFound,
-            Self::PropertyCandidatesNotFound { .. } => ConfigErrorKind::PropertyNotFound,
+            Self::PropertyCandidatesNotFound { .. } => {
+                ConfigErrorKind::PropertyNotFound
+            }
             Self::PropertyHasNoValue(_) => ConfigErrorKind::PropertyHasNoValue,
             Self::TypeMismatch { .. } => ConfigErrorKind::TypeMismatch,
             Self::ConversionError { .. } => ConfigErrorKind::Conversion,
             Self::ValueError { .. } => ConfigErrorKind::Value,
             Self::SubstitutionError { .. } => ConfigErrorKind::Substitution,
-            Self::SubstitutionDepthExceeded { .. } => ConfigErrorKind::SubstitutionDepthExceeded,
+            Self::SubstitutionDepthExceeded { .. } => {
+                ConfigErrorKind::SubstitutionDepthExceeded
+            }
             Self::SubstitutionExpansionLimitExceeded { .. } => {
                 ConfigErrorKind::SubstitutionExpansionLimitExceeded
             }
-            Self::SubstitutionOutputTooLarge { .. } => ConfigErrorKind::SubstitutionOutputTooLarge,
-            Self::SubstitutionCycle { .. } => ConfigErrorKind::SubstitutionCycle,
+            Self::SubstitutionOutputTooLarge { .. } => {
+                ConfigErrorKind::SubstitutionOutputTooLarge
+            }
+            Self::SubstitutionCycle { .. } => {
+                ConfigErrorKind::SubstitutionCycle
+            }
             Self::MergeError(_) => ConfigErrorKind::Merge,
             Self::PropertyIsFinal(_) => ConfigErrorKind::PropertyIsFinal,
             Self::KeyConflict { .. } => ConfigErrorKind::KeyConflict,
@@ -266,10 +291,12 @@ impl ConfigError {
             | Self::PropertyNotFound(path)
             | Self::PropertyHasNoValue(path)
             | Self::PropertyIsFinal(path) => Some(path),
-            Self::PropertyCandidatesNotFound { paths } => match paths.as_slice() {
-                [path] => Some(path),
-                _ => None,
-            },
+            Self::PropertyCandidatesNotFound { paths } => {
+                match paths.as_slice() {
+                    [path] => Some(path),
+                    _ => None,
+                }
+            }
             Self::TypeMismatch { key, .. }
             | Self::ConversionError { key, .. }
             | Self::ValueError { key, .. } => Some(key),
@@ -325,7 +352,10 @@ impl ConfigError {
     ///
     /// A missing-value or conversion error retaining `key`.
     #[inline]
-    pub fn from_data_conversion_error(key: &str, error: DataConversionError) -> Self {
+    pub fn from_data_conversion_error(
+        key: &str,
+        error: DataConversionError,
+    ) -> Self {
         if error.is_missing() {
             Self::PropertyHasNoValue(key.to_string())
         } else {
@@ -350,12 +380,16 @@ impl ConfigError {
     fn from_value_error(key: &str, error: ValueError) -> Self {
         match error {
             ValueError::NoValue(_) => Self::PropertyHasNoValue(key.to_string()),
-            ValueError::TypeMismatch { expected, actual } => Self::TypeMismatch {
-                key: key.to_string(),
-                expected,
-                actual,
-            },
-            ValueError::DataConversion(source) => Self::from_data_conversion_error(key, source),
+            ValueError::TypeMismatch { expected, actual } => {
+                Self::TypeMismatch {
+                    key: key.to_string(),
+                    expected,
+                    actual,
+                }
+            }
+            ValueError::DataConversion(source) => {
+                Self::from_data_conversion_error(key, source)
+            }
             ValueError::DataListConversion(error) => {
                 let (source_index, source) = error.into_parts();
                 Self::ConversionError {
