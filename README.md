@@ -207,7 +207,13 @@ let port: i32 = db.get("port")?;
 
 `ReadPolicy::env_friendly()` is useful for environment-variable style values: it trims strings, treats blank scalar strings as missing, accepts `true/false`, `1/0`, `yes/no`, and `on/off`, and splits scalar strings on commas for `Vec<T>` reads while skipping empty items. It permits nearest-even text-to-float rounding, but keeps fractional-to-integer and existing-numeric-to-float conversions exact.
 
-Ordinary reads never interpolate `${...}`. Explicit interpolated reads resolve configuration keys first. `ReadPolicy::env_friendly()` changes conversion rules only; environment-variable fallback remains disabled. Opt into it explicitly with `with_interpolation_sources(InterpolationSources::ConfigThenEnv)`, and treat such interpolated configuration as trusted because it can select environment-variable names.
+Ordinary reads never interpolate `${...}`. Explicit interpolated reads resolve
+the current reader scope first; for a `ConfigSection`, they then fall back to
+the root `Config`. `ReadPolicy::env_friendly()` changes conversion rules only;
+environment-variable fallback remains disabled. Opt into it explicitly with
+`with_interpolation_sources(InterpolationSources::ConfigThenEnv)`, which is
+consulted only after both configuration scopes. Treat such interpolated
+configuration as trusted because it can select environment-variable names.
 
 ```rust
 use qubit_config::{Config, options::{InterpolationSources, ReadPolicy}};
@@ -685,9 +691,6 @@ cargo test
 
 # Run tests with all declared features
 cargo test --all-features
-
-# Run representative exact-key, prefix, section, and wire benchmarks
-cargo bench --bench config_lookup_bench
 
 # Project CI checks
 ./ci-check.sh

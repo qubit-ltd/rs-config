@@ -1123,7 +1123,7 @@ mod test_get_or {
 
 #[cfg(test)]
 mod test_into_config_default {
-    use qubit_config::from::IntoConfigDefault;
+    use qubit_config::conversion::IntoConfigDefault;
 
     #[test]
     fn test_identity_default_conversion() {

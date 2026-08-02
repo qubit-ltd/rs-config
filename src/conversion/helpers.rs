@@ -8,7 +8,10 @@
 
 use qubit_value::ValueRef;
 
-use crate::config_reader::ConfigReader;
+use crate::config_reader::{
+    ConfigReader,
+    root_config,
+};
 use crate::options::ReadPolicy;
 use crate::{
     ConfigResult,
@@ -221,6 +224,10 @@ where
 
 /// Applies the active variable-substitution policy before typed conversion.
 ///
+/// Placeholder lookup checks the current reader scope first, then the root
+/// configuration, and finally the process environment when the policy permits
+/// it. This matches structured deserialization for scoped readers.
+///
 /// # Parameters
 ///
 /// * `reader` - Reader used to resolve variables.
@@ -245,7 +252,13 @@ fn substitute_for_reader<R: ConfigReader + ?Sized>(
     interpolate: bool,
 ) -> ConfigResult<String> {
     if interpolate {
-        utils::substitute_variables(value, reader, options, path)
+        utils::substitute_variables_with_fallback(
+            value,
+            reader,
+            root_config(reader),
+            options,
+            path,
+        )
     } else {
         Ok(value.to_string())
     }

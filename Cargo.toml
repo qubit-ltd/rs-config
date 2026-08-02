@@ -76,11 +76,11 @@ path = "tests/source/composite_config_source_tests.rs"
 
 [[test]]
 name = "read_policy_tests"
-path = "tests/options/read_policy_tests.rs"
+path = "tests/reader/read_policy_tests.rs"
 
 [[test]]
 name = "explicit_interpolation_tests"
-path = "tests/explicit_interpolation_tests.rs"
+path = "tests/reader/explicit_interpolation_tests.rs"
 
 [[test]]
 name = "env_config_source_tests"
@@ -92,7 +92,7 @@ path = "tests/source/env_file_config_source_tests.rs"
 
 [[test]]
 name = "config_parse_context_tests"
-path = "tests/from/config_parse_context_tests.rs"
+path = "tests/conversion/from/config_parse_context_tests.rs"
 
 [[test]]
 name = "config_source_tests"
@@ -100,15 +100,15 @@ path = "tests/source/config_source_tests.rs"
 
 [[test]]
 name = "from_config_tests"
-path = "tests/from/from_config_tests.rs"
+path = "tests/conversion/from/from_config_tests.rs"
 
 [[test]]
 name = "helpers_tests"
-path = "tests/from/helpers_tests.rs"
+path = "tests/conversion/from/helpers_tests.rs"
 
 [[test]]
 name = "into_config_default_tests"
-path = "tests/from/into_config_default_tests.rs"
+path = "tests/conversion/from/into_config_default_tests.rs"
 
 [[test]]
 name = "properties_config_source_tests"
@@ -121,3 +121,79 @@ path = "tests/source/toml_config_source_tests.rs"
 [[test]]
 name = "yaml_config_source_tests"
 path = "tests/source/yaml_config_source_tests.rs"
+
+[[test]]
+name = "config_tests"
+path = "tests/config/config_tests.rs"
+
+[[test]]
+name = "config_wire_tests"
+path = "tests/config/config_wire_tests.rs"
+
+[[test]]
+name = "config_serde_ext_tests"
+path = "tests/conversion/config_serde_ext_tests.rs"
+
+[[test]]
+name = "config_value_deserializer_tests"
+path = "tests/conversion/config_value_deserializer_tests.rs"
+
+[[test]]
+name = "config_deserialize_error_tests"
+path = "tests/error/config_deserialize_error_tests.rs"
+
+[[test]]
+name = "config_error_kind_tests"
+path = "tests/error/config_error_kind_tests.rs"
+
+[[test]]
+name = "config_error_tests"
+path = "tests/error/config_error_tests.rs"
+
+[[test]]
+name = "error_tests"
+path = "tests/error/error_tests.rs"
+
+[[test]]
+name = "config_names_tests"
+path = "tests/key/config_names_tests.rs"
+
+[[test]]
+name = "config_name_tests"
+path = "tests/key/config_name_tests.rs"
+
+[[test]]
+name = "config_path_tests"
+path = "tests/key/config_path_tests.rs"
+
+[[test]]
+name = "configurable_tests"
+path = "tests/lifecycle/configurable_tests.rs"
+
+[[test]]
+name = "configured_tests"
+path = "tests/lifecycle/configured_tests.rs"
+
+[[test]]
+name = "config_property_mut_tests"
+path = "tests/property/config_property_mut_tests.rs"
+
+[[test]]
+name = "property_tests"
+path = "tests/property/property_tests.rs"
+
+[[test]]
+name = "config_reader_tests"
+path = "tests/reader/config_reader_tests.rs"
+
+[[test]]
+name = "config_section_tests"
+path = "tests/reader/config_section_tests.rs"
+
+[[test]]
+name = "source_input_tests"
+path = "tests/source/source_input_tests.rs"
+
+[[test]]
+name = "source_limits_tests"
+path = "tests/source/source_limits_tests.rs"

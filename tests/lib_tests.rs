@@ -17,7 +17,7 @@ fn crate_public_api_is_reachable() {
 
 #[test]
 fn crate_public_modules_are_reachable() {
-    fn assert_from_config<T: qubit_config::from::FromConfig>() {}
+    fn assert_from_config<T: qubit_config::conversion::FromConfig>() {}
 
     assert_from_config::<u16>();
     let _ = qubit_config::options::ReadPolicy::default();
