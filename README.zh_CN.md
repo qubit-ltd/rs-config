@@ -203,7 +203,11 @@ let port: i32 = db.get("port")?;
 
 `ReadPolicy::env_friendly()` 适合环境变量风格配置：会 trim 字符串，把空白标量字符串当作缺失，布尔值接受 `true/false`、`1/0`、`yes/no`、`on/off`，并在读取 `Vec<T>` 时按逗号拆分标量字符串、跳过空元素。它允许文本转浮点采用 nearest-even 舍入，但小数转整数与已有数值转浮点仍保持精确。
 
-普通读取永远不会插值 `${...}`。显式插值读取先解析配置项。`ReadPolicy::env_friendly()` 只改变转换规则，不会开启环境变量回退；必须通过 `with_interpolation_sources(InterpolationSources::ConfigThenEnv)` 显式启用。启用后应把插值配置视为受信任输入，因为它能够选择要读取的进程环境变量名称。
+普通读取永远不会插值 `${...}`。显式插值读取先在当前 reader scope 中解析；对于
+`ConfigSection`，找不到时再回退到根 `Config`。`ReadPolicy::env_friendly()` 只改变
+转换规则，不会开启环境变量回退；必须通过
+`with_interpolation_sources(InterpolationSources::ConfigThenEnv)` 显式启用，并且该
+回退只会在两个配置作用域都无法解析后发生。启用后应把插值配置视为受信任输入，因为它能够选择要读取的进程环境变量名称。
 
 ```rust
 use qubit_config::{Config, options::{InterpolationSources, ReadPolicy}};
@@ -667,9 +671,6 @@ cargo test
 # 使用项目声明的全部 feature 运行测试
 cargo test --all-features
 
-# 运行精确 key、prefix、section 与 wire 的代表性基准
-cargo bench --bench config_lookup_bench
-
 # 运行项目 CI 检查
 ./ci-check.sh
 
@@ -687,7 +688,7 @@ Copyright (c) 2025 - 2026. Haixing Hu. All rights reserved.
 ## 贡献
 
 欢迎贡献。请遵循 Rust API 指南，及时更新公共 API 文档与测试，并在提交
-Pull Request 前运行 `./align-ci.sh`格式化代码，运行`./ci-check.sh`对齐CI要求。
+Pull Request 前运行 `./align-ci.sh` 格式化代码，运行 `./ci-check.sh` 对齐 CI 要求。
 
 ## 作者
 
