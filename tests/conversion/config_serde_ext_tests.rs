@@ -11,7 +11,7 @@ use qubit_config::{
     ConfigError,
     ConfigReader,
     ConfigResult,
-    ConfigSerdeExt,
+    conversion::ConfigSerdeExt,
     options::ReadPolicy,
 };
 use serde::Deserialize;
