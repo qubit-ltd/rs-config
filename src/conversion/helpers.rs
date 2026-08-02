@@ -10,7 +10,11 @@ use qubit_value::ValueRef;
 
 use crate::config_reader::ConfigReader;
 use crate::options::ReadPolicy;
-use crate::{ConfigResult, Property, utils};
+use crate::{
+    ConfigResult,
+    Property,
+    utils,
+};
 
 use super::config_parse_context::ConfigParseContext;
 use super::from_config::FromConfig;
@@ -180,7 +184,9 @@ fn is_effectively_missing_by<R: ConfigReader + ?Sized>(
     let Some(value) = first_scalar_string(property) else {
         return Ok(false);
     };
-    let substitute = |value: &str| substitute_for_reader(reader, name, value, options, interpolate);
+    let substitute = |value: &str| {
+        substitute_for_reader(reader, name, value, options, interpolate)
+    };
     let ctx = ConfigParseContext::new(name, options, &substitute);
     let value = ctx.substitute_string(value)?;
     match options
@@ -206,7 +212,9 @@ where
     R: ConfigReader + ?Sized,
     T: FromConfig,
 {
-    let substitute = |value: &str| substitute_for_reader(reader, name, value, options, interpolate);
+    let substitute = |value: &str| {
+        substitute_for_reader(reader, name, value, options, interpolate)
+    };
     let ctx = ConfigParseContext::new(name, options, &substitute);
     T::from_config(property, &ctx)
 }
