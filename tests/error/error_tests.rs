@@ -16,8 +16,8 @@ use qubit_datatype::{
     InvalidValueReason,
 };
 use qubit_value::{
-    ValueAbsence,
     ValueError,
+    ValueMissing,
 };
 
 fn invalid_integer() -> DataConversionError {
@@ -135,7 +135,7 @@ fn test_value_error_requires_key_context() {
 
     let error = ConfigError::from((
         "server.port",
-        ValueError::DataConversion(invalid_integer()),
+        ValueError::Conversion(invalid_integer()),
     ));
     assert!(matches!(
         error,
@@ -149,9 +149,10 @@ fn test_value_error_requires_key_context() {
 
 #[test]
 fn test_keyed_value_error_keeps_source_index() {
-    let value_error = ValueError::DataListConversion(
-        DataListConversionError::new(4, invalid_integer()),
-    );
+    let value_error = ValueError::ListConversion(DataListConversionError::new(
+        4,
+        invalid_integer(),
+    ));
     let error = ConfigError::from(("ports", value_error));
     assert!(matches!(
         error,
@@ -166,11 +167,31 @@ fn test_keyed_value_error_keeps_source_index() {
 }
 
 #[test]
+fn test_missing_collection_item_keeps_source_index() {
+    let value_error = ValueError::Missing(ValueMissing::CollectionItem {
+        source_index: 4,
+        from: DataType::String,
+        to: DataType::Int32,
+    });
+    let error = ConfigError::from(("ports", value_error));
+
+    assert!(matches!(
+        error,
+        ConfigError::ConversionError {
+            key,
+            source_index: Some(4),
+            source,
+        } if key == "ports"
+            && source.kind() == qubit_datatype::DataConversionErrorKind::Missing
+    ));
+}
+
+#[test]
 fn test_keyed_value_error_variants() {
     assert!(matches!(
         ConfigError::from((
             "empty",
-            ValueError::NoValue(ValueAbsence::UnsetScalar {
+            ValueError::Missing(ValueMissing::UnsetScalar {
                 data_type: DataType::String,
             }),
         )),

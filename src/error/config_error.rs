@@ -379,7 +379,18 @@ impl ConfigError {
     /// A configuration error retaining `key` and structured source context.
     fn from_value_error(key: &str, error: ValueError) -> Self {
         match error {
-            ValueError::NoValue(_) => Self::PropertyHasNoValue(key.to_string()),
+            ValueError::Missing(missing) => match missing {
+                qubit_value::ValueMissing::CollectionItem {
+                    source_index,
+                    from,
+                    to,
+                } => Self::ConversionError {
+                    key: key.to_string(),
+                    source_index: Some(source_index),
+                    source: DataConversionError::missing(from, to),
+                },
+                _ => Self::PropertyHasNoValue(key.to_string()),
+            },
             ValueError::TypeMismatch { expected, actual } => {
                 Self::TypeMismatch {
                     key: key.to_string(),
@@ -387,10 +398,10 @@ impl ConfigError {
                     actual,
                 }
             }
-            ValueError::DataConversion(source) => {
+            ValueError::Conversion(source) => {
                 Self::from_data_conversion_error(key, source)
             }
-            ValueError::DataListConversion(error) => {
+            ValueError::ListConversion(error) => {
                 let (source_index, source) = error.into_parts();
                 Self::ConversionError {
                     key: key.to_string(),
