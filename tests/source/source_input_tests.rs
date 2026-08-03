@@ -31,7 +31,7 @@ fn properties_source_rejects_oversized_in_memory_input_before_loading() {
         ConfigError::SourceLimitExceeded {
             kind: SourceLimitKind::InputBytes,
             limit: 3,
-            observed_at_least: 4,
+            observed_at_least: 9,
             ..
         }
     ));
