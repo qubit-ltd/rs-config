@@ -1258,7 +1258,7 @@ fn test_property_unset_get_reports_no_value() {
 
     assert!(matches!(
         prop.get_list::<i32>(),
-        Err(qubit_value::ValueError::NoValue(_))
+        Err(qubit_value::ValueError::Missing(_))
     ));
 }
 
