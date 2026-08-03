@@ -2948,7 +2948,7 @@ mod test_enhanced_errors {
     #[test]
     fn test_conversion_error_from_value_error_requires_explicit_key() {
         use qubit_value::ValueError;
-        let ve = ValueError::DataConversion(
+        let ve = ValueError::Conversion(
             qubit_datatype::DataConversionError::invalid(
                 DataType::String,
                 DataType::Int32,
@@ -2971,7 +2971,7 @@ mod test_enhanced_errors {
     #[test]
     fn test_conversion_failed_from_value_error_requires_explicit_key() {
         use qubit_value::ValueError;
-        let ve = ValueError::DataConversion(
+        let ve = ValueError::Conversion(
             qubit_datatype::DataConversionError::unsupported(
                 DataType::String,
                 DataType::Int32,
