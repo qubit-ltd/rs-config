@@ -7,8 +7,12 @@
 // =============================================================================
 
 //! Resource limits and errors for bounded configuration wire decoding.
+// qubit-style: allow multiple-public-types
 
-use qubit_value::{ValueWireDecodeError, WireLimits};
+use qubit_value::{
+    ValueWireDecodeError,
+    WireLimits,
+};
 use thiserror::Error;
 
 /// Resource categories specific to configuration wire envelopes.
@@ -74,7 +78,10 @@ impl ConfigWireLimits {
     /// Sets the maximum UTF-8 bytes in one property key.
     #[inline(always)]
     #[must_use = "the configured property-key limit should be used"]
-    pub const fn with_max_property_key_bytes(mut self, max_property_key_bytes: usize) -> Self {
+    pub const fn with_max_property_key_bytes(
+        mut self,
+        max_property_key_bytes: usize,
+    ) -> Self {
         self.max_property_key_bytes = max_property_key_bytes;
         self
     }
@@ -114,7 +121,9 @@ pub enum ConfigWireDecodeError {
     #[error(transparent)]
     Value(#[from] ValueWireDecodeError),
     /// A configuration-specific resource limit was exceeded.
-    #[error("configuration wire {kind:?} value {value} exceeds the limit of {maximum}")]
+    #[error(
+        "configuration wire {kind:?} value {value} exceeds the limit of {maximum}"
+    )]
     LimitExceeded {
         /// Resource category that exceeded its limit.
         kind: ConfigWireLimitKind,
