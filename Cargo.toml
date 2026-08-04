@@ -48,7 +48,6 @@ full = ["rich-types", "formats"]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2.0"
-regex = "1.12"
 chrono = { version = "0.4", features = ["serde"], optional = true }
 url = { version = "2.5", optional = true }
 num-bigint = { version = "0.4", features = ["serde"], optional = true }
@@ -125,6 +124,18 @@ path = "tests/source/yaml_config_source_tests.rs"
 [[test]]
 name = "config_tests"
 path = "tests/config/config_tests.rs"
+
+[[test]]
+name = "config_collection_tests"
+path = "tests/config/config_collection_tests.rs"
+
+[[test]]
+name = "config_navigation_tests"
+path = "tests/config/config_navigation_tests.rs"
+
+[[test]]
+name = "config_serialization_tests"
+path = "tests/config/config_serialization_tests.rs"
 
 [[test]]
 name = "config_wire_tests"
