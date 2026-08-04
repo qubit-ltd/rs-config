@@ -126,6 +126,18 @@ name = "config_tests"
 path = "tests/config/config_tests.rs"
 
 [[test]]
+name = "config_collection_tests"
+path = "tests/config/config_collection_tests.rs"
+
+[[test]]
+name = "config_navigation_tests"
+path = "tests/config/config_navigation_tests.rs"
+
+[[test]]
+name = "config_serialization_tests"
+path = "tests/config/config_serialization_tests.rs"
+
+[[test]]
 name = "config_wire_tests"
 path = "tests/config/config_wire_tests.rs"
 
