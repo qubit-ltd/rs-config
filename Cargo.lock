@@ -675,7 +675,6 @@ dependencies = [
  "qubit-datatype",
  "qubit-redact",
  "qubit-value",
- "regex",
  "serde",
  "serde_json",
  "serde_norway",
