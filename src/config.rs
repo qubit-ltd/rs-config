@@ -14,17 +14,36 @@
 mod internal;
 
 use serde::de::Error as _;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{
+    Deserialize,
+    Deserializer,
+    Serialize,
+    Serializer,
+};
 use std::collections::HashMap;
 
-use self::internal::{ConfigSerdeRepr, ConfigWire, ConfigWireV1, ConfigWireV1Ref};
+use self::internal::{
+    ConfigSerdeRepr,
+    ConfigWire,
+    ConfigWireV1,
+    ConfigWireV1Ref,
+};
 use crate::options::ReadPolicy;
 use crate::{
-    ConfigError, ConfigResult, ConfigWireDecodeError, ConfigWireLimitKind, ConfigWireLimits,
-    Property, Transient,
+    ConfigError,
+    ConfigResult,
+    ConfigWireDecodeError,
+    ConfigWireLimitKind,
+    ConfigWireLimits,
+    Property,
+    Transient,
 };
 use qubit_datatype::DataConversionTarget;
-use qubit_value::{Value as QubitValue, WireBudget};
+use qubit_value::{
+    Value as QubitValue,
+    ValueWireDecodeError,
+    WireBudget,
+};
 
 mod access;
 mod mutation;
@@ -133,7 +152,8 @@ impl PartialEq for Config {
     /// Compares only the persisted configuration data.
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.description == other.description && self.properties == other.properties
+        self.description == other.description
+            && self.properties == other.properties
     }
 }
 
@@ -200,7 +220,10 @@ impl TryFrom<ConfigWireV1> for Config {
                 value.version,
             ));
         }
-        Self::from_wire_parts(value.description, value.properties.into_iter().collect())
+        Self::from_wire_parts(
+            value.description,
+            value.properties.into_iter().collect(),
+        )
     }
 }
 
@@ -235,7 +258,9 @@ impl Config {
     /// # Errors
     ///
     /// Returns a wire-limit, JSON, or configuration-invariant error.
-    pub fn decode_json_slice(input: &[u8]) -> Result<Self, ConfigWireDecodeError> {
+    pub fn decode_json_slice(
+        input: &[u8],
+    ) -> Result<Self, ConfigWireDecodeError> {
         Self::decode_json_slice_with_limits(input, ConfigWireLimits::default())
     }
 
@@ -259,12 +284,18 @@ impl Config {
         input: &[u8],
         limits: ConfigWireLimits,
     ) -> Result<Self, ConfigWireDecodeError> {
-        let mut budget = limits
-            .wire()
-            .begin(input.len())
-            .map_err(ConfigWireDecodeError::from)?;
-        let config: Self =
-            serde_json::from_slice(input).map_err(ConfigWireDecodeError::InvalidJson)?;
+        let mut budget =
+            limits
+                .wire()
+                .begin_json(input)
+                .map_err(|error| match error {
+                    ValueWireDecodeError::InvalidJson(error) => {
+                        ConfigWireDecodeError::InvalidJson(error)
+                    }
+                    error => ConfigWireDecodeError::from(error),
+                })?;
+        let config: Self = serde_json::from_slice(input)
+            .map_err(ConfigWireDecodeError::InvalidJson)?;
         config.check_wire_budget(&mut budget, limits)?;
         Ok(config)
     }
