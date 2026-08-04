@@ -39,6 +39,7 @@ mod config_section;
 mod config_serde_ext;
 #[path = "conversion/config_value_deserializer.rs"]
 mod config_value_deserializer;
+mod config_wire_limits;
 #[path = "lifecycle/configurable.rs"]
 mod configurable;
 #[path = "lifecycle/configured.rs"]
@@ -73,20 +74,11 @@ pub use config_path_violation::ConfigPathViolation;
 pub use config_property_mut::ConfigPropertyMut;
 pub use config_reader::ConfigReader;
 pub use config_section::ConfigSection;
+pub use config_wire_limits::{ConfigWireDecodeError, ConfigWireLimitKind, ConfigWireLimits};
 pub use configurable::Configurable;
 pub use configured::Configured;
-pub use error::{
-    ConfigError,
-    ConfigResult,
-};
+pub use error::{ConfigError, ConfigResult};
 pub use property::Property;
-pub use read_policy::{
-    InterpolationSources,
-    ReadPolicy,
-};
-pub use source::{
-    ConfigSource,
-    SourceLimitKind,
-    SourceLimits,
-};
+pub use read_policy::{InterpolationSources, ReadPolicy};
+pub use source::{ConfigSource, SourceLimitKind, SourceLimits};
 pub use transient::Transient;
