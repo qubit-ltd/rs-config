@@ -14,29 +14,17 @@
 mod internal;
 
 use serde::de::Error as _;
-use serde::{
-    Deserialize,
-    Deserializer,
-    Serialize,
-    Serializer,
-};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashMap;
 
-use self::internal::{
-    ConfigSerdeRepr,
-    ConfigWire,
-    ConfigWireV1,
-    ConfigWireV1Ref,
-};
+use self::internal::{ConfigSerdeRepr, ConfigWire, ConfigWireV1, ConfigWireV1Ref};
 use crate::options::ReadPolicy;
 use crate::{
-    ConfigError,
-    ConfigResult,
-    Property,
-    Transient,
+    ConfigError, ConfigResult, ConfigWireDecodeError, ConfigWireLimitKind, ConfigWireLimits,
+    Property, Transient,
 };
 use qubit_datatype::DataConversionTarget;
-use qubit_value::Value as QubitValue;
+use qubit_value::{Value as QubitValue, WireBudget};
 
 mod access;
 mod mutation;
@@ -145,8 +133,7 @@ impl PartialEq for Config {
     /// Compares only the persisted configuration data.
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.description == other.description
-            && self.properties == other.properties
+        self.description == other.description && self.properties == other.properties
     }
 }
 
@@ -213,10 +200,7 @@ impl TryFrom<ConfigWireV1> for Config {
                 value.version,
             ));
         }
-        Self::from_wire_parts(
-            value.description,
-            value.properties.into_iter().collect(),
-        )
+        Self::from_wire_parts(value.description, value.properties.into_iter().collect())
     }
 }
 
@@ -237,6 +221,103 @@ impl TryFrom<ConfigWire> for Config {
 }
 
 impl Config {
+    /// Decodes a complete configuration JSON wire document with default
+    /// structural limits.
+    ///
+    /// # Parameters
+    ///
+    /// * `input` - Complete untrusted configuration JSON document.
+    ///
+    /// # Returns
+    ///
+    /// The decoded configuration.
+    ///
+    /// # Errors
+    ///
+    /// Returns a wire-limit, JSON, or configuration-invariant error.
+    pub fn decode_json_slice(input: &[u8]) -> Result<Self, ConfigWireDecodeError> {
+        Self::decode_json_slice_with_limits(input, ConfigWireLimits::default())
+    }
+
+    /// Decodes a complete configuration JSON wire document with shared Value
+    /// and configuration-specific structural limits.
+    ///
+    /// # Parameters
+    ///
+    /// * `input` - Complete untrusted configuration JSON document.
+    /// * `limits` - Shared and configuration-specific resource limits.
+    ///
+    /// # Returns
+    ///
+    /// The decoded configuration.
+    ///
+    /// # Errors
+    ///
+    /// Returns a wire-limit error before or after decoding, a JSON error, or a
+    /// configuration-invariant error.
+    pub fn decode_json_slice_with_limits(
+        input: &[u8],
+        limits: ConfigWireLimits,
+    ) -> Result<Self, ConfigWireDecodeError> {
+        let mut budget = limits
+            .wire()
+            .begin(input.len())
+            .map_err(ConfigWireDecodeError::from)?;
+        let config: Self =
+            serde_json::from_slice(input).map_err(ConfigWireDecodeError::InvalidJson)?;
+        config.check_wire_budget(&mut budget, limits)?;
+        Ok(config)
+    }
+
+    /// Charges decoded configuration resources against one shared budget.
+    fn check_wire_budget(
+        &self,
+        budget: &mut WireBudget,
+        limits: ConfigWireLimits,
+    ) -> Result<(), ConfigWireDecodeError> {
+        budget.check_node().map_err(ConfigWireDecodeError::from)?;
+        budget
+            .check_map_entries(self.properties.len())
+            .map_err(ConfigWireDecodeError::from)?;
+        if self.properties.len() > limits.max_properties() {
+            return Err(ConfigWireDecodeError::LimitExceeded {
+                kind: ConfigWireLimitKind::Properties,
+                value: self.properties.len(),
+                maximum: limits.max_properties(),
+            });
+        }
+        if let Some(description) = &self.description {
+            budget
+                .check_string_bytes(description.len())
+                .map_err(ConfigWireDecodeError::from)?;
+        }
+        for (key, property) in &self.properties {
+            budget.check_node().map_err(ConfigWireDecodeError::from)?;
+            if key.len() > limits.max_property_key_bytes() {
+                return Err(ConfigWireDecodeError::LimitExceeded {
+                    kind: ConfigWireLimitKind::PropertyKeyBytes,
+                    value: key.len(),
+                    maximum: limits.max_property_key_bytes(),
+                });
+            }
+            budget
+                .check_string_bytes(key.len())
+                .map_err(ConfigWireDecodeError::from)?;
+            budget
+                .check_string_bytes(property.name().len())
+                .map_err(ConfigWireDecodeError::from)?;
+            if let Some(description) = property.description() {
+                budget
+                    .check_string_bytes(description.len())
+                    .map_err(ConfigWireDecodeError::from)?;
+            }
+            budget
+                .check_container(property.value())
+                .map_err(ConfigWireDecodeError::from)?;
+        }
+        Ok(())
+    }
+
     /// Validates shared fields decoded from an accepted persisted wire format.
     fn from_wire_parts(
         description: Option<String>,

@@ -93,6 +93,23 @@ fn test_get_interpolated_resolves_string_and_numeric_values() {
     assert_eq!(port, 8080);
 }
 
+/// Verifies interpolation preserves empty placeholders while resolving later
+/// valid placeholders in the same string.
+#[test]
+fn test_interpolation_skips_empty_placeholder_and_resolves_following_value() {
+    let mut config = Config::new();
+    config.set("host", "localhost").expect("set host");
+    config
+        .set("url", "${}-${host}")
+        .expect("set URL with empty placeholder");
+
+    let value = config
+        .get_interpolated::<String>("url")
+        .expect("interpolate URL");
+
+    assert_eq!(value, "${}-localhost");
+}
+
 /// Verifies scoped interpolated reads fall back to root configuration keys.
 #[test]
 fn test_section_get_interpolated_falls_back_to_root_configuration() {
