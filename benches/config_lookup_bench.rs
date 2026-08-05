@@ -178,9 +178,7 @@ fn benchmark_config_lookup(criterion: &mut Criterion) {
             |bencher, _| {
                 bencher.iter(|| {
                     black_box(
-                        deep_section
-                            .get::<u64>(black_box("endpoint"))
-                            .unwrap(),
+                        deep_section.get::<u64>(black_box("endpoint")).unwrap(),
                     );
                 });
             },
@@ -208,9 +206,7 @@ fn benchmark_config_lookup(criterion: &mut Criterion) {
             &property_count,
             |bencher, _| {
                 bencher.iter(|| {
-                    black_box(
-                        config.iter_prefix(black_box("sparse.")).count(),
-                    );
+                    black_box(config.iter_prefix(black_box("sparse.")).count());
                 });
             },
         );
