@@ -127,6 +127,36 @@ mod test_config_reader {
             .unwrap();
         assert_eq!(addr, "127.0.0.1");
     }
+
+    #[test]
+    fn test_section_if_present_distinguishes_descendants_from_scalars() {
+        let mut config = Config::new();
+        config.set("http.host", "localhost").unwrap();
+        config.set("scalar", "value").unwrap();
+
+        let http = config.section_if_present("http").unwrap().unwrap();
+        assert_eq!(http.get::<String>("host").unwrap(), "localhost");
+        assert!(config.section_if_present("scalar").unwrap().is_none());
+        assert!(config.section_if_present("missing").unwrap().is_none());
+    }
+
+    #[test]
+    fn test_section_if_present_validates_paths_and_nests_relatively() {
+        let mut config = Config::new();
+        config.set("http.proxy.host", "localhost").unwrap();
+
+        let http = ConfigReader::section_if_present(&config, "http")
+            .unwrap()
+            .unwrap();
+        let proxy = http.section_if_present("proxy").unwrap().unwrap();
+        assert_eq!(proxy.path(), "http.proxy");
+        assert_eq!(proxy.get::<String>("host").unwrap(), "localhost");
+
+        assert!(matches!(
+            config.section_if_present(".http"),
+            Err(ConfigError::InvalidPath { .. })
+        ));
+    }
     #[test]
     fn test_trait_default_methods_preserve_placeholders() {
         let mut config = Config::new();
