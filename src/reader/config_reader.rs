@@ -689,6 +689,39 @@ pub trait ConfigReader: internal::Sealed {
     /// [`crate::Config`].
     fn section(&self, path: &str) -> ConfigResult<ConfigSection<'_>>;
 
+    /// Creates a read-only section only when it has visible descendant
+    /// properties.
+    ///
+    /// An exact scalar at `path` does not make the section present. The
+    /// returned section uses the same strict relative-key and read-policy
+    /// semantics as [`Self::section`].
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Relative section path; an empty path checks the current
+    ///   reader scope.
+    ///
+    /// # Returns
+    ///
+    /// `Some` with the section when at least one descendant property is
+    /// visible, or `None` when the section has no visible properties.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::InvalidPath`] when `path` is not canonical.
+    #[inline]
+    fn section_if_present(
+        &self,
+        path: &str,
+    ) -> ConfigResult<Option<ConfigSection<'_>>> {
+        let section = self.section(path)?;
+        if section.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(section))
+        }
+    }
+
     /// Resolves `name` into the canonical key path against the root
     /// [`crate::Config`].
     ///

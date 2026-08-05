@@ -119,6 +119,31 @@ impl Config {
         ConfigSection::new(self, path)
     }
 
+    /// Creates a read-only section when it has visible descendant properties.
+    ///
+    /// An exact scalar at `path` does not make the section present. The
+    /// returned section uses strict relative keys and this configuration's
+    /// default read policy.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Canonical section path; an empty path checks the root.
+    ///
+    /// # Returns
+    ///
+    /// `Some` with the section when descendants exist, otherwise `None`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::InvalidPath`] when `path` is not canonical.
+    #[inline(always)]
+    pub fn section_if_present(
+        &self,
+        path: &str,
+    ) -> ConfigResult<Option<ConfigSection<'_>>> {
+        <Self as ConfigReader>::section_if_present(self, path)
+    }
+
     // ========================================================================
     // Configuration Item Management
     // ========================================================================

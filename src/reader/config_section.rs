@@ -78,6 +78,32 @@ impl<'a> ConfigSection<'a> {
         }
     }
 
+    /// Creates a nested read-only section when it has visible descendants.
+    ///
+    /// An exact scalar at the nested path does not make the section present.
+    /// The returned section inherits this section's read policy.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Relative child section path; an empty path checks this
+    ///   section.
+    ///
+    /// # Returns
+    ///
+    /// `Some` with the nested section when descendants exist, otherwise
+    /// `None`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::InvalidPath`] when `path` is not canonical.
+    #[inline]
+    pub fn section_if_present(
+        &self,
+        path: &str,
+    ) -> ConfigResult<Option<ConfigSection<'_>>> {
+        <Self as ConfigReader>::section_if_present(self, path)
+    }
+
     /// Creates a section over `config` at `path`.
     ///
     /// # Arguments

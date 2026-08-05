@@ -143,6 +143,7 @@ mod test_contains_prefix {
     use super::{
         Config,
         ConfigError,
+        ConfigReader,
         DataType,
         Deserialize,
         MultiValues,
@@ -212,6 +213,17 @@ mod test_contains_prefix {
         config.set("http.proxy.host", "localhost").unwrap();
         let http = config.section("http").unwrap();
         assert!(http.contains_section("proxy").unwrap());
+    }
+
+    #[test]
+    fn test_section_if_present_excludes_exact_root_property() {
+        let mut config = Config::new();
+        config.set("proxy", "scalar").unwrap();
+        config.set("proxy.host", "localhost").unwrap();
+
+        let proxy = config.section_if_present("proxy").unwrap().unwrap();
+        assert_eq!(proxy.get::<String>("host").unwrap(), "localhost");
+        assert!(config.section_if_present("proxy2").unwrap().is_none());
     }
 }
 
