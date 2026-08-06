@@ -9,6 +9,7 @@
 use qubit_config::{
     Config,
     ConfigError,
+    ConfigResult,
     SourceLimitKind,
     source::{
         ConfigSource,
@@ -24,7 +25,7 @@ fn properties_source_rejects_oversized_in_memory_input_before_loading() {
     let mut config = Config::new();
 
     let error = source
-        .load(&mut config)
+        .load()
         .expect_err("oversized in-memory input must be rejected");
     assert!(matches!(
         error,

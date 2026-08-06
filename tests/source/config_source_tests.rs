@@ -9,6 +9,7 @@
 
 use qubit_config::{
     Config,
+    ConfigError,
     ConfigResult,
     source::ConfigSource,
 };
@@ -19,8 +20,10 @@ struct InlineSource {
 }
 
 impl ConfigSource for InlineSource {
-    fn load(&self, config: &mut Config) -> ConfigResult<()> {
-        config.set(self.key, self.value)
+    fn load(&self) -> ConfigResult<Config> {
+        let mut config = Config::new();
+        config.set(self.key, self.value)?;
+        Ok(config)
     }
 }
 
@@ -32,9 +35,10 @@ fn test_config_source_load_populates_config() {
     };
     let mut config = Config::new();
 
-    source
-        .load(&mut config)
+    let layer = source
+        .load()
         .expect("inline source should load successfully");
+    config.merge_layer(layer).unwrap();
 
     assert_eq!(config.get::<String>("server.host").unwrap(), "localhost");
 }
@@ -55,16 +59,16 @@ fn test_config_merge_from_source_uses_trait_implementation() {
 }
 
 #[test]
-fn test_config_source_default_load_into_delegates_to_load() {
+fn test_config_source_default_load_and_merge() {
     let source = InlineSource {
         key: "server.name",
         value: "api",
     };
     let mut config = Config::new();
-
-    source
-        .load_into(&mut config)
-        .expect("default load_into should delegate to load");
+    let layer = source
+        .load()
+        .expect("inline source should load successfully");
+    config.merge_layer(layer).unwrap();
 
     assert_eq!(config.get::<String>("server.name").unwrap(), "api");
 }

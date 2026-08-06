@@ -12,6 +12,7 @@
 use qubit_config::{
     Config,
     ConfigError,
+    ConfigResult,
     source::{
         ConfigSource,
         EnvFileConfigSource,
@@ -25,6 +26,13 @@ fn fixture(name: &str) -> PathBuf {
         .join("tests")
         .join("fixtures")
         .join(name)
+}
+
+fn merge_source(
+    config: &mut Config,
+    source: &dyn ConfigSource,
+) -> ConfigResult<()> {
+    config.merge_layer(source.load()?)
 }
 
 // ============================================================================
@@ -47,7 +55,7 @@ mod test_env_file_config_source {
     fn test_load_basic_env_file() {
         let source = EnvFileConfigSource::from_file(fixture("basic.env"));
         let mut config = Config::new();
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
 
         assert_eq!(config.get::<String>("HOST").unwrap(), "localhost");
         assert_eq!(config.get::<String>("PORT").unwrap(), "8080");
@@ -60,7 +68,7 @@ mod test_env_file_config_source {
     fn test_load_env_file_quoted_values() {
         let source = EnvFileConfigSource::from_file(fixture("basic.env"));
         let mut config = Config::new();
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
 
         assert_eq!(
             config.get::<String>("QUOTED_VALUE").unwrap(),
@@ -75,8 +83,7 @@ mod test_env_file_config_source {
     #[test]
     fn test_load_nonexistent_env_file_returns_error() {
         let source = EnvFileConfigSource::from_file("/nonexistent/path/.env");
-        let mut config = Config::new();
-        let result = source.load(&mut config);
+        let result = source.load();
         assert!(result.is_err());
         assert!(matches!(result, Err(ConfigError::IoError(_))));
     }
@@ -93,7 +100,7 @@ mod test_env_file_config_source {
 
         let source = EnvFileConfigSource::from_file(&path);
         let mut config = Config::new();
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
 
         assert_eq!(config.get::<String>("DB_HOST").unwrap(), "db.example.com");
         assert_eq!(config.get::<String>("DB_PORT").unwrap(), "5432");
@@ -111,7 +118,7 @@ mod test_env_file_config_source {
         config.set("LOCKED", "old").unwrap();
         config.set_final("LOCKED", true).unwrap();
 
-        let result = source.load(&mut config);
+        let result = merge_source(&mut config, &source);
 
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
         assert_eq!(config.get::<String>("LOCKED").unwrap(), "old");
@@ -154,8 +161,7 @@ mod test_env_file_edge_cases {
     #[test]
     fn test_env_file_nonexistent_returns_io_error() {
         let source = EnvFileConfigSource::from_file("/nonexistent/path.env");
-        let mut config = Config::new();
-        let result = source.load(&mut config);
+        let result = source.load();
         assert!(result.is_err());
         assert!(matches!(result, Err(ConfigError::IoError(_))));
     }
@@ -170,9 +176,8 @@ mod test_env_file_edge_cases {
             .expect("invalid .env fixture should be written");
 
         let source = EnvFileConfigSource::from_file(&path);
-        let mut config = Config::new();
         let error = source
-            .load(&mut config)
+            .load()
             .expect_err("unterminated .env string should fail");
 
         assert!(matches!(&error, ConfigError::ParseError(_)));
@@ -188,10 +193,9 @@ mod test_env_file_edge_cases {
     fn test_env_file_directory_path_returns_error() {
         let dir = tempfile::tempdir().unwrap();
         let source = EnvFileConfigSource::from_file(dir.path());
-        let mut config = Config::new();
 
         source
-            .load(&mut config)
+            .load()
             .expect_err("loading a directory as an .env file should fail");
     }
 }

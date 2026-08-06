@@ -12,6 +12,7 @@
 use qubit_config::{
     Config,
     ConfigError,
+    ConfigResult,
     source::{
         CompositeConfigSource,
         ConfigSource,
@@ -28,6 +29,14 @@ fn fixture(name: &str) -> PathBuf {
         .join("tests")
         .join("fixtures")
         .join(name)
+}
+
+fn load_source(
+    config: &mut Config,
+    source: &dyn ConfigSource,
+) -> ConfigResult<()> {
+    let layer = source.load()?;
+    config.merge_layer(layer)
 }
 
 // ============================================================================
@@ -83,7 +92,7 @@ mod test_composite_config_source {
         composite.add(TomlConfigSource::from_file(fixture("override.toml")));
 
         let mut config = Config::new();
-        composite.load(&mut config).unwrap();
+        load_source(&mut config, &composite).unwrap();
 
         // Later source wins
         assert_eq!(config.get::<String>("host").unwrap(), "production-server");
@@ -97,7 +106,7 @@ mod test_composite_config_source {
     fn test_load_empty_composite_does_nothing() {
         let composite = CompositeConfigSource::new();
         let mut config = Config::new();
-        composite.load(&mut config).unwrap();
+        load_source(&mut config, &composite).unwrap();
         assert!(config.is_empty());
     }
 
@@ -108,7 +117,7 @@ mod test_composite_config_source {
         composite.add(TomlConfigSource::from_file(fixture("basic.toml")));
 
         let mut config = Config::new();
-        let result = composite.load(&mut config);
+        let result = composite.load();
         assert!(result.is_err());
     }
 
@@ -129,7 +138,7 @@ mod test_composite_config_source {
         composite.add(EnvConfigSource::with_prefix("CTEST_"));
 
         let mut config = Config::new();
-        composite.load(&mut config).unwrap();
+        load_source(&mut config, &composite).unwrap();
 
         // env source overrides toml
         assert_eq!(config.get::<String>("host").unwrap(), "env-host");
@@ -180,7 +189,7 @@ mod test_composite_config_source {
         config.set("locked", "old").unwrap();
         config.set_final("locked", true).unwrap();
 
-        let result = composite.load(&mut config);
+        let result = config.merge_layer(composite.load().unwrap());
 
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
         assert_eq!(config.get::<String>("locked").unwrap(), "old");

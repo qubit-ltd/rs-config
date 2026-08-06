@@ -12,6 +12,7 @@
 use qubit_config::{
     Config,
     ConfigError,
+    ConfigResult,
     Property,
     source::{
         ConfigSource,
@@ -27,6 +28,14 @@ fn fixture(name: &str) -> PathBuf {
         .join("tests")
         .join("fixtures")
         .join(name)
+}
+
+fn merge_source(
+    config: &mut Config,
+    source: &dyn ConfigSource,
+) -> ConfigResult<()> {
+    let layer = source.load()?;
+    config.merge_layer(layer)
 }
 
 // ============================================================================
@@ -51,7 +60,7 @@ mod test_yaml_config_source {
     fn test_load_basic_yaml_file() {
         let source = YamlConfigSource::from_file(fixture("basic.yaml"));
         let mut config = Config::new();
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
 
         // String values remain strings
         assert_eq!(config.get::<String>("host").unwrap(), "localhost");
@@ -71,7 +80,7 @@ mod test_yaml_config_source {
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
 
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
 
         assert_eq!(config.get::<u64>("value").unwrap(), u64::MAX);
     }
@@ -88,7 +97,7 @@ mod test_yaml_config_source {
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
 
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
 
         assert_eq!(
             config.get_list::<u64>("values").unwrap(),
@@ -100,7 +109,7 @@ mod test_yaml_config_source {
     fn test_load_yaml_nested_mapping_flattened() {
         let source = YamlConfigSource::from_file(fixture("basic.yaml"));
         let mut config = Config::new();
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
 
         assert_eq!(config.get::<String>("app.name").unwrap(), "MyApp");
         assert_eq!(config.get::<String>("app.version").unwrap(), "1.0.0");
@@ -113,7 +122,7 @@ mod test_yaml_config_source {
     fn test_load_yaml_sequence_as_multivalue() {
         let source = YamlConfigSource::from_file(fixture("basic.yaml"));
         let mut config = Config::new();
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
 
         let tags = config.get::<Vec<String>>("tags").unwrap();
         assert_eq!(tags.len(), 3);
@@ -127,7 +136,7 @@ mod test_yaml_config_source {
         let source =
             YamlConfigSource::from_file("/nonexistent/path/config.yaml");
         let mut config = Config::new();
-        let result = source.load(&mut config);
+        let result = merge_source(&mut config, &source);
         assert!(result.is_err());
         assert!(matches!(result, Err(ConfigError::IoError(_))));
     }
@@ -142,9 +151,8 @@ mod test_yaml_config_source {
             .expect("invalid YAML fixture should be written");
 
         let source = YamlConfigSource::from_file(&path);
-        let mut config = Config::new();
         let error = source
-            .load(&mut config)
+            .load()
             .expect_err("unterminated YAML string should fail");
 
         assert!(matches!(&error, ConfigError::ParseError(_)));
@@ -185,7 +193,7 @@ db:
 
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
 
         assert_eq!(config.get::<String>("name").unwrap(), "test");
         // Integer values are stored as i64 (type-faithful)
@@ -208,7 +216,7 @@ db:
 
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
 
         // Null values are preserved as empty properties (is_unset returns true)
         assert!(config.contains("key").unwrap());
@@ -229,7 +237,7 @@ db:
         let mut config = Config::new();
         config.set("key", "old").unwrap();
 
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
 
         assert!(config.contains("key").unwrap());
         assert!(config.is_unset("key").unwrap());
@@ -253,7 +261,7 @@ db:
         property.set_final(true);
         config.insert_property("locked", property).unwrap();
 
-        let result = source.load(&mut config);
+        let result = merge_source(&mut config, &source);
 
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
         assert_eq!(config.get::<String>("locked").unwrap(), "old");
@@ -267,7 +275,7 @@ db:
 
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
 
         assert!(config.contains("empty").unwrap());
         assert_eq!(
@@ -287,7 +295,7 @@ db:
         let mut config = Config::new();
         config.set("ports", vec![8080i64, 8081]).unwrap();
 
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
 
         assert_eq!(config.get_list::<i64>("ports").unwrap(), Vec::<i64>::new());
     }
@@ -302,7 +310,7 @@ db:
         let mut config = Config::new();
         config.set("ports", vec![8080i64, 8081]).unwrap();
 
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
 
         assert_eq!(config.get_list::<i64>("ports").unwrap(), vec![9000, 9001]);
     }
@@ -321,7 +329,7 @@ db:
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
 
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
         let service: Service = config.deserialize("service").unwrap();
 
         assert_eq!(service.ports, Vec::<i64>::new());
@@ -338,7 +346,7 @@ db:
         config.set("locked", vec!["old"]).unwrap();
         config.set_final("locked", true).unwrap();
 
-        let result = source.load(&mut config);
+        let result = merge_source(&mut config, &source);
 
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
         assert_eq!(config.get::<Vec<String>>("locked").unwrap(), vec!["old"]);
@@ -354,9 +362,8 @@ db:
             .expect("complex YAML key fixture should be written");
 
         let source = YamlConfigSource::from_file(&path);
-        let mut config = Config::new();
         let error = source
-            .load(&mut config)
+            .load()
             .expect_err("complex YAML key should fail");
 
         let display = error.to_string();
@@ -392,7 +399,7 @@ server:
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
         config.set("existing", "old").unwrap();
-        let result = source.load(&mut config);
+        let result = merge_source(&mut config, &source);
 
         assert!(matches!(
             result,
@@ -417,7 +424,7 @@ true: enabled
 
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
-        let result = source.load(&mut config);
+        let result = merge_source(&mut config, &source);
 
         assert!(matches!(
             result,
@@ -449,7 +456,7 @@ mod test_yaml_edge_cases {
         std::fs::write(&path, "val: 1.23e10\n").unwrap();
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
         assert!(config.contains("val").unwrap());
         let v: f64 = config.get("val").unwrap();
         assert!(v > 1e9);
@@ -463,7 +470,7 @@ mod test_yaml_edge_cases {
         std::fs::write(&path, "? [a, b]\n: value\n").unwrap();
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
-        let result = source.load(&mut config);
+        let result = merge_source(&mut config, &source);
         assert!(matches!(result, Err(ConfigError::ParseError(_))));
     }
 
@@ -475,7 +482,7 @@ mod test_yaml_edge_cases {
         std::fs::write(&path, "~: value\n").unwrap();
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
         assert!(config.contains("null").unwrap());
     }
 
@@ -487,7 +494,7 @@ mod test_yaml_edge_cases {
         std::fs::write(&path, "true: value\n").unwrap();
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
         assert!(config.contains("true").unwrap());
     }
 
@@ -499,7 +506,7 @@ mod test_yaml_edge_cases {
         std::fs::write(&path, "42: value\n").unwrap();
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
         assert!(config.contains("42").unwrap());
     }
 
@@ -511,7 +518,7 @@ mod test_yaml_edge_cases {
         std::fs::write(&path, "vals:\n  - 1\n  - ~\n  - 3\n").unwrap();
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
         // Mixed (int + null) → falls back to string
         assert!(config.contains("vals").unwrap());
     }
@@ -538,7 +545,7 @@ flags:
 
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
 
         assert_eq!(config.get_list::<i64>("ints").unwrap(), vec![1, 2]);
         assert_eq!(config.get_list::<f64>("floats").unwrap(), vec![1.25, 2.5]);
@@ -555,7 +562,7 @@ flags:
         std::fs::write(&path, "matrix:\n  - [1, 2]\n  - [3, 4]\n").unwrap();
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
-        let result = source.load(&mut config);
+        let result = merge_source(&mut config, &source);
         assert!(matches!(result, Err(ConfigError::ParseError(_))));
     }
 
@@ -572,9 +579,8 @@ flags:
         .expect("nested YAML mapping fixture should be written");
 
         let source = YamlConfigSource::from_file(&path);
-        let mut config = Config::new();
         let error = source
-            .load(&mut config)
+            .load()
             .expect_err("nested YAML mapping should fail");
 
         let display = error.to_string();
@@ -592,7 +598,7 @@ flags:
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
 
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
 
         assert_eq!(config.get::<String>("key").unwrap(), "hello");
     }
@@ -627,7 +633,7 @@ locked_tagged: !custom tagged
             config.set(key, "old").unwrap();
             config.set_final(key, true).unwrap();
 
-            let result = source.load(&mut config);
+            let result = merge_source(&mut config, &source);
 
             assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
             assert_eq!(config.get::<String>(key).unwrap(), "old");
@@ -674,7 +680,7 @@ locked_mixed:
             config.set(key, vec!["old"]).unwrap();
             config.set_final(key, true).unwrap();
 
-            let result = source.load(&mut config);
+            let result = merge_source(&mut config, &source);
 
             assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
             assert_eq!(config.get::<Vec<String>>(key).unwrap(), vec!["old"]);

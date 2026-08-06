@@ -12,6 +12,7 @@
 use qubit_config::{
     Config,
     ConfigError,
+    ConfigResult,
     source::{
         ConfigSource,
         TomlConfigSource,
@@ -25,6 +26,14 @@ fn fixture(name: &str) -> PathBuf {
         .join("tests")
         .join("fixtures")
         .join(name)
+}
+
+fn merge_source(
+    config: &mut Config,
+    source: &dyn ConfigSource,
+) -> ConfigResult<()> {
+    let layer = source.load()?;
+    config.merge_layer(layer)
 }
 
 // ============================================================================
@@ -47,7 +56,7 @@ mod test_toml_config_source {
     fn test_load_basic_toml_file() {
         let source = TomlConfigSource::from_file(fixture("basic.toml"));
         let mut config = Config::new();
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
 
         // String values remain strings
         assert_eq!(config.get::<String>("host").unwrap(), "localhost");
@@ -63,7 +72,7 @@ mod test_toml_config_source {
     fn test_load_toml_nested_table_flattened() {
         let source = TomlConfigSource::from_file(fixture("basic.toml"));
         let mut config = Config::new();
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
 
         assert_eq!(config.get::<String>("app.name").unwrap(), "MyApp");
         assert_eq!(config.get::<String>("app.version").unwrap(), "1.0.0");
@@ -76,7 +85,7 @@ mod test_toml_config_source {
     fn test_load_toml_array_as_multivalue() {
         let source = TomlConfigSource::from_file(fixture("basic.toml"));
         let mut config = Config::new();
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
 
         let tags = config.get::<Vec<String>>("tags.list").unwrap();
         assert_eq!(tags.len(), 3);
@@ -90,7 +99,7 @@ mod test_toml_config_source {
         let source =
             TomlConfigSource::from_file("/nonexistent/path/config.toml");
         let mut config = Config::new();
-        let result = source.load(&mut config);
+        let result = merge_source(&mut config, &source);
         assert!(result.is_err());
         assert!(matches!(result, Err(ConfigError::IoError(_))));
     }
@@ -105,9 +114,8 @@ mod test_toml_config_source {
             .expect("invalid TOML fixture should be written");
 
         let source = TomlConfigSource::from_file(&path);
-        let mut config = Config::new();
         let error = source
-            .load(&mut config)
+            .load()
             .expect_err("unterminated TOML string should fail");
 
         assert!(matches!(&error, ConfigError::ParseError(_)));
@@ -149,7 +157,7 @@ pool = 5
 
         let source = TomlConfigSource::from_file(&path);
         let mut config = Config::new();
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
 
         assert_eq!(config.get::<String>("name").unwrap(), "test");
         // Integer values are stored as i64 (type-faithful)
@@ -184,7 +192,7 @@ port = 2
 
         let source = TomlConfigSource::from_file(&path);
         let mut config = Config::new();
-        let result = source.load(&mut config);
+        let result = merge_source(&mut config, &source);
         assert!(matches!(result, Err(ConfigError::ParseError(_))));
     }
 
@@ -216,7 +224,7 @@ port = 9090
         let source = TomlConfigSource::from_file(&path);
         let mut config = Config::new();
         config.set("existing", "old").unwrap();
-        let result = source.load(&mut config);
+        let result = merge_source(&mut config, &source);
 
         assert!(matches!(
             result,
@@ -247,7 +255,7 @@ mod test_toml_edge_cases {
         std::fs::write(&path, "created_at = 2026-04-09T12:00:00Z\n").unwrap();
         let source = TomlConfigSource::from_file(&path);
         let mut config = Config::new();
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
         assert!(config.contains("created_at").unwrap());
         let val = config.get::<String>("created_at").unwrap();
         assert!(val.contains("2026"));
@@ -260,7 +268,7 @@ mod test_toml_edge_cases {
         std::fs::write(&path, "empty = []\n").unwrap();
         let source = TomlConfigSource::from_file(&path);
         let mut config = Config::new();
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
 
         assert!(config.contains("empty").unwrap());
         assert_eq!(
@@ -279,7 +287,7 @@ mod test_toml_edge_cases {
         let mut config = Config::new();
         config.set("ports", vec![8080i64, 8081]).unwrap();
 
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
 
         assert_eq!(config.get_list::<i64>("ports").unwrap(), Vec::<i64>::new());
     }
@@ -293,7 +301,7 @@ mod test_toml_edge_cases {
         let mut config = Config::new();
         config.set("ports", vec![8080i64, 8081]).unwrap();
 
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
 
         assert_eq!(config.get_list::<i64>("ports").unwrap(), vec![9000, 9001]);
     }
@@ -311,7 +319,7 @@ mod test_toml_edge_cases {
         let source = TomlConfigSource::from_file(&path);
         let mut config = Config::new();
 
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
         let service: Service = config.deserialize("service").unwrap();
 
         assert_eq!(service.ports, Vec::<i64>::new());
@@ -327,7 +335,7 @@ mod test_toml_edge_cases {
         config.set("locked", vec!["old"]).unwrap();
         config.set_final("locked", true).unwrap();
 
-        let result = source.load(&mut config);
+        let result = merge_source(&mut config, &source);
 
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
         assert_eq!(config.get::<Vec<String>>("locked").unwrap(), vec!["old"]);
@@ -345,7 +353,7 @@ mod test_toml_edge_cases {
         .unwrap();
         let source = TomlConfigSource::from_file(&path);
         let mut config = Config::new();
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
         let tags: Vec<String> = config.get_list("tags").unwrap();
         assert_eq!(tags, vec!["1", "2.5", "true", "a", "2026-04-09T12:00:00Z"]);
     }
@@ -358,7 +366,7 @@ mod test_toml_edge_cases {
         let source = TomlConfigSource::from_file(&path);
         let mut config = Config::new();
 
-        let result = source.load(&mut config);
+        let result = merge_source(&mut config, &source);
 
         assert!(matches!(result, Err(ConfigError::ParseError(_))));
     }
@@ -380,7 +388,7 @@ dates = [2026-04-09T12:00:00Z, 2026-04-10T12:00:00Z]
 
         let source = TomlConfigSource::from_file(&path);
         let mut config = Config::new();
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
 
         assert_eq!(config.get_list::<i64>("ints").unwrap(), vec![1, 2, 3]);
         assert_eq!(config.get_list::<f64>("floats").unwrap(), vec![1.25, 2.5]);
@@ -406,7 +414,7 @@ dates = [2026-04-09T12:00:00Z, 2026-04-10T12:00:00Z]
         .unwrap();
         let source = TomlConfigSource::from_file(&path);
         let mut config = Config::new();
-        let result = source.load(&mut config);
+        let result = merge_source(&mut config, &source);
         assert!(matches!(result, Err(ConfigError::ParseError(_))));
     }
 
@@ -436,7 +444,7 @@ locked_datetime = 1979-05-27T07:32:00Z
             config.set(key, "old").unwrap();
             config.set_final(key, true).unwrap();
 
-            let result = source.load(&mut config);
+            let result = merge_source(&mut config, &source);
 
             assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
             assert_eq!(config.get::<String>(key).unwrap(), "old");
@@ -471,7 +479,7 @@ locked_strings = ["one", "two"]
             config.set(key, vec!["old"]).unwrap();
             config.set_final(key, true).unwrap();
 
-            let result = source.load(&mut config);
+            let result = merge_source(&mut config, &source);
 
             assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
             assert_eq!(config.get::<Vec<String>>(key).unwrap(), vec!["old"]);
@@ -495,7 +503,7 @@ locked = "attempted"
         config.set("locked", "old").unwrap();
         config.set_final("locked", true).unwrap();
 
-        let result = source.load(&mut config);
+        let result = merge_source(&mut config, &source);
 
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
         assert_eq!(config.get::<String>("locked").unwrap(), "old");

@@ -10,6 +10,7 @@
 use qubit_config::{
     Config,
     ConfigError,
+    ConfigResult,
     source::{
         ConfigSource,
         PropertiesConfigSource,
@@ -23,6 +24,14 @@ fn fixture(name: &str) -> PathBuf {
         .join("tests")
         .join("fixtures")
         .join(name)
+}
+
+fn merge_source(
+    config: &mut Config,
+    source: &dyn ConfigSource,
+) -> ConfigResult<()> {
+    let layer = source.load()?;
+    config.merge_layer(layer)
 }
 
 // ============================================================================
@@ -231,7 +240,7 @@ mod test_properties_config_source {
         let source =
             PropertiesConfigSource::from_file(fixture("basic.properties"));
         let mut config = Config::new();
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
 
         assert_eq!(config.get::<String>("host").unwrap(), "localhost");
         assert_eq!(config.get::<String>("port").unwrap(), "8080");
@@ -245,7 +254,7 @@ mod test_properties_config_source {
         let source =
             PropertiesConfigSource::from_file(fixture("multivalue.properties"));
         let mut config = Config::new();
-        source.load(&mut config).unwrap();
+        merge_source(&mut config, &source).unwrap();
 
         assert_eq!(config.get::<String>("greeting").unwrap(), "中文测试");
         assert_eq!(config.get::<String>("empty.value").unwrap(), "");
@@ -261,8 +270,7 @@ mod test_properties_config_source {
         let source = PropertiesConfigSource::from_file(
             "/nonexistent/path/config.properties",
         );
-        let mut config = Config::new();
-        let result = source.load(&mut config);
+        let result = source.load();
         assert!(result.is_err());
         assert!(matches!(result, Err(ConfigError::IoError(_))));
     }
