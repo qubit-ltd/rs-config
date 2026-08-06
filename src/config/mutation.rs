@@ -129,7 +129,9 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// Returns `Ok(())` on success, or a `ConfigError` on failure
+    /// Returns `Ok(())` on success. If loading or merging fails, the target
+    /// configuration remains unchanged and the relevant `ConfigError` is
+    /// returned.
     ///
     /// # Examples
     ///
@@ -175,15 +177,22 @@ impl Config {
     ///
     /// `Ok(())` when all properties are merged successfully.
     #[inline]
-    pub(crate) fn merge_layer(
-        &mut self,
-        layer: Config,
-    ) -> ConfigResult<()> {
-        let mut staged = self.clone();
-        for (name, property) in layer.properties {
-            staged.insert_property(name, property)?;
+    pub(crate) fn merge_layer(&mut self, layer: Config) -> ConfigResult<()> {
+        // Validate every incoming property before mutating `self`. This keeps
+        // the merge transactional without cloning the complete configuration.
+        for (name, property) in &layer.properties {
+            ensure_config_key(name)?;
+            if property.name() != name {
+                return Err(ConfigError::MergeError(format!(
+                    "Property name mismatch: key '{name}' != property '{}'",
+                    property.name()
+                )));
+            }
+            self.ensure_property_not_final(name)?;
         }
-        *self = staged;
+
+        let Config { mut properties, .. } = layer;
+        self.properties.append(&mut properties);
         Ok(())
     }
     /// Inserts or replaces a property using an explicit [`Property`] object.
