@@ -287,7 +287,7 @@ impl Config {
         let mut budget =
             limits
                 .wire()
-                .begin_json(input)
+                .begin(input.len())
                 .map_err(|error| match error {
                     ValueWireDecodeError::InvalidJson(error) => {
                         ConfigWireDecodeError::InvalidJson(error)
