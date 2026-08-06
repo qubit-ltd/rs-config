@@ -19,7 +19,6 @@ use crate::config_path::{
 use crate::config_reader::ConfigReader;
 use crate::options::ReadPolicy;
 use crate::{
-    ConfigError,
     ConfigName,
     ConfigResult,
     Property,
@@ -270,14 +269,16 @@ impl<'a> ConfigSection<'a> {
         &'b self,
     ) -> impl Iterator<Item = (&'b str, &'b Property)> + 'b {
         let child_prefix = self.child_prefix.as_deref().unwrap_or("");
-        self.config.iter_prefix(child_prefix).map(move |(key, property)| {
-            let key = if child_prefix.is_empty() {
-                key
-            } else {
-                &key[child_prefix.len()..]
-            };
-            (key, property)
-        })
+        self.config
+            .iter_prefix(child_prefix)
+            .map(move |(key, property)| {
+                let key = if child_prefix.is_empty() {
+                    key
+                } else {
+                    &key[child_prefix.len()..]
+                };
+                (key, property)
+            })
     }
 }
 
