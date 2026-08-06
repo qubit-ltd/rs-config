@@ -43,7 +43,6 @@ use crate::{
 use super::{
     ConfigSource,
     SourceLimits,
-    config_source::load_transactionally,
     source_budget::SourceBudget,
 };
 
@@ -124,8 +123,7 @@ impl Default for EnvConfigOptions {
 /// // Load only vars with prefix "APP_", strip prefix and normalize key
 /// let source = EnvConfigSource::with_prefix("APP_");
 ///
-/// let mut config = Config::new();
-/// source.load(&mut config).unwrap();
+/// let config = source.load().unwrap();
 /// ```
 #[derive(Debug, Clone)]
 pub struct EnvConfigSource {
@@ -357,11 +355,8 @@ impl Default for EnvConfigSource {
 }
 
 impl ConfigSource for EnvConfigSource {
-    fn load(&self, config: &mut Config) -> ConfigResult<()> {
-        load_transactionally(self, config)
-    }
-
-    fn load_into(&self, config: &mut Config) -> ConfigResult<()> {
+    fn load(&self) -> ConfigResult<Config> {
+        let mut config = Config::new();
         let mut normalized_keys = HashMap::new();
         let mut budget = SourceBudget::new("process environment", self.limits);
 
@@ -397,6 +392,6 @@ impl ConfigSource for EnvConfigSource {
             config.set(&transformed_key, value)?;
         }
 
-        Ok(())
+        Ok(config)
     }
 }

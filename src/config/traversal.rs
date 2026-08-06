@@ -14,6 +14,7 @@ use crate::{
     ConfigResult,
     Property,
 };
+use std::ops::Bound;
 
 impl Config {
     // ========================================================================
@@ -73,9 +74,9 @@ impl Config {
         prefix: &'a str,
     ) -> impl Iterator<Item = (&'a str, &'a Property)> {
         self.properties
-            .iter()
-            .filter(move |(k, _)| k.starts_with(prefix))
-            .map(|(k, v)| (k.as_str(), v))
+            .range::<str, _>((Bound::Included(prefix), Bound::Unbounded))
+            .take_while(move |(key, _)| key.starts_with(prefix))
+            .map(|(key, value)| (key.as_str(), value))
     }
 
     /// Returns `true` if any configuration key starts with `prefix`.
@@ -101,7 +102,7 @@ impl Config {
     /// ```
     #[inline]
     pub fn contains_key_prefix(&self, prefix: &str) -> bool {
-        self.properties.keys().any(|k| k.starts_with(prefix))
+        self.iter_prefix(prefix).next().is_some()
     }
 
     /// Returns whether a dotted configuration section has descendants.
@@ -178,20 +179,18 @@ impl Config {
 
         let full_prefix = format!("{prefix}.");
 
-        for (k, v) in &self.properties {
-            if k.starts_with(&full_prefix) {
-                let new_key = if strip_prefix {
-                    k[full_prefix.len()..].to_string()
-                } else {
-                    k.clone()
-                };
-                let property = if strip_prefix {
-                    v.renamed(new_key.clone())
-                } else {
-                    v.clone()
-                };
-                sub.properties.insert(new_key, property);
-            }
+        for (key, property) in self.iter_prefix(&full_prefix) {
+            let new_key = if strip_prefix {
+                key[full_prefix.len()..].to_string()
+            } else {
+                key.to_string()
+            };
+            let property = if strip_prefix {
+                property.renamed(new_key.clone())
+            } else {
+                property.clone()
+            };
+            sub.properties.insert(new_key, property);
         }
 
         Ok(sub)

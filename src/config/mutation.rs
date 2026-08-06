@@ -161,8 +161,28 @@ impl Config {
         &mut self,
         source: &dyn ConfigSource,
     ) -> ConfigResult<()> {
+        let layer = source.load()?;
+        self.merge_layer(layer)
+    }
+
+    /// Merges one source layer into this configuration.
+    ///
+    /// # Parameters
+    ///
+    /// * `layer` - Config layer produced by a source load.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when all properties are merged successfully.
+    #[inline]
+    pub(crate) fn merge_layer(
+        &mut self,
+        layer: Config,
+    ) -> ConfigResult<()> {
         let mut staged = self.clone();
-        source.load_into(&mut staged)?;
+        for (name, property) in layer.properties {
+            staged.insert_property(name, property)?;
+        }
         *self = staged;
         Ok(())
     }

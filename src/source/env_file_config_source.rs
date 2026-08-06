@@ -31,7 +31,6 @@ use crate::{
 use super::{
     ConfigSource,
     SourceLimits,
-    config_source::load_transactionally,
     source_budget::SourceBudget,
     source_input::SourceInput,
 };
@@ -48,8 +47,7 @@ use super::{
 /// let path = temp_dir.path().join(".env");
 /// std::fs::write(&path, "PORT=8080\n").unwrap();
 /// let source = EnvFileConfigSource::from_file(path);
-/// let mut config = Config::new();
-/// source.load(&mut config).unwrap();
+/// let config = source.load().unwrap();
 /// let port = config.get::<String>("PORT").unwrap();
 /// assert_eq!(port, "8080");
 /// ```
@@ -124,11 +122,8 @@ impl EnvFileConfigSource {
 }
 
 impl ConfigSource for EnvFileConfigSource {
-    fn load(&self, config: &mut Config) -> ConfigResult<()> {
-        load_transactionally(self, config)
-    }
-
-    fn load_into(&self, config: &mut Config) -> ConfigResult<()> {
+    fn load(&self) -> ConfigResult<Config> {
+        let mut config = Config::new();
         let label = self.input.label(".env");
         let content = self.input.read_to_string(".env", self.limits)?;
         let iter = dotenvy::from_read_iter(content.as_bytes());
@@ -142,7 +137,6 @@ impl ConfigSource for EnvFileConfigSource {
             budget.consume_properties(1)?;
             config.set(&key, value)?;
         }
-
-        Ok(())
+        Ok(config)
     }
 }

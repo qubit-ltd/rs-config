@@ -17,10 +17,10 @@
 //! ```rust
 //! # #[cfg(feature = "toml")]
 //! # {
+//! use qubit_config::Config;
 //! use qubit_config::source::{
 //!     CompositeConfigSource, ConfigSource, TomlConfigSource,
 //! };
-//! use qubit_config::Config;
 //!
 //! let mut composite = CompositeConfigSource::new();
 //! let temp_dir = tempfile::tempdir().unwrap();
@@ -32,7 +32,7 @@
 //! composite.add(TomlConfigSource::from_file(override_file));
 //!
 //! let mut config = Config::new();
-//! composite.load(&mut config).unwrap();
+//! let config = composite.load().unwrap();
 //! assert_eq!(config.get::<i64>("port").unwrap(), 8080);
 //! # }
 //! ```
@@ -42,10 +42,7 @@ use crate::{
     ConfigResult,
 };
 
-use super::{
-    ConfigSource,
-    config_source::load_transactionally,
-};
+use super::ConfigSource;
 
 /// Configuration source that merges multiple sources in order
 pub struct CompositeConfigSource {
@@ -112,14 +109,12 @@ impl Default for CompositeConfigSource {
 }
 
 impl ConfigSource for CompositeConfigSource {
-    fn load(&self, config: &mut Config) -> ConfigResult<()> {
-        load_transactionally(self, config)
-    }
-
-    fn load_into(&self, config: &mut Config) -> ConfigResult<()> {
+    fn load(&self) -> ConfigResult<Config> {
+        let mut config = Config::new();
         for source in &self.sources {
-            source.load_into(config)?;
+            let layer = source.load()?;
+            config.merge_layer(layer)?;
         }
-        Ok(())
+        Ok(config)
     }
 }
