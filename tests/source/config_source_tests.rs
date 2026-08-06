@@ -9,7 +9,6 @@
 
 use qubit_config::{
     Config,
-    ConfigError,
     ConfigResult,
     source::ConfigSource,
 };
@@ -35,10 +34,9 @@ fn test_config_source_load_populates_config() {
     };
     let mut config = Config::new();
 
-    let layer = source
-        .load()
+    config
+        .merge_from_source(&source)
         .expect("inline source should load successfully");
-    config.merge_layer(layer).unwrap();
 
     assert_eq!(config.get::<String>("server.host").unwrap(), "localhost");
 }
@@ -65,10 +63,9 @@ fn test_config_source_default_load_and_merge() {
         value: "api",
     };
     let mut config = Config::new();
-    let layer = source
-        .load()
+    config
+        .merge_from_source(&source)
         .expect("inline source should load successfully");
-    config.merge_layer(layer).unwrap();
 
     assert_eq!(config.get::<String>("server.name").unwrap(), "api");
 }

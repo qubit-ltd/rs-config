@@ -35,8 +35,7 @@ fn load_source(
     config: &mut Config,
     source: &dyn ConfigSource,
 ) -> ConfigResult<()> {
-    let layer = source.load()?;
-    config.merge_layer(layer)
+    config.merge_from_source(source)
 }
 
 // ============================================================================
@@ -56,6 +55,7 @@ mod test_composite_config_source {
         PropertiesConfigSource,
         TomlConfigSource,
         fixture,
+        load_source,
     };
 
     #[test]
@@ -116,7 +116,6 @@ mod test_composite_config_source {
         composite.add(TomlConfigSource::from_file("/nonexistent/path.toml"));
         composite.add(TomlConfigSource::from_file(fixture("basic.toml")));
 
-        let mut config = Config::new();
         let result = composite.load();
         assert!(result.is_err());
     }
@@ -189,7 +188,7 @@ mod test_composite_config_source {
         config.set("locked", "old").unwrap();
         config.set_final("locked", true).unwrap();
 
-        let result = config.merge_layer(composite.load().unwrap());
+        let result = config.merge_from_source(&composite);
 
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
         assert_eq!(config.get::<String>("locked").unwrap(), "old");

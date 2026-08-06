@@ -36,8 +36,7 @@ fn merge_source(
     config: &mut Config,
     source: &dyn ConfigSource,
 ) -> ConfigResult<()> {
-    let layer = source.load()?;
-    config.merge_layer(layer)
+    config.merge_from_source(source)
 }
 
 // ============================================================================
@@ -58,6 +57,7 @@ mod test_env_config_source {
         MutexGuard,
         OnceLock,
         env_test_lock,
+        merge_source,
     };
 
     /// Verifies the default environment policy redacts an ordinary UTF-8
@@ -420,6 +420,7 @@ mod test_env_edge_cases {
         MutexGuard,
         OnceLock,
         env_test_lock,
+        merge_source,
     };
 
     // ---- env: transform_key without strip_prefix ----
