@@ -26,7 +26,7 @@
 - ✅ **严格 section（ConfigSection）** - [`Config::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.section) 返回严格相对键视图；可通过 [`ConfigSection::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html#method.section) 继续嵌套
 - ✅ **安全诊断** - `Debug` 输出保留配置项元数据，并通过 `qubit-redact` 遮盖所有存储值
 - ✅ **结构化错误** - [`ConfigError::kind`](https://docs.rs/qubit-config/latest/qubit_config/enum.ConfigError.html#method.kind) 与 [`ConfigError::path`](https://docs.rs/qubit-config/latest/qubit_config/enum.ConfigError.html#method.path) 提供稳定的机器可读上下文，下游无需穷举错误变体
-- ✅ **高效核心表示** - 核心值使用枚举表示，并通过 staged source loading 控制合并成本；可插拔 source 在需要动态组合时仍可使用 trait object
+- ✅ **高效核心表示** - 核心值使用枚举表示，并通过事务式 source layer 控制合并成本；可插拔 source 在需要动态组合时仍可使用 trait object
 
 ## 安装
 
@@ -351,7 +351,7 @@ assert_eq!(retries, 3);
 
 ### 配置来源（Configuration sources）
 
-[`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) 的实现负责把外部设置写入 [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html)。可调用 [`merge_from_source`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.merge_from_source)，或在持有 `&mut Config` 时对具体来源调用 `load`。如果不需要在加载前定制目标 `Config`，可以直接使用 [`Config::from_toml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_toml_file)、[`Config::from_yaml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_yaml_file)、[`Config::from_properties_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_properties_file)、[`Config::from_env_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_file)、[`Config::from_env`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env) 或 [`Config::from_env_prefix`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_prefix) 等便捷构造方法。TOML、YAML 与 `.env` 便捷构造方法分别需要启用 `toml`、`yaml` 与 `env-file` feature。
+[`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) 的实现会把外部设置加载为独立的 [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) layer。可调用 [`merge_from_source`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.merge_from_source) 以事务方式应用 layer；如果需要检查或手工组合 layer，则直接调用 `source.load()`。如果不需要在加载前定制目标 `Config`，可以直接使用 [`Config::from_toml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_toml_file)、[`Config::from_yaml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_yaml_file)、[`Config::from_properties_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_properties_file)、[`Config::from_env_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_file)、[`Config::from_env`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env) 或 [`Config::from_env_prefix`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_prefix) 等便捷构造方法。TOML、YAML 与 `.env` 便捷构造方法分别需要启用 `toml`、`yaml` 与 `env-file` feature。
 
 内置来源和 `Config::merge_from_source` 都按事务语义加载：如果解析或合并失败，目标 `Config` 会保留加载前的状态。
 
@@ -643,8 +643,8 @@ let server = Server {
 
 - **枚举值存储** - 核心配置值使用枚举表示，便于稳定地存储和转换
 - **变量替换优化** - 使用 `OnceLock` 缓存正则表达式，避免重复编译
-- **高效存储** - 精确 key 查找使用 `HashMap`，期望复杂度为 O(1)；prefix 与 section 枚举会扫描已存储配置项，复杂度为 O(n)
-- **分阶段 source 加载** - 内置 source 在 composite 和 merge 路径中直接写入已 staged 的 `Config`，保留事务语义，同时避免重复整份配置克隆
+- **高效存储** - 精确 key 查找使用 `BTreeMap`，复杂度为 O(log n)；prefix 与 section 枚举会扫描已存储配置项，复杂度为 O(n)
+- **事务式 source layer** - source 返回独立的 `Config` layer；合并前会先校验完整 layer，再原地追加，保留原子性且避免克隆整份目标配置
 
 ## 文档
 
