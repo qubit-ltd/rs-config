@@ -343,7 +343,7 @@ impl Config {
                     .map_err(ConfigWireDecodeError::from)?;
             }
             budget
-                .check_container(property.value())
+                .check_container_at(property.value(), 2)
                 .map_err(ConfigWireDecodeError::from)?;
         }
         Ok(())

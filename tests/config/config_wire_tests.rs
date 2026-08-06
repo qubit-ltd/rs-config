@@ -147,9 +147,9 @@ fn test_config_wire_limits_apply_to_nested_values() {
     ));
 }
 
-/// Verifies structural limits are checked before configuration invariants.
+/// Verifies configuration invariants are reported after runtime decoding.
 #[test]
-fn test_config_wire_preflight_rejects_structural_limits_before_validation() {
+fn test_config_wire_reports_configuration_invariant_after_decoding() {
     let mut config = Config::new();
     for index in 0..20 {
         config
@@ -165,14 +165,11 @@ fn test_config_wire_preflight_rejects_structural_limits_before_validation() {
     let limits = ConfigWireLimits::new(input.len())
         .with_wire(WireLimits::new(input.len()).with_max_nodes(1));
 
+    let result = Config::decode_json_slice_with_limits(&input, limits);
     assert!(matches!(
-        Config::decode_json_slice_with_limits(&input, limits),
-        Err(ConfigWireDecodeError::Value(
-            ValueWireDecodeError::LimitExceeded {
-                kind: qubit_value::ValueWireLimitKind::Nodes,
-                ..
-            }
-        ))
+        result,
+        Err(ConfigWireDecodeError::InvalidJson(error))
+            if error.to_string().contains("does not match property name")
     ));
 }
 
