@@ -10,10 +10,11 @@ use crate::{
     ConfigResult,
 };
 
-/// Trait for configuration sources
+/// Trait for configuration sources.
 ///
-/// Implementors of this trait can load configuration data and populate a
-/// [`Config`] object.
+/// Implementors return an independent [`Config`] layer. Callers can inspect
+/// or compose that layer directly, or apply it atomically with
+/// [`Config::merge_from_source`].
 ///
 /// # Examples
 ///
@@ -31,7 +32,7 @@ use crate::{
 /// }
 /// ```
 pub trait ConfigSource {
-    /// Loads configuration data into an independent `Config` object.
+    /// Loads configuration data into an independent `Config` layer.
     ///
     /// # Parameters
     ///

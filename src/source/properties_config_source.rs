@@ -49,7 +49,7 @@ use super::{
 /// let path = temp_dir.path().join("config.properties");
 /// std::fs::write(&path, "server.port=8080\n").unwrap();
 /// let source = PropertiesConfigSource::from_file(path);
-/// source.load().unwrap();
+/// let config = source.load().unwrap();
 /// let value = config.get::<String>("server.port").unwrap();
 /// assert_eq!(value, "8080");
 /// ```

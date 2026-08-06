@@ -24,7 +24,7 @@ A powerful, type-safe configuration management system for Rust, providing flexib
 - ✅ **Strict sections** - [`Config::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.section) returns a [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html) with strictly relative keys; nest with [`ConfigSection::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html#method.section)
 - ✅ **Safe diagnostics** - `Debug` output preserves property metadata while redacting every stored configuration value through `qubit-redact`
 - ✅ **Structured errors** - [`ConfigError::kind`](https://docs.rs/qubit-config/latest/qubit_config/enum.ConfigError.html#method.kind) and [`ConfigError::path`](https://docs.rs/qubit-config/latest/qubit_config/enum.ConfigError.html#method.path) expose stable machine-readable context without downstream exhaustive variant matching
-- ✅ **Efficient core representation** - Uses enum-backed values and staged source loading; pluggable sources can still use trait objects where dynamic composition is useful
+- ✅ **Efficient core representation** - Uses enum-backed values and transactional source layers; pluggable sources can still use trait objects where dynamic composition is useful
 
 ## Installation
 
@@ -362,7 +362,7 @@ value is invalid, the error is returned and later keys are not tried.
 
 ### Configuration sources
 
-Implementations of [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) load external settings into a [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html). Call [`merge_from_source`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.merge_from_source) (or `load` on the source with a `&mut Config`) to apply them. When no pre-load customization is needed, use the convenience constructors such as [`Config::from_toml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_toml_file), [`Config::from_yaml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_yaml_file), [`Config::from_properties_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_properties_file), [`Config::from_env_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_file), [`Config::from_env`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env), or [`Config::from_env_prefix`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_prefix). TOML, YAML, and `.env` convenience constructors require the `toml`, `yaml`, and `env-file` features respectively.
+Implementations of [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) load external settings into an independent [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) layer. Call [`merge_from_source`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.merge_from_source) to apply a layer atomically, or call `source.load()` when the layer needs to be inspected or composed manually. When no pre-load customization is needed, use the convenience constructors such as [`Config::from_toml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_toml_file), [`Config::from_yaml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_yaml_file), [`Config::from_properties_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_properties_file), [`Config::from_env_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_file), [`Config::from_env`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env), or [`Config::from_env_prefix`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_prefix). TOML, YAML, and `.env` convenience constructors require the `toml`, `yaml`, and `env-file` features respectively.
 
 Built-in sources and `Config::merge_from_source` are transactional: if parsing or merging fails, the target `Config` keeps its previous state.
 
@@ -664,8 +664,8 @@ not supported.
 
 - **Enum-backed values** - Core property values use enums for predictable storage and conversion paths
 - **Variable Substitution Optimization** - Uses `OnceLock` to cache regex patterns, avoiding repeated compilation
-- **Efficient Storage** - Exact property lookup uses `HashMap` with O(1) expected complexity; prefix and section enumeration scan the stored properties and are O(n)
-- **Staged Source Loading** - Built-in source loaders write into an already staged `Config` during composite and merge operations, preserving transaction semantics without repeated full-config clones
+- **Efficient Storage** - Exact property lookup uses a `BTreeMap` with O(log n) complexity; prefix and section enumeration scan the stored properties and are O(n)
+- **Transactional Source Layers** - Sources return independent `Config` layers. Merging validates the complete layer before appending it in place, preserving atomicity without cloning the full target configuration
 
 ## Documentation
 
