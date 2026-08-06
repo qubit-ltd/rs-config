@@ -52,7 +52,7 @@ fn properties_source_rejects_oversized_input_transactionally() {
     let mut config = Config::new();
     config.set("existing", "kept").unwrap();
 
-    let result = source.load(&mut config);
+    let result = source.load().and_then(|layer| config.merge_layer(layer));
 
     assert!(matches!(
         result,
@@ -73,7 +73,7 @@ fn properties_source_counts_duplicate_assignments() {
         .with_limits(SourceLimits::default().with_max_properties(1));
 
     assert!(matches!(
-        source.load(&mut Config::new()),
+        source.load(),
         Err(ConfigError::SourceLimitExceeded {
             kind: SourceLimitKind::PropertyCount,
             limit: 1,
@@ -87,7 +87,7 @@ fn properties_source_counts_duplicate_assignments() {
 fn properties_source_rejects_invalid_keys_and_excessive_key_depth() {
     assert!(matches!(
         PropertiesConfigSource::from_content("bad..key=1\n")
-            .load(&mut Config::new()),
+            .load(),
         Err(ConfigError::InvalidKey { .. })
     ));
 
@@ -95,7 +95,7 @@ fn properties_source_rejects_invalid_keys_and_excessive_key_depth() {
     let source = PropertiesConfigSource::from_content(format!("{deep_key}=1"))
         .with_limits(SourceLimits::default().with_max_nesting_depth(64));
     assert!(matches!(
-        source.load(&mut Config::new()),
+        source.load(),
         Err(ConfigError::SourceLimitExceeded {
             kind: SourceLimitKind::NestingDepth,
             limit: 64,
@@ -111,7 +111,7 @@ fn env_file_memory_source_enforces_property_budget() {
     let source = EnvFileConfigSource::from_content("FIRST=1\nSECOND=2\n")
         .with_limits(SourceLimits::default().with_max_properties(1));
     assert!(matches!(
-        source.load(&mut Config::new()),
+        source.load(),
         Err(ConfigError::SourceLimitExceeded {
             kind: SourceLimitKind::PropertyCount,
             limit: 1,
@@ -127,7 +127,7 @@ fn toml_source_rejects_excessive_nesting_depth() {
     let source = TomlConfigSource::from_content("[server]\nport = 8080\n")
         .with_limits(SourceLimits::default().with_max_nesting_depth(1));
     assert!(matches!(
-        source.load(&mut Config::new()),
+        source.load(),
         Err(ConfigError::SourceLimitExceeded {
             kind: SourceLimitKind::NestingDepth,
             limit: 1,
@@ -143,7 +143,7 @@ fn yaml_source_rejects_excessive_nesting_depth() {
     let source = YamlConfigSource::from_content("server:\n  port: 8080\n")
         .with_limits(SourceLimits::default().with_max_nesting_depth(1));
     assert!(matches!(
-        source.load(&mut Config::new()),
+        source.load(),
         Err(ConfigError::SourceLimitExceeded {
             kind: SourceLimitKind::NestingDepth,
             limit: 1,

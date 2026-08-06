@@ -298,9 +298,7 @@ mod test_toml_type_faithful {
         let path = dir.path().join("test.toml");
         std::fs::write(&path, content).unwrap();
         let source = TomlConfigSource::from_file(&path);
-        let mut config = Config::new();
-        source.load(&mut config).unwrap();
-        config
+        source.load().unwrap()
     }
 
     #[test]
@@ -380,8 +378,7 @@ mod test_toml_type_faithful {
         let path = dir.path().join("nested_array.toml");
         std::fs::write(&path, "nested = [[1, 2], [3, 4]]\n").unwrap();
         let source = TomlConfigSource::from_file(&path);
-        let mut config = Config::new();
-        let result = source.load(&mut config);
+        let result = source.load();
         assert!(result.is_err());
         assert!(matches!(result, Err(ConfigError::ParseError(_))));
     }
@@ -415,9 +412,7 @@ mod test_yaml_type_faithful {
         let path = dir.path().join("test.yaml");
         std::fs::write(&path, content).unwrap();
         let source = YamlConfigSource::from_file(&path);
-        let mut config = Config::new();
-        source.load(&mut config).unwrap();
-        config
+        source.load().unwrap()
     }
 
     #[test]
@@ -526,8 +521,7 @@ mod test_yaml_type_faithful {
         let path = dir.path().join("nested_seq.yaml");
         std::fs::write(&path, "matrix:\n  - [1, 2]\n  - [3, 4]\n").unwrap();
         let source = YamlConfigSource::from_file(&path);
-        let mut config = Config::new();
-        let result = source.load(&mut config);
+        let result = source.load();
         assert!(matches!(result, Err(ConfigError::ParseError(_))));
     }
 }
