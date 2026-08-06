@@ -20,7 +20,7 @@ use serde::{
     Serialize,
     Serializer,
 };
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use self::internal::{
     ConfigSerdeRepr,
@@ -143,7 +143,7 @@ pub struct Config {
     /// Configuration description
     description: Option<String>,
     /// Configuration property mapping
-    pub(crate) properties: HashMap<String, Property>,
+    pub(crate) properties: BTreeMap<String, Property>,
     /// Runtime policy used by direct reads on this configuration.
     default_read_policy: Transient<ReadPolicy>,
 }
@@ -352,7 +352,7 @@ impl Config {
     /// Validates shared fields decoded from an accepted persisted wire format.
     fn from_wire_parts(
         description: Option<String>,
-        properties: HashMap<String, Property>,
+        properties: BTreeMap<String, Property>,
     ) -> Result<Self, String> {
         if let Some((key, violation)) = properties
             .keys()
@@ -403,7 +403,7 @@ impl Config {
     pub fn new() -> Self {
         Self {
             description: None,
-            properties: HashMap::new(),
+            properties: BTreeMap::new(),
             default_read_policy: Transient::new(ReadPolicy::default()),
         }
     }
@@ -430,7 +430,7 @@ impl Config {
     pub fn with_description(description: &str) -> Self {
         Self {
             description: Some(description.to_string()),
-            properties: HashMap::new(),
+            properties: BTreeMap::new(),
             default_read_policy: Transient::new(ReadPolicy::default()),
         }
     }

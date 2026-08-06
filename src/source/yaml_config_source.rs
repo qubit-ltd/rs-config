@@ -42,7 +42,6 @@ use crate::{
 use super::{
     ConfigSource,
     SourceLimits,
-    config_source::load_transactionally,
     source_budget::SourceBudget,
     source_input::SourceInput,
 };
@@ -60,7 +59,7 @@ use super::{
 /// std::fs::write(&path, "server:\n  port: 8080\n").unwrap();
 /// let source = YamlConfigSource::from_file(path);
 /// let mut config = Config::new();
-/// source.load(&mut config).unwrap();
+/// let config = source.load().unwrap();
 /// assert_eq!(config.get::<i64>("server.port").unwrap(), 8080);
 /// ```
 #[derive(Debug, Clone)]
@@ -127,11 +126,8 @@ impl YamlConfigSource {
 }
 
 impl ConfigSource for YamlConfigSource {
-    fn load(&self, config: &mut Config) -> ConfigResult<()> {
-        load_transactionally(self, config)
-    }
-
-    fn load_into(&self, config: &mut Config) -> ConfigResult<()> {
+    fn load(&self) -> ConfigResult<Config> {
+        let mut config = Config::new();
         let label = self.input.label("YAML");
         let content = self.input.read_to_string("YAML", self.limits)?;
 
@@ -140,8 +136,8 @@ impl ConfigSource for YamlConfigSource {
 
         let mut seen = HashSet::new();
         let mut budget = SourceBudget::new(&label, self.limits);
-        flatten_yaml_value("", &value, config, &mut seen, &mut budget, 0)?;
-        Ok(())
+        flatten_yaml_value("", &value, &mut config, &mut seen, &mut budget, 0)?;
+        Ok(config)
     }
 }
 

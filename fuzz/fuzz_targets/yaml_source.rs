@@ -11,7 +11,6 @@
 
 use libfuzzer_sys::fuzz_target;
 use qubit_config::{
-    Config,
     source::{
         ConfigSource,
         YamlConfigSource,
@@ -28,6 +27,5 @@ fuzz_target!(|data: &[u8]| {
         return;
     };
     let source = YamlConfigSource::from_content(content);
-    let mut config = Config::new();
-    let _ = source.load(&mut config);
+    let _ = source.load();
 });

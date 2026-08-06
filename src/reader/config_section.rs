@@ -250,19 +250,14 @@ impl<'a> ConfigSection<'a> {
     ///
     /// # Returns
     ///
-    /// `None` for an empty property name on a non-root section; otherwise the
-    /// resolved key.
+    /// The resolved key.
     #[inline]
     fn visible_property_key<'b>(
         &'b self,
         name: &'b str,
-    ) -> ConfigResult<Option<Cow<'b, str>>> {
+    ) -> ConfigResult<Cow<'b, str>> {
         ensure_config_key(name)?;
-        if !self.path.is_empty() && name.is_empty() {
-            Ok(None)
-        } else {
-            Ok(Some(self.resolve_key_cow(name)))
-        }
+        Ok(self.resolve_key_cow(name))
     }
 
     /// Iterates entries visible as descendants of this section.
@@ -274,30 +269,15 @@ impl<'a> ConfigSection<'a> {
     fn visible_entries<'b>(
         &'b self,
     ) -> impl Iterator<Item = (&'b str, &'b Property)> + 'b {
-        let child_prefix = self.child_prefix.as_deref();
-        self.config
-            .properties
-            .iter()
-            .filter_map(move |(key, value)| match child_prefix {
-                Some(prefix) => {
-                    key.strip_prefix(prefix).map(|relative| (relative, value))
-                }
-                None => Some((key.as_str(), value)),
-            })
-    }
-
-    /// Creates a missing-property error for an invisible relative name.
-    ///
-    /// # Arguments
-    ///
-    /// * `name` - Relative property name.
-    ///
-    /// # Returns
-    ///
-    /// A root-relative [`ConfigError::PropertyNotFound`] value.
-    #[inline]
-    fn missing_property_error(&self, name: &str) -> ConfigError {
-        ConfigError::PropertyNotFound(self.resolve_key_cow(name).into_owned())
+        let child_prefix = self.child_prefix.as_deref().unwrap_or("");
+        self.config.iter_prefix(child_prefix).map(move |(key, property)| {
+            let key = if child_prefix.is_empty() {
+                key
+            } else {
+                &key[child_prefix.len()..]
+            };
+            (key, property)
+        })
     }
 }
 
@@ -318,9 +298,7 @@ impl<'a> ConfigReader for ConfigSection<'a> {
         name: impl ConfigName,
     ) -> ConfigResult<Option<&Property>> {
         name.with_config_name(|name| {
-            let Some(key) = self.visible_property_key(name)? else {
-                return Ok(None);
-            };
+            let key = self.visible_property_key(name)?;
             self.config.get_property(key.as_ref())
         })
     }
@@ -341,9 +319,7 @@ impl<'a> ConfigReader for ConfigSection<'a> {
 
     fn contains(&self, name: impl ConfigName) -> ConfigResult<bool> {
         name.with_config_name(|name| {
-            let Some(key) = self.visible_property_key(name)? else {
-                return Ok(false);
-            };
+            let key = self.visible_property_key(name)?;
             self.config.contains(key.as_ref())
         })
     }
@@ -353,9 +329,7 @@ impl<'a> ConfigReader for ConfigSection<'a> {
         T: StrictValueRead,
     {
         name.with_config_name(|name| {
-            let key = self
-                .visible_property_key(name)?
-                .ok_or_else(|| self.missing_property_error(name))?;
+            let key = self.visible_property_key(name)?;
             self.config.get_strict(key.as_ref())
         })
     }
@@ -365,9 +339,7 @@ impl<'a> ConfigReader for ConfigSection<'a> {
         T: StrictValueRead,
     {
         name.with_config_name(|name| {
-            let key = self
-                .visible_property_key(name)?
-                .ok_or_else(|| self.missing_property_error(name))?;
+            let key = self.visible_property_key(name)?;
             self.config.get_list_strict(key.as_ref())
         })
     }

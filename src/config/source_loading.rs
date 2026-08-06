@@ -50,9 +50,7 @@ impl Config {
     /// or by the underlying config mutation methods.
     #[inline]
     pub fn from_source(source: &dyn ConfigSource) -> ConfigResult<Self> {
-        let mut config = Self::new();
-        source.load(&mut config)?;
-        Ok(config)
+        source.load()
     }
 
     /// Creates a configuration from all current process environment variables.

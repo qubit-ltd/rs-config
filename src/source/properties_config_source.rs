@@ -33,7 +33,6 @@ use crate::{
 use super::{
     ConfigSource,
     SourceLimits,
-    config_source::load_transactionally,
     source_budget::SourceBudget,
     source_input::SourceInput,
 };
@@ -50,8 +49,7 @@ use super::{
 /// let path = temp_dir.path().join("config.properties");
 /// std::fs::write(&path, "server.port=8080\n").unwrap();
 /// let source = PropertiesConfigSource::from_file(path);
-/// let mut config = Config::new();
-/// source.load(&mut config).unwrap();
+/// source.load().unwrap();
 /// let value = config.get::<String>("server.port").unwrap();
 /// assert_eq!(value, "8080");
 /// ```
@@ -376,18 +374,14 @@ fn decode_surrogate_pair(high: u32, low: u32) -> Option<char> {
 }
 
 impl ConfigSource for PropertiesConfigSource {
-    fn load(&self, config: &mut Config) -> ConfigResult<()> {
-        load_transactionally(self, config)
-    }
-
-    fn load_into(&self, config: &mut Config) -> ConfigResult<()> {
+    fn load(&self) -> ConfigResult<Config> {
+        let mut config = Config::new();
         let content = self.input.read_to_string("properties", self.limits)?;
         let properties =
             Self::parse_content_with_limits(&content, self.limits)?;
         for (key, value) in properties {
             config.set(&key, value)?;
         }
-
-        Ok(())
+        Ok(config)
     }
 }

@@ -44,7 +44,6 @@ use crate::{
 use super::{
     ConfigSource,
     SourceLimits,
-    config_source::load_transactionally,
     source_budget::SourceBudget,
     source_input::SourceInput,
 };
@@ -62,7 +61,7 @@ use super::{
 /// std::fs::write(&path, "server.port = 8080\n").unwrap();
 /// let source = TomlConfigSource::from_file(path);
 /// let mut config = Config::new();
-/// source.load(&mut config).unwrap();
+/// let config = source.load().unwrap();
 /// assert_eq!(config.get::<i64>("server.port").unwrap(), 8080);
 /// ```
 #[derive(Debug, Clone)]
@@ -159,11 +158,8 @@ impl TomlConfigSource {
 }
 
 impl ConfigSource for TomlConfigSource {
-    fn load(&self, config: &mut Config) -> ConfigResult<()> {
-        load_transactionally(self, config)
-    }
-
-    fn load_into(&self, config: &mut Config) -> ConfigResult<()> {
+    fn load(&self) -> ConfigResult<Config> {
+        let mut config = Config::new();
         let label = self.input.label("TOML");
         let content = self.input.read_to_string("TOML", self.limits)?;
 
@@ -176,12 +172,12 @@ impl ConfigSource for TomlConfigSource {
         flatten_toml_value(
             "",
             &TomlValue::Table(table),
-            config,
+            &mut config,
             &mut seen,
             &mut budget,
             0,
         )?;
-        Ok(())
+        Ok(config)
     }
 }
 

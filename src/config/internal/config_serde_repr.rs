@@ -6,7 +6,7 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use serde::{
     Deserialize,
@@ -24,7 +24,7 @@ pub(in crate::config) struct ConfigSerdeRepr {
     pub(in crate::config) description: Option<String>,
     /// Properties indexed by their canonical names.
     #[serde(default)]
-    pub(in crate::config) properties: HashMap<String, Property>,
+    pub(in crate::config) properties: BTreeMap<String, Property>,
     /// Legacy runtime options accepted for backward input compatibility and
     /// intentionally ignored.
     #[allow(dead_code)]
