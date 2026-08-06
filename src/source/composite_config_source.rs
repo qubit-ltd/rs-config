@@ -112,8 +112,7 @@ impl ConfigSource for CompositeConfigSource {
     fn load(&self) -> ConfigResult<Config> {
         let mut config = Config::new();
         for source in &self.sources {
-            let layer = source.load()?;
-            config.merge_layer(layer)?;
+            config.merge_from_source(source.as_ref())?;
         }
         Ok(config)
     }
