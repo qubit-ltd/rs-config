@@ -19,8 +19,8 @@ use crate::{
     ConfigName,
     ConfigResult,
     Property,
-    Transient,
 };
+use qubit_utils::Transient;
 
 impl Config {
     // ========================================================================

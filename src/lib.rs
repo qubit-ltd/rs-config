@@ -61,7 +61,6 @@ pub mod property;
 mod read_policy;
 pub mod reader;
 pub mod source;
-mod transient;
 mod utils;
 
 pub use config::Config;
@@ -95,4 +94,3 @@ pub use source::{
     SourceLimitKind,
     SourceLimits,
 };
-pub use transient::Transient;

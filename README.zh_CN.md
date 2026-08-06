@@ -34,19 +34,19 @@
 
 ```toml
 [dependencies]
-qubit-config = "0.14"
+qubit-config = "0.15"
 ```
 
 默认 feature 集为空，核心配置读取不会引入可选格式或富类型依赖。需要全部可选能力时启用 `full`：
 
 ```toml
-qubit-config = { version = "0.14", features = ["full"] }
+qubit-config = { version = "0.15", features = ["full"] }
 ```
 
 也可以只启用实际需要的能力：
 
 ```toml
-qubit-config = { version = "0.14", features = ["toml"] }
+qubit-config = { version = "0.15", features = ["toml"] }
 ```
 
 可用 feature flags：
@@ -273,7 +273,7 @@ property 现在会被拒绝。
 
 ```toml
 [dependencies]
-qubit-config = "0.14"
+qubit-config = "0.15"
 qubit-datatype = { version = "0.10", default-features = false, features = ["converter"] }
 ```
 

@@ -32,7 +32,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-qubit-config = "0.14"
+qubit-config = "0.15"
 ```
 
 The default feature set is intentionally empty, so core configuration reads do
@@ -40,13 +40,13 @@ not pull in optional formats or rich value types. Enable the complete optional
 surface with `full`:
 
 ```toml
-qubit-config = { version = "0.14", features = ["full"] }
+qubit-config = { version = "0.15", features = ["full"] }
 ```
 
 Enable only the capabilities you need:
 
 ```toml
-qubit-config = { version = "0.14", features = ["toml"] }
+qubit-config = { version = "0.15", features = ["toml"] }
 ```
 
 Available feature flags:
@@ -283,7 +283,7 @@ customize them should depend on that crate directly:
 
 ```toml
 [dependencies]
-qubit-config = "0.14"
+qubit-config = "0.15"
 qubit-datatype = { version = "0.10", default-features = false, features = ["converter"] }
 ```
 
