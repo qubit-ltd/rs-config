@@ -9,7 +9,6 @@
 use qubit_config::{
     Config,
     ConfigError,
-    ConfigResult,
     SourceLimitKind,
     source::{
         ConfigSource,
@@ -22,7 +21,7 @@ use qubit_config::{
 fn properties_source_rejects_oversized_in_memory_input_before_loading() {
     let source = PropertiesConfigSource::from_content("key=abcd\n")
         .with_limits(SourceLimits::default().with_max_input_bytes(3));
-    let mut config = Config::new();
+    let _config = Config::new();
 
     let error = source
         .load()

@@ -30,8 +30,7 @@ fn merge_source(
     config: &mut Config,
     source: &dyn ConfigSource,
 ) -> ConfigResult<()> {
-    let layer = source.load()?;
-    config.merge_layer(layer)
+    config.merge_from_source(source)
 }
 
 // ============================================================================
@@ -48,6 +47,7 @@ mod test_properties_config_source {
         PathBuf,
         PropertiesConfigSource,
         fixture,
+        merge_source,
     };
 
     // ---- parse_content unit tests ----
@@ -299,6 +299,7 @@ mod test_properties_edge_cases {
         PathBuf,
         PropertiesConfigSource,
         fixture,
+        merge_source,
     };
 
     #[test]

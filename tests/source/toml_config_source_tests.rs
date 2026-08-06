@@ -32,8 +32,7 @@ fn merge_source(
     config: &mut Config,
     source: &dyn ConfigSource,
 ) -> ConfigResult<()> {
-    let layer = source.load()?;
-    config.merge_layer(layer)
+    config.merge_from_source(source)
 }
 
 // ============================================================================
@@ -50,6 +49,7 @@ mod test_toml_config_source {
         PathBuf,
         TomlConfigSource,
         fixture,
+        merge_source,
     };
 
     #[test]
@@ -245,6 +245,7 @@ mod test_toml_edge_cases {
         PathBuf,
         TomlConfigSource,
         fixture,
+        merge_source,
     };
 
     // ---- toml: datetime value ----

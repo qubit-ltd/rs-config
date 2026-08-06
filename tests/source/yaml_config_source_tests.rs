@@ -34,8 +34,7 @@ fn merge_source(
     config: &mut Config,
     source: &dyn ConfigSource,
 ) -> ConfigResult<()> {
-    let layer = source.load()?;
-    config.merge_layer(layer)
+    config.merge_from_source(source)
 }
 
 // ============================================================================
@@ -54,6 +53,7 @@ mod test_yaml_config_source {
         Property,
         YamlConfigSource,
         fixture,
+        merge_source,
     };
 
     #[test]
@@ -362,9 +362,7 @@ db:
             .expect("complex YAML key fixture should be written");
 
         let source = YamlConfigSource::from_file(&path);
-        let error = source
-            .load()
-            .expect_err("complex YAML key should fail");
+        let error = source.load().expect_err("complex YAML key should fail");
 
         let display = error.to_string();
         assert!(display.contains("<redacted>"));
@@ -446,6 +444,7 @@ mod test_yaml_edge_cases {
         Property,
         YamlConfigSource,
         fixture,
+        merge_source,
     };
 
     // ---- yaml: number without integer representation ----
@@ -579,9 +578,7 @@ flags:
         .expect("nested YAML mapping fixture should be written");
 
         let source = YamlConfigSource::from_file(&path);
-        let error = source
-            .load()
-            .expect_err("nested YAML mapping should fail");
+        let error = source.load().expect_err("nested YAML mapping should fail");
 
         let display = error.to_string();
         assert!(display.contains("items"));

@@ -52,7 +52,7 @@ fn properties_source_rejects_oversized_input_transactionally() {
     let mut config = Config::new();
     config.set("existing", "kept").unwrap();
 
-    let result = source.load().and_then(|layer| config.merge_layer(layer));
+    let result = config.merge_from_source(&source);
 
     assert!(matches!(
         result,
@@ -86,8 +86,7 @@ fn properties_source_counts_duplicate_assignments() {
 #[test]
 fn properties_source_rejects_invalid_keys_and_excessive_key_depth() {
     assert!(matches!(
-        PropertiesConfigSource::from_content("bad..key=1\n")
-            .load(),
+        PropertiesConfigSource::from_content("bad..key=1\n").load(),
         Err(ConfigError::InvalidKey { .. })
     ));
 

@@ -32,7 +32,7 @@ fn merge_source(
     config: &mut Config,
     source: &dyn ConfigSource,
 ) -> ConfigResult<()> {
-    config.merge_layer(source.load()?)
+    config.merge_from_source(source)
 }
 
 // ============================================================================
@@ -49,6 +49,7 @@ mod test_env_file_config_source {
         EnvFileConfigSource,
         PathBuf,
         fixture,
+        merge_source,
     };
 
     #[test]
@@ -155,6 +156,7 @@ mod test_env_file_edge_cases {
         EnvFileConfigSource,
         PathBuf,
         fixture,
+        merge_source,
     };
 
     // ---- env_file: non-existent file returns IoError ----
