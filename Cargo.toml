@@ -94,6 +94,10 @@ name = "config_parse_context_tests"
 path = "tests/conversion/from/config_parse_context_tests.rs"
 
 [[test]]
+name = "raw_read_allocation_tests"
+path = "tests/conversion/from/raw_read_allocation_tests.rs"
+
+[[test]]
 name = "config_source_tests"
 path = "tests/source/config_source_tests.rs"
 

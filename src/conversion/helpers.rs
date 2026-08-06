@@ -187,10 +187,19 @@ fn is_effectively_missing_by<R: ConfigReader + ?Sized>(
     let Some(value) = first_scalar_string(property) else {
         return Ok(false);
     };
+    if !interpolate {
+        return Ok(matches!(
+            options
+                .conversion_options()
+                .string()
+                .normalize_optional(value),
+            Ok(None)
+        ));
+    }
     let substitute = |value: &str| {
         substitute_for_reader(reader, name, value, options, interpolate)
     };
-    let ctx = ConfigParseContext::new(name, options, &substitute);
+    let ctx = ConfigParseContext::new(name, options, &substitute, interpolate);
     let value = ctx.substitute_string(value)?;
     match options
         .conversion_options()
@@ -218,7 +227,7 @@ where
     let substitute = |value: &str| {
         substitute_for_reader(reader, name, value, options, interpolate)
     };
-    let ctx = ConfigParseContext::new(name, options, &substitute);
+    let ctx = ConfigParseContext::new(name, options, &substitute, interpolate);
     T::from_config(property, &ctx)
 }
 

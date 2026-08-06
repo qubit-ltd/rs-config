@@ -17,6 +17,8 @@ pub struct ConfigParseContext<'a> {
     options: &'a ReadPolicy,
     /// The substitution function used for this parse operation.
     substitute: &'a dyn Fn(&str) -> ConfigResult<String>,
+    /// Whether string values should be interpolated before conversion.
+    interpolate: bool,
 }
 
 impl<'a> ConfigParseContext<'a> {
@@ -28,6 +30,8 @@ impl<'a> ConfigParseContext<'a> {
     /// * `options` - The read policy used for this parse operation.
     /// * `substitute` - The substitution function used for this parse
     ///   operation.
+    /// * `interpolate` - Whether string values should be interpolated before
+    ///   conversion.
     ///
     /// # Returns
     ///
@@ -36,11 +40,13 @@ impl<'a> ConfigParseContext<'a> {
         key: &'a str,
         options: &'a ReadPolicy,
         substitute: &'a dyn Fn(&str) -> ConfigResult<String>,
+        interpolate: bool,
     ) -> Self {
         Self {
             key,
             options,
             substitute,
+            interpolate,
         }
     }
 
@@ -62,6 +68,12 @@ impl<'a> ConfigParseContext<'a> {
     #[inline]
     pub fn options(&self) -> &ReadPolicy {
         self.options
+    }
+
+    /// Reports whether string values are interpolated before conversion.
+    #[inline(always)]
+    pub(crate) const fn interpolates(&self) -> bool {
+        self.interpolate
     }
 
     /// Applies variable substitution to a string value.

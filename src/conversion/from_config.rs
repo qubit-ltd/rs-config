@@ -79,6 +79,12 @@ where
     T: DataConversionTarget,
 {
     if let Some(value) = first_scalar_string(property) {
+        if !ctx.interpolates() {
+            return property
+                .value()
+                .to_first_with::<T>(ctx.options().conversion_options())
+                .map_err(|e| utils::map_value_error(ctx.key(), e));
+        }
         let value = ctx.substitute_string(value)?;
         QubitValue::String(value)
             .to_with::<T>(ctx.options().conversion_options())
@@ -110,6 +116,9 @@ fn substituted_values<'a>(
     property: &'a Property,
     ctx: &ConfigParseContext<'_>,
 ) -> ConfigResult<Cow<'a, ValueContainer>> {
+    if !ctx.interpolates() {
+        return Ok(Cow::Borrowed(property.value()));
+    }
     match property.value() {
         ValueContainer::Scalar(value) => match value.view() {
             ValueRef::String(value) => ctx
