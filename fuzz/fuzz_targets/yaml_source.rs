@@ -10,11 +10,9 @@
 //! Fuzzes bounded YAML parsing and flattening.
 
 use libfuzzer_sys::fuzz_target;
-use qubit_config::{
-    source::{
-        ConfigSource,
-        YamlConfigSource,
-    },
+use qubit_config::source::{
+    ConfigSource,
+    YamlConfigSource,
 };
 
 const MAX_INPUT_BYTES: usize = 64 * 1024;

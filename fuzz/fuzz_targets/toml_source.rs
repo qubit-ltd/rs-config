@@ -10,11 +10,9 @@
 //! Fuzzes bounded TOML parsing and flattening.
 
 use libfuzzer_sys::fuzz_target;
-use qubit_config::{
-    source::{
-        ConfigSource,
-        TomlConfigSource,
-    },
+use qubit_config::source::{
+    ConfigSource,
+    TomlConfigSource,
 };
 
 const MAX_INPUT_BYTES: usize = 64 * 1024;
