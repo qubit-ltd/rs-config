@@ -665,7 +665,7 @@ dependencies = [
 
 [[package]]
 name = "qubit-config"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "bigdecimal",
  "chrono",
@@ -674,6 +674,7 @@ dependencies = [
  "num-bigint",
  "qubit-datatype",
  "qubit-redact",
+ "qubit-utils",
  "qubit-value",
  "serde",
  "serde_json",
@@ -709,6 +710,10 @@ checksum = "a80d4179cd319d8a85e6d6271efdbb596c59bfe6862d9adfc5373e28cac93e61"
 dependencies = [
  "serde_json",
 ]
+
+[[package]]
+name = "qubit-utils"
+version = "0.2.0"
 
 [[package]]
 name = "qubit-value"

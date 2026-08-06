@@ -36,9 +36,9 @@ use crate::{
     ConfigWireLimitKind,
     ConfigWireLimits,
     Property,
-    Transient,
 };
 use qubit_datatype::DataConversionTarget;
+use qubit_utils::Transient;
 use qubit_value::{
     Value as QubitValue,
     ValueWireDecodeError,
