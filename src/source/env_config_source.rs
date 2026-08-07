@@ -21,6 +21,12 @@
 //! - `APP_SERVER_PORT=8080` → `server.port = "8080"`
 //!
 //! Without a prefix, all environment variables are loaded as-is.
+//!
+//! When key transformations make distinct environment names collapse to one
+//! configuration key, loading fails with [`ConfigError::KeyConflict`] instead
+//! of selecting a winner. The conflicting environment names in that error are
+//! reported in lexicographic order, so diagnostics do not depend on the
+//! operating system's environment-variable iteration order.
 
 use std::{collections::HashMap, ffi::OsStr};
 
@@ -364,10 +370,15 @@ impl ConfigSource for EnvConfigSource {
             if self.can_collapse_distinct_keys()
                 && let Some(existing) = normalized_keys.insert(transformed_key.clone(), key.clone())
             {
+                let (first, second) = if existing.as_str() <= key.as_str() {
+                    (&existing, &key)
+                } else {
+                    (&key, &existing)
+                };
                 return Err(ConfigError::KeyConflict {
                     path: transformed_key,
-                    existing: format!("environment variable '{existing}'"),
-                    incoming: format!("environment variable '{key}'"),
+                    existing: format!("environment variable '{first}'"),
+                    incoming: format!("environment variable '{second}'"),
                 });
             }
             let _ = ConfigKey::parse(transformed_key.as_str())?;

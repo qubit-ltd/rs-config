@@ -361,8 +361,8 @@ mod test_env_config_source {
     fn test_load_with_prefix_rejects_duplicate_normalized_key() {
         let _guard = env_test_lock();
         unsafe {
-            std::env::set_var("QDUP_KEY", "one");
             std::env::set_var("QDUP_key", "two");
+            std::env::set_var("QDUP_KEY", "one");
         }
 
         let source = EnvConfigSource::with_prefix("QDUP_");
@@ -376,7 +376,13 @@ mod test_env_config_source {
 
         assert!(matches!(
             result,
-            Err(ConfigError::KeyConflict { path, .. }) if path == "key"
+            Err(ConfigError::KeyConflict {
+                path,
+                existing,
+                incoming,
+            }) if path == "key"
+                && existing == "environment variable 'QDUP_KEY'"
+                && incoming == "environment variable 'QDUP_key'"
         ));
         assert!(config.is_empty());
     }
