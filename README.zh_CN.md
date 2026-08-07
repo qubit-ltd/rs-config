@@ -7,660 +7,149 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![English Document](https://img.shields.io/badge/Document-English-blue.svg)](README.md)
 
-一个功能强大、类型安全的 Rust 配置管理系统，提供灵活的配置管理，支持多种数据类型、变量替换、多值属性，以及可插拔的**配置来源（config source）**（文件、环境变量与组合源）。
-
-[English](README.md) | 简体中文
-
-## 特性
-
-- ✅ **纯泛型 API** - 使用 `get<T>()`、`get_any<T>()` 和 `set<T>()` 泛型方法，支持完整的类型推断
-- ✅ **丰富的数据类型** - 支持 Rust 基础类型，以及由 feature 控制的时间、URL 和任意精度数值类型
-- ✅ **多值属性** - 每个配置项可以包含多个值，支持列表操作
-- ✅ **显式插值** - `*_interpolated` 读取会解析配置中的 `${var_name}`；回退到进程环境变量必须显式开启
-- ✅ **类型感知 API** - 泛型目标类型在编译期检查；缺失、格式错误或不兼容的配置数据仍会在运行期通过 `ConfigError` 报告
-- ✅ **稳定持久化 wire** - `Config` 序列化输出确定性、带版本的 V1 JSON 契约，并继续读取旧的无版本载荷
-- ✅ **可扩展** - 基于 trait 的设计，易于支持自定义类型
-- ✅ **配置来源（ConfigSource）** - 提供 [`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) trait 与多种内置实现：TOML、YAML、Java 风格 `.properties`、`.env` 文件、进程环境变量（可选前缀与键名规范化），以及按顺序合并多个来源的 [`CompositeConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.CompositeConfigSource.html)（后加载的来源覆盖同名键）；内置来源按事务语义加载，会校验有歧义的规范化 key，并拒绝 TOML/YAML 单文档内展平后的重复 key
-- ✅ **只读访问（ConfigReader）** - 封闭的 [`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) trait 为 [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) 与 [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html) 提供泛型和多 key 读取
-- ✅ **可配置解析** - [`ReadPolicy`](https://docs.rs/qubit-config/latest/qubit_config/options/struct.ReadPolicy.html) 可通过默认策略或临时 `read_with` 视图控制转换规则
-- ✅ **严格 section（ConfigSection）** - [`Config::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.section) 返回严格相对键视图；可通过 [`ConfigSection::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html#method.section) 继续嵌套
-- ✅ **安全诊断** - `Debug` 输出保留配置项元数据，并通过 `qubit-redact` 遮盖所有存储值
-- ✅ **结构化错误** - [`ConfigError::kind`](https://docs.rs/qubit-config/latest/qubit_config/enum.ConfigError.html#method.kind) 与 [`ConfigError::path`](https://docs.rs/qubit-config/latest/qubit_config/enum.ConfigError.html#method.path) 提供稳定的机器可读上下文，下游无需穷举错误变体
-- ✅ **高效核心表示** - 核心值使用枚举表示，并通过事务式 source layer 控制合并成本；可插拔 source 在需要动态组合时仍可使用 trait object
+`qubit-config` 是一个面向 Rust 应用的类型安全配置库，适合需要组合默认值、配置文件和环境变量、又不希望在业务代码中到处编写字符串解析逻辑的场景。它提供明确的泛型读取 API，并保留配置来源层、类型转换、插值和错误上下文。
 
 ## 安装
-
-在您的 `Cargo.toml` 中添加：
 
 ```toml
 [dependencies]
 qubit-config = "0.15"
 ```
 
-默认 feature 集为空，核心配置读取不会引入可选格式或富类型依赖。需要全部可选能力时启用 `full`：
+默认 feature 集为空，因此核心 API 不会启用可选文件格式或富类型。应用可以按需启用 feature，也可以使用 `full` 开启完整的可选能力：
+
+```toml
+qubit-config = { version = "0.15", features = ["toml", "env-file"] }
+```
+
+或者启用完整的可选能力：
 
 ```toml
 qubit-config = { version = "0.15", features = ["full"] }
 ```
 
-也可以只启用实际需要的能力：
-
-```toml
-qubit-config = { version = "0.15", features = ["toml"] }
-```
-
-可用 feature flags：
-
-| Feature | 启用内容 |
-|---------|----------|
-| `bigdecimal` | `BigDecimal` 值及直接 `FromConfig` 支持 |
-| `chrono` | Chrono 日期时间值及直接 `FromConfig` 支持 |
-| `num-bigint` | `BigInt` 值及直接 `FromConfig` 支持 |
-| `url` | URL 值及直接 `FromConfig` 支持 |
-| `env-file` | `EnvFileConfigSource` 与 `Config::from_env_file` |
-| `toml` | `TomlConfigSource` 与 `Config::from_toml_file` |
-| `yaml` | `YamlConfigSource` 与 `Config::from_yaml_file` |
-| `rich-types` | 上述四个富类型 feature |
-| `formats` | `env-file`、`toml` 与 `yaml` |
-| `full` | `rich-types` 与 `formats` |
+| Feature | 提供能力 |
+| --- | --- |
+| `bigdecimal` | `BigDecimal` 值及其转换支持 |
+| `chrono` | Chrono 日期时间值及其转换支持 |
+| `num-bigint` | `BigInt` 值及其转换支持 |
+| `url` | URL 值及其转换支持 |
+| `env-file` | 通过 `EnvFileConfigSource` 和 `Config::from_env_file` 加载 `.env` |
+| `toml` | 通过 `TomlConfigSource` 和 `Config::from_toml_file` 加载 TOML |
+| `yaml` | 通过 `YamlConfigSource` 和 `Config::from_yaml_file` 加载 YAML |
+| `rich-types` | `bigdecimal`、`chrono`、`num-bigint` 和 `url` |
+| `formats` | `env-file`、`toml` 和 `yaml` |
+| `full` | `rich-types` 和 `formats` |
 
 ## 快速开始
+
+核心工作流是使用可变的 `Config` 保存配置，再通过类型化 API 读取。相同的泛型接口可以读取基础类型、集合和实现了 `FromConfig` 的类型。
 
 ```rust
 use qubit_config::Config;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut config = Config::new();
+    config.set("server.host", "localhost")?;
+    config.set("server.port", 8080)?;
+    config.set("server.debug", true)?;
 
-    // 设置配置值
-    config.set("port", 8080)?;
-    config.set("host", "localhost")?;
-    config.set("debug", true)?;
+    let host: String = config.get("server.host")?;
+    let port: u16 = config.get("server.port")?;
+    let timeout: u64 = config.get_or("server.timeout", 30)?;
 
-    // 读取配置值（类型推断）
-    let port: i32 = config.get("port")?;
-    let host: String = config.get("host")?;
-    let debug: bool = config.get("debug")?;
-
-    // 使用 turbofish 语法
-    let port = config.get::<i32>("port")?;
-
-    // 使用默认值
-    let timeout: u64 = config.get_or("timeout", 30)?;
-
-    println!("服务器运行在 {}:{}", host, port);
+    assert_eq!(host, "localhost");
+    assert_eq!(port, 8080);
+    assert_eq!(timeout, 30);
     Ok(())
 }
 ```
 
-## 核心概念
+## 一个真实的配置场景
 
-### Config（配置管理器）
-
-`Config` 结构体是中心配置管理器，存储和管理所有配置属性。
-
-```rust
-let mut config = Config::new();
-config.set("database.host", "localhost")?;
-config.set("database.port", 5432)?;
-```
-
-### Property（配置属性）
-
-每个配置项由一个 `Property` 表示，包含：
-- 名称（键）
-- 保留单值或集合形状的值容器
-- 可选描述
-- final 标志（设置后不可变）
-
-### ValueContainer（值容器）
-
-一个类型安全的容器，用于保留配置源提供的是单值还是显式集合。单个字符串可按集合转换规则拆分；显式集合中的每个元素只会独立转换，不会再次拆分。
-
-### ConfigReader（只读接口）
-
-[`ConfigReader`](https://docs.rs/qubit-config/latest/qubit_config/trait.ConfigReader.html) 是配置的只读抽象。仅需读取配置时，函数或类型可以接受 `&impl ConfigReader`（或泛型 `R: ConfigReader`），而不必暴露完整的 `&Config`；同一套 API 可用于完整 [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) 和 [`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html)。`ConfigReader` 包含泛型类型读取方法，因此不是 object-safe，不能用作 `dyn ConfigReader`。
-
-新接入优先使用 `ConfigReader`、`ConfigSection`、`ReadPolicy` 与 `ConfigSerdeExt`。`Configured`、`Configurable` 以及自定义 `ConfigSource` 仍是受支持的专用 API，但不应作为普通应用读取配置的首选入口。
-
-主要读取 API 如下：
-
-| API | 行为 |
-|-----|------|
-| `get<T>(name)` | 通过 `FromConfig` 读取必填值，不做插值。 |
-| `get_optional<T>(name)` | key 不存在或被视为缺失时返回 `Ok(None)`。 |
-| `get_or<T>(name, default)` | 仅在 key 不存在或被视为缺失时使用默认值。 |
-| `get_any<T>(&[names])` | 按顺序读取第一个未被视为缺失的 key。 |
-| `get_optional_any<T>(&[names])` | 多 key 可选读取。 |
-| `get_any_or<T>(&[names], default)` | 多 key 默认值读取。 |
-| `get_interpolated<T>` / `get_optional_interpolated<T>` / `get_interpolated_or<T>` | 转换前显式执行单 key 插值。 |
-| `get_any_interpolated<T>` / `get_optional_any_interpolated<T>` / `get_any_interpolated_or<T>` | 转换前显式执行多 key 插值。 |
-| `read_with(&ReadPolicy)` | 使用临时策略创建借用的只读视图，不修改配置本身。 |
-| `get_strict` / `get_list_strict` | 精确存储类型读取，不做跨类型转换。 |
-
-默认值不会隐藏错误配置。如果 key 存在，但值解析或类型转换失败，会直接返回错误，不会回退到默认值，也不会继续尝试后面的 alias；显式插值读取同样会直接返回插值错误。
-
-未设置的 property 会被视为缺失；启用相应字符串策略后，标量字符串也可能被视为缺失。
-具体的空集合仍是已设置值：`get_optional_list` 返回 `Some(Vec::new())`，且不会使用
-默认值。
-
-```rust
-use qubit_config::{Config, ConfigError};
-
-let mut config = Config::new();
-config.set("worker.threads", "abc")?;
-
-let missing = config.get_or("missing.threads", 4u16)?;
-assert_eq!(missing, 4);
-
-let invalid = config.get_or("worker.threads", 4u16);
-assert!(matches!(invalid, Err(ConfigError::ConversionError { .. })));
-```
-
-`get_or`、`get_any_or`、`get_interpolated_or` 和 `get_any_interpolated_or` 等带 default value 的读取接口支持方便的默认值传法。标量默认值直接使用目标类型；字符串默认值可以直接传 `&str`；字符串列表默认值可以使用数组、切片或借用的 `Vec<String>`。
-
-```rust
-let host = config.get_or::<String>("server.host", "localhost")?;
-let paths = config.get_or::<Vec<String>>("server.paths", ["bin", "lib"])?;
-
-let paths = config.get_any_or::<Vec<String>>(
-    ["server.paths", "SERVER_PATHS"],
-    ["cache", "tmp"],
-)?;
-```
-
-### ConfigSection（严格相对视图）
-
-[`ConfigSection`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html) 是 `Config` 的零拷贝、严格相对视图。通过 [`Config::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.section) 创建；所有键都在 section 路径下解析，例如 section `db` 中的键 `host` 对应 `db.host`。恰好位于 `db` 的标量不属于该 section，只有 `db.host` 等后代可见。使用 [`ConfigSection::section`](https://docs.rs/qubit-config/latest/qubit_config/struct.ConfigSection.html#method.section) 可继续创建嵌套 section。
-
-判断点分 section 是否存在时使用 `contains_section("db")`。只有明确需要原始字符
-前缀匹配时才使用 `contains_key_prefix("db")`；后者也会匹配 `db2` 等同名前缀键。
+应用可以先加载提交到仓库的基础配置，再叠加优先级更高的环境变量层。来源按照添加顺序应用；对于同一个 key，后加载的来源会覆盖前一个来源，除非已有 property 被标记为 final。
 
 ```rust
 use qubit_config::{Config, ConfigReader};
+use qubit_config::source::{
+    CompositeConfigSource, EnvConfigSource, PropertiesConfigSource,
+};
 
-let mut config = Config::new();
-config.set("db.host", "localhost")?;
-config.set("db.port", 5432i32)?;
+fn load_server_config() -> Result<(String, u16), Box<dyn std::error::Error>> {
+    let mut sources = CompositeConfigSource::new();
+    sources.add(PropertiesConfigSource::from_content(
+        "server.host=localhost\nserver.port=8080\n",
+    ));
+    sources.add(EnvConfigSource::with_prefix("APP_"));
 
-let db = config.section("db")?;
-let host: String = db.get("host")?;
-let port: i32 = db.get("port")?;
-```
+    let mut config = Config::new();
+    config.merge_from_source(&sources)?;
+    let server = config.section("server")?;
 
-### ReadPolicy（读取解析选项）
-
-`ReadPolicy` 控制配置值如何被解析。`Config` 持有只用于直接读取的 transient `default_read_policy`；需要临时策略时使用 `read_with(&policy)` 创建借用视图。
-
-| 选项组 | 控制内容 |
-|--------|----------|
-| `StringConversionOptions` | 字符串 trim，以及空白字符串的处理方式：保留、当作缺失、或拒绝。 |
-| `BooleanConversionOptions` | 可接受的布尔字面量和大小写敏感性。 |
-| `CollectionConversionOptions` | 是否把标量字符串拆成列表、分隔符、元素 trim，以及空元素策略。 |
-| `NumericConversionOptions` | 小数转整数、已有数值转浮点、文本转浮点策略，以及数值文本和 `BigInt` 物化上限。 |
-| `DurationConversionOptions` | 数值输入单位、文本后缀规则、输出单位与后缀，以及独立的 Duration 舍入策略。 |
-| `InterpolationSources` 与插值限制 | 控制显式插值读取只查 `Config`，还是在未命中时查询进程环境变量，以及递归、展开次数和输出大小上限。 |
-
-`ReadPolicy::env_friendly()` 适合环境变量风格配置：会 trim 字符串，把空白标量字符串当作缺失，布尔值接受 `true/false`、`1/0`、`yes/no`、`on/off`，并在读取 `Vec<T>` 时按逗号拆分标量字符串、跳过空元素。它允许文本转浮点采用 nearest-even 舍入，但小数转整数与已有数值转浮点仍保持精确。
-
-普通读取永远不会插值 `${...}`。显式插值读取先在当前 reader scope 中解析；对于
-`ConfigSection`，找不到时再回退到根 `Config`。`ReadPolicy::env_friendly()` 只改变
-转换规则，不会开启环境变量回退；必须通过
-`with_interpolation_sources(InterpolationSources::ConfigThenEnv)` 显式启用，并且该
-回退只会在两个配置作用域都无法解析后发生。启用后应把插值配置视为受信任输入，因为它能够选择要读取的进程环境变量名称。
-
-```rust
-use qubit_config::{Config, options::{InterpolationSources, ReadPolicy}};
-
-let mut config = Config::new().with_default_read_policy(
-    ReadPolicy::env_friendly().with_interpolation_sources(InterpolationSources::ConfigThenEnv),
-);
-config.set("HTTP_ENABLED", "yes")?;
-config.set("HTTP_PORTS", "8080, 8081,,8082")?;
-
-let enabled: bool = config.get("HTTP_ENABLED")?;
-let ports: Vec<u16> = config.get("HTTP_PORTS")?;
-
-assert!(enabled);
-assert_eq!(ports, vec![8080, 8081, 8082]);
-```
-
-### 破坏性安全契约
-
-property key 必须是非空、规范的点分名称。`server`、`server.port` 合法；
-`.server`、`server.`、`server..port` 会直接报错，不会 trim 或自动规范化。空字符串
-只在 root `ConfigPath` 语境合法，例如 `section("")` 或根结构化反序列化。
-
-所有 path-sensitive predicate 和 view 都显式返回 `ConfigResult`，包括
-`contains`、`get_property`、`is_unset`、`remove`、`section`、
-`contains_section`、`subconfig` 与 `ConfigReader::resolve_key`：
-
-```rust
-use qubit_config::{Config, ConfigResult};
-
-fn inspect(config: &Config) -> ConfigResult<()> {
-    let http = config.section("http")?;
-    if config.contains_section("http.proxy")? {
-        let proxy = config.section("http.proxy")?;
-        let _: Option<&str> = proxy.get_property("host")?.map(|p| p.name());
-    }
-    let _ = http;
-    Ok(())
+    Ok((server.get("host")?, server.get("port")?))
 }
 ```
 
-`Config::with_default_read_policy` 会消费并返回 `self`，因此构建新配置时不会发生隐式 clone：
+设置 `APP_SERVER_HOST` 和 `APP_SERVER_PORT` 后，环境变量层会在去除前缀、转小写并把下划线转换为点号后提供最终值。启用对应 feature 后，相同的组合方式也可以使用 `TomlConfigSource`、`YamlConfigSource` 或 `EnvFileConfigSource`。
 
-```rust
-use qubit_config::{Config, options::ReadPolicy};
+## 结构化读取与自定义策略
 
-let options = ReadPolicy::env_friendly();
-let config = Config::new().with_default_read_policy(options);
-assert_eq!(
-    config.default_read_policy().interpolation_sources(),
-    qubit_config::options::InterpolationSources::ConfigOnly,
-);
-```
-
-内置文本 source 默认使用 `SourceLimits`：输入 8 MiB、65,536 次 assignment、
-64 层嵌套。文件入口和内存入口遵循同一限制；仅受信任输入可以显式选择
-`SourceLimits::unbounded()`。合法 V1 序列化配置无需迁移，但带畸形 key 的序列化
-property 现在会被拒绝。
-
-也可以用 builder 风格方法构造更严格或更贴合业务的解析选项：
-
-转换策略类型由 `qubit-datatype` 提供。需要定制这些策略的应用应直接依赖该 crate：
-
-```toml
-[dependencies]
-qubit-config = "0.15"
-qubit-datatype = { version = "0.10", default-features = false, features = ["converter"] }
-```
-
-```rust
-use qubit_config::{Config, options::ReadPolicy};
-use qubit_datatype::{
-    BlankStringPolicy,
-    BooleanConversionOptions,
-    CollectionConversionOptions,
-    EmptyItemPolicy,
-    NumericConversionLimits,
-    NumericConversionOptions,
-    StringConversionOptions,
-};
-
-let options = ReadPolicy::default()
-    .with_numeric_options(
-        NumericConversionOptions::strict().with_limits(
-            NumericConversionLimits::default().with_max_text_bytes(4096),
-        ),
-    )
-    .with_string_options(
-        StringConversionOptions::default()
-            .with_trim(true)
-            .with_blank_string_policy(BlankStringPolicy::Reject),
-    )
-    .with_boolean_options(
-        BooleanConversionOptions::strict()
-            .with_true_literal("enabled")?
-            .with_false_literal("disabled")?,
-    )
-    .with_collection_options(
-        CollectionConversionOptions::default()
-            .with_split_scalar_strings(true)
-            .with_delimiters([',', ';'])
-            .with_trim_items(true)
-            .with_empty_item_policy(EmptyItemPolicy::Reject),
-    );
-
-let mut config = Config::new().with_default_read_policy(options);
-config.set("feature", "enabled")?;
-config.set("ports", "8080; 8081")?;
-
-let feature: bool = config.get("feature")?;
-let ports: Vec<u16> = config.get("ports")?;
-```
-
-### 多 Key 读取
-
-需要读取多个候选 key 时，可以使用 `get_any`、`get_optional_any` 和 `get_any_or`；需要解析占位符时使用对应的 `*_interpolated` 方法。
-
-```rust
-use qubit_config::{Config, options::ReadPolicy};
-
-let mut config = Config::new().with_default_read_policy(ReadPolicy::env_friendly());
-config.set("SERVICE_URL", "http://localhost:8080")?;
-config.set("SERVER_TIMEOUT", "30")?;
-
-let url = config.get_any::<String>(["service.url", "SERVICE_URL"])?;
-let timeout = config.get_any_or(["server.timeout", "SERVER_TIMEOUT"], 10u64)?;
-let optional_port = config.get_optional_any::<u16>(["server.port", "SERVER_PORT"])?;
-let retries = config.get_any_or(
-    ["server.retries", "SERVER_RETRIES"],
-    3u8,
-)?;
-
-assert_eq!(url, "http://localhost:8080");
-assert_eq!(timeout, 30);
-assert_eq!(optional_port, None);
-assert_eq!(retries, 3);
-```
-
-多 key 读取会按顺序扫描 key。不存在或被视为缺失的值会被跳过；具体空集合仍是已设置
-值。如果第一个选中的值无效，会直接返回错误，不会继续尝试后面的 key。
-
-### 配置来源（Configuration sources）
-
-[`ConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/trait.ConfigSource.html) 的实现会把外部设置加载为独立的 [`Config`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html) layer。可调用 [`merge_from_source`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.merge_from_source) 以事务方式应用 layer；如果需要检查或手工组合 layer，则直接调用 `source.load()`。如果不需要在加载前定制目标 `Config`，可以直接使用 [`Config::from_toml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_toml_file)、[`Config::from_yaml_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_yaml_file)、[`Config::from_properties_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_properties_file)、[`Config::from_env_file`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_file)、[`Config::from_env`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env) 或 [`Config::from_env_prefix`](https://docs.rs/qubit-config/latest/qubit_config/struct.Config.html#method.from_env_prefix) 等便捷构造方法。TOML、YAML 与 `.env` 便捷构造方法分别需要启用 `toml`、`yaml` 与 `env-file` feature。
-
-内置来源和 `Config::merge_from_source` 都按事务语义加载：如果解析或合并失败，目标 `Config` 会保留加载前的状态。
-
-会规范化 key 的环境变量 source 会拒绝空 key 或畸形点号路径，例如 `APP_`、`APP__DB`、`APP_DB__HOST`。TOML 和 YAML source 也会拒绝单个文档内展平后的重复 key，例如字面量 `"server.port"` 与嵌套的 `server.port` 发生冲突。
-
-TOML 与 YAML source 有意只支持可展平的配置子集：嵌套 mapping/table 会变成点号 key，同质标量序列会变成多值属性。序列中嵌套的数组、table/mapping 以及 YAML tagged 元素会被拒绝，因为展平会丢失结构；混合标量序列会按字符串表示。
-
-| 类型 | 作用 |
-|------|------|
-| [`TomlConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.TomlConfigSource.html) | 读取 TOML 文件；嵌套表展平为点号分隔键 |
-| [`YamlConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.YamlConfigSource.html) | 读取 YAML 文件；嵌套映射同样展平 |
-| [`PropertiesConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.PropertiesConfigSource.html) | Java `.properties` 文件 |
-| [`EnvFileConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.EnvFileConfigSource.html) | `.env` 风格文件 |
-| [`EnvConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.EnvConfigSource.html) | 进程环境变量；可选前缀过滤与键名规范化（例如 `APP_SERVER_HOST` → `server.host`） |
-| [`CompositeConfigSource`](https://docs.rs/qubit-config/latest/qubit_config/source/struct.CompositeConfigSource.html) | 按顺序组合多个来源；后出现者覆盖同名键（并受 `Property` 的 final 语义约束） |
-
-```rust
-use qubit_config::{Config, source::{
-    CompositeConfigSource, ConfigSource, EnvConfigSource, TomlConfigSource,
-}};
-
-let mut config = Config::new();
-let mut composite = CompositeConfigSource::new();
-composite
-    .add(TomlConfigSource::from_file("config.toml"))
-    .add(EnvConfigSource::with_prefix("APP_"));
-config.merge_from_source(&composite)?;
-```
-
-```rust
-use qubit_config::Config;
-
-let config = Config::from_toml_file("config.toml")?;
-let env_config = Config::from_env_prefix("APP_")?;
-
-let env_options = qubit_config::source::EnvConfigOptions::new()
-    .prefix("APP_")
-    .strip_prefix()
-    .underscores_to_dots()
-    .lowercase_keys();
-let normalized_env_config = Config::from_env_options(env_options)?;
-```
-
-## 使用示例
-
-### 基本配置
-
-```rust
-use qubit_config::Config;
-
-let mut config = Config::new();
-
-// 设置各种类型
-config.set("port", 8080)?;
-config.set("host", "localhost")?;
-config.set("debug", true)?;
-config.set("timeout", 30.5)?;
-config.set("is_use_prefix", "0")?;
-
-// 使用类型推断和转换语义获取值
-let port: i32 = config.get("port")?;
-let host: String = config.get("host")?;
-let debug: bool = config.get("debug")?;
-let is_use_prefix: bool = config.get("is_use_prefix")?;
-
-// 需要精确存储类型时仍可使用 strict 读取
-assert!(config.get_strict::<bool>("is_use_prefix").is_err());
-```
-
-### 多值配置
-
-```rust
-// 设置多个值
-config.set("ports", vec![8080, 8081, 8082])?;
-
-// 获取所有值
-let ports: Vec<i32> = config.get_list("ports")?;
-
-// 逐个添加值
-config.set("server", "server1")?;
-config.add("server", "server2")?;
-config.add("server", "server3")?;
-
-let servers: Vec<String> = config.get_list("server")?;
-```
-
-### 变量替换
-
-```rust
-config.set("host", "localhost")?;
-config.set("port", "8080")?;
-config.set("url", "http://${host}:${port}/api")?;
-
-// 普通读取保留占位符。
-let raw_url: String = config.get("url")?;
-assert_eq!(raw_url, "http://${host}:${port}/api");
-
-// 需要插值时显式调用 interpolated 方法，结果仍可转换成任意支持的类型。
-let url: String = config.get_interpolated("url")?;
-// 结果: "http://localhost:8080/api"
-
-// 配置键优先于显式启用的环境变量回退。
-config.set("APP_ENV", "production")?;
-config.set("env", "${APP_ENV}")?;
-let policy = qubit_config::options::ReadPolicy::default()
-    .with_interpolation_sources(qubit_config::options::InterpolationSources::ConfigThenEnv);
-let env: String = config.read_with(&policy).get_interpolated("env")?;
-// 结果: "production"
-```
-
-### 结构化配置
-
-`deserialize()` 暴露由 mapping、sequence、布尔值、字符串、数字和 null 组成的 JSON-like Serde 视图，并默认保留占位符。需要先解析字符串叶节点时使用 `deserialize_interpolated()`。两者都会应用 `ReadPolicy` 的转换规则，例如用 `ReadPolicy::env_friendly()` 解析数字字符串、布尔别名、逗号分隔的标量字符串列表，并把空白字符串按缺失值处理。
-
-查找与转换失败会保留原始 `ConfigError` 的 kind、叶子 path 与 source。只有目标类型自身触发的纯 Serde 不匹配，才会在请求的 prefix 返回固定脱敏消息的 `DeserializeError`。
-
-### 持久化 Wire 格式
-
-`serde_json::to_string(&config)` 会输出稳定的 V1 JSON 持久化格式：
-`{ "version": 1, "description": ..., "properties": ... }`。
-属性 key 按字典序输出，因此等价配置产生相同 JSON 字节。V1 通过 `ValueWireV1`
-保留属性值形状，并且是 JSON 的跨版本持久化契约。`Config` 的默认读取策略是
-transient 状态，不影响相等性，也不会写入或从 wire 恢复。未来不兼容的 wire
-变更会使用新版本；读取端仍接受 V1 出现前写出的无版本顶层格式。
-
-当 `prefix` 非空时，`deserialize(prefix)` 使用严格的根选择语义：如果存在精确的 `prefix` 属性，就把该属性作为反序列化根值；否则用 `prefix.*` 子键组成根对象。同时定义 `prefix` 和 `prefix.*` 会返回 key conflict。带点号的键也必须能组成无歧义对象树，例如同一反序列化对象中不能同时存在 `a` 和 `a.b`。
+当一个 subtree 自然对应某个 Serde 类型时，可以使用 `Config::deserialize`：
 
 ```rust
 use qubit_config::Config;
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize, PartialEq)]
-struct DatabaseConfig {
+#[derive(Deserialize)]
+struct Database {
     host: String,
-    port: i32,
-    username: String,
-    password: String,
 }
 
-let mut config = Config::new();
-config.set("db.host", "localhost")?;
-config.set("db.port", 5432)?;
-config.set("db.username", "admin")?;
-config.set("db.password", "secret")?;
-
-let db_config: DatabaseConfig = config.deserialize("db")?;
-assert_eq!(db_config.host, "localhost");
-assert_eq!(db_config.port, 5432);
-```
-
-### 可配置对象
-
-```rust
-use qubit_config::{Configurable, Configured};
-
-// 使用 Configured 基类
-let mut configured = Configured::new();
-configured.config_mut().set("port", 3000)?;
-configured.update_config(|config| {
-    config.set("host", "localhost")?;
-    config.set("workers", 4)?;
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut config = Config::new();
+    config.set("db.host", "localhost")?;
+    let db: Database = config.deserialize("db")?;
+    assert_eq!(db.host, "localhost");
     Ok(())
-})?;
-
-// 自定义可配置对象
-struct Application {
-    configured: Configured,
 }
-
-impl Application {
-    fn new() -> Self {
-        Self {
-            configured: Configured::new(),
-        }
-    }
-
-    fn config(&self) -> &Config {
-        self.configured.config()
-    }
-
-    fn config_mut(&mut self) -> &mut Config {
-        self.configured.config_mut()
-    }
-}
-
-let mut app = Application::new();
-app.config_mut().set("port", 3000)?;
 ```
 
-`config_mut()` 提供直接可变访问，不会自动触发 `on_config_changed()`。如果希望一组修改成功后只触发一次回调，请使用 `update_config()`。
+使用结构化或 JSON 示例时，请直接添加 Serde 依赖：
 
-## 支持的数据类型
-
-| Rust 类型 | 说明 | 示例 |
-|----------|------|------|
-| `bool` | 布尔值；字符串读取默认接受 `true` / `false` 和 `1` / `0`；`ReadPolicy::env_friendly()` 还接受 `yes` / `no` 和 `on` / `off` | `true`, `false`, `"0"`, `"yes"` |
-| `char` | 字符 | `'a'`, `'中'` |
-| `i8`, `i16`, `i32`, `i64`, `i128` | 有符号整数 | `42`, `-100` |
-| `u8`, `u16`, `u32`, `u64`, `u128` | 无符号整数 | `255`, `1000` |
-| `f32`, `f64` | 浮点数 | `3.14`, `2.718` |
-| `String` | 字符串 | `"hello"`, `"世界"` |
-| `Vec<T>` | 列表值；配合集合读取选项时，可把标量字符串拆成列表元素 | `[1, 2, 3]`, `"a,b,c"` |
-| `chrono::NaiveDate` | 日期 | `2025-01-01` |
-| `chrono::NaiveTime` | 时间 | `12:30:45` |
-| `chrono::NaiveDateTime` | 日期时间 | `2025-01-01 12:30:45` |
-| `chrono::DateTime<Utc>` | 带时区的日期时间 | `2025-01-01T12:30:45Z` |
-
-## 扩展自定义类型
-
-要支持业务特定的配置读取，为目标类型实现 `FromConfig`。实现中可以复用内置的 `FromConfig` 解析，再叠加业务校验；调用方仍然使用 `config.get::<T>()` 或 `config.get_or::<T>()`，不需要在每个调用点手写 parse 代码。
-
-```rust
-use qubit_config::{Config, ConfigError, ConfigResult, Property};
-use qubit_config::from::{ConfigParseContext, FromConfig};
-
-#[derive(Debug, Clone, PartialEq)]
-struct Port(u16);
-
-impl Port {
-    fn new(value: u16) -> Result<Self, String> {
-        if value < 1024 {
-            Err("端口号必须 >= 1024".to_string())
-        } else {
-            Ok(Port(value))
-        }
-    }
-
-    fn value(&self) -> u16 {
-        self.0
-    }
-}
-
-impl FromConfig for Port {
-    fn from_config(property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<Self> {
-        let value = u16::from_config(property, ctx)?;
-        Port::new(value).map_err(|message| {
-            ConfigError::Other(format!("{}: {message}", ctx.key()))
-        })
-    }
-}
-
-let mut config = Config::new();
-config.set("port", "8080")?;
-
-let port: Port = config.get("port")?;
-let fallback = config.get_or("fallback_port", Port::new(8080).unwrap())?;
+```toml
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 ```
 
-只有当你还需要直接存储自定义类型，或需要通过 `get_strict` / `get_list_strict` 做精确存储类型读取时，才需要实现更底层的 `qubit_value` trait。
+如果需要直接定制转换选项，请依赖其所属的 `qubit-datatype` crate：
 
-## API 设计哲学
-
-### 为什么选择纯泛型 API？
-
-我们采用纯泛型方案（如 `get<T>()`、`set<T>()`、`get_or<T>()`），而不是为每个类型提供专门的方法（如 `get_i32()`、`get_bool()` 等），原因如下：
-
-1. **通用性强** - 泛型方法可以处理任何实现了相应 trait 的类型，包括自定义类型
-2. **代码简洁** - 避免大量重复的类型特定方法
-3. **易于维护** - 添加新类型只需实现 trait，无需修改 Config 结构体
-4. **符合 Rust 惯用法** - 充分利用 Rust 的类型系统和类型推断
-
-### 类型推断的三种方式
-
-```rust
-// 1. 变量类型标注（推荐，最清晰）
-let port: i32 = config.get("port")?;
-
-// 2. Turbofish 语法（需要时使用）
-let port = config.get::<i32>("port")?;
-
-// 3. 从上下文推断（最简洁）
-struct Server {
-    port: i32,
-}
-let server = Server {
-    port: config.get("port")?,  // 从字段类型推断
-};
+```toml
+qubit-datatype = { version = "0.10", default-features = false, features = ["converter"] }
 ```
 
-## 错误处理
+## 为什么需要这个项目
 
-配置系统使用非穷举的 `ConfigResult<T>` 与 `ConfigError` 类型。下游应通过
-`ConfigError::kind()` 分支，通过 `ConfigError::path()` 获取单 key 上下文，并在
-`PropertyCandidatesNotFound` 等多 key 查找失败时用
-`ConfigError::candidate_paths()` 获取有序候选路径。把值层错误转换为配置错误时，必须
-使用 `ConfigError::from((path, value_error))` 显式提供 key；不再支持无路径转换。
+配置通常以字符串形式到达，但应用代码需要类型化值、默认值、列表、嵌套 section 和有用的失败上下文。`qubit-config` 把这些职责集中在一个库中：
 
-## 性能考虑
+- 来源会生成独立的配置 layer，可以先检查，也可以事务式合并。
+- `ConfigReader` 为 `Config` 和 `ConfigSection` 提供类型化、可选、带默认值、多 key、列表和严格读取。
+- 通过 `ReadPolicy` 明确控制转换规则；`read_with` 可以临时使用借用的 policy。
+- 插值通过 `*_interpolated` 方法显式开启；回退到环境变量必须显式配置 `InterpolationSources::ConfigThenEnv`。
+- `ConfigError::kind()`、`path()` 和 `candidate_paths()` 提供稳定的诊断上下文，无需穷举错误变体。
 
-- **枚举值存储** - 核心配置值使用枚举表示，便于稳定地存储和转换
-- **变量替换优化** - 使用 `OnceLock` 缓存正则表达式，避免重复编译
-- **高效存储** - 精确 key 查找使用 `BTreeMap`，复杂度为 O(log n)；prefix 与 section 枚举会扫描已存储配置项，复杂度为 O(n)
-- **事务式 source layer** - source 返回独立的 `Config` layer；合并前会先校验完整 layer，再原地追加，保留原子性且避免克隆整份目标配置
+## 提供什么，以及不提供什么
 
-## 文档
+本库提供泛型类型转换、多值属性、严格相对 section、来源组合、可选的 TOML/YAML/`.env` 加载器、JSON 持久化解码和脱敏的 `Debug` 输出。内置文本 source 默认限制输入 8 MiB、assignment 65,536 次、嵌套深度 64；如果输入可信且确实需要更大边界，可以使用 `SourceLimits` 定制。
 
-详细的 API 文档请访问 [docs.rs/qubit-config](https://docs.rs/qubit-config)。
+本库不会在普通读取时静默执行插值，不会用默认值掩盖已存在但无效的值，也不会把 `ConfigReader` 变成 `dyn` trait object：它的泛型方法使其不满足 object-safe。路径规则、source 失败行为、结构化反序列化、自定义转换和排障细节请参阅用户手册。
 
-## 依赖项
+## 延伸阅读
 
-- `qubit-datatype` - 核心工具和数据类型定义
-- `qubit-value` - 值处理框架
-- `qubit-redact` - 配置诊断的固定标记遮盖工具
-- `serde` - 序列化框架
-- `regex` - 正则表达式支持
-- `chrono`、`url`、`num-bigint`、`bigdecimal` - 各自同名原子 feature 下的可选富类型支持
-- `toml` - `toml` feature 下的 TOML 解析
-- `serde_norway` - `yaml` feature 下的 YAML 解析
-- `dotenvy` - `env-file` feature 下的 `.env` 文件解析
+- [English user guide](doc/user_guide.md)
+- [中文用户手册](doc/user_guide.zh_CN.md)
+- [docs.rs API 文档](https://docs.rs/qubit-config)
+- [English README](README.md)
+- [仓库](https://github.com/qubit-ltd/rs-config)
 
 ## 测试
 
@@ -688,7 +177,7 @@ Copyright (c) 2025 - 2026. Haixing Hu. All rights reserved.
 ## 贡献
 
 欢迎贡献。请遵循 Rust API 指南，及时更新公共 API 文档与测试，并在提交
-Pull Request 前运行 `./align-ci.sh` 格式化代码，运行 `./ci-check.sh` 对齐 CI 要求。
+Pull Request 前运行 `./align-ci.sh`格式化代码，运行`./ci-check.sh`对齐CI要求。
 
 ## 作者
 
