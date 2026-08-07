@@ -90,7 +90,7 @@ fn load_server_config() -> Result<(String, u16), Box<dyn std::error::Error>> {
 }
 ```
 
-设置 `APP_SERVER_HOST` 和 `APP_SERVER_PORT` 后，环境变量层会在去除前缀、转小写并把下划线转换为点号后提供最终值。启用对应 feature 后，相同的组合方式也可以使用 `TomlConfigSource`、`YamlConfigSource` 或 `EnvFileConfigSource`。
+设置 `APP_SERVER_HOST` 和 `APP_SERVER_PORT` 后，环境变量层会在去除前缀、转小写并把下划线转换为点号后提供最终值。如果规范化使不同的环境变量名称映射到同一个 key，加载会返回 `ConfigError::KeyConflict`，并按字典序报告冲突名称；不会根据进程环境变量的遍历顺序静默选择其中一个。启用对应 feature 后，相同的组合方式也可以使用 `TomlConfigSource`、`YamlConfigSource` 或 `EnvFileConfigSource`。
 
 ## 结构化读取与自定义策略
 
