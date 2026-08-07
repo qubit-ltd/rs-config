@@ -90,69 +90,71 @@ fn yaml_parse_error(label: &str, error: &yaml_backend::Error) -> ConfigError {
 /// model, so rejecting their indicator syntax keeps the configured limits
 /// meaningful for untrusted input.
 fn reject_yaml_aliases(label: &str, content: &str) -> ConfigResult<()> {
-    let characters: Vec<char> = content.chars().collect();
     let mut single_quote = false;
     let mut double_quote = false;
     let mut escaped = false;
     let mut comment = false;
+    let mut line = 1;
+    let mut previous = None;
 
-    for (index, &character) in characters.iter().enumerate() {
+    let mut characters = content.char_indices().peekable();
+    while let Some((_, character)) = characters.next() {
         if character == '\n' {
             comment = false;
             escaped = false;
+            line += 1;
+            previous = Some(character);
             continue;
         }
         if comment {
+            previous = Some(character);
             continue;
         }
         if escaped {
             escaped = false;
+            previous = Some(character);
             continue;
         }
         if double_quote && character == '\\' {
             escaped = true;
+            previous = Some(character);
             continue;
         }
         if !double_quote && character == '\'' {
             single_quote = !single_quote;
+            previous = Some(character);
             continue;
         }
         if !single_quote && character == '"' {
             double_quote = !double_quote;
+            previous = Some(character);
             continue;
         }
         if single_quote || double_quote {
+            previous = Some(character);
             continue;
         }
         if character == '#' {
             comment = true;
+            previous = Some(character);
             continue;
         }
-        if !matches!(character, '&' | '*') {
-            continue;
+        if matches!(character, '&' | '*') {
+            let next_is_anchor_character = characters
+                .peek()
+                .is_some_and(|(_, next)| next.is_ascii_alphanumeric() || *next == '_');
+            let at_token_boundary = previous.is_none_or(|previous| {
+                previous.is_whitespace() || matches!(previous, ':' | '[' | '{' | ',' | '-')
+            });
+            if next_is_anchor_character && at_token_boundary {
+                return Err(ConfigError::source_parse_error(
+                    label,
+                    format!("YAML anchors and aliases are not supported at line {line}"),
+                ));
+            }
         }
 
-        let previous = index
-            .checked_sub(1)
-            .and_then(|position| characters.get(position))
-            .copied();
-        let next_is_anchor_character = characters
-            .get(index + 1)
-            .is_some_and(|next| next.is_ascii_alphanumeric() || *next == '_');
-        let at_token_boundary = previous.is_none_or(|previous| {
-            previous.is_whitespace() || matches!(previous, ':' | '[' | '{' | ',' | '-')
-        });
-        if next_is_anchor_character && at_token_boundary {
-            let line = characters[..index]
-                .iter()
-                .filter(|&&value| value == '\n')
-                .count()
-                + 1;
-            return Err(ConfigError::source_parse_error(
-                label,
-                format!("YAML anchors and aliases are not supported at line {line}"),
-            ));
-        }
+        previous = Some(character);
     }
 
     Ok(())
