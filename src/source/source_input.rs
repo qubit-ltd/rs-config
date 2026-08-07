@@ -12,15 +12,9 @@ use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
 
-use crate::{
-    ConfigError,
-    ConfigResult,
-};
+use crate::{ConfigError, ConfigResult};
 
-use super::{
-    SourceLimits,
-    source_budget::SourceBudget,
-};
+use super::{SourceLimits, source_budget::SourceBudget};
 
 /// Input backing one built-in text configuration source.
 #[derive(Debug, Clone)]
@@ -51,13 +45,13 @@ impl SourceInput {
         let bytes = match self {
             Self::File(path) => {
                 let file = File::open(path).map_err(|error| {
-                    ConfigError::IoError(std::io::Error::new(
-                        error.kind(),
-                        format!(
-                            "Failed to open {format} file '{}': {error}",
-                            path.display()
+                    ConfigError::source_io_error(
+                        path.display().to_string(),
+                        std::io::Error::new(
+                            error.kind(),
+                            format!("Failed to open {format} file '{}': {error}", path.display()),
                         ),
-                    ))
+                    )
                 })?;
                 read_file_bytes(file, limits.max_input_bytes(), path, format)?
             }
@@ -72,10 +66,13 @@ impl SourceInput {
             budget.consume_input_bytes(bytes.len())?;
         }
         String::from_utf8(bytes).map_err(|error| {
-            ConfigError::IoError(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                format!("Failed to read {format} source '{label}': {error}"),
-            ))
+            ConfigError::source_io_error(
+                label.clone(),
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("Failed to read {format} source '{label}': {error}"),
+                ),
+            )
         })
     }
 }
@@ -91,24 +88,24 @@ fn read_file_bytes(
     if limit == usize::MAX {
         let mut reader = file;
         reader.read_to_end(&mut bytes).map_err(|error| {
-            ConfigError::IoError(std::io::Error::new(
-                error.kind(),
-                format!(
-                    "Failed to read {format} file '{}': {error}",
-                    path.display()
+            ConfigError::source_io_error(
+                path.display().to_string(),
+                std::io::Error::new(
+                    error.kind(),
+                    format!("Failed to read {format} file '{}': {error}", path.display()),
                 ),
-            ))
+            )
         })?;
     } else {
         let mut reader = file.take(limit.saturating_add(1) as u64);
         reader.read_to_end(&mut bytes).map_err(|error| {
-            ConfigError::IoError(std::io::Error::new(
-                error.kind(),
-                format!(
-                    "Failed to read {format} file '{}': {error}",
-                    path.display()
+            ConfigError::source_io_error(
+                path.display().to_string(),
+                std::io::Error::new(
+                    error.kind(),
+                    format!("Failed to read {format} file '{}': {error}", path.display()),
                 ),
-            ))
+            )
         })?;
     }
     Ok(bytes)

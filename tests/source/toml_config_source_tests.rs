@@ -10,13 +10,8 @@
 // # `TomlConfigSource` tests
 
 use qubit_config::{
-    Config,
-    ConfigError,
-    ConfigResult,
-    source::{
-        ConfigSource,
-        TomlConfigSource,
-    },
+    Config, ConfigError, ConfigResult,
+    source::{ConfigSource, TomlConfigSource},
 };
 
 use std::path::PathBuf;
@@ -28,10 +23,7 @@ fn fixture(name: &str) -> PathBuf {
         .join(name)
 }
 
-fn merge_source(
-    config: &mut Config,
-    source: &dyn ConfigSource,
-) -> ConfigResult<()> {
+fn merge_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<()> {
     config.merge_from_source(source)
 }
 
@@ -43,13 +35,7 @@ fn merge_source(
 mod test_toml_config_source {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        ConfigError,
-        ConfigSource,
-        PathBuf,
-        TomlConfigSource,
-        fixture,
-        merge_source,
+        Config, ConfigError, ConfigSource, PathBuf, TomlConfigSource, fixture, merge_source,
     };
 
     #[test]
@@ -96,19 +82,17 @@ mod test_toml_config_source {
 
     #[test]
     fn test_load_nonexistent_toml_file_returns_error() {
-        let source =
-            TomlConfigSource::from_file("/nonexistent/path/config.toml");
+        let source = TomlConfigSource::from_file("/nonexistent/path/config.toml");
         let mut config = Config::new();
         let result = merge_source(&mut config, &source);
         assert!(result.is_err());
-        assert!(matches!(result, Err(ConfigError::IoError(_))));
+        assert!(matches!(result, Err(ConfigError::SourceIoError { .. })));
     }
 
     #[test]
     fn test_load_invalid_toml_returns_redacted_parse_error() {
         const SECRET_MARKER: &str = "RS_CONFIG_TOML_SECRET_MARKER";
-        let dir =
-            tempfile::tempdir().expect("temporary directory should be created");
+        let dir = tempfile::tempdir().expect("temporary directory should be created");
         let path = dir.path().join("invalid.toml");
         std::fs::write(&path, format!("password = \"{SECRET_MARKER}\n"))
             .expect("invalid TOML fixture should be written");
@@ -118,7 +102,7 @@ mod test_toml_config_source {
             .load()
             .expect_err("unterminated TOML string should fail");
 
-        assert!(matches!(&error, ConfigError::ParseError(_)));
+        assert!(matches!(&error, ConfigError::SourceParseError { .. }));
         let display = error.to_string();
         let debug = format!("{error:?}");
         assert!(display.contains("line 1"));
@@ -239,13 +223,7 @@ port = 9090
 mod test_toml_edge_cases {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        ConfigError,
-        ConfigSource,
-        PathBuf,
-        TomlConfigSource,
-        fixture,
-        merge_source,
+        Config, ConfigError, ConfigSource, PathBuf, TomlConfigSource, fixture, merge_source,
     };
 
     // ---- toml: datetime value ----
@@ -393,10 +371,7 @@ dates = [2026-04-09T12:00:00Z, 2026-04-10T12:00:00Z]
 
         assert_eq!(config.get_list::<i64>("ints").unwrap(), vec![1, 2, 3]);
         assert_eq!(config.get_list::<f64>("floats").unwrap(), vec![1.25, 2.5]);
-        assert_eq!(
-            config.get_list::<bool>("flags").unwrap(),
-            vec![true, false]
-        );
+        assert_eq!(config.get_list::<bool>("flags").unwrap(), vec![true, false]);
         let dates = config.get::<Vec<String>>("dates").unwrap();
         assert_eq!(dates.len(), 2);
         assert!(dates[0].contains("2026-04-09"));

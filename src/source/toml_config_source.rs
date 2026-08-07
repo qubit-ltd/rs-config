@@ -27,26 +27,13 @@
 use std::collections::HashSet;
 use std::path::Path;
 
-use toml::{
-    Table as TomlTable,
-    Value as TomlValue,
-};
+use toml::{Table as TomlTable, Value as TomlValue};
 
 use qubit_value::ValueContainer;
 
-use crate::{
-    Config,
-    ConfigError,
-    ConfigResult,
-    utils,
-};
+use crate::{Config, ConfigError, ConfigResult, utils};
 
-use super::{
-    ConfigSource,
-    SourceLimits,
-    source_budget::SourceBudget,
-    source_input::SourceInput,
-};
+use super::{ConfigSource, SourceLimits, source_budget::SourceBudget, source_input::SourceInput};
 
 /// Configuration source that loads from TOML format files
 ///
@@ -81,10 +68,7 @@ pub struct TomlConfigSource {
 ///
 /// `Some((line, column))` when the span starts at a valid UTF-8 boundary,
 /// otherwise `None`.
-fn toml_error_location(
-    content: &str,
-    error: &toml::de::Error,
-) -> Option<(usize, usize)> {
+fn toml_error_location(content: &str, error: &toml::de::Error) -> Option<(usize, usize)> {
     let offset = error.span()?.start;
     let prefix = content.get(..offset)?;
     let line = prefix.bytes().filter(|byte| *byte == b'\n').count() + 1;
@@ -105,13 +89,9 @@ fn toml_error_location(
 ///
 /// # Returns
 ///
-/// A [`ConfigError::ParseError`] containing safe path, message, and location
+/// A source-aware [`ConfigError`] containing safe path, message, and location
 /// context.
-fn toml_parse_error(
-    label: &str,
-    content: &str,
-    error: &toml::de::Error,
-) -> ConfigError {
+fn toml_parse_error(label: &str, content: &str, error: &toml::de::Error) -> ConfigError {
     let message = match toml_error_location(content, error) {
         Some((line, column)) => format!(
             "Failed to parse TOML file '{}' at line {line}, column \
@@ -119,13 +99,9 @@ fn toml_parse_error(
             label,
             error.message(),
         ),
-        None => format!(
-            "Failed to parse TOML file '{}': {}",
-            label,
-            error.message(),
-        ),
+        None => format!("Failed to parse TOML file '{}': {}", label, error.message(),),
     };
-    ConfigError::ParseError(message)
+    ConfigError::source_parse_error(label, message)
 }
 
 impl TomlConfigSource {
@@ -203,14 +179,7 @@ pub(crate) fn flatten_toml_value(
                 } else {
                     format!("{}.{}", prefix, k)
                 };
-                flatten_toml_value(
-                    &key,
-                    v,
-                    config,
-                    seen,
-                    budget,
-                    depth.saturating_add(1),
-                )?;
+                flatten_toml_value(&key, v, config, seen, budget, depth.saturating_add(1))?;
             }
         }
         TomlValue::Array(arr) => {
@@ -276,36 +245,26 @@ fn ensure_toml_property(
 ///
 /// Returns an error when the array contains nested structures or when the
 /// configuration rejects the write, for example because the property is final.
-fn flatten_toml_array(
-    prefix: &str,
-    arr: &[TomlValue],
-    config: &mut Config,
-) -> ConfigResult<()> {
+fn flatten_toml_array(prefix: &str, arr: &[TomlValue], config: &mut Config) -> ConfigResult<()> {
     if arr.is_empty() {
         config.set(prefix, Vec::<String>::new())?;
         return Ok(());
     }
 
     match &arr[0] {
-        TomlValue::Integer(_)
-            if all_toml_values_match(arr, TomlValue::is_integer) =>
-        {
+        TomlValue::Integer(_) if all_toml_values_match(arr, TomlValue::is_integer) => {
             set_toml_array_values(prefix, arr, config, TomlValue::as_integer)
         }
-        TomlValue::Float(_)
-            if all_toml_values_match(arr, TomlValue::is_float) =>
-        {
+        TomlValue::Float(_) if all_toml_values_match(arr, TomlValue::is_float) => {
             set_toml_array_values(prefix, arr, config, TomlValue::as_float)
         }
-        TomlValue::Boolean(_)
-            if all_toml_values_match(arr, TomlValue::is_bool) =>
-        {
+        TomlValue::Boolean(_) if all_toml_values_match(arr, TomlValue::is_bool) => {
             set_toml_array_values(prefix, arr, config, TomlValue::as_bool)
         }
         TomlValue::String(_) | TomlValue::Datetime(_)
-            if arr.iter().all(|value| {
-                matches!(value, TomlValue::String(_) | TomlValue::Datetime(_))
-            }) =>
+            if arr
+                .iter()
+                .all(|value| matches!(value, TomlValue::String(_) | TomlValue::Datetime(_))) =>
         {
             set_toml_string_array(prefix, arr, config)
         }
@@ -364,11 +323,7 @@ where
 ///
 /// Returns an error when `arr` contains a nested structure or when the
 /// configuration rejects the write.
-fn set_toml_string_array(
-    prefix: &str,
-    arr: &[TomlValue],
-    config: &mut Config,
-) -> ConfigResult<()> {
+fn set_toml_string_array(prefix: &str, arr: &[TomlValue], config: &mut Config) -> ConfigResult<()> {
     let values = arr
         .iter()
         .map(|value| toml_scalar_to_string(value, prefix))
@@ -377,10 +332,7 @@ fn set_toml_string_array(
 }
 
 /// Tests whether all TOML values satisfy a scalar type predicate.
-fn all_toml_values_match(
-    values: &[TomlValue],
-    predicate: impl Fn(&TomlValue) -> bool,
-) -> bool {
+fn all_toml_values_match(values: &[TomlValue], predicate: impl Fn(&TomlValue) -> bool) -> bool {
     values.iter().all(predicate)
 }
 
