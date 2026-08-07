@@ -113,11 +113,17 @@ fn escape_dotenv_substitutions(content: &str) -> String {
         }
 
         if weak_quote {
-            escaped_content.push(character);
             match character {
-                '\\' => escaped = true,
-                '"' => weak_quote = false,
-                _ => {}
+                '\\' => {
+                    escaped_content.push(character);
+                    escaped = true;
+                }
+                '"' => {
+                    escaped_content.push(character);
+                    weak_quote = false;
+                }
+                '$' => escaped_content.push_str("\\$"),
+                _ => escaped_content.push(character),
             }
             continue;
         }

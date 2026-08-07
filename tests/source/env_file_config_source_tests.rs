@@ -157,6 +157,29 @@ mod test_env_file_config_source {
             std::env::remove_var(KEY);
         }
     }
+
+    #[test]
+    fn test_env_file_preserves_process_environment_placeholders_in_double_quotes() {
+        let _guard = env_test_lock();
+        const KEY: &str = "RS_CONFIG_ENV_FILE_DOUBLE_QUOTED_SECRET";
+        unsafe {
+            std::env::set_var(KEY, "process-secret");
+        }
+
+        let source =
+            EnvFileConfigSource::from_content(format!("NAME=\"${KEY}\"\nBRACED=\"${{{KEY}}}\"\n"));
+        let config = source.load().expect(".env content should load");
+
+        assert_eq!(config.get::<String>("NAME").unwrap(), format!("${KEY}"));
+        assert_eq!(
+            config.get::<String>("BRACED").unwrap(),
+            format!("${{{KEY}}}")
+        );
+
+        unsafe {
+            std::env::remove_var(KEY);
+        }
+    }
 }
 
 #[cfg(test)]
