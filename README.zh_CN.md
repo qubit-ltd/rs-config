@@ -135,13 +135,13 @@ qubit-datatype = { version = "0.10", default-features = false, features = ["conv
 - `ConfigReader` 为 `Config` 和 `ConfigSection` 提供类型化、可选、带默认值、多 key、列表和严格读取。
 - 通过 `ReadPolicy` 明确控制转换规则；`read_with` 可以临时使用借用的 policy。
 - 插值通过 `*_interpolated` 方法显式开启；回退到环境变量必须显式配置 `InterpolationSources::ConfigThenEnv`。
-- `ConfigError::kind()`、`path()` 和 `candidate_paths()` 提供稳定的诊断上下文，无需穷举错误变体。
+- `ConfigError::kind()`、`path()`、`source_id()` 和 `candidate_paths()` 提供稳定的诊断上下文，无需穷举错误变体。
 
 ## 提供什么，以及不提供什么
 
 本库提供泛型类型转换、多值属性、严格相对 section、来源组合、可选的 TOML/YAML/`.env` 加载器、JSON 持久化解码和脱敏的 `Debug` 输出。内置文本 source 默认限制输入 8 MiB、assignment 65,536 次、嵌套深度 64；如果输入可信且确实需要更大边界，可以使用 `SourceLimits` 定制。
 
-本库不会在普通读取时静默执行插值，不会用默认值掩盖已存在但无效的值，也不会把 `ConfigReader` 变成 `dyn` trait object：它的泛型方法使其不满足 object-safe。路径规则、source 失败行为、结构化反序列化、自定义转换和排障细节请参阅用户手册。
+本库不会在普通读取时静默执行插值，不会在加载 `.env` 文件时展开进程环境占位符，不会用默认值掩盖已存在但无效的值，也不会把 `ConfigReader` 变成 `dyn` trait object：它的泛型方法使其不满足 object-safe。路径规则、source 失败行为、结构化反序列化、自定义转换和排障细节请参阅用户手册。
 
 ## 延伸阅读
 

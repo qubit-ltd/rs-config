@@ -135,13 +135,13 @@ Configuration often arrives as strings, but application code needs typed values,
 - `ConfigReader` provides typed, optional, defaulted, multi-key, list, and strict reads for both `Config` and `ConfigSection`.
 - Conversion rules are explicit through `ReadPolicy`; `read_with` applies a temporary borrowed policy.
 - Interpolation is opt-in through `*_interpolated` methods. Environment fallback requires `InterpolationSources::ConfigThenEnv` explicitly.
-- `ConfigError::kind()`, `path()`, and `candidate_paths()` expose stable diagnostic context without requiring exhaustive matching on error variants.
+- `ConfigError::kind()`, `path()`, `source_id()`, and `candidate_paths()` expose stable diagnostic context without requiring exhaustive matching on error variants.
 
 ## What It Provides—and What It Does Not
 
 The library provides generic type conversion, multi-value properties, strict relative sections, source composition, optional TOML/YAML/`.env` loaders, JSON persistence decoding, and redacted `Debug` output. Its built-in text sources use default limits of 8 MiB input, 65,536 assignments, and 64 nesting levels; customize them with `SourceLimits` when the input is trusted and the larger boundary is intentional.
 
-It does not silently interpolate values during ordinary reads, use defaults to hide a present but invalid value, or make `ConfigReader` into a `dyn` trait object: its generic methods make it non-object-safe. Detailed path rules, source failure behavior, structured deserialization, custom conversion, and troubleshooting are covered in the user guide.
+It does not silently interpolate values during ordinary reads, expand process-environment placeholders while loading `.env` files, use defaults to hide a present but invalid value, or make `ConfigReader` into a `dyn` trait object: its generic methods make it non-object-safe. Detailed path rules, source failure behavior, structured deserialization, custom conversion, and troubleshooting are covered in the user guide.
 
 ## Learn More
 

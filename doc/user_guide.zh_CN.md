@@ -206,6 +206,11 @@ let enabled: bool = tls.get("enabled")?;
 - 由 `env-file` feature 启用的 `EnvFileConfigSource`；
 - 按顺序合并其他 source 的 `CompositeConfigSource`。
 
+`EnvFileConfigSource` 会把 `$NAME` 和 `${NAME}` 占位符作为字面值保留。应
+通过显式的 `*_interpolated` 读取策略在后续读取时解析；加载 `.env` 文件不会
+隐式读取进程环境变量。YAML anchor 和 alias 会在 YAML 文档物化前被拒绝，
+从而使 source limit 对不可信输入仍然有效。
+
 如果不需要在加载前定制目标配置，可以使用便捷构造函数：
 
 ```rust
@@ -366,6 +371,9 @@ assert_eq!(error.path(), Some("server.port"));
 ```
 
 常见类别包括 `InvalidKey`、`InvalidPath`、`PropertyNotFound`、`PropertyHasNoValue`、`TypeMismatch`、`Conversion`、`Substitution`、`SubstitutionCycle`、`SourceLimitExceeded`、`KeyConflict`、`Merge`、`PropertyIsFinal`、`Io`、`Parse` 和 `Deserialize`。
+
+对于 source 的 IO、解析和限制错误，`source_id()` 会返回文件路径或稳定的
+source label；其他错误返回 `None`。
 
 `get_any` 失败时可以使用 `candidate_paths()`，因为多 key 错误可能包含按查找顺序排列的多个路径。如果集合转换错误对应原始集合中的某个元素，可以使用 `source_index()` 获取其位置。
 
