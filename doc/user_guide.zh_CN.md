@@ -341,7 +341,7 @@ let config = Config::new().with_default_read_policy(policy);
 3. 将剩余名称转为小写；
 4. 把 `_` 转换为 `.`。
 
-例如，`APP_DATABASE_MAX_CONNECTIONS` 会变成 `database.max.connections`。如果只需要部分转换，可以使用 `EnvConfigOptions`。如果两个不同的环境变量名称经过规范化后变成同一个 key，加载会返回 `KeyConflict`，不会静默选择其中一个。
+例如，`APP_DATABASE_MAX_CONNECTIONS` 会变成 `database.max.connections`。如果只需要部分转换，可以使用 `EnvConfigOptions`。如果两个不同的环境变量名称经过规范化后变成同一个 key，加载会返回 `KeyConflict`，不会静默选择其中一个；错误会按字典序报告冲突名称，因此诊断信息不依赖操作系统的环境变量遍历顺序。
 
 ### 配置 source limits
 

@@ -344,7 +344,7 @@ Treat configuration that can select environment-variable names as trusted input.
 3. lowercase the remaining name; and
 4. convert `_` to `.`.
 
-For example, `APP_DATABASE_MAX_CONNECTIONS` becomes `database.max.connections`. Use `EnvConfigOptions` when only some transformations are wanted. If two distinct environment names collapse to the same normalized key, loading returns `KeyConflict` rather than selecting one silently.
+For example, `APP_DATABASE_MAX_CONNECTIONS` becomes `database.max.connections`. Use `EnvConfigOptions` when only some transformations are wanted. If two distinct environment names collapse to the same normalized key, loading returns `KeyConflict` rather than selecting one silently. The error reports the conflicting environment names in lexicographic order, so its diagnostics do not depend on the operating system's environment-variable iteration order.
 
 ### Configure source limits
 

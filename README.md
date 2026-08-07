@@ -90,7 +90,7 @@ fn load_server_config() -> Result<(String, u16), Box<dyn std::error::Error>> {
 }
 ```
 
-With `APP_SERVER_HOST` and `APP_SERVER_PORT` set, the environment layer supplies the final values after prefix removal, lowercasing, and underscore-to-dot conversion. The same composition pattern can use `TomlConfigSource`, `YamlConfigSource`, or `EnvFileConfigSource` when their features are enabled.
+With `APP_SERVER_HOST` and `APP_SERVER_PORT` set, the environment layer supplies the final values after prefix removal, lowercasing, and underscore-to-dot conversion. If normalization makes distinct environment names map to one key, loading returns `ConfigError::KeyConflict` and reports the conflicting names in lexicographic order; it never selects a winner based on process-environment iteration order. The same composition pattern can use `TomlConfigSource`, `YamlConfigSource`, or `EnvFileConfigSource` when their features are enabled.
 
 ## Structured Reads and Custom Policies
 
