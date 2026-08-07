@@ -9,7 +9,4 @@
 //!
 //! Defines all possible error types in the configuration system.
 
-pub use crate::config_error::{
-    ConfigError,
-    ConfigResult,
-};
+pub use crate::config_error::{ConfigError, ConfigResult};

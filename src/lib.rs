@@ -74,24 +74,10 @@ pub use config_property_mut::ConfigPropertyMut;
 pub use config_reader::ConfigReader;
 pub use config_section::ConfigSection;
 pub use config_serde_ext::ConfigSerdeExt;
-pub use config_wire_limits::{
-    ConfigWireDecodeError,
-    ConfigWireLimitKind,
-    ConfigWireLimits,
-};
+pub use config_wire_limits::{ConfigWireDecodeError, ConfigWireLimitKind, ConfigWireLimits};
 pub use configurable::Configurable;
 pub use configured::Configured;
-pub use error::{
-    ConfigError,
-    ConfigResult,
-};
+pub use error::{ConfigError, ConfigResult};
 pub use property::Property;
-pub use read_policy::{
-    InterpolationSources,
-    ReadPolicy,
-};
-pub use source::{
-    ConfigSource,
-    SourceLimitKind,
-    SourceLimits,
-};
+pub use read_policy::{InterpolationSources, ReadPolicy};
+pub use source::{ConfigSource, SourceLimitKind, SourceLimits};

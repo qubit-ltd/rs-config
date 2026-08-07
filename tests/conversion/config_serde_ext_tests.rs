@@ -7,11 +7,7 @@
 // =============================================================================
 
 use qubit_config::{
-    Config,
-    ConfigError,
-    ConfigReader,
-    ConfigResult,
-    conversion::ConfigSerdeExt,
+    Config, ConfigError, ConfigReader, ConfigResult, conversion::ConfigSerdeExt,
     options::ReadPolicy,
 };
 use serde::Deserialize;
@@ -91,9 +87,8 @@ fn test_deserialize_matches_config_inherent_method() {
     let inherent: ServerSettings = config
         .deserialize("server")
         .expect("inherent method should deserialize");
-    let extension: ServerSettings =
-        ConfigSerdeExt::deserialize(&config, "server")
-            .expect("extension method should deserialize");
+    let extension: ServerSettings = ConfigSerdeExt::deserialize(&config, "server")
+        .expect("extension method should deserialize");
 
     assert_eq!(extension, inherent);
 }

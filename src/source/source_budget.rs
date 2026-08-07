@@ -8,11 +8,7 @@
 // qubit-style: allow source-test-pair
 //! Mutable accounting for configuration source ingestion.
 
-use crate::{
-    ConfigError,
-    ConfigResult,
-    SourceLimitKind,
-};
+use crate::{ConfigError, ConfigResult, SourceLimitKind};
 
 use super::SourceLimits;
 
@@ -36,10 +32,7 @@ impl<'a> SourceBudget<'a> {
     }
 
     /// Accounts for input bytes.
-    pub(crate) fn consume_input_bytes(
-        &mut self,
-        amount: usize,
-    ) -> ConfigResult<()> {
+    pub(crate) fn consume_input_bytes(&mut self, amount: usize) -> ConfigResult<()> {
         self.input_bytes = self.consume(
             SourceLimitKind::InputBytes,
             self.input_bytes,
@@ -50,10 +43,7 @@ impl<'a> SourceBudget<'a> {
     }
 
     /// Accounts for emitted assignments.
-    pub(crate) fn consume_properties(
-        &mut self,
-        amount: usize,
-    ) -> ConfigResult<()> {
+    pub(crate) fn consume_properties(&mut self, amount: usize) -> ConfigResult<()> {
         self.properties = self.consume(
             SourceLimitKind::PropertyCount,
             self.properties,

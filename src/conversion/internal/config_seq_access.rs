@@ -8,10 +8,7 @@
 // qubit-style: allow source-test-pair
 //! Serde sequence access over configuration values.
 
-use serde::de::{
-    self,
-    SeqAccess,
-};
+use serde::de::{self, SeqAccess};
 use serde_json::Value;
 
 use crate::config_deserialize_error::ConfigDeserializeError;
@@ -46,10 +43,7 @@ impl<'de> SeqAccess<'de> for ConfigSeqAccess<'_> {
     type Error = ConfigDeserializeError;
 
     /// Deserializes the next element.
-    fn next_element_seed<T>(
-        &mut self,
-        seed: T,
-    ) -> Result<Option<T::Value>, Self::Error>
+    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
     where
         T: de::DeserializeSeed<'de>,
     {

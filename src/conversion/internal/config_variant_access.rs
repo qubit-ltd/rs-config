@@ -8,12 +8,7 @@
 // qubit-style: allow source-test-pair
 //! Serde variant access over a configuration enum payload.
 
-use serde::de::{
-    self,
-    DeserializeSeed,
-    VariantAccess,
-    Visitor,
-};
+use serde::de::{self, DeserializeSeed, VariantAccess, Visitor};
 use serde_json::Value;
 
 use crate::config_deserialize_error::ConfigDeserializeError;
@@ -49,9 +44,11 @@ impl<'de> VariantAccess<'de> for ConfigVariantAccess<'_> {
     fn unit_variant(self) -> Result<(), Self::Error> {
         match self.value {
             None | Some(Value::Null) => Ok(()),
-            Some(value) => serde::Deserialize::deserialize(
-                ConfigValueDeserializer::new(value, self.key, self.options),
-            ),
+            Some(value) => serde::Deserialize::deserialize(ConfigValueDeserializer::new(
+                value,
+                self.key,
+                self.options,
+            )),
         }
     }
 
@@ -61,32 +58,18 @@ impl<'de> VariantAccess<'de> for ConfigVariantAccess<'_> {
         T: DeserializeSeed<'de>,
     {
         let value = self.value.ok_or_else(|| {
-            de::Error::invalid_type(
-                de::Unexpected::UnitVariant,
-                &"newtype variant payload",
-            )
+            de::Error::invalid_type(de::Unexpected::UnitVariant, &"newtype variant payload")
         })?;
-        seed.deserialize(ConfigValueDeserializer::new(
-            value,
-            self.key,
-            self.options,
-        ))
+        seed.deserialize(ConfigValueDeserializer::new(value, self.key, self.options))
     }
 
     /// Deserializes a tuple variant payload.
-    fn tuple_variant<V>(
-        self,
-        len: usize,
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
+    fn tuple_variant<V>(self, len: usize, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
         let value = self.value.ok_or_else(|| {
-            de::Error::invalid_type(
-                de::Unexpected::UnitVariant,
-                &"tuple variant payload",
-            )
+            de::Error::invalid_type(de::Unexpected::UnitVariant, &"tuple variant payload")
         })?;
         de::Deserializer::deserialize_tuple(
             ConfigValueDeserializer::new(value, self.key, self.options),
@@ -105,10 +88,7 @@ impl<'de> VariantAccess<'de> for ConfigVariantAccess<'_> {
         V: Visitor<'de>,
     {
         let value = self.value.ok_or_else(|| {
-            de::Error::invalid_type(
-                de::Unexpected::UnitVariant,
-                &"struct variant payload",
-            )
+            de::Error::invalid_type(de::Unexpected::UnitVariant, &"struct variant payload")
         })?;
         de::Deserializer::deserialize_struct(
             ConfigValueDeserializer::new(value, self.key, self.options),

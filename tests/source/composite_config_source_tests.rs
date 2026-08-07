@@ -10,14 +10,9 @@
 // # `CompositeConfigSource` tests
 
 use qubit_config::{
-    Config,
-    ConfigError,
-    ConfigResult,
+    Config, ConfigError, ConfigResult,
     source::{
-        CompositeConfigSource,
-        ConfigSource,
-        EnvConfigSource,
-        PropertiesConfigSource,
+        CompositeConfigSource, ConfigSource, EnvConfigSource, PropertiesConfigSource,
         TomlConfigSource,
     },
 };
@@ -31,10 +26,7 @@ fn fixture(name: &str) -> PathBuf {
         .join(name)
 }
 
-fn load_source(
-    config: &mut Config,
-    source: &dyn ConfigSource,
-) -> ConfigResult<()> {
+fn load_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<()> {
     config.merge_from_source(source)
 }
 
@@ -46,16 +38,8 @@ fn load_source(
 mod test_composite_config_source {
     #[allow(unused_imports)]
     use super::{
-        CompositeConfigSource,
-        Config,
-        ConfigError,
-        ConfigSource,
-        EnvConfigSource,
-        PathBuf,
-        PropertiesConfigSource,
-        TomlConfigSource,
-        fixture,
-        load_source,
+        CompositeConfigSource, Config, ConfigError, ConfigSource, EnvConfigSource, PathBuf,
+        PropertiesConfigSource, TomlConfigSource, fixture, load_source,
     };
 
     #[test]

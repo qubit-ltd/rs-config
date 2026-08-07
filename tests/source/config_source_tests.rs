@@ -7,11 +7,7 @@
 // =============================================================================
 // Tests for the `ConfigSource` trait contract.
 
-use qubit_config::{
-    Config,
-    ConfigResult,
-    source::ConfigSource,
-};
+use qubit_config::{Config, ConfigResult, source::ConfigSource};
 
 struct InlineSource {
     key: &'static str,

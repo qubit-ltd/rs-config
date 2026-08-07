@@ -9,16 +9,8 @@
 
 use std::hint::black_box;
 
-use criterion::{
-    BenchmarkId,
-    Criterion,
-    criterion_group,
-    criterion_main,
-};
-use qubit_config::{
-    Config,
-    ConfigReader,
-};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
+use qubit_config::{Config, ConfigReader};
 
 const PROPERTY_COUNTS: [usize; 3] = [32, 1_024, 16_384];
 
@@ -67,11 +59,7 @@ fn benchmark_config_lookup(criterion: &mut Criterion) {
             &property_count,
             |bencher, _| {
                 bencher.iter(|| {
-                    black_box(
-                        config
-                            .get::<u64>(black_box(exact_key.as_str()))
-                            .unwrap(),
-                    );
+                    black_box(config.get::<u64>(black_box(exact_key.as_str())).unwrap());
                 });
             },
         );
@@ -100,54 +88,43 @@ fn benchmark_config_lookup(criterion: &mut Criterion) {
             &property_count,
             |bencher, _| {
                 bencher.iter(|| {
-                    black_box(
-                        config.contains(black_box(exact_key.as_str())).unwrap(),
-                    );
+                    black_box(config.contains(black_box(exact_key.as_str())).unwrap());
                 });
             },
         );
         contains.finish();
 
-        let mut contains_section =
-            criterion.benchmark_group("contains_section");
+        let mut contains_section = criterion.benchmark_group("contains_section");
         contains_section.bench_with_input(
             BenchmarkId::from_parameter(property_count),
             &property_count,
             |bencher, _| {
                 bencher.iter(|| {
-                    black_box(
-                        config.contains_section(black_box("service")).unwrap(),
-                    );
+                    black_box(config.contains_section(black_box("service")).unwrap());
                 });
             },
         );
         contains_section.finish();
 
-        let mut contains_section_sparse =
-            criterion.benchmark_group("contains_section_sparse");
+        let mut contains_section_sparse = criterion.benchmark_group("contains_section_sparse");
         contains_section_sparse.bench_with_input(
             BenchmarkId::from_parameter(property_count),
             &property_count,
             |bencher, _| {
                 bencher.iter(|| {
-                    black_box(
-                        config.contains_section(black_box("sparse")).unwrap(),
-                    );
+                    black_box(config.contains_section(black_box("sparse")).unwrap());
                 });
             },
         );
         contains_section_sparse.finish();
 
-        let mut contains_section_absent =
-            criterion.benchmark_group("contains_section_absent");
+        let mut contains_section_absent = criterion.benchmark_group("contains_section_absent");
         contains_section_absent.bench_with_input(
             BenchmarkId::from_parameter(property_count),
             &property_count,
             |bencher, _| {
                 bencher.iter(|| {
-                    black_box(
-                        config.contains_section(black_box("missing")).unwrap(),
-                    );
+                    black_box(config.contains_section(black_box("missing")).unwrap());
                 });
             },
         );
@@ -170,16 +147,13 @@ fn benchmark_config_lookup(criterion: &mut Criterion) {
         );
         section_get.finish();
 
-        let mut deep_section_get =
-            criterion.benchmark_group("deep_section_get");
+        let mut deep_section_get = criterion.benchmark_group("deep_section_get");
         deep_section_get.bench_with_input(
             BenchmarkId::from_parameter(property_count),
             &property_count,
             |bencher, _| {
                 bencher.iter(|| {
-                    black_box(
-                        deep_section.get::<u64>(black_box("endpoint")).unwrap(),
-                    );
+                    black_box(deep_section.get::<u64>(black_box("endpoint")).unwrap());
                 });
             },
         );
@@ -191,16 +165,13 @@ fn benchmark_config_lookup(criterion: &mut Criterion) {
             &property_count,
             |bencher, _| {
                 bencher.iter(|| {
-                    black_box(
-                        config.iter_prefix(black_box("service.")).count(),
-                    );
+                    black_box(config.iter_prefix(black_box("service.")).count());
                 });
             },
         );
         iter_prefix.finish();
 
-        let mut iter_prefix_sparse =
-            criterion.benchmark_group("iter_prefix_sparse");
+        let mut iter_prefix_sparse = criterion.benchmark_group("iter_prefix_sparse");
         iter_prefix_sparse.bench_with_input(
             BenchmarkId::from_parameter(property_count),
             &property_count,
@@ -212,33 +183,25 @@ fn benchmark_config_lookup(criterion: &mut Criterion) {
         );
         iter_prefix_sparse.finish();
 
-        let mut iter_prefix_absent =
-            criterion.benchmark_group("iter_prefix_absent");
+        let mut iter_prefix_absent = criterion.benchmark_group("iter_prefix_absent");
         iter_prefix_absent.bench_with_input(
             BenchmarkId::from_parameter(property_count),
             &property_count,
             |bencher, _| {
                 bencher.iter(|| {
-                    black_box(
-                        config.iter_prefix(black_box("missing.")).count(),
-                    );
+                    black_box(config.iter_prefix(black_box("missing.")).count());
                 });
             },
         );
         iter_prefix_absent.finish();
 
-        let mut structured_deserialize =
-            criterion.benchmark_group("structured_deserialize");
+        let mut structured_deserialize = criterion.benchmark_group("structured_deserialize");
         structured_deserialize.bench_with_input(
             BenchmarkId::from_parameter(property_count),
             &property_count,
             |bencher, _| {
                 bencher.iter(|| {
-                    black_box(
-                        config
-                            .deserialize::<serde_json::Value>("service")
-                            .unwrap(),
-                    );
+                    black_box(config.deserialize::<serde_json::Value>("service").unwrap());
                 });
             },
         );

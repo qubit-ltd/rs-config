@@ -14,14 +14,8 @@ use qubit_config::source::TomlConfigSource;
 #[cfg(feature = "yaml")]
 use qubit_config::source::YamlConfigSource;
 use qubit_config::{
-    Config,
-    ConfigError,
-    source::{
-        ConfigSource,
-        PropertiesConfigSource,
-        SourceLimitKind,
-        SourceLimits,
-    },
+    Config, ConfigError,
+    source::{ConfigSource, PropertiesConfigSource, SourceLimitKind, SourceLimits},
 };
 
 #[test]

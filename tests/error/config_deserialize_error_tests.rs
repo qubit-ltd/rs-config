@@ -9,17 +9,8 @@
 
 use std::error::Error;
 
-use qubit_config::{
-    Config,
-    ConfigError,
-    ConfigErrorKind,
-    Property,
-    options::ReadPolicy,
-};
-use qubit_datatype::{
-    BlankStringPolicy,
-    DataType,
-};
+use qubit_config::{Config, ConfigError, ConfigErrorKind, Property, options::ReadPolicy};
+use qubit_datatype::{BlankStringPolicy, DataType};
 use qubit_value::Value;
 use serde::Deserialize;
 
@@ -85,14 +76,12 @@ fn test_nested_sequence_message_error_has_leaf_path() {
 fn test_deserialize_config_error_preserves_kind_and_leaf_path() {
     let mut config = Config::new();
     config.set_default_read_policy(
-        ReadPolicy::default()
-            .with_blank_string_policy(BlankStringPolicy::Reject),
+        ReadPolicy::default().with_blank_string_policy(BlankStringPolicy::Reject),
     );
     config
         .insert_property(
             "app.value",
-            Property::new("app.value", Value::Json(serde_json::json!(" ")))
-                .unwrap(),
+            Property::new("app.value", Value::Json(serde_json::json!(" "))).unwrap(),
         )
         .expect("inserting property should succeed");
 

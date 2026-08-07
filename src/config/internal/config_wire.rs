@@ -9,18 +9,11 @@
 use std::collections::BTreeMap;
 
 use serde::{
-    Deserialize,
-    Deserializer,
-    de::{
-        Error as _,
-        IgnoredAny,
-    },
+    Deserialize, Deserializer,
+    de::{Error as _, IgnoredAny},
 };
 
-use super::{
-    ConfigSerdeRepr,
-    ConfigWireV1,
-};
+use super::{ConfigSerdeRepr, ConfigWireV1};
 use crate::Property;
 
 /// Accepted persisted `Config` wire representations.
