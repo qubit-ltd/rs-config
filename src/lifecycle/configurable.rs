@@ -10,14 +10,16 @@
 //! Provides the `Configurable` trait for types to have unified configuration
 //! access and change callback interfaces.
 
-use super::{
-    Config,
-    ConfigResult,
-};
+use super::{Config, ConfigResult};
 
 /// Configurable trait
 ///
 /// Types that implement this trait can be configured using `Config`.
+///
+/// # TODO
+///
+/// Reassess this lifecycle abstraction and its downstream adoption before the
+/// next public API review.
 ///
 /// # Examples
 ///

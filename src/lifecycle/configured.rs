@@ -9,10 +9,7 @@
 //!
 //! Provides a base structure that implements the `Configurable` trait.
 
-use super::{
-    Config,
-    Configurable,
-};
+use super::{Config, Configurable};
 
 /// Base implementation of configurable objects
 ///
@@ -24,6 +21,11 @@ use super::{
 /// - Automatically implements the `Configurable` trait
 /// - Provides configuration change callback mechanism
 /// - Can be inherited and extended
+///
+/// # TODO
+///
+/// Reassess this lifecycle abstraction and its downstream adoption before the
+/// next public API review.
 ///
 /// # Examples
 ///
