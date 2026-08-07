@@ -10,10 +10,7 @@
 
 use super::Config;
 use crate::config_path::ensure_config_path;
-use crate::{
-    ConfigResult,
-    Property,
-};
+use crate::{ConfigResult, Property};
 use std::ops::Bound;
 
 impl Config {
@@ -134,6 +131,10 @@ impl Config {
     /// extracted subtree. For example, `subconfig("http", true)` includes
     /// `http.host` as `host`, but does not include an exact `http` property.
     ///
+    /// # TODO
+    ///
+    /// Reassess this convenience API after downstream usage has been reviewed.
+    ///
     /// # Parameters
     ///
     /// * `prefix` - The key prefix to extract (e.g., `"http"`)
@@ -159,11 +160,7 @@ impl Config {
     /// assert!(http_config.contains("port").unwrap());
     /// assert!(!http_config.contains("db.host").unwrap());
     /// ```
-    pub fn subconfig(
-        &self,
-        prefix: &str,
-        strip_prefix: bool,
-    ) -> ConfigResult<Config> {
+    pub fn subconfig(&self, prefix: &str, strip_prefix: bool) -> ConfigResult<Config> {
         ensure_config_path(prefix)?;
         let mut sub = Config::new();
         sub.description = self.description.clone();
