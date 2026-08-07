@@ -8,6 +8,7 @@
 
 mod config_serde_repr;
 mod config_wire;
+mod config_wire_fields;
 mod config_wire_v1;
 mod config_wire_v1_ref;
 
