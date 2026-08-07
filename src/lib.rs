@@ -73,6 +73,7 @@ pub use config_path_violation::ConfigPathViolation;
 pub use config_property_mut::ConfigPropertyMut;
 pub use config_reader::ConfigReader;
 pub use config_section::ConfigSection;
+pub use config_serde_ext::ConfigSerdeExt;
 pub use config_wire_limits::{
     ConfigWireDecodeError,
     ConfigWireLimitKind,
