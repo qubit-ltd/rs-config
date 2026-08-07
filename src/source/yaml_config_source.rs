@@ -32,19 +32,9 @@ use qubit_value::ValueContainer;
 use serde_norway as yaml_backend;
 use yaml_backend::Value as YamlValue;
 
-use crate::{
-    Config,
-    ConfigError,
-    ConfigResult,
-    utils,
-};
+use crate::{Config, ConfigError, ConfigResult, utils};
 
-use super::{
-    ConfigSource,
-    SourceLimits,
-    source_budget::SourceBudget,
-    source_input::SourceInput,
-};
+use super::{ConfigSource, SourceLimits, source_budget::SourceBudget, source_input::SourceInput};
 
 /// Configuration source that loads from YAML format files
 ///
@@ -77,7 +67,7 @@ pub struct YamlConfigSource {
 ///
 /// # Returns
 ///
-/// A [`ConfigError::ParseError`] containing only file and public location
+/// A source-aware [`ConfigError`] containing only file and public location
 /// context.
 fn yaml_parse_error(label: &str, error: &yaml_backend::Error) -> ConfigError {
     let message = match error.location() {
@@ -88,12 +78,84 @@ fn yaml_parse_error(label: &str, error: &yaml_backend::Error) -> ConfigError {
             location.line(),
             location.column(),
         ),
-        None => format!(
-            "Failed to parse YAML file '{}': invalid YAML syntax",
-            label,
-        ),
+        None => format!("Failed to parse YAML file '{}': invalid YAML syntax", label,),
     };
-    ConfigError::ParseError(message)
+    ConfigError::source_parse_error(label, message)
+}
+
+/// Rejects YAML anchors and aliases before the YAML backend builds an owned AST.
+///
+/// Alias expansion can multiply the amount of owned data produced by a parser.
+/// The source format does not need anchors for the flattened configuration
+/// model, so rejecting their indicator syntax keeps the configured limits
+/// meaningful for untrusted input.
+fn reject_yaml_aliases(label: &str, content: &str) -> ConfigResult<()> {
+    let characters: Vec<char> = content.chars().collect();
+    let mut single_quote = false;
+    let mut double_quote = false;
+    let mut escaped = false;
+    let mut comment = false;
+
+    for (index, &character) in characters.iter().enumerate() {
+        if character == '\n' {
+            comment = false;
+            escaped = false;
+            continue;
+        }
+        if comment {
+            continue;
+        }
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        if double_quote && character == '\\' {
+            escaped = true;
+            continue;
+        }
+        if !double_quote && character == '\'' {
+            single_quote = !single_quote;
+            continue;
+        }
+        if !single_quote && character == '"' {
+            double_quote = !double_quote;
+            continue;
+        }
+        if single_quote || double_quote {
+            continue;
+        }
+        if character == '#' {
+            comment = true;
+            continue;
+        }
+        if !matches!(character, '&' | '*') {
+            continue;
+        }
+
+        let previous = index
+            .checked_sub(1)
+            .and_then(|position| characters.get(position))
+            .copied();
+        let next_is_anchor_character = characters
+            .get(index + 1)
+            .is_some_and(|next| next.is_ascii_alphanumeric() || *next == '_');
+        let at_token_boundary = previous.is_none_or(|previous| {
+            previous.is_whitespace() || matches!(previous, ':' | '[' | '{' | ',' | '-')
+        });
+        if next_is_anchor_character && at_token_boundary {
+            let line = characters[..index]
+                .iter()
+                .filter(|&&value| value == '\n')
+                .count()
+                + 1;
+            return Err(ConfigError::source_parse_error(
+                label,
+                format!("YAML anchors and aliases are not supported at line {line}"),
+            ));
+        }
+    }
+
+    Ok(())
 }
 
 impl YamlConfigSource {
@@ -130,9 +192,10 @@ impl ConfigSource for YamlConfigSource {
         let mut config = Config::new();
         let label = self.input.label("YAML");
         let content = self.input.read_to_string("YAML", self.limits)?;
+        reject_yaml_aliases(&label, &content)?;
 
-        let value: YamlValue = yaml_backend::from_str(&content)
-            .map_err(|error| yaml_parse_error(&label, &error))?;
+        let value: YamlValue =
+            yaml_backend::from_str(&content).map_err(|error| yaml_parse_error(&label, &error))?;
 
         let mut seen = HashSet::new();
         let mut budget = SourceBudget::new(&label, self.limits);
@@ -168,14 +231,7 @@ pub(crate) fn flatten_yaml_value(
                 } else {
                     format!("{}.{}", prefix, key_str)
                 };
-                flatten_yaml_value(
-                    &key,
-                    v,
-                    config,
-                    seen,
-                    budget,
-                    depth.saturating_add(1),
-                )?;
+                flatten_yaml_value(&key, v, config, seen, budget, depth.saturating_add(1))?;
             }
         }
         YamlValue::Sequence(seq) => {
@@ -200,9 +256,9 @@ pub(crate) fn flatten_yaml_value(
             } else if let Some(i) = n.as_u64() {
                 config.set(prefix, i)?;
             } else {
-                let f = n.as_f64().expect(
-                    "YAML number should be representable as i64, u64, or f64",
-                );
+                let f = n
+                    .as_f64()
+                    .expect("YAML number should be representable as i64, u64, or f64");
                 config.set(prefix, f)?;
             }
         }
@@ -211,14 +267,7 @@ pub(crate) fn flatten_yaml_value(
             config.set(prefix, s.clone())?;
         }
         YamlValue::Tagged(tagged) => {
-            flatten_yaml_value(
-                prefix,
-                &tagged.value,
-                config,
-                seen,
-                budget,
-                depth,
-            )?;
+            flatten_yaml_value(prefix, &tagged.value, config, seen, budget, depth)?;
         }
     }
     Ok(())
@@ -258,11 +307,7 @@ fn ensure_yaml_property(
 ///
 /// Returns an error when the sequence contains nested structures or when the
 /// configuration rejects the write, for example because the property is final.
-fn flatten_yaml_sequence(
-    prefix: &str,
-    seq: &[YamlValue],
-    config: &mut Config,
-) -> ConfigResult<()> {
+fn flatten_yaml_sequence(prefix: &str, seq: &[YamlValue], config: &mut Config) -> ConfigResult<()> {
     if seq.is_empty() {
         config.set(prefix, Vec::<String>::new())?;
         return Ok(());
@@ -390,19 +435,14 @@ fn yaml_scalar_to_string(value: &YamlValue, key: &str) -> ConfigResult<String> {
         YamlValue::Number(n) => Ok(n.to_string()),
         YamlValue::Bool(b) => Ok(b.to_string()),
         YamlValue::Null => Ok(String::new()),
-        YamlValue::Sequence(_)
-        | YamlValue::Mapping(_)
-        | YamlValue::Tagged(_) => {
+        YamlValue::Sequence(_) | YamlValue::Mapping(_) | YamlValue::Tagged(_) => {
             Err(unsupported_yaml_sequence_element_error(key, value))
         }
     }
 }
 
 /// Builds a parse error for unsupported nested YAML sequence elements.
-fn unsupported_yaml_sequence_element_error(
-    key: &str,
-    value: &YamlValue,
-) -> ConfigError {
+fn unsupported_yaml_sequence_element_error(key: &str, value: &YamlValue) -> ConfigError {
     let key = if key.is_empty() { "<root>" } else { key };
     ConfigError::ParseError(format!(
         "Unsupported nested YAML structure at key '{key}': {:?}",

@@ -21,19 +21,9 @@ use std::path::Path;
 
 use qubit_redact::redacted_debug;
 
-use crate::{
-    Config,
-    ConfigError,
-    ConfigKey,
-    ConfigResult,
-};
+use crate::{Config, ConfigError, ConfigKey, ConfigResult};
 
-use super::{
-    ConfigSource,
-    SourceLimits,
-    source_budget::SourceBudget,
-    source_input::SourceInput,
-};
+use super::{ConfigSource, SourceLimits, source_budget::SourceBudget, source_input::SourceInput};
 
 /// Configuration source that loads from `.env` format files
 ///
@@ -66,30 +56,91 @@ pub struct EnvFileConfigSource {
 ///
 /// # Returns
 ///
-/// A [`ConfigError::IoError`] preserving its I/O kind, or a value-redacted
-/// [`ConfigError::ParseError`].
+/// A source-aware I/O or value-redacted parse [`ConfigError`].
 fn map_dotenv_error(label: &str, error: dotenvy::Error) -> ConfigError {
     match error {
-        dotenvy::Error::Io(source) => {
-            ConfigError::IoError(std::io::Error::new(
+        dotenvy::Error::Io(source) => ConfigError::source_io_error(
+            label,
+            std::io::Error::new(
                 source.kind(),
                 format!("Failed to read .env source '{label}': {source}"),
-            ))
-        }
-        dotenvy::Error::LineParse(line, error_index) => {
-            ConfigError::ParseError(format!(
+            ),
+        ),
+        dotenvy::Error::LineParse(line, error_index) => ConfigError::source_parse_error(
+            label,
+            format!(
                 "Failed to parse .env file '{}' at line index \
-                 {error_index}: {:?}",
+                     {error_index}: {:?}",
                 label,
                 redacted_debug(&line),
-            ))
-        }
-        error => ConfigError::ParseError(format!(
-            "Failed to parse .env file '{}': {:?}",
+            ),
+        ),
+        error => ConfigError::source_parse_error(
             label,
-            redacted_debug(&error),
-        )),
+            format!(
+                "Failed to parse .env file '{}': {:?}",
+                label,
+                redacted_debug(&error),
+            ),
+        ),
     }
+}
+
+/// Escapes dotenv substitution markers while preserving quote and escape rules.
+///
+/// `dotenvy` always expands `$NAME` and `${NAME}` from the process environment.
+/// Prefixing unquoted and double-quoted markers with a dotenv escape keeps the
+/// parser's format handling while making the source boundary explicit.
+fn escape_dotenv_substitutions(content: &str) -> String {
+    let mut escaped_content = String::with_capacity(content.len());
+    let mut strong_quote = false;
+    let mut weak_quote = false;
+    let mut escaped = false;
+
+    for character in content.chars() {
+        if escaped {
+            escaped_content.push(character);
+            escaped = false;
+            continue;
+        }
+
+        if strong_quote {
+            escaped_content.push(character);
+            if character == '\'' {
+                strong_quote = false;
+            }
+            continue;
+        }
+
+        if weak_quote {
+            escaped_content.push(character);
+            match character {
+                '\\' => escaped = true,
+                '"' => weak_quote = false,
+                _ => {}
+            }
+            continue;
+        }
+
+        match character {
+            '\'' => {
+                strong_quote = true;
+                escaped_content.push(character);
+            }
+            '"' => {
+                weak_quote = true;
+                escaped_content.push(character);
+            }
+            '\\' => {
+                escaped = true;
+                escaped_content.push(character);
+            }
+            '$' => escaped_content.push_str("\\$"),
+            _ => escaped_content.push(character),
+        }
+    }
+
+    escaped_content
 }
 
 impl EnvFileConfigSource {
@@ -126,12 +177,12 @@ impl ConfigSource for EnvFileConfigSource {
         let mut config = Config::new();
         let label = self.input.label(".env");
         let content = self.input.read_to_string(".env", self.limits)?;
+        let content = escape_dotenv_substitutions(&content);
         let iter = dotenvy::from_read_iter(content.as_bytes());
 
         let mut budget = SourceBudget::new(&label, self.limits);
         for item in iter {
-            let (key, value) =
-                item.map_err(|error| map_dotenv_error(&label, error))?;
+            let (key, value) = item.map_err(|error| map_dotenv_error(&label, error))?;
             let _ = ConfigKey::parse(key.as_str())?;
             budget.check_depth(key.split('.').count())?;
             budget.consume_properties(1)?;

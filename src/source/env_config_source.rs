@@ -22,29 +22,13 @@
 //!
 //! Without a prefix, all environment variables are loaded as-is.
 
-use std::{
-    collections::HashMap,
-    ffi::OsStr,
-};
+use std::{collections::HashMap, ffi::OsStr};
 
-use qubit_redact::{
-    EnvRedactor,
-    redacted_debug,
-};
+use qubit_redact::{EnvRedactor, redacted_debug};
 
-use crate::{
-    Config,
-    ConfigError,
-    ConfigKey,
-    ConfigResult,
-    utils,
-};
+use crate::{Config, ConfigError, ConfigKey, ConfigResult, utils};
 
-use super::{
-    ConfigSource,
-    SourceLimits,
-    source_budget::SourceBudget,
-};
+use super::{ConfigSource, SourceLimits, source_budget::SourceBudget};
 
 /// Options controlling environment-variable key selection and normalization.
 #[must_use]
@@ -237,9 +221,7 @@ impl EnvConfigSource {
     /// by a single load operation.
     #[inline]
     fn can_collapse_distinct_keys(&self) -> bool {
-        self.options.strip_prefix
-            || self.options.underscores_to_dots
-            || self.options.lowercase_keys
+        self.options.strip_prefix || self.options.underscores_to_dots || self.options.lowercase_keys
     }
 
     /// Checks whether an environment variable key matches a UTF-8 prefix.
@@ -308,16 +290,19 @@ impl EnvConfigSource {
     ///
     /// # Errors
     ///
-    /// Returns [`ConfigError::ParseError`] with a fixed redaction marker when
+    /// Returns a source-aware parse error with a fixed redaction marker when
     /// the key is not valid Unicode.
     #[inline]
     fn env_key_to_string(key: &OsStr, value: &OsStr) -> ConfigResult<String> {
         key.to_str().map(str::to_owned).ok_or_else(|| {
             let pair = EnvRedactor::default().redact_os_pair(key, value);
-            ConfigError::ParseError(format!(
-                "Environment variable key is not valid Unicode: {:?}",
-                redacted_debug(&pair),
-            ))
+            ConfigError::source_parse_error(
+                "process environment",
+                format!(
+                    "Environment variable key is not valid Unicode: {:?}",
+                    redacted_debug(&pair),
+                ),
+            )
         })
     }
 
@@ -334,15 +319,16 @@ impl EnvConfigSource {
     ///
     /// # Errors
     ///
-    /// Returns [`ConfigError::ParseError`] containing a log-safe pair produced
+    /// Returns a source-aware parse error containing a log-safe pair produced
     /// by [`EnvRedactor`] when the value is not valid Unicode.
     #[inline]
     fn env_value_to_string(key: &OsStr, value: &OsStr) -> ConfigResult<String> {
         value.to_str().map(str::to_owned).ok_or_else(|| {
             let pair = EnvRedactor::default().redact_os_pair(key, value);
-            ConfigError::ParseError(format!(
-                "Environment variable value is not valid Unicode: {pair}",
-            ))
+            ConfigError::source_parse_error(
+                "process environment",
+                format!("Environment variable value is not valid Unicode: {pair}",),
+            )
         })
     }
 }
@@ -370,15 +356,13 @@ impl ConfigSource for EnvConfigSource {
 
             let key = Self::env_key_to_string(&key_os, &value_os)?;
             let value = Self::env_value_to_string(&key_os, &value_os)?;
-            budget
-                .consume_input_bytes(key.len().saturating_add(value.len()))?;
+            budget.consume_input_bytes(key.len().saturating_add(value.len()))?;
             let transformed_key = self.transform_key(&key);
             if self.options.strip_prefix || self.options.underscores_to_dots {
                 utils::validate_normalized_config_key(&transformed_key, &key)?;
             }
             if self.can_collapse_distinct_keys()
-                && let Some(existing) =
-                    normalized_keys.insert(transformed_key.clone(), key.clone())
+                && let Some(existing) = normalized_keys.insert(transformed_key.clone(), key.clone())
             {
                 return Err(ConfigError::KeyConflict {
                     path: transformed_key,

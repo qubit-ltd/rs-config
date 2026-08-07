@@ -7,16 +7,8 @@
 // =============================================================================
 // Tests for stable configuration error classification and context.
 
-use qubit_config::{
-    ConfigError,
-    ConfigErrorKind,
-    ConfigPathViolation,
-};
-use qubit_datatype::{
-    DataConversionError,
-    DataType,
-    InvalidValueReason,
-};
+use qubit_config::{ConfigError, ConfigErrorKind, ConfigPathViolation};
+use qubit_datatype::{DataConversionError, DataType, InvalidValueReason};
 use qubit_value::ValueError;
 
 #[test]
@@ -43,6 +35,23 @@ fn test_pathless_config_error_reports_no_path() {
 
     assert_eq!(error.kind(), ConfigErrorKind::Other);
     assert_eq!(error.path(), None);
+}
+
+#[test]
+fn test_source_errors_expose_source_id() {
+    let io_error = ConfigError::SourceIoError {
+        source_id: "config.toml".to_string(),
+        source: std::io::Error::other("failed"),
+    };
+    assert_eq!(io_error.kind(), ConfigErrorKind::Io);
+    assert_eq!(io_error.source_id(), Some("config.toml"));
+
+    let parse_error = ConfigError::SourceParseError {
+        source_id: "config.yaml".to_string(),
+        message: "invalid YAML".to_string(),
+    };
+    assert_eq!(parse_error.kind(), ConfigErrorKind::Parse);
+    assert_eq!(parse_error.source_id(), Some("config.yaml"));
 }
 
 #[test]
