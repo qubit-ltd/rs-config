@@ -14,12 +14,7 @@ use crate::config_property_mut::ConfigPropertyMut;
 use crate::config_reader::ConfigReader;
 use crate::config_section::ConfigSection;
 use crate::options::ReadPolicy;
-use crate::{
-    ConfigError,
-    ConfigName,
-    ConfigResult,
-    Property,
-};
+use crate::{ConfigError, ConfigName, ConfigResult, Property};
 use qubit_utils::Transient;
 
 impl Config {
@@ -94,10 +89,7 @@ impl Config {
     /// Creates a read-only root view using `policy` without changing this
     /// configuration's default policy.
     #[inline]
-    pub fn read_with<'a>(
-        &'a self,
-        policy: &'a ReadPolicy,
-    ) -> ConfigSection<'a> {
+    pub fn read_with<'a>(&'a self, policy: &'a ReadPolicy) -> ConfigSection<'a> {
         <Self as ConfigReader>::read_with(self, policy)
     }
 
@@ -137,10 +129,7 @@ impl Config {
     ///
     /// Returns [`ConfigError::InvalidPath`] when `path` is not canonical.
     #[inline(always)]
-    pub fn section_if_present(
-        &self,
-        path: &str,
-    ) -> ConfigResult<Option<ConfigSection<'_>>> {
+    pub fn section_if_present(&self, path: &str) -> ConfigResult<Option<ConfigSection<'_>>> {
         <Self as ConfigReader>::section_if_present(self, path)
     }
 
@@ -187,10 +176,7 @@ impl Config {
     ///
     /// Returns Option containing the configuration item
     #[inline]
-    pub fn get_property(
-        &self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Option<&Property>> {
+    pub fn get_property(&self, name: impl ConfigName) -> ConfigResult<Option<&Property>> {
         name.with_config_name(|name| {
             ensure_config_key(name)?;
             Ok(self.properties.get(name))
@@ -240,16 +226,13 @@ impl Config {
     /// - [`ConfigError::PropertyNotFound`] if the key does not exist.
     /// - [`ConfigError::PropertyIsFinal`] when trying to unset a final
     ///   property.
-    pub fn set_final(
-        &mut self,
-        name: impl ConfigName,
-        is_final: bool,
-    ) -> ConfigResult<()> {
+    pub fn set_final(&mut self, name: impl ConfigName, is_final: bool) -> ConfigResult<()> {
         name.with_config_name(|name| {
             ensure_config_key(name)?;
-            let property = self.properties.get_mut(name).ok_or_else(|| {
-                ConfigError::PropertyNotFound(name.to_string())
-            })?;
+            let property = self
+                .properties
+                .get_mut(name)
+                .ok_or_else(|| ConfigError::PropertyNotFound(name.to_string()))?;
             if property.is_final() && !is_final {
                 return Err(ConfigError::PropertyIsFinal(name.to_string()));
             }
@@ -281,10 +264,7 @@ impl Config {
     /// assert!(!config.contains("port").unwrap());
     /// ```
     #[inline]
-    pub fn remove(
-        &mut self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Option<Property>> {
+    pub fn remove(&mut self, name: impl ConfigName) -> ConfigResult<Option<Property>> {
         name.with_config_name(|name| {
             ensure_config_key(name)?;
             self.ensure_property_not_final(name)?;

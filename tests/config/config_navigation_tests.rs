@@ -12,28 +12,12 @@
 #![allow(dead_code, unused_imports)]
 
 #[cfg(feature = "chrono")]
-pub(crate) use chrono::{
-    DateTime,
-    NaiveDate,
-    NaiveDateTime,
-    NaiveTime,
-    Utc,
-};
+pub(crate) use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 pub(crate) use qubit_config::{
-    Config,
-    ConfigError,
-    ConfigReader,
-    Property,
-    options::{
-        InterpolationSources,
-        ReadPolicy,
-    },
+    Config, ConfigError, ConfigReader, Property,
+    options::{InterpolationSources, ReadPolicy},
 };
-pub(crate) use qubit_datatype::{
-    BlankStringPolicy,
-    DataConversionErrorKind,
-    DataType,
-};
+pub(crate) use qubit_datatype::{BlankStringPolicy, DataConversionErrorKind, DataType};
 pub(crate) use qubit_value::MultiValues;
 pub(crate) use serde::Deserialize;
 
@@ -54,10 +38,7 @@ pub(crate) fn create_test_config_with_description() -> Config {
 }
 
 /// Changes the interpolation recursion limit while preserving other options.
-pub(crate) fn set_max_interpolation_depth(
-    config: &mut Config,
-    max_depth: usize,
-) {
+pub(crate) fn set_max_interpolation_depth(config: &mut Config, max_depth: usize) {
     let options = config
         .default_read_policy()
         .clone()
@@ -72,13 +53,7 @@ pub(crate) fn set_max_interpolation_depth(
 mod test_iter_prefix {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        ConfigError,
-        DataType,
-        Deserialize,
-        MultiValues,
-        Property,
-        create_test_config,
+        Config, ConfigError, DataType, Deserialize, MultiValues, Property, create_test_config,
         create_test_config_with_description,
     };
 
@@ -141,15 +116,8 @@ mod test_iter_prefix {
 mod test_contains_prefix {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        ConfigError,
-        ConfigReader,
-        DataType,
-        Deserialize,
-        MultiValues,
-        Property,
-        create_test_config,
-        create_test_config_with_description,
+        Config, ConfigError, ConfigReader, DataType, Deserialize, MultiValues, Property,
+        create_test_config, create_test_config_with_description,
     };
 
     #[test]
@@ -235,16 +203,8 @@ mod test_contains_prefix {
 mod test_subconfig {
     #[allow(unused_imports)]
     use super::{
-        BlankStringPolicy,
-        Config,
-        ConfigError,
-        DataType,
-        Deserialize,
-        MultiValues,
-        Property,
-        ReadPolicy,
-        create_test_config,
-        create_test_config_with_description,
+        BlankStringPolicy, Config, ConfigError, DataType, Deserialize, MultiValues, Property,
+        ReadPolicy, create_test_config, create_test_config_with_description,
     };
 
     #[test]
@@ -267,8 +227,7 @@ mod test_subconfig {
         let mut config = Config::new();
         config.set("http.host", "localhost").unwrap();
         let mut json = serde_json::to_value(config).unwrap();
-        json["properties"]["http.host"]["name"] =
-            serde_json::json!("http.other");
+        json["properties"]["http.host"]["name"] = serde_json::json!("http.other");
 
         let error = serde_json::from_value::<Config>(json).unwrap_err();
 
@@ -325,8 +284,7 @@ mod test_subconfig {
     fn test_subconfig_preserves_read_policy_and_description() {
         let mut config = Config::with_description("root config");
         config.set_default_read_policy(
-            ReadPolicy::default()
-                .with_blank_string_policy(BlankStringPolicy::TreatAsMissing),
+            ReadPolicy::default().with_blank_string_policy(BlankStringPolicy::TreatAsMissing),
         );
         config.set("http.host", "   ").unwrap();
         config.set("http.fallback", "localhost").unwrap();
@@ -363,15 +321,8 @@ mod test_subconfig {
 mod test_get_and_get_list_error_mapping_additional_paths {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        ConfigError,
-        DataConversionErrorKind,
-        DataType,
-        Deserialize,
-        MultiValues,
-        Property,
-        create_test_config,
-        create_test_config_with_description,
+        Config, ConfigError, DataConversionErrorKind, DataType, Deserialize, MultiValues, Property,
+        create_test_config, create_test_config_with_description,
     };
 
     #[test]
@@ -382,10 +333,7 @@ mod test_get_and_get_list_error_mapping_additional_paths {
         config
             .set(
                 "map_value",
-                std::collections::HashMap::from([(
-                    "key".to_string(),
-                    "value".to_string(),
-                )]),
+                std::collections::HashMap::from([("key".to_string(), "value".to_string())]),
             )
             .unwrap();
         config.set("bad_int", "abc").unwrap();
@@ -395,24 +343,21 @@ mod test_get_and_get_list_error_mapping_additional_paths {
         let err = config.get::<i32>("map_value").unwrap_err();
         assert!(matches!(
             err,
-            ConfigError::ConversionError { .. }
-                | ConfigError::TypeMismatch { .. }
+            ConfigError::ConversionError { .. } | ConfigError::TypeMismatch { .. }
         ));
 
         // Invalid syntax path in get().
         let err = config.get::<i32>("bad_int").unwrap_err();
         assert!(matches!(
             err,
-            ConfigError::ConversionError { .. }
-                | ConfigError::TypeMismatch { .. }
+            ConfigError::ConversionError { .. } | ConfigError::TypeMismatch { .. }
         ));
 
         // JSON deserialization error path in get().
         let err = config.get::<JsonValue>("bad_json").unwrap_err();
         assert!(matches!(
             err,
-            ConfigError::ConversionError { .. }
-                | ConfigError::TypeMismatch { .. }
+            ConfigError::ConversionError { .. } | ConfigError::TypeMismatch { .. }
         ));
 
         // An unset property remains missing for list conversion.
@@ -448,13 +393,7 @@ mod test_get_and_get_list_error_mapping_additional_paths {
 mod test_is_unset {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        ConfigError,
-        DataType,
-        Deserialize,
-        MultiValues,
-        Property,
-        create_test_config,
+        Config, ConfigError, DataType, Deserialize, MultiValues, Property, create_test_config,
         create_test_config_with_description,
     };
 
@@ -500,13 +439,7 @@ mod test_is_unset {
 mod test_get_optional {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        ConfigError,
-        DataType,
-        Deserialize,
-        MultiValues,
-        Property,
-        create_test_config,
+        Config, ConfigError, DataType, Deserialize, MultiValues, Property, create_test_config,
         create_test_config_with_description,
     };
 
@@ -572,21 +505,14 @@ mod test_get_optional {
 mod test_get_optional_list {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        ConfigError,
-        DataType,
-        Deserialize,
-        MultiValues,
-        Property,
-        create_test_config,
+        Config, ConfigError, DataType, Deserialize, MultiValues, Property, create_test_config,
         create_test_config_with_description,
     };
 
     #[test]
     fn test_get_optional_list_missing_key_returns_none() {
         let config = Config::new();
-        let result: Option<Vec<i32>> =
-            config.get_optional_list("missing").unwrap();
+        let result: Option<Vec<i32>> = config.get_optional_list("missing").unwrap();
         assert_eq!(result, None);
     }
 
@@ -594,8 +520,7 @@ mod test_get_optional_list {
     fn test_get_optional_list_existing_key_returns_some() {
         let mut config = Config::new();
         config.set("ports", vec![8080, 8081, 8082]).unwrap();
-        let result: Option<Vec<i32>> =
-            config.get_optional_list("ports").unwrap();
+        let result: Option<Vec<i32>> = config.get_optional_list("ports").unwrap();
         assert_eq!(result, Some(vec![8080, 8081, 8082]));
     }
 
@@ -603,8 +528,7 @@ mod test_get_optional_list {
     fn test_get_optional_list_null_property_returns_none() {
         let mut config = Config::new();
         config.set_null("nullable", DataType::Int32).unwrap();
-        let result: Option<Vec<i32>> =
-            config.get_optional_list("nullable").unwrap();
+        let result: Option<Vec<i32>> = config.get_optional_list("nullable").unwrap();
         assert_eq!(result, None);
     }
 
@@ -612,8 +536,7 @@ mod test_get_optional_list {
     fn test_get_optional_list_single_value() {
         let mut config = Config::new();
         config.set("port", 8080).unwrap();
-        let result: Option<Vec<i32>> =
-            config.get_optional_list("port").unwrap();
+        let result: Option<Vec<i32>> = config.get_optional_list("port").unwrap();
         assert_eq!(result, Some(vec![8080]));
     }
 
@@ -621,8 +544,7 @@ mod test_get_optional_list {
     fn test_get_optional_list_type_mismatch_returns_error() {
         let mut config = Config::new();
         config.set("ports", vec!["yes", "no"]).unwrap();
-        let result: Result<Option<Vec<bool>>, _> =
-            config.get_optional_list("ports");
+        let result: Result<Option<Vec<bool>>, _> = config.get_optional_list("ports");
         assert!(result.is_err());
         match result.unwrap_err() {
             ConfigError::ConversionError { key, .. } => {
@@ -641,13 +563,7 @@ mod test_get_optional_list {
 mod test_get_optional_string {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        ConfigError,
-        DataType,
-        Deserialize,
-        MultiValues,
-        Property,
-        create_test_config,
+        Config, ConfigError, DataType, Deserialize, MultiValues, Property, create_test_config,
         create_test_config_with_description,
     };
 
@@ -763,10 +679,7 @@ mod test_get_optional_string {
     #[test]
     fn test_get_optional_string_list_missing_returns_none() {
         let config = Config::new();
-        assert_eq!(
-            config.get_optional::<Vec<String>>("missing").unwrap(),
-            None
-        );
+        assert_eq!(config.get_optional::<Vec<String>>("missing").unwrap(), None);
     }
 
     #[test]
@@ -846,8 +759,7 @@ mod test_get_optional_string {
     }
 
     #[test]
-    fn test_get_optional_string_list_unresolved_variable_in_element_returns_error()
-     {
+    fn test_get_optional_string_list_unresolved_variable_in_element_returns_error() {
         let mut config = Config::new();
         config
             .set(

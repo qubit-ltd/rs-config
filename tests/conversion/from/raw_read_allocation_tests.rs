@@ -8,15 +8,8 @@
 
 //! Allocation regressions for raw configuration reads.
 
-use std::alloc::{
-    GlobalAlloc,
-    Layout,
-    System,
-};
-use std::sync::atomic::{
-    AtomicUsize,
-    Ordering,
-};
+use std::alloc::{GlobalAlloc, Layout, System};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use qubit_config::Config;
 

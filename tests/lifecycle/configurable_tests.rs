@@ -9,11 +9,7 @@
 //
 // Tests for the Configurable trait implementation.
 
-use qubit_config::{
-    Config,
-    ConfigError,
-    Configurable,
-};
+use qubit_config::{Config, ConfigError, Configurable};
 
 // Test implementation of Configurable trait
 struct TestConfigurable {
@@ -56,12 +52,7 @@ impl Configurable for TestConfigurable {
 #[cfg(test)]
 mod test_config {
     #[allow(unused_imports)]
-    use super::{
-        Config,
-        ConfigError,
-        Configurable,
-        TestConfigurable,
-    };
+    use super::{Config, ConfigError, Configurable, TestConfigurable};
 
     #[test]
     fn test_config_returns_reference() {
@@ -100,11 +91,7 @@ mod test_config {
 #[cfg(test)]
 mod test_config_mut {
     #[allow(unused_imports)]
-    use super::{
-        Config,
-        Configurable,
-        TestConfigurable,
-    };
+    use super::{Config, Configurable, TestConfigurable};
 
     #[test]
     fn test_config_mut_returns_mutable_reference() {
@@ -156,12 +143,7 @@ mod test_config_mut {
 #[cfg(test)]
 mod test_set_config {
     #[allow(unused_imports)]
-    use super::{
-        Config,
-        ConfigError,
-        Configurable,
-        TestConfigurable,
-    };
+    use super::{Config, ConfigError, Configurable, TestConfigurable};
 
     #[test]
     fn test_set_config_replaces_config() {
@@ -233,9 +215,7 @@ mod test_set_config {
 
     #[test]
     fn test_update_config_triggers_callback_only_after_success() {
-        fn update_or_fail(
-            config: &mut Config,
-        ) -> qubit_config::ConfigResult<()> {
+        fn update_or_fail(config: &mut Config) -> qubit_config::ConfigResult<()> {
             if config.contains("fail_update").unwrap() {
                 return Err(ConfigError::Other("update failed".to_string()));
             }
@@ -254,9 +234,7 @@ mod test_set_config {
         obj.config_mut().set("fail_update", true).unwrap();
         let result = obj.update_config(update_or_fail);
 
-        assert!(
-            matches!(result, Err(ConfigError::Other(message)) if message == "update failed")
-        );
+        assert!(matches!(result, Err(ConfigError::Other(message)) if message == "update failed"));
         assert_eq!(obj.changed_count(), 1);
     }
 
@@ -271,9 +249,7 @@ mod test_set_config {
             Err(ConfigError::Other("update failed".to_string()))
         });
 
-        assert!(
-            matches!(result, Err(ConfigError::Other(message)) if message == "update failed")
-        );
+        assert!(matches!(result, Err(ConfigError::Other(message)) if message == "update failed"));
         assert_eq!(obj.changed_count(), 0);
         assert_eq!(obj.config().get::<String>("host").unwrap(), "old-host");
         assert!(!obj.config().contains("port").unwrap());
@@ -283,11 +259,7 @@ mod test_set_config {
 #[cfg(test)]
 mod test_on_config_changed {
     #[allow(unused_imports)]
-    use super::{
-        Config,
-        Configurable,
-        TestConfigurable,
-    };
+    use super::{Config, Configurable, TestConfigurable};
 
     #[test]
     fn test_on_config_changed_default_implementation() {
@@ -381,11 +353,7 @@ mod test_on_config_changed {
 #[cfg(test)]
 mod integration_tests {
     #[allow(unused_imports)]
-    use super::{
-        Config,
-        Configurable,
-        TestConfigurable,
-    };
+    use super::{Config, Configurable, TestConfigurable};
 
     #[test]
     fn test_full_configurable_workflow() {

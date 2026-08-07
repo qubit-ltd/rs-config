@@ -15,11 +15,7 @@ use std::ops::Deref;
 
 use qubit_value::ValueContainer;
 
-use crate::{
-    ConfigError,
-    ConfigResult,
-    Property,
-};
+use crate::{ConfigError, ConfigResult, Property};
 
 /// Guarded mutable access to a non-final [`Property`] stored in a
 /// [`crate::Config`].
@@ -72,10 +68,7 @@ impl<'a> ConfigPropertyMut<'a> {
     /// Returns [`ConfigError::PropertyIsFinal`] if the property has already
     /// been marked final.
     #[inline]
-    pub fn set_description(
-        &mut self,
-        description: Option<String>,
-    ) -> ConfigResult<()> {
+    pub fn set_description(&mut self, description: Option<String>) -> ConfigResult<()> {
         self.ensure_not_final()?;
         self.property.set_description(description);
         Ok(())
@@ -125,10 +118,7 @@ impl<'a> ConfigPropertyMut<'a> {
     /// Returns [`ConfigError::PropertyIsFinal`] if the property has already
     /// been marked final.
     #[inline]
-    pub fn set_value(
-        &mut self,
-        value: impl Into<ValueContainer>,
-    ) -> ConfigResult<()> {
+    pub fn set_value(&mut self, value: impl Into<ValueContainer>) -> ConfigResult<()> {
         self.ensure_not_final()?;
         self.property.set_value(value);
         Ok(())

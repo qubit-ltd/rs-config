@@ -11,12 +11,7 @@
 use super::Config;
 use crate::config_path::ensure_config_key;
 use crate::source::ConfigSource;
-use crate::{
-    ConfigError,
-    ConfigName,
-    ConfigResult,
-    Property,
-};
+use crate::{ConfigError, ConfigName, ConfigResult, Property};
 use qubit_datatype::DataType;
 use qubit_value::ValueContainer;
 
@@ -34,11 +29,7 @@ impl Config {
     /// # Errors
     ///
     /// Returns [`ConfigError::PropertyIsFinal`] when the property is final.
-    pub fn set<S>(
-        &mut self,
-        name: impl ConfigName,
-        values: S,
-    ) -> ConfigResult<()>
+    pub fn set<S>(&mut self, name: impl ConfigName, values: S) -> ConfigResult<()>
     where
         S: Into<ValueContainer>,
     {
@@ -92,11 +83,7 @@ impl Config {
     /// let ports: Vec<i32> = config.get_list("port").unwrap();
     /// assert_eq!(ports, vec![8080, 8081, 8082, 8083, 8084, 8085]);
     /// ```
-    pub fn add<S>(
-        &mut self,
-        name: impl ConfigName,
-        values: S,
-    ) -> ConfigResult<()>
+    pub fn add<S>(&mut self, name: impl ConfigName, values: S) -> ConfigResult<()>
     where
         S: Into<ValueContainer>,
     {
@@ -159,10 +146,7 @@ impl Config {
     /// # }
     /// ```
     #[inline]
-    pub fn merge_from_source(
-        &mut self,
-        source: &dyn ConfigSource,
-    ) -> ConfigResult<()> {
+    pub fn merge_from_source(&mut self, source: &dyn ConfigSource) -> ConfigResult<()> {
         let layer = source.load()?;
         self.merge_layer(layer)
     }
@@ -254,16 +238,9 @@ impl Config {
     /// - [`ConfigError::PropertyIsFinal`] when trying to override a final
     ///   property.
     #[inline]
-    pub fn set_null(
-        &mut self,
-        name: impl ConfigName,
-        data_type: DataType,
-    ) -> ConfigResult<()> {
+    pub fn set_null(&mut self, name: impl ConfigName, data_type: DataType) -> ConfigResult<()> {
         name.with_config_name(|name| {
-            let property = Property::new(
-                name,
-                ValueContainer::new_unset_scalar(data_type),
-            )?;
+            let property = Property::new(name, ValueContainer::new_unset_scalar(data_type))?;
             self.insert_property(name, property)
         })
     }
@@ -279,10 +256,7 @@ impl Config {
     /// `Ok(&Property)` if the key exists, or [`ConfigError::PropertyNotFound`]
     /// otherwise.
     #[inline]
-    pub(super) fn get_property_by_name(
-        &self,
-        name: &str,
-    ) -> ConfigResult<&Property> {
+    pub(super) fn get_property_by_name(&self, name: &str) -> ConfigResult<&Property> {
         ensure_config_key(name)?;
         self.properties
             .get(name)
@@ -306,10 +280,7 @@ impl Config {
     /// Returns [`ConfigError::PropertyIsFinal`] if an existing property is
     /// final.
     #[inline]
-    pub(super) fn ensure_property_not_final(
-        &self,
-        name: &str,
-    ) -> ConfigResult<()> {
+    pub(super) fn ensure_property_not_final(&self, name: &str) -> ConfigResult<()> {
         if let Some(prop) = self.properties.get(name)
             && prop.is_final()
         {
@@ -329,9 +300,7 @@ impl Config {
     /// Returns [`ConfigError::PropertyIsFinal`] for the first final property.
     #[inline]
     pub(super) fn ensure_no_final_properties(&self) -> ConfigResult<()> {
-        if let Some((name, _)) =
-            self.properties.iter().find(|(_, prop)| prop.is_final())
-        {
+        if let Some((name, _)) = self.properties.iter().find(|(_, prop)| prop.is_final()) {
             return Err(ConfigError::PropertyIsFinal(name.clone()));
         }
         Ok(())

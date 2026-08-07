@@ -8,23 +8,14 @@
 // qubit-style: allow multiple-public-types
 
 use qubit_datatype::{
-    BlankStringPolicy,
-    BooleanConversionOptions,
-    CollectionConversionOptions,
-    DataConversionOptions,
-    DurationConversionOptions,
-    EmptyItemPolicy,
-    NumericConversionOptions,
+    BlankStringPolicy, BooleanConversionOptions, CollectionConversionOptions,
+    DataConversionOptions, DurationConversionOptions, EmptyItemPolicy, NumericConversionOptions,
     StringConversionOptions,
 };
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use serde::{Deserialize, Serialize};
 
 use crate::constants::{
-    DEFAULT_MAX_SUBSTITUTION_DEPTH,
-    DEFAULT_MAX_SUBSTITUTION_EXPANSIONS,
+    DEFAULT_MAX_SUBSTITUTION_DEPTH, DEFAULT_MAX_SUBSTITUTION_EXPANSIONS,
     DEFAULT_MAX_SUBSTITUTION_OUTPUT_BYTES,
 };
 
@@ -151,10 +142,7 @@ impl ReadPolicy {
     ///
     /// Updated policy.
     #[inline(always)]
-    pub const fn with_interpolation_sources(
-        mut self,
-        sources: InterpolationSources,
-    ) -> Self {
+    pub const fn with_interpolation_sources(mut self, sources: InterpolationSources) -> Self {
         self.interpolation_sources = sources;
         self
     }
@@ -169,10 +157,7 @@ impl ReadPolicy {
     ///
     /// Updated policy.
     #[inline(always)]
-    pub const fn with_max_interpolation_depth(
-        mut self,
-        max_depth: usize,
-    ) -> Self {
+    pub const fn with_max_interpolation_depth(mut self, max_depth: usize) -> Self {
         self.max_interpolation_depth = max_depth;
         self
     }
@@ -187,10 +172,7 @@ impl ReadPolicy {
     ///
     /// Updated policy.
     #[inline(always)]
-    pub const fn with_max_interpolation_expansions(
-        mut self,
-        max_expansions: usize,
-    ) -> Self {
+    pub const fn with_max_interpolation_expansions(mut self, max_expansions: usize) -> Self {
         self.max_interpolation_expansions = max_expansions;
         self
     }
@@ -205,10 +187,7 @@ impl ReadPolicy {
     ///
     /// Updated policy.
     #[inline(always)]
-    pub const fn with_max_interpolation_output_bytes(
-        mut self,
-        max_output_bytes: usize,
-    ) -> Self {
+    pub const fn with_max_interpolation_output_bytes(mut self, max_output_bytes: usize) -> Self {
         self.max_interpolation_output_bytes = max_output_bytes;
         self
     }
@@ -222,10 +201,7 @@ impl ReadPolicy {
     /// # Returns
     ///
     /// Updated policy.
-    pub fn with_blank_string_policy(
-        mut self,
-        policy: BlankStringPolicy,
-    ) -> Self {
+    pub fn with_blank_string_policy(mut self, policy: BlankStringPolicy) -> Self {
         self.conversion = self.conversion.with_blank_string_policy(policy);
         self
     }
@@ -253,10 +229,7 @@ impl ReadPolicy {
     /// # Returns
     ///
     /// Updated policy.
-    pub fn with_string_options(
-        mut self,
-        string: StringConversionOptions,
-    ) -> Self {
+    pub fn with_string_options(mut self, string: StringConversionOptions) -> Self {
         self.conversion = self.conversion.with_string_options(string);
         self
     }
@@ -270,10 +243,7 @@ impl ReadPolicy {
     /// # Returns
     ///
     /// Updated policy.
-    pub fn with_boolean_options(
-        mut self,
-        boolean: BooleanConversionOptions,
-    ) -> Self {
+    pub fn with_boolean_options(mut self, boolean: BooleanConversionOptions) -> Self {
         self.conversion = self.conversion.with_boolean_options(boolean);
         self
     }
@@ -287,10 +257,7 @@ impl ReadPolicy {
     /// # Returns
     ///
     /// Updated policy.
-    pub fn with_collection_options(
-        mut self,
-        collection: CollectionConversionOptions,
-    ) -> Self {
+    pub fn with_collection_options(mut self, collection: CollectionConversionOptions) -> Self {
         self.conversion = self.conversion.with_collection_options(collection);
         self
     }
@@ -304,10 +271,7 @@ impl ReadPolicy {
     /// # Returns
     ///
     /// Updated policy.
-    pub fn with_duration_options(
-        mut self,
-        duration: DurationConversionOptions,
-    ) -> Self {
+    pub fn with_duration_options(mut self, duration: DurationConversionOptions) -> Self {
         self.conversion = self.conversion.with_duration_options(duration);
         self
     }
@@ -321,10 +285,7 @@ impl ReadPolicy {
     /// # Returns
     ///
     /// Updated policy.
-    pub fn with_numeric_options(
-        mut self,
-        numeric: NumericConversionOptions,
-    ) -> Self {
+    pub fn with_numeric_options(mut self, numeric: NumericConversionOptions) -> Self {
         self.conversion = self.conversion.with_numeric_options(numeric);
         self
     }
@@ -339,8 +300,7 @@ impl Default for ReadPolicy {
             interpolation_sources: InterpolationSources::ConfigOnly,
             max_interpolation_depth: DEFAULT_MAX_SUBSTITUTION_DEPTH,
             max_interpolation_expansions: DEFAULT_MAX_SUBSTITUTION_EXPANSIONS,
-            max_interpolation_output_bytes:
-                DEFAULT_MAX_SUBSTITUTION_OUTPUT_BYTES,
+            max_interpolation_output_bytes: DEFAULT_MAX_SUBSTITUTION_OUTPUT_BYTES,
         }
     }
 }

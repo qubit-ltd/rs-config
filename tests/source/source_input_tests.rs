@@ -7,14 +7,8 @@
 // =============================================================================
 
 use qubit_config::{
-    Config,
-    ConfigError,
-    SourceLimitKind,
-    source::{
-        ConfigSource,
-        PropertiesConfigSource,
-        SourceLimits,
-    },
+    Config, ConfigError, SourceLimitKind,
+    source::{ConfigSource, PropertiesConfigSource, SourceLimits},
 };
 
 #[test]

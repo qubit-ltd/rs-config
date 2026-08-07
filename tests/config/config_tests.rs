@@ -12,28 +12,12 @@
 #![allow(dead_code, unused_imports)]
 
 #[cfg(feature = "chrono")]
-pub(crate) use chrono::{
-    DateTime,
-    NaiveDate,
-    NaiveDateTime,
-    NaiveTime,
-    Utc,
-};
+pub(crate) use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 pub(crate) use qubit_config::{
-    Config,
-    ConfigError,
-    ConfigReader,
-    Property,
-    options::{
-        InterpolationSources,
-        ReadPolicy,
-    },
+    Config, ConfigError, ConfigReader, Property,
+    options::{InterpolationSources, ReadPolicy},
 };
-pub(crate) use qubit_datatype::{
-    BlankStringPolicy,
-    DataConversionErrorKind,
-    DataType,
-};
+pub(crate) use qubit_datatype::{BlankStringPolicy, DataConversionErrorKind, DataType};
 pub(crate) use qubit_value::MultiValues;
 pub(crate) use serde::Deserialize;
 
@@ -54,10 +38,7 @@ pub(crate) fn create_test_config_with_description() -> Config {
 }
 
 /// Changes the interpolation recursion limit while preserving other options.
-pub(crate) fn set_max_interpolation_depth(
-    config: &mut Config,
-    max_depth: usize,
-) {
+pub(crate) fn set_max_interpolation_depth(config: &mut Config, max_depth: usize) {
     let options = config
         .default_read_policy()
         .clone()
@@ -100,8 +81,7 @@ fn test_config_equality_ignores_transient_read_policy() {
 
 #[test]
 fn test_read_with_is_non_mutating_and_overrides_only_the_view() {
-    let mut config =
-        Config::new().with_default_read_policy(ReadPolicy::env_friendly());
+    let mut config = Config::new().with_default_read_policy(ReadPolicy::env_friendly());
     config
         .set("ports", "8080,,8081")
         .expect("setting the list should succeed");
@@ -162,17 +142,8 @@ fn test_config_splits_scalar_text_but_preserves_collection_items() {
 mod test_new {
     #[allow(unused_imports)]
     use super::{
-        BlankStringPolicy,
-        Config,
-        ConfigError,
-        DataType,
-        Deserialize,
-        InterpolationSources,
-        MultiValues,
-        Property,
-        ReadPolicy,
-        create_test_config,
-        create_test_config_with_description,
+        BlankStringPolicy, Config, ConfigError, DataType, Deserialize, InterpolationSources,
+        MultiValues, Property, ReadPolicy, create_test_config, create_test_config_with_description,
     };
 
     #[test]
@@ -203,17 +174,8 @@ mod test_new {
 mod test_with_description {
     #[allow(unused_imports)]
     use super::{
-        BlankStringPolicy,
-        Config,
-        ConfigError,
-        DataType,
-        Deserialize,
-        InterpolationSources,
-        MultiValues,
-        Property,
-        ReadPolicy,
-        create_test_config,
-        create_test_config_with_description,
+        BlankStringPolicy, Config, ConfigError, DataType, Deserialize, InterpolationSources,
+        MultiValues, Property, ReadPolicy, create_test_config, create_test_config_with_description,
     };
 
     #[test]
@@ -248,16 +210,8 @@ mod test_with_description {
 mod test_description {
     #[allow(unused_imports)]
     use super::{
-        BlankStringPolicy,
-        Config,
-        ConfigError,
-        DataType,
-        Deserialize,
-        MultiValues,
-        Property,
-        ReadPolicy,
-        create_test_config,
-        create_test_config_with_description,
+        BlankStringPolicy, Config, ConfigError, DataType, Deserialize, MultiValues, Property,
+        ReadPolicy, create_test_config, create_test_config_with_description,
     };
 
     #[test]
@@ -298,15 +252,8 @@ mod test_description {
 mod test_variable_substitution {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        ConfigError,
-        DataType,
-        Deserialize,
-        InterpolationSources,
-        MultiValues,
-        Property,
-        create_test_config,
-        create_test_config_with_description,
+        Config, ConfigError, DataType, Deserialize, InterpolationSources, MultiValues, Property,
+        create_test_config, create_test_config_with_description,
     };
 
     #[test]
@@ -368,15 +315,8 @@ mod test_variable_substitution {
 mod test_contains {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        ConfigError,
-        DataType,
-        Deserialize,
-        InterpolationSources,
-        MultiValues,
-        Property,
-        create_test_config,
-        create_test_config_with_description,
+        Config, ConfigError, DataType, Deserialize, InterpolationSources, MultiValues, Property,
+        create_test_config, create_test_config_with_description,
     };
 
     #[test]
@@ -404,13 +344,7 @@ mod test_contains {
 mod test_get_property {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        ConfigError,
-        DataType,
-        Deserialize,
-        MultiValues,
-        Property,
-        create_test_config,
+        Config, ConfigError, DataType, Deserialize, MultiValues, Property, create_test_config,
         create_test_config_with_description,
     };
 
@@ -433,13 +367,7 @@ mod test_get_property {
 mod test_get_property_mut {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        ConfigError,
-        DataType,
-        Deserialize,
-        MultiValues,
-        Property,
-        create_test_config,
+        Config, ConfigError, DataType, Deserialize, MultiValues, Property, create_test_config,
         create_test_config_with_description,
     };
 
@@ -473,19 +401,13 @@ mod test_get_property_mut {
         config.set("test", "value").unwrap();
 
         {
-            let mut property =
-                config.get_property_mut("test").unwrap().unwrap();
+            let mut property = config.get_property_mut("test").unwrap().unwrap();
             property.set_final(true).unwrap();
 
-            let desc_result =
-                property.set_description(Some("blocked".to_string()));
-            assert!(matches!(
-                desc_result,
-                Err(ConfigError::PropertyIsFinal(_))
-            ));
+            let desc_result = property.set_description(Some("blocked".to_string()));
+            assert!(matches!(desc_result, Err(ConfigError::PropertyIsFinal(_))));
 
-            let set_result = property
-                .set_value(MultiValues::String(vec!["new-value".to_string()]));
+            let set_result = property.set_value(MultiValues::String(vec!["new-value".to_string()]));
             assert!(matches!(set_result, Err(ConfigError::PropertyIsFinal(_))));
 
             let generic_set_result = property.set("new-value");
@@ -498,16 +420,10 @@ mod test_get_property_mut {
             assert!(matches!(add_result, Err(ConfigError::PropertyIsFinal(_))));
 
             let unset_result = property.unset();
-            assert!(matches!(
-                unset_result,
-                Err(ConfigError::PropertyIsFinal(_))
-            ));
+            assert!(matches!(unset_result, Err(ConfigError::PropertyIsFinal(_))));
 
             let unset_result = property.set_final(false);
-            assert!(matches!(
-                unset_result,
-                Err(ConfigError::PropertyIsFinal(_))
-            ));
+            assert!(matches!(unset_result, Err(ConfigError::PropertyIsFinal(_))));
         }
 
         assert_eq!(config.get::<String>("test").unwrap(), "value");
@@ -519,8 +435,7 @@ mod test_get_property_mut {
         config.set("test", "value").unwrap();
 
         {
-            let mut property =
-                config.get_property_mut("test").unwrap().unwrap();
+            let mut property = config.get_property_mut("test").unwrap().unwrap();
             assert_eq!(property.name(), "test");
             assert_eq!(property.as_property().name(), "test");
             property
@@ -548,13 +463,7 @@ mod test_get_property_mut {
 mod test_remove {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        ConfigError,
-        DataType,
-        Deserialize,
-        MultiValues,
-        Property,
-        create_test_config,
+        Config, ConfigError, DataType, Deserialize, MultiValues, Property, create_test_config,
         create_test_config_with_description,
     };
 
@@ -592,13 +501,7 @@ mod test_remove {
 mod test_clear {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        ConfigError,
-        DataType,
-        Deserialize,
-        MultiValues,
-        Property,
-        create_test_config,
+        Config, ConfigError, DataType, Deserialize, MultiValues, Property, create_test_config,
         create_test_config_with_description,
     };
 
@@ -635,13 +538,7 @@ mod test_clear {
 mod test_len {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        ConfigError,
-        DataType,
-        Deserialize,
-        MultiValues,
-        Property,
-        create_test_config,
+        Config, ConfigError, DataType, Deserialize, MultiValues, Property, create_test_config,
         create_test_config_with_description,
     };
 
@@ -665,13 +562,7 @@ mod test_len {
 mod test_is_empty {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        ConfigError,
-        DataType,
-        Deserialize,
-        MultiValues,
-        Property,
-        create_test_config,
+        Config, ConfigError, DataType, Deserialize, MultiValues, Property, create_test_config,
         create_test_config_with_description,
     };
 
@@ -693,13 +584,7 @@ mod test_is_empty {
 mod test_keys {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        ConfigError,
-        DataType,
-        Deserialize,
-        MultiValues,
-        Property,
-        create_test_config,
+        Config, ConfigError, DataType, Deserialize, MultiValues, Property, create_test_config,
         create_test_config_with_description,
     };
 
@@ -733,23 +618,11 @@ mod test_keys {
 mod test_get {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        ConfigError,
-        DataType,
-        Deserialize,
-        MultiValues,
-        Property,
-        create_test_config,
+        Config, ConfigError, DataType, Deserialize, MultiValues, Property, create_test_config,
         create_test_config_with_description,
     };
     #[cfg(feature = "chrono")]
-    use super::{
-        DateTime,
-        NaiveDate,
-        NaiveDateTime,
-        NaiveTime,
-        Utc,
-    };
+    use super::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 
     // String type tests
     #[test]
@@ -989,13 +862,7 @@ mod test_get {
 mod test_get_or {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        ConfigError,
-        DataType,
-        Deserialize,
-        MultiValues,
-        Property,
-        create_test_config,
+        Config, ConfigError, DataType, Deserialize, MultiValues, Property, create_test_config,
         create_test_config_with_description,
     };
 
@@ -1025,8 +892,7 @@ mod test_get_or {
     #[test]
     fn test_get_or_with_string_default() {
         let config = Config::new();
-        let value =
-            config.get_or("nonexistent", "default".to_string()).unwrap();
+        let value = config.get_or("nonexistent", "default".to_string()).unwrap();
         assert_eq!(value, "default");
     }
 
@@ -1061,10 +927,7 @@ mod test_get_or {
             .get_or::<Vec<String>>("nonexistent", ["default1", "default2"])
             .unwrap();
 
-        assert_eq!(
-            values,
-            vec!["default1".to_string(), "default2".to_string()]
-        );
+        assert_eq!(values, vec!["default1".to_string(), "default2".to_string()]);
     }
 
     #[test]
@@ -1076,10 +939,7 @@ mod test_get_or {
             .get_or::<Vec<String>>("nonexistent", defaults.as_slice())
             .unwrap();
 
-        assert_eq!(
-            values,
-            vec!["default1".to_string(), "default2".to_string()]
-        );
+        assert_eq!(values, vec!["default1".to_string(), "default2".to_string()]);
     }
 
     #[test]

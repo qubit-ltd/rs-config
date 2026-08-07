@@ -18,12 +18,7 @@ use crate::source::EnvFileConfigSource;
 use crate::source::TomlConfigSource;
 #[cfg(feature = "yaml")]
 use crate::source::YamlConfigSource;
-use crate::source::{
-    ConfigSource,
-    EnvConfigOptions,
-    EnvConfigSource,
-    PropertiesConfigSource,
-};
+use crate::source::{ConfigSource, EnvConfigOptions, EnvConfigSource, PropertiesConfigSource};
 
 impl Config {
     // ========================================================================

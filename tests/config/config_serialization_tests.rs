@@ -12,28 +12,12 @@
 #![allow(dead_code, unused_imports)]
 
 #[cfg(feature = "chrono")]
-pub(crate) use chrono::{
-    DateTime,
-    NaiveDate,
-    NaiveDateTime,
-    NaiveTime,
-    Utc,
-};
+pub(crate) use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 pub(crate) use qubit_config::{
-    Config,
-    ConfigError,
-    ConfigReader,
-    Property,
-    options::{
-        InterpolationSources,
-        ReadPolicy,
-    },
+    Config, ConfigError, ConfigReader, Property,
+    options::{InterpolationSources, ReadPolicy},
 };
-pub(crate) use qubit_datatype::{
-    BlankStringPolicy,
-    DataConversionErrorKind,
-    DataType,
-};
+pub(crate) use qubit_datatype::{BlankStringPolicy, DataConversionErrorKind, DataType};
 pub(crate) use qubit_value::MultiValues;
 pub(crate) use serde::Deserialize;
 
@@ -54,10 +38,7 @@ pub(crate) fn create_test_config_with_description() -> Config {
 }
 
 /// Changes the interpolation recursion limit while preserving other options.
-pub(crate) fn set_max_interpolation_depth(
-    config: &mut Config,
-    max_depth: usize,
-) {
+pub(crate) fn set_max_interpolation_depth(config: &mut Config, max_depth: usize) {
     let options = config
         .default_read_policy()
         .clone()
@@ -72,13 +53,7 @@ pub(crate) fn set_max_interpolation_depth(
 mod test_enhanced_errors {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        ConfigError,
-        DataType,
-        Deserialize,
-        MultiValues,
-        Property,
-        create_test_config,
+        Config, ConfigError, DataType, Deserialize, MultiValues, Property, create_test_config,
         create_test_config_with_description,
     };
 
@@ -121,8 +96,7 @@ mod test_enhanced_errors {
     #[test]
     fn test_get_property_not_found_carries_key() {
         let config = Config::new();
-        let result: Result<String, _> =
-            config.get("http.logging.body_size_limit");
+        let result: Result<String, _> = config.get("http.logging.body_size_limit");
         assert!(result.is_err());
         match result.unwrap_err() {
             ConfigError::PropertyNotFound(key) => {
@@ -227,13 +201,11 @@ mod test_enhanced_errors {
     #[test]
     fn test_conversion_error_from_value_error_requires_explicit_key() {
         use qubit_value::ValueError;
-        let ve = ValueError::Conversion(
-            qubit_datatype::DataConversionError::invalid(
-                DataType::String,
-                DataType::Int32,
-                qubit_datatype::InvalidValueReason::OutOfRange,
-            ),
-        );
+        let ve = ValueError::Conversion(qubit_datatype::DataConversionError::invalid(
+            DataType::String,
+            DataType::Int32,
+            qubit_datatype::InvalidValueReason::OutOfRange,
+        ));
         let ce = ConfigError::from(("converted.value", ve));
         match ce {
             ConfigError::ConversionError { key, source, .. } => {
@@ -250,12 +222,10 @@ mod test_enhanced_errors {
     #[test]
     fn test_conversion_failed_from_value_error_requires_explicit_key() {
         use qubit_value::ValueError;
-        let ve = ValueError::Conversion(
-            qubit_datatype::DataConversionError::unsupported(
-                DataType::String,
-                DataType::Int32,
-            ),
-        );
+        let ve = ValueError::Conversion(qubit_datatype::DataConversionError::unsupported(
+            DataType::String,
+            DataType::Int32,
+        ));
         let ce = ConfigError::from(("unsupported.value", ve));
         match ce {
             ConfigError::ConversionError { key, source, .. } => {
@@ -276,20 +246,11 @@ mod test_enhanced_errors {
 
 #[cfg(all(test, feature = "toml"))]
 mod test_toml_type_faithful {
-    use qubit_config::source::{
-        ConfigSource,
-        TomlConfigSource,
-    };
+    use qubit_config::source::{ConfigSource, TomlConfigSource};
 
     #[allow(unused_imports)]
     use super::{
-        Config,
-        ConfigError,
-        DataType,
-        Deserialize,
-        MultiValues,
-        Property,
-        create_test_config,
+        Config, ConfigError, DataType, Deserialize, MultiValues, Property, create_test_config,
         create_test_config_with_description,
     };
 
@@ -390,20 +351,11 @@ mod test_toml_type_faithful {
 
 #[cfg(all(test, feature = "yaml"))]
 mod test_yaml_type_faithful {
-    use qubit_config::source::{
-        ConfigSource,
-        YamlConfigSource,
-    };
+    use qubit_config::source::{ConfigSource, YamlConfigSource};
 
     #[allow(unused_imports)]
     use super::{
-        Config,
-        ConfigError,
-        DataType,
-        Deserialize,
-        MultiValues,
-        Property,
-        create_test_config,
+        Config, ConfigError, DataType, Deserialize, MultiValues, Property, create_test_config,
         create_test_config_with_description,
     };
 
@@ -534,13 +486,7 @@ mod test_yaml_type_faithful {
 mod test_property_insertion_api {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        ConfigError,
-        DataType,
-        Deserialize,
-        MultiValues,
-        Property,
-        create_test_config,
+        Config, ConfigError, DataType, Deserialize, MultiValues, Property, create_test_config,
         create_test_config_with_description,
     };
 
@@ -550,11 +496,7 @@ mod test_property_insertion_api {
         config
             .insert_property(
                 "direct",
-                Property::new(
-                    "direct",
-                    MultiValues::String(vec!["hello".to_string()]),
-                )
-                .unwrap(),
+                Property::new("direct", MultiValues::String(vec!["hello".to_string()])).unwrap(),
             )
             .unwrap();
         assert_eq!(config.get::<String>("direct").unwrap(), "hello");
@@ -571,11 +513,8 @@ mod test_property_insertion_api {
     #[test]
     fn test_insert_property_name_mismatch_returns_error() {
         let mut config = Config::new();
-        let property = Property::new(
-            "actual.key",
-            MultiValues::String(vec!["hello".to_string()]),
-        )
-        .unwrap();
+        let property =
+            Property::new("actual.key", MultiValues::String(vec!["hello".to_string()])).unwrap();
         let result = config.insert_property("expected.key", property);
         assert!(matches!(result, Err(ConfigError::MergeError(_))));
     }
@@ -588,11 +527,7 @@ mod test_property_insertion_api {
 
         let result = config.insert_property(
             "final.key",
-            Property::new(
-                "final.key",
-                MultiValues::String(vec!["v2".to_string()]),
-            )
-            .unwrap(),
+            Property::new("final.key", MultiValues::String(vec!["v2".to_string()])).unwrap(),
         );
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
     }
@@ -606,13 +541,7 @@ mod test_property_insertion_api {
 mod test_config_error_branches {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        ConfigError,
-        DataType,
-        Deserialize,
-        MultiValues,
-        Property,
-        create_test_config,
+        Config, ConfigError, DataType, Deserialize, MultiValues, Property, create_test_config,
         create_test_config_with_description,
     };
 
@@ -681,13 +610,7 @@ mod test_config_error_branches {
 mod test_subconfig_deserialize_integration {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        ConfigError,
-        DataType,
-        Deserialize,
-        MultiValues,
-        Property,
-        create_test_config,
+        Config, ConfigError, DataType, Deserialize, MultiValues, Property, create_test_config,
         create_test_config_with_description,
     };
 
@@ -763,10 +686,7 @@ mod test_subconfig_deserialize_integration {
 
 #[cfg(all(test, feature = "toml"))]
 mod test_merge_from_source {
-    use super::{
-        Config,
-        ConfigError,
-    };
+    use super::{Config, ConfigError};
     use qubit_config::source::TomlConfigSource;
     use std::path::PathBuf;
 
@@ -864,16 +784,9 @@ api_url = "${base_url}/api"
 #[cfg(all(test, feature = "env-file", feature = "toml", feature = "yaml"))]
 mod test_source_backed_constructors {
     use super::Config;
-    use qubit_config::source::{
-        EnvConfigOptions,
-        TomlConfigSource,
-    };
+    use qubit_config::source::{EnvConfigOptions, TomlConfigSource};
     use std::path::PathBuf;
-    use std::sync::{
-        Mutex,
-        MutexGuard,
-        OnceLock,
-    };
+    use std::sync::{Mutex, MutexGuard, OnceLock};
 
     fn fixture(name: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -918,8 +831,7 @@ mod test_source_backed_constructors {
 
     #[test]
     fn test_from_properties_file_loads_properties_config() {
-        let config =
-            Config::from_properties_file(fixture("basic.properties")).unwrap();
+        let config = Config::from_properties_file(fixture("basic.properties")).unwrap();
 
         assert_eq!(config.get::<String>("host").unwrap(), "localhost");
         assert_eq!(config.get::<String>("app.version").unwrap(), "1.0.0");
@@ -983,9 +895,7 @@ mod test_source_backed_constructors {
             std::env::set_var("QOPTS_MY_KEY", "raw-value");
         }
 
-        let config =
-            Config::from_env_options(EnvConfigOptions::new().prefix("QOPTS_"))
-                .unwrap();
+        let config = Config::from_env_options(EnvConfigOptions::new().prefix("QOPTS_")).unwrap();
 
         assert_eq!(config.get::<String>("QOPTS_MY_KEY").unwrap(), "raw-value");
         assert!(!config.contains("my.key").unwrap());

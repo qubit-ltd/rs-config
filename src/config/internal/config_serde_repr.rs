@@ -8,10 +8,7 @@
 
 use std::collections::BTreeMap;
 
-use serde::{
-    Deserialize,
-    de::IgnoredAny,
-};
+use serde::{Deserialize, de::IgnoredAny};
 
 use crate::Property;
 

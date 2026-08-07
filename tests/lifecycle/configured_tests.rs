@@ -10,12 +10,7 @@
 // Tests all public methods of the Configured class, including Configurable
 // trait implementation.
 
-use qubit_config::{
-    Config,
-    Configurable,
-    Configured,
-    options::InterpolationSources,
-};
+use qubit_config::{Config, Configurable, Configured, options::InterpolationSources};
 
 // ============================================================================
 // Test Helper Functions
@@ -37,10 +32,7 @@ fn create_test_config_with_description() -> Config {
     config
 }
 
-fn set_interpolation_sources(
-    config: &mut Config,
-    sources: InterpolationSources,
-) {
+fn set_interpolation_sources(config: &mut Config, sources: InterpolationSources) {
     let options = config
         .default_read_policy()
         .clone()
@@ -64,11 +56,7 @@ fn set_max_interpolation_depth(config: &mut Config, max_depth: usize) {
 mod test_new {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        Configurable,
-        Configured,
-        InterpolationSources,
-        create_test_config,
+        Config, Configurable, Configured, InterpolationSources, create_test_config,
         create_test_config_with_description,
     };
 
@@ -96,11 +84,7 @@ mod test_new {
 mod test_with_config {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        Configurable,
-        Configured,
-        InterpolationSources,
-        create_test_config,
+        Config, Configurable, Configured, InterpolationSources, create_test_config,
         create_test_config_with_description,
     };
 
@@ -121,8 +105,7 @@ mod test_with_config {
         let config = create_test_config();
         let configured = Configured::with_config(config);
 
-        let string_value: String =
-            configured.config().get("test_string").unwrap();
+        let string_value: String = configured.config().get("test_string").unwrap();
         let int_value: i32 = configured.config().get("test_int").unwrap();
         let bool_value: bool = configured.config().get("test_bool").unwrap();
 
@@ -159,11 +142,7 @@ mod test_with_config {
 mod test_config {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        Configurable,
-        Configured,
-        InterpolationSources,
-        create_test_config,
+        Config, Configurable, Configured, InterpolationSources, create_test_config,
         create_test_config_with_description,
     };
 
@@ -200,11 +179,7 @@ mod test_config {
 mod test_config_mut {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        Configurable,
-        Configured,
-        InterpolationSources,
-        create_test_config,
+        Config, Configurable, Configured, InterpolationSources, create_test_config,
         create_test_config_with_description,
     };
 
@@ -290,10 +265,7 @@ mod test_config_mut {
             InterpolationSources::ConfigOnly
         );
 
-        crate::set_interpolation_sources(
-            configured.config_mut(),
-            InterpolationSources::ConfigOnly,
-        );
+        crate::set_interpolation_sources(configured.config_mut(), InterpolationSources::ConfigOnly);
         assert_eq!(
             configured
                 .config()
@@ -350,11 +322,7 @@ mod test_config_mut {
 mod test_set_config {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        Configurable,
-        Configured,
-        create_test_config,
-        create_test_config_with_description,
+        Config, Configurable, Configured, create_test_config, create_test_config_with_description,
     };
 
     #[test]
@@ -375,8 +343,7 @@ mod test_set_config {
         assert!(configured.config().contains("another_key").unwrap());
 
         let new_value: String = configured.config().get("new_key").unwrap();
-        let another_value: i32 =
-            configured.config().get("another_key").unwrap();
+        let another_value: i32 = configured.config().get("another_key").unwrap();
         assert_eq!(new_value, "new_value");
         assert_eq!(another_value, 42);
     }
@@ -397,16 +364,12 @@ mod test_set_config {
         let mut configured = Configured::new();
         assert!(configured.config().description().is_none());
 
-        let mut config_with_desc =
-            Config::with_description("New configuration");
+        let mut config_with_desc = Config::with_description("New configuration");
         config_with_desc.set("test", "value").unwrap();
 
         configured.set_config(config_with_desc);
 
-        assert_eq!(
-            configured.config().description(),
-            Some("New configuration")
-        );
+        assert_eq!(configured.config().description(), Some("New configuration"));
         assert!(configured.config().contains("test").unwrap());
     }
 
@@ -451,11 +414,7 @@ mod test_set_config {
 mod test_on_config_changed {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        Configurable,
-        Configured,
-        create_test_config,
-        create_test_config_with_description,
+        Config, Configurable, Configured, create_test_config, create_test_config_with_description,
     };
 
     #[test]
@@ -513,11 +472,7 @@ mod test_on_config_changed {
 mod test_default {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        Configurable,
-        Configured,
-        create_test_config,
-        create_test_config_with_description,
+        Config, Configurable, Configured, create_test_config, create_test_config_with_description,
     };
 
     #[test]
@@ -552,11 +507,7 @@ mod test_default {
 mod integration_tests {
     #[allow(unused_imports)]
     use super::{
-        Config,
-        Configurable,
-        Configured,
-        create_test_config,
-        create_test_config_with_description,
+        Config, Configurable, Configured, create_test_config, create_test_config_with_description,
     };
 
     #[test]
@@ -601,8 +552,7 @@ mod integration_tests {
         assert!(!configured.config().contains("server.debug").unwrap());
 
         // Replace entire configuration
-        let mut new_config =
-            Config::with_description("New server configuration");
+        let mut new_config = Config::with_description("New server configuration");
         new_config.set("app.name", "MyApp").unwrap();
         new_config.set("app.version", "1.0.0").unwrap();
 
@@ -617,8 +567,7 @@ mod integration_tests {
         assert!(configured.config().contains("app.name").unwrap());
 
         let app_name: String = configured.config().get("app.name").unwrap();
-        let app_version: String =
-            configured.config().get("app.version").unwrap();
+        let app_version: String = configured.config().get("app.version").unwrap();
         assert_eq!(app_name, "MyApp");
         assert_eq!(app_version, "1.0.0");
     }
@@ -662,10 +611,7 @@ mod integration_tests {
 
         assert!(configured.config().get::<bool>("boolean").unwrap());
         assert_eq!(configured.config().get::<char>("character").unwrap(), 'A');
-        assert_eq!(
-            configured.config().get::<String>("string").unwrap(),
-            "test"
-        );
+        assert_eq!(configured.config().get::<String>("string").unwrap(), "test");
     }
 
     #[test]
@@ -690,12 +636,9 @@ mod integration_tests {
             .unwrap();
 
         // Verify vector values
-        let int_list: Vec<i32> =
-            configured.config().get_list("int_list").unwrap();
-        let string_list: Vec<String> =
-            configured.config().get_list("string_list").unwrap();
-        let bool_list: Vec<bool> =
-            configured.config().get_list("bool_list").unwrap();
+        let int_list: Vec<i32> = configured.config().get_list("int_list").unwrap();
+        let string_list: Vec<String> = configured.config().get_list("string_list").unwrap();
+        let bool_list: Vec<bool> = configured.config().get_list("bool_list").unwrap();
 
         assert_eq!(int_list, vec![1, 2, 3, 4, 5]);
         assert_eq!(string_list, vec!["a", "b", "c"]);
@@ -703,8 +646,7 @@ mod integration_tests {
 
         // Test adding values to existing list
         configured.config_mut().add("int_list", 6).unwrap();
-        let updated_int_list: Vec<i32> =
-            configured.config().get_list("int_list").unwrap();
+        let updated_int_list: Vec<i32> = configured.config().get_list("int_list").unwrap();
         assert_eq!(updated_int_list, vec![1, 2, 3, 4, 5, 6]);
     }
 }

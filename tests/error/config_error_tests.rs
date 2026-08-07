@@ -7,16 +7,8 @@
 // =============================================================================
 // Focused tests for public configuration errors.
 
-use qubit_config::{
-    ConfigError,
-    ConfigErrorKind,
-    ConfigPathViolation,
-};
-use qubit_datatype::{
-    DataConversionError,
-    DataType,
-    InvalidValueReason,
-};
+use qubit_config::{ConfigError, ConfigErrorKind, ConfigPathViolation};
+use qubit_datatype::{DataConversionError, DataType, InvalidValueReason};
 use qubit_value::ValueError;
 
 #[test]
