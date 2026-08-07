@@ -208,6 +208,12 @@ Every `ConfigSource::load` call creates an independent layer. Built-in sources i
 - `EnvFileConfigSource`, behind `env-file`;
 - `CompositeConfigSource`, which merges other sources in order.
 
+`EnvFileConfigSource` preserves `$NAME` and `${NAME}` placeholders as literal
+values. Resolve them later through an explicit `*_interpolated` read policy;
+loading a `.env` file never reads process-environment values implicitly. YAML
+anchors and aliases are rejected before the YAML document is materialized so
+source limits remain meaningful for untrusted input.
+
 Use a convenience constructor when no target customization is needed:
 
 ```rust
@@ -368,6 +374,9 @@ assert_eq!(error.path(), Some("server.port"));
 ```
 
 Common categories include `InvalidKey`, `InvalidPath`, `PropertyNotFound`, `PropertyHasNoValue`, `TypeMismatch`, `Conversion`, `Substitution`, `SubstitutionCycle`, `SourceLimitExceeded`, `KeyConflict`, `Merge`, `PropertyIsFinal`, `Io`, `Parse`, and `Deserialize`.
+
+`source_id()` returns the path or stable label for source I/O, parse, and limit
+errors. It returns `None` for errors that are not tied to a source loader.
 
 `candidate_paths()` is useful for `get_any` failures because a multi-key error can contain several ordered paths. `source_index()` identifies an element position when a collection conversion reports one.
 

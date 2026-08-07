@@ -1,4 +1,3 @@
-multiple-public-types | src/options/read_policy.rs | Read policy options are intentionally grouped as one public configuration API.
 multiple-public-types | src/source/env_config_source.rs | Environment source configuration and source implementation are intentionally co-located.
 multiple-public-types | src/reader/read_policy.rs | Reader policy sources and the concrete read policy are intentionally grouped.
 multiple-public-types | src/config_wire_limits.rs | Configuration limit categories, limits, and decode errors form one bounded-wire API.

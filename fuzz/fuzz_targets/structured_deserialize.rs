@@ -18,7 +18,7 @@ fuzz_target!(|data: &[u8]| {
     if data.len() > MAX_INPUT_BYTES {
         return;
     }
-    let Ok(config) = serde_json::from_slice::<Config>(data) else {
+    let Ok(config) = Config::decode_json_slice(data) else {
         return;
     };
     let _ = config.deserialize::<serde_json::Value>("");
