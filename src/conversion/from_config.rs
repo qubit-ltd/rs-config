@@ -70,7 +70,7 @@ pub trait FromConfig: Sized {
 ///
 /// # Returns
 ///
-/// The converted value, or a [`ConfigError`] with key context.
+/// The converted value, or a [`crate::ConfigError`] with key context.
 fn convert_first<T>(
     property: &Property,
     ctx: &ConfigParseContext<'_>,
