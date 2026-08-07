@@ -94,7 +94,8 @@ impl<'a> ConfigSection<'a> {
     ///
     /// # Errors
     ///
-    /// Returns [`ConfigError::InvalidPath`] when `path` is not canonical.
+    /// Returns [`crate::ConfigError::InvalidPath`] when `path` is not
+    /// canonical.
     #[inline]
     pub fn section_if_present(
         &self,
