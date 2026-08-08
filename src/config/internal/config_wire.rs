@@ -6,10 +6,13 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-use serde::{Deserialize, Deserializer, de::Error as _};
+use serde::Deserialize;
+use serde::Deserializer;
+use serde::de::Error as _;
 
+use super::ConfigSerdeRepr;
+use super::ConfigWireV1;
 use super::config_wire_fields::ConfigWireFields;
-use super::{ConfigSerdeRepr, ConfigWireV1};
 
 /// Accepted persisted `Config` wire representations.
 pub(in crate::config) enum ConfigWire {

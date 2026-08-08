@@ -8,10 +8,12 @@
 // qubit-style: allow source-test-pair
 //! Configuration traversal and subtree operations.
 
-use super::Config;
-use crate::config_path::ensure_config_path;
-use crate::{ConfigResult, Property};
 use std::ops::Bound;
+
+use super::Config;
+use crate::ConfigResult;
+use crate::Property;
+use crate::config_path::ensure_config_path;
 
 impl Config {
     // ========================================================================
@@ -160,7 +162,11 @@ impl Config {
     /// assert!(http_config.contains("port").unwrap());
     /// assert!(!http_config.contains("db.host").unwrap());
     /// ```
-    pub fn subconfig(&self, prefix: &str, strip_prefix: bool) -> ConfigResult<Config> {
+    pub fn subconfig(
+        &self,
+        prefix: &str,
+        strip_prefix: bool,
+    ) -> ConfigResult<Config> {
         ensure_config_path(prefix)?;
         let mut sub = Config::new();
         sub.description = self.description.clone();

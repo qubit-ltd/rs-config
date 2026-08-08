@@ -8,12 +8,14 @@
 
 use qubit_value::ValueRef;
 
-use crate::config_reader::{ConfigReader, root_config};
-use crate::options::ReadPolicy;
-use crate::{ConfigResult, Property, utils};
-
 use super::config_parse_context::ConfigParseContext;
 use super::from_config::FromConfig;
+use crate::ConfigResult;
+use crate::Property;
+use crate::config_reader::ConfigReader;
+use crate::config_reader::root_config;
+use crate::options::ReadPolicy;
+use crate::utils;
 
 /// Gets the property's single string value when it is a scalar string source.
 ///
@@ -189,7 +191,9 @@ fn is_effectively_missing_by<R: ConfigReader + ?Sized>(
             Ok(None)
         ));
     }
-    let substitute = |value: &str| substitute_for_reader(reader, name, value, options, interpolate);
+    let substitute = |value: &str| {
+        substitute_for_reader(reader, name, value, options, interpolate)
+    };
     let ctx = ConfigParseContext::new(name, options, &substitute, interpolate);
     let value = ctx.substitute_string(value)?;
     match options
@@ -215,7 +219,9 @@ where
     R: ConfigReader + ?Sized,
     T: FromConfig,
 {
-    let substitute = |value: &str| substitute_for_reader(reader, name, value, options, interpolate);
+    let substitute = |value: &str| {
+        substitute_for_reader(reader, name, value, options, interpolate)
+    };
     let ctx = ConfigParseContext::new(name, options, &substitute, interpolate);
     T::from_config(property, &ctx)
 }
@@ -250,7 +256,13 @@ fn substitute_for_reader<R: ConfigReader + ?Sized>(
     interpolate: bool,
 ) -> ConfigResult<String> {
     if interpolate {
-        utils::substitute_variables_with_fallback(value, reader, root_config(reader), options, path)
+        utils::substitute_variables_with_fallback(
+            value,
+            reader,
+            root_config(reader),
+            options,
+            path,
+        )
     } else {
         Ok(value.to_string())
     }

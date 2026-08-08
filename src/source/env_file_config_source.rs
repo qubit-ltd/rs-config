@@ -21,9 +21,14 @@ use std::path::Path;
 
 use qubit_redact::redacted_debug;
 
-use crate::{Config, ConfigError, ConfigKey, ConfigResult};
-
-use super::{ConfigSource, SourceLimits, source_budget::SourceBudget, source_input::SourceInput};
+use super::ConfigSource;
+use super::SourceLimits;
+use super::source_budget::SourceBudget;
+use super::source_input::SourceInput;
+use crate::Config;
+use crate::ConfigError;
+use crate::ConfigKey;
+use crate::ConfigResult;
 
 /// Configuration source that loads from `.env` format files
 ///
@@ -66,15 +71,17 @@ fn map_dotenv_error(label: &str, error: dotenvy::Error) -> ConfigError {
                 format!("Failed to read .env source '{label}': {source}"),
             ),
         ),
-        dotenvy::Error::LineParse(line, error_index) => ConfigError::source_parse_error(
-            label,
-            format!(
-                "Failed to parse .env file '{}' at line index \
-                     {error_index}: {:?}",
+        dotenvy::Error::LineParse(line, error_index) => {
+            ConfigError::source_parse_error(
                 label,
-                redacted_debug(&line),
-            ),
-        ),
+                format!(
+                    "Failed to parse .env file '{}' at line index \
+                     {error_index}: {:?}",
+                    label,
+                    redacted_debug(&line),
+                ),
+            )
+        }
         error => ConfigError::source_parse_error(
             label,
             format!(
@@ -188,7 +195,8 @@ impl ConfigSource for EnvFileConfigSource {
 
         let mut budget = SourceBudget::new(&label, self.limits);
         for item in iter {
-            let (key, value) = item.map_err(|error| map_dotenv_error(&label, error))?;
+            let (key, value) =
+                item.map_err(|error| map_dotenv_error(&label, error))?;
             let _ = ConfigKey::parse(key.as_str())?;
             budget.check_depth(key.split('.').count())?;
             budget.consume_properties(1)?;

@@ -8,8 +8,12 @@
 // qubit-style: allow source-test-pair
 //! Serde map access over configuration objects.
 
-use serde::de::{self, IntoDeserializer, MapAccess, value::StringDeserializer};
-use serde_json::{Map, Value};
+use serde::de;
+use serde::de::IntoDeserializer;
+use serde::de::MapAccess;
+use serde::de::value::StringDeserializer;
+use serde_json::Map;
+use serde_json::Value;
 
 use crate::config_deserialize_error::ConfigDeserializeError;
 use crate::config_value_deserializer::ConfigValueDeserializer;
@@ -43,14 +47,18 @@ impl<'de> MapAccess<'de> for ConfigMapAccess<'_> {
     type Error = ConfigDeserializeError;
 
     /// Deserializes the next key.
-    fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error>
+    fn next_key_seed<K>(
+        &mut self,
+        seed: K,
+    ) -> Result<Option<K::Value>, Self::Error>
     where
         K: de::DeserializeSeed<'de>,
     {
         let Some((key, value)) = self.entries.next() else {
             return Ok(None);
         };
-        let key_deserializer: StringDeserializer<Self::Error> = key.clone().into_deserializer();
+        let key_deserializer: StringDeserializer<Self::Error> =
+            key.clone().into_deserializer();
         self.next_value = Some((key, value));
         seed.deserialize(key_deserializer).map(Some)
     }
@@ -70,7 +78,11 @@ impl<'de> MapAccess<'de> for ConfigMapAccess<'_> {
             format!("{}.{}", self.key, key)
         };
         let error_path = child_key.clone();
-        seed.deserialize(ConfigValueDeserializer::new(value, child_key, self.options))
-            .map_err(|error| error.with_path(error_path))
+        seed.deserialize(ConfigValueDeserializer::new(
+            value,
+            child_key,
+            self.options,
+        ))
+        .map_err(|error| error.with_path(error_path))
     }
 }

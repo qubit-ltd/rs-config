@@ -12,13 +12,16 @@ use std::path::Path;
 
 use super::Config;
 use crate::ConfigResult;
+use crate::source::ConfigSource;
+use crate::source::EnvConfigOptions;
+use crate::source::EnvConfigSource;
 #[cfg(feature = "env-file")]
 use crate::source::EnvFileConfigSource;
+use crate::source::PropertiesConfigSource;
 #[cfg(feature = "toml")]
 use crate::source::TomlConfigSource;
 #[cfg(feature = "yaml")]
 use crate::source::YamlConfigSource;
-use crate::source::{ConfigSource, EnvConfigOptions, EnvConfigSource, PropertiesConfigSource};
 
 impl Config {
     // ========================================================================

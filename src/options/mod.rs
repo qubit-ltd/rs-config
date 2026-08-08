@@ -8,4 +8,5 @@
 
 //! Read parsing options for configuration values.
 
-pub use crate::read_policy::{InterpolationSources, ReadPolicy};
+pub use crate::read_policy::InterpolationSources;
+pub use crate::read_policy::ReadPolicy;

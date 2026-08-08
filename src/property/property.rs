@@ -13,16 +13,29 @@
 #[path = "property/internal/mod.rs"]
 mod internal;
 
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::fmt::{self, Debug, Formatter};
-use std::ops::{Deref, DerefMut};
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::ops::Deref;
+use std::ops::DerefMut;
 
 use qubit_datatype::DataType;
 use qubit_redact::redacted_debug;
-use qubit_value::{StrictValueRead, ValueContainer, ValueResult, ValueWireRefV1};
+use qubit_value::StrictValueRead;
+use qubit_value::ValueContainer;
+use qubit_value::ValueResult;
+use qubit_value::ValueWireRefV1;
+use serde::Deserialize;
+use serde::Deserializer;
+use serde::Serialize;
+use serde::Serializer;
+use serde::de::Error as DeError;
+use serde::ser::Error as SerError;
 
-use self::internal::{PropertyWireOwned, PropertyWireRef};
-use crate::{ConfigKey, ConfigResult};
+use self::internal::PropertyWireOwned;
+use self::internal::PropertyWireRef;
+use crate::ConfigKey;
+use crate::ConfigResult;
 
 /// Configuration Property
 ///
@@ -84,7 +97,7 @@ impl Serialize for Property {
         S: Serializer,
     {
         let value = ValueWireRefV1::try_from(&self.value)
-            .map_err(<S::Error as serde::ser::Error>::custom)?;
+            .map_err(<S::Error as SerError>::custom)?;
         PropertyWireRef {
             name: self.name(),
             value,
@@ -108,7 +121,7 @@ impl<'de> Deserialize<'de> for Property {
             is_final,
         } = PropertyWireOwned::deserialize(deserializer)?;
         let name = ConfigKey::parse(name)
-            .map_err(<D::Error as serde::de::Error>::custom)?
+            .map_err(<D::Error as DeError>::custom)?
             .into_string();
         Ok(Self {
             name,
@@ -148,7 +161,10 @@ impl Property {
     /// assert_eq!(prop.len(), 1);
     /// ```
     #[inline]
-    pub fn new(name: impl Into<String>, value: impl Into<ValueContainer>) -> ConfigResult<Self> {
+    pub fn new(
+        name: impl Into<String>,
+        value: impl Into<ValueContainer>,
+    ) -> ConfigResult<Self> {
         let name = ConfigKey::parse(name.into())?.into_string();
         Ok(Self {
             name,

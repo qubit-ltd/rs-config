@@ -8,10 +8,11 @@
 // qubit-style: allow source-test-pair
 //! Structured configuration deserialization façade.
 
+use serde::de::DeserializeOwned;
+
 use super::Config;
 use crate::ConfigResult;
 use crate::config_serde_ext::ConfigSerdeExt;
-use serde::de::DeserializeOwned;
 
 impl Config {
     // ========================================================================

@@ -8,12 +8,17 @@
 // qubit-style: allow source-test-pair
 //! Canonical configuration property keys.
 
-use std::fmt::{Display, Formatter};
+use std::fmt::Display;
+use std::fmt::Formatter;
 
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::Deserialize;
+use serde::Deserializer;
+use serde::Serialize;
+use serde::de::Error;
 
+use crate::ConfigError;
+use crate::ConfigResult;
 use crate::config_path::validate_config_key;
-use crate::{ConfigError, ConfigResult};
 
 /// Owned canonical configuration property key.
 #[must_use]
@@ -38,9 +43,11 @@ impl ConfigKey {
     /// ends with `.`, or contains an empty dotted segment.
     pub fn parse(value: impl Into<String>) -> ConfigResult<Self> {
         let value = value.into();
-        validate_config_key(&value).map_err(|violation| ConfigError::InvalidKey {
-            key: value.clone(),
-            violation,
+        validate_config_key(&value).map_err(|violation| {
+            ConfigError::InvalidKey {
+                key: value.clone(),
+                violation,
+            }
         })?;
         Ok(Self(value))
     }
@@ -65,7 +72,7 @@ impl<'de> Deserialize<'de> for ConfigKey {
         D: Deserializer<'de>,
     {
         let value = String::deserialize(deserializer)?;
-        Self::parse(value).map_err(serde::de::Error::custom)
+        Self::parse(value).map_err(Error::custom)
     }
 }
 

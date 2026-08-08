@@ -7,7 +7,8 @@
 // =============================================================================
 //! Resource limits applied while ingesting configuration sources.
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 
 /// Default maximum source document size: 8 MiB.
 pub const DEFAULT_MAX_SOURCE_INPUT_BYTES: usize = 8 * 1024 * 1024;

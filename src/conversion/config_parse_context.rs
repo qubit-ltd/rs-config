@@ -85,7 +85,10 @@ impl<'a> ConfigParseContext<'a> {
     /// # Returns
     ///
     /// The substituted string value.
-    pub(crate) fn substitute_string(&self, value: &str) -> ConfigResult<String> {
+    pub(crate) fn substitute_string(
+        &self,
+        value: &str,
+    ) -> ConfigResult<String> {
         (self.substitute)(value)
     }
 }

@@ -28,13 +28,20 @@
 //! reported in lexicographic order, so diagnostics do not depend on the
 //! operating system's environment-variable iteration order.
 
-use std::{collections::HashMap, ffi::OsStr};
+use std::collections::HashMap;
+use std::ffi::OsStr;
 
-use qubit_redact::{EnvRedactor, redacted_debug};
+use qubit_redact::EnvRedactor;
+use qubit_redact::redacted_debug;
 
-use crate::{Config, ConfigError, ConfigKey, ConfigResult, utils};
-
-use super::{ConfigSource, SourceLimits, source_budget::SourceBudget};
+use super::ConfigSource;
+use super::SourceLimits;
+use super::source_budget::SourceBudget;
+use crate::Config;
+use crate::ConfigError;
+use crate::ConfigKey;
+use crate::ConfigResult;
+use crate::utils;
 
 /// Options controlling environment-variable key selection and normalization.
 #[must_use]
@@ -227,7 +234,9 @@ impl EnvConfigSource {
     /// by a single load operation.
     #[inline]
     fn can_collapse_distinct_keys(&self) -> bool {
-        self.options.strip_prefix || self.options.underscores_to_dots || self.options.lowercase_keys
+        self.options.strip_prefix
+            || self.options.underscores_to_dots
+            || self.options.lowercase_keys
     }
 
     /// Checks whether an environment variable key matches a UTF-8 prefix.
@@ -333,7 +342,9 @@ impl EnvConfigSource {
             let pair = EnvRedactor::default().redact_os_pair(key, value);
             ConfigError::source_parse_error(
                 "process environment",
-                format!("Environment variable value is not valid Unicode: {pair}",),
+                format!(
+                    "Environment variable value is not valid Unicode: {pair}",
+                ),
             )
         })
     }
@@ -362,13 +373,15 @@ impl ConfigSource for EnvConfigSource {
 
             let key = Self::env_key_to_string(&key_os, &value_os)?;
             let value = Self::env_value_to_string(&key_os, &value_os)?;
-            budget.consume_input_bytes(key.len().saturating_add(value.len()))?;
+            budget
+                .consume_input_bytes(key.len().saturating_add(value.len()))?;
             let transformed_key = self.transform_key(&key);
             if self.options.strip_prefix || self.options.underscores_to_dots {
                 utils::validate_normalized_config_key(&transformed_key, &key)?;
             }
             if self.can_collapse_distinct_keys()
-                && let Some(existing) = normalized_keys.insert(transformed_key.clone(), key.clone())
+                && let Some(existing) =
+                    normalized_keys.insert(transformed_key.clone(), key.clone())
             {
                 let (first, second) = if existing.as_str() <= key.as_str() {
                     (&existing, &key)

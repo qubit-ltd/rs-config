@@ -7,9 +7,8 @@
 // =============================================================================
 // qubit-style: allow source-test-pair
 
-use serde::Serialize;
-
 use qubit_value::ValueWireRefV1;
+use serde::Serialize;
 
 /// Borrowed wire representation used while serializing a property.
 #[derive(Serialize)]
