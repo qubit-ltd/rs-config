@@ -99,79 +99,170 @@ fn yaml_parse_error(label: &str, error: &YamlError) -> ConfigError {
 /// The source format does not need anchors for the flattened configuration
 /// model, so rejecting their indicator syntax keeps the configured limits
 /// meaningful for untrusted input.
+///
+/// # Parameters
+///
+/// * `label` - Stable source label used in the returned parse error.
+/// * `content` - Complete YAML document to scan.
+///
+/// # Errors
+///
+/// Returns a source parse error when an anchor or alias indicator appears
+/// outside quoted, commented, or block-scalar content.
 fn reject_yaml_aliases(label: &str, content: &str) -> ConfigResult<()> {
     let mut single_quote = false;
     let mut double_quote = false;
     let mut escaped = false;
     let mut comment = false;
-    let mut line = 1;
-    let mut previous = None;
+    let mut block_scalar_parent_indent = None;
 
-    let mut characters = content.char_indices().peekable();
-    while let Some((_, character)) = characters.next() {
-        if character == '\n' {
-            comment = false;
-            escaped = false;
-            line += 1;
-            previous = Some(character);
-            continue;
-        }
-        if comment {
-            previous = Some(character);
-            continue;
-        }
-        if escaped {
-            escaped = false;
-            previous = Some(character);
-            continue;
-        }
-        if double_quote && character == '\\' {
-            escaped = true;
-            previous = Some(character);
-            continue;
-        }
-        if !double_quote && character == '\'' {
-            single_quote = !single_quote;
-            previous = Some(character);
-            continue;
-        }
-        if !single_quote && character == '"' {
-            double_quote = !double_quote;
-            previous = Some(character);
-            continue;
-        }
-        if single_quote || double_quote {
-            previous = Some(character);
-            continue;
-        }
-        if character == '#' {
-            comment = true;
-            previous = Some(character);
-            continue;
-        }
-        if matches!(character, '&' | '*') {
-            let next_is_anchor_character =
-                characters.peek().is_some_and(|(_, next)| {
-                    next.is_ascii_alphanumeric() || *next == '_'
-                });
-            let at_token_boundary = previous.is_none_or(|previous| {
-                previous.is_whitespace()
-                    || matches!(previous, ':' | '[' | '{' | ',' | '-')
-            });
-            if next_is_anchor_character && at_token_boundary {
-                return Err(ConfigError::source_parse_error(
-                    label,
-                    format!(
-                        "YAML anchors and aliases are not supported at line {line}"
-                    ),
-                ));
+    for (line_index, raw_line) in content.split_inclusive('\n').enumerate() {
+        let line_number = line_index + 1;
+        let line = raw_line.strip_suffix('\n').unwrap_or(raw_line);
+        let line = line.strip_suffix('\r').unwrap_or(line);
+
+        if let Some(parent_indent) = block_scalar_parent_indent {
+            let content_indent =
+                line.bytes().take_while(|byte| *byte == b' ').count();
+            let is_blank =
+                line[content_indent..].chars().all(char::is_whitespace);
+            let is_block_content = is_blank || content_indent > parent_indent;
+            if is_block_content {
+                continue;
             }
+            block_scalar_parent_indent = None;
         }
 
-        previous = Some(character);
+        let mut previous = None;
+        let mut block_scalar_header = None;
+        let mut characters = line.char_indices().peekable();
+        while let Some((byte_index, character)) = characters.next() {
+            if comment {
+                previous = Some(character);
+                continue;
+            }
+            if escaped {
+                escaped = false;
+                previous = Some(character);
+                continue;
+            }
+            if double_quote && character == '\\' {
+                escaped = true;
+                previous = Some(character);
+                continue;
+            }
+            if !double_quote && character == '\'' {
+                single_quote = !single_quote;
+                previous = Some(character);
+                continue;
+            }
+            if !single_quote && character == '"' {
+                double_quote = !double_quote;
+                previous = Some(character);
+                continue;
+            }
+            if single_quote || double_quote {
+                previous = Some(character);
+                continue;
+            }
+            if character == '#' {
+                comment = true;
+                previous = Some(character);
+                continue;
+            }
+            if matches!(character, '|' | '>') && block_scalar_header.is_none() {
+                block_scalar_header =
+                    yaml_block_scalar_indent(line, byte_index, previous);
+            }
+            if matches!(character, '&' | '*') {
+                let next_is_anchor_character =
+                    characters.peek().is_some_and(|(_, next)| {
+                        next.is_ascii_alphanumeric() || *next == '_'
+                    });
+                let at_token_boundary = previous.is_none_or(|previous| {
+                    previous.is_whitespace()
+                        || matches!(previous, ':' | '[' | '{' | ',' | '-')
+                });
+                if next_is_anchor_character && at_token_boundary {
+                    return Err(ConfigError::source_parse_error(
+                        label,
+                        format!(
+                            "YAML anchors and aliases are not supported at line \
+                             {line_number}"
+                        ),
+                    ));
+                }
+            }
+
+            previous = Some(character);
+        }
+
+        comment = false;
+        escaped = false;
+        if block_scalar_header.is_some() {
+            block_scalar_parent_indent =
+                Some(line.bytes().take_while(|byte| *byte == b' ').count());
+        }
     }
 
     Ok(())
+}
+
+/// Returns the explicit indentation indicator of a YAML block scalar header.
+///
+/// A `None` result means that the character is not a block scalar indicator.
+/// The inner `Option` carries the optional numeric indentation indicator.
+///
+/// # Parameters
+///
+/// * `line` - Current YAML source line.
+/// * `byte_index` - Byte offset of the candidate `|` or `>` indicator.
+/// * `previous` - Character immediately preceding the candidate indicator.
+///
+/// # Returns
+///
+/// `Some` when the candidate is a valid block scalar header, with the optional
+/// explicit indentation indicator; otherwise `None`.
+fn yaml_block_scalar_indent(
+    line: &str,
+    byte_index: usize,
+    previous: Option<char>,
+) -> Option<Option<usize>> {
+    let at_token_boundary = previous.is_none_or(|previous| {
+        previous.is_whitespace()
+            || matches!(previous, ':' | '[' | '{' | ',' | '-')
+    });
+    if !at_token_boundary {
+        return None;
+    }
+
+    let indicator = line[byte_index..].chars().next()?;
+    let mut remainder = &line[byte_index + indicator.len_utf8()..];
+    let mut explicit_indent = None;
+    let mut chomping_seen = false;
+    for _ in 0..2 {
+        let Some(next) = remainder.chars().next() else {
+            break;
+        };
+        match next {
+            '+' | '-' if !chomping_seen => {
+                chomping_seen = true;
+                remainder = &remainder[next.len_utf8()..];
+            }
+            '1'..='9' if explicit_indent.is_none() => {
+                explicit_indent = Some(next.to_digit(10)? as usize);
+                remainder = &remainder[next.len_utf8()..];
+            }
+            _ => break,
+        }
+    }
+
+    let remainder = remainder.trim_start();
+    if remainder.is_empty() || remainder.starts_with('#') {
+        Some(explicit_indent)
+    } else {
+        None
+    }
 }
 
 impl YamlConfigSource {

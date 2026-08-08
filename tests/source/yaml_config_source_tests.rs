@@ -184,6 +184,38 @@ mod test_yaml_config_source {
     }
 
     #[test]
+    fn test_load_yaml_allows_anchor_indicators_in_literal_block_scalars() {
+        let source = YamlConfigSource::from_content(
+            "script: |\n  echo *task\n  echo &name\n",
+        );
+        let config = source
+            .load()
+            .expect("literal block scalar content should be preserved");
+
+        let script = config
+            .get::<String>("script")
+            .expect("literal block scalar should be readable");
+        assert!(script.contains("*task"));
+        assert!(script.contains("&name"));
+    }
+
+    #[test]
+    fn test_load_yaml_allows_anchor_indicators_in_folded_block_scalars() {
+        let source = YamlConfigSource::from_content(
+            "template: >\n  value: *task\n  marker: &name\n",
+        );
+        let config = source
+            .load()
+            .expect("folded block scalar content should be preserved");
+
+        let template = config
+            .get::<String>("template")
+            .expect("folded block scalar should be readable");
+        assert!(template.contains("*task"));
+        assert!(template.contains("&name"));
+    }
+
+    #[test]
     fn test_load_inline_yaml_content() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("inline.yaml");
