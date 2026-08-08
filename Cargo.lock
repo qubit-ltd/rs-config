@@ -611,6 +611,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "qubit-budget"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b64fc2f5e7f6c087a85e67e2ec6ffce3ebd4bd93b80cbb2cfe7e5f926f1ad3b"
+
+[[package]]
 name = "qubit-config"
 version = "0.16.0"
 dependencies = [
@@ -619,6 +625,7 @@ dependencies = [
  "criterion",
  "dotenvy",
  "num-bigint",
+ "qubit-budget",
  "qubit-datatype",
  "qubit-redact",
  "qubit-utils",
