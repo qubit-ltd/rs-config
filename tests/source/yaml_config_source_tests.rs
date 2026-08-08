@@ -362,7 +362,7 @@ db:
     }
 
     #[test]
-    fn test_load_yaml_complex_keys_returns_redacted_error() {
+    fn test_load_yaml_complex_keys_return_generic_parse_error() {
         const SECRET_MARKER: &str = "RS_CONFIG_YAML_KEY_SECRET_MARKER";
         let dir =
             tempfile::tempdir().expect("temporary directory should be created");
@@ -374,7 +374,7 @@ db:
         let error = source.load().expect_err("complex YAML key should fail");
 
         let display = error.to_string();
-        assert!(display.contains("<redacted>"));
+        assert!(display.contains("YAML mapping keys must be strings"));
         assert!(!display.contains(SECRET_MARKER));
         assert!(!format!("{error:?}").contains(SECRET_MARKER));
     }
@@ -417,7 +417,7 @@ server:
     }
 
     #[test]
-    fn test_load_yaml_rejects_coerced_key_collision() {
+    fn test_load_yaml_rejects_non_string_key_before_collision_check() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("coerced_collision.yaml");
         std::fs::write(
@@ -433,10 +433,7 @@ true: enabled
         let mut config = Config::new();
         let result = merge_source(&mut config, &source);
 
-        assert!(matches!(
-            result,
-            Err(ConfigError::KeyConflict { path, .. }) if path == "true"
-        ));
+        assert!(matches!(result, Err(ConfigError::SourceParseError { .. })));
         assert!(config.is_empty());
     }
 }
@@ -477,38 +474,41 @@ mod test_yaml_edge_cases {
 
     // ---- yaml: null key ----
     #[test]
-    fn test_yaml_null_key_becomes_null_string() {
+    fn test_yaml_null_key_returns_parse_error() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("null_key.yaml");
         std::fs::write(&path, "~: value\n").unwrap();
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
-        merge_source(&mut config, &source).unwrap();
-        assert!(config.contains("null").unwrap());
+        let result = merge_source(&mut config, &source);
+        assert!(matches!(result, Err(ConfigError::SourceParseError { .. })));
+        assert!(config.is_empty());
     }
 
     // ---- yaml: bool key ----
     #[test]
-    fn test_yaml_bool_key_becomes_string() {
+    fn test_yaml_bool_key_returns_parse_error() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("bool_key.yaml");
         std::fs::write(&path, "true: value\n").unwrap();
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
-        merge_source(&mut config, &source).unwrap();
-        assert!(config.contains("true").unwrap());
+        let result = merge_source(&mut config, &source);
+        assert!(matches!(result, Err(ConfigError::SourceParseError { .. })));
+        assert!(config.is_empty());
     }
 
     // ---- yaml: number key ----
     #[test]
-    fn test_yaml_number_key_becomes_string() {
+    fn test_yaml_number_key_returns_parse_error() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("num_key.yaml");
         std::fs::write(&path, "42: value\n").unwrap();
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
-        merge_source(&mut config, &source).unwrap();
-        assert!(config.contains("42").unwrap());
+        let result = merge_source(&mut config, &source);
+        assert!(matches!(result, Err(ConfigError::SourceParseError { .. })));
+        assert!(config.is_empty());
     }
 
     // ---- yaml: yaml_scalar_to_string for null/bool/sequence/mapping ----

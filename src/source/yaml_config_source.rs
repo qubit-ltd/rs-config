@@ -560,17 +560,15 @@ fn set_yaml_string_sequence(
     })
 }
 
-/// Converts a YAML key to a string
+/// Converts a YAML mapping key to a string.
+///
+/// Only string keys are accepted to avoid silently changing the key schema.
 fn yaml_key_to_string(value: &YamlValue) -> ConfigResult<String> {
     match value {
         YamlValue::String(s) => Ok(s.clone()),
-        YamlValue::Number(n) => Ok(n.to_string()),
-        YamlValue::Bool(b) => Ok(b.to_string()),
-        YamlValue::Null => Ok("null".to_string()),
-        _ => Err(ConfigError::ParseError(format!(
-            "Unsupported YAML mapping key type: {:?}",
-            redacted_debug(value),
-        ))),
+        _ => Err(ConfigError::ParseError(
+            "YAML mapping keys must be strings".to_string(),
+        )),
     }
 }
 

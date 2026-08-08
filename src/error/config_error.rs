@@ -420,24 +420,6 @@ impl ConfigError {
         }
     }
 
-    /// Attaches a source identifier to a source-originated key conflict.
-    pub(crate) fn with_source_id(self, source_id: &str) -> Self {
-        match self {
-            Self::KeyConflict {
-                source_id: None,
-                path,
-                existing,
-                incoming,
-            } => Self::KeyConflict {
-                source_id: Some(source_id.to_string()),
-                path,
-                existing,
-                incoming,
-            },
-            error => error,
-        }
-    }
-
     /// Converts a source-originated structural error to a source-aware error.
     pub(crate) fn with_source_context(
         self,
