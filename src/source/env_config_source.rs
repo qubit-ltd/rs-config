@@ -380,7 +380,13 @@ impl ConfigSource for EnvConfigSource {
                 || self.options.double_underscores_to_dots
             {
                 utils::validate_normalized_config_key(&transformed_key, &key)
-                    .map_err(|error| error.with_source_id("process environment"))?;
+                    .map_err(|error| {
+                    error.with_source_context(
+                        "process environment",
+                        Some(transformed_key.clone()),
+                        None,
+                    )
+                })?;
             }
             if self.can_collapse_distinct_keys()
                 && let Some(existing) =
@@ -398,8 +404,15 @@ impl ConfigSource for EnvConfigSource {
                     incoming: format!("environment variable '{second}'"),
                 });
             }
-            let _ = ConfigKey::parse(transformed_key.as_str())
-                .map_err(|error| error.with_source_id("process environment"))?;
+            let _ = ConfigKey::parse(transformed_key.as_str()).map_err(
+                |error| {
+                    error.with_source_context(
+                        "process environment",
+                        Some(transformed_key.clone()),
+                        None,
+                    )
+                },
+            )?;
             budget.check_depth(transformed_key.split('.').count())?;
             budget.consume_properties(1)?;
             config.set(&transformed_key, value)?;

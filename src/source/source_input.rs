@@ -8,6 +8,7 @@
 // qubit-style: allow source-test-pair
 //! Shared file and in-memory input handling for text sources.
 
+use std::borrow::Cow;
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
@@ -36,14 +37,17 @@ impl SourceInput {
     }
 
     /// Reads and validates one UTF-8 source document.
+    ///
+    /// In-memory content is returned by reference after its byte budget is
+    /// checked; file content is decoded into an owned string.
     pub(crate) fn read_to_string(
         &self,
         format: &str,
         limits: SourceLimits,
-    ) -> ConfigResult<String> {
+    ) -> ConfigResult<Cow<'_, str>> {
         let label = self.label(format);
         let mut budget = SourceBudget::new(&label, limits);
-        let bytes = match self {
+        match self {
             Self::File(path) => {
                 let file = File::open(path).map_err(|error| {
                     ConfigError::source_io_error(
@@ -57,29 +61,30 @@ impl SourceInput {
                         ),
                     )
                 })?;
-                read_file_bytes(file, limits.max_input_bytes(), path, format)?
+                let bytes = read_file_bytes(
+                    file,
+                    limits.max_input_bytes(),
+                    path,
+                    format,
+                )?;
+                budget.consume_input_bytes(bytes.len())?;
+                String::from_utf8(bytes).map(Cow::Owned).map_err(|error| {
+                    ConfigError::source_io_error(
+                        label.clone(),
+                        std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            format!(
+                                "Failed to read {format} source '{label}': {error}"
+                            ),
+                        ),
+                    )
+                })
             }
             Self::Content(content) => {
-                // Check the declared in-memory length before allocating a
-                // second owned buffer for the source bytes.
                 budget.consume_input_bytes(content.len())?;
-                content.as_bytes().to_vec()
+                Ok(Cow::Borrowed(content))
             }
-        };
-        if matches!(self, Self::File(_)) {
-            budget.consume_input_bytes(bytes.len())?;
         }
-        String::from_utf8(bytes).map_err(|error| {
-            ConfigError::source_io_error(
-                label.clone(),
-                std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    format!(
-                        "Failed to read {format} source '{label}': {error}"
-                    ),
-                ),
-            )
-        })
     }
 }
 

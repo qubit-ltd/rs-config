@@ -237,6 +237,23 @@ mod test_env_file_edge_cases {
     }
 
     #[test]
+    fn test_env_file_invalid_key_includes_source_context() {
+        let error = EnvFileConfigSource::from_content("invalid..key=value\n")
+            .load()
+            .expect_err("invalid .env key should fail");
+
+        assert!(matches!(
+            error,
+            ConfigError::SourceParseError {
+                source_id,
+                path: Some(path),
+                source_index: None,
+                ..
+            } if source_id == ".env:<memory>" && path == "invalid..key"
+        ));
+    }
+
+    #[test]
     fn test_env_file_directory_path_returns_error() {
         let dir = tempfile::tempdir().unwrap();
         let source = EnvFileConfigSource::from_file(dir.path());

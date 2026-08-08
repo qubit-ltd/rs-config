@@ -197,10 +197,14 @@ impl ConfigSource for EnvFileConfigSource {
         for item in iter {
             let (key, value) =
                 item.map_err(|error| map_dotenv_error(&label, error))?;
-            let _ = ConfigKey::parse(key.as_str())?;
+            let _ = ConfigKey::parse(key.as_str()).map_err(|error| {
+                error.with_source_context(&label, Some(key.clone()), None)
+            })?;
             budget.check_depth(key.split('.').count())?;
             budget.consume_properties(1)?;
-            config.set(&key, value)?;
+            config.set(&key, value).map_err(|error| {
+                error.with_source_context(&label, Some(key.clone()), None)
+            })?;
         }
         Ok(config)
     }

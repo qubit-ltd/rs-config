@@ -390,6 +390,35 @@ mod test_env_config_source {
 
     #[cfg(unix)]
     #[test]
+    fn test_load_invalid_raw_key_includes_source_context() {
+        let _guard = env_test_lock();
+        const KEY: &str = "QUBIT_INVALID_RAW..KEY";
+
+        unsafe {
+            std::env::set_var(KEY, "value");
+        }
+
+        let error = EnvConfigSource::new()
+            .load()
+            .expect_err("invalid raw environment key should fail");
+
+        unsafe {
+            std::env::remove_var(KEY);
+        }
+
+        assert!(matches!(
+            error,
+            ConfigError::SourceParseError {
+                source_id,
+                path: Some(path),
+                source_index: None,
+                ..
+            } if source_id == "process environment" && path == KEY
+        ));
+    }
+
+    #[cfg(unix)]
+    #[test]
     fn test_load_with_prefix_rejects_duplicate_normalized_key() {
         let _guard = env_test_lock();
         unsafe {
