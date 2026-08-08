@@ -72,7 +72,7 @@ impl<'a> ConfigParseContext<'a> {
 
     /// Reports whether string values are interpolated before conversion.
     #[inline(always)]
-    pub(crate) const fn interpolates(&self) -> bool {
+    pub const fn interpolates(&self) -> bool {
         self.interpolate
     }
 
@@ -85,10 +85,7 @@ impl<'a> ConfigParseContext<'a> {
     /// # Returns
     ///
     /// The substituted string value.
-    pub(crate) fn substitute_string(
-        &self,
-        value: &str,
-    ) -> ConfigResult<String> {
+    pub fn substitute_string(&self, value: &str) -> ConfigResult<String> {
         (self.substitute)(value)
     }
 }

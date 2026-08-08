@@ -44,6 +44,8 @@ pub enum ConfigErrorKind {
     PropertyIsFinal,
     /// A dotted key conflicts with another key shape.
     KeyConflict,
+    /// Structured deserialization found an undeclared property.
+    UnknownProperty,
     /// Reading configuration data failed at the I/O layer.
     Io,
     /// Parsing source configuration data failed.

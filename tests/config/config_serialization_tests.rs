@@ -351,12 +351,22 @@ mod test_toml_type_faithful {
     }
 
     #[test]
-    fn test_toml_mixed_array_falls_back_to_string() {
-        // Mixed types: int and string → fall back to string
-        let config = load_toml("mixed = [1, \"two\", 3]\n");
-        // Should be stored as strings
-        let vals: Vec<String> = config.get_list("mixed").unwrap();
-        assert_eq!(vals.len(), 3);
+    fn test_toml_mixed_array_returns_source_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("mixed.toml");
+        std::fs::write(&path, "mixed = [1, \"two\", 3]\n").unwrap();
+        let source = TomlConfigSource::from_file(&path);
+        let error = source
+            .load()
+            .expect_err("mixed TOML arrays should be rejected");
+        assert!(matches!(
+            error,
+            ConfigError::SourceParseError {
+                path: Some(path),
+                source_index: Some(1),
+                ..
+            } if path == "mixed"
+        ));
     }
 
     #[test]
@@ -367,7 +377,14 @@ mod test_toml_type_faithful {
         let source = TomlConfigSource::from_file(&path);
         let result = source.load();
         assert!(result.is_err());
-        assert!(matches!(result, Err(ConfigError::ParseError(_))));
+        assert!(matches!(
+            result,
+            Err(ConfigError::SourceParseError {
+                path: Some(path),
+                source_index: Some(0),
+                ..
+            }) if path == "nested"
+        ));
     }
 }
 
@@ -472,10 +489,22 @@ mod test_yaml_type_faithful {
     }
 
     #[test]
-    fn test_yaml_mixed_sequence_falls_back_to_string() {
-        let config = load_yaml("mixed:\n  - 1\n  - two\n  - 3\n");
-        let vals: Vec<String> = config.get_list("mixed").unwrap();
-        assert_eq!(vals.len(), 3);
+    fn test_yaml_mixed_sequence_returns_source_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("mixed.yaml");
+        std::fs::write(&path, "mixed:\n  - 1\n  - two\n  - 3\n").unwrap();
+        let source = YamlConfigSource::from_file(&path);
+        let error = source
+            .load()
+            .expect_err("mixed YAML sequences should be rejected");
+        assert!(matches!(
+            error,
+            ConfigError::SourceParseError {
+                path: Some(path),
+                source_index: Some(1),
+                ..
+            } if path == "mixed"
+        ));
     }
 
     #[test]
@@ -504,7 +533,14 @@ mod test_yaml_type_faithful {
         std::fs::write(&path, "matrix:\n  - [1, 2]\n  - [3, 4]\n").unwrap();
         let source = YamlConfigSource::from_file(&path);
         let result = source.load();
-        assert!(matches!(result, Err(ConfigError::ParseError(_))));
+        assert!(matches!(
+            result,
+            Err(ConfigError::SourceParseError {
+                path: Some(path),
+                source_index: Some(0),
+                ..
+            }) if path == "matrix"
+        ));
     }
 }
 
@@ -650,11 +686,11 @@ mod test_config_error_branches {
 }
 
 // ============================================================================
-// merge_from_source (`Config` API)
+// merge_properties_from_source (`Config` API)
 // ============================================================================
 
 #[cfg(all(test, feature = "toml"))]
-mod test_merge_from_source {
+mod test_merge_properties_from_source {
     use std::path::PathBuf;
 
     use qubit_config::source::TomlConfigSource;
@@ -670,34 +706,34 @@ mod test_merge_from_source {
     }
 
     #[test]
-    fn test_merge_from_source_populates_config() {
+    fn test_merge_properties_from_source_populates_config() {
         let source = TomlConfigSource::from_file(fixture("basic.toml"));
         let mut config = Config::new();
-        config.merge_from_source(&source).unwrap();
+        config.merge_properties_from_source(&source).unwrap();
 
         assert!(!config.is_empty());
         assert!(config.contains("host").unwrap());
     }
 
     #[test]
-    fn test_merge_from_source_overwrites_existing_keys() {
+    fn test_merge_properties_from_source_overwrites_existing_keys() {
         let mut config = Config::new();
         config.set("host", "old-host").unwrap();
 
         let source = TomlConfigSource::from_file(fixture("basic.toml"));
-        config.merge_from_source(&source).unwrap();
+        config.merge_properties_from_source(&source).unwrap();
 
         assert_eq!(config.get::<String>("host").unwrap(), "localhost");
     }
 
     #[test]
-    fn test_merge_from_source_preserves_final_property() {
+    fn test_merge_properties_from_source_preserves_final_property() {
         let mut config = Config::new();
         config.set("host", "final-host").unwrap();
         config.set_final("host", true).unwrap();
 
         let source = TomlConfigSource::from_file(fixture("basic.toml"));
-        let result = config.merge_from_source(&source);
+        let result = config.merge_properties_from_source(&source);
 
         assert!(result.is_err());
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
@@ -705,12 +741,12 @@ mod test_merge_from_source {
     }
 
     #[test]
-    fn test_merge_from_source_adds_new_keys() {
+    fn test_merge_properties_from_source_adds_new_keys() {
         let mut config = Config::new();
         config.set("existing", "value").unwrap();
 
         let source = TomlConfigSource::from_file(fixture("basic.toml"));
-        config.merge_from_source(&source).unwrap();
+        config.merge_properties_from_source(&source).unwrap();
 
         assert_eq!(config.get::<String>("existing").unwrap(), "value");
         assert!(config.contains("host").unwrap());
@@ -718,15 +754,15 @@ mod test_merge_from_source {
     }
 
     #[test]
-    fn test_merge_from_source_returns_error_on_failure() {
+    fn test_merge_properties_from_source_returns_error_on_failure() {
         let source = TomlConfigSource::from_file("/nonexistent/path.toml");
         let mut config = Config::new();
-        let result = config.merge_from_source(&source);
+        let result = config.merge_properties_from_source(&source);
         assert!(result.is_err());
     }
 
     #[test]
-    fn test_merge_from_source_with_variable_substitution() {
+    fn test_merge_properties_from_source_with_variable_substitution() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("vars.toml");
         std::fs::write(
@@ -740,7 +776,7 @@ api_url = "${base_url}/api"
 
         let source = TomlConfigSource::from_file(&path);
         let mut config = Config::new();
-        config.merge_from_source(&source).unwrap();
+        config.merge_properties_from_source(&source).unwrap();
 
         assert_eq!(
             config.get_interpolated::<String>("api_url").unwrap(),
@@ -848,21 +884,21 @@ mod test_source_backed_constructors {
     fn test_from_env_prefix_loads_and_normalizes_matching_vars() {
         let _guard = env_test_lock();
         unsafe {
-            std::env::set_var("QCFG_SERVER_HOST", "env-host");
-            std::env::set_var("QCFG_SERVER_PORT", "9091");
-            std::env::set_var("OTHER_QCFG_SERVER_HOST", "ignored");
+            std::env::set_var("QCFG_SERVER__HOST", "env-host");
+            std::env::set_var("QCFG_SERVER__PORT", "9091");
+            std::env::set_var("OTHER_QCFG_SERVER__HOST", "ignored");
         }
 
         let config = Config::from_env_prefix("QCFG_").unwrap();
 
         assert_eq!(config.get::<String>("server.host").unwrap(), "env-host");
         assert_eq!(config.get::<String>("server.port").unwrap(), "9091");
-        assert!(!config.contains("OTHER_QCFG_SERVER_HOST").unwrap());
+        assert!(!config.contains("OTHER_QCFG_SERVER__HOST").unwrap());
 
         unsafe {
-            std::env::remove_var("QCFG_SERVER_HOST");
-            std::env::remove_var("QCFG_SERVER_PORT");
-            std::env::remove_var("OTHER_QCFG_SERVER_HOST");
+            std::env::remove_var("QCFG_SERVER__HOST");
+            std::env::remove_var("QCFG_SERVER__PORT");
+            std::env::remove_var("OTHER_QCFG_SERVER__HOST");
         }
     }
 

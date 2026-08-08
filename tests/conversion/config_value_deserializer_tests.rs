@@ -433,7 +433,7 @@ fn deserialize_derived_shapes() -> ConfigResult<()> {
     config.set("shapes.ignored_source", 42i32)?;
     config.set("shapes.extra", "ignored")?;
 
-    let actual: DerivedShapes = config.deserialize("shapes")?;
+    let actual: DerivedShapes = config.deserialize_lenient("shapes")?;
 
     assert_eq!(
         actual,

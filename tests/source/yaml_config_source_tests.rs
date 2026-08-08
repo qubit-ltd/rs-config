@@ -31,7 +31,7 @@ fn merge_source(
     config: &mut Config,
     source: &dyn ConfigSource,
 ) -> ConfigResult<()> {
-    config.merge_from_source(source)
+    config.merge_properties_from_source(source)
 }
 
 // ============================================================================
@@ -163,7 +163,7 @@ mod test_yaml_config_source {
     fn test_merge_from_yaml_config_source() {
         let source = YamlConfigSource::from_file(fixture("basic.yaml"));
         let mut config = Config::new();
-        config.merge_from_source(&source).unwrap();
+        config.merge_properties_from_source(&source).unwrap();
 
         assert!(config.contains("host").unwrap());
         assert!(config.contains("app.name").unwrap());
@@ -472,7 +472,10 @@ mod test_yaml_edge_cases {
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
         let result = merge_source(&mut config, &source);
-        assert!(matches!(result, Err(ConfigError::ParseError(_))));
+        assert!(matches!(
+            result,
+            Err(ConfigError::SourceParseError { .. })
+        ));
     }
 
     // ---- yaml: null key ----
@@ -519,9 +522,16 @@ mod test_yaml_edge_cases {
         std::fs::write(&path, "vals:\n  - 1\n  - ~\n  - 3\n").unwrap();
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
-        merge_source(&mut config, &source).unwrap();
-        // Mixed (int + null) → falls back to string
-        assert!(config.contains("vals").unwrap());
+        let error = merge_source(&mut config, &source)
+            .expect_err("heterogeneous YAML sequences should be rejected");
+        assert!(matches!(
+            &error,
+            ConfigError::SourceParseError {
+                path: Some(path),
+                source_index: Some(1),
+                ..
+            } if path == "vals"
+        ));
     }
 
     #[test]
@@ -564,7 +574,14 @@ flags:
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
         let result = merge_source(&mut config, &source);
-        assert!(matches!(result, Err(ConfigError::ParseError(_))));
+        assert!(matches!(
+            result,
+            Err(ConfigError::SourceParseError {
+                path: Some(path),
+                source_index: Some(0),
+                ..
+            }) if path == "matrix"
+        ));
     }
 
     #[test]
@@ -582,9 +599,16 @@ flags:
         let source = YamlConfigSource::from_file(&path);
         let error = source.load().expect_err("nested YAML mapping should fail");
 
+        assert!(matches!(
+            &error,
+            ConfigError::SourceParseError {
+                path: Some(path),
+                source_index: Some(0),
+                ..
+            } if path == "items"
+        ));
         let display = error.to_string();
         assert!(display.contains("items"));
-        assert!(display.contains("<redacted>"));
         assert!(!display.contains(SECRET_MARKER));
         assert!(!format!("{error:?}").contains(SECRET_MARKER));
     }
@@ -659,9 +683,6 @@ locked_bools:
 locked_strings:
   - one
   - two
-locked_mixed:
-  - 1
-  - null
 "#,
         )
         .unwrap();
@@ -672,7 +693,6 @@ locked_mixed:
             "locked_floats",
             "locked_bools",
             "locked_strings",
-            "locked_mixed",
         ] {
             let source = YamlConfigSource::from_file(&path);
             let mut config = Config::new();

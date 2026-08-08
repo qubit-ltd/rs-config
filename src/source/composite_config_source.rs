@@ -109,7 +109,7 @@ impl ConfigSource for CompositeConfigSource {
     fn load(&self) -> ConfigResult<Config> {
         let mut config = Config::new();
         for source in &self.sources {
-            config.merge_from_source(source.as_ref())?;
+            config.merge_properties_from_source(source.as_ref())?;
         }
         Ok(config)
     }

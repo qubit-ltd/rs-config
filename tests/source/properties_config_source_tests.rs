@@ -26,7 +26,7 @@ fn merge_source(
     config: &mut Config,
     source: &dyn ConfigSource,
 ) -> ConfigResult<()> {
-    config.merge_from_source(source)
+    config.merge_properties_from_source(source)
 }
 
 // ============================================================================
@@ -267,14 +267,14 @@ mod test_properties_config_source {
         assert!(matches!(result, Err(ConfigError::SourceIoError { .. })));
     }
 
-    // ---- merge_from_source integration ----
+    // ---- property-source merge integration ----
 
     #[test]
     fn test_merge_from_properties_config_source() {
         let source =
             PropertiesConfigSource::from_file(fixture("basic.properties"));
         let mut config = Config::new();
-        config.merge_from_source(&source).unwrap();
+        config.merge_properties_from_source(&source).unwrap();
 
         assert!(config.contains("host").unwrap());
         assert!(config.contains("port").unwrap());

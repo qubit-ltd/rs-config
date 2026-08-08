@@ -215,7 +215,15 @@ impl ConfigSource for YamlConfigSource {
 
         let mut seen = HashSet::new();
         let mut budget = SourceBudget::new(&label, self.limits);
-        flatten_yaml_value("", &value, &mut config, &mut seen, &mut budget, 0)?;
+        flatten_yaml_value(
+            &label,
+            "",
+            &value,
+            &mut config,
+            &mut seen,
+            &mut budget,
+            0,
+        )?;
         Ok(config)
     }
 }
@@ -230,6 +238,7 @@ impl ConfigSource for YamlConfigSource {
 /// - Strings → String
 /// - Null → unset property (`is_unset` returns true)
 pub(crate) fn flatten_yaml_value(
+    source_id: &str,
     prefix: &str,
     value: &YamlValue,
     config: &mut Config,
@@ -241,13 +250,20 @@ pub(crate) fn flatten_yaml_value(
     match value {
         YamlValue::Mapping(map) => {
             for (k, v) in map {
-                let key_str = yaml_key_to_string(k)?;
+                let key_str = yaml_key_to_string(k).map_err(|error| {
+                    error.with_source_context(
+                        source_id,
+                        Some(prefix.to_string()),
+                        None,
+                    )
+                })?;
                 let key = if prefix.is_empty() {
                     key_str
                 } else {
                     format!("{}.{}", prefix, key_str)
                 };
                 flatten_yaml_value(
+                    source_id,
                     &key,
                     v,
                     config,
@@ -258,39 +274,52 @@ pub(crate) fn flatten_yaml_value(
             }
         }
         YamlValue::Sequence(seq) => {
-            ensure_yaml_property(seen, prefix, budget)?;
-            flatten_yaml_sequence(prefix, seq, config)?;
+            ensure_yaml_property(source_id, seen, prefix, budget)?;
+            flatten_yaml_sequence(source_id, prefix, seq, config)?;
         }
         YamlValue::Null => {
             // Null values are stored as empty properties to preserve null
             // semantics.
             use qubit_datatype::DataType;
-            ensure_yaml_property(seen, prefix, budget)?;
-            config.set_null(prefix, DataType::String)?;
+            ensure_yaml_property(source_id, seen, prefix, budget)?;
+            config.set_null(prefix, DataType::String).map_err(|error| {
+                error.with_source_context(source_id, Some(prefix.to_string()), None)
+            })?;
         }
         YamlValue::Bool(b) => {
-            ensure_yaml_property(seen, prefix, budget)?;
-            config.set(prefix, *b)?;
+            ensure_yaml_property(source_id, seen, prefix, budget)?;
+            config.set(prefix, *b).map_err(|error| {
+                error.with_source_context(source_id, Some(prefix.to_string()), None)
+            })?;
         }
         YamlValue::Number(n) => {
-            ensure_yaml_property(seen, prefix, budget)?;
+            ensure_yaml_property(source_id, seen, prefix, budget)?;
             if let Some(i) = n.as_i64() {
-                config.set(prefix, i)?;
+                config.set(prefix, i).map_err(|error| {
+                    error.with_source_context(source_id, Some(prefix.to_string()), None)
+                })?;
             } else if let Some(i) = n.as_u64() {
-                config.set(prefix, i)?;
+                config.set(prefix, i).map_err(|error| {
+                    error.with_source_context(source_id, Some(prefix.to_string()), None)
+                })?;
             } else {
                 let f = n.as_f64().expect(
                     "YAML number should be representable as i64, u64, or f64",
                 );
-                config.set(prefix, f)?;
+                config.set(prefix, f).map_err(|error| {
+                    error.with_source_context(source_id, Some(prefix.to_string()), None)
+                })?;
             }
         }
         YamlValue::String(s) => {
-            ensure_yaml_property(seen, prefix, budget)?;
-            config.set(prefix, s.clone())?;
+            ensure_yaml_property(source_id, seen, prefix, budget)?;
+            config.set(prefix, s.clone()).map_err(|error| {
+                error.with_source_context(source_id, Some(prefix.to_string()), None)
+            })?;
         }
         YamlValue::Tagged(tagged) => {
             flatten_yaml_value(
+                source_id,
                 prefix,
                 &tagged.value,
                 config,
@@ -305,11 +334,14 @@ pub(crate) fn flatten_yaml_value(
 
 /// Records one flattened YAML property and enforces the property-count limit.
 fn ensure_yaml_property(
+    source_id: &str,
     seen: &mut HashSet<String>,
     key: &str,
     budget: &mut SourceBudget<'_>,
 ) -> ConfigResult<()> {
-    utils::ensure_unique_flattened_key(seen, key)?;
+    utils::ensure_unique_flattened_key(seen, key).map_err(|error| {
+        error.with_source_context(source_id, Some(key.to_string()), None)
+    })?;
     budget.consume_properties(1)
 }
 
@@ -317,8 +349,8 @@ fn ensure_yaml_property(
 ///
 /// Homogeneous scalar sequences are stored with their native types. Empty
 /// sequences are stored as explicit empty string lists because YAML carries no
-/// element type for them. Mixed scalar sequences fall back to string
-/// representation.
+/// element type for them. Heterogeneous scalar sequences are rejected with
+/// source location context rather than being coerced to strings.
 ///
 /// Nested structures inside sequences (mapping/sequence/tagged) are rejected
 /// with a parse error to avoid silently losing structure information.
@@ -338,13 +370,32 @@ fn ensure_yaml_property(
 /// Returns an error when the sequence contains nested structures or when the
 /// configuration rejects the write, for example because the property is final.
 fn flatten_yaml_sequence(
+    source_id: &str,
     prefix: &str,
     seq: &[YamlValue],
     config: &mut Config,
 ) -> ConfigResult<()> {
     if seq.is_empty() {
-        config.set(prefix, Vec::<String>::new())?;
+        config
+            .set(prefix, Vec::<String>::new())
+            .map_err(|error| {
+                error.with_source_context(source_id, Some(prefix.to_string()), None)
+            })?;
         return Ok(());
+    }
+
+    if let Some(index) = seq.iter().position(|value| {
+        matches!(
+            value,
+            YamlValue::Mapping(_) | YamlValue::Sequence(_) | YamlValue::Tagged(_)
+        )
+    }) {
+        return Err(ConfigError::source_parse_error_at(
+            source_id,
+            Some(prefix.to_string()),
+            Some(index),
+            "nested YAML structures inside sequences are unsupported",
+        ));
     }
 
     match &seq[0] {
@@ -354,36 +405,71 @@ fn flatten_yaml_sequence(
                     .iter()
                     .all(|value| matches!(value, YamlValue::Number(number) if number.is_i64())) =>
         {
-            set_yaml_sequence_values(prefix, seq, config, YamlValue::as_i64)
+            set_yaml_sequence_values(
+                source_id,
+                prefix,
+                seq,
+                config,
+                YamlValue::as_i64,
+            )
         }
         YamlValue::Number(_)
             if seq
                 .iter()
                 .all(|value| matches!(value, YamlValue::Number(number) if number.is_u64())) =>
         {
-            set_yaml_sequence_values(prefix, seq, config, YamlValue::as_u64)
+            set_yaml_sequence_values(
+                source_id,
+                prefix,
+                seq,
+                config,
+                YamlValue::as_u64,
+            )
         }
         YamlValue::Number(_)
             if seq
                 .iter()
                 .all(|value| matches!(value, YamlValue::Number(number) if number.is_f64())) =>
         {
-            set_yaml_sequence_values(prefix, seq, config, YamlValue::as_f64)
+            set_yaml_sequence_values(
+                source_id,
+                prefix,
+                seq,
+                config,
+                YamlValue::as_f64,
+            )
         }
         YamlValue::Bool(_) if seq.iter().all(|value| matches!(value, YamlValue::Bool(_))) => {
-            set_yaml_sequence_values(prefix, seq, config, YamlValue::as_bool)
+            set_yaml_sequence_values(
+                source_id,
+                prefix,
+                seq,
+                config,
+                YamlValue::as_bool,
+            )
         }
         YamlValue::String(_)
             if seq
                 .iter()
                 .all(|value| matches!(value, YamlValue::String(_))) =>
         {
-            set_yaml_string_sequence(prefix, seq, config)
+            set_yaml_string_sequence(source_id, prefix, seq, config)
         }
         YamlValue::Mapping(_) | YamlValue::Sequence(_) | YamlValue::Tagged(_) => {
-            Err(unsupported_yaml_sequence_element_error(prefix, &seq[0]))
+            unreachable!("nested YAML structures were rejected above")
         }
-        _ => set_yaml_string_sequence(prefix, seq, config),
+        _ => {
+            let index = seq
+                .iter()
+                .position(|value| !same_yaml_scalar_kind(&seq[0], value))
+                .unwrap_or(0);
+            Err(ConfigError::source_parse_error_at(
+                source_id,
+                Some(prefix.to_string()),
+                Some(index),
+                "heterogeneous YAML scalar sequences are unsupported",
+            ))
+        }
     }
 }
 
@@ -404,6 +490,7 @@ fn flatten_yaml_sequence(
 ///
 /// Returns an error when the configuration rejects the write.
 fn set_yaml_sequence_values<T>(
+    source_id: &str,
     prefix: &str,
     seq: &[YamlValue],
     config: &mut Config,
@@ -413,7 +500,9 @@ where
     Vec<T>: Into<ValueContainer>,
 {
     let values = seq.iter().filter_map(convert).collect::<Vec<_>>();
-    config.set(prefix, values)
+    config.set(prefix, values).map_err(|error| {
+        error.with_source_context(source_id, Some(prefix.to_string()), None)
+    })
 }
 
 /// Converts YAML scalar values to strings and writes them as one property.
@@ -433,6 +522,7 @@ where
 /// Returns an error when `seq` contains a nested structure or when the
 /// configuration rejects the write.
 fn set_yaml_string_sequence(
+    source_id: &str,
     prefix: &str,
     seq: &[YamlValue],
     config: &mut Config,
@@ -441,7 +531,9 @@ fn set_yaml_string_sequence(
         .iter()
         .map(|value| yaml_scalar_to_string(value, prefix))
         .collect::<ConfigResult<Vec<_>>>()?;
-    config.set(prefix, values)
+    config.set(prefix, values).map_err(|error| {
+        error.with_source_context(source_id, Some(prefix.to_string()), None)
+    })
 }
 
 /// Converts a YAML key to a string
@@ -458,8 +550,8 @@ fn yaml_key_to_string(value: &YamlValue) -> ConfigResult<String> {
     }
 }
 
-/// Converts a YAML scalar value to a string (fallback for mixed-type
-/// sequences).
+/// Converts a YAML scalar value to a string for a homogeneous string
+/// sequence.
 ///
 /// Nested structures are rejected to avoid silently converting them to empty
 /// strings.
@@ -472,19 +564,25 @@ fn yaml_scalar_to_string(value: &YamlValue, key: &str) -> ConfigResult<String> {
         YamlValue::Sequence(_)
         | YamlValue::Mapping(_)
         | YamlValue::Tagged(_) => {
-            Err(unsupported_yaml_sequence_element_error(key, value))
+            Err(ConfigError::ParseError(format!(
+                "Unsupported nested YAML structure at key '{key}': {:?}",
+                redacted_debug(value),
+            )))
         }
     }
 }
 
-/// Builds a parse error for unsupported nested YAML sequence elements.
-fn unsupported_yaml_sequence_element_error(
-    key: &str,
-    value: &YamlValue,
-) -> ConfigError {
-    let key = if key.is_empty() { "<root>" } else { key };
-    ConfigError::ParseError(format!(
-        "Unsupported nested YAML structure at key '{key}': {:?}",
-        redacted_debug(value),
-    ))
+/// Reports whether two YAML scalar values have the same conversion shape.
+fn same_yaml_scalar_kind(first: &YamlValue, other: &YamlValue) -> bool {
+    match (first, other) {
+        (YamlValue::Null, YamlValue::Null)
+        | (YamlValue::Bool(_), YamlValue::Bool(_))
+        | (YamlValue::String(_), YamlValue::String(_)) => true,
+        (YamlValue::Number(first), YamlValue::Number(other)) => {
+            first.is_i64() == other.is_i64()
+                && first.is_u64() == other.is_u64()
+                && first.is_f64() == other.is_f64()
+        }
+        _ => false,
+    }
 }

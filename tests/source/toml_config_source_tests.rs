@@ -28,7 +28,7 @@ fn merge_source(
     config: &mut Config,
     source: &dyn ConfigSource,
 ) -> ConfigResult<()> {
-    config.merge_from_source(source)
+    config.merge_properties_from_source(source)
 }
 
 // ============================================================================
@@ -124,7 +124,7 @@ mod test_toml_config_source {
     fn test_merge_from_toml_config_source() {
         let source = TomlConfigSource::from_file(fixture("basic.toml"));
         let mut config = Config::new();
-        config.merge_from_source(&source).unwrap();
+        config.merge_properties_from_source(&source).unwrap();
 
         assert!(config.contains("host").unwrap());
         assert!(config.contains("app.name").unwrap());
@@ -186,7 +186,14 @@ port = 2
         let source = TomlConfigSource::from_file(&path);
         let mut config = Config::new();
         let result = merge_source(&mut config, &source);
-        assert!(matches!(result, Err(ConfigError::ParseError(_))));
+        assert!(matches!(
+            result,
+            Err(ConfigError::SourceParseError {
+                path: Some(path),
+                source_index: Some(0),
+                ..
+            }) if path == "servers"
+        ));
     }
 
     #[test]
@@ -329,9 +336,9 @@ mod test_toml_edge_cases {
         assert_eq!(config.get::<Vec<String>>("locked").unwrap(), vec!["old"]);
     }
 
-    // ---- toml: mixed array (int + string) falls back to string ----
+    // ---- toml: mixed array is rejected ----
     #[test]
-    fn test_toml_mixed_type_array_fallback() {
+    fn test_toml_mixed_type_array_is_rejected() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("mixed.toml");
         std::fs::write(
@@ -341,9 +348,16 @@ mod test_toml_edge_cases {
         .unwrap();
         let source = TomlConfigSource::from_file(&path);
         let mut config = Config::new();
-        merge_source(&mut config, &source).unwrap();
-        let tags: Vec<String> = config.get_list("tags").unwrap();
-        assert_eq!(tags, vec!["1", "2.5", "true", "a", "2026-04-09T12:00:00Z"]);
+        let error = merge_source(&mut config, &source)
+            .expect_err("mixed TOML arrays should be rejected");
+        assert!(matches!(
+            error,
+            ConfigError::SourceParseError {
+                path: Some(path),
+                source_index: Some(1),
+                ..
+            } if path == "tags"
+        ));
     }
 
     #[test]
@@ -356,7 +370,14 @@ mod test_toml_edge_cases {
 
         let result = merge_source(&mut config, &source);
 
-        assert!(matches!(result, Err(ConfigError::ParseError(_))));
+        assert!(matches!(
+            result,
+            Err(ConfigError::SourceParseError {
+                path: Some(path),
+                source_index: Some(1),
+                ..
+            }) if path == "values"
+        ));
     }
 
     #[test]
@@ -389,8 +410,7 @@ dates = [2026-04-09T12:00:00Z, 2026-04-10T12:00:00Z]
         assert!(dates[0].contains("2026-04-09"));
     }
 
-    // ---- toml: toml_scalar_to_string for float/bool/datetime in mixed
-    // fallback ----
+    // ---- toml: arrays of tables are rejected ----
     #[test]
     fn test_toml_array_of_tables_nested_error() {
         let dir = tempfile::tempdir().unwrap();
@@ -403,7 +423,14 @@ dates = [2026-04-09T12:00:00Z, 2026-04-10T12:00:00Z]
         let source = TomlConfigSource::from_file(&path);
         let mut config = Config::new();
         let result = merge_source(&mut config, &source);
-        assert!(matches!(result, Err(ConfigError::ParseError(_))));
+        assert!(matches!(
+            result,
+            Err(ConfigError::SourceParseError {
+                path: Some(path),
+                source_index: Some(0),
+                ..
+            }) if path == "servers"
+        ));
     }
 
     #[test]

@@ -11,8 +11,8 @@ use crate::ConfigResult;
 /// Trait for configuration sources.
 ///
 /// Implementors return an independent [`Config`] layer. Callers can inspect
-/// or compose that layer directly, or apply it atomically with
-/// [`Config::merge_from_source`].
+/// or compose its properties directly, or apply them atomically with
+/// [`Config::merge_properties_from_source`].
 ///
 /// # Examples
 ///

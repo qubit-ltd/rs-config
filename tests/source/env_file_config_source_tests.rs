@@ -38,7 +38,7 @@ fn merge_source(
     config: &mut Config,
     source: &dyn ConfigSource,
 ) -> ConfigResult<()> {
-    config.merge_from_source(source)
+    config.merge_properties_from_source(source)
 }
 
 // ============================================================================
@@ -143,7 +143,7 @@ mod test_env_file_config_source {
     fn test_merge_from_env_file_config_source() {
         let source = EnvFileConfigSource::from_file(fixture("basic.env"));
         let mut config = Config::new();
-        config.merge_from_source(&source).unwrap();
+        config.merge_properties_from_source(&source).unwrap();
 
         assert!(config.contains("HOST").unwrap());
         assert!(config.contains("PORT").unwrap());

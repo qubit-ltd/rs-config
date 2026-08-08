@@ -48,7 +48,7 @@ fn properties_source_rejects_oversized_input_transactionally() {
     let mut config = Config::new();
     config.set("existing", "kept").unwrap();
 
-    let result = config.merge_from_source(&source);
+    let result = config.merge_properties_from_source(&source);
 
     assert!(matches!(
         result,
@@ -61,6 +61,24 @@ fn properties_source_rejects_oversized_input_transactionally() {
     ));
     assert_eq!(config.get::<String>("existing").unwrap(), "kept");
     assert_eq!(config.len(), 1);
+}
+
+#[test]
+fn properties_file_source_reports_file_identity_for_limits() {
+    let dir = tempfile::tempdir().expect("temporary directory should exist");
+    let path = dir.path().join("limited.properties");
+    std::fs::write(&path, "a=1\n").expect("properties file should be written");
+    let source = PropertiesConfigSource::from_file(&path)
+        .with_limits(SourceLimits::default().with_max_input_bytes(3));
+
+    let error = source
+        .load()
+        .expect_err("file input should exceed the configured limit");
+    assert!(matches!(
+        error,
+        ConfigError::SourceLimitExceeded { source_id, .. }
+            if source_id == path.display().to_string()
+    ));
 }
 
 #[test]
@@ -83,7 +101,11 @@ fn properties_source_counts_duplicate_assignments() {
 fn properties_source_rejects_invalid_keys_and_excessive_key_depth() {
     assert!(matches!(
         PropertiesConfigSource::from_content("bad..key=1\n").load(),
-        Err(ConfigError::InvalidKey { .. })
+        Err(ConfigError::SourceParseError {
+            source_id,
+            path: Some(path),
+            ..
+        }) if source_id == "properties:<memory>" && path == "bad..key"
     ));
 
     let deep_key = std::iter::repeat_n("a", 65).collect::<Vec<_>>().join(".");
