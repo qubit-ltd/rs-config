@@ -338,8 +338,7 @@ mod test_properties_edge_cases {
         let content = "key=\\uFF";
         let pairs = PropertiesConfigSource::parse_content(content).unwrap();
         assert_eq!(pairs.len(), 1);
-        // partial hex → kept as literal
-        assert!(pairs[0].1.contains("\\u") || pairs[0].1.contains("FF"));
+        assert_eq!(pairs[0].1, "\\uFF");
     }
 
     // ---- properties: \r escape ----

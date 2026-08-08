@@ -222,6 +222,12 @@ Every `ConfigSource::load` call creates an independent layer. Built-in sources i
 - `EnvFileConfigSource`, behind `env-file`;
 - `CompositeConfigSource`, which merges other sources in order.
 
+The properties parser follows the Java properties escape dialect. It decodes
+`\t`, `\n`, `\r`, `\f`, escaped separators and spaces, valid `\uXXXX` UTF-16
+code units, and valid surrogate pairs. Malformed or incomplete Unicode escapes
+such as `\u12G4` are preserved verbatim; unknown non-Unicode escapes drop the
+leading backslash, matching Java properties behavior.
+
 `EnvFileConfigSource` preserves `$NAME` and `${NAME}` placeholders as literal
 values. Resolve them later through an explicit `*_interpolated` read policy;
 loading a `.env` file never reads process-environment values implicitly. YAML
@@ -292,13 +298,18 @@ use qubit_config::Config;
 
 let mut config = Config::new();
 config.set("server.port", 8080)?;
-let bytes = serde_json::to_vec(&config)?;
+let bytes = config.encode_json_vec()?;
 let restored = Config::decode_json_slice(&bytes)?;
 assert_eq!(restored.get::<i64>("server.port")?, 8080);
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
-`Config::decode_json_slice_with_limits` accepts `ConfigWireLimits` when the default wire budget is not suitable. This wire budget is separate from `SourceLimits`, which applies while ingesting text sources.
+`Config::encode_json_vec_with_limits` and
+`Config::decode_json_slice_with_limits` accept `ConfigWireLimits` when the
+default wire budget is not suitable. Bounded encoding checks semantic limits
+before serialization and the final byte length afterward. Ordinary Serde
+serialization remains available and unchanged. This wire budget is separate
+from `SourceLimits`, which applies while ingesting text sources.
 
 ## Advanced Usage
 
