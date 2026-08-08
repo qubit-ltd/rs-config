@@ -11,9 +11,9 @@
 use std::alloc::GlobalAlloc;
 use std::alloc::Layout;
 use std::alloc::System;
+use std::sync::Mutex;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
-use std::sync::Mutex;
 
 use qubit_config::Config;
 use qubit_config::ConfigReader;
@@ -78,8 +78,7 @@ fn test_root_reader_prefix_iteration_does_not_box() {
     );
 
     ALLOCATIONS.store(0, Ordering::Relaxed);
-    let count =
-        <Config as ConfigReader>::iter_prefix(&config, "http.").count();
+    let count = <Config as ConfigReader>::iter_prefix(&config, "http.").count();
     let allocations = ALLOCATIONS.load(Ordering::Relaxed);
 
     assert_eq!(count, 1);

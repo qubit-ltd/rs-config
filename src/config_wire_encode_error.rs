@@ -24,7 +24,9 @@ pub enum ConfigWireEncodeError {
     Value(#[from] ValueWireEncodeError),
 
     /// A shared value resource limit was exceeded before serialization.
-    #[error("configuration wire {kind:?} value {value} exceeds the limit of {maximum}")]
+    #[error(
+        "configuration wire {kind:?} value {value} exceeds the limit of {maximum}"
+    )]
     ValueLimitExceeded {
         /// Shared value resource category that exceeded its limit.
         kind: ValueWireLimitKind,
@@ -41,7 +43,9 @@ pub enum ConfigWireEncodeError {
     Shared(ValueWireDecodeError),
 
     /// A configuration-specific resource limit was exceeded.
-    #[error("configuration wire {kind:?} value {value} exceeds the limit of {maximum}")]
+    #[error(
+        "configuration wire {kind:?} value {value} exceeds the limit of {maximum}"
+    )]
     LimitExceeded {
         /// Configuration resource category that exceeded its limit.
         kind: ConfigWireLimitKind,
@@ -78,10 +82,12 @@ impl From<ConfigWireDecodeError> for ConfigWireEncodeError {
     /// Converts shared budget failures into encoding-specific diagnostics.
     fn from(error: ConfigWireDecodeError) -> Self {
         match error {
-            ConfigWireDecodeError::Value(ValueWireDecodeError::InputTooLarge {
-                input_bytes,
-                max_input_bytes,
-            }) => Self::OutputTooLarge {
+            ConfigWireDecodeError::Value(
+                ValueWireDecodeError::InputTooLarge {
+                    input_bytes,
+                    max_input_bytes,
+                },
+            ) => Self::OutputTooLarge {
                 output_bytes: input_bytes,
                 max_output_bytes: max_input_bytes,
             },

@@ -193,8 +193,7 @@ fn test_config_wire_bounded_encode_rejects_property_key_bytes() {
     config
         .set("server.port", 8080_u16)
         .expect("setting the property should succeed");
-    let limits =
-        ConfigWireLimits::default().with_max_property_key_bytes(5);
+    let limits = ConfigWireLimits::default().with_max_property_key_bytes(5);
 
     assert!(matches!(
         config.encode_json_vec_with_limits(limits),
