@@ -246,6 +246,7 @@ fn test_deserialize_interpolated_preserves_expansion_limit_error() {
     ));
 }
 
+/// Verifies strict interpolated deserialization prepares a string once.
 #[test]
 fn test_deserialize_interpolated_strict_prepares_string_once() {
     let mut config = Config::new();
@@ -259,6 +260,7 @@ fn test_deserialize_interpolated_strict_prepares_string_once() {
     assert_eq!(settings.label, "service-api");
 }
 
+/// Verifies lenient interpolated deserialization prepares a string once.
 #[test]
 fn test_deserialize_interpolated_lenient_prepares_string_once() {
     let mut config = Config::new();
@@ -273,6 +275,7 @@ fn test_deserialize_interpolated_lenient_prepares_string_once() {
     assert_eq!(settings.label, "service-api");
 }
 
+/// Verifies interpolated deserialization uses the root fallback once.
 #[test]
 fn test_deserialize_interpolated_uses_root_fallback_once() {
     let mut config = Config::new();
@@ -288,6 +291,7 @@ fn test_deserialize_interpolated_uses_root_fallback_once() {
     assert_eq!(settings.label, "service-api");
 }
 
+/// Verifies an interpolated missing string remains absent.
 #[test]
 fn test_deserialize_interpolated_missing_string_stays_absent() {
     let mut config = Config::new();

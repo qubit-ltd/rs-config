@@ -6,7 +6,8 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-//! Resource limits and errors for bounded configuration wire decoding.
+//! Resource limits and errors for bounded configuration wire decoding and
+//! encoding.
 // qubit-style: allow multiple-public-types
 
 use qubit_value::ValueWireDecodeError;
@@ -22,7 +23,8 @@ pub enum ConfigWireLimitKind {
     PropertyKeyBytes,
 }
 
-/// Limits applied while decoding a complete configuration wire document.
+/// Limits applied while decoding or encoding a complete configuration wire
+/// document.
 #[must_use]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ConfigWireLimits {

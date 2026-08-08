@@ -63,6 +63,7 @@ fn test_raw_scalar_conversion_does_not_clone_source_text() {
     );
 }
 
+/// Verifies root prefix iteration avoids boxing allocations.
 #[test]
 fn test_root_reader_prefix_iteration_does_not_box() {
     let _guard = ALLOCATION_TEST_LOCK
