@@ -145,7 +145,14 @@ qubit-datatype = { version = "0.10", default-features = false, features = ["conv
 
 ## 提供什么，以及不提供什么
 
-本库提供泛型类型转换、多值属性、严格相对 section、来源组合、可选的 TOML/YAML/`.env` 加载器、JSON 持久化解码和脱敏的 `Debug` 输出。内置文本 source 默认限制输入 8 MiB、assignment 65,536 次、嵌套深度 64；如果输入可信且确实需要更大边界，可以使用 `SourceLimits` 定制。
+当前建议作为稳定核心的 API 是 `Config`、`ConfigReader`、`ConfigSection`、
+`ReadPolicy` 和 `ConfigSerdeExt`。source adapter、持久化与 wire 解码以及低层
+`Property` 操作属于应用确有需要时使用的独立层。本库提供泛型类型转换、多值
+属性、严格相对 section、来源组合、可选的 TOML/YAML/`.env` 加载器、JSON 持久化
+解码和脱敏的 `Debug` 输出。内置文本 source 默认限制输入 8 MiB、assignment
+65,536 次、嵌套深度 64。输入字节数限制在 parser 前检查，TOML/YAML 的
+assignment 与深度限制在物化 AST 的 flatten 阶段执行。如果输入可信且确实需要
+更大边界，可以使用 `SourceLimits` 定制。
 
 本库不会在普通读取时静默执行插值，不会在加载 `.env` 文件时展开进程环境占位符，不会用默认值掩盖已存在但无效的值，也不会把 `ConfigReader` 变成 `dyn` trait object：它的泛型方法使其不满足 object-safe。路径规则、source 失败行为、结构化反序列化、自定义转换和排障细节请参阅用户手册。
 

@@ -145,7 +145,17 @@ Configuration often arrives as strings, but application code needs typed values,
 
 ## What It Provides—and What It Does Not
 
-The library provides generic type conversion, multi-value properties, strict relative sections, source composition, optional TOML/YAML/`.env` loaders, JSON persistence decoding, and redacted `Debug` output. Its built-in text sources use default limits of 8 MiB input, 65,536 assignments, and 64 nesting levels; customize them with `SourceLimits` when the input is trusted and the larger boundary is intentional.
+The stable core is `Config`, `ConfigReader`, `ConfigSection`, `ReadPolicy`,
+and `ConfigSerdeExt`. Source adapters, persistence and wire decoding, and
+low-level `Property` operations are separate layers for applications that need
+those capabilities. The library provides generic type conversion, multi-value
+properties, strict relative sections, source composition, optional TOML/YAML/
+`.env` loaders, JSON persistence decoding, and redacted `Debug` output.
+Built-in text sources use default limits of 8 MiB input, 65,536 assignments,
+and 64 nesting levels. The input limit is checked before parsing; TOML/YAML
+assignment and depth limits apply while flattening the materialized AST.
+Customize them with `SourceLimits` when the input is trusted and the larger
+boundary is intentional.
 
 It does not silently interpolate values during ordinary reads, expand process-environment placeholders while loading `.env` files, use defaults to hide a present but invalid value, or make `ConfigReader` into a `dyn` trait object: its generic methods make it non-object-safe. Detailed path rules, source failure behavior, structured deserialization, custom conversion, and troubleshooting are covered in the user guide.
 

@@ -74,8 +74,8 @@ impl Config {
     /// Creates a configuration from environment variables with a prefix.
     ///
     /// Only variables starting with `prefix` are loaded. The prefix is
-    /// stripped, the remaining key is lowercased, and underscores are
-    /// converted to dots.
+    /// stripped, the remaining key is lowercased, and double underscores are
+    /// converted to dots while single underscores are preserved.
     ///
     /// # Parameters
     ///
