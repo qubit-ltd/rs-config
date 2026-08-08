@@ -97,6 +97,7 @@ fn properties_source_counts_duplicate_assignments() {
     ));
 }
 
+/// Verifies a property-budget failure leaves the target configuration intact.
 #[test]
 fn properties_source_property_budget_failure_is_transactional() {
     let source = PropertiesConfigSource::from_content("first=1\nsecond=2\n")

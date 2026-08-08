@@ -14,6 +14,7 @@ use qubit_config::ConfigWireLimitKind;
 use qubit_value::ValueWireDecodeError;
 use qubit_value::ValueWireLimitKind;
 
+/// Verifies input-size decode errors map to output-size encode errors.
 #[test]
 fn config_wire_encode_error_maps_input_bytes_to_output_bytes() {
     let error = ConfigWireEncodeError::from(ConfigWireDecodeError::Value(
@@ -32,6 +33,7 @@ fn config_wire_encode_error_maps_input_bytes_to_output_bytes() {
     ));
 }
 
+/// Verifies shared value-limit details survive encode-error conversion.
 #[test]
 fn config_wire_encode_error_preserves_shared_value_limit() {
     let error = ConfigWireEncodeError::from(ConfigWireDecodeError::Value(
@@ -52,6 +54,7 @@ fn config_wire_encode_error_preserves_shared_value_limit() {
     ));
 }
 
+/// Verifies configuration-limit details survive encode-error conversion.
 #[test]
 fn config_wire_encode_error_preserves_config_limit() {
     let error =

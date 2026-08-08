@@ -153,6 +153,7 @@ fn test_config_wire_limits_apply_to_nested_values() {
     ));
 }
 
+/// Verifies bounded encoding round-trips with the default limits.
 #[test]
 fn test_config_wire_bounded_encode_round_trips_with_default_limits() {
     let mut config = Config::with_description("bounded wire round trip");
@@ -169,6 +170,7 @@ fn test_config_wire_bounded_encode_round_trips_with_default_limits() {
     assert_eq!(restored, config);
 }
 
+/// Verifies bounded encoding rejects an excessive property count.
 #[test]
 fn test_config_wire_bounded_encode_rejects_property_count() {
     let mut config = Config::new();
@@ -187,6 +189,7 @@ fn test_config_wire_bounded_encode_rejects_property_count() {
     ));
 }
 
+/// Verifies bounded encoding rejects an excessive property-key length.
 #[test]
 fn test_config_wire_bounded_encode_rejects_property_key_bytes() {
     let mut config = Config::new();
@@ -205,6 +208,7 @@ fn test_config_wire_bounded_encode_rejects_property_key_bytes() {
     ));
 }
 
+/// Verifies bounded encoding rejects an excessive final output size.
 #[test]
 fn test_config_wire_bounded_encode_rejects_final_output_bytes() {
     let mut config = Config::new();
@@ -226,6 +230,7 @@ fn test_config_wire_bounded_encode_rejects_final_output_bytes() {
     ));
 }
 
+/// Verifies bounded encoding rejects unsupported value representations.
 #[test]
 fn test_config_wire_bounded_encode_preflights_value_representation() {
     let mut config = Config::new();
@@ -241,6 +246,7 @@ fn test_config_wire_bounded_encode_preflights_value_representation() {
     ));
 }
 
+/// Verifies bounded decoding rejects malformed JSON during preflight.
 #[test]
 fn test_config_wire_bounded_decode_preflights_json_syntax() {
     let input = br#"{"version":1,"properties":{}"#;

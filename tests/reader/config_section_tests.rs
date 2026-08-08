@@ -124,6 +124,7 @@ fn test_section_missing_candidates_report_root_relative_paths() {
     );
 }
 
+/// Verifies section prefix iteration excludes adjacent sibling prefixes.
 #[test]
 fn test_section_iter_prefix_stays_within_full_prefix_boundary() {
     let mut config = Config::new();
