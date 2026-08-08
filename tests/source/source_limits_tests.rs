@@ -98,6 +98,35 @@ fn properties_source_counts_duplicate_assignments() {
 }
 
 #[test]
+fn properties_source_property_budget_failure_is_transactional() {
+    let source = PropertiesConfigSource::from_content("first=1\nsecond=2\n")
+        .with_limits(SourceLimits::default().with_max_properties(1));
+    let mut config = Config::new();
+    config
+        .set("existing", "kept")
+        .expect("the existing property should be set");
+
+    let result = config.merge_properties_from_source(&source);
+
+    assert!(matches!(
+        result,
+        Err(ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::PropertyCount,
+            limit: 1,
+            observed_at_least: 2,
+            ..
+        })
+    ));
+    assert_eq!(config.len(), 1);
+    assert_eq!(
+        config
+            .get::<String>("existing")
+            .expect("the existing property should remain readable"),
+        "kept",
+    );
+}
+
+#[test]
 fn properties_source_rejects_invalid_keys_and_excessive_key_depth() {
     assert!(matches!(
         PropertiesConfigSource::from_content("bad..key=1\n").load(),
