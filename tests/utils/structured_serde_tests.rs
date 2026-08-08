@@ -6,23 +6,40 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-#[allow(unused_imports)]
-use crate::{
-    Config, ConfigError, DataConversionError, DataType, Deserialize, DurationConversionOptions,
-    DurationRoundingPolicy, DurationUnit, HashMap, InvalidValueReason, MultiValues, Property,
-    ReadPolicy, Value,
-};
-#[cfg(feature = "bigdecimal")]
-use bigdecimal::BigDecimal;
-#[cfg(feature = "chrono")]
-use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
-#[cfg(feature = "num-bigint")]
-use num_bigint::BigInt;
 #[cfg(feature = "bigdecimal")]
 use std::str::FromStr;
 use std::time::Duration;
+
+#[cfg(feature = "bigdecimal")]
+use bigdecimal::BigDecimal;
+#[cfg(feature = "chrono")]
+use chrono::DateTime;
+#[cfg(feature = "chrono")]
+use chrono::NaiveDate;
+#[cfg(feature = "chrono")]
+use chrono::NaiveDateTime;
+#[cfg(feature = "chrono")]
+use chrono::NaiveTime;
+#[cfg(feature = "chrono")]
+use chrono::Utc;
+#[cfg(feature = "num-bigint")]
+use num_bigint::BigInt;
 #[cfg(feature = "url")]
 use url::Url;
+
+use crate::Config;
+use crate::ConfigError;
+use crate::DataConversionError;
+use crate::DataType;
+use crate::Deserialize;
+use crate::DurationConversionOptions;
+use crate::DurationRoundingPolicy;
+use crate::DurationUnit;
+use crate::InvalidValueReason;
+use crate::MultiValues;
+use crate::Property;
+use crate::ReadPolicy;
+use crate::Value;
 
 #[derive(Deserialize, Debug, PartialEq)]
 struct AnyStruct {
@@ -32,7 +49,8 @@ struct AnyStruct {
 /// Builds a config containing one collection-shaped property.
 fn config_with_mv(key: &str, mv: MultiValues) -> Config {
     let mut config = Config::new();
-    let property = Property::new(key, mv).expect("the test property key should be canonical");
+    let property = Property::new(key, mv)
+        .expect("the test property key should be canonical");
     config.insert_property(key, property).unwrap();
     config
 }
@@ -40,7 +58,8 @@ fn config_with_mv(key: &str, mv: MultiValues) -> Config {
 /// Builds a config containing one scalar-shaped property.
 fn config_with_value(key: &str, value: Value) -> Config {
     let mut config = Config::new();
-    let property = Property::new(key, value).expect("the test property key should be canonical");
+    let property = Property::new(key, value)
+        .expect("the test property key should be canonical");
     config.insert_property(key, property).unwrap();
     config
 }
@@ -158,7 +177,8 @@ fn test_deserialize_float32_nan_is_rejected() {
 
 #[test]
 fn test_deserialize_float64_infinity_is_rejected_with_source_index() {
-    let config = config_with_mv("x.val", MultiValues::Float64(vec![1.0, f64::INFINITY]));
+    let config =
+        config_with_mv("x.val", MultiValues::Float64(vec![1.0, f64::INFINITY]));
     let error = config.deserialize::<AnyStruct>("x").unwrap_err();
 
     let ConfigError::ConversionError {
@@ -183,14 +203,18 @@ fn test_deserialize_float64_infinity_is_rejected_with_source_index() {
 
 #[test]
 fn test_deserialize_duration() {
-    let config = config_with_value("x.val", Value::Duration(Duration::from_millis(500)));
+    let config =
+        config_with_value("x.val", Value::Duration(Duration::from_millis(500)));
     let s: AnyStruct = config.deserialize("x").unwrap();
     assert_eq!(s.val, serde_json::json!("500ms"));
 }
 
 #[test]
 fn test_deserialize_duration_rejects_implicit_precision_loss() {
-    let config = config_with_value("x.val", Value::Duration(Duration::from_micros(1500)));
+    let config = config_with_value(
+        "x.val",
+        Value::Duration(Duration::from_micros(1500)),
+    );
     let error = config.deserialize::<AnyStruct>("x").unwrap_err();
 
     assert!(matches!(
@@ -202,10 +226,16 @@ fn test_deserialize_duration_rejects_implicit_precision_loss() {
 
 #[test]
 fn test_deserialize_duration_allows_explicit_half_up_rounding() {
-    let mut config = config_with_value("x.val", Value::Duration(Duration::from_micros(1500)));
-    config.set_default_read_policy(ReadPolicy::default().with_duration_options(
-        DurationConversionOptions::default().with_rounding_policy(DurationRoundingPolicy::HalfUp),
-    ));
+    let mut config = config_with_value(
+        "x.val",
+        Value::Duration(Duration::from_micros(1500)),
+    );
+    config.set_default_read_policy(
+        ReadPolicy::default().with_duration_options(
+            DurationConversionOptions::default()
+                .with_rounding_policy(DurationRoundingPolicy::HalfUp),
+        ),
+    );
 
     let value: AnyStruct = config.deserialize("x").unwrap();
 
@@ -214,10 +244,16 @@ fn test_deserialize_duration_allows_explicit_half_up_rounding() {
 
 #[test]
 fn test_deserialize_duration_honors_output_unit() {
-    let mut config = config_with_value("x.val", Value::Duration(Duration::from_micros(1500)));
-    config.set_default_read_policy(ReadPolicy::default().with_duration_options(
-        DurationConversionOptions::default().with_output_unit(DurationUnit::Microseconds),
-    ));
+    let mut config = config_with_value(
+        "x.val",
+        Value::Duration(Duration::from_micros(1500)),
+    );
+    config.set_default_read_policy(
+        ReadPolicy::default().with_duration_options(
+            DurationConversionOptions::default()
+                .with_output_unit(DurationUnit::Microseconds),
+        ),
+    );
 
     let value: AnyStruct = config.deserialize("x").unwrap();
 
@@ -249,7 +285,8 @@ fn test_deserialize_string_map_multi() {
     map1.insert("k1".to_string(), "v1".to_string());
     let mut map2 = std::collections::HashMap::new();
     map2.insert("k2".to_string(), "v2".to_string());
-    let config = config_with_mv("x.val", MultiValues::StringMap(vec![map1, map2]));
+    let config =
+        config_with_mv("x.val", MultiValues::StringMap(vec![map1, map2]));
     let s: AnyStruct = config.deserialize("x").unwrap();
     assert!(s.val.is_array());
 }
@@ -299,7 +336,11 @@ fn test_deserialize_big_decimal() {
 #[cfg(feature = "chrono")]
 #[test]
 fn test_deserialize_datetime() {
-    let dt = NaiveDateTime::parse_from_str("2026-04-09 12:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
+    let dt = NaiveDateTime::parse_from_str(
+        "2026-04-09 12:00:00",
+        "%Y-%m-%d %H:%M:%S",
+    )
+    .unwrap();
     let config = config_with_value("x.val", Value::DateTime(dt));
     let s: AnyStruct = config.deserialize("x").unwrap();
     assert!(s.val.is_string());
@@ -326,9 +367,10 @@ fn test_deserialize_time() {
 #[cfg(feature = "chrono")]
 #[test]
 fn test_deserialize_instant() {
-    let instant: DateTime<Utc> = DateTime::parse_from_rfc3339("2026-04-09T12:00:00Z")
-        .unwrap()
-        .into();
+    let instant: DateTime<Utc> =
+        DateTime::parse_from_rfc3339("2026-04-09T12:00:00Z")
+            .unwrap()
+            .into();
     let config = config_with_value("x.val", Value::Instant(instant));
     let s: AnyStruct = config.deserialize("x").unwrap();
     assert!(s.val.is_string());

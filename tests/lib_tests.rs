@@ -7,22 +7,28 @@
 // =============================================================================
 // Crate root re-exports (`lib.rs`) smoke test.
 
+use qubit_config::Config;
+use qubit_config::conversion::FromConfig;
+use qubit_config::options::InterpolationSources;
+use qubit_config::options::ReadPolicy;
+use qubit_config::source::EnvConfigOptions;
+
 const README: &str = include_str!("../README.md");
 const README_ZH_CN: &str = include_str!("../README.zh_CN.md");
 
 #[test]
 fn crate_public_api_is_reachable() {
-    let _ = qubit_config::Config::new();
+    let _ = Config::new();
 }
 
 #[test]
 fn crate_public_modules_are_reachable() {
-    fn assert_from_config<T: qubit_config::conversion::FromConfig>() {}
+    fn assert_from_config<T: FromConfig>() {}
 
     assert_from_config::<u16>();
-    let _ = qubit_config::options::ReadPolicy::default();
-    let _ = qubit_config::options::InterpolationSources::ConfigThenEnv;
-    let _ = qubit_config::source::EnvConfigOptions::new();
+    let _ = ReadPolicy::default();
+    let _ = InterpolationSources::ConfigThenEnv;
+    let _ = EnvConfigOptions::new();
 }
 
 /// Verifies both README files use current and process-safe examples.

@@ -7,12 +7,13 @@
 // =============================================================================
 // # `PropertiesConfigSource` tests
 
-use qubit_config::{
-    Config, ConfigError, ConfigResult,
-    source::{ConfigSource, PropertiesConfigSource},
-};
-
 use std::path::PathBuf;
+
+use qubit_config::Config;
+use qubit_config::ConfigError;
+use qubit_config::ConfigResult;
+use qubit_config::source::ConfigSource;
+use qubit_config::source::PropertiesConfigSource;
 
 fn fixture(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -21,7 +22,10 @@ fn fixture(name: &str) -> PathBuf {
         .join(name)
 }
 
-fn merge_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<()> {
+fn merge_source(
+    config: &mut Config,
+    source: &dyn ConfigSource,
+) -> ConfigResult<()> {
     config.merge_from_source(source)
 }
 
@@ -31,10 +35,12 @@ fn merge_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<
 
 #[cfg(test)]
 mod test_properties_config_source {
-    #[allow(unused_imports)]
-    use super::{
-        Config, ConfigError, ConfigSource, PathBuf, PropertiesConfigSource, fixture, merge_source,
-    };
+    use super::Config;
+    use super::ConfigError;
+    use super::ConfigSource;
+    use super::PropertiesConfigSource;
+    use super::fixture;
+    use super::merge_source;
 
     // ---- parse_content unit tests ----
 
@@ -223,7 +229,8 @@ mod test_properties_config_source {
 
     #[test]
     fn test_load_basic_properties_file() {
-        let source = PropertiesConfigSource::from_file(fixture("basic.properties"));
+        let source =
+            PropertiesConfigSource::from_file(fixture("basic.properties"));
         let mut config = Config::new();
         merge_source(&mut config, &source).unwrap();
 
@@ -236,7 +243,8 @@ mod test_properties_config_source {
 
     #[test]
     fn test_load_multivalue_properties_file() {
-        let source = PropertiesConfigSource::from_file(fixture("multivalue.properties"));
+        let source =
+            PropertiesConfigSource::from_file(fixture("multivalue.properties"));
         let mut config = Config::new();
         merge_source(&mut config, &source).unwrap();
 
@@ -251,7 +259,9 @@ mod test_properties_config_source {
 
     #[test]
     fn test_load_nonexistent_file_returns_error() {
-        let source = PropertiesConfigSource::from_file("/nonexistent/path/config.properties");
+        let source = PropertiesConfigSource::from_file(
+            "/nonexistent/path/config.properties",
+        );
         let result = source.load();
         assert!(result.is_err());
         assert!(matches!(result, Err(ConfigError::SourceIoError { .. })));
@@ -261,7 +271,8 @@ mod test_properties_config_source {
 
     #[test]
     fn test_merge_from_properties_config_source() {
-        let source = PropertiesConfigSource::from_file(fixture("basic.properties"));
+        let source =
+            PropertiesConfigSource::from_file(fixture("basic.properties"));
         let mut config = Config::new();
         config.merge_from_source(&source).unwrap();
 
@@ -272,10 +283,8 @@ mod test_properties_config_source {
 
 #[cfg(test)]
 mod test_properties_edge_cases {
-    #[allow(unused_imports)]
-    use super::{
-        Config, ConfigError, ConfigSource, PathBuf, PropertiesConfigSource, fixture, merge_source,
-    };
+
+    use super::PropertiesConfigSource;
 
     #[test]
     fn test_properties_key_only_line() {
@@ -377,6 +386,9 @@ mod test_properties_edge_cases {
             pairs[0],
             ("path:home".to_string(), "some value".to_string()),
         );
-        assert_eq!(pairs[1], ("hash#key".to_string(), "bang!value".to_string()),);
+        assert_eq!(
+            pairs[1],
+            ("hash#key".to_string(), "bang!value".to_string()),
+        );
     }
 }

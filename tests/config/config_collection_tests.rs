@@ -12,12 +12,24 @@
 #![allow(dead_code, unused_imports)]
 
 #[cfg(feature = "chrono")]
-pub(crate) use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
-pub(crate) use qubit_config::{
-    Config, ConfigError, ConfigReader, Property,
-    options::{InterpolationSources, ReadPolicy},
-};
-pub(crate) use qubit_datatype::{BlankStringPolicy, DataConversionErrorKind, DataType};
+pub(crate) use chrono::DateTime;
+#[cfg(feature = "chrono")]
+pub(crate) use chrono::NaiveDate;
+#[cfg(feature = "chrono")]
+pub(crate) use chrono::NaiveDateTime;
+#[cfg(feature = "chrono")]
+pub(crate) use chrono::NaiveTime;
+#[cfg(feature = "chrono")]
+pub(crate) use chrono::Utc;
+pub(crate) use qubit_config::Config;
+pub(crate) use qubit_config::ConfigError;
+pub(crate) use qubit_config::ConfigReader;
+pub(crate) use qubit_config::Property;
+pub(crate) use qubit_config::options::InterpolationSources;
+pub(crate) use qubit_config::options::ReadPolicy;
+pub(crate) use qubit_datatype::BlankStringPolicy;
+pub(crate) use qubit_datatype::DataConversionErrorKind;
+pub(crate) use qubit_datatype::DataType;
 pub(crate) use qubit_value::MultiValues;
 pub(crate) use serde::Deserialize;
 
@@ -38,7 +50,10 @@ pub(crate) fn create_test_config_with_description() -> Config {
 }
 
 /// Changes the interpolation recursion limit while preserving other options.
-pub(crate) fn set_max_interpolation_depth(config: &mut Config, max_depth: usize) {
+pub(crate) fn set_max_interpolation_depth(
+    config: &mut Config,
+    max_depth: usize,
+) {
     let options = config
         .default_read_policy()
         .clone()
@@ -75,10 +90,12 @@ mod test_into_config_default {
         let vec_source = vec![4, 5, 6];
         let array_ref_source = [7, 8, 9];
 
-        let from_slice: Vec<i32> = slice_source.as_slice().into_config_default();
+        let from_slice: Vec<i32> =
+            slice_source.as_slice().into_config_default();
         let from_vec_ref: Vec<i32> = (&vec_source).into_config_default();
         let from_array: Vec<i32> = [10, 11, 12].into_config_default();
-        let from_array_ref: Vec<i32> = (&array_ref_source).into_config_default();
+        let from_array_ref: Vec<i32> =
+            (&array_ref_source).into_config_default();
 
         assert_eq!(from_slice, vec![1, 2, 3]);
         assert_eq!(from_vec_ref, vec![4, 5, 6]);
@@ -96,7 +113,8 @@ mod test_into_config_default {
         let from_vec_ref: Vec<String> = (&vec_ref_source).into_config_default();
         let from_vec: Vec<String> = vec!["e", "f"].into_config_default();
         let from_array: Vec<String> = ["i", "j"].into_config_default();
-        let from_array_ref: Vec<String> = (&array_ref_source).into_config_default();
+        let from_array_ref: Vec<String> =
+            (&array_ref_source).into_config_default();
 
         assert_eq!(from_slice, vec!["a".to_string(), "b".to_string()]);
         assert_eq!(from_vec_ref, vec!["c".to_string(), "d".to_string()]);
@@ -112,11 +130,14 @@ mod test_into_config_default {
 
 #[cfg(test)]
 mod test_get_list {
-    #[allow(unused_imports)]
-    use super::{
-        Config, ConfigError, DataType, Deserialize, MultiValues, Property, create_test_config,
-        create_test_config_with_description,
-    };
+    use super::Config;
+    use super::ConfigError;
+    use super::DataType;
+    use super::Deserialize;
+    use super::MultiValues;
+    use super::Property;
+    use super::create_test_config;
+    use super::create_test_config_with_description;
 
     #[test]
     fn test_get_list_string() {
@@ -193,13 +214,24 @@ mod test_get_list {
 
 #[cfg(test)]
 mod test_set {
-    #[allow(unused_imports)]
-    use super::{
-        Config, ConfigError, DataType, Deserialize, MultiValues, Property, create_test_config,
-        create_test_config_with_description,
-    };
+    use super::Config;
+    use super::ConfigError;
+    use super::DataType;
     #[cfg(feature = "chrono")]
-    use super::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
+    use super::DateTime;
+    use super::Deserialize;
+    use super::MultiValues;
+    #[cfg(feature = "chrono")]
+    use super::NaiveDate;
+    #[cfg(feature = "chrono")]
+    use super::NaiveDateTime;
+    #[cfg(feature = "chrono")]
+    use super::NaiveTime;
+    use super::Property;
+    #[cfg(feature = "chrono")]
+    use super::Utc;
+    use super::create_test_config;
+    use super::create_test_config_with_description;
 
     #[test]
     fn test_set_string() {
@@ -303,7 +335,8 @@ mod test_set {
         let datetime = DateTime::<Utc>::from_timestamp(1703505600, 0)
             .unwrap()
             .naive_utc();
-        let utc_datetime = DateTime::<Utc>::from_timestamp(1703505600, 0).unwrap();
+        let utc_datetime =
+            DateTime::<Utc>::from_timestamp(1703505600, 0).unwrap();
 
         config.set("date", date).unwrap();
         config.set("time", time).unwrap();
@@ -329,11 +362,14 @@ mod test_set {
 
 #[cfg(test)]
 mod test_add {
-    #[allow(unused_imports)]
-    use super::{
-        Config, ConfigError, DataType, Deserialize, MultiValues, Property, create_test_config,
-        create_test_config_with_description,
-    };
+    use super::Config;
+    use super::ConfigError;
+    use super::DataType;
+    use super::Deserialize;
+    use super::MultiValues;
+    use super::Property;
+    use super::create_test_config;
+    use super::create_test_config_with_description;
 
     #[test]
     fn test_add_creates_new_property() {
@@ -390,11 +426,14 @@ mod test_add {
 
 #[cfg(test)]
 mod test_get_string {
-    #[allow(unused_imports)]
-    use super::{
-        Config, ConfigError, DataType, Deserialize, MultiValues, Property, create_test_config,
-        create_test_config_with_description,
-    };
+    use super::Config;
+    use super::ConfigError;
+    use super::DataType;
+    use super::Deserialize;
+    use super::MultiValues;
+    use super::Property;
+    use super::create_test_config;
+    use super::create_test_config_with_description;
 
     #[test]
     fn test_get_string_returns_string_value() {
@@ -431,11 +470,14 @@ mod test_get_string {
 
 #[cfg(test)]
 mod test_get_string_or {
-    #[allow(unused_imports)]
-    use super::{
-        Config, ConfigError, DataType, Deserialize, MultiValues, Property, create_test_config,
-        create_test_config_with_description,
-    };
+    use super::Config;
+    use super::ConfigError;
+    use super::DataType;
+    use super::Deserialize;
+    use super::MultiValues;
+    use super::Property;
+    use super::create_test_config;
+    use super::create_test_config_with_description;
 
     #[test]
     fn test_get_string_or_returns_value_when_property_exists() {
@@ -467,11 +509,14 @@ mod test_get_string_or {
 
 #[cfg(test)]
 mod test_get_string_list {
-    #[allow(unused_imports)]
-    use super::{
-        Config, ConfigError, DataType, Deserialize, MultiValues, Property, create_test_config,
-        create_test_config_with_description,
-    };
+    use super::Config;
+    use super::ConfigError;
+    use super::DataType;
+    use super::Deserialize;
+    use super::MultiValues;
+    use super::Property;
+    use super::create_test_config;
+    use super::create_test_config_with_description;
 
     #[test]
     fn test_get_string_list_returns_string_list() {
@@ -491,7 +536,10 @@ mod test_get_string_list {
             .set("urls", vec!["${base}/api", "${base}/admin"])
             .unwrap();
         let urls = config.get_interpolated::<Vec<String>>("urls").unwrap();
-        assert_eq!(urls, vec!["http://localhost/api", "http://localhost/admin"]);
+        assert_eq!(
+            urls,
+            vec!["http://localhost/api", "http://localhost/admin"]
+        );
     }
 
     #[test]
@@ -503,7 +551,10 @@ mod test_get_string_list {
             .set("urls", vec!["${base}/api", "${base}/admin"])
             .unwrap();
         let urls = config.get_interpolated::<Vec<String>>("urls").unwrap();
-        assert_eq!(urls, vec!["http://localhost/api", "http://localhost/admin"]);
+        assert_eq!(
+            urls,
+            vec!["http://localhost/api", "http://localhost/admin"]
+        );
     }
 
     #[test]
@@ -548,17 +599,21 @@ mod test_get_string_list {
 
 #[cfg(test)]
 mod test_get_string_list_or {
-    #[allow(unused_imports)]
-    use super::{
-        Config, ConfigError, DataType, Deserialize, MultiValues, Property, create_test_config,
-        create_test_config_with_description,
-    };
+    use super::Config;
+    use super::ConfigError;
+    use super::DataType;
+    use super::Deserialize;
+    use super::MultiValues;
+    use super::Property;
+    use super::create_test_config;
+    use super::create_test_config_with_description;
 
     #[test]
     fn test_get_string_list_or_returns_value_when_property_exists() {
         let mut config = Config::new();
         config.set("test", vec!["value1", "value2"]).unwrap();
-        let values = config.get_or::<Vec<String>>("test", &["default"]).unwrap();
+        let values =
+            config.get_or::<Vec<String>>("test", &["default"]).unwrap();
         assert_eq!(values, vec!["value1", "value2"]);
     }
 
@@ -575,7 +630,8 @@ mod test_get_string_list_or {
     fn test_get_string_list_or_converts_non_string_values() {
         let mut config = Config::new();
         config.set("test", vec![1, 2, 3]).unwrap();
-        let values = config.get_or::<Vec<String>>("test", &["default"]).unwrap();
+        let values =
+            config.get_or::<Vec<String>>("test", &["default"]).unwrap();
         assert_eq!(values, vec!["1", "2", "3"]);
     }
 
@@ -589,7 +645,10 @@ mod test_get_string_list_or {
         let urls = config
             .get_interpolated_or::<Vec<String>>("urls", &["default"])
             .unwrap();
-        assert_eq!(urls, vec!["http://localhost/api", "http://localhost/admin"]);
+        assert_eq!(
+            urls,
+            vec!["http://localhost/api", "http://localhost/admin"]
+        );
     }
 
     #[test]
@@ -618,11 +677,15 @@ mod test_get_string_list_or {
 
 #[cfg(test)]
 mod test_default {
-    #[allow(unused_imports)]
-    use super::{
-        Config, ConfigError, DataType, Deserialize, InterpolationSources, MultiValues, Property,
-        create_test_config, create_test_config_with_description,
-    };
+    use super::Config;
+    use super::ConfigError;
+    use super::DataType;
+    use super::Deserialize;
+    use super::InterpolationSources;
+    use super::MultiValues;
+    use super::Property;
+    use super::create_test_config;
+    use super::create_test_config_with_description;
 
     #[test]
     fn test_default_creates_empty_config() {
@@ -651,11 +714,14 @@ mod test_default {
 
 #[cfg(test)]
 mod test_final_property {
-    #[allow(unused_imports)]
-    use super::{
-        Config, ConfigError, DataType, Deserialize, MultiValues, Property, create_test_config,
-        create_test_config_with_description,
-    };
+    use super::Config;
+    use super::ConfigError;
+    use super::DataType;
+    use super::Deserialize;
+    use super::MultiValues;
+    use super::Property;
+    use super::create_test_config;
+    use super::create_test_config_with_description;
 
     #[test]
     fn test_set_final_property_fails() {
@@ -776,11 +842,14 @@ mod test_final_property {
 
 #[cfg(test)]
 mod test_iter {
-    #[allow(unused_imports)]
-    use super::{
-        Config, ConfigError, DataType, Deserialize, MultiValues, Property, create_test_config,
-        create_test_config_with_description,
-    };
+    use super::Config;
+    use super::ConfigError;
+    use super::DataType;
+    use super::Deserialize;
+    use super::MultiValues;
+    use super::Property;
+    use super::create_test_config;
+    use super::create_test_config_with_description;
 
     #[test]
     fn test_iter_empty_config() {

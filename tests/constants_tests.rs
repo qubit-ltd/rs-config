@@ -11,7 +11,6 @@ use qubit_config::options::ReadPolicy;
 
 #[cfg(test)]
 mod test_max_interpolation_depth {
-    #[allow(unused_imports)]
     use super::ReadPolicy;
 
     #[test]

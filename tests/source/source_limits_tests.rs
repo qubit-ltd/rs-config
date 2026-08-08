@@ -7,16 +7,18 @@
 // =============================================================================
 // Tests for bounded configuration source ingestion.
 
+use qubit_config::Config;
+use qubit_config::ConfigError;
+use qubit_config::source::ConfigSource;
 #[cfg(feature = "env-file")]
 use qubit_config::source::EnvFileConfigSource;
+use qubit_config::source::PropertiesConfigSource;
+use qubit_config::source::SourceLimitKind;
+use qubit_config::source::SourceLimits;
 #[cfg(feature = "toml")]
 use qubit_config::source::TomlConfigSource;
 #[cfg(feature = "yaml")]
 use qubit_config::source::YamlConfigSource;
-use qubit_config::{
-    Config, ConfigError,
-    source::{ConfigSource, PropertiesConfigSource, SourceLimitKind, SourceLimits},
-};
 
 #[test]
 fn source_limits_are_bounded_by_default_and_can_be_unbounded() {

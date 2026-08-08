@@ -7,7 +7,10 @@
 // =============================================================================
 // [`qubit_config::ConfigSection`] tests.
 
-use qubit_config::{Config, ConfigReader, options::ReadPolicy};
+use qubit_config::Config;
+use qubit_config::ConfigError;
+use qubit_config::ConfigReader;
+use qubit_config::options::ReadPolicy;
 
 #[test]
 fn test_section_resolves_keys_strictly_relative() {
@@ -52,7 +55,7 @@ fn test_section_excludes_exact_root_property() {
     assert_eq!(section.keys(), vec!["host".to_string()]);
     assert!(matches!(
         section.contains(""),
-        Err(qubit_config::ConfigError::InvalidKey { .. })
+        Err(ConfigError::InvalidKey { .. })
     ));
     assert_eq!(
         config
@@ -115,6 +118,8 @@ fn test_section_missing_candidates_report_root_relative_paths() {
     assert_eq!(error.path(), None);
     assert_eq!(
         error.candidate_paths(),
-        Some(["service.port".to_string(), "service.PORT".to_string()].as_slice(),),
+        Some(
+            ["service.port".to_string(), "service.PORT".to_string()].as_slice(),
+        ),
     );
 }
