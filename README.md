@@ -13,19 +13,19 @@
 
 ```toml
 [dependencies]
-qubit-config = "0.15"
+qubit-config = "0.16"
 ```
 
 The default feature set is empty, so the core API does not enable optional file formats or rich value types. Enable only what the application needs, or use `full` for the complete optional surface:
 
 ```toml
-qubit-config = { version = "0.15", features = ["toml", "env-file"] }
+qubit-config = { version = "0.16", features = ["toml", "env-file"] }
 ```
 
 Or use the complete optional surface:
 
 ```toml
-qubit-config = { version = "0.15", features = ["full"] }
+qubit-config = { version = "0.16", features = ["full"] }
 ```
 
 | Feature | Adds |
@@ -83,14 +83,14 @@ fn load_server_config() -> Result<(String, u16), Box<dyn std::error::Error>> {
     sources.add(EnvConfigSource::with_prefix("APP_"));
 
     let mut config = Config::new();
-    config.merge_from_source(&sources)?;
+    config.merge_properties_from_source(&sources)?;
     let server = config.section("server")?;
 
     Ok((server.get("host")?, server.get("port")?))
 }
 ```
 
-With `APP_SERVER_HOST` and `APP_SERVER_PORT` set, the environment layer supplies the final values after prefix removal, lowercasing, and underscore-to-dot conversion. If normalization makes distinct environment names map to one key, loading returns `ConfigError::KeyConflict` and reports the conflicting names in lexicographic order; it never selects a winner based on process-environment iteration order. The same composition pattern can use `TomlConfigSource`, `YamlConfigSource`, or `EnvFileConfigSource` when their features are enabled.
+With `APP_SERVER__HOST` and `APP_SERVER__PORT` set, the environment layer supplies the final values after prefix removal, lowercasing, and double-underscore-to-dot conversion. A single underscore remains part of a key segment. If normalization makes distinct environment names map to one key, loading returns `ConfigError::KeyConflict` and reports the conflicting names in lexicographic order; it never selects a winner based on process-environment iteration order. The same composition pattern can use `TomlConfigSource`, `YamlConfigSource`, or `EnvFileConfigSource` when their features are enabled.
 
 ## Structured Reads and Custom Policies
 
@@ -113,6 +113,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 ```
+
+Structured reads reject undeclared properties by default and report their
+root-relative paths through `ConfigError::UnknownProperties`. Declare accepted
+fields with the target's Serde shape (`rename`, `alias`, `default`, nested
+types, maps, or `flatten`); use `deserialize_lenient` or
+`deserialize_interpolated_lenient` only for intentionally open sections.
 
 Add the direct Serde dependencies when using structured or JSON examples:
 

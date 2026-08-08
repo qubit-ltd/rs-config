@@ -1,6 +1,6 @@
 [package]
 name = "qubit-config"
-version = "0.15.0"
+version = "0.16.0"
 edition = "2024"
 rust-version = "1.94"
 authors = ["Haixing Hu <starfish.hu@gmail.com>"]
@@ -48,6 +48,7 @@ full = ["rich-types", "formats"]
 [dependencies]
 qubit-utils = "0.2"
 serde = { version = "1.0", features = ["derive"] }
+serde_ignored = "0.1"
 serde_json = "1.0"
 thiserror = "2.0"
 chrono = { version = "0.4", features = ["serde"], optional = true }

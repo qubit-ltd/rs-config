@@ -47,14 +47,14 @@ server.port=8080
 server.timeout=30
 ```
 
-The deployment may set `APP_SERVER_HOST` and `APP_SERVER_PORT`. The success criteria are:
+The deployment may set `APP_SERVER__HOST` and `APP_SERVER__PORT`. The success criteria are:
 
 - local values remain available when no override exists;
 - environment values override only matching keys;
 - the application reads `server` through a relative section;
 - a malformed value returns an error instead of silently selecting a default.
 
-The following uses an in-memory `.properties` layer so the example is deterministic, then adds the process environment layer. `EnvConfigSource::with_prefix` selects `APP_`, strips it, lowercases the remainder, and converts underscores to dots.
+The following uses an in-memory `.properties` layer so the example is deterministic, then adds the process environment layer. `EnvConfigSource::with_prefix` selects `APP_`, strips it, lowercases the remainder, and converts double underscores to dots while preserving single underscores.
 
 ```rust
 use qubit_config::{Config, ConfigReader};
@@ -70,7 +70,7 @@ fn load_server() -> Result<(String, u16, u64), Box<dyn std::error::Error>> {
     sources.add(EnvConfigSource::with_prefix("APP_"));
 
     let mut config = Config::new();
-    config.merge_from_source(&sources)?;
+    config.merge_properties_from_source(&sources)?;
     let server = config.section("server")?;
 
     Ok((
@@ -81,7 +81,7 @@ fn load_server() -> Result<(String, u16, u64), Box<dyn std::error::Error>> {
 }
 ```
 
-Run the application with `APP_SERVER_PORT=9090` to observe the environment override. Keys that exist only in the properties layer remain visible. If `APP_SERVER_PORT=not-a-number`, `server.get::<u16>("port")` returns a conversion error; `get_or` does not hide an invalid present value.
+Run the application with `APP_SERVER__PORT=9090` to observe the environment override. Keys that exist only in the properties layer remain visible. If `APP_SERVER__PORT=not-a-number`, `server.get::<u16>("port")` returns a conversion error; `get_or` does not hide an invalid present value.
 
 ## Installation and Minimal Configuration
 
@@ -89,24 +89,24 @@ The crate requires Rust `1.94` or newer and uses edition `2024`.
 
 ```toml
 [dependencies]
-qubit-config = "0.15"
+qubit-config = "0.16"
 ```
 
 The default feature set is empty. Add optional capabilities explicitly:
 
 ```toml
 # TOML and .env sources
-qubit-config = { version = "0.15", features = ["toml", "env-file"] }
+qubit-config = { version = "0.16", features = ["toml", "env-file"] }
 ```
 
 ```toml
 # Chrono and URL values
-qubit-config = { version = "0.15", features = ["chrono", "url"] }
+qubit-config = { version = "0.16", features = ["chrono", "url"] }
 ```
 
 ```toml
 # All optional value types and format sources
-qubit-config = { version = "0.15", features = ["full"] }
+qubit-config = { version = "0.16", features = ["full"] }
 ```
 
 The atomic optional features are `bigdecimal`, `chrono`, `num-bigint`, `url`, `env-file`, `toml`, and `yaml`. `rich-types` groups the four rich-value features; `formats` groups the three format features; `full` enables both groups.
@@ -221,7 +221,7 @@ let config = Config::from_properties_file("config.properties")?;
 # let _ = config;
 ```
 
-Use `merge_from_source` when the target already has values or a read policy:
+Use `merge_properties_from_source` when the target already has values or a read policy:
 
 ```rust
 use qubit_config::source::{
@@ -233,7 +233,7 @@ source.add(PropertiesConfigSource::from_content("port=8080\n"));
 source.add(PropertiesConfigSource::from_content("port=9090\n"));
 
 let mut config = Config::new();
-config.merge_from_source(&source)?;
+config.merge_properties_from_source(&source)?;
 assert_eq!(config.get::<i64>("port")?, 9090);
 # Ok::<(), qubit_config::ConfigError>(())
 ```
@@ -263,7 +263,7 @@ assert_eq!(server.port, 8080);
 # Ok::<(), qubit_config::ConfigError>(())
 ```
 
-Import `ConfigSerdeExt` when calling `deserialize` or `deserialize_interpolated` through a generic `ConfigReader`. Structured reads preserve configuration lookup/conversion context; a mismatch raised only by Serde becomes a sanitized `DeserializeError`.
+Import `ConfigSerdeExt` when calling `deserialize`, `deserialize_interpolated`, `deserialize_lenient`, or `deserialize_interpolated_lenient` through a generic `ConfigReader`. Structured reads are strict by default: fields not consumed by the target `Deserialize` type return `UnknownProperties`. Use the lenient variants only when extra fields are intentionally allowed. Struct fields, `serde(rename)`, `serde(alias)`, `serde(default)`, nested structs, maps, and `serde(flatten)` declare the accepted configuration shape. Structured reads preserve configuration lookup/conversion context; a mismatch raised only by Serde becomes a sanitized `DeserializeError`.
 
 ### Persist and decode configuration
 
@@ -342,9 +342,14 @@ Treat configuration that can select environment-variable names as trusted input.
 1. select names beginning with `APP_`;
 2. remove the prefix;
 3. lowercase the remaining name; and
-4. convert `_` to `.`.
+4. convert `__` to `.` while preserving single `_`.
 
-For example, `APP_DATABASE_MAX_CONNECTIONS` becomes `database.max.connections`. Use `EnvConfigOptions` when only some transformations are wanted. If two distinct environment names collapse to the same normalized key, loading returns `KeyConflict` rather than selecting one silently. The error reports the conflicting environment names in lexicographic order, so its diagnostics do not depend on the operating system's environment-variable iteration order.
+For example, `APP_DATABASE__MAX_CONNECTIONS` becomes `database.max_connections`. Use `EnvConfigOptions` when only some transformations are wanted. If two distinct environment names collapse to the same normalized key, loading returns `KeyConflict` rather than selecting one silently. The error reports the conflicting environment names in lexicographic order, so its diagnostics do not depend on the operating system's environment-variable iteration order.
+
+TOML and YAML sources flatten mappings into dotted properties. They accept scalars,
+empty sequences, and homogeneous scalar sequences. Object arrays, nested arrays,
+and heterogeneous YAML scalar sequences are rejected with source, path, and index
+context; values are never silently stringified to hide a structural mismatch.
 
 ### Configure source limits
 

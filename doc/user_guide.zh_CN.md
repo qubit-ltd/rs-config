@@ -47,14 +47,14 @@ server.port=8080
 server.timeout=30
 ```
 
-部署环境可以设置 `APP_SERVER_HOST` 和 `APP_SERVER_PORT`。成功标准是：
+部署环境可以设置 `APP_SERVER__HOST` 和 `APP_SERVER__PORT`。成功标准是：
 
 - 没有覆盖值时，本地配置仍然可用；
 - 环境变量只覆盖同名 key；
 - 应用通过相对 section 读取 `server`；
 - 格式错误的值返回错误，而不是静默选择默认值。
 
-下面的示例先使用内存中的 `.properties` layer 以保证确定性，再加入进程环境变量 layer。`EnvConfigSource::with_prefix` 会选择 `APP_`，去除此前缀，将剩余部分转成小写，并把下划线转换为点号。
+下面的示例先使用内存中的 `.properties` layer 以保证确定性，再加入进程环境变量 layer。`EnvConfigSource::with_prefix` 会选择 `APP_`，去除此前缀，将剩余部分转成小写，并把双下划线转换为点号，单个下划线保留。
 
 ```rust
 use qubit_config::{Config, ConfigReader};
@@ -70,7 +70,7 @@ fn load_server() -> Result<(String, u16, u64), Box<dyn std::error::Error>> {
     sources.add(EnvConfigSource::with_prefix("APP_"));
 
     let mut config = Config::new();
-    config.merge_from_source(&sources)?;
+    config.merge_properties_from_source(&sources)?;
     let server = config.section("server")?;
 
     Ok((
@@ -81,7 +81,7 @@ fn load_server() -> Result<(String, u16, u64), Box<dyn std::error::Error>> {
 }
 ```
 
-运行应用时设置 `APP_SERVER_PORT=9090`，即可观察到环境变量覆盖。只存在于 properties layer 的 key 仍然可见。如果设置 `APP_SERVER_PORT=not-a-number`，`server.get::<u16>("port")` 会返回转换错误；`get_or` 不会掩盖已存在但无效的值。
+运行应用时设置 `APP_SERVER__PORT=9090`，即可观察到环境变量覆盖。只存在于 properties layer 的 key 仍然可见。如果设置 `APP_SERVER__PORT=not-a-number`，`server.get::<u16>("port")` 会返回转换错误；`get_or` 不会掩盖已存在但无效的值。
 
 ## 安装与最小配置
 
@@ -89,24 +89,24 @@ crate 要求 Rust `1.94` 或更高版本，并使用 edition `2024`。
 
 ```toml
 [dependencies]
-qubit-config = "0.15"
+qubit-config = "0.16"
 ```
 
 默认 feature 集为空。按需显式添加可选能力：
 
 ```toml
 # TOML 与 .env source
-qubit-config = { version = "0.15", features = ["toml", "env-file"] }
+qubit-config = { version = "0.16", features = ["toml", "env-file"] }
 ```
 
 ```toml
 # Chrono 与 URL 值
-qubit-config = { version = "0.15", features = ["chrono", "url"] }
+qubit-config = { version = "0.16", features = ["chrono", "url"] }
 ```
 
 ```toml
 # 所有可选值类型与格式 source
-qubit-config = { version = "0.15", features = ["full"] }
+qubit-config = { version = "0.16", features = ["full"] }
 ```
 
 原子可选 feature 为 `bigdecimal`、`chrono`、`num-bigint`、`url`、`env-file`、`toml` 和 `yaml`。`rich-types` 组合前四个富类型 feature；`formats` 组合三个格式 feature；`full` 同时启用两组 feature。
@@ -218,7 +218,7 @@ let config = Config::from_properties_file("config.properties")?;
 # let _ = config;
 ```
 
-如果目标已有值或读取策略，则使用 `merge_from_source`：
+如果目标已有值或读取策略，则使用 `merge_properties_from_source`：
 
 ```rust
 use qubit_config::source::{
@@ -230,7 +230,7 @@ source.add(PropertiesConfigSource::from_content("port=8080\n"));
 source.add(PropertiesConfigSource::from_content("port=9090\n"));
 
 let mut config = Config::new();
-config.merge_from_source(&source)?;
+config.merge_properties_from_source(&source)?;
 assert_eq!(config.get::<i64>("port")?, 9090);
 # Ok::<(), qubit_config::ConfigError>(())
 ```
@@ -260,7 +260,7 @@ assert_eq!(server.port, 8080);
 # Ok::<(), qubit_config::ConfigError>(())
 ```
 
-如果通过泛型 `ConfigReader` 或 section 调用 `deserialize`、`deserialize_interpolated`，请导入 `ConfigSerdeExt`。结构化读取会保留配置查找和转换上下文；仅由 Serde 报告的结构不匹配会变成已脱敏的 `DeserializeError`。
+如果通过泛型 `ConfigReader` 或 section 调用 `deserialize`、`deserialize_interpolated`、`deserialize_lenient` 或 `deserialize_interpolated_lenient`，请导入 `ConfigSerdeExt`。结构化读取默认严格，目标 `Deserialize` 类型未消费的字段会返回 `UnknownProperties`；只有明确允许额外字段时才使用 lenient 版本。struct 字段、`serde(rename)`、`serde(alias)`、`serde(default)`、嵌套 struct、map 和 `serde(flatten)` 共同声明可接受的配置形状。结构化读取会保留配置查找和转换上下文；仅由 Serde 报告的结构不匹配会变成已脱敏的 `DeserializeError`。
 
 ### 持久化和解码配置
 
@@ -339,9 +339,11 @@ let config = Config::new().with_default_read_policy(policy);
 1. 选择以 `APP_` 开头的名称；
 2. 去除前缀；
 3. 将剩余名称转为小写；
-4. 把 `_` 转换为 `.`。
+4. 把 `__` 转换为 `.`，单个 `_` 保留。
 
-例如，`APP_DATABASE_MAX_CONNECTIONS` 会变成 `database.max.connections`。如果只需要部分转换，可以使用 `EnvConfigOptions`。如果两个不同的环境变量名称经过规范化后变成同一个 key，加载会返回 `KeyConflict`，不会静默选择其中一个；错误会按字典序报告冲突名称，因此诊断信息不依赖操作系统的环境变量遍历顺序。
+例如，`APP_DATABASE__MAX_CONNECTIONS` 会变成 `database.max_connections`。如果只需要部分转换，可以使用 `EnvConfigOptions`。如果两个不同的环境变量名称经过规范化后变成同一个 key，加载会返回 `KeyConflict`，不会静默选择其中一个；错误会按字典序报告冲突名称，因此诊断信息不依赖操作系统的环境变量遍历顺序。
+
+TOML 和 YAML source 会把 mapping 展开成点分隔 property，只接受标量、空 sequence 和同类型标量 sequence。对象数组、嵌套数组以及 YAML 异构标量 sequence 会带 source、path 和 index 上下文被拒绝，不会通过隐式字符串化掩盖结构不匹配。
 
 ### 配置 source limits
 
