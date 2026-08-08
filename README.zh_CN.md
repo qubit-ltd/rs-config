@@ -13,19 +13,19 @@
 
 ```toml
 [dependencies]
-qubit-config = "0.15"
+qubit-config = "0.16"
 ```
 
 默认 feature 集为空，因此核心 API 不会启用可选文件格式或富类型。应用可以按需启用 feature，也可以使用 `full` 开启完整的可选能力：
 
 ```toml
-qubit-config = { version = "0.15", features = ["toml", "env-file"] }
+qubit-config = { version = "0.16", features = ["toml", "env-file"] }
 ```
 
 或者启用完整的可选能力：
 
 ```toml
-qubit-config = { version = "0.15", features = ["full"] }
+qubit-config = { version = "0.16", features = ["full"] }
 ```
 
 | Feature | 提供能力 |
@@ -83,14 +83,14 @@ fn load_server_config() -> Result<(String, u16), Box<dyn std::error::Error>> {
     sources.add(EnvConfigSource::with_prefix("APP_"));
 
     let mut config = Config::new();
-    config.merge_from_source(&sources)?;
+    config.merge_properties_from_source(&sources)?;
     let server = config.section("server")?;
 
     Ok((server.get("host")?, server.get("port")?))
 }
 ```
 
-设置 `APP_SERVER_HOST` 和 `APP_SERVER_PORT` 后，环境变量层会在去除前缀、转小写并把下划线转换为点号后提供最终值。如果规范化使不同的环境变量名称映射到同一个 key，加载会返回 `ConfigError::KeyConflict`，并按字典序报告冲突名称；不会根据进程环境变量的遍历顺序静默选择其中一个。启用对应 feature 后，相同的组合方式也可以使用 `TomlConfigSource`、`YamlConfigSource` 或 `EnvFileConfigSource`。
+设置 `APP_SERVER__HOST` 和 `APP_SERVER__PORT` 后，环境变量层会在去除前缀、转小写并把双下划线转换为点号后提供最终值；单个下划线保留在层级片段中。如果规范化使不同的环境变量名称映射到同一个 key，加载会返回 `ConfigError::KeyConflict`，并按字典序报告冲突名称；不会根据进程环境变量的遍历顺序静默选择其中一个。启用对应 feature 后，相同的组合方式也可以使用 `TomlConfigSource`、`YamlConfigSource` 或 `EnvFileConfigSource`。
 
 ## 结构化读取与自定义策略
 
@@ -113,6 +113,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 ```
+
+结构化读取默认拒绝目标类型未声明的配置字段，并通过
+`ConfigError::UnknownProperties` 返回 root-relative 路径。请使用目标类型的
+Serde 结构（`rename`、`alias`、`default`、嵌套类型、map 或 `flatten`）声明可接受
+字段；只有明确允许开放字段时，才使用 `deserialize_lenient` 或
+`deserialize_interpolated_lenient`。
 
 使用结构化或 JSON 示例时，请直接添加 Serde 依赖：
 
