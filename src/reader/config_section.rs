@@ -8,6 +8,7 @@
 #![allow(private_bounds)]
 
 use std::borrow::Cow;
+use std::ops::Bound;
 
 use qubit_value::StrictValueRead;
 
@@ -343,8 +344,7 @@ impl<'a> ConfigReader for ConfigSection<'a> {
     }
 
     fn contains_key_prefix(&self, prefix: &str) -> bool {
-        self.visible_entries()
-            .any(|(key, _)| key.starts_with(prefix))
+        self.iter_prefix(prefix).next().is_some()
     }
 
     fn contains_section(&self, path: &str) -> ConfigResult<bool> {
@@ -359,11 +359,21 @@ impl<'a> ConfigReader for ConfigSection<'a> {
     fn iter_prefix<'b>(
         &'b self,
         prefix: &'b str,
-    ) -> Box<dyn Iterator<Item = (&'b str, &'b Property)> + 'b> {
-        Box::new(
-            self.visible_entries()
-                .filter(move |(key, _)| key.starts_with(prefix)),
-        )
+    ) -> impl Iterator<Item = (&'b str, &'b Property)> + 'b {
+        let child_prefix = self.child_prefix.as_deref().unwrap_or("");
+        let full_prefix = format!("{child_prefix}{prefix}");
+        let lower_bound = full_prefix.clone();
+        let child_prefix_len = child_prefix.len();
+        self.config
+            .properties
+            .range::<String, _>((
+                Bound::Included(lower_bound),
+                Bound::Unbounded,
+            ))
+            .take_while(move |(key, _)| key.starts_with(&full_prefix))
+            .map(move |(key, property)| {
+                (&key[child_prefix_len..], property)
+            })
     }
 
     fn iter<'b>(

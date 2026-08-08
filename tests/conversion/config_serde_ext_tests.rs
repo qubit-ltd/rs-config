@@ -14,6 +14,7 @@ use qubit_config::ConfigReader;
 use qubit_config::ConfigResult;
 use qubit_config::conversion::ConfigSerdeExt;
 use qubit_config::options::ReadPolicy;
+use qubit_datatype::BlankStringPolicy;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -42,6 +43,12 @@ struct RawSettings {
 #[derive(Debug, Deserialize, PartialEq)]
 struct LabelSettings {
     label: String,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+struct OptionalLabelSettings {
+    #[serde(default)]
+    label: Option<String>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -237,6 +244,64 @@ fn test_deserialize_interpolated_preserves_expansion_limit_error() {
             max_expansions: 1,
         } if path == "retry.label"
     ));
+}
+
+#[test]
+fn test_deserialize_interpolated_strict_prepares_string_once() {
+    let mut config = Config::new();
+    config.set("name", "service").unwrap();
+    config.set("settings.label", "${name}-api").unwrap();
+
+    let settings: LabelSettings = config
+        .deserialize_interpolated("settings")
+        .expect("strict interpolation should deserialize the declared field");
+
+    assert_eq!(settings.label, "service-api");
+}
+
+#[test]
+fn test_deserialize_interpolated_lenient_prepares_string_once() {
+    let mut config = Config::new();
+    config.set("name", "service").unwrap();
+    config.set("settings.label", "${name}-api").unwrap();
+    config.set("settings.extra", "ignored").unwrap();
+
+    let settings: LabelSettings = config
+        .deserialize_interpolated_lenient("settings")
+        .expect("lenient interpolation should ignore the extra field");
+
+    assert_eq!(settings.label, "service-api");
+}
+
+#[test]
+fn test_deserialize_interpolated_uses_root_fallback_once() {
+    let mut config = Config::new();
+    config.set("suffix", "api").unwrap();
+    config.set("settings.label", "service-${suffix}").unwrap();
+
+    let settings: LabelSettings = config
+        .section("settings")
+        .unwrap()
+        .deserialize_interpolated("")
+        .expect("the section should use the root fallback");
+
+    assert_eq!(settings.label, "service-api");
+}
+
+#[test]
+fn test_deserialize_interpolated_missing_string_stays_absent() {
+    let mut config = Config::new();
+    config.set("blank", "   ").unwrap();
+    config.set("settings.label", "${blank}").unwrap();
+    let policy = ReadPolicy::default()
+        .with_blank_string_policy(BlankStringPolicy::TreatAsMissing);
+
+    let settings: OptionalLabelSettings = config
+        .read_with(&policy)
+        .deserialize_interpolated_lenient("settings")
+        .expect("a prepared missing string should be omitted");
+
+    assert_eq!(settings.label, None);
 }
 
 #[test]

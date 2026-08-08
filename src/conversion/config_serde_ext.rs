@@ -8,7 +8,6 @@
 //! Serde-based structured reads for configuration readers.
 
 use qubit_datatype::DataType;
-use qubit_value::ValueRef;
 use serde::de::DeserializeOwned;
 use serde_json::Map;
 use serde_json::Value as JsonValue;
@@ -234,23 +233,20 @@ where
     P: ConfigReader + ?Sized,
     F: ConfigReader + ?Sized,
 {
-    if scalar_string_is_missing_for_deserialize(
+    let value = utils::prepare_deserialize_value(
+        property,
+        path,
         primary,
         fallback,
+        interpolate,
+    )?;
+    if prepared_scalar_string_is_missing_for_deserialize(
+        &value,
         path,
         property,
         primary.read_policy(),
-        interpolate,
     )? {
         return Ok(JsonValue::Null);
-    }
-
-    let mut value =
-        utils::property_to_json_value(property, path, primary.read_policy())?;
-    if interpolate {
-        utils::substitute_json_strings_with_fallback(
-            &mut value, path, primary, fallback,
-        )?;
     }
     Ok(value)
 }
@@ -274,66 +270,47 @@ where
     let mut map = Map::new();
     for (key, property) in subtree.iter() {
         let path = property.name();
-        if scalar_string_is_missing_for_deserialize(
+        let value = utils::prepare_deserialize_value(
+            property,
+            path,
             &subtree,
             fallback,
+            interpolate,
+        )?;
+        if prepared_scalar_string_is_missing_for_deserialize(
+            &value,
             path,
             property,
             subtree.read_policy(),
-            interpolate,
         )? {
             continue;
-        }
-
-        let mut value = utils::property_to_json_value(
-            property,
-            path,
-            subtree.read_policy(),
-        )?;
-        if interpolate {
-            utils::substitute_json_strings_with_fallback(
-                &mut value, path, &subtree, fallback,
-            )?;
         }
         utils::insert_deserialize_value(&mut map, key, value)?;
     }
     Ok(JsonValue::Object(map))
 }
 
-/// Returns whether a scalar string is missing under deserialization options.
+/// Returns whether a prepared scalar string is missing under read options.
 ///
 /// # Errors
 ///
-/// Returns interpolation or string-normalization errors with `path` context.
-fn scalar_string_is_missing_for_deserialize<P, F>(
-    primary: &P,
-    fallback: &F,
+/// Returns string-normalization errors with `path` context.
+fn prepared_scalar_string_is_missing_for_deserialize(
+    value: &JsonValue,
     path: &str,
     property: &Property,
     options: &ReadPolicy,
-    interpolate: bool,
-) -> ConfigResult<bool>
-where
-    P: ConfigReader + ?Sized,
-    F: ConfigReader + ?Sized,
-{
-    let Some(value) = property.value().as_scalar() else {
+) -> ConfigResult<bool> {
+    if property.value().as_scalar().is_none() {
         return Ok(false);
-    };
-    let ValueRef::String(value) = value.view() else {
+    }
+    let JsonValue::String(value) = value else {
         return Ok(false);
-    };
-    let value = if interpolate {
-        utils::substitute_variables_with_fallback(
-            value, primary, fallback, options, path,
-        )?
-    } else {
-        value.to_string()
     };
     match options
         .conversion_options()
         .string()
-        .normalize_optional(&value)
+        .normalize_optional(value)
     {
         Ok(Some(_)) => Ok(false),
         Ok(None) => Ok(true),

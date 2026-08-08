@@ -123,3 +123,19 @@ fn test_section_missing_candidates_report_root_relative_paths() {
         ),
     );
 }
+
+#[test]
+fn test_section_iter_prefix_stays_within_full_prefix_boundary() {
+    let mut config = Config::new();
+    config.set("http.proxy.host", "localhost").unwrap();
+    config.set("http.proxy.port", 8080_u16).unwrap();
+    config.set("http.proxy2.host", "sibling").unwrap();
+    config.set("http.server.host", "outside").unwrap();
+    let section = config.section("http").unwrap();
+
+    let keys: Vec<_> = ConfigReader::iter_prefix(&section, "proxy.")
+        .map(|(key, _)| key)
+        .collect();
+
+    assert_eq!(keys, ["proxy.host", "proxy.port"]);
+}
