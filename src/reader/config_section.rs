@@ -371,9 +371,7 @@ impl<'a> ConfigReader for ConfigSection<'a> {
                 Bound::Unbounded,
             ))
             .take_while(move |(key, _)| key.starts_with(&full_prefix))
-            .map(move |(key, property)| {
-                (&key[child_prefix_len..], property)
-            })
+            .map(move |(key, property)| (&key[child_prefix_len..], property))
     }
 
     fn iter<'b>(

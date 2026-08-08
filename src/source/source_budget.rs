@@ -41,8 +41,9 @@ impl<'a> SourceBudget<'a> {
         &mut self,
         amount: usize,
     ) -> ConfigResult<()> {
-        let result =
-            self.input_bytes.consume(SourceLimitKind::InputBytes, amount);
+        let result = self
+            .input_bytes
+            .consume(SourceLimitKind::InputBytes, amount);
         result.map_err(|error| self.limit_error(error))
     }
 
@@ -65,7 +66,10 @@ impl<'a> SourceBudget<'a> {
     }
 
     /// Creates a source limit error.
-    fn limit_error(&self, error: LimitExceeded<SourceLimitKind>) -> ConfigError {
+    fn limit_error(
+        &self,
+        error: LimitExceeded<SourceLimitKind>,
+    ) -> ConfigError {
         let limit = error.maximum();
         let observed_at_least = error.observed_at_least();
         ConfigError::SourceLimitExceeded {
