@@ -321,7 +321,6 @@ impl Property {
     pub fn unset(&mut self) {
         self.value.unset();
     }
-
 }
 
 impl Deref for Property {

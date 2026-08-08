@@ -148,7 +148,7 @@ mod test_composite_config_source {
         composite.add(TomlConfigSource::from_file(fixture("override.toml")));
 
         let mut config = Config::new();
-    config.merge_properties_from_source(&composite).unwrap();
+        config.merge_properties_from_source(&composite).unwrap();
 
         assert_eq!(config.get::<String>("host").unwrap(), "production-server");
     }
@@ -180,7 +180,7 @@ mod test_composite_config_source {
         config.set("locked", "old").unwrap();
         config.set_final("locked", true).unwrap();
 
-    let result = config.merge_properties_from_source(&composite);
+        let result = config.merge_properties_from_source(&composite);
 
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
         assert_eq!(config.get::<String>("locked").unwrap(), "old");

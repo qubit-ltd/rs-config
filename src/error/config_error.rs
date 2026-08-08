@@ -200,7 +200,8 @@ pub enum ConfigError {
     /// Structured deserialization found fields not consumed by the target.
     #[error("Unknown configuration properties: {}", paths.join(", "))]
     UnknownProperties {
-        /// Root-relative configuration paths not recognized by the target type.
+        /// Root-relative configuration paths not recognized by the target
+        /// type.
         paths: Vec<String>,
     },
 
@@ -340,9 +341,9 @@ impl ConfigError {
             | Self::SubstitutionExpansionLimitExceeded { path, .. }
             | Self::SubstitutionOutputTooLarge { path, .. }
             | Self::SubstitutionCycle { path, .. } => Some(path),
-            Self::SourceParseError { path: Some(path), .. } => {
-                Some(path)
-            }
+            Self::SourceParseError {
+                path: Some(path), ..
+            } => Some(path),
             Self::UnknownProperties { paths } => match paths.as_slice() {
                 [path] => Some(path),
                 _ => None,

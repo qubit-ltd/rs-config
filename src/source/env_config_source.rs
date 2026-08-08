@@ -398,9 +398,8 @@ impl ConfigSource for EnvConfigSource {
                     incoming: format!("environment variable '{second}'"),
                 });
             }
-            let _ = ConfigKey::parse(transformed_key.as_str()).map_err(|error| {
-                error.with_source_id("process environment")
-            })?;
+            let _ = ConfigKey::parse(transformed_key.as_str())
+                .map_err(|error| error.with_source_id("process environment"))?;
             budget.check_depth(transformed_key.split('.').count())?;
             budget.consume_properties(1)?;
             config.set(&transformed_key, value)?;

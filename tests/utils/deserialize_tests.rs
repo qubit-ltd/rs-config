@@ -400,9 +400,8 @@ fn test_deserialize_substitutes_string_fields_and_lists() {
         )
         .unwrap();
 
-    let svc: ServiceConfig = config
-        .deserialize_interpolated_lenient("svc")
-        .unwrap();
+    let svc: ServiceConfig =
+        config.deserialize_interpolated_lenient("svc").unwrap();
     assert_eq!(svc.base_url, "http://localhost:8080");
     assert_eq!(
         svc.endpoints,
@@ -534,9 +533,8 @@ fn test_deserialize_substitutes_nested_json_strings() {
         )
         .unwrap();
 
-    let svc: ServiceConfig = config
-        .deserialize_interpolated_lenient("svc")
-        .unwrap();
+    let svc: ServiceConfig =
+        config.deserialize_interpolated_lenient("svc").unwrap();
     assert_eq!(
         svc.meta,
         serde_json::json!({

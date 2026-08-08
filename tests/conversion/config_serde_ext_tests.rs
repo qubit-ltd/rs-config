@@ -275,7 +275,8 @@ fn test_deserialize_lenient_explicitly_ignores_unknown_properties() {
 }
 
 #[test]
-fn test_deserialize_strict_supports_serde_alias_default_nested_map_and_flatten() {
+fn test_deserialize_strict_supports_serde_alias_default_nested_map_and_flatten()
+{
     let mut config = Config::new();
     config.set("retry.attempts", 5_u32).unwrap();
     config.set("nested.retry.attempts", 5_u32).unwrap();
