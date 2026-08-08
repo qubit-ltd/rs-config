@@ -322,21 +322,6 @@ impl Property {
         self.value.unset();
     }
 
-    /// Clones this property with a replacement name.
-    ///
-    /// # Parameters
-    ///
-    /// * `name` - Name assigned to the cloned property.
-    ///
-    /// # Returns
-    ///
-    /// A clone that preserves the value and metadata under the new name.
-    #[inline]
-    pub(crate) fn renamed(&self, name: impl Into<String>) -> Self {
-        let mut property = self.clone();
-        property.name = name.into();
-        property
-    }
 }
 
 impl Deref for Property {
