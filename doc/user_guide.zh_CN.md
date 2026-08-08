@@ -218,6 +218,12 @@ let enabled: bool = tls.get("enabled")?;
 - 由 `env-file` feature 启用的 `EnvFileConfigSource`；
 - 按顺序合并其他 source 的 `CompositeConfigSource`。
 
+properties parser 遵循 Java properties 的 escape dialect。它会解码
+`\t`、`\n`、`\r`、`\f`、被转义的分隔符和空格、合法的 `\uXXXX`
+UTF-16 code unit 以及合法的 surrogate pair。像 `\u12G4` 这样错误或
+不完整的 Unicode escape 会原样保留；未知的非 Unicode escape 会按
+Java properties 行为去掉前导反斜杠。
+
 `EnvFileConfigSource` 会把 `$NAME` 和 `${NAME}` 占位符作为字面值保留。应
 通过显式的 `*_interpolated` 读取策略在后续读取时解析；加载 `.env` 文件不会
 隐式读取进程环境变量。YAML anchor 和 alias 会由预扫描拒绝，预扫描会跳过
@@ -286,13 +292,17 @@ use qubit_config::Config;
 
 let mut config = Config::new();
 config.set("server.port", 8080)?;
-let bytes = serde_json::to_vec(&config)?;
+let bytes = config.encode_json_vec()?;
 let restored = Config::decode_json_slice(&bytes)?;
 assert_eq!(restored.get::<i64>("server.port")?, 8080);
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
-当默认 wire budget 不适用时，`Config::decode_json_slice_with_limits` 接收 `ConfigWireLimits`。该 wire budget 与读取文本 source 时使用的 `SourceLimits` 相互独立。
+当默认 wire budget 不适用时，`Config::encode_json_vec_with_limits`
+和 `Config::decode_json_slice_with_limits` 都接收 `ConfigWireLimits`。受限
+编码会在序列化前检查语义 limit，并在序列化后检查最终字节数。
+普通 Serde 序列化的行为保持不变。该 wire budget 与读取文本 source 时
+使用的 `SourceLimits` 相互独立。
 
 ## 进阶用法
 

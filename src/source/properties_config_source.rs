@@ -19,6 +19,25 @@
 //! - Blank lines (ignored)
 //! - Line continuation with an odd number of `\` characters at end of line
 //! - Java properties escape sequences (`\uXXXX`, `\=`, `\:`, `\ `, etc.)
+//!
+//! # Escape Dialect
+//!
+//! Valid `\uXXXX` escapes decode one UTF-16 code unit, and a valid high/low
+//! surrogate pair decodes one Unicode scalar. A malformed or incomplete
+//! Unicode escape is preserved verbatim so configuration data is not silently
+//! discarded. As in Java properties files, an unknown non-Unicode escape
+//! removes its leading backslash.
+//!
+//! ```rust
+//! use qubit_config::source::PropertiesConfigSource;
+//!
+//! let pairs = PropertiesConfigSource::parse_content(r"broken=\u12G4")?;
+//! assert_eq!(
+//!     pairs,
+//!     vec![("broken".to_string(), r"\u12G4".to_string())],
+//! );
+//! # Ok::<(), qubit_config::ConfigError>(())
+//! ```
 
 use std::iter::Peekable;
 use std::path::Path;
