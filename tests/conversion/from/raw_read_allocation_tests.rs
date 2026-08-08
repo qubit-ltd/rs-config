@@ -15,6 +15,7 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
 use qubit_config::Config;
+use qubit_config::ConfigReader;
 
 struct CountingAllocator;
 
@@ -54,5 +55,28 @@ fn test_raw_scalar_conversion_does_not_clone_source_text() {
     assert_eq!(
         allocations, 0,
         "raw scalar conversion should not allocate a cloned source string",
+    );
+}
+
+#[test]
+fn test_root_reader_prefix_iteration_does_not_box() {
+    let mut config = Config::new();
+    config
+        .set("http.host", "localhost")
+        .expect("the test configuration should accept the value");
+    assert_eq!(
+        <Config as ConfigReader>::iter_prefix(&config, "http.").count(),
+        1,
+    );
+
+    ALLOCATIONS.store(0, Ordering::Relaxed);
+    let count =
+        <Config as ConfigReader>::iter_prefix(&config, "http.").count();
+    let allocations = ALLOCATIONS.load(Ordering::Relaxed);
+
+    assert_eq!(count, 1);
+    assert_eq!(
+        allocations, 0,
+        "root prefix iteration should not allocate a boxed iterator",
     );
 }

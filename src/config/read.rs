@@ -668,8 +668,8 @@ impl ConfigReader for Config {
     fn iter_prefix<'a>(
         &'a self,
         prefix: &'a str,
-    ) -> Box<dyn Iterator<Item = (&'a str, &'a Property)> + 'a> {
-        Box::new(Config::iter_prefix(self, prefix))
+    ) -> impl Iterator<Item = (&'a str, &'a Property)> + 'a {
+        Config::iter_prefix(self, prefix)
     }
 
     #[inline]

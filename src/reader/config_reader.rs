@@ -639,11 +639,11 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// # Returns
     ///
-    /// A boxed iterator over matching entries.
+    /// An iterator over matching entries without dynamic dispatch.
     fn iter_prefix<'a>(
         &'a self,
         prefix: &'a str,
-    ) -> Box<dyn Iterator<Item = (&'a str, &'a Property)> + 'a>;
+    ) -> impl Iterator<Item = (&'a str, &'a Property)> + 'a;
 
     /// Iterates all `(key, property)` pairs visible to this reader (same scope
     /// as [`Self::keys`]).

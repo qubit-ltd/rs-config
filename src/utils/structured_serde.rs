@@ -16,7 +16,6 @@ use crate::ConfigError;
 use crate::ConfigReader;
 use crate::ConfigResult;
 use crate::Property;
-use crate::options::ReadPolicy;
 
 /// Inserts a value into the serde object used by
 /// [`crate::Config::deserialize`].
@@ -113,20 +112,49 @@ fn json_value_kind(value: &Value) -> &'static str {
     }
 }
 
-/// Converts a [`Property`] into [`serde_json::Value`] (for
-/// [`crate::Config::deserialize`]).
-pub(crate) fn property_to_json_value(
+/// Converts a property to its JSON representation and optionally interpolates
+/// every prepared string leaf exactly once.
+///
+/// # Parameters
+///
+/// * `prop` - Property to project into the structured Serde representation.
+/// * `path` - Root-relative path used for conversion and interpolation errors.
+/// * `primary` - Reader used first for placeholder lookup.
+/// * `fallback` - Reader used when a placeholder is absent from `primary`.
+/// * `interpolate` - Whether prepared JSON string leaves are interpolated.
+///
+/// # Returns
+///
+/// The prepared JSON value.
+///
+/// # Errors
+///
+/// Returns conversion, interpolation, or interpolation-limit errors with
+/// `path` context.
+pub(crate) fn prepare_deserialize_value<
+    P: ConfigReader + ?Sized,
+    F: ConfigReader + ?Sized,
+>(
     prop: &Property,
     path: &str,
-    options: &ReadPolicy,
+    primary: &P,
+    fallback: &F,
+    interpolate: bool,
 ) -> ConfigResult<Value> {
-    prop.value()
-        .to_json_value_with(options.conversion_options())
-        .map_err(|error| map_value_error(path, error))
+    let mut value = prop
+        .value()
+        .to_json_value_with(primary.read_policy().conversion_options())
+        .map_err(|error| map_value_error(path, error))?;
+    if interpolate {
+        substitute_json_strings_with_fallback(
+            &mut value, path, primary, fallback,
+        )?;
+    }
+    Ok(value)
 }
 
 /// Applies variable substitution to every JSON string leaf with fallback scope.
-pub(crate) fn substitute_json_strings_with_fallback<
+fn substitute_json_strings_with_fallback<
     P: ConfigReader + ?Sized,
     F: ConfigReader + ?Sized,
 >(

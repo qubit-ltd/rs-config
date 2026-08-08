@@ -25,8 +25,7 @@ mod structured_serde;
 
 pub(crate) use interpolation::substitute_variables_with_fallback;
 pub(crate) use structured_serde::insert_deserialize_value;
-pub(crate) use structured_serde::property_to_json_value;
-pub(crate) use structured_serde::substitute_json_strings_with_fallback;
+pub(crate) use structured_serde::prepare_deserialize_value;
 
 /// Maps a [`ValueError`] from typed property access to [`ConfigError`], using
 /// `key` as the configuration path for type and conversion errors.
