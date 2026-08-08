@@ -219,38 +219,52 @@ pub(crate) fn flatten_toml_value(
         TomlValue::String(s) => {
             ensure_toml_property(source_id, seen, prefix, budget)?;
             config.set(prefix, s.clone()).map_err(|error| {
-                error.with_source_context(source_id, Some(prefix.to_string()), None)
+                error.with_source_context(
+                    source_id,
+                    Some(prefix.to_string()),
+                    None,
+                )
             })?;
         }
         TomlValue::Integer(i) => {
             ensure_toml_property(source_id, seen, prefix, budget)?;
             config.set(prefix, *i).map_err(|error| {
-                error.with_source_context(source_id, Some(prefix.to_string()), None)
+                error.with_source_context(
+                    source_id,
+                    Some(prefix.to_string()),
+                    None,
+                )
             })?;
         }
         TomlValue::Float(f) => {
             ensure_toml_property(source_id, seen, prefix, budget)?;
             config.set(prefix, *f).map_err(|error| {
-                error.with_source_context(source_id, Some(prefix.to_string()), None)
+                error.with_source_context(
+                    source_id,
+                    Some(prefix.to_string()),
+                    None,
+                )
             })?;
         }
         TomlValue::Boolean(b) => {
             ensure_toml_property(source_id, seen, prefix, budget)?;
             config.set(prefix, *b).map_err(|error| {
-                error.with_source_context(source_id, Some(prefix.to_string()), None)
+                error.with_source_context(
+                    source_id,
+                    Some(prefix.to_string()),
+                    None,
+                )
             })?;
         }
         TomlValue::Datetime(dt) => {
             ensure_toml_property(source_id, seen, prefix, budget)?;
-            config
-                .set(prefix, dt.to_string())
-                .map_err(|error| {
-                    error.with_source_context(
-                        source_id,
-                        Some(prefix.to_string()),
-                        None,
-                    )
-                })?;
+            config.set(prefix, dt.to_string()).map_err(|error| {
+                error.with_source_context(
+                    source_id,
+                    Some(prefix.to_string()),
+                    None,
+                )
+            })?;
         }
     }
     Ok(())
@@ -299,11 +313,9 @@ fn flatten_toml_array(
     config: &mut Config,
 ) -> ConfigResult<()> {
     if arr.is_empty() {
-        config
-            .set(prefix, Vec::<String>::new())
-            .map_err(|error| {
-                error.with_source_context(source_id, Some(prefix.to_string()), None)
-            })?;
+        config.set(prefix, Vec::<String>::new()).map_err(|error| {
+            error.with_source_context(source_id, Some(prefix.to_string()), None)
+        })?;
         return Ok(());
     }
 
@@ -365,9 +377,7 @@ fn flatten_toml_array(
         _ => {
             let index = arr
                 .iter()
-                .position(|value| {
-                    !same_toml_scalar_kind(&arr[0], value)
-                })
+                .position(|value| !same_toml_scalar_kind(&arr[0], value))
                 .unwrap_or(0);
             Err(ConfigError::source_parse_error_at(
                 source_id,

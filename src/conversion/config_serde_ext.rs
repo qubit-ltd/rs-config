@@ -142,17 +142,15 @@ where
 {
     let path = reader.resolve_key(prefix)?;
     let value = deserialize_root_value(reader, prefix, interpolate)?;
-    let deserializer = ConfigValueDeserializer::new(
-        value,
-        path.clone(),
-        reader.read_policy(),
-    );
+    let deserializer =
+        ConfigValueDeserializer::new(value, path.clone(), reader.read_policy());
     let mut ignored = Vec::new();
     let result = match unknown_mode {
-        UnknownPropertyMode::Reject => serde_ignored::deserialize(
-            deserializer,
-            |ignored_path| ignored.push(ignored_path.to_string()),
-        ),
+        UnknownPropertyMode::Reject => {
+            serde_ignored::deserialize(deserializer, |ignored_path| {
+                ignored.push(ignored_path.to_string())
+            })
+        }
         UnknownPropertyMode::Ignore => T::deserialize(deserializer),
     };
     match result {
@@ -188,7 +186,11 @@ fn join_ignored_path(prefix: &str, ignored_path: &str) -> String {
 ///
 /// Returns a key conflict when an exact property and descendants coexist, or
 /// propagates conversion and interpolation errors.
-fn deserialize_root_value<R>(reader: &R, prefix: &str, interpolate: bool) -> ConfigResult<JsonValue>
+fn deserialize_root_value<R>(
+    reader: &R,
+    prefix: &str,
+    interpolate: bool,
+) -> ConfigResult<JsonValue>
 where
     R: ConfigReader + ?Sized,
 {
@@ -243,9 +245,12 @@ where
         return Ok(JsonValue::Null);
     }
 
-    let mut value = utils::property_to_json_value(property, path, primary.read_policy())?;
+    let mut value =
+        utils::property_to_json_value(property, path, primary.read_policy())?;
     if interpolate {
-        utils::substitute_json_strings_with_fallback(&mut value, path, primary, fallback)?;
+        utils::substitute_json_strings_with_fallback(
+            &mut value, path, primary, fallback,
+        )?;
     }
     Ok(value)
 }
@@ -280,9 +285,15 @@ where
             continue;
         }
 
-        let mut value = utils::property_to_json_value(property, path, subtree.read_policy())?;
+        let mut value = utils::property_to_json_value(
+            property,
+            path,
+            subtree.read_policy(),
+        )?;
         if interpolate {
-            utils::substitute_json_strings_with_fallback(&mut value, path, &subtree, fallback)?;
+            utils::substitute_json_strings_with_fallback(
+                &mut value, path, &subtree, fallback,
+            )?;
         }
         utils::insert_deserialize_value(&mut map, key, value)?;
     }
@@ -313,7 +324,9 @@ where
         return Ok(false);
     };
     let value = if interpolate {
-        utils::substitute_variables_with_fallback(value, primary, fallback, options, path)?
+        utils::substitute_variables_with_fallback(
+            value, primary, fallback, options, path,
+        )?
     } else {
         value.to_string()
     };

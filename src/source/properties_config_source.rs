@@ -100,11 +100,7 @@ impl PropertiesConfigSource {
         content: &str,
         limits: SourceLimits,
     ) -> ConfigResult<Vec<(String, String)>> {
-        Self::parse_content_with_source(
-            content,
-            limits,
-            "properties:<memory>",
-        )
+        Self::parse_content_with_source(content, limits, "properties:<memory>")
     }
 
     /// Parses properties text using an explicit source identifier.
@@ -392,11 +388,8 @@ impl ConfigSource for PropertiesConfigSource {
         let mut config = Config::new();
         let source_id = self.input.label("properties");
         let content = self.input.read_to_string("properties", self.limits)?;
-        let properties = Self::parse_content_with_source(
-            &content,
-            self.limits,
-            &source_id,
-        )?;
+        let properties =
+            Self::parse_content_with_source(&content, self.limits, &source_id)?;
         for (key, value) in properties {
             config.set(&key, value).map_err(|error| {
                 error.with_source_context(&source_id, Some(key.clone()), None)

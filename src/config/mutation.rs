@@ -176,7 +176,10 @@ impl Config {
     ///
     /// `Ok(())` when all properties are merged successfully.
     #[inline]
-    pub fn merge_properties(&mut self, source_config: Config) -> ConfigResult<()> {
+    pub fn merge_properties(
+        &mut self,
+        source_config: Config,
+    ) -> ConfigResult<()> {
         // Validate every incoming property before mutating `self`. This keeps
         // the merge transactional without cloning the complete configuration.
         for (name, property) in &source_config.properties {
@@ -190,9 +193,7 @@ impl Config {
             self.ensure_property_not_final(name)?;
         }
 
-        let Config {
-            mut properties, ..
-        } = source_config;
+        let Config { mut properties, .. } = source_config;
         self.properties.append(&mut properties);
         Ok(())
     }

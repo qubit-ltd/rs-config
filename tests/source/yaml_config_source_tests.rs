@@ -472,10 +472,7 @@ mod test_yaml_edge_cases {
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
         let result = merge_source(&mut config, &source);
-        assert!(matches!(
-            result,
-            Err(ConfigError::SourceParseError { .. })
-        ));
+        assert!(matches!(result, Err(ConfigError::SourceParseError { .. })));
     }
 
     // ---- yaml: null key ----

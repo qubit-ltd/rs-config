@@ -283,38 +283,62 @@ pub(crate) fn flatten_yaml_value(
             use qubit_datatype::DataType;
             ensure_yaml_property(source_id, seen, prefix, budget)?;
             config.set_null(prefix, DataType::String).map_err(|error| {
-                error.with_source_context(source_id, Some(prefix.to_string()), None)
+                error.with_source_context(
+                    source_id,
+                    Some(prefix.to_string()),
+                    None,
+                )
             })?;
         }
         YamlValue::Bool(b) => {
             ensure_yaml_property(source_id, seen, prefix, budget)?;
             config.set(prefix, *b).map_err(|error| {
-                error.with_source_context(source_id, Some(prefix.to_string()), None)
+                error.with_source_context(
+                    source_id,
+                    Some(prefix.to_string()),
+                    None,
+                )
             })?;
         }
         YamlValue::Number(n) => {
             ensure_yaml_property(source_id, seen, prefix, budget)?;
             if let Some(i) = n.as_i64() {
                 config.set(prefix, i).map_err(|error| {
-                    error.with_source_context(source_id, Some(prefix.to_string()), None)
+                    error.with_source_context(
+                        source_id,
+                        Some(prefix.to_string()),
+                        None,
+                    )
                 })?;
             } else if let Some(i) = n.as_u64() {
                 config.set(prefix, i).map_err(|error| {
-                    error.with_source_context(source_id, Some(prefix.to_string()), None)
+                    error.with_source_context(
+                        source_id,
+                        Some(prefix.to_string()),
+                        None,
+                    )
                 })?;
             } else {
                 let f = n.as_f64().expect(
                     "YAML number should be representable as i64, u64, or f64",
                 );
                 config.set(prefix, f).map_err(|error| {
-                    error.with_source_context(source_id, Some(prefix.to_string()), None)
+                    error.with_source_context(
+                        source_id,
+                        Some(prefix.to_string()),
+                        None,
+                    )
                 })?;
             }
         }
         YamlValue::String(s) => {
             ensure_yaml_property(source_id, seen, prefix, budget)?;
             config.set(prefix, s.clone()).map_err(|error| {
-                error.with_source_context(source_id, Some(prefix.to_string()), None)
+                error.with_source_context(
+                    source_id,
+                    Some(prefix.to_string()),
+                    None,
+                )
             })?;
         }
         YamlValue::Tagged(tagged) => {
@@ -376,18 +400,18 @@ fn flatten_yaml_sequence(
     config: &mut Config,
 ) -> ConfigResult<()> {
     if seq.is_empty() {
-        config
-            .set(prefix, Vec::<String>::new())
-            .map_err(|error| {
-                error.with_source_context(source_id, Some(prefix.to_string()), None)
-            })?;
+        config.set(prefix, Vec::<String>::new()).map_err(|error| {
+            error.with_source_context(source_id, Some(prefix.to_string()), None)
+        })?;
         return Ok(());
     }
 
     if let Some(index) = seq.iter().position(|value| {
         matches!(
             value,
-            YamlValue::Mapping(_) | YamlValue::Sequence(_) | YamlValue::Tagged(_)
+            YamlValue::Mapping(_)
+                | YamlValue::Sequence(_)
+                | YamlValue::Tagged(_)
         )
     }) {
         return Err(ConfigError::source_parse_error_at(
@@ -563,12 +587,10 @@ fn yaml_scalar_to_string(value: &YamlValue, key: &str) -> ConfigResult<String> {
         YamlValue::Null => Ok(String::new()),
         YamlValue::Sequence(_)
         | YamlValue::Mapping(_)
-        | YamlValue::Tagged(_) => {
-            Err(ConfigError::ParseError(format!(
-                "Unsupported nested YAML structure at key '{key}': {:?}",
-                redacted_debug(value),
-            )))
-        }
+        | YamlValue::Tagged(_) => Err(ConfigError::ParseError(format!(
+            "Unsupported nested YAML structure at key '{key}': {:?}",
+            redacted_debug(value),
+        ))),
     }
 }
 
