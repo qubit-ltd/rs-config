@@ -2,7 +2,7 @@
 
 [简体中文](user_guide.zh_CN.md) | English
 
-This guide describes `qubit-config` `0.15.0`. It is for Rust application developers who need to load configuration from more than one place, read it as typed values, and diagnose invalid input without coupling application code to a particular file format.
+This guide describes `qubit-config` `0.16.0`. It is for Rust application developers who need to load configuration from more than one place, read it as typed values, and diagnose invalid input without coupling application code to a particular file format.
 
 ## Purpose and Audience
 
@@ -36,6 +36,20 @@ There are two different kinds of conversion to keep separate:
 - `ConfigSerdeExt` and `Config::deserialize` project one exact property or subtree into a Serde-owned type.
 
 The root `Config` and a section share the same read methods, but their key scopes differ. A section created at `server` resolves `host` to `server.host`; it does not expose the exact scalar property `server` as a child.
+
+### Public API layers
+
+The intended stable core is `Config`, `ConfigReader`, `ConfigSection`,
+`ReadPolicy`, and `ConfigSerdeExt`. These types cover configuration ownership,
+typed reads, scoped views, conversion policy, and structured deserialization.
+
+Source adapters such as `PropertiesConfigSource`, `EnvConfigSource`,
+`TomlConfigSource`, and `YamlConfigSource` form a separate loading layer and
+can be enabled or selected according to the application's input formats.
+Persistence and wire decoding, together with low-level `Property` operations,
+are peripheral APIs for applications that need those specific capabilities.
+The crate does not imply a reload framework, asynchronous source API,
+object-safe reader, or schema DSL as part of the stable core.
 
 ## Scenario: Baseline Plus Deployment Overrides
 
@@ -211,8 +225,12 @@ Every `ConfigSource::load` call creates an independent layer. Built-in sources i
 `EnvFileConfigSource` preserves `$NAME` and `${NAME}` placeholders as literal
 values. Resolve them later through an explicit `*_interpolated` read policy;
 loading a `.env` file never reads process-environment values implicitly. YAML
-anchors and aliases are rejected before the YAML document is materialized so
-source limits remain meaningful for untrusted input.
+anchors and aliases are rejected by a pre-scan that skips quoted, commented,
+and block-scalar content, so alias expansion cannot multiply the materialized
+configuration. The input-byte limit is checked before parsing. For TOML and
+YAML, property-count and nesting-depth limits are enforced while flattening
+the parser's materialized AST; they constrain the resulting configuration but
+do not bound intermediate parser allocation or recursion.
 
 Use a convenience constructor when no target customization is needed:
 
@@ -361,7 +379,12 @@ The default `SourceLimits` are:
 | Emitted assignments | 65,536 |
 | Nesting depth | 64 |
 
-All built-in text sources apply the same kind of budget to file and in-memory entry points. `SourceLimits::unbounded()` disables these three source limits; use it only when the input boundary is controlled by the application.
+All built-in text sources apply the same budget to file and in-memory entry
+points. `max_input_bytes` is checked before parsing. For TOML and YAML,
+`max_properties` and `max_nesting_depth` apply after the parser has built its
+AST, while the source is being flattened; they are not parser-stage memory or
+recursion limits. `SourceLimits::unbounded()` disables these three source
+limits; use it only when the input boundary is controlled by the application.
 
 ## Errors and Diagnostics
 
@@ -423,7 +446,9 @@ Check the source result independently with `source.load()`, then inspect its key
 - Configuration keys and section paths are validated; callers should not rely on implicit trimming or normalization of ordinary keys.
 - Ordinary reads do not interpolate. Keep interpolation at explicit call sites so the trust boundary is visible.
 - Process-environment fallback is disabled unless `InterpolationSources::ConfigThenEnv` is selected.
-- Built-in source loads are bounded by default. Wire decoding has a separate `ConfigWireLimits` budget.
+- Built-in source loads are bounded by default. The input-byte limit protects
+  the parser boundary; TOML/YAML property and depth limits protect AST
+  flattening. Wire decoding has a separate `ConfigWireLimits` budget.
 - Source layers are independent and merged transactionally, but `Config` itself is mutable; choose ownership and synchronization in the application that uses it.
 - `ConfigReader` is sealed and not object-safe because it has generic methods. Use generic bounds such as `&impl ConfigReader` rather than `dyn ConfigReader`.
 - `ConfigSection` is a borrowed view. Keep the originating `Config` alive while using it and use relative keys within the section.

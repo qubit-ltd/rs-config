@@ -2,7 +2,7 @@
 
 [English](user_guide.md) | 简体中文
 
-本手册针对 `qubit-config` `0.15.0`。读者是需要从多个来源加载配置、以类型化方式读取配置，并在输入无效时获得可诊断错误的 Rust 应用开发者。本手册不要求业务代码绑定到某一种文件格式。
+本手册针对 `qubit-config` `0.16.0`。读者是需要从多个来源加载配置、以类型化方式读取配置，并在输入无效时获得可诊断错误的 Rust 应用开发者。本手册不要求业务代码绑定到某一种文件格式。
 
 ## 手册目标与读者
 
@@ -36,6 +36,18 @@
 - `ConfigSerdeExt` 和 `Config::deserialize` 把一个精确 property 或 subtree 投影为由 Serde 管理的类型。
 
 根 `Config` 和 section 共享相同的读取方法，但 key scope 不同。在 `server` 创建的 section 中，`host` 会解析为 `server.host`；它不会把恰好名为 `server` 的标量 property 暴露为子项。
+
+### 公共 API 分层
+
+当前建议作为稳定核心依赖的 API 是 `Config`、`ConfigReader`、
+`ConfigSection`、`ReadPolicy` 和 `ConfigSerdeExt`。这些类型覆盖配置持有、
+类型化读取、作用域视图、转换策略和结构化反序列化。
+
+`PropertiesConfigSource`、`EnvConfigSource`、`TomlConfigSource` 和
+`YamlConfigSource` 等 source adapter 属于独立的加载层，应按应用实际需要的
+输入格式选择和启用。持久化与 wire 解码，以及低层 `Property` 操作，属于
+需要具体能力时再使用的外围 API。当前稳定核心不包含 reload framework、
+异步 source、object-safe reader 或 schema DSL。
 
 ## 贯穿场景：基础配置叠加部署覆盖
 
@@ -208,8 +220,11 @@ let enabled: bool = tls.get("enabled")?;
 
 `EnvFileConfigSource` 会把 `$NAME` 和 `${NAME}` 占位符作为字面值保留。应
 通过显式的 `*_interpolated` 读取策略在后续读取时解析；加载 `.env` 文件不会
-隐式读取进程环境变量。YAML anchor 和 alias 会在 YAML 文档物化前被拒绝，
-从而使 source limit 对不可信输入仍然有效。
+隐式读取进程环境变量。YAML anchor 和 alias 会由预扫描拒绝，预扫描会跳过
+引号、注释和 block scalar 内容，因此 alias 展开不会放大物化后的配置。输入
+字节数限制在 parser 前检查。对于 TOML 和 YAML，property 数量与嵌套深度限制
+在 parser 物化 AST 后的 flatten 阶段执行；它们约束最终配置，不限制 parser
+中间阶段的内存分配或递归深度。
 
 如果不需要在加载前定制目标配置，可以使用便捷构造函数：
 
@@ -355,7 +370,11 @@ TOML 和 YAML source 会把 mapping 展开成点分隔 property，只接受标�
 | 输出 assignment 数 | 65,536 |
 | 嵌套深度 | 64 |
 
-所有内置文本 source 对文件入口和内存入口应用同类 budget。`SourceLimits::unbounded()` 会关闭这三项 source 限制；只有当输入边界由应用控制时才应使用它。
+所有内置文本 source 对文件入口和内存入口应用同类 budget。`max_input_bytes`
+在 parser 前检查。对于 TOML 和 YAML，`max_properties` 与
+`max_nesting_depth` 在 parser 构建 AST 后、source flatten 期间执行；它们不是
+parser 阶段的内存或递归限制。`SourceLimits::unbounded()` 会关闭这三项 source
+限制；只有当输入边界由应用控制时才应使用它。
 
 ## 错误与诊断
 
@@ -417,7 +436,9 @@ source label；其他错误返回 `None`。
 - 配置 key 和 section path 会被校验；不要依赖普通 key 的隐式 trim 或规范化。
 - 普通读取不会插值。把插值放在显式调用点，让信任边界清晰可见。
 - 只有选择 `InterpolationSources::ConfigThenEnv` 后才会回退到进程环境变量。
-- 内置 source 默认受边界限制；wire 解码使用独立的 `ConfigWireLimits` budget。
+- 内置 source 默认受边界限制。输入字节数限制保护 parser 边界，TOML/YAML 的
+  property 与深度限制保护 AST flatten；wire 解码使用独立的 `ConfigWireLimits`
+  budget。
 - source layer 独立创建并事务式合并，但 `Config` 本身是可变的；应用需要自行决定所有权和同步方式。
 - `ConfigReader` 是 sealed 且不是 object-safe，因为它含有泛型方法。请使用 `&impl ConfigReader` 等泛型约束，而不是 `dyn ConfigReader`。
 - `ConfigSection` 是借用视图。使用期间必须保持来源 `Config` 存活，并在 section 内使用相对 key。
