@@ -195,7 +195,7 @@ let enabled: bool = tls.get("enabled")?;
 
 Use `contains_section("server.tls")` for dotted section membership. Use `contains_key_prefix("server")` only when raw character-prefix matching is intended; it can also match a sibling such as `server2`.
 
-Path-sensitive methods such as `section`, `contains`, `get_property`, `is_unset`, `remove`, `subconfig`, and `ConfigReader::resolve_key` return `ConfigResult` because invalid paths are observable errors.
+Path-sensitive methods such as `section`, `contains`, `get_property`, `is_unset`, `remove`, and `ConfigReader::resolve_key` return `ConfigResult` because invalid paths are observable errors.
 
 ### Load and merge sources
 

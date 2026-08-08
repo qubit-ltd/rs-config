@@ -40,10 +40,6 @@ mod config_serde_ext;
 #[path = "conversion/config_value_deserializer.rs"]
 mod config_value_deserializer;
 mod config_wire_limits;
-#[path = "lifecycle/configurable.rs"]
-mod configurable;
-#[path = "lifecycle/configured.rs"]
-mod configured;
 mod constants;
 pub mod conversion;
 pub mod error;
@@ -54,7 +50,6 @@ mod helpers;
 #[path = "conversion/into_config_default.rs"]
 mod into_config_default;
 pub mod key;
-pub mod lifecycle;
 pub mod options;
 pub mod property;
 #[path = "reader/read_policy.rs"]
@@ -77,8 +72,6 @@ pub use config_serde_ext::ConfigSerdeExt;
 pub use config_wire_limits::ConfigWireDecodeError;
 pub use config_wire_limits::ConfigWireLimitKind;
 pub use config_wire_limits::ConfigWireLimits;
-pub use configurable::Configurable;
-pub use configured::Configured;
 pub use error::ConfigError;
 pub use error::ConfigResult;
 pub use property::Property;

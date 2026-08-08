@@ -184,14 +184,6 @@ name = "config_path_tests"
 path = "tests/key/config_path_tests.rs"
 
 [[test]]
-name = "configurable_tests"
-path = "tests/lifecycle/configurable_tests.rs"
-
-[[test]]
-name = "configured_tests"
-path = "tests/lifecycle/configured_tests.rs"
-
-[[test]]
 name = "config_property_mut_tests"
 path = "tests/property/config_property_mut_tests.rs"
 

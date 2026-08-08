@@ -193,7 +193,7 @@ let enabled: bool = tls.get("enabled")?;
 # let _ = enabled;
 ```
 
-判断点分 section 是否存在时使用 `contains_section("server.tls")`。只有明确需要原始字符前缀匹配时才使用 `contains_key_prefix("server")`；它也可能匹配 `server2` 等同名前缀。path-sensitive 的 `section`、`contains`、`get_property`、`is_unset`、`remove`、`subconfig` 和 `ConfigReader::resolve_key` 都返回 `ConfigResult`，因为非法路径是可观察错误。
+判断点分 section 是否存在时使用 `contains_section("server.tls")`。只有明确需要原始字符前缀匹配时才使用 `contains_key_prefix("server")`；它也可能匹配 `server2` 等同名前缀。path-sensitive 的 `section`、`contains`、`get_property`、`is_unset`、`remove` 和 `ConfigReader::resolve_key` 都返回 `ConfigResult`，因为非法路径是可观察错误。
 
 ### 加载和合并 source
 
