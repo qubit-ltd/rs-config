@@ -115,12 +115,12 @@ impl Config {
         })
     }
 
-    /// Merges configuration from a `ConfigSource`
+    /// Merges only properties loaded from a `ConfigSource`.
     ///
-    /// Loads all key-value pairs from the given source and merges them into
-    /// this configuration. Existing non-final properties are overwritten;
-    /// final properties are preserved and cause an error if the source tries
-    /// to overwrite them.
+    /// The source's description and default read policy are intentionally
+    /// ignored. Existing non-final properties are overwritten; final
+    /// properties are preserved and cause an error if the source tries to
+    /// overwrite them.
     ///
     /// # Parameters
     ///
@@ -153,20 +153,20 @@ impl Config {
     /// composite.add(EnvConfigSource::with_prefix("APP_"));
     ///
     /// let mut config = Config::new();
-    /// config.merge_from_source(&composite).unwrap();
+    /// config.merge_properties_from_source(&composite).unwrap();
     /// std::fs::remove_file(&path).unwrap();
     /// # }
     /// ```
     #[inline]
-    pub fn merge_from_source(
+    pub fn merge_properties_from_source(
         &mut self,
         source: &dyn ConfigSource,
     ) -> ConfigResult<()> {
         let layer = source.load()?;
-        self.merge_layer(layer)
+        self.merge_properties(layer)
     }
 
-    /// Merges one source layer into this configuration.
+    /// Merges only the properties from a source-produced configuration.
     ///
     /// # Parameters
     ///
@@ -176,10 +176,10 @@ impl Config {
     ///
     /// `Ok(())` when all properties are merged successfully.
     #[inline]
-    pub(crate) fn merge_layer(&mut self, layer: Config) -> ConfigResult<()> {
+    pub fn merge_properties(&mut self, source_config: Config) -> ConfigResult<()> {
         // Validate every incoming property before mutating `self`. This keeps
         // the merge transactional without cloning the complete configuration.
-        for (name, property) in &layer.properties {
+        for (name, property) in &source_config.properties {
             ensure_config_key(name)?;
             if property.name() != name {
                 return Err(ConfigError::MergeError(format!(
@@ -190,7 +190,9 @@ impl Config {
             self.ensure_property_not_final(name)?;
         }
 
-        let Config { mut properties, .. } = layer;
+        let Config {
+            mut properties, ..
+        } = source_config;
         self.properties.append(&mut properties);
         Ok(())
     }

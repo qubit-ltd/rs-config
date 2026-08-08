@@ -163,6 +163,7 @@ impl ConfigSource for TomlConfigSource {
         let mut seen = HashSet::new();
         let mut budget = SourceBudget::new(&label, self.limits);
         flatten_toml_value(
+            &label,
             "",
             &TomlValue::Table(table),
             &mut config,
@@ -180,6 +181,7 @@ impl ConfigSource for TomlConfigSource {
 /// bool → bool). Empty arrays become concrete empty collections. String and
 /// datetime values are stored as `String`.
 pub(crate) fn flatten_toml_value(
+    source_id: &str,
     prefix: &str,
     value: &TomlValue,
     config: &mut Config,
@@ -197,6 +199,7 @@ pub(crate) fn flatten_toml_value(
                     format!("{}.{}", prefix, k)
                 };
                 flatten_toml_value(
+                    source_id,
                     &key,
                     v,
                     config,
@@ -210,28 +213,44 @@ pub(crate) fn flatten_toml_value(
             // Detect the element type of the first non-table/non-array item.
             // All elements must be the same scalar type; mixed-type arrays fall
             // back to string representation to avoid silent data loss.
-            ensure_toml_property(seen, prefix, budget)?;
-            flatten_toml_array(prefix, arr, config)?;
+            ensure_toml_property(source_id, seen, prefix, budget)?;
+            flatten_toml_array(source_id, prefix, arr, config)?;
         }
         TomlValue::String(s) => {
-            ensure_toml_property(seen, prefix, budget)?;
-            config.set(prefix, s.clone())?;
+            ensure_toml_property(source_id, seen, prefix, budget)?;
+            config.set(prefix, s.clone()).map_err(|error| {
+                error.with_source_context(source_id, Some(prefix.to_string()), None)
+            })?;
         }
         TomlValue::Integer(i) => {
-            ensure_toml_property(seen, prefix, budget)?;
-            config.set(prefix, *i)?;
+            ensure_toml_property(source_id, seen, prefix, budget)?;
+            config.set(prefix, *i).map_err(|error| {
+                error.with_source_context(source_id, Some(prefix.to_string()), None)
+            })?;
         }
         TomlValue::Float(f) => {
-            ensure_toml_property(seen, prefix, budget)?;
-            config.set(prefix, *f)?;
+            ensure_toml_property(source_id, seen, prefix, budget)?;
+            config.set(prefix, *f).map_err(|error| {
+                error.with_source_context(source_id, Some(prefix.to_string()), None)
+            })?;
         }
         TomlValue::Boolean(b) => {
-            ensure_toml_property(seen, prefix, budget)?;
-            config.set(prefix, *b)?;
+            ensure_toml_property(source_id, seen, prefix, budget)?;
+            config.set(prefix, *b).map_err(|error| {
+                error.with_source_context(source_id, Some(prefix.to_string()), None)
+            })?;
         }
         TomlValue::Datetime(dt) => {
-            ensure_toml_property(seen, prefix, budget)?;
-            config.set(prefix, dt.to_string())?;
+            ensure_toml_property(source_id, seen, prefix, budget)?;
+            config
+                .set(prefix, dt.to_string())
+                .map_err(|error| {
+                    error.with_source_context(
+                        source_id,
+                        Some(prefix.to_string()),
+                        None,
+                    )
+                })?;
         }
     }
     Ok(())
@@ -239,11 +258,14 @@ pub(crate) fn flatten_toml_value(
 
 /// Records one flattened TOML property and enforces the property-count limit.
 fn ensure_toml_property(
+    source_id: &str,
     seen: &mut HashSet<String>,
     key: &str,
     budget: &mut SourceBudget<'_>,
 ) -> ConfigResult<()> {
-    utils::ensure_unique_flattened_key(seen, key)?;
+    utils::ensure_unique_flattened_key(seen, key).map_err(|error| {
+        error.with_source_context(source_id, Some(key.to_string()), None)
+    })?;
     budget.consume_properties(1)
 }
 
@@ -251,7 +273,8 @@ fn ensure_toml_property(
 ///
 /// Homogeneous scalar arrays are stored with their native types. Empty arrays
 /// are stored as explicit empty string lists because TOML carries no element
-/// type for them. Mixed scalar arrays fall back to string representation.
+/// type for them. Heterogeneous scalar arrays are rejected with source
+/// location context rather than being coerced to strings.
 /// Nested arrays and tables are rejected because flattening them would lose
 /// structure information.
 ///
@@ -270,12 +293,17 @@ fn ensure_toml_property(
 /// Returns an error when the array contains nested structures or when the
 /// configuration rejects the write, for example because the property is final.
 fn flatten_toml_array(
+    source_id: &str,
     prefix: &str,
     arr: &[TomlValue],
     config: &mut Config,
 ) -> ConfigResult<()> {
     if arr.is_empty() {
-        config.set(prefix, Vec::<String>::new())?;
+        config
+            .set(prefix, Vec::<String>::new())
+            .map_err(|error| {
+                error.with_source_context(source_id, Some(prefix.to_string()), None)
+            })?;
         return Ok(());
     }
 
@@ -283,33 +311,84 @@ fn flatten_toml_array(
         TomlValue::Integer(_)
             if all_toml_values_match(arr, TomlValue::is_integer) =>
         {
-            set_toml_array_values(prefix, arr, config, TomlValue::as_integer)
+            set_toml_array_values(
+                source_id,
+                prefix,
+                arr,
+                config,
+                TomlValue::as_integer,
+            )
         }
         TomlValue::Float(_)
             if all_toml_values_match(arr, TomlValue::is_float) =>
         {
-            set_toml_array_values(prefix, arr, config, TomlValue::as_float)
+            set_toml_array_values(
+                source_id,
+                prefix,
+                arr,
+                config,
+                TomlValue::as_float,
+            )
         }
         TomlValue::Boolean(_)
             if all_toml_values_match(arr, TomlValue::is_bool) =>
         {
-            set_toml_array_values(prefix, arr, config, TomlValue::as_bool)
+            set_toml_array_values(
+                source_id,
+                prefix,
+                arr,
+                config,
+                TomlValue::as_bool,
+            )
         }
         TomlValue::String(_) | TomlValue::Datetime(_)
             if arr.iter().all(|value| {
                 matches!(value, TomlValue::String(_) | TomlValue::Datetime(_))
             }) =>
         {
-            set_toml_string_array(prefix, arr, config)
+            set_toml_string_array(source_id, prefix, arr, config)
         }
-        TomlValue::Table(_) => Err(ConfigError::ParseError(format!(
-            "Unsupported nested TOML table inside array at key '{prefix}'"
-        ))),
-        TomlValue::Array(_) => Err(ConfigError::ParseError(format!(
-            "Unsupported nested TOML array at key '{prefix}'"
-        ))),
-        _ => set_toml_string_array(prefix, arr, config),
+        TomlValue::Table(_) | TomlValue::Array(_) => {
+            let index = arr
+                .iter()
+                .position(|value| {
+                    matches!(value, TomlValue::Table(_) | TomlValue::Array(_))
+                })
+                .unwrap_or(0);
+            Err(ConfigError::source_parse_error_at(
+                source_id,
+                Some(prefix.to_string()),
+                Some(index),
+                "nested TOML structures inside arrays are unsupported",
+            ))
+        }
+        _ => {
+            let index = arr
+                .iter()
+                .position(|value| {
+                    !same_toml_scalar_kind(&arr[0], value)
+                })
+                .unwrap_or(0);
+            Err(ConfigError::source_parse_error_at(
+                source_id,
+                Some(prefix.to_string()),
+                Some(index),
+                "unsupported TOML array element types",
+            ))
+        }
     }
+}
+
+/// Reports whether two TOML values have the same supported scalar shape.
+fn same_toml_scalar_kind(first: &TomlValue, other: &TomlValue) -> bool {
+    matches!(
+        (first, other),
+        (TomlValue::String(_), TomlValue::String(_))
+            | (TomlValue::Datetime(_), TomlValue::Datetime(_))
+            | (TomlValue::Integer(_), TomlValue::Integer(_))
+            | (TomlValue::Float(_), TomlValue::Float(_))
+            | (TomlValue::Boolean(_), TomlValue::Boolean(_))
+    )
 }
 
 /// Collects homogeneous TOML scalar values and writes them as one property.
@@ -329,6 +408,7 @@ fn flatten_toml_array(
 ///
 /// Returns an error when the configuration rejects the write.
 fn set_toml_array_values<T>(
+    source_id: &str,
     prefix: &str,
     arr: &[TomlValue],
     config: &mut Config,
@@ -338,7 +418,9 @@ where
     Vec<T>: Into<ValueContainer>,
 {
     let values = arr.iter().filter_map(convert).collect::<Vec<_>>();
-    config.set(prefix, values)
+    config.set(prefix, values).map_err(|error| {
+        error.with_source_context(source_id, Some(prefix.to_string()), None)
+    })
 }
 
 /// Converts TOML scalar values to strings and writes them as one property.
@@ -358,6 +440,7 @@ where
 /// Returns an error when `arr` contains a nested structure or when the
 /// configuration rejects the write.
 fn set_toml_string_array(
+    source_id: &str,
     prefix: &str,
     arr: &[TomlValue],
     config: &mut Config,
@@ -366,7 +449,9 @@ fn set_toml_string_array(
         .iter()
         .map(|value| toml_scalar_to_string(value, prefix))
         .collect::<ConfigResult<Vec<_>>>()?;
-    config.set(prefix, values)
+    config.set(prefix, values).map_err(|error| {
+        error.with_source_context(source_id, Some(prefix.to_string()), None)
+    })
 }
 
 /// Tests whether all TOML values satisfy a scalar type predicate.
@@ -377,7 +462,7 @@ fn all_toml_values_match(
     values.iter().all(predicate)
 }
 
-/// Converts a TOML scalar value to a string (used as fallback for mixed arrays)
+/// Converts a homogeneous TOML string or datetime scalar to text.
 fn toml_scalar_to_string(value: &TomlValue, key: &str) -> ConfigResult<String> {
     match value {
         TomlValue::String(s) => Ok(s.clone()),

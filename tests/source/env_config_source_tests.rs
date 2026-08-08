@@ -31,7 +31,7 @@ fn merge_source(
     config: &mut Config,
     source: &dyn ConfigSource,
 ) -> ConfigResult<()> {
-    config.merge_from_source(source)
+    config.merge_properties_from_source(source)
 }
 
 // ============================================================================
@@ -114,7 +114,7 @@ mod test_env_config_source {
         let mut config = Config::new();
         merge_source(&mut config, &source).unwrap();
 
-        // After stripping prefix + lowercase + underscore→dot:
+        // After stripping prefix + lowercase + double-underscore→dot:
         // QTEST_HOST → host
         // QTEST_PORT → port
         assert_eq!(config.get::<String>("host").unwrap(), "myhost");
@@ -133,38 +133,38 @@ mod test_env_config_source {
     fn test_load_with_prefix_strips_prefix() {
         let _guard = env_test_lock();
         unsafe {
-            std::env::set_var("MYAPP_SERVER_HOST", "app-host");
+            std::env::set_var("MYAPP_SERVER__HOST", "app-host");
         }
 
         let source = EnvConfigSource::with_prefix("MYAPP_");
         let mut config = Config::new();
         merge_source(&mut config, &source).unwrap();
 
-        // MYAPP_SERVER_HOST → server.host (strip prefix, lowercase,
-        // underscore→dot)
+        // MYAPP_SERVER__HOST → server.host (strip prefix, lowercase,
+        // double-underscore→dot)
         assert_eq!(config.get::<String>("server.host").unwrap(), "app-host");
-        assert!(!config.contains("MYAPP_SERVER_HOST").unwrap());
+        assert!(!config.contains("MYAPP_SERVER__HOST").unwrap());
 
         unsafe {
-            std::env::remove_var("MYAPP_SERVER_HOST");
+            std::env::remove_var("MYAPP_SERVER__HOST");
         }
     }
 
     #[test]
-    fn test_load_with_prefix_converts_underscores_to_dots() {
+    fn test_load_with_prefix_converts_double_underscores_to_dots() {
         let _guard = env_test_lock();
         unsafe {
-            std::env::set_var("TAPP_DB_POOL_SIZE", "10");
+            std::env::set_var("TAPP_DB__POOL_SIZE", "10");
         }
 
         let source = EnvConfigSource::with_prefix("TAPP_");
         let mut config = Config::new();
         merge_source(&mut config, &source).unwrap();
 
-        assert_eq!(config.get::<String>("db.pool.size").unwrap(), "10");
+        assert_eq!(config.get::<String>("db.pool_size").unwrap(), "10");
 
         unsafe {
-            std::env::remove_var("TAPP_DB_POOL_SIZE");
+            std::env::remove_var("TAPP_DB__POOL_SIZE");
         }
     }
 
@@ -179,10 +179,28 @@ mod test_env_config_source {
         let mut config = Config::new();
         merge_source(&mut config, &source).unwrap();
 
-        assert_eq!(config.get::<String>("my.key").unwrap(), "val");
+        assert_eq!(config.get::<String>("my_key").unwrap(), "val");
 
         unsafe {
             std::env::remove_var("LAPP_MY_KEY");
+        }
+    }
+
+    #[test]
+    fn test_load_with_prefix_preserves_single_underscore() {
+        let _guard = env_test_lock();
+        unsafe {
+            std::env::set_var("UAPP_A___B", "value");
+        }
+
+        let source = EnvConfigSource::with_prefix("UAPP_");
+        let mut config = Config::new();
+        merge_source(&mut config, &source).unwrap();
+
+        assert_eq!(config.get::<String>("a._b").unwrap(), "value");
+
+        unsafe {
+            std::env::remove_var("UAPP_A___B");
         }
     }
 
@@ -226,7 +244,7 @@ mod test_env_config_source {
 
         let source = EnvConfigSource::with_prefix("MERGETEST_");
         let mut config = Config::new();
-        config.merge_from_source(&source).unwrap();
+        config.merge_properties_from_source(&source).unwrap();
 
         assert_eq!(config.get::<String>("key").unwrap(), "merge_value");
 
@@ -347,9 +365,9 @@ mod test_env_config_source {
     fn test_load_with_prefix_rejects_malformed_normalized_dotted_key() {
         let _guard = env_test_lock();
         unsafe {
-            std::env::set_var("QMAL__LEADING", "leading");
-            std::env::set_var("QMAL_DB__HOST", "middle");
-            std::env::set_var("QMAL_DB_", "trailing");
+            std::env::set_var("QMAL___LEADING", "leading");
+            std::env::set_var("QMAL_DB____HOST", "middle");
+            std::env::set_var("QMAL_DB__", "trailing");
         }
 
         let source = EnvConfigSource::with_prefix("QMAL_");
@@ -357,9 +375,9 @@ mod test_env_config_source {
         let result = merge_source(&mut config, &source);
 
         unsafe {
-            std::env::remove_var("QMAL__LEADING");
-            std::env::remove_var("QMAL_DB__HOST");
-            std::env::remove_var("QMAL_DB_");
+            std::env::remove_var("QMAL___LEADING");
+            std::env::remove_var("QMAL_DB____HOST");
+            std::env::remove_var("QMAL_DB__");
         }
 
         assert!(matches!(
@@ -391,10 +409,12 @@ mod test_env_config_source {
         assert!(matches!(
             result,
             Err(ConfigError::KeyConflict {
+                source_id: Some(source_id),
                 path,
                 existing,
                 incoming,
-            }) if path == "key"
+            }) if source_id == "process environment"
+                && path == "key"
                 && existing == "environment variable 'QDUP_KEY'"
                 && incoming == "environment variable 'QDUP_key'"
         ));
@@ -455,10 +475,10 @@ mod test_env_edge_cases {
         let source = EnvConfigSource::with_options(
             EnvConfigOptions::new()
                 .prefix("OPTTEST_")
-                .underscores_to_dots(),
+                .double_underscores_to_dots(),
         );
         merge_source(&mut config, &source).unwrap();
-        assert!(config.contains("OPTTEST.Mixed.Key").unwrap());
+        assert!(config.contains("OPTTEST_Mixed_Key").unwrap());
 
         let mut config = Config::new();
         let source = EnvConfigSource::with_options(
@@ -472,11 +492,11 @@ mod test_env_edge_cases {
             EnvConfigOptions::new()
                 .prefix("OPTTEST_")
                 .strip_prefix()
-                .underscores_to_dots()
+                .double_underscores_to_dots()
                 .lowercase_keys(),
         );
         merge_source(&mut config, &source).unwrap();
-        assert!(config.contains("mixed.key").unwrap());
+        assert!(config.contains("mixed_key").unwrap());
 
         unsafe {
             std::env::remove_var("OPTTEST_Mixed_Key");

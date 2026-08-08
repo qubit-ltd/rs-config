@@ -6,6 +6,8 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+use std::collections::HashMap;
+
 use qubit_config::Config;
 use qubit_config::ConfigError;
 use qubit_config::ConfigReader;
@@ -40,6 +42,26 @@ struct RawSettings {
 #[derive(Debug, Deserialize, PartialEq)]
 struct LabelSettings {
     label: String,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+struct StrictRetrySettings {
+    #[serde(alias = "attempts")]
+    max_attempts: u32,
+    #[serde(default)]
+    enabled: bool,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+struct NestedStrictSettings {
+    retry: StrictRetrySettings,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+struct OpenSettings {
+    known: String,
+    #[serde(flatten)]
+    extra: HashMap<String, serde_json::Value>,
 }
 
 /// Deserializes retry settings from any supported configuration reader.
@@ -159,7 +181,7 @@ fn test_deserialize_interpolated_prefers_selected_subtree() {
     let settings: RetrySettings = config
         .section("retry")
         .unwrap()
-        .deserialize_interpolated("settings")
+        .deserialize_interpolated_lenient("settings")
         .expect("nested settings should deserialize");
 
     assert_eq!(settings.max_attempts, 5);
@@ -215,4 +237,80 @@ fn test_deserialize_interpolated_preserves_expansion_limit_error() {
             max_expansions: 1,
         } if path == "retry.label"
     ));
+}
+
+#[test]
+fn test_deserialize_rejects_unknown_properties_with_root_relative_paths() {
+    let mut config = Config::new();
+    config.set("retry.max_attempts", 3_u32).unwrap();
+    config.set("retry.max_attemps", 4_u32).unwrap();
+
+    let error = config
+        .deserialize::<StrictRetrySettings>("retry")
+        .expect_err("strict deserialization should reject misspelled fields");
+
+    assert!(matches!(
+        error,
+        ConfigError::UnknownProperties { paths }
+            if paths == vec!["retry.max_attemps"]
+    ));
+}
+
+#[test]
+fn test_deserialize_lenient_explicitly_ignores_unknown_properties() {
+    let mut config = Config::new();
+    config.set("retry.max_attempts", 3_u32).unwrap();
+    config.set("retry.extra", "ignored").unwrap();
+
+    let settings = config
+        .deserialize_lenient::<StrictRetrySettings>("retry")
+        .expect("lenient deserialization should ignore extra fields");
+    assert_eq!(
+        settings,
+        StrictRetrySettings {
+            max_attempts: 3,
+            enabled: false,
+        }
+    );
+}
+
+#[test]
+fn test_deserialize_strict_supports_serde_alias_default_nested_map_and_flatten() {
+    let mut config = Config::new();
+    config.set("retry.attempts", 5_u32).unwrap();
+    config.set("nested.retry.attempts", 5_u32).unwrap();
+    config.set("labels.primary", "one").unwrap();
+    config.set("open.known", "value").unwrap();
+    config.set("open.extra", true).unwrap();
+
+    let nested: NestedStrictSettings = config
+        .deserialize("nested")
+        .expect("alias and default should be honored");
+    assert_eq!(nested.retry.max_attempts, 5);
+
+    let dynamic: HashMap<String, String> = config
+        .deserialize("labels")
+        .expect("map keys should be dynamically consumed");
+    assert_eq!(dynamic.get("primary"), Some(&"one".to_string()));
+
+    let open: OpenSettings = config
+        .deserialize("open")
+        .expect("flatten should explicitly consume extra fields");
+    assert_eq!(open.extra.get("extra"), Some(&serde_json::json!(true)));
+}
+
+#[test]
+fn test_deserialize_unknown_properties_are_sorted_and_deduplicated() {
+    let mut config = Config::new();
+    config.set("retry.max_attempts", 3_u32).unwrap();
+    config.set("retry.zed", true).unwrap();
+    config.set("retry.aaa", true).unwrap();
+
+    let error = config
+        .deserialize::<StrictRetrySettings>("retry")
+        .expect_err("unknown fields should be reported");
+    assert_eq!(
+        error.unknown_property_paths(),
+        Some(["retry.aaa".to_string(), "retry.zed".to_string()].as_slice())
+    );
 }

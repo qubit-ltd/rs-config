@@ -42,6 +42,7 @@ fn try_insert_nested_json_value(
     let parts: Vec<&str> = key.split('.').collect();
     if parts.iter().any(|part| part.is_empty()) {
         return Err(ConfigError::KeyConflict {
+            source_id: None,
             path: key.to_string(),
             existing: "valid dotted key path".to_string(),
             incoming: "malformed dotted key path".to_string(),
@@ -71,6 +72,7 @@ fn try_insert_nested_json_value(
             }
             other => {
                 return Err(ConfigError::KeyConflict {
+                    source_id: None,
                     path,
                     existing: json_value_kind(other).to_string(),
                     incoming: format!("object required by dotted key '{key}'"),
@@ -88,6 +90,7 @@ fn try_insert_nested_json_value(
             format!("{}.{}", parents.join("."), leaf)
         };
         return Err(ConfigError::KeyConflict {
+            source_id: None,
             path,
             existing: json_value_kind(existing).to_string(),
             incoming: json_value_kind(&value).to_string(),

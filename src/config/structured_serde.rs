@@ -67,10 +67,12 @@ impl Config {
     /// # Errors
     ///
     /// Returns the original [`crate::ConfigError`] when configuration lookup or
-    /// conversion fails, preserving its kind, leaf path, and source. A
-    /// mismatch raised only by `T`'s Serde implementation returns
-    /// [`crate::ConfigError::DeserializeError`] at `prefix` with a fixed
-    /// sanitized message.
+    /// conversion fails, preserving its kind, leaf path, and source. Unknown
+    /// fields return [`crate::ConfigError::UnknownProperties`] with sorted
+    /// root-relative paths. A mismatch raised only by `T`'s Serde
+    /// implementation returns [`crate::ConfigError::DeserializeError`] at
+    /// `prefix` with a fixed sanitized message. Use the explicit lenient
+    /// methods when extra fields are part of the accepted contract.
     ///
     /// # Examples
     ///
@@ -123,5 +125,26 @@ impl Config {
         T: DeserializeOwned,
     {
         ConfigSerdeExt::deserialize_interpolated(self, prefix)
+    }
+
+    /// Deserializes a subtree while explicitly ignoring fields not consumed by
+    /// the target type.
+    pub fn deserialize_lenient<T>(&self, prefix: &str) -> ConfigResult<T>
+    where
+        T: DeserializeOwned,
+    {
+        ConfigSerdeExt::deserialize_lenient(self, prefix)
+    }
+
+    /// Deserializes an interpolated subtree while explicitly ignoring fields
+    /// not consumed by the target type.
+    pub fn deserialize_interpolated_lenient<T>(
+        &self,
+        prefix: &str,
+    ) -> ConfigResult<T>
+    where
+        T: DeserializeOwned,
+    {
+        ConfigSerdeExt::deserialize_interpolated_lenient(self, prefix)
     }
 }

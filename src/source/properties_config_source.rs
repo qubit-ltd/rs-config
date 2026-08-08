@@ -100,7 +100,20 @@ impl PropertiesConfigSource {
         content: &str,
         limits: SourceLimits,
     ) -> ConfigResult<Vec<(String, String)>> {
-        let mut budget = SourceBudget::new("properties:<memory>", limits);
+        Self::parse_content_with_source(
+            content,
+            limits,
+            "properties:<memory>",
+        )
+    }
+
+    /// Parses properties text using an explicit source identifier.
+    fn parse_content_with_source(
+        content: &str,
+        limits: SourceLimits,
+        source_id: &str,
+    ) -> ConfigResult<Vec<(String, String)>> {
+        let mut budget = SourceBudget::new(source_id, limits);
         budget.consume_input_bytes(content.len())?;
         let mut result = Vec::new();
         let mut lines = content.lines().peekable();
@@ -131,7 +144,13 @@ impl PropertiesConfigSource {
             if let Some((key, value)) = parse_key_value(&full_line) {
                 let key = unescape_properties(key);
                 let value = unescape_properties(value);
-                let _ = ConfigKey::parse(key.as_str())?;
+                let _ = ConfigKey::parse(key.as_str()).map_err(|error| {
+                    error.with_source_context(
+                        source_id,
+                        Some(key.clone()),
+                        None,
+                    )
+                })?;
                 budget.check_depth(key.split('.').count())?;
                 budget.consume_properties(1)?;
                 result.push((key, value));
@@ -371,11 +390,17 @@ fn decode_surrogate_pair(high: u32, low: u32) -> Option<char> {
 impl ConfigSource for PropertiesConfigSource {
     fn load(&self) -> ConfigResult<Config> {
         let mut config = Config::new();
+        let source_id = self.input.label("properties");
         let content = self.input.read_to_string("properties", self.limits)?;
-        let properties =
-            Self::parse_content_with_limits(&content, self.limits)?;
+        let properties = Self::parse_content_with_source(
+            &content,
+            self.limits,
+            &source_id,
+        )?;
         for (key, value) in properties {
-            config.set(&key, value)?;
+            config.set(&key, value).map_err(|error| {
+                error.with_source_context(&source_id, Some(key.clone()), None)
+            })?;
         }
         Ok(config)
     }

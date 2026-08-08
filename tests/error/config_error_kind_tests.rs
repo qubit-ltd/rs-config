@@ -52,10 +52,31 @@ fn test_source_errors_expose_source_id() {
 
     let parse_error = ConfigError::SourceParseError {
         source_id: "config.yaml".to_string(),
+        path: None,
+        source_index: None,
         message: "invalid YAML".to_string(),
     };
     assert_eq!(parse_error.kind(), ConfigErrorKind::Parse);
     assert_eq!(parse_error.source_id(), Some("config.yaml"));
+
+    let source_path_error = ConfigError::SourceParseError {
+        source_id: "config.yaml".to_string(),
+        path: Some("servers".to_string()),
+        source_index: Some(0),
+        message: "mapping elements are unsupported".to_string(),
+    };
+    assert_eq!(source_path_error.path(), Some("servers"));
+    assert_eq!(source_path_error.source_index(), Some(0));
+
+    let unknown = ConfigError::UnknownProperties {
+        paths: vec!["retry.extra".to_string()],
+    };
+    assert_eq!(unknown.kind(), ConfigErrorKind::UnknownProperty);
+    assert_eq!(unknown.path(), Some("retry.extra"));
+    assert_eq!(
+        unknown.unknown_property_paths(),
+        Some(["retry.extra".to_string()].as_slice())
+    );
 }
 
 #[test]
@@ -169,11 +190,18 @@ fn test_config_error_kind_covers_every_public_variant() {
         ),
         (
             ConfigError::KeyConflict {
+                source_id: None,
                 path: "key".to_string(),
                 existing: "key".to_string(),
                 incoming: "key.child".to_string(),
             },
             ConfigErrorKind::KeyConflict,
+        ),
+        (
+            ConfigError::UnknownProperties {
+                paths: vec!["extra".to_string()],
+            },
+            ConfigErrorKind::UnknownProperty,
         ),
         (
             ConfigError::IoError(std::io::Error::other("failed")),

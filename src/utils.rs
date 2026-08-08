@@ -41,6 +41,7 @@ pub(crate) fn validate_normalized_config_key(
 ) -> ConfigResult<()> {
     if key.is_empty() {
         return Err(ConfigError::KeyConflict {
+            source_id: None,
             path: key.to_string(),
             existing: "non-empty configuration key".to_string(),
             incoming: format!("empty key normalized from '{origin}'"),
@@ -49,6 +50,7 @@ pub(crate) fn validate_normalized_config_key(
 
     if key.contains('.') && key.split('.').any(str::is_empty) {
         return Err(ConfigError::KeyConflict {
+            source_id: None,
             path: key.to_string(),
             existing: "valid dotted key path".to_string(),
             incoming: format!("malformed key normalized from '{origin}'"),
@@ -69,6 +71,7 @@ pub(crate) fn ensure_unique_flattened_key(
     }
 
     Err(ConfigError::KeyConflict {
+        source_id: None,
         path: key.to_string(),
         existing: "previous flattened source key".to_string(),
         incoming: "duplicate flattened source key".to_string(),

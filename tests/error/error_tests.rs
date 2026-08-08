@@ -237,6 +237,7 @@ fn test_remaining_error_messages() {
     );
     assert!(
         ConfigError::KeyConflict {
+            source_id: None,
             path: "a.b".to_string(),
             existing: "scalar".to_string(),
             incoming: "object".to_string(),

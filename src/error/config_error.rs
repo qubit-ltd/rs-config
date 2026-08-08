@@ -187,12 +187,21 @@ pub enum ConfigError {
         "Configuration key conflict at '{path}': existing {existing}, incoming {incoming}"
     )]
     KeyConflict {
+        /// Source identifier when the conflict came from a source loader.
+        source_id: Option<String>,
         /// Conflicting configuration key/path.
         path: String,
         /// Existing value or path shape.
         existing: String,
         /// Incoming value or path shape.
         incoming: String,
+    },
+
+    /// Structured deserialization found fields not consumed by the target.
+    #[error("Unknown configuration properties: {}", paths.join(", "))]
+    UnknownProperties {
+        /// Root-relative configuration paths not recognized by the target type.
+        paths: Vec<String>,
     },
 
     /// I/O error not associated with a named configuration source.
@@ -225,6 +234,10 @@ pub enum ConfigError {
     SourceParseError {
         /// Stable source identifier or path.
         source_id: String,
+        /// Optional configuration path within the source.
+        path: Option<String>,
+        /// Optional zero-based source collection index.
+        source_index: Option<usize>,
         /// Human-readable source parsing failure.
         message: String,
     },
@@ -286,6 +299,7 @@ impl ConfigError {
             Self::MergeError(_) => ConfigErrorKind::Merge,
             Self::PropertyIsFinal(_) => ConfigErrorKind::PropertyIsFinal,
             Self::KeyConflict { .. } => ConfigErrorKind::KeyConflict,
+            Self::UnknownProperties { .. } => ConfigErrorKind::UnknownProperty,
             Self::IoError(_) | Self::SourceIoError { .. } => {
                 ConfigErrorKind::Io
             }
@@ -326,22 +340,35 @@ impl ConfigError {
             | Self::SubstitutionExpansionLimitExceeded { path, .. }
             | Self::SubstitutionOutputTooLarge { path, .. }
             | Self::SubstitutionCycle { path, .. } => Some(path),
+            Self::SourceParseError { path: Some(path), .. } => {
+                Some(path)
+            }
+            Self::UnknownProperties { paths } => match paths.as_slice() {
+                [path] => Some(path),
+                _ => None,
+            },
             _ => None,
         }
     }
 
-    /// Returns the stable source identifier carried by a source-loading error.
+    /// Returns the stable source identifier carried by a source-loading error
+    /// or a source-originated key conflict.
     ///
     /// # Returns
     ///
-    /// The source path or in-memory source label for source I/O, parse, and
-    /// resource-limit errors; otherwise `None`.
+    /// The source path or in-memory source label for source I/O, parse,
+    /// resource-limit, and source-originated key-conflict errors; otherwise
+    /// `None`.
     #[inline]
     pub fn source_id(&self) -> Option<&str> {
         match self {
             Self::SourceLimitExceeded { source_id, .. }
             | Self::SourceIoError { source_id, .. }
             | Self::SourceParseError { source_id, .. } => Some(source_id),
+            Self::KeyConflict {
+                source_id: Some(source_id),
+                ..
+            } => Some(source_id),
             _ => None,
         }
     }
@@ -364,7 +391,80 @@ impl ConfigError {
     ) -> Self {
         Self::SourceParseError {
             source_id: source_id.into(),
+            path: None,
+            source_index: None,
             message: message.into(),
+        }
+    }
+
+    /// Creates a source-aware parse error with optional path and index context.
+    pub(crate) fn source_parse_error_at(
+        source_id: impl Into<String>,
+        path: Option<String>,
+        source_index: Option<usize>,
+        message: impl Into<String>,
+    ) -> Self {
+        let mut message = message.into();
+        if let Some(path) = path.as_deref() {
+            message.push_str(&format!(" at path '{path}'"));
+        }
+        if let Some(index) = source_index {
+            message.push_str(&format!(" at source index {index}"));
+        }
+        Self::SourceParseError {
+            source_id: source_id.into(),
+            path,
+            source_index,
+            message,
+        }
+    }
+
+    /// Attaches a source identifier to a source-originated key conflict.
+    pub(crate) fn with_source_id(self, source_id: &str) -> Self {
+        match self {
+            Self::KeyConflict {
+                source_id: None,
+                path,
+                existing,
+                incoming,
+            } => Self::KeyConflict {
+                source_id: Some(source_id.to_string()),
+                path,
+                existing,
+                incoming,
+            },
+            error => error,
+        }
+    }
+
+    /// Converts a source-originated structural error to a source-aware error.
+    pub(crate) fn with_source_context(
+        self,
+        source_id: &str,
+        path: Option<String>,
+        source_index: Option<usize>,
+    ) -> Self {
+        match self {
+            Self::KeyConflict {
+                source_id: None,
+                path: conflict_path,
+                existing,
+                incoming,
+            } => Self::KeyConflict {
+                source_id: Some(source_id.to_string()),
+                path: conflict_path,
+                existing,
+                incoming,
+            },
+            Self::InvalidKey { .. } | Self::ParseError(_) => {
+                Self::source_parse_error_at(
+                    source_id,
+                    path,
+                    source_index,
+                    self.to_string(),
+                )
+            }
+            error => error,
         }
     }
 
@@ -384,6 +484,14 @@ impl ConfigError {
         }
     }
 
+    /// Returns unknown configuration paths found by strict deserialization.
+    pub fn unknown_property_paths(&self) -> Option<&[String]> {
+        match self {
+            Self::UnknownProperties { paths } => Some(paths),
+            _ => None,
+        }
+    }
+
     /// Returns the failing collection element index when available.
     ///
     /// # Returns
@@ -393,7 +501,8 @@ impl ConfigError {
     #[inline(always)]
     pub const fn source_index(&self) -> Option<usize> {
         match self {
-            Self::ConversionError { source_index, .. } => *source_index,
+            Self::ConversionError { source_index, .. }
+            | Self::SourceParseError { source_index, .. } => *source_index,
             _ => None,
         }
     }

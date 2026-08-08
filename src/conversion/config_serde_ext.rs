@@ -46,13 +46,15 @@ pub trait ConfigSerdeExt: ConfigReader {
     ///
     /// # Errors
     ///
-    /// Returns lookup, conversion, key-conflict, or sanitized Serde errors
-    /// with root-relative configuration paths.
+    /// Returns lookup, conversion, key-conflict, unknown-property, or
+    /// sanitized Serde errors with root-relative configuration paths. Unknown
+    /// fields are rejected; declare them on `T` or call
+    /// [`Self::deserialize_lenient`] explicitly.
     fn deserialize<T>(&self, prefix: &str) -> ConfigResult<T>
     where
         T: DeserializeOwned,
     {
-        deserialize_by(self, prefix, false)
+        deserialize_by(self, prefix, false, UnknownPropertyMode::Reject)
     }
 
     /// Deserializes an exact property or subtree after interpolating strings.
@@ -77,36 +79,106 @@ pub trait ConfigSerdeExt: ConfigReader {
     /// # Errors
     ///
     /// Returns lookup, interpolation, resource-limit, conversion,
-    /// key-conflict, or sanitized Serde errors with root-relative paths.
+    /// key-conflict, unknown-property, or sanitized Serde errors with
+    /// root-relative paths. Unknown fields are rejected by default.
     fn deserialize_interpolated<T>(&self, prefix: &str) -> ConfigResult<T>
     where
         T: DeserializeOwned,
     {
-        deserialize_by(self, prefix, true)
+        deserialize_by(self, prefix, true, UnknownPropertyMode::Reject)
+    }
+
+    /// Deserializes an exact property or subtree without interpolation while
+    /// ignoring fields not consumed by the target type.
+    ///
+    /// This method is intended for explicitly open or partially consumed
+    /// configuration sections. Use [`Self::deserialize`] when unknown fields
+    /// should be rejected.
+    fn deserialize_lenient<T>(&self, prefix: &str) -> ConfigResult<T>
+    where
+        T: DeserializeOwned,
+    {
+        deserialize_by(self, prefix, false, UnknownPropertyMode::Ignore)
+    }
+
+    /// Deserializes an exact property or subtree after interpolation while
+    /// ignoring fields not consumed by the target type.
+    ///
+    /// Use this only when the target intentionally permits additional
+    /// configuration fields; strict reads are the default contract.
+    fn deserialize_interpolated_lenient<T>(
+        &self,
+        prefix: &str,
+    ) -> ConfigResult<T>
+    where
+        T: DeserializeOwned,
+    {
+        deserialize_by(self, prefix, true, UnknownPropertyMode::Ignore)
     }
 }
 
 impl<R> ConfigSerdeExt for R where R: ConfigReader + ?Sized {}
+
+#[derive(Clone, Copy)]
+enum UnknownPropertyMode {
+    Reject,
+    Ignore,
+}
 
 /// Deserializes a reader-selected value with explicit interpolation behavior.
 ///
 /// # Errors
 ///
 /// Returns structured configuration or sanitized Serde errors.
-fn deserialize_by<R, T>(reader: &R, prefix: &str, interpolate: bool) -> ConfigResult<T>
+fn deserialize_by<R, T>(
+    reader: &R,
+    prefix: &str,
+    interpolate: bool,
+    unknown_mode: UnknownPropertyMode,
+) -> ConfigResult<T>
 where
     R: ConfigReader + ?Sized,
     T: DeserializeOwned,
 {
     let path = reader.resolve_key(prefix)?;
     let value = deserialize_root_value(reader, prefix, interpolate)?;
-    match T::deserialize(ConfigValueDeserializer::new(
+    let deserializer = ConfigValueDeserializer::new(
         value,
         path.clone(),
         reader.read_policy(),
-    )) {
-        Ok(value) => Ok(value),
+    );
+    let mut ignored = Vec::new();
+    let result = match unknown_mode {
+        UnknownPropertyMode::Reject => serde_ignored::deserialize(
+            deserializer,
+            |ignored_path| ignored.push(ignored_path.to_string()),
+        ),
+        UnknownPropertyMode::Ignore => T::deserialize(deserializer),
+    };
+    match result {
+        Ok(value) if ignored.is_empty() => Ok(value),
+        Ok(_) => {
+            ignored.sort();
+            ignored.dedup();
+            let paths = ignored
+                .into_iter()
+                .map(|ignored_path| join_ignored_path(&path, &ignored_path))
+                .collect();
+            Err(ConfigError::UnknownProperties { paths })
+        }
         Err(error) => Err(error.into_config_error(&path)),
+    }
+}
+
+/// Joins a Serde ignored path to the reader's root-relative path.
+fn join_ignored_path(prefix: &str, ignored_path: &str) -> String {
+    let ignored_path = ignored_path.trim_start_matches('.');
+    if prefix.is_empty() {
+        ignored_path.to_string()
+    } else if ignored_path.is_empty() {
+        prefix.to_string()
+    } else {
+        format!("{prefix}.{ignored_path}")
     }
 }
 
@@ -128,6 +200,7 @@ where
     let has_children = reader.contains_section(prefix)?;
     match (exact, has_children) {
         (Some(_), true) => Err(ConfigError::KeyConflict {
+            source_id: None,
             path: reader.resolve_key(prefix)?,
             existing: "exact value".to_string(),
             incoming: "nested child keys".to_string(),

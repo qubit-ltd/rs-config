@@ -400,7 +400,9 @@ fn test_deserialize_substitutes_string_fields_and_lists() {
         )
         .unwrap();
 
-    let svc: ServiceConfig = config.deserialize_interpolated("svc").unwrap();
+    let svc: ServiceConfig = config
+        .deserialize_interpolated_lenient("svc")
+        .unwrap();
     assert_eq!(svc.base_url, "http://localhost:8080");
     assert_eq!(
         svc.endpoints,
@@ -440,7 +442,7 @@ fn test_deserialize_substitution_local_conversion_has_priority_over_root() {
     config.set("svc.url", "${base_url}/v1").unwrap();
 
     let svc = config
-        .deserialize_interpolated::<ServiceConfig>("svc")
+        .deserialize_interpolated_lenient::<ServiceConfig>("svc")
         .unwrap();
 
     assert_eq!(svc.url, "123/v1");
@@ -532,7 +534,9 @@ fn test_deserialize_substitutes_nested_json_strings() {
         )
         .unwrap();
 
-    let svc: ServiceConfig = config.deserialize_interpolated("svc").unwrap();
+    let svc: ServiceConfig = config
+        .deserialize_interpolated_lenient("svc")
+        .unwrap();
     assert_eq!(
         svc.meta,
         serde_json::json!({
@@ -554,7 +558,7 @@ fn test_deserialize_preserves_placeholders_by_default() {
     config.set("svc.host", "localhost").unwrap();
     config.set("svc.url", "http://${host}").unwrap();
 
-    let svc: ServiceConfig = config.deserialize("svc").unwrap();
+    let svc: ServiceConfig = config.deserialize_lenient("svc").unwrap();
     assert_eq!(svc.url, "http://${host}");
 }
 

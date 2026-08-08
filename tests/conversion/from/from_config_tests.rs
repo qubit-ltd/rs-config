@@ -21,9 +21,55 @@ use chrono::NaiveDateTime;
 use num_bigint::BigInt;
 use qubit_config::Config;
 use qubit_config::ConfigError;
+use qubit_config::ConfigResult;
+use qubit_config::Property;
+use qubit_config::conversion::ConfigParseContext;
+use qubit_config::conversion::FromConfig;
 use qubit_config::options::ReadPolicy;
 use qubit_datatype::InvalidValueReason;
 use qubit_datatype::NumericConversionOptions;
+
+#[derive(Debug, PartialEq)]
+struct ContextAware(String);
+
+impl FromConfig for ContextAware {
+    fn from_config(
+        _property: &Property,
+        ctx: &ConfigParseContext<'_>,
+    ) -> ConfigResult<Self> {
+        let value = if ctx.interpolates() {
+            ctx.substitute_string("${base}")?
+        } else {
+            "${base}".to_string()
+        };
+        Ok(Self(value))
+    }
+}
+
+#[test]
+fn test_external_from_config_can_observe_interpolation_context() {
+    let mut config = Config::new();
+    config.set("base", "resolved").expect("set base");
+    config.set("value", "ignored").expect("set value");
+
+    assert_eq!(config.get::<ContextAware>("value").unwrap().0, "${base}");
+    assert_eq!(
+        config.get_interpolated::<ContextAware>("value").unwrap().0,
+        "resolved"
+    );
+}
+
+#[test]
+fn test_external_from_config_preserves_substitution_errors() {
+    let mut config = Config::new();
+    config.set("value", "ignored").expect("set value");
+    config.set("base", "${base}").expect("set cyclic base");
+
+    let error = config
+        .get_interpolated::<ContextAware>("value")
+        .expect_err("cyclic substitution should fail");
+    assert!(matches!(error, ConfigError::SubstitutionCycle { .. }));
+}
 
 #[test]
 fn test_from_config_converts_scalar_string_to_duration() {

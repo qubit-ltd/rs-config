@@ -42,7 +42,7 @@
 //! composite.add(TomlConfigSource::from_file(path));
 //!
 //! let mut config = Config::new();
-//! config.merge_from_source(&composite).unwrap();
+//! config.merge_properties_from_source(&composite).unwrap();
 //! assert_eq!(config.get::<i64>("port").unwrap(), 8080);
 //! # }
 //! ```

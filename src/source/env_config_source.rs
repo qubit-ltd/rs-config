@@ -14,11 +14,11 @@
 //!
 //! When a prefix is set, only variables matching the prefix are loaded, and
 //! the prefix is stripped from the key name. The key is then lowercased and
-//! underscores are converted to dots to produce the config key.
+//! double underscores are converted to dots to produce the config key.
 //!
 //! For example, with prefix `APP_`:
-//! - `APP_SERVER_HOST=localhost` → `server.host = "localhost"`
-//! - `APP_SERVER_PORT=8080` → `server.port = "8080"`
+//! - `APP_SERVER__HOST=localhost` → `server.host = "localhost"`
+//! - `APP_SERVER__PORT=8080` → `server.port = "8080"`
 //!
 //! Without a prefix, all environment variables are loaded as-is.
 //!
@@ -51,8 +51,8 @@ pub struct EnvConfigOptions {
     prefix: Option<String>,
     /// Whether the configured prefix is removed from loaded keys.
     strip_prefix: bool,
-    /// Whether underscores are converted to dots.
-    underscores_to_dots: bool,
+    /// Whether double underscores are converted to dots.
+    double_underscores_to_dots: bool,
     /// Whether loaded keys are lowercased.
     lowercase_keys: bool,
 }
@@ -64,7 +64,7 @@ impl EnvConfigOptions {
         Self {
             prefix: None,
             strip_prefix: false,
-            underscores_to_dots: false,
+            double_underscores_to_dots: false,
             lowercase_keys: false,
         }
     }
@@ -83,10 +83,10 @@ impl EnvConfigOptions {
         self
     }
 
-    /// Converts underscores in loaded keys to dots.
+    /// Converts double underscores in loaded keys to dots.
     #[inline]
-    pub const fn underscores_to_dots(mut self) -> Self {
-        self.underscores_to_dots = true;
+    pub const fn double_underscores_to_dots(mut self) -> Self {
+        self.double_underscores_to_dots = true;
         self
     }
 
@@ -150,7 +150,7 @@ impl EnvConfigSource {
     /// keys.
     ///
     /// Only variables with the given prefix are loaded. The prefix is stripped,
-    /// the key is lowercased, and underscores are converted to dots.
+    /// the key is lowercased, and double underscores are converted to dots.
     ///
     /// # Parameters
     ///
@@ -165,7 +165,7 @@ impl EnvConfigSource {
             options: EnvConfigOptions::new()
                 .prefix(prefix)
                 .strip_prefix()
-                .underscores_to_dots()
+                .double_underscores_to_dots()
                 .lowercase_keys(),
             limits: SourceLimits::default(),
         }
@@ -203,7 +203,7 @@ impl EnvConfigSource {
     ///
     /// # Returns
     ///
-    /// The key after optional prefix strip, lowercasing, and underscore
+    /// The key after optional prefix strip, lowercasing, and double-underscore
     /// replacement.
     fn transform_key(&self, key: &str) -> String {
         let mut result = key.to_string();
@@ -219,8 +219,8 @@ impl EnvConfigSource {
             result = result.to_lowercase();
         }
 
-        if self.options.underscores_to_dots {
-            result = result.replace('_', ".");
+        if self.options.double_underscores_to_dots {
+            result = result.replace("__", ".");
         }
 
         result
@@ -235,7 +235,7 @@ impl EnvConfigSource {
     #[inline]
     fn can_collapse_distinct_keys(&self) -> bool {
         self.options.strip_prefix
-            || self.options.underscores_to_dots
+            || self.options.double_underscores_to_dots
             || self.options.lowercase_keys
     }
 
@@ -376,8 +376,11 @@ impl ConfigSource for EnvConfigSource {
             budget
                 .consume_input_bytes(key.len().saturating_add(value.len()))?;
             let transformed_key = self.transform_key(&key);
-            if self.options.strip_prefix || self.options.underscores_to_dots {
-                utils::validate_normalized_config_key(&transformed_key, &key)?;
+            if self.options.strip_prefix
+                || self.options.double_underscores_to_dots
+            {
+                utils::validate_normalized_config_key(&transformed_key, &key)
+                    .map_err(|error| error.with_source_id("process environment"))?;
             }
             if self.can_collapse_distinct_keys()
                 && let Some(existing) =
@@ -389,12 +392,15 @@ impl ConfigSource for EnvConfigSource {
                     (&key, &existing)
                 };
                 return Err(ConfigError::KeyConflict {
+                    source_id: Some("process environment".to_string()),
                     path: transformed_key,
                     existing: format!("environment variable '{first}'"),
                     incoming: format!("environment variable '{second}'"),
                 });
             }
-            let _ = ConfigKey::parse(transformed_key.as_str())?;
+            let _ = ConfigKey::parse(transformed_key.as_str()).map_err(|error| {
+                error.with_source_id("process environment")
+            })?;
             budget.check_depth(transformed_key.split('.').count())?;
             budget.consume_properties(1)?;
             config.set(&transformed_key, value)?;
