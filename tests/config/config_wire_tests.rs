@@ -9,9 +9,12 @@
 
 use qubit_config::Config;
 use qubit_config::ConfigWireDecodeError;
+use qubit_config::ConfigWireEncodeError;
+use qubit_config::ConfigWireLimitKind;
 use qubit_config::ConfigWireLimits;
 use qubit_config::options::ReadPolicy;
 use qubit_value::ValueWireDecodeError;
+use qubit_value::ValueWireEncodeError;
 use qubit_value::ValueWireLimitKind;
 use qubit_value::WireLimits;
 use serde_json::Value;
@@ -147,6 +150,105 @@ fn test_config_wire_limits_apply_to_nested_values() {
                 maximum: 1,
             }
         ))
+    ));
+}
+
+#[test]
+fn test_config_wire_bounded_encode_round_trips_with_default_limits() {
+    let mut config = Config::with_description("bounded wire round trip");
+    config
+        .set("server.port", 8080_u16)
+        .expect("setting the property should succeed");
+
+    let encoded = config
+        .encode_json_vec()
+        .expect("default limits should encode the configuration");
+    let restored = Config::decode_json_slice(&encoded)
+        .expect("the bounded encoding should decode");
+
+    assert_eq!(restored, config);
+}
+
+#[test]
+fn test_config_wire_bounded_encode_rejects_property_count() {
+    let mut config = Config::new();
+    config
+        .set("server.port", 8080_u16)
+        .expect("setting the property should succeed");
+    let limits = ConfigWireLimits::default().with_max_properties(0);
+
+    assert!(matches!(
+        config.encode_json_vec_with_limits(limits),
+        Err(ConfigWireEncodeError::LimitExceeded {
+            kind: ConfigWireLimitKind::Properties,
+            value: 1,
+            maximum: 0,
+        })
+    ));
+}
+
+#[test]
+fn test_config_wire_bounded_encode_rejects_property_key_bytes() {
+    let mut config = Config::new();
+    config
+        .set("server.port", 8080_u16)
+        .expect("setting the property should succeed");
+    let limits =
+        ConfigWireLimits::default().with_max_property_key_bytes(5);
+
+    assert!(matches!(
+        config.encode_json_vec_with_limits(limits),
+        Err(ConfigWireEncodeError::LimitExceeded {
+            kind: ConfigWireLimitKind::PropertyKeyBytes,
+            value: 11,
+            maximum: 5,
+        })
+    ));
+}
+
+#[test]
+fn test_config_wire_bounded_encode_rejects_final_output_bytes() {
+    let mut config = Config::new();
+    config
+        .set("server.port", 8080_u16)
+        .expect("setting the property should succeed");
+    let encoded = config
+        .encode_json_vec()
+        .expect("default limits should encode the configuration");
+    let maximum = encoded.len() - 1;
+    let limits = ConfigWireLimits::from_wire(WireLimits::new(maximum));
+
+    assert!(matches!(
+        config.encode_json_vec_with_limits(limits),
+        Err(ConfigWireEncodeError::OutputTooLarge {
+            output_bytes,
+            max_output_bytes,
+        }) if output_bytes == encoded.len() && max_output_bytes == maximum
+    ));
+}
+
+#[test]
+fn test_config_wire_bounded_encode_preflights_value_representation() {
+    let mut config = Config::new();
+    config
+        .set("ratio", f64::NAN)
+        .expect("setting the non-finite value should succeed");
+
+    assert!(matches!(
+        config.encode_json_vec(),
+        Err(ConfigWireEncodeError::Value(
+            ValueWireEncodeError::NonFiniteFloat { .. }
+        ))
+    ));
+}
+
+#[test]
+fn test_config_wire_bounded_decode_preflights_json_syntax() {
+    let input = br#"{"version":1,"properties":{}"#;
+
+    assert!(matches!(
+        Config::decode_json_slice(input),
+        Err(ConfigWireDecodeError::InvalidJson(error)) if error.is_eof()
     ));
 }
 

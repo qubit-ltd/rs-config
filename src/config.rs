@@ -19,6 +19,7 @@ use qubit_datatype::DataConversionTarget;
 use qubit_utils::Transient;
 use qubit_value::Value as QubitValue;
 use qubit_value::ValueWireDecodeError;
+use qubit_value::ValueWireRefV1;
 use qubit_value::WireBudget;
 use serde::Deserialize;
 use serde::Deserializer;
@@ -33,6 +34,7 @@ use self::internal::ConfigWireV1Ref;
 use crate::ConfigError;
 use crate::ConfigResult;
 use crate::ConfigWireDecodeError;
+use crate::ConfigWireEncodeError;
 use crate::ConfigWireLimitKind;
 use crate::ConfigWireLimits;
 use crate::Property;
@@ -237,6 +239,63 @@ impl TryFrom<ConfigWire> for Config {
 }
 
 impl Config {
+    /// Encodes this configuration as a V1 JSON wire document with default
+    /// structural and output limits.
+    ///
+    /// # Returns
+    ///
+    /// The complete encoded JSON document.
+    ///
+    /// # Errors
+    ///
+    /// Returns a value-representation, resource-limit, or JSON serialization
+    /// error. Ordinary [`serde::Serialize`] behavior is unchanged.
+    pub fn encode_json_vec(&self) -> Result<Vec<u8>, ConfigWireEncodeError> {
+        self.encode_json_vec_with_limits(ConfigWireLimits::default())
+    }
+
+    /// Encodes this configuration as a V1 JSON wire document under explicit
+    /// shared value, configuration, and output limits.
+    ///
+    /// Semantic limits and V1 value representability are checked before JSON
+    /// serialization. The final encoded byte length is checked afterward.
+    ///
+    /// # Parameters
+    ///
+    /// * `limits` - Shared and configuration-specific resource limits.
+    ///
+    /// # Returns
+    ///
+    /// The complete encoded JSON document.
+    ///
+    /// # Errors
+    ///
+    /// Returns a value-representation or semantic resource error before
+    /// serialization, a JSON serialization error, or an output-byte error
+    /// after serialization.
+    pub fn encode_json_vec_with_limits(
+        &self,
+        limits: ConfigWireLimits,
+    ) -> Result<Vec<u8>, ConfigWireEncodeError> {
+        let mut budget = limits
+            .wire()
+            .begin(0)
+            .map_err(ConfigWireDecodeError::from)
+            .map_err(ConfigWireEncodeError::from)?;
+        self.check_wire_budget(&mut budget, limits)
+            .map_err(ConfigWireEncodeError::from)?;
+        for property in self.properties.values() {
+            let _ = ValueWireRefV1::try_from(property.value())?;
+        }
+        let output = serde_json::to_vec(self)?;
+        limits
+            .wire()
+            .check_json_bytes(output.len())
+            .map_err(ConfigWireDecodeError::from)
+            .map_err(ConfigWireEncodeError::from)?;
+        Ok(output)
+    }
+
     /// Decodes a complete configuration JSON wire document with default
     /// structural limits.
     ///
@@ -280,7 +339,7 @@ impl Config {
         let mut budget =
             limits
                 .wire()
-                .begin(input.len())
+                .begin_json(input)
                 .map_err(|error| match error {
                     ValueWireDecodeError::InvalidJson(error) => {
                         ConfigWireDecodeError::InvalidJson(error)
