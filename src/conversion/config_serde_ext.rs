@@ -93,11 +93,7 @@ impl<R> ConfigSerdeExt for R where R: ConfigReader + ?Sized {}
 /// # Errors
 ///
 /// Returns structured configuration or sanitized Serde errors.
-fn deserialize_by<R, T>(
-    reader: &R,
-    prefix: &str,
-    interpolate: bool,
-) -> ConfigResult<T>
+fn deserialize_by<R, T>(reader: &R, prefix: &str, interpolate: bool) -> ConfigResult<T>
 where
     R: ConfigReader + ?Sized,
     T: DeserializeOwned,
@@ -120,11 +116,7 @@ where
 ///
 /// Returns a key conflict when an exact property and descendants coexist, or
 /// propagates conversion and interpolation errors.
-fn deserialize_root_value<R>(
-    reader: &R,
-    prefix: &str,
-    interpolate: bool,
-) -> ConfigResult<JsonValue>
+fn deserialize_root_value<R>(reader: &R, prefix: &str, interpolate: bool) -> ConfigResult<JsonValue>
 where
     R: ConfigReader + ?Sized,
 {
@@ -133,7 +125,7 @@ where
     }
 
     let exact = reader.get_property(prefix)?;
-    let has_children = reader.iter().any(|(key, _)| is_child_key(key, prefix));
+    let has_children = reader.contains_section(prefix)?;
     match (exact, has_children) {
         (Some(_), true) => Err(ConfigError::KeyConflict {
             path: reader.resolve_key(prefix)?,
@@ -178,12 +170,9 @@ where
         return Ok(JsonValue::Null);
     }
 
-    let mut value =
-        utils::property_to_json_value(property, path, primary.read_policy())?;
+    let mut value = utils::property_to_json_value(property, path, primary.read_policy())?;
     if interpolate {
-        utils::substitute_json_strings_with_fallback(
-            &mut value, path, primary, fallback,
-        )?;
+        utils::substitute_json_strings_with_fallback(&mut value, path, primary, fallback)?;
     }
     Ok(value)
 }
@@ -204,11 +193,8 @@ where
 {
     let subtree = reader.section(prefix)?;
     let fallback = root_config(reader);
-    let mut properties = subtree.iter().collect::<Vec<_>>();
-    properties.sort_by_key(|(key, _)| *key);
-
     let mut map = Map::new();
-    for (key, property) in properties {
+    for (key, property) in subtree.iter() {
         let path = property.name();
         if scalar_string_is_missing_for_deserialize(
             &subtree,
@@ -221,15 +207,9 @@ where
             continue;
         }
 
-        let mut value = utils::property_to_json_value(
-            property,
-            path,
-            subtree.read_policy(),
-        )?;
+        let mut value = utils::property_to_json_value(property, path, subtree.read_policy())?;
         if interpolate {
-            utils::substitute_json_strings_with_fallback(
-                &mut value, path, &subtree, fallback,
-            )?;
+            utils::substitute_json_strings_with_fallback(&mut value, path, &subtree, fallback)?;
         }
         utils::insert_deserialize_value(&mut map, key, value)?;
     }
@@ -260,9 +240,7 @@ where
         return Ok(false);
     };
     let value = if interpolate {
-        utils::substitute_variables_with_fallback(
-            value, primary, fallback, options, path,
-        )?
+        utils::substitute_variables_with_fallback(value, primary, fallback, options, path)?
     } else {
         value.to_string()
     };
@@ -278,11 +256,4 @@ where
             error.into_data_conversion_error(DataType::String),
         )),
     }
-}
-
-/// Returns `true` when `key` is strictly below `prefix`.
-fn is_child_key(key: &str, prefix: &str) -> bool {
-    key.len() > prefix.len()
-        && key.starts_with(prefix)
-        && key.as_bytes().get(prefix.len()) == Some(&b'.')
 }
