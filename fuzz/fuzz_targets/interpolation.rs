@@ -10,10 +10,8 @@
 //! Fuzzes bounded explicit interpolation without process-environment input.
 
 use libfuzzer_sys::fuzz_target;
-use qubit_config::{
-    Config,
-    options::ReadPolicy,
-};
+use qubit_config::Config;
+use qubit_config::options::ReadPolicy;
 
 /// Bounds interpolation source length before configuration allocation.
 const MAX_INPUT_BYTES: usize = 32 * 1024;
