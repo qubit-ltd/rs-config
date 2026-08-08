@@ -39,6 +39,7 @@ mod config_section;
 mod config_serde_ext;
 #[path = "conversion/config_value_deserializer.rs"]
 mod config_value_deserializer;
+mod config_wire_encode_error;
 mod config_wire_limits;
 mod constants;
 pub mod conversion;
@@ -69,6 +70,7 @@ pub use config_property_mut::ConfigPropertyMut;
 pub use config_reader::ConfigReader;
 pub use config_section::ConfigSection;
 pub use config_serde_ext::ConfigSerdeExt;
+pub use config_wire_encode_error::ConfigWireEncodeError;
 pub use config_wire_limits::ConfigWireDecodeError;
 pub use config_wire_limits::ConfigWireLimitKind;
 pub use config_wire_limits::ConfigWireLimits;
