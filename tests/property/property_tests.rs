@@ -11,16 +11,27 @@
 // to ValueContainer.
 
 #[cfg(feature = "bigdecimal")]
+use std::str::FromStr;
+
+#[cfg(feature = "bigdecimal")]
 use bigdecimal::BigDecimal;
 #[cfg(feature = "chrono")]
-use chrono::{DateTime, NaiveDate, NaiveTime};
+use chrono::DateTime;
+#[cfg(feature = "chrono")]
+use chrono::NaiveDate;
+#[cfg(feature = "chrono")]
+use chrono::NaiveTime;
+#[cfg(feature = "chrono")]
+use chrono::Utc;
 #[cfg(feature = "num-bigint")]
 use num_bigint::BigInt;
-use qubit_config::{ConfigError, Property};
+use qubit_config::ConfigError;
+use qubit_config::Property;
 use qubit_datatype::DataType;
-use qubit_value::{MultiValues, Value, ValueContainer};
-#[cfg(feature = "bigdecimal")]
-use std::str::FromStr;
+use qubit_value::MultiValues;
+use qubit_value::Value;
+use qubit_value::ValueContainer;
+use qubit_value::ValueError;
 
 // ============================================================================
 // Property Basic Method Tests
@@ -56,7 +67,8 @@ fn test_property_new() {
 
 #[test]
 fn test_property_new_collection() {
-    let value = MultiValues::String(vec!["hello".to_string(), "world".to_string()]);
+    let value =
+        MultiValues::String(vec!["hello".to_string(), "world".to_string()]);
     let prop = Property::new("test.string", value).unwrap();
 
     assert_eq!(prop.name(), "test.string");
@@ -427,7 +439,9 @@ fn test_property_int32_set() {
 #[test]
 fn test_property_int64_get() {
     let mut prop = new_unset_int32_property("test");
-    prop.set_value(MultiValues::Int64(vec![1000000000, 2000000000, 3000000000]));
+    prop.set_value(MultiValues::Int64(vec![
+        1000000000, 2000000000, 3000000000,
+    ]));
 
     let values = prop.get_list::<i64>().unwrap();
     assert_eq!(values, &[1000000000, 2000000000, 3000000000]);
@@ -1037,7 +1051,7 @@ fn test_property_instant_get() {
     let instant3 = DateTime::from_timestamp(1672704000, 0).unwrap();
     prop.set_value(MultiValues::Instant(vec![instant1, instant2, instant3]));
 
-    let values = prop.get_list::<DateTime<chrono::Utc>>().unwrap();
+    let values = prop.get_list::<DateTime<Utc>>().unwrap();
     assert_eq!(values.len(), 3);
 }
 
@@ -1049,7 +1063,7 @@ fn test_property_instant_get_first() {
     let instant2 = DateTime::from_timestamp(1672617600, 0).unwrap();
     prop.set_value(MultiValues::Instant(vec![instant1, instant2]));
 
-    let first = prop.get::<DateTime<chrono::Utc>>().unwrap();
+    let first = prop.get::<DateTime<Utc>>().unwrap();
     assert_eq!(first, DateTime::from_timestamp(1672531200, 0).unwrap());
 }
 
@@ -1065,7 +1079,7 @@ fn test_property_instant_add() {
     prop.add(instant2).unwrap();
     prop.add(instant3).unwrap();
 
-    let values = prop.get_list::<DateTime<chrono::Utc>>().unwrap();
+    let values = prop.get_list::<DateTime<Utc>>().unwrap();
     assert_eq!(values.len(), 3);
 }
 
@@ -1079,7 +1093,7 @@ fn test_property_instant_set() {
 
     let new_instant = DateTime::from_timestamp(1672790400, 0).unwrap();
     prop.set(new_instant);
-    let values = prop.get_list::<DateTime<chrono::Utc>>().unwrap();
+    let values = prop.get_list::<DateTime<Utc>>().unwrap();
     assert_eq!(values.len(), 1);
 }
 
@@ -1244,7 +1258,7 @@ fn test_property_unset_get_reports_no_value() {
 
     assert!(matches!(
         prop.get_list::<i32>(),
-        Err(qubit_value::ValueError::Missing(_))
+        Err(ValueError::Missing(_))
     ));
 }
 

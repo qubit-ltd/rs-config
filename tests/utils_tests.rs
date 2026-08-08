@@ -10,17 +10,23 @@
 // Integration tests for deserialize JSON building (`property_to_json_value` /
 // dotted-key insertion) and variable substitution behavior.
 
-use qubit_config::{
-    Config, ConfigError, Property,
-    options::{InterpolationSources, ReadPolicy},
-};
-use qubit_datatype::{
-    DataConversionError, DataType, DurationConversionOptions, DurationRoundingPolicy, DurationUnit,
-    InvalidValueReason, NumericConversionOptions,
-};
-use qubit_value::{MultiValues, Value, ValueContainer};
-use serde::Deserialize;
 use std::collections::HashMap;
+
+use qubit_config::Config;
+use qubit_config::ConfigError;
+use qubit_config::Property;
+use qubit_config::options::InterpolationSources;
+use qubit_config::options::ReadPolicy;
+use qubit_datatype::DataConversionError;
+use qubit_datatype::DataType;
+use qubit_datatype::DurationConversionOptions;
+use qubit_datatype::DurationRoundingPolicy;
+use qubit_datatype::DurationUnit;
+use qubit_datatype::InvalidValueReason;
+use qubit_value::MultiValues;
+use qubit_value::Value;
+use qubit_value::ValueContainer;
+use serde::Deserialize;
 
 #[test]
 fn utility_test_modules_are_registered() {

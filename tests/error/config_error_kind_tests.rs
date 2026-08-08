@@ -7,8 +7,12 @@
 // =============================================================================
 // Tests for stable configuration error classification and context.
 
-use qubit_config::{ConfigError, ConfigErrorKind, ConfigPathViolation};
-use qubit_datatype::{DataConversionError, DataType, InvalidValueReason};
+use qubit_config::ConfigError;
+use qubit_config::ConfigErrorKind;
+use qubit_config::ConfigPathViolation;
+use qubit_datatype::DataConversionError;
+use qubit_datatype::DataType;
+use qubit_datatype::InvalidValueReason;
 use qubit_value::ValueError;
 
 #[test]

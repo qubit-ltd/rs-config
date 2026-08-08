@@ -7,9 +7,20 @@
 // =============================================================================
 // Tests for the stable versioned `Config` persistence wire format.
 
-use qubit_config::{Config, ConfigWireDecodeError, ConfigWireLimits, options::ReadPolicy};
-use qubit_value::{ValueWireDecodeError, WireLimits};
+use qubit_config::Config;
+use qubit_config::ConfigWireDecodeError;
+use qubit_config::ConfigWireLimits;
+use qubit_config::options::ReadPolicy;
+use qubit_value::ValueWireDecodeError;
+use qubit_value::ValueWireLimitKind;
+use qubit_value::WireLimits;
+use serde_json::Value;
+use serde_json::from_str;
+use serde_json::from_value;
 use serde_json::json;
+use serde_json::to_string;
+use serde_json::to_value;
+use serde_json::to_vec;
 
 /// Verifies serialization emits the stable V1 envelope in deterministic order.
 #[test]
@@ -31,11 +42,11 @@ fn test_config_wire_serialization_is_versioned_and_deterministic() {
         .expect("setting the second property should succeed");
 
     let first_json =
-        serde_json::to_string(&first).expect("serializing the first config should succeed");
-    let second_json =
-        serde_json::to_string(&second).expect("serializing the second config should succeed");
-    let wire: serde_json::Value =
-        serde_json::from_str(&first_json).expect("serialized config should be valid JSON");
+        to_string(&first).expect("serializing the first config should succeed");
+    let second_json = to_string(&second)
+        .expect("serializing the second config should succeed");
+    let wire: Value =
+        from_str(&first_json).expect("serialized config should be valid JSON");
 
     assert_eq!(wire["version"], json!(1));
     assert_eq!(first_json, second_json);
@@ -49,15 +60,15 @@ fn test_config_wire_deserializes_legacy_unversioned_payload() {
         .set("server.port", 8080_u16)
         .expect("setting the property should succeed");
 
-    let mut legacy =
-        serde_json::to_value(&config).expect("serializing the legacy-shaped config should succeed");
+    let mut legacy = to_value(&config)
+        .expect("serializing the legacy-shaped config should succeed");
     legacy
         .as_object_mut()
         .expect("config wire should be a JSON object")
         .remove("version");
 
     let restored: Config =
-        serde_json::from_value(legacy).expect("legacy config wire should remain readable");
+        from_value(legacy).expect("legacy config wire should remain readable");
 
     assert_eq!(
         restored
@@ -75,7 +86,8 @@ fn test_config_wire_ignores_legacy_read_options() {
         .set("server.port", "8080")
         .expect("setting the property should succeed");
 
-    let mut legacy = serde_json::to_value(&config).expect("serializing config should succeed");
+    let mut legacy =
+        to_value(&config).expect("serializing config should succeed");
     let object = legacy
         .as_object_mut()
         .expect("config wire should be a JSON object");
@@ -89,7 +101,7 @@ fn test_config_wire_ignores_legacy_read_options() {
     );
 
     let restored: Config =
-        serde_json::from_value(legacy).expect("legacy wire with runtime data should load");
+        from_value(legacy).expect("legacy wire with runtime data should load");
 
     assert_eq!(restored.default_read_policy(), &ReadPolicy::default());
 }
@@ -102,10 +114,11 @@ fn test_config_wire_rejects_unknown_version() {
         .set("server.port", 8080_u16)
         .expect("setting the property should succeed");
 
-    let mut wire = serde_json::to_value(&config).expect("serializing config should succeed");
+    let mut wire =
+        to_value(&config).expect("serializing config should succeed");
     wire["version"] = json!(2);
 
-    let error = serde_json::from_value::<Config>(wire)
+    let error = from_value::<Config>(wire)
         .expect_err("unsupported config wire versions must be rejected");
 
     assert!(
@@ -121,7 +134,7 @@ fn test_config_wire_limits_apply_to_nested_values() {
     config
         .set("values", vec![1_i32, 2])
         .expect("setting the collection should succeed");
-    let input = serde_json::to_vec(&config).expect("config should serialize");
+    let input = to_vec(&config).expect("config should serialize");
     let limits = ConfigWireLimits::new(input.len())
         .with_wire(WireLimits::new(input.len()).with_max_collection_items(1));
 
@@ -129,7 +142,7 @@ fn test_config_wire_limits_apply_to_nested_values() {
         Config::decode_json_slice_with_limits(&input, limits),
         Err(ConfigWireDecodeError::Value(
             ValueWireDecodeError::LimitExceeded {
-                kind: qubit_value::ValueWireLimitKind::CollectionItems,
+                kind: ValueWireLimitKind::CollectionItems,
                 value: 2,
                 maximum: 1,
             }
@@ -147,9 +160,11 @@ fn test_config_wire_reports_configuration_invariant_after_decoding() {
             .expect("setting the property should succeed");
     }
 
-    let mut wire = serde_json::to_value(&config).expect("serializing config should succeed");
+    let mut wire =
+        to_value(&config).expect("serializing config should succeed");
     wire["properties"]["server.item0"]["name"] = json!("bad.name");
-    let input = serde_json::to_vec(&wire).expect("serializing the wire object should succeed");
+    let input =
+        to_vec(&wire).expect("serializing the wire object should succeed");
     let limits = ConfigWireLimits::new(input.len())
         .with_wire(WireLimits::new(input.len()).with_max_nodes(1));
 
@@ -169,11 +184,13 @@ fn test_config_wire_rejects_unknown_v1_fields() {
         .set("server.port", 8080_u16)
         .expect("setting the property should succeed");
 
-    let mut wire = serde_json::to_value(&config).expect("serializing config should succeed");
+    let mut wire =
+        to_value(&config).expect("serializing config should succeed");
     wire["future_field"] = json!(true);
 
-    serde_json::from_value::<Config>(wire)
-        .expect_err("unknown V1 fields must not silently deserialize as legacy");
+    from_value::<Config>(wire).expect_err(
+        "unknown V1 fields must not silently deserialize as legacy",
+    );
 }
 
 /// Verifies legacy runtime policy data is not part of the versioned contract.
@@ -184,10 +201,11 @@ fn test_config_wire_rejects_read_options_in_v1_payload() {
         .set("server.port", 8080_u16)
         .expect("setting the property should succeed");
 
-    let mut wire = serde_json::to_value(&config).expect("serializing config should succeed");
+    let mut wire =
+        to_value(&config).expect("serializing config should succeed");
     wire["read_options"] = json!({"environment_fallback_enabled": true});
 
-    serde_json::from_value::<Config>(wire)
+    from_value::<Config>(wire)
         .expect_err("versioned config wire must not contain runtime policies");
 }
 
@@ -200,10 +218,11 @@ fn test_config_wire_rejects_property_name_mismatch() {
         .set("server.port", 8080_u16)
         .expect("setting the property should succeed");
 
-    let mut wire = serde_json::to_value(&config).expect("serializing config should succeed");
+    let mut wire =
+        to_value(&config).expect("serializing config should succeed");
     wire["properties"]["server.port"]["name"] = json!("wrong.name");
 
-    let error = serde_json::from_value::<Config>(wire)
+    let error = from_value::<Config>(wire)
         .expect_err("property name mismatches must be rejected");
 
     assert!(error.to_string().contains("does not match property name"));
@@ -218,7 +237,8 @@ fn test_config_wire_rejects_malformed_map_key() {
         .set("server.port", 8080_u16)
         .expect("setting the property should succeed");
 
-    let mut wire = serde_json::to_value(&config).expect("serializing config should succeed");
+    let mut wire =
+        to_value(&config).expect("serializing config should succeed");
     let property = wire["properties"]
         .as_object_mut()
         .expect("properties should be an object")
@@ -231,7 +251,7 @@ fn test_config_wire_rejects_malformed_map_key() {
         .expect("properties should be an object")
         .insert("bad..key".to_string(), property);
 
-    let error = serde_json::from_value::<Config>(wire)
+    let error = from_value::<Config>(wire)
         .expect_err("malformed config wire keys must be rejected");
 
     assert!(

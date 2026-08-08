@@ -9,15 +9,16 @@
 
 // # `CompositeConfigSource` tests
 
-use qubit_config::{
-    Config, ConfigError, ConfigResult,
-    source::{
-        CompositeConfigSource, ConfigSource, EnvConfigSource, PropertiesConfigSource,
-        TomlConfigSource,
-    },
-};
-
 use std::path::PathBuf;
+
+use qubit_config::Config;
+use qubit_config::ConfigError;
+use qubit_config::ConfigResult;
+use qubit_config::source::CompositeConfigSource;
+use qubit_config::source::ConfigSource;
+use qubit_config::source::EnvConfigSource;
+use qubit_config::source::PropertiesConfigSource;
+use qubit_config::source::TomlConfigSource;
 
 fn fixture(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -26,7 +27,10 @@ fn fixture(name: &str) -> PathBuf {
         .join(name)
 }
 
-fn load_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<()> {
+fn load_source(
+    config: &mut Config,
+    source: &dyn ConfigSource,
+) -> ConfigResult<()> {
     config.merge_from_source(source)
 }
 
@@ -36,11 +40,15 @@ fn load_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<(
 
 #[cfg(test)]
 mod test_composite_config_source {
-    #[allow(unused_imports)]
-    use super::{
-        CompositeConfigSource, Config, ConfigError, ConfigSource, EnvConfigSource, PathBuf,
-        PropertiesConfigSource, TomlConfigSource, fixture, load_source,
-    };
+    use super::CompositeConfigSource;
+    use super::Config;
+    use super::ConfigError;
+    use super::ConfigSource;
+    use super::EnvConfigSource;
+    use super::PropertiesConfigSource;
+    use super::TomlConfigSource;
+    use super::fixture;
+    use super::load_source;
 
     #[test]
     fn test_new_composite_is_empty() {

@@ -9,13 +9,16 @@
 
 // # `EnvFileConfigSource` tests
 
-use qubit_config::{
-    Config, ConfigError, ConfigResult,
-    source::{ConfigSource, EnvFileConfigSource},
-};
-
 use std::path::PathBuf;
-use std::sync::{Mutex, MutexGuard, OnceLock};
+use std::sync::Mutex;
+use std::sync::MutexGuard;
+use std::sync::OnceLock;
+
+use qubit_config::Config;
+use qubit_config::ConfigError;
+use qubit_config::ConfigResult;
+use qubit_config::source::ConfigSource;
+use qubit_config::source::EnvFileConfigSource;
 
 fn env_test_lock() -> MutexGuard<'static, ()> {
     static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
@@ -31,7 +34,10 @@ fn fixture(name: &str) -> PathBuf {
         .join(name)
 }
 
-fn merge_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<()> {
+fn merge_source(
+    config: &mut Config,
+    source: &dyn ConfigSource,
+) -> ConfigResult<()> {
     config.merge_from_source(source)
 }
 
@@ -41,11 +47,14 @@ fn merge_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<
 
 #[cfg(test)]
 mod test_env_file_config_source {
-    #[allow(unused_imports)]
-    use super::{
-        Config, ConfigError, ConfigSource, EnvFileConfigSource, Mutex, MutexGuard, OnceLock,
-        PathBuf, env_test_lock, fixture, merge_source,
-    };
+    use super::Config;
+    use super::ConfigError;
+    use super::ConfigSource;
+    use super::EnvFileConfigSource;
+    use super::PathBuf;
+    use super::env_test_lock;
+    use super::fixture;
+    use super::merge_source;
 
     #[test]
     fn test_load_basic_env_file() {
@@ -66,7 +75,10 @@ mod test_env_file_config_source {
         let mut config = Config::new();
         merge_source(&mut config, &source).unwrap();
 
-        assert_eq!(config.get::<String>("QUOTED_VALUE").unwrap(), "hello world");
+        assert_eq!(
+            config.get::<String>("QUOTED_VALUE").unwrap(),
+            "hello world"
+        );
         assert_eq!(
             config.get::<String>("SINGLE_QUOTED").unwrap(),
             "single quoted"
@@ -145,7 +157,8 @@ mod test_env_file_config_source {
             std::env::set_var(KEY, "process-secret");
         }
 
-        let source = EnvFileConfigSource::from_content(format!("VALUE=${{{KEY}}}\n"));
+        let source =
+            EnvFileConfigSource::from_content(format!("VALUE=${{{KEY}}}\n"));
         let config = source.load().expect(".env content should load");
 
         assert_eq!(
@@ -159,15 +172,17 @@ mod test_env_file_config_source {
     }
 
     #[test]
-    fn test_env_file_preserves_process_environment_placeholders_in_double_quotes() {
+    fn test_env_file_preserves_process_environment_placeholders_in_double_quotes()
+     {
         let _guard = env_test_lock();
         const KEY: &str = "RS_CONFIG_ENV_FILE_DOUBLE_QUOTED_SECRET";
         unsafe {
             std::env::set_var(KEY, "process-secret");
         }
 
-        let source =
-            EnvFileConfigSource::from_content(format!("NAME=\"${KEY}\"\nBRACED=\"${{{KEY}}}\"\n"));
+        let source = EnvFileConfigSource::from_content(format!(
+            "NAME=\"${KEY}\"\nBRACED=\"${{{KEY}}}\"\n"
+        ));
         let config = source.load().expect(".env content should load");
 
         assert_eq!(config.get::<String>("NAME").unwrap(), format!("${KEY}"));
@@ -184,10 +199,10 @@ mod test_env_file_config_source {
 
 #[cfg(test)]
 mod test_env_file_edge_cases {
-    #[allow(unused_imports)]
-    use super::{
-        Config, ConfigError, ConfigSource, EnvFileConfigSource, PathBuf, fixture, merge_source,
-    };
+
+    use super::ConfigError;
+    use super::ConfigSource;
+    use super::EnvFileConfigSource;
 
     // ---- env_file: non-existent file returns IoError ----
     #[test]
@@ -201,7 +216,8 @@ mod test_env_file_edge_cases {
     #[test]
     fn test_env_file_invalid_content_returns_redacted_parse_error() {
         const SECRET_MARKER: &str = "RS_CONFIG_DOTENV_SECRET_MARKER";
-        let dir = tempfile::tempdir().expect("temporary directory should be created");
+        let dir =
+            tempfile::tempdir().expect("temporary directory should be created");
         let path = dir.path().join("bad.env");
         std::fs::write(&path, format!("PASSWORD=\"{SECRET_MARKER}\n"))
             .expect("invalid .env fixture should be written");

@@ -9,8 +9,14 @@
 use std::error::Error;
 
 use qubit_config::ConfigError;
-use qubit_datatype::{DataConversionError, DataListConversionError, DataType, InvalidValueReason};
-use qubit_value::{ValueError, ValueMissing};
+use qubit_config::ConfigErrorKind;
+use qubit_datatype::DataConversionError;
+use qubit_datatype::DataConversionErrorKind;
+use qubit_datatype::DataListConversionError;
+use qubit_datatype::DataType;
+use qubit_datatype::InvalidValueReason;
+use qubit_value::ValueError;
+use qubit_value::ValueMissing;
 
 fn invalid_integer() -> DataConversionError {
     DataConversionError::invalid(
@@ -40,14 +46,13 @@ fn test_candidate_property_error_exposes_canonical_paths() {
         paths: vec!["service.port".to_string(), "service.PORT".to_string()],
     };
 
-    assert_eq!(
-        error.kind(),
-        qubit_config::ConfigErrorKind::PropertyNotFound
-    );
+    assert_eq!(error.kind(), ConfigErrorKind::PropertyNotFound);
     assert_eq!(error.path(), None);
     assert_eq!(
         error.candidate_paths(),
-        Some(["service.port".to_string(), "service.PORT".to_string()].as_slice(),),
+        Some(
+            ["service.port".to_string(), "service.PORT".to_string()].as_slice(),
+        ),
     );
     assert!(error.to_string().contains("service.port"));
     assert!(error.to_string().contains("service.PORT"));
@@ -91,7 +96,10 @@ fn test_data_conversion_missing_maps_to_no_value() {
 
 #[test]
 fn test_data_conversion_error_keeps_structure() {
-    let error = ConfigError::from_data_conversion_error("server.port", invalid_integer());
+    let error = ConfigError::from_data_conversion_error(
+        "server.port",
+        invalid_integer(),
+    );
     assert!(matches!(
         error,
         ConfigError::ConversionError {
@@ -120,7 +128,10 @@ fn test_value_error_requires_key_context() {
         ConfigError::TypeMismatch { key, .. } if key == "server.port"
     ));
 
-    let error = ConfigError::from(("server.port", ValueError::Conversion(invalid_integer())));
+    let error = ConfigError::from((
+        "server.port",
+        ValueError::Conversion(invalid_integer()),
+    ));
     assert!(matches!(
         error,
         ConfigError::ConversionError {
@@ -133,8 +144,10 @@ fn test_value_error_requires_key_context() {
 
 #[test]
 fn test_keyed_value_error_keeps_source_index() {
-    let value_error =
-        ValueError::ListConversion(DataListConversionError::new(4, invalid_integer()));
+    let value_error = ValueError::ListConversion(DataListConversionError::new(
+        4,
+        invalid_integer(),
+    ));
     let error = ConfigError::from(("ports", value_error));
     assert!(matches!(
         error,
@@ -144,7 +157,7 @@ fn test_keyed_value_error_keeps_source_index() {
             source,
         } if key == "ports"
             && source.kind()
-                == qubit_datatype::DataConversionErrorKind::InvalidValue
+                == DataConversionErrorKind::InvalidValue
     ));
 }
 
@@ -164,7 +177,7 @@ fn test_missing_collection_item_keeps_source_index() {
             source_index: Some(4),
             source,
         } if key == "ports"
-            && source.kind() == qubit_datatype::DataConversionErrorKind::Missing
+            && source.kind() == DataConversionErrorKind::Missing
     ));
 }
 

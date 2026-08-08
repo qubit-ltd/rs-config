@@ -6,10 +6,12 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-use qubit_config::{
-    Config, ConfigError, SourceLimitKind,
-    source::{ConfigSource, PropertiesConfigSource, SourceLimits},
-};
+use qubit_config::Config;
+use qubit_config::ConfigError;
+use qubit_config::SourceLimitKind;
+use qubit_config::source::ConfigSource;
+use qubit_config::source::PropertiesConfigSource;
+use qubit_config::source::SourceLimits;
 
 #[test]
 fn properties_source_rejects_oversized_in_memory_input_before_loading() {

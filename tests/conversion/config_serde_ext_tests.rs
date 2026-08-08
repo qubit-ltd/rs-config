@@ -6,10 +6,12 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-use qubit_config::{
-    Config, ConfigError, ConfigReader, ConfigResult, conversion::ConfigSerdeExt,
-    options::ReadPolicy,
-};
+use qubit_config::Config;
+use qubit_config::ConfigError;
+use qubit_config::ConfigReader;
+use qubit_config::ConfigResult;
+use qubit_config::conversion::ConfigSerdeExt;
+use qubit_config::options::ReadPolicy;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -87,8 +89,9 @@ fn test_deserialize_matches_config_inherent_method() {
     let inherent: ServerSettings = config
         .deserialize("server")
         .expect("inherent method should deserialize");
-    let extension: ServerSettings = ConfigSerdeExt::deserialize(&config, "server")
-        .expect("extension method should deserialize");
+    let extension: ServerSettings =
+        ConfigSerdeExt::deserialize(&config, "server")
+            .expect("extension method should deserialize");
 
     assert_eq!(extension, inherent);
 }

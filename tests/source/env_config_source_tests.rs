@@ -7,12 +7,17 @@
 // =============================================================================
 // # `EnvConfigSource` tests
 
-use qubit_config::{
-    Config, ConfigError, ConfigResult,
-    source::{ConfigSource, EnvConfigOptions, EnvConfigSource},
-};
+use std::sync::Mutex;
+use std::sync::MutexGuard;
+use std::sync::OnceLock;
+
+use qubit_config::Config;
+use qubit_config::ConfigError;
+use qubit_config::ConfigResult;
+use qubit_config::source::ConfigSource;
+use qubit_config::source::EnvConfigOptions;
+use qubit_config::source::EnvConfigSource;
 use qubit_redact::EnvRedactor;
-use std::sync::{Mutex, MutexGuard, OnceLock};
 
 /// Serializes tests that mutate or read process environment variables.
 fn env_test_lock() -> MutexGuard<'static, ()> {
@@ -22,7 +27,10 @@ fn env_test_lock() -> MutexGuard<'static, ()> {
         .expect("environment test lock should not be poisoned")
 }
 
-fn merge_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<()> {
+fn merge_source(
+    config: &mut Config,
+    source: &dyn ConfigSource,
+) -> ConfigResult<()> {
     config.merge_from_source(source)
 }
 
@@ -32,11 +40,14 @@ fn merge_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<
 
 #[cfg(test)]
 mod test_env_config_source {
-    #[allow(unused_imports)]
-    use super::{
-        Config, ConfigError, ConfigSource, EnvConfigOptions, EnvConfigSource, EnvRedactor, Mutex,
-        MutexGuard, OnceLock, env_test_lock, merge_source,
-    };
+    use super::Config;
+    use super::ConfigError;
+    use super::ConfigSource;
+    use super::EnvConfigOptions;
+    use super::EnvConfigSource;
+    use super::EnvRedactor;
+    use super::env_test_lock;
+    use super::merge_source;
 
     /// Verifies the default environment policy redacts an ordinary UTF-8
     /// sensitive pair.
@@ -191,7 +202,9 @@ mod test_env_config_source {
             std::env::set_var("RAWAPP_MY_KEY", "raw_val");
         }
 
-        let source = EnvConfigSource::with_options(EnvConfigOptions::new().prefix("RAWAPP_"));
+        let source = EnvConfigSource::with_options(
+            EnvConfigOptions::new().prefix("RAWAPP_"),
+        );
         let mut config = Config::new();
         merge_source(&mut config, &source).unwrap();
 
@@ -233,7 +246,8 @@ mod test_env_config_source {
         const INJECTION_MARKER: &str = "FORGED_ENV_VALUE_LINE";
         let key = "QUNICODE_BAD_VALUE";
         let mut raw_value = SECRET_MARKER.as_bytes().to_vec();
-        raw_value.extend_from_slice(format!("\n{INJECTION_MARKER}\r").as_bytes());
+        raw_value
+            .extend_from_slice(format!("\n{INJECTION_MARKER}\r").as_bytes());
         raw_value.push(0xFF);
         unsafe {
             std::env::set_var(key, OsString::from_vec(raw_value));
@@ -390,11 +404,11 @@ mod test_env_config_source {
 
 #[cfg(test)]
 mod test_env_edge_cases {
-    #[allow(unused_imports)]
-    use super::{
-        Config, ConfigError, ConfigSource, EnvConfigOptions, EnvConfigSource, Mutex, MutexGuard,
-        OnceLock, env_test_lock, merge_source,
-    };
+    use super::Config;
+    use super::EnvConfigOptions;
+    use super::EnvConfigSource;
+    use super::env_test_lock;
+    use super::merge_source;
 
     // ---- env: transform_key without strip_prefix ----
     #[test]
@@ -404,7 +418,9 @@ mod test_env_edge_cases {
         unsafe {
             std::env::set_var("COVTEST_FOO", "bar");
         }
-        let source = EnvConfigSource::with_options(EnvConfigOptions::new().prefix("COVTEST_"));
+        let source = EnvConfigSource::with_options(
+            EnvConfigOptions::new().prefix("COVTEST_"),
+        );
         let mut config = Config::new();
         merge_source(&mut config, &source).unwrap();
         // Key kept as-is (not stripped, not lowercased, not converted)
@@ -422,7 +438,9 @@ mod test_env_edge_cases {
         }
 
         let mut config = Config::new();
-        let source = EnvConfigSource::with_options(EnvConfigOptions::new().prefix("OPTTEST_"));
+        let source = EnvConfigSource::with_options(
+            EnvConfigOptions::new().prefix("OPTTEST_"),
+        );
         merge_source(&mut config, &source).unwrap();
         assert!(config.contains("OPTTEST_Mixed_Key").unwrap());
 

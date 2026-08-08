@@ -7,16 +7,22 @@
 // =============================================================================
 // Tests for configurable read parsing behavior.
 
-use qubit_config::{
-    Config, ConfigError, ConfigReader,
-    options::{InterpolationSources, ReadPolicy},
-};
-use qubit_datatype::{
-    BlankStringPolicy, BooleanConversionOptions, CollectionConversionOptions,
-    DataConversionOptions, DurationConversionOptions, DurationUnit, EmptyItemPolicy,
-    NumericConversionLimits, NumericConversionOptions, StringConversionOptions,
-    SuffixlessDurationPolicy,
-};
+use qubit_config::Config;
+use qubit_config::ConfigError;
+use qubit_config::ConfigReader;
+use qubit_config::options::InterpolationSources;
+use qubit_config::options::ReadPolicy;
+use qubit_datatype::BlankStringPolicy;
+use qubit_datatype::BooleanConversionOptions;
+use qubit_datatype::CollectionConversionOptions;
+use qubit_datatype::DataConversionOptions;
+use qubit_datatype::DurationConversionOptions;
+use qubit_datatype::DurationUnit;
+use qubit_datatype::EmptyItemPolicy;
+use qubit_datatype::NumericConversionLimits;
+use qubit_datatype::NumericConversionOptions;
+use qubit_datatype::StringConversionOptions;
+use qubit_datatype::SuffixlessDurationPolicy;
 
 #[test]
 fn test_global_env_friendly_options_parse_comma_separated_list() {
@@ -65,7 +71,8 @@ fn test_read_with_policy_can_treat_blank_string_as_missing() {
         .set("legacy.name", "fallback")
         .expect("setting fallback config should succeed");
 
-    let options = ReadPolicy::default().with_blank_string_policy(BlankStringPolicy::TreatAsMissing);
+    let options = ReadPolicy::default()
+        .with_blank_string_policy(BlankStringPolicy::TreatAsMissing);
     let name = config
         .read_with(&options)
         .get_any::<String>(["primary.name", "legacy.name"])
@@ -79,18 +86,22 @@ fn test_collection_options_can_reject_empty_items() {
     let mut config = Config::new();
     config
         .set_default_read_policy(
-            ReadPolicy::env_friendly().with_empty_item_policy(EmptyItemPolicy::Reject),
+            ReadPolicy::env_friendly()
+                .with_empty_item_policy(EmptyItemPolicy::Reject),
         )
         .set("PORTS", "8080,,8082")
         .expect("setting test config should succeed");
 
     let result = config.get::<Vec<u16>>("PORTS");
 
-    assert!(matches!(result, Err(ConfigError::ConversionError { key, .. }) if key == "PORTS"));
+    assert!(
+        matches!(result, Err(ConfigError::ConversionError { key, .. }) if key == "PORTS")
+    );
 }
 
 #[test]
-fn test_interpolation_sources_are_explicit_and_env_friendly_is_conversion_only() {
+fn test_interpolation_sources_are_explicit_and_env_friendly_is_conversion_only()
+{
     let default_policy = ReadPolicy::default();
     let enabled_policy = default_policy
         .clone()
@@ -158,15 +169,16 @@ fn test_read_policy_serde_uses_direct_interpolation_fields() {
     assert_eq!(json["max_interpolation_output_bytes"], 32);
     assert!(json.get("enabled").is_none());
     assert!(json.get("substitution").is_none());
-    let restored: ReadPolicy = serde_json::from_value(json).expect("deserialize read policy");
+    let restored: ReadPolicy =
+        serde_json::from_value(json).expect("deserialize read policy");
     assert_eq!(restored, options);
 }
 
 #[test]
 fn test_string_and_duration_options_are_delegated_to_conversion_options() {
     let string_options = StringConversionOptions::default().with_trim(true);
-    let duration_options =
-        DurationConversionOptions::default().with_numeric_input_unit(DurationUnit::Milliseconds);
+    let duration_options = DurationConversionOptions::default()
+        .with_numeric_input_unit(DurationUnit::Milliseconds);
     let options = ReadPolicy::default()
         .with_string_options(string_options.clone())
         .with_duration_options(duration_options.clone());
@@ -177,8 +189,10 @@ fn test_string_and_duration_options_are_delegated_to_conversion_options() {
 
 #[test]
 fn test_collection_options_builder_is_exposed_directly() {
-    let collection_options = CollectionConversionOptions::default().with_split_scalar_strings(true);
-    let options = ReadPolicy::default().with_collection_options(collection_options.clone());
+    let collection_options =
+        CollectionConversionOptions::default().with_split_scalar_strings(true);
+    let options = ReadPolicy::default()
+        .with_collection_options(collection_options.clone());
 
     assert_eq!(
         options.conversion_options().collection(),
@@ -202,15 +216,17 @@ fn test_config_serialization_excludes_read_policy() {
     let mut config = Config::new();
     config
         .set_default_read_policy(
-            ReadPolicy::env_friendly().with_empty_item_policy(EmptyItemPolicy::Reject),
+            ReadPolicy::env_friendly()
+                .with_empty_item_policy(EmptyItemPolicy::Reject),
         )
         .set("PORTS", "8080,,8081")
         .expect("setting test config should succeed");
 
-    let json = serde_json::to_string(&config).expect("serializing config should succeed");
+    let json = serde_json::to_string(&config)
+        .expect("serializing config should succeed");
     assert!(!json.contains("interpolation_sources"));
-    let restored: Config =
-        serde_json::from_str(&json).expect("deserializing config should succeed");
+    let restored: Config = serde_json::from_str(&json)
+        .expect("deserializing config should succeed");
 
     assert_ne!(restored.default_read_policy(), config.default_read_policy());
     assert_eq!(restored.default_read_policy(), &ReadPolicy::default());
@@ -221,23 +237,25 @@ fn test_config_serialization_excludes_read_policy() {
 fn test_read_policy_serde_defaults_are_readable() {
     let default_options: ReadPolicy =
         serde_json::from_str("{}").expect("empty options should use defaults");
-    let nested_defaults: ReadPolicy = serde_json::from_value(serde_json::json!({
-        "conversion": {
-            "string": {},
-            "boolean": {},
-            "collection": {},
-            "duration": {}
-        }
-    }))
-    .expect("nested empty options should use defaults");
-    let missing_boolean_defaults: ReadPolicy = serde_json::from_value(serde_json::json!({
-        "conversion": {
-            "string": {},
-            "collection": {},
-            "duration": {}
-        }
-    }))
-    .expect("omitted boolean options should use defaults");
+    let nested_defaults: ReadPolicy =
+        serde_json::from_value(serde_json::json!({
+            "conversion": {
+                "string": {},
+                "boolean": {},
+                "collection": {},
+                "duration": {}
+            }
+        }))
+        .expect("nested empty options should use defaults");
+    let missing_boolean_defaults: ReadPolicy =
+        serde_json::from_value(serde_json::json!({
+            "conversion": {
+                "string": {},
+                "collection": {},
+                "duration": {}
+            }
+        }))
+        .expect("omitted boolean options should use defaults");
 
     assert_eq!(default_options, ReadPolicy::default());
     assert_eq!(nested_defaults, ReadPolicy::default());
@@ -253,7 +271,8 @@ fn test_read_policy_serde_round_trips_all_policy_variants() {
     ] {
         let options = ReadPolicy::default().with_blank_string_policy(policy);
         let restored: ReadPolicy =
-            serde_json::from_str(&serde_json::to_string(&options).unwrap()).unwrap();
+            serde_json::from_str(&serde_json::to_string(&options).unwrap())
+                .unwrap();
         assert_eq!(
             restored.conversion_options().string().blank_string_policy(),
             policy
@@ -267,7 +286,8 @@ fn test_read_policy_serde_round_trips_all_policy_variants() {
     ] {
         let options = ReadPolicy::default().with_empty_item_policy(policy);
         let restored: ReadPolicy =
-            serde_json::from_str(&serde_json::to_string(&options).unwrap()).unwrap();
+            serde_json::from_str(&serde_json::to_string(&options).unwrap())
+                .unwrap();
         assert_eq!(
             restored
                 .conversion_options()
@@ -288,12 +308,15 @@ fn test_read_policy_serde_round_trips_all_policy_variants() {
     ] {
         let duration = DurationConversionOptions::default()
             .with_numeric_input_unit(unit)
-            .with_suffixless_string_policy(SuffixlessDurationPolicy::Assume(unit))
+            .with_suffixless_string_policy(SuffixlessDurationPolicy::Assume(
+                unit,
+            ))
             .with_output_unit(unit)
             .with_append_unit_suffix(false);
         let options = ReadPolicy::default().with_duration_options(duration);
         let restored: ReadPolicy =
-            serde_json::from_str(&serde_json::to_string(&options).unwrap()).unwrap();
+            serde_json::from_str(&serde_json::to_string(&options).unwrap())
+                .unwrap();
         assert_eq!(
             restored
                 .conversion_options()
@@ -308,7 +331,10 @@ fn test_read_policy_serde_round_trips_all_policy_variants() {
                 .suffixless_string_policy(),
             SuffixlessDurationPolicy::Assume(unit),
         );
-        assert_eq!(restored.conversion_options().duration().output_unit(), unit,);
+        assert_eq!(
+            restored.conversion_options().duration().output_unit(),
+            unit,
+        );
         assert!(
             !restored
                 .conversion_options()
@@ -338,7 +364,8 @@ fn test_read_policy_serde_round_trips_numeric_options() {
         128,
     );
 
-    let restored: ReadPolicy = serde_json::from_value(json).expect("deserialize options");
+    let restored: ReadPolicy =
+        serde_json::from_value(json).expect("deserialize options");
     assert_eq!(restored, options);
 }
 
@@ -354,7 +381,8 @@ fn test_read_policy_serde_boolean_literals_and_errors() {
             .expect("case sensitivity should preserve disjoint literals"),
     );
     let restored: ReadPolicy =
-        serde_json::from_str(&serde_json::to_string(&options).unwrap()).unwrap();
+        serde_json::from_str(&serde_json::to_string(&options).unwrap())
+            .unwrap();
 
     assert!(
         restored

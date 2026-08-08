@@ -7,7 +7,9 @@
 // =============================================================================
 // Tests for explicit configuration interpolation.
 
-use qubit_config::{Config, ConfigError, ConfigReader};
+use qubit_config::Config;
+use qubit_config::ConfigError;
+use qubit_config::ConfigReader;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize, PartialEq, Eq)]
