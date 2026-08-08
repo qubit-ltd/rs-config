@@ -8,7 +8,10 @@
 // qubit-style: allow source-test-pair
 //! Serde enum access over a configuration value.
 
-use serde::de::{DeserializeSeed, EnumAccess, IntoDeserializer, value::StringDeserializer};
+use serde::de::DeserializeSeed;
+use serde::de::EnumAccess;
+use serde::de::IntoDeserializer;
+use serde::de::value::StringDeserializer;
 use serde_json::Value;
 
 use super::config_variant_access::ConfigVariantAccess;
@@ -45,7 +48,10 @@ impl<'de, 'a> EnumAccess<'de> for ConfigEnumAccess<'a> {
     type Variant = ConfigVariantAccess<'a>;
 
     /// Deserializes the enum variant identifier.
-    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), Self::Error>
+    fn variant_seed<V>(
+        self,
+        seed: V,
+    ) -> Result<(V::Value, Self::Variant), Self::Error>
     where
         V: DeserializeSeed<'de>,
     {

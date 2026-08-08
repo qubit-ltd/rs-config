@@ -11,11 +11,14 @@ use std::borrow::Cow;
 
 use qubit_value::StrictValueRead;
 
+use crate::ConfigName;
+use crate::ConfigResult;
+use crate::Property;
 use crate::config::Config;
-use crate::config_path::{ensure_config_key, ensure_config_path};
+use crate::config_path::ensure_config_key;
+use crate::config_path::ensure_config_path;
 use crate::config_reader::ConfigReader;
 use crate::options::ReadPolicy;
-use crate::{ConfigName, ConfigResult, Property};
 
 /// Read-only view of the descendants under a configuration path.
 ///
@@ -50,9 +53,17 @@ impl<'a> ConfigSection<'a> {
     pub fn section(&self, path: &str) -> ConfigResult<ConfigSection<'a>> {
         ensure_config_path(path)?;
         if self.path.is_empty() {
-            ConfigSection::new_with_read_policy(self.config, path, self.read_policy)
+            ConfigSection::new_with_read_policy(
+                self.config,
+                path,
+                self.read_policy,
+            )
         } else if path.is_empty() {
-            ConfigSection::new_with_read_policy(self.config, self.path.as_str(), self.read_policy)
+            ConfigSection::new_with_read_policy(
+                self.config,
+                self.path.as_str(),
+                self.read_policy,
+            )
         } else {
             ConfigSection::new_with_read_policy(
                 self.config,
@@ -82,7 +93,10 @@ impl<'a> ConfigSection<'a> {
     /// Returns [`crate::ConfigError::InvalidPath`] when `path` is not
     /// canonical.
     #[inline]
-    pub fn section_if_present(&self, path: &str) -> ConfigResult<Option<ConfigSection<'_>>> {
+    pub fn section_if_present(
+        &self,
+        path: &str,
+    ) -> ConfigResult<Option<ConfigSection<'_>>> {
         <Self as ConfigReader>::section_if_present(self, path)
     }
 
@@ -126,7 +140,10 @@ impl<'a> ConfigSection<'a> {
 
     /// Applies a borrowed read-policy override to this view.
     #[inline(always)]
-    pub(crate) fn with_read_policy_override(mut self, policy: &'a ReadPolicy) -> Self {
+    pub(crate) fn with_read_policy_override(
+        mut self,
+        policy: &'a ReadPolicy,
+    ) -> Self {
         self.read_policy = Some(policy);
         self
     }
@@ -231,7 +248,10 @@ impl<'a> ConfigSection<'a> {
     ///
     /// The resolved key.
     #[inline]
-    fn visible_property_key<'b>(&'b self, name: &'b str) -> ConfigResult<Cow<'b, str>> {
+    fn visible_property_key<'b>(
+        &'b self,
+        name: &'b str,
+    ) -> ConfigResult<Cow<'b, str>> {
         ensure_config_key(name)?;
         Ok(self.resolve_key_cow(name))
     }
@@ -242,7 +262,9 @@ impl<'a> ConfigSection<'a> {
     ///
     /// Root entries unchanged for the root section, or descendant entries with
     /// the section prefix stripped for a non-root section.
-    fn visible_entries<'b>(&'b self) -> impl Iterator<Item = (&'b str, &'b Property)> + 'b {
+    fn visible_entries<'b>(
+        &'b self,
+    ) -> impl Iterator<Item = (&'b str, &'b Property)> + 'b {
         let child_prefix = self.child_prefix.as_deref().unwrap_or("");
         self.config
             .iter_prefix(child_prefix)
@@ -269,7 +291,10 @@ impl<'a> ConfigReader for ConfigSection<'a> {
         &self.path
     }
 
-    fn get_property(&self, name: impl ConfigName) -> ConfigResult<Option<&Property>> {
+    fn get_property(
+        &self,
+        name: impl ConfigName,
+    ) -> ConfigResult<Option<&Property>> {
         name.with_config_name(|name| {
             let key = self.visible_property_key(name)?;
             self.config.get_property(key.as_ref())
@@ -341,7 +366,9 @@ impl<'a> ConfigReader for ConfigSection<'a> {
         )
     }
 
-    fn iter<'b>(&'b self) -> Box<dyn Iterator<Item = (&'b str, &'b Property)> + 'b> {
+    fn iter<'b>(
+        &'b self,
+    ) -> Box<dyn Iterator<Item = (&'b str, &'b Property)> + 'b> {
         Box::new(self.visible_entries())
     }
 

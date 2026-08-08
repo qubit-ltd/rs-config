@@ -7,9 +7,8 @@
 // =============================================================================
 // qubit-style: allow source-test-pair
 
-use serde::Deserialize;
-
 use qubit_value::ValueWireV1;
+use serde::Deserialize;
 
 /// Owned wire representation used while deserializing a property.
 #[derive(Deserialize)]

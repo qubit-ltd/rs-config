@@ -8,10 +8,13 @@
 
 use std::collections::BTreeMap;
 
-use serde::{Deserialize, Deserializer, de::IgnoredAny};
+use serde::Deserialize;
+use serde::Deserializer;
+use serde::de::IgnoredAny;
 
 use crate::Property;
 
+// qubit-style: allow multiple-public-types
 /// Common fields decoded before selecting the versioned or legacy contract.
 ///
 /// Avoiding Serde's untagged-enum fallback here preserves detailed nested

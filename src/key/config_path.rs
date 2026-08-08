@@ -7,11 +7,17 @@
 // =============================================================================
 //! Canonical configuration section paths and shared validation.
 
-use std::fmt::{Display, Formatter};
+use std::fmt::Display;
+use std::fmt::Formatter;
 
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::Deserialize;
+use serde::Deserializer;
+use serde::Serialize;
+use serde::de::Error;
 
-use crate::{ConfigError, ConfigPathViolation, ConfigResult};
+use crate::ConfigError;
+use crate::ConfigPathViolation;
+use crate::ConfigResult;
 
 /// Owned canonical configuration section path.
 ///
@@ -39,9 +45,11 @@ impl ConfigPath {
     /// ends with `.`, or contains an empty dotted segment.
     pub fn parse(value: impl Into<String>) -> ConfigResult<Self> {
         let value = value.into();
-        validate_config_path(&value).map_err(|violation| ConfigError::InvalidPath {
-            path: value.clone(),
-            violation,
+        validate_config_path(&value).map_err(|violation| {
+            ConfigError::InvalidPath {
+                path: value.clone(),
+                violation,
+            }
         })?;
         Ok(Self(value))
     }
@@ -66,7 +74,7 @@ impl<'de> Deserialize<'de> for ConfigPath {
         D: Deserializer<'de>,
     {
         let value = String::deserialize(deserializer)?;
-        Self::parse(value).map_err(serde::de::Error::custom)
+        Self::parse(value).map_err(Error::custom)
     }
 }
 
@@ -87,7 +95,9 @@ impl AsRef<str> for ConfigPath {
 }
 
 /// Validates a non-empty configuration property key without allocation.
-pub(crate) fn validate_config_key(value: &str) -> Result<(), ConfigPathViolation> {
+pub(crate) fn validate_config_key(
+    value: &str,
+) -> Result<(), ConfigPathViolation> {
     if value.is_empty() {
         Err(ConfigPathViolation::Empty)
     } else {
@@ -106,7 +116,9 @@ pub(crate) fn ensure_config_key(value: &str) -> ConfigResult<()> {
 /// Validates a configuration path without allocation.
 ///
 /// The empty path is accepted as the root scope.
-pub(crate) fn validate_config_path(value: &str) -> Result<(), ConfigPathViolation> {
+pub(crate) fn validate_config_path(
+    value: &str,
+) -> Result<(), ConfigPathViolation> {
     if value.is_empty() {
         Ok(())
     } else {

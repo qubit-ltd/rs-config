@@ -6,16 +6,20 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+use serde_json::Map;
+use serde_json::Value;
 use serde_json::map::Entry;
-use serde_json::{Map, Value};
-
-use crate::options::ReadPolicy;
-use crate::{ConfigError, ConfigReader, ConfigResult, Property};
 
 use super::interpolation::substitute_variables_with_fallback;
 use super::map_value_error;
+use crate::ConfigError;
+use crate::ConfigReader;
+use crate::ConfigResult;
+use crate::Property;
+use crate::options::ReadPolicy;
 
-/// Inserts a value into the serde object used by [`crate::Config::deserialize`].
+/// Inserts a value into the serde object used by
+/// [`crate::Config::deserialize`].
 pub(crate) fn insert_deserialize_value(
     root: &mut Map<String, Value>,
     key: &str,
@@ -132,16 +136,22 @@ pub(crate) fn substitute_json_strings_with_fallback<
 
     match value {
         Value::String(s) => {
-            *s = substitute_variables_with_fallback(s, primary, fallback, options, path)?;
+            *s = substitute_variables_with_fallback(
+                s, primary, fallback, options, path,
+            )?;
         }
         Value::Array(values) => {
             for value in values {
-                substitute_json_strings_with_fallback(value, path, primary, fallback)?;
+                substitute_json_strings_with_fallback(
+                    value, path, primary, fallback,
+                )?;
             }
         }
         Value::Object(map) => {
             for value in map.values_mut() {
-                substitute_json_strings_with_fallback(value, path, primary, fallback)?;
+                substitute_json_strings_with_fallback(
+                    value, path, primary, fallback,
+                )?;
             }
         }
         _ => {}

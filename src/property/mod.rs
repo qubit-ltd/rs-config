@@ -10,5 +10,6 @@
 #[path = "property.rs"]
 mod property_impl;
 
-pub use crate::config_property_mut::ConfigPropertyMut;
 pub use property_impl::Property;
+
+pub use crate::config_property_mut::ConfigPropertyMut;

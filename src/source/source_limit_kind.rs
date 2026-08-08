@@ -8,9 +8,12 @@
 // qubit-style: allow source-test-pair
 //! Configuration source resource dimensions.
 
-use std::fmt::{self, Display, Formatter};
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 
 /// Resource dimension enforced during source ingestion.
 #[non_exhaustive]

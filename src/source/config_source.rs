@@ -5,7 +5,8 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use crate::{Config, ConfigResult};
+use crate::Config;
+use crate::ConfigResult;
 
 /// Trait for configuration sources.
 ///

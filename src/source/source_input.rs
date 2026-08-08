@@ -12,9 +12,10 @@ use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
 
-use crate::{ConfigError, ConfigResult};
-
-use super::{SourceLimits, source_budget::SourceBudget};
+use super::SourceLimits;
+use super::source_budget::SourceBudget;
+use crate::ConfigError;
+use crate::ConfigResult;
 
 /// Input backing one built-in text configuration source.
 #[derive(Debug, Clone)]
@@ -49,7 +50,10 @@ impl SourceInput {
                         path.display().to_string(),
                         std::io::Error::new(
                             error.kind(),
-                            format!("Failed to open {format} file '{}': {error}", path.display()),
+                            format!(
+                                "Failed to open {format} file '{}': {error}",
+                                path.display()
+                            ),
                         ),
                     )
                 })?;
@@ -70,7 +74,9 @@ impl SourceInput {
                 label.clone(),
                 std::io::Error::new(
                     std::io::ErrorKind::InvalidData,
-                    format!("Failed to read {format} source '{label}': {error}"),
+                    format!(
+                        "Failed to read {format} source '{label}': {error}"
+                    ),
                 ),
             )
         })
@@ -92,7 +98,10 @@ fn read_file_bytes(
                 path.display().to_string(),
                 std::io::Error::new(
                     error.kind(),
-                    format!("Failed to read {format} file '{}': {error}", path.display()),
+                    format!(
+                        "Failed to read {format} file '{}': {error}",
+                        path.display()
+                    ),
                 ),
             )
         })?;
@@ -103,7 +112,10 @@ fn read_file_bytes(
                 path.display().to_string(),
                 std::io::Error::new(
                     error.kind(),
-                    format!("Failed to read {format} file '{}': {error}", path.display()),
+                    format!(
+                        "Failed to read {format} file '{}': {error}",
+                        path.display()
+                    ),
                 ),
             )
         })?;

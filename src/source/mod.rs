@@ -64,15 +64,16 @@ mod yaml_config_source;
 
 pub use composite_config_source::CompositeConfigSource;
 pub use config_source::ConfigSource;
-pub use env_config_source::{EnvConfigOptions, EnvConfigSource};
+pub use env_config_source::EnvConfigOptions;
+pub use env_config_source::EnvConfigSource;
 #[cfg(feature = "env-file")]
 pub use env_file_config_source::EnvFileConfigSource;
 pub use properties_config_source::PropertiesConfigSource;
 pub use source_limit_kind::SourceLimitKind;
-pub use source_limits::{
-    DEFAULT_MAX_SOURCE_DEPTH, DEFAULT_MAX_SOURCE_INPUT_BYTES, DEFAULT_MAX_SOURCE_PROPERTIES,
-    SourceLimits,
-};
+pub use source_limits::DEFAULT_MAX_SOURCE_DEPTH;
+pub use source_limits::DEFAULT_MAX_SOURCE_INPUT_BYTES;
+pub use source_limits::DEFAULT_MAX_SOURCE_PROPERTIES;
+pub use source_limits::SourceLimits;
 #[cfg(feature = "toml")]
 pub use toml_config_source::TomlConfigSource;
 #[cfg(feature = "yaml")]
