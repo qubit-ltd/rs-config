@@ -73,9 +73,7 @@ impl SourceInput {
                         label.clone(),
                         std::io::Error::new(
                             std::io::ErrorKind::InvalidData,
-                            format!(
-                                "Failed to read {format} source '{label}': {error}"
-                            ),
+                            format!("Failed to read {format} source '{label}': {error}"),
                         ),
                     )
                 })
