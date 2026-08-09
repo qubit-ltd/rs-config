@@ -9,6 +9,7 @@
 
 use qubit_config::Config;
 use qubit_config::ConfigError;
+use qubit_config::ConfigResult;
 use qubit_config::source::ConfigSource;
 #[cfg(feature = "env-file")]
 use qubit_config::source::EnvFileConfigSource;
@@ -19,6 +20,12 @@ use qubit_config::source::SourceLimits;
 use qubit_config::source::TomlConfigSource;
 #[cfg(feature = "yaml")]
 use qubit_config::source::YamlConfigSource;
+
+#[path = "../../src/source/source_budget.rs"]
+#[allow(dead_code)]
+mod source_budget;
+
+use source_budget::SourceBudget;
 
 #[test]
 fn source_limits_are_bounded_by_default_and_can_be_unbounded() {
@@ -39,6 +46,28 @@ fn source_limits_are_bounded_by_default_and_can_be_unbounded() {
     assert_eq!(zero.max_input_bytes(), 0);
     assert_eq!(zero.max_properties(), 0);
     assert_eq!(zero.max_nesting_depth(), 0);
+}
+
+#[test]
+fn source_budget_failed_charge_preserves_remaining_capacity() {
+    let mut budget = SourceBudget::new(
+        "test source",
+        SourceLimits::default().with_max_input_bytes(5),
+    );
+
+    budget.consume_input_bytes(2).expect("two bytes should fit");
+    assert!(matches!(
+        budget.consume_input_bytes(4),
+        Err(ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::InputBytes,
+            limit: 5,
+            observed_at_least: 6,
+            ..
+        })
+    ));
+    budget
+        .consume_input_bytes(3)
+        .expect("a failed charge must not consume capacity");
 }
 
 #[test]

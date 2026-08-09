@@ -80,6 +80,22 @@ fn test_get_string_rejects_too_many_substitution_expansions() {
 }
 
 #[test]
+fn test_get_string_accepts_substitution_expansions_at_limit() {
+    let mut config = Config::new();
+    config.set_default_read_policy(
+        ReadPolicy::default().with_max_interpolation_expansions(2),
+    );
+    config.set("first", "one").unwrap();
+    config.set("second", "two").unwrap();
+    config.set("value", "${first}-${second}").unwrap();
+
+    assert_eq!(
+        config.get_interpolated::<String>("value").unwrap(),
+        "one-two"
+    );
+}
+
+#[test]
 fn test_get_string_rejects_substitution_output_over_byte_limit() {
     let mut config = Config::new();
     config.set_default_read_policy(
@@ -103,7 +119,7 @@ fn test_get_string_rejects_substitution_output_over_byte_limit() {
 fn test_get_string_accepts_substitution_output_at_byte_limit() {
     let mut config = Config::new();
     config.set_default_read_policy(
-        ReadPolicy::default().with_max_interpolation_output_bytes(8),
+        ReadPolicy::default().with_max_interpolation_output_bytes(16),
     );
     config.set("part", "1234").unwrap();
     config.set("value", "${part}${part}").unwrap();
@@ -111,6 +127,26 @@ fn test_get_string_accepts_substitution_output_at_byte_limit() {
     let value = config.get_interpolated::<String>("value").unwrap();
 
     assert_eq!(value, "12341234");
+}
+
+#[test]
+fn test_get_string_rejects_nested_output_over_cumulative_byte_limit() {
+    let mut config = Config::new();
+    config.set_default_read_policy(
+        ReadPolicy::default().with_max_interpolation_output_bytes(4),
+    );
+    config.set("part", "1234").unwrap();
+    config.set("value", "${part}").unwrap();
+
+    let result = config.get_interpolated::<String>("value");
+
+    assert!(matches!(
+        result,
+        Err(ConfigError::SubstitutionOutputTooLarge {
+            path,
+            max_output_bytes: 4,
+        }) if path == "value"
+    ));
 }
 
 #[test]
