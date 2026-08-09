@@ -520,48 +520,24 @@ fn flatten_yaml_sequence(
                     .iter()
                     .all(|value| matches!(value, YamlValue::Number(number) if number.is_i64())) =>
         {
-            set_yaml_sequence_values(
-                source_id,
-                prefix,
-                seq,
-                config,
-                YamlValue::as_i64,
-            )
+            set_yaml_sequence_values(source_id, prefix, seq, config, YamlValue::as_i64)
         }
         YamlValue::Number(_)
             if seq
                 .iter()
                 .all(|value| matches!(value, YamlValue::Number(number) if number.is_u64())) =>
         {
-            set_yaml_sequence_values(
-                source_id,
-                prefix,
-                seq,
-                config,
-                YamlValue::as_u64,
-            )
+            set_yaml_sequence_values(source_id, prefix, seq, config, YamlValue::as_u64)
         }
         YamlValue::Number(_)
             if seq
                 .iter()
                 .all(|value| matches!(value, YamlValue::Number(number) if number.is_f64())) =>
         {
-            set_yaml_sequence_values(
-                source_id,
-                prefix,
-                seq,
-                config,
-                YamlValue::as_f64,
-            )
+            set_yaml_sequence_values(source_id, prefix, seq, config, YamlValue::as_f64)
         }
         YamlValue::Bool(_) if seq.iter().all(|value| matches!(value, YamlValue::Bool(_))) => {
-            set_yaml_sequence_values(
-                source_id,
-                prefix,
-                seq,
-                config,
-                YamlValue::as_bool,
-            )
+            set_yaml_sequence_values(source_id, prefix, seq, config, YamlValue::as_bool)
         }
         YamlValue::String(_)
             if seq
