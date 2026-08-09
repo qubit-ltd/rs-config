@@ -92,8 +92,7 @@ impl<'a> SourceBudget<'a> {
         error: ResourceBudgetError<SourceLimitKind>,
     ) -> ConfigError {
         let maximum = error.limit().maximum();
-        let used = maximum.saturating_sub(error.remaining());
-        let observed = used.saturating_add(error.requested());
+        let observed = error.checked_attempted().unwrap_or(u64::MAX);
         ConfigError::SourceLimitExceeded {
             source_id: self.source_id.to_string(),
             kind: error.into_resource(),
