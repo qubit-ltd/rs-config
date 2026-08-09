@@ -20,8 +20,8 @@ use crate::SourceLimitKind;
 /// Tracks resource use while one source is parsed and flattened.
 pub(crate) struct SourceBudget<'a> {
     source_id: &'a str,
-    input_bytes: ResourceBudget,
-    properties: ResourceBudget,
+    input_bytes: ResourceBudget<SourceLimitKind>,
+    properties: ResourceBudget<SourceLimitKind>,
     nesting_depth: ResourceLimit,
 }
 
@@ -30,8 +30,14 @@ impl<'a> SourceBudget<'a> {
     pub(crate) const fn new(source_id: &'a str, limits: SourceLimits) -> Self {
         Self {
             source_id,
-            input_bytes: ResourceLimit::new(limits.max_input_bytes()).budget(),
-            properties: ResourceLimit::new(limits.max_properties()).budget(),
+            input_bytes: ResourceBudget::new(
+                SourceLimitKind::InputBytes,
+                limits.max_input_bytes(),
+            ),
+            properties: ResourceBudget::new(
+                SourceLimitKind::PropertyCount,
+                limits.max_properties(),
+            ),
             nesting_depth: ResourceLimit::new(limits.max_nesting_depth()),
         }
     }
@@ -41,9 +47,7 @@ impl<'a> SourceBudget<'a> {
         &mut self,
         amount: usize,
     ) -> ConfigResult<()> {
-        let result = self
-            .input_bytes
-            .try_consume(SourceLimitKind::InputBytes, amount);
+        let result = self.input_bytes.try_consume(amount);
         result.map_err(|error| self.limit_error(error))
     }
 
@@ -52,9 +56,7 @@ impl<'a> SourceBudget<'a> {
         &mut self,
         amount: usize,
     ) -> ConfigResult<()> {
-        let result = self
-            .properties
-            .try_consume(SourceLimitKind::PropertyCount, amount);
+        let result = self.properties.try_consume(amount);
         result.map_err(|error| self.limit_error(error))
     }
 
