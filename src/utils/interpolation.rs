@@ -16,7 +16,7 @@ use crate::ConfigResult;
 use crate::options::InterpolationSources;
 use crate::options::ReadPolicy;
 
-/// Resource dimensions charged while one interpolation is evaluated.
+/// Resource dimensions consumed while one interpolation is evaluated.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum InterpolationResource {
     /// One resolved placeholder.
@@ -56,14 +56,20 @@ fn substitute_variables_by(
     mut resolve: impl FnMut(&str) -> ConfigResult<String>,
 ) -> ConfigResult<String> {
     let mut stack = Vec::new();
-    let mut expansion_budget = ResourceBudget::new(ResourceLimit::bounded(
+    let mut expansion_budget = ResourceBudget::new(
         InterpolationResource::Expansions,
-        options.max_interpolation_expansions(),
-    ));
-    let mut output_budget = ResourceBudget::new(ResourceLimit::bounded(
+        ResourceLimit::new(
+            u64::try_from(options.max_interpolation_expansions())
+                .expect("usize expansion limit must fit in u64"),
+        ),
+    );
+    let mut output_budget = ResourceBudget::new(
         InterpolationResource::OutputBytes,
-        options.max_interpolation_output_bytes(),
-    ));
+        ResourceLimit::new(
+            u64::try_from(options.max_interpolation_output_bytes())
+                .expect("usize output limit must fit in u64"),
+        ),
+    );
     substitute_variables_recursive(
         value,
         options,
@@ -127,7 +133,7 @@ fn substitute_variables_recursive(
             });
         }
 
-        expansion_budget.try_charge(1_usize).map_err(|_| {
+        expansion_budget.try_consume(1).map_err(|_| {
             ConfigError::SubstitutionExpansionLimitExceeded {
                 path: path.to_string(),
                 max_expansions,
@@ -206,7 +212,7 @@ fn push_substitution_fragment(
     Ok(())
 }
 
-/// Charges bytes before making them visible in an interpolation result.
+/// Consumes bytes before making them visible in an interpolation result.
 ///
 /// Returns [`ConfigError::SubstitutionOutputTooLarge`] with `path` when the
 /// complete addition would exceed the configured byte limit or overflow; the
@@ -217,12 +223,15 @@ fn charge_substitution_output(
     max_output_bytes: usize,
     path: &str,
 ) -> ConfigResult<()> {
-    output_budget.try_charge(output_bytes).map_err(|_| {
-        ConfigError::SubstitutionOutputTooLarge {
+    output_budget
+        .try_consume(
+            u64::try_from(output_bytes)
+                .expect("usize output byte count must fit in u64"),
+        )
+        .map_err(|_| ConfigError::SubstitutionOutputTooLarge {
             path: path.to_string(),
             max_output_bytes,
-        }
-    })
+        })
 }
 
 /// Finds the value of a variable.
