@@ -46,7 +46,7 @@ formats = ["env-file", "toml", "yaml"]
 full = ["rich-types", "formats"]
 
 [dependencies]
-qubit-budget = "0.1"
+qubit-budget = "0.2"
 qubit-utils = "0.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_ignored = "0.1"

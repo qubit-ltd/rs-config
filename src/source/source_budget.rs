@@ -43,7 +43,7 @@ impl<'a> SourceBudget<'a> {
     ) -> ConfigResult<()> {
         let result = self
             .input_bytes
-            .consume(SourceLimitKind::InputBytes, amount);
+            .try_consume(SourceLimitKind::InputBytes, amount);
         result.map_err(|error| self.limit_error(error))
     }
 
@@ -54,7 +54,7 @@ impl<'a> SourceBudget<'a> {
     ) -> ConfigResult<()> {
         let result = self
             .properties
-            .consume(SourceLimitKind::PropertyCount, amount);
+            .try_consume(SourceLimitKind::PropertyCount, amount);
         result.map_err(|error| self.limit_error(error))
     }
 
