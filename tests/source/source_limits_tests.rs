@@ -70,6 +70,29 @@ fn source_budget_failed_charge_preserves_remaining_capacity() {
         .expect("a failed charge must not consume capacity");
 }
 
+/// Verifies an exact nesting-depth boundary is accepted before the next level
+/// is rejected with the configured source-limit facts.
+#[test]
+fn source_budget_nesting_depth_accepts_limit_and_rejects_next_level() {
+    let budget = SourceBudget::new(
+        "test source",
+        SourceLimits::default().with_max_nesting_depth(2),
+    );
+
+    budget
+        .check_depth(2)
+        .expect("the configured nesting depth should fit");
+    assert!(matches!(
+        budget.check_depth(3),
+        Err(ConfigError::SourceLimitExceeded {
+            source_id,
+            kind: SourceLimitKind::NestingDepth,
+            limit: 2,
+            observed_at_least: 3,
+        }) if source_id == "test source"
+    ));
+}
+
 #[test]
 fn properties_source_rejects_oversized_input_transactionally() {
     let source = PropertiesConfigSource::from_content("a=1\n")

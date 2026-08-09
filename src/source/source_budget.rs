@@ -8,10 +8,8 @@
 // qubit-style: allow source-test-pair
 //! Mutable accounting for configuration source ingestion.
 
-use qubit_budget::LimitExceeded;
 use qubit_budget::ResourceBudget;
 use qubit_budget::ResourceBudgetError;
-use qubit_budget::ResourceLimit;
 
 use super::SourceLimits;
 use crate::ConfigError;
@@ -21,9 +19,9 @@ use crate::SourceLimitKind;
 /// Tracks resource use while one source is parsed and flattened.
 pub(crate) struct SourceBudget<'a> {
     source_id: &'a str,
-    input_bytes: ResourceBudget<SourceLimitKind>,
-    properties: ResourceBudget<SourceLimitKind>,
-    nesting_depth: ResourceLimit,
+    input_bytes: ResourceBudget<SourceLimitKind, usize>,
+    properties: ResourceBudget<SourceLimitKind, usize>,
+    nesting_depth: usize,
 }
 
 impl<'a> SourceBudget<'a> {
@@ -33,22 +31,13 @@ impl<'a> SourceBudget<'a> {
             source_id,
             input_bytes: ResourceBudget::new(
                 SourceLimitKind::InputBytes,
-                ResourceLimit::new(
-                    u64::try_from(limits.max_input_bytes())
-                        .expect("usize input limit must fit in u64"),
-                ),
+                limits.max_input_bytes(),
             ),
             properties: ResourceBudget::new(
                 SourceLimitKind::PropertyCount,
-                ResourceLimit::new(
-                    u64::try_from(limits.max_properties())
-                        .expect("usize property limit must fit in u64"),
-                ),
+                limits.max_properties(),
             ),
-            nesting_depth: ResourceLimit::new(
-                u64::try_from(limits.max_nesting_depth())
-                    .expect("usize nesting limit must fit in u64"),
-            ),
+            nesting_depth: limits.max_nesting_depth(),
         }
     }
 
@@ -57,9 +46,7 @@ impl<'a> SourceBudget<'a> {
         &mut self,
         amount: usize,
     ) -> ConfigResult<()> {
-        let result = self.input_bytes.try_consume(
-            u64::try_from(amount).expect("usize byte count must fit in u64"),
-        );
+        let result = self.input_bytes.try_consume(amount);
         result.map_err(|error| self.limit_error(error))
     }
 
@@ -68,50 +55,36 @@ impl<'a> SourceBudget<'a> {
         &mut self,
         amount: usize,
     ) -> ConfigResult<()> {
-        let result = self.properties.try_consume(
-            u64::try_from(amount)
-                .expect("usize property count must fit in u64"),
-        );
+        let result = self.properties.try_consume(amount);
         result.map_err(|error| self.limit_error(error))
     }
 
     /// Checks a root-relative nesting depth without accumulating it.
     pub(crate) fn check_depth(&self, depth: usize) -> ConfigResult<()> {
-        self.nesting_depth
-            .check(
-                SourceLimitKind::NestingDepth,
-                u64::try_from(depth)
-                    .expect("usize nesting depth must fit in u64"),
-            )
-            .map_err(|error| self.point_limit_error(error))
+        if depth <= self.nesting_depth {
+            Ok(())
+        } else {
+            Err(ConfigError::SourceLimitExceeded {
+                source_id: self.source_id.to_string(),
+                kind: SourceLimitKind::NestingDepth,
+                limit: self.nesting_depth,
+                observed_at_least: depth,
+            })
+        }
     }
 
     /// Creates a source limit error.
     fn limit_error(
         &self,
-        error: ResourceBudgetError<SourceLimitKind>,
+        error: ResourceBudgetError<SourceLimitKind, usize>,
     ) -> ConfigError {
-        let maximum = error.limit().maximum();
-        let observed = error.checked_attempted().unwrap_or(u64::MAX);
+        let limit = error.limit();
+        let observed_at_least = error.checked_attempted().unwrap_or(usize::MAX);
         ConfigError::SourceLimitExceeded {
             source_id: self.source_id.to_string(),
             kind: error.into_resource(),
-            limit: usize::try_from(maximum).unwrap_or(usize::MAX),
-            observed_at_least: usize::try_from(observed).unwrap_or(usize::MAX),
-        }
-    }
-
-    fn point_limit_error(
-        &self,
-        error: LimitExceeded<SourceLimitKind>,
-    ) -> ConfigError {
-        let limit = error.limit().maximum();
-        let observed = error.observed();
-        ConfigError::SourceLimitExceeded {
-            source_id: self.source_id.to_string(),
-            kind: error.into_resource(),
-            limit: usize::try_from(limit).unwrap_or(usize::MAX),
-            observed_at_least: usize::try_from(observed).unwrap_or(usize::MAX),
+            limit,
+            observed_at_least,
         }
     }
 }
