@@ -7,7 +7,6 @@
 // =============================================================================
 
 use qubit_budget::ResourceBudget;
-use qubit_budget::ResourceLimit;
 
 use super::map_value_error;
 use crate::ConfigError;
@@ -58,17 +57,11 @@ fn substitute_variables_by(
     let mut stack = Vec::new();
     let mut expansion_budget = ResourceBudget::new(
         InterpolationResource::Expansions,
-        ResourceLimit::new(
-            u64::try_from(options.max_interpolation_expansions())
-                .expect("usize expansion limit must fit in u64"),
-        ),
+        options.max_interpolation_expansions(),
     );
     let mut output_budget = ResourceBudget::new(
         InterpolationResource::OutputBytes,
-        ResourceLimit::new(
-            u64::try_from(options.max_interpolation_output_bytes())
-                .expect("usize output limit must fit in u64"),
-        ),
+        options.max_interpolation_output_bytes(),
     );
     substitute_variables_recursive(
         value,
@@ -87,8 +80,8 @@ fn substitute_variables_recursive(
     options: &ReadPolicy,
     path: &str,
     stack: &mut Vec<String>,
-    expansion_budget: &mut ResourceBudget<InterpolationResource>,
-    output_budget: &mut ResourceBudget<InterpolationResource>,
+    expansion_budget: &mut ResourceBudget<InterpolationResource, usize>,
+    output_budget: &mut ResourceBudget<InterpolationResource, usize>,
     resolve: &mut impl FnMut(&str) -> ConfigResult<String>,
 ) -> ConfigResult<String> {
     let max_depth = options.max_interpolation_depth();
@@ -198,7 +191,7 @@ fn find_next_variable(
 fn push_substitution_fragment(
     result: &mut String,
     fragment: &str,
-    output_budget: &mut ResourceBudget<InterpolationResource>,
+    output_budget: &mut ResourceBudget<InterpolationResource, usize>,
     max_output_bytes: usize,
     path: &str,
 ) -> ConfigResult<()> {
@@ -218,20 +211,17 @@ fn push_substitution_fragment(
 /// complete addition would exceed the configured byte limit or overflow; the
 /// budget and the caller's output remain unchanged on failure.
 fn charge_substitution_output(
-    output_budget: &mut ResourceBudget<InterpolationResource>,
+    output_budget: &mut ResourceBudget<InterpolationResource, usize>,
     output_bytes: usize,
     max_output_bytes: usize,
     path: &str,
 ) -> ConfigResult<()> {
-    output_budget
-        .try_consume(
-            u64::try_from(output_bytes)
-                .expect("usize output byte count must fit in u64"),
-        )
-        .map_err(|_| ConfigError::SubstitutionOutputTooLarge {
+    output_budget.try_consume(output_bytes).map_err(|_| {
+        ConfigError::SubstitutionOutputTooLarge {
             path: path.to_string(),
             max_output_bytes,
-        })
+        }
+    })
 }
 
 /// Finds the value of a variable.
