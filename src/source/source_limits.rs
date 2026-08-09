@@ -18,6 +18,12 @@ pub const DEFAULT_MAX_SOURCE_PROPERTIES: usize = 65_536;
 pub const DEFAULT_MAX_SOURCE_DEPTH: usize = 64;
 
 /// Resource limits for one configuration source load.
+///
+/// Input bytes and emitted properties are cumulative budgets: every accepted
+/// charge is retained for the lifetime of one source load, while a rejected
+/// charge leaves the accumulated count unchanged. Nesting depth is a stateless
+/// point limit checked independently for each observed path. These limits do
+/// not synchronize access or manage resource lifetimes.
 #[must_use]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]

@@ -8,6 +8,7 @@
 // qubit-style: allow source-test-pair
 //! Mutable accounting for configuration source ingestion.
 
+use qubit_budget::BudgetError;
 use qubit_budget::LimitExceeded;
 use qubit_budget::ResourceBudget;
 use qubit_budget::ResourceLimit;
@@ -22,7 +23,7 @@ pub(crate) struct SourceBudget<'a> {
     source_id: &'a str,
     input_bytes: ResourceBudget<SourceLimitKind>,
     properties: ResourceBudget<SourceLimitKind>,
-    nesting_depth: ResourceLimit,
+    nesting_depth: ResourceLimit<SourceLimitKind>,
 }
 
 impl<'a> SourceBudget<'a> {
@@ -30,15 +31,18 @@ impl<'a> SourceBudget<'a> {
     pub(crate) const fn new(source_id: &'a str, limits: SourceLimits) -> Self {
         Self {
             source_id,
-            input_bytes: ResourceBudget::new(
+            input_bytes: ResourceBudget::new(ResourceLimit::bounded(
                 SourceLimitKind::InputBytes,
                 limits.max_input_bytes(),
-            ),
-            properties: ResourceBudget::new(
+            )),
+            properties: ResourceBudget::new(ResourceLimit::bounded(
                 SourceLimitKind::PropertyCount,
                 limits.max_properties(),
+            )),
+            nesting_depth: ResourceLimit::bounded(
+                SourceLimitKind::NestingDepth,
+                limits.max_nesting_depth(),
             ),
-            nesting_depth: ResourceLimit::new(limits.max_nesting_depth()),
         }
     }
 
@@ -47,7 +51,7 @@ impl<'a> SourceBudget<'a> {
         &mut self,
         amount: usize,
     ) -> ConfigResult<()> {
-        let result = self.input_bytes.try_consume(amount);
+        let result = self.input_bytes.try_charge(amount);
         result.map_err(|error| self.limit_error(error))
     }
 
@@ -56,29 +60,57 @@ impl<'a> SourceBudget<'a> {
         &mut self,
         amount: usize,
     ) -> ConfigResult<()> {
-        let result = self.properties.try_consume(amount);
+        let result = self.properties.try_charge(amount);
         result.map_err(|error| self.limit_error(error))
     }
 
     /// Checks a root-relative nesting depth without accumulating it.
     pub(crate) fn check_depth(&self, depth: usize) -> ConfigResult<()> {
         self.nesting_depth
-            .check(SourceLimitKind::NestingDepth, depth)
-            .map_err(|error| self.limit_error(error))
+            .check(depth)
+            .map_err(|error| self.point_limit_error(error))
     }
 
     /// Creates a source limit error.
     fn limit_error(
         &self,
+        error: BudgetError<SourceLimitKind, usize>,
+    ) -> ConfigError {
+        match error {
+            BudgetError::Exceeded {
+                kind,
+                maximum,
+                observed,
+                ..
+            } => ConfigError::SourceLimitExceeded {
+                source_id: self.source_id.to_string(),
+                kind,
+                limit: maximum,
+                observed_at_least: observed,
+            },
+            BudgetError::CounterOverflow { kind, .. } => {
+                ConfigError::SourceLimitExceeded {
+                    source_id: self.source_id.to_string(),
+                    limit: usize::MAX,
+                    kind,
+                    observed_at_least: usize::MAX,
+                }
+            }
+            BudgetError::Closed { .. } => {
+                unreachable!("SourceBudget never closes its resource budgets")
+            }
+        }
+    }
+
+    fn point_limit_error(
+        &self,
         error: LimitExceeded<SourceLimitKind>,
     ) -> ConfigError {
-        let limit = error.maximum();
-        let observed_at_least = error.observed_at_least();
         ConfigError::SourceLimitExceeded {
             source_id: self.source_id.to_string(),
             kind: error.into_kind(),
-            limit,
-            observed_at_least,
+            limit: error.maximum(),
+            observed_at_least: error.observed(),
         }
     }
 }
