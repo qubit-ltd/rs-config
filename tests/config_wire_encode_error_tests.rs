@@ -8,61 +8,57 @@
 
 //! Tests for bounded configuration wire encoding errors.
 
-use qubit_config::ConfigWireDecodeError;
+use qubit_budget::BudgetError;
+use qubit_budget::JsonResource;
 use qubit_config::ConfigWireEncodeError;
 use qubit_config::ConfigWireLimitKind;
-use qubit_value::ValueWireDecodeError;
-use qubit_value::ValueWireLimitKind;
 
-/// Verifies input-size decode errors map to output-size encode errors.
+/// Verifies shared budget errors are exposed without a lossy conversion.
 #[test]
-fn config_wire_encode_error_maps_input_bytes_to_output_bytes() {
-    let error = ConfigWireEncodeError::from(ConfigWireDecodeError::Value(
-        ValueWireDecodeError::InputTooLarge {
-            input_bytes: 17,
-            max_input_bytes: 16,
-        },
-    ));
+fn config_wire_encode_error_exposes_budget_source() {
+    let error = ConfigWireEncodeError::Budget(BudgetError::LimitExceeded {
+        resource: JsonResource::OutputBytes,
+        actual: 17,
+        maximum: 16,
+    });
 
     assert!(matches!(
         error,
-        ConfigWireEncodeError::OutputTooLarge {
-            output_bytes: 17,
-            max_output_bytes: 16,
-        }
+        ConfigWireEncodeError::Budget(BudgetError::LimitExceeded {
+            resource: JsonResource::OutputBytes,
+            actual: 17,
+            maximum: 16,
+        })
     ));
 }
 
-/// Verifies shared value-limit details survive encode-error conversion.
+/// Verifies the resource identity remains available to callers.
 #[test]
-fn config_wire_encode_error_preserves_shared_value_limit() {
-    let error = ConfigWireEncodeError::from(ConfigWireDecodeError::Value(
-        ValueWireDecodeError::LimitExceeded {
-            kind: ValueWireLimitKind::Nodes,
-            value: 9,
-            maximum: 8,
-        },
-    ));
+fn config_wire_encode_error_preserves_budget_resource() {
+    let error = ConfigWireEncodeError::Budget(BudgetError::LimitExceeded {
+        resource: JsonResource::Nodes,
+        actual: 9,
+        maximum: 8,
+    });
 
     assert!(matches!(
         error,
-        ConfigWireEncodeError::ValueLimitExceeded {
-            kind: ValueWireLimitKind::Nodes,
-            value: 9,
+        ConfigWireEncodeError::Budget(BudgetError::LimitExceeded {
+            resource: JsonResource::Nodes,
+            actual: 9,
             maximum: 8,
-        }
+        })
     ));
 }
 
-/// Verifies configuration-limit details survive encode-error conversion.
+/// Verifies configuration-specific limits remain distinct from JSON budgets.
 #[test]
 fn config_wire_encode_error_preserves_config_limit() {
-    let error =
-        ConfigWireEncodeError::from(ConfigWireDecodeError::LimitExceeded {
-            kind: ConfigWireLimitKind::Properties,
-            value: 5,
-            maximum: 4,
-        });
+    let error = ConfigWireEncodeError::LimitExceeded {
+        kind: ConfigWireLimitKind::Properties,
+        value: 5,
+        maximum: 4,
+    };
 
     assert!(matches!(
         error,
