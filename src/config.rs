@@ -15,12 +15,14 @@ mod internal;
 
 use std::collections::BTreeMap;
 
+use qubit_budget::JsonResource;
+use qubit_budget::JsonSerdeError;
+use qubit_budget::from_slice_with_budget;
+use qubit_budget::to_vec_with_budget;
 use qubit_datatype::DataConversionTarget;
 use qubit_utils::Transient;
 use qubit_value::Value as QubitValue;
-use qubit_value::ValueWireDecodeError;
 use qubit_value::ValueWireRefV1;
-use qubit_value::WireBudget;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
@@ -239,8 +241,8 @@ impl TryFrom<ConfigWire> for Config {
 }
 
 impl Config {
-    /// Encodes this configuration as a V1 JSON wire document with default
-    /// structural and output limits.
+    /// Encodes this configuration as a V1 JSON wire document with the
+    /// configuration crate's default JSON budget profile.
     ///
     /// # Returns
     ///
@@ -254,11 +256,11 @@ impl Config {
         self.encode_json_vec_with_limits(ConfigWireLimits::default())
     }
 
-    /// Encodes this configuration as a V1 JSON wire document under explicit
-    /// shared value, configuration, and output limits.
+    /// Encodes this configuration as a V1 JSON wire document under an
+    /// explicit configuration profile.
     ///
-    /// Semantic limits and V1 value representability are checked before JSON
-    /// serialization. The final encoded byte length is checked afterward.
+    /// Generic JSON costs are charged by rs-budget while configuration
+    /// property invariants remain local to this crate.
     ///
     /// # Parameters
     ///
@@ -270,34 +272,23 @@ impl Config {
     ///
     /// # Errors
     ///
-    /// Returns a value-representation or semantic resource error before
-    /// serialization, a JSON serialization error, or an output-byte error
-    /// after serialization.
+    /// Returns a value-representation error, a shared budget error, a JSON
+    /// serialization error, or a configuration-specific limit error.
     pub fn encode_json_vec_with_limits(
         &self,
         limits: ConfigWireLimits,
     ) -> Result<Vec<u8>, ConfigWireEncodeError> {
-        let mut budget = limits
-            .wire()
-            .begin(0)
-            .map_err(ConfigWireDecodeError::from)
-            .map_err(ConfigWireEncodeError::from)?;
-        self.check_wire_budget(&mut budget, limits)
-            .map_err(ConfigWireEncodeError::from)?;
+        self.check_config_limits_encode(limits)?;
         for property in self.properties.values() {
             let _ = ValueWireRefV1::try_from(property.value())?;
         }
-        let output = serde_json::to_vec(self)?;
-        limits
-            .wire()
-            .check_json_output_bytes(output.len())
-            .map_err(ConfigWireDecodeError::from)
-            .map_err(ConfigWireEncodeError::from)?;
-        Ok(output)
+        let mut budget = limits.json().budget();
+        to_vec_with_budget(&ConfigWireV1Ref::from(self), &mut budget)
+            .map_err(map_encode_json_error)
     }
 
-    /// Decodes a complete configuration JSON wire document with default
-    /// structural limits.
+    /// Decodes a complete configuration JSON wire document with the
+    /// configuration crate's default JSON budget profile.
     ///
     /// # Parameters
     ///
@@ -309,15 +300,15 @@ impl Config {
     ///
     /// # Errors
     ///
-    /// Returns a wire-limit, JSON, or configuration-invariant error.
+    /// Returns a shared budget, JSON, or configuration-invariant error.
     pub fn decode_json_slice(
         input: &[u8],
     ) -> Result<Self, ConfigWireDecodeError> {
         Self::decode_json_slice_with_limits(input, ConfigWireLimits::default())
     }
 
-    /// Decodes a complete configuration JSON wire document with shared Value
-    /// and configuration-specific structural limits.
+    /// Decodes a complete configuration JSON wire document with an explicit
+    /// configuration profile.
     ///
     /// # Parameters
     ///
@@ -330,38 +321,26 @@ impl Config {
     ///
     /// # Errors
     ///
-    /// Returns a wire-limit error before or after decoding, a JSON error, or a
-    /// configuration-invariant error.
+    /// Returns a shared budget error, a JSON error, or a configuration
+    /// invariant/limit error.
     pub fn decode_json_slice_with_limits(
         input: &[u8],
         limits: ConfigWireLimits,
     ) -> Result<Self, ConfigWireDecodeError> {
-        let mut budget =
-            limits
-                .wire()
-                .begin_json(input)
-                .map_err(|error| match error {
-                    ValueWireDecodeError::InvalidJson(error) => {
-                        ConfigWireDecodeError::InvalidJson(error)
-                    }
-                    error => ConfigWireDecodeError::from(error),
-                })?;
-        let config: Self = serde_json::from_slice(input)
-            .map_err(ConfigWireDecodeError::InvalidJson)?;
-        config.check_wire_budget(&mut budget, limits)?;
+        let mut budget = limits.json().budget();
+        let wire: ConfigWire = from_slice_with_budget(input, &mut budget)
+            .map_err(map_decode_json_error)?;
+        let config = Self::try_from(wire)
+            .map_err(ConfigWireDecodeError::InvalidConfig)?;
+        config.check_config_limits(limits)?;
         Ok(config)
     }
 
-    /// Charges decoded configuration resources against one shared budget.
-    fn check_wire_budget(
+    /// Checks configuration-specific limits that are not generic JSON costs.
+    fn check_config_limits(
         &self,
-        budget: &mut WireBudget,
         limits: ConfigWireLimits,
     ) -> Result<(), ConfigWireDecodeError> {
-        budget.check_node().map_err(ConfigWireDecodeError::from)?;
-        budget
-            .check_map_entries(self.properties.len())
-            .map_err(ConfigWireDecodeError::from)?;
         if self.properties.len() > limits.max_properties() {
             return Err(ConfigWireDecodeError::LimitExceeded {
                 kind: ConfigWireLimitKind::Properties,
@@ -369,16 +348,7 @@ impl Config {
                 maximum: limits.max_properties(),
             });
         }
-        if let Some(description) = &self.description {
-            budget
-                .check_string_bytes(description.len())
-                .map_err(ConfigWireDecodeError::from)?;
-        }
-        for (key, property) in &self.properties {
-            budget.check_node().map_err(ConfigWireDecodeError::from)?;
-            budget
-                .check_key_bytes(key.len())
-                .map_err(ConfigWireDecodeError::from)?;
+        for key in self.properties.keys() {
             if key.len() > limits.max_property_key_bytes() {
                 return Err(ConfigWireDecodeError::LimitExceeded {
                     kind: ConfigWireLimitKind::PropertyKeyBytes,
@@ -386,20 +356,30 @@ impl Config {
                     maximum: limits.max_property_key_bytes(),
                 });
             }
-            budget
-                .check_string_bytes(key.len())
-                .map_err(ConfigWireDecodeError::from)?;
-            budget
-                .check_string_bytes(property.name().len())
-                .map_err(ConfigWireDecodeError::from)?;
-            if let Some(description) = property.description() {
-                budget
-                    .check_string_bytes(description.len())
-                    .map_err(ConfigWireDecodeError::from)?;
+        }
+        Ok(())
+    }
+
+    /// Checks configuration-specific limits for an encoding operation.
+    fn check_config_limits_encode(
+        &self,
+        limits: ConfigWireLimits,
+    ) -> Result<(), ConfigWireEncodeError> {
+        if self.properties.len() > limits.max_properties() {
+            return Err(ConfigWireEncodeError::LimitExceeded {
+                kind: ConfigWireLimitKind::Properties,
+                value: self.properties.len(),
+                maximum: limits.max_properties(),
+            });
+        }
+        for key in self.properties.keys() {
+            if key.len() > limits.max_property_key_bytes() {
+                return Err(ConfigWireEncodeError::LimitExceeded {
+                    kind: ConfigWireLimitKind::PropertyKeyBytes,
+                    value: key.len(),
+                    maximum: limits.max_property_key_bytes(),
+                });
             }
-            budget
-                .check_container_at(property.value(), 2)
-                .map_err(ConfigWireDecodeError::from)?;
         }
         Ok(())
     }
@@ -509,5 +489,31 @@ impl Default for Config {
     #[inline]
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Maps a budget-aware JSON decode failure to the configuration wire error.
+fn map_decode_json_error(
+    error: JsonSerdeError<JsonResource>,
+) -> ConfigWireDecodeError {
+    match error {
+        JsonSerdeError::Budget(error) => ConfigWireDecodeError::Budget(error),
+        JsonSerdeError::Json(error) => ConfigWireDecodeError::Json(error),
+        JsonSerdeError::Io(error) => {
+            ConfigWireDecodeError::Json(serde_json::Error::io(error))
+        }
+    }
+}
+
+/// Maps a budget-aware JSON encode failure to the configuration wire error.
+fn map_encode_json_error(
+    error: JsonSerdeError<JsonResource>,
+) -> ConfigWireEncodeError {
+    match error {
+        JsonSerdeError::Budget(error) => ConfigWireEncodeError::Budget(error),
+        JsonSerdeError::Json(error) => ConfigWireEncodeError::Json(error),
+        JsonSerdeError::Io(error) => {
+            ConfigWireEncodeError::Json(serde_json::Error::io(error))
+        }
     }
 }

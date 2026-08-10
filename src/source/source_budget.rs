@@ -93,8 +93,7 @@ impl<'a> SourceBudget<'a> {
                     .checked_add(requested)
                     .unwrap_or(usize::MAX),
             },
-            BudgetError::LimitExceeded { .. }
-            | BudgetError::InvalidRelease { .. } => {
+            BudgetError::LimitExceeded { .. } => {
                 unreachable!("SourceBudget only consumes cumulative resources")
             }
         }
