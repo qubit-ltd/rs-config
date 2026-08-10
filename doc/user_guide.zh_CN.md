@@ -298,10 +298,12 @@ assert_eq!(restored.get::<i64>("server.port")?, 8080);
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
-当默认 wire budget 不适用时，`Config::encode_json_vec_with_limits`
-和 `Config::decode_json_slice_with_limits` 都接收 `ConfigWireLimits`。受限
-编码会在序列化前检查语义 limit，并在序列化后检查最终字节数。
-普通 Serde 序列化的行为保持不变。该 wire budget 与读取文本 source 时
+当默认 profile 不适用时，`Config::encode_json_vec_with_limits` 和
+`Config::decode_json_slice_with_limits` 都接收 `ConfigWireLimits`。该
+profile 组合 rs-budget 的 `JsonLimits` 与配置专属的 property、property
+key 限制。共享 JSON adapter 在一次遍历中负责 input、output、depth、node、
+collection、key、string 和 number 资源；配置专属限制仍由本 crate 处理。
+普通 Serde 序列化的行为保持不变。该 JSON budget 与读取文本 source 时
 使用的 `SourceLimits` 相互独立。
 
 ## 进阶用法
@@ -447,8 +449,8 @@ source label；其他错误返回 `None`。
 - 普通读取不会插值。把插值放在显式调用点，让信任边界清晰可见。
 - 只有选择 `InterpolationSources::ConfigThenEnv` 后才会回退到进程环境变量。
 - 内置 source 默认受边界限制。输入字节数限制保护 parser 边界，TOML/YAML 的
-  property 与深度限制保护 AST flatten；wire 解码使用独立的 `ConfigWireLimits`
-  budget。
+  property 与深度限制保护 AST flatten；JSON wire 解码使用由 rs-budget
+  `JsonBudget` 支撑的独立 `ConfigWireLimits` profile。
 - source layer 独立创建并事务式合并，但 `Config` 本身是可变的；应用需要自行决定所有权和同步方式。
 - `ConfigReader` 是 sealed 且不是 object-safe，因为它含有泛型方法。请使用 `&impl ConfigReader` 等泛型约束，而不是 `dyn ConfigReader`。
 - `ConfigSection` 是借用视图。使用期间必须保持来源 `Config` 存活，并在 section 内使用相对 key。

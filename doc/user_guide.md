@@ -306,10 +306,13 @@ assert_eq!(restored.get::<i64>("server.port")?, 8080);
 
 `Config::encode_json_vec_with_limits` and
 `Config::decode_json_slice_with_limits` accept `ConfigWireLimits` when the
-default wire budget is not suitable. Bounded encoding checks semantic limits
-before serialization and the final byte length afterward. Ordinary Serde
-serialization remains available and unchanged. This wire budget is separate
-from `SourceLimits`, which applies while ingesting text sources.
+default profile is not suitable. The profile composes rs-budget's
+`JsonLimits` with configuration-only property and property-key limits. The
+shared JSON adapter charges input, output, depth, node, collection, key,
+string, and number resources during one traversal; configuration-specific
+limits remain local to this crate. Ordinary Serde serialization remains
+available and unchanged. This JSON budget is separate from `SourceLimits`,
+which applies while ingesting text sources.
 
 ## Advanced Usage
 
@@ -459,7 +462,8 @@ Check the source result independently with `source.load()`, then inspect its key
 - Process-environment fallback is disabled unless `InterpolationSources::ConfigThenEnv` is selected.
 - Built-in source loads are bounded by default. The input-byte limit protects
   the parser boundary; TOML/YAML property and depth limits protect AST
-  flattening. Wire decoding has a separate `ConfigWireLimits` budget.
+  flattening. JSON wire decoding has a separate `ConfigWireLimits` profile
+  backed by rs-budget's generic `JsonBudget`.
 - Source layers are independent and merged transactionally, but `Config` itself is mutable; choose ownership and synchronization in the application that uses it.
 - `ConfigReader` is sealed and not object-safe because it has generic methods. Use generic bounds such as `&impl ConfigReader` rather than `dyn ConfigReader`.
 - `ConfigSection` is a borrowed view. Keep the originating `Config` alive while using it and use relative keys within the section.
