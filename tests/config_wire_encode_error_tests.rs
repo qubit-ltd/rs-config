@@ -8,10 +8,10 @@
 
 //! Tests for bounded configuration wire encoding errors.
 
-use qubit_budget::BudgetError;
-use qubit_budget::JsonResource;
 use qubit_config::ConfigWireEncodeError;
 use qubit_config::ConfigWireLimitKind;
+use qubit_budget::BudgetError;
+use qubit_budget::JsonResource;
 
 /// Verifies shared budget errors are exposed without a lossy conversion.
 #[test]
@@ -28,7 +28,7 @@ fn config_wire_encode_error_exposes_budget_source() {
             resource: JsonResource::OutputBytes,
             actual: 17,
             maximum: 16,
-        })
+        }
     ));
 }
 
@@ -47,7 +47,7 @@ fn config_wire_encode_error_preserves_budget_resource() {
             resource: JsonResource::Nodes,
             actual: 9,
             maximum: 8,
-        })
+        }
     ));
 }
 

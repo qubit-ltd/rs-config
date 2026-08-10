@@ -8,8 +8,8 @@
 
 //! Tests for configuration wire resource limits.
 
-use qubit_budget::JsonLimits;
 use qubit_config::ConfigWireLimits;
+use qubit_budget::JsonLimits;
 
 #[test]
 fn config_wire_limits_preserve_configured_shared_budget() {
