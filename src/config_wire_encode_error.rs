@@ -93,6 +93,16 @@ impl From<ConfigWireDecodeError> for ConfigWireEncodeError {
             },
             ConfigWireDecodeError::Value(
                 ValueWireDecodeError::LimitExceeded {
+                    kind: ValueWireLimitKind::OutputBytes,
+                    value,
+                    maximum,
+                },
+            ) => Self::OutputTooLarge {
+                output_bytes: value,
+                max_output_bytes: maximum,
+            },
+            ConfigWireDecodeError::Value(
+                ValueWireDecodeError::LimitExceeded {
                     kind,
                     value,
                     maximum,
