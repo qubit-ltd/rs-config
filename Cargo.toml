@@ -62,7 +62,7 @@ dotenvy = { version = "0.15", optional = true }
 
 qubit-datatype = { version = "0.10", default-features = false, features = ["converter"] }
 qubit-redact = { version = "0.4", default-features = false }
-qubit-value = { version = "0.10", default-features = false, features = ["converter", "json"] }
+qubit-value = { version = "0.10", path = "../rs-value", default-features = false, features = ["converter", "json"] }
 
 [dev-dependencies]
 criterion = { version = "0.8", default-features = false }

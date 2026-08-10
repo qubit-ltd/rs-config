@@ -290,7 +290,7 @@ impl Config {
         let output = serde_json::to_vec(self)?;
         limits
             .wire()
-            .check_json_bytes(output.len())
+            .check_json_output_bytes(output.len())
             .map_err(ConfigWireDecodeError::from)
             .map_err(ConfigWireEncodeError::from)?;
         Ok(output)
@@ -376,6 +376,9 @@ impl Config {
         }
         for (key, property) in &self.properties {
             budget.check_node().map_err(ConfigWireDecodeError::from)?;
+            budget
+                .check_key_bytes(key.len())
+                .map_err(ConfigWireDecodeError::from)?;
             if key.len() > limits.max_property_key_bytes() {
                 return Err(ConfigWireDecodeError::LimitExceeded {
                     kind: ConfigWireLimitKind::PropertyKeyBytes,
