@@ -8,8 +8,8 @@
 // qubit-style: allow source-test-pair
 //! Mutable accounting for configuration source ingestion.
 
+use qubit_budget::BudgetError;
 use qubit_budget::ResourceBudget;
-use qubit_budget::ResourceBudgetError;
 
 use super::SourceLimits;
 use crate::ConfigError;
@@ -74,17 +74,28 @@ impl<'a> SourceBudget<'a> {
     }
 
     /// Creates a source limit error.
+    #[allow(clippy::manual_saturating_arithmetic)]
     fn limit_error(
         &self,
-        error: ResourceBudgetError<SourceLimitKind, usize>,
+        error: BudgetError<SourceLimitKind, usize>,
     ) -> ConfigError {
-        let limit = error.limit();
-        let observed_at_least = error.checked_attempted().unwrap_or(usize::MAX);
-        ConfigError::SourceLimitExceeded {
-            source_id: self.source_id.to_string(),
-            kind: error.into_resource(),
-            limit,
-            observed_at_least,
+        match error {
+            BudgetError::Insufficient {
+                resource,
+                limit,
+                remaining,
+                requested,
+            } => ConfigError::SourceLimitExceeded {
+                source_id: self.source_id.to_string(),
+                kind: resource,
+                limit,
+                observed_at_least: (limit - remaining)
+                    .checked_add(requested)
+                    .unwrap_or(usize::MAX),
+            },
+            BudgetError::LimitExceeded { .. } | BudgetError::InvalidRelease { .. } => {
+                unreachable!("SourceBudget only consumes cumulative resources")
+            }
         }
     }
 }
