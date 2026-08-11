@@ -62,7 +62,9 @@ fn test_get_string_substitutes_recursively() {
 #[test]
 fn test_get_string_rejects_too_many_substitution_expansions() {
     let mut config = Config::new();
-    config.set_default_read_policy(ReadPolicy::default().with_max_interpolation_expansions(2));
+    config.set_default_read_policy(
+        ReadPolicy::default().with_max_interpolation_expansions(2),
+    );
     config.set("name", "world").unwrap();
     config.set("value", "${name}-${name}-${name}").unwrap();
 
@@ -80,7 +82,9 @@ fn test_get_string_rejects_too_many_substitution_expansions() {
 #[test]
 fn test_get_string_accepts_substitution_expansions_at_limit() {
     let mut config = Config::new();
-    config.set_default_read_policy(ReadPolicy::default().with_max_interpolation_expansions(2));
+    config.set_default_read_policy(
+        ReadPolicy::default().with_max_interpolation_expansions(2),
+    );
     config.set("first", "one").unwrap();
     config.set("second", "two").unwrap();
     config.set("value", "${first}-${second}").unwrap();
@@ -94,7 +98,9 @@ fn test_get_string_accepts_substitution_expansions_at_limit() {
 #[test]
 fn test_get_string_rejects_substitution_output_over_byte_limit() {
     let mut config = Config::new();
-    config.set_default_read_policy(ReadPolicy::default().with_max_interpolation_output_bytes(7));
+    config.set_default_read_policy(
+        ReadPolicy::default().with_max_interpolation_output_bytes(7),
+    );
     config.set("part", "1234").unwrap();
     config.set("value", "${part}${part}").unwrap();
 
@@ -112,7 +118,9 @@ fn test_get_string_rejects_substitution_output_over_byte_limit() {
 #[test]
 fn test_get_string_accepts_substitution_output_at_byte_limit() {
     let mut config = Config::new();
-    config.set_default_read_policy(ReadPolicy::default().with_max_interpolation_output_bytes(16));
+    config.set_default_read_policy(
+        ReadPolicy::default().with_max_interpolation_output_bytes(16),
+    );
     config.set("part", "1234").unwrap();
     config.set("value", "${part}${part}").unwrap();
 
@@ -124,7 +132,9 @@ fn test_get_string_accepts_substitution_output_at_byte_limit() {
 #[test]
 fn test_get_string_rejects_nested_output_over_cumulative_byte_limit() {
     let mut config = Config::new();
-    config.set_default_read_policy(ReadPolicy::default().with_max_interpolation_output_bytes(4));
+    config.set_default_read_policy(
+        ReadPolicy::default().with_max_interpolation_output_bytes(4),
+    );
     config.set("part", "1234").unwrap();
     config.set("value", "${part}").unwrap();
 
@@ -168,7 +178,9 @@ fn test_get_string_uses_environment_fallback() {
         std::env::set_var("QUBIT_CONFIG_TEST_ENV_VAR", "test_value");
     }
     let mut config = Config::new();
-    config.set_default_read_policy(crate::with_environment_fallback(ReadPolicy::default()));
+    config.set_default_read_policy(crate::with_environment_fallback(
+        ReadPolicy::default(),
+    ));
     config
         .set("value", "Value: ${QUBIT_CONFIG_TEST_ENV_VAR}")
         .unwrap();
@@ -291,7 +303,9 @@ fn test_get_string_uses_config_and_environment_sources() {
         std::env::set_var("QUBIT_CONFIG_TEST_ENV_SOURCE", "from_env");
     }
     let mut config = Config::new();
-    config.set_default_read_policy(crate::with_environment_fallback(ReadPolicy::default()));
+    config.set_default_read_policy(crate::with_environment_fallback(
+        ReadPolicy::default(),
+    ));
     config.set("CONFIG_SOURCE", "from_config").unwrap();
     config
         .set(
@@ -314,7 +328,9 @@ fn test_get_string_config_value_has_priority_over_environment() {
         std::env::set_var("QUBIT_CONFIG_TEST_SHARED_VAR", "from_env");
     }
     let mut config = Config::new();
-    config.set_default_read_policy(crate::with_environment_fallback(ReadPolicy::default()));
+    config.set_default_read_policy(crate::with_environment_fallback(
+        ReadPolicy::default(),
+    ));
     config
         .set("QUBIT_CONFIG_TEST_SHARED_VAR", "from_config")
         .unwrap();
@@ -336,7 +352,9 @@ fn test_get_string_converts_config_value_instead_of_environment() {
         std::env::set_var("QUBIT_CONFIG_TEST_STRICT_VAR", "from_env");
     }
     let mut config = Config::new();
-    config.set_default_read_policy(crate::with_environment_fallback(ReadPolicy::default()));
+    config.set_default_read_policy(crate::with_environment_fallback(
+        ReadPolicy::default(),
+    ));
     config.set("QUBIT_CONFIG_TEST_STRICT_VAR", 8080i32).unwrap();
     config
         .set("value", "${QUBIT_CONFIG_TEST_STRICT_VAR}")
@@ -353,7 +371,9 @@ fn test_get_string_converts_config_value_instead_of_environment() {
 #[test]
 fn test_get_string_environment_fallback_reports_missing_env_var() {
     let mut config = Config::new();
-    config.set_default_read_policy(crate::with_environment_fallback(ReadPolicy::default()));
+    config.set_default_read_policy(crate::with_environment_fallback(
+        ReadPolicy::default(),
+    ));
     config
         .set("value", "${QUBIT_CONFIG_TEST_ENV_MISSING_FOR_FALLBACK}")
         .unwrap();

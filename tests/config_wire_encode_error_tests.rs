@@ -10,7 +10,10 @@
 
 use qubit_budget::BudgetError;
 use qubit_budget::JsonResource;
+use qubit_budget::JsonSerdeError;
 use qubit_budget::Observation;
+use qubit_budget::QuantityConversionError;
+use qubit_budget::QuantityMeasurement;
 use qubit_config::ConfigWireEncodeError;
 use qubit_config::ConfigWireLimitKind;
 
@@ -68,5 +71,29 @@ fn config_wire_encode_error_preserves_config_limit() {
             value: 5,
             maximum: 4,
         }
+    ));
+}
+
+/// Verifies native JSON quantity failures remain distinct from budget limits.
+#[test]
+fn config_wire_encode_error_preserves_json_quantity_failure() {
+    let source = QuantityConversionError::new(
+        QuantityMeasurement::Usize(usize::MAX),
+        "u64",
+    );
+    let error = ConfigWireEncodeError::from(JsonSerdeError::Quantity {
+        resource: JsonResource::OutputBytes,
+        source,
+    });
+
+    assert!(matches!(
+        error,
+        ConfigWireEncodeError::Quantity {
+            resource: JsonResource::OutputBytes,
+            source,
+        } if source == QuantityConversionError::new(
+            QuantityMeasurement::Usize(usize::MAX),
+            "u64",
+        )
     ));
 }
