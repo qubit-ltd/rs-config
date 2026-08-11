@@ -15,6 +15,8 @@ use qubit_config::ConfigResult;
 use qubit_config::conversion::ConfigSerdeExt;
 use qubit_config::options::ReadPolicy;
 use qubit_datatype::BlankStringPolicy;
+use qubit_datatype::ConversionLimits;
+use qubit_datatype::ConversionOperationLimits;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -69,6 +71,12 @@ struct OpenSettings {
     known: String,
     #[serde(flatten)]
     extra: HashMap<String, serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+struct StringPair {
+    first: String,
+    second: String,
 }
 
 /// Deserializes retry settings from any supported configuration reader.
@@ -383,4 +391,27 @@ fn test_deserialize_unknown_properties_are_sorted_and_deduplicated() {
         error.unknown_property_paths(),
         Some(["retry.aaa".to_string(), "retry.zed".to_string()].as_slice())
     );
+}
+
+#[test]
+fn test_serde_materialization_shares_one_conversion_operation_limit() {
+    let limits = ConversionLimits::default().with_operation_limits(
+        ConversionOperationLimits::default().with_max_input_bytes(3),
+    );
+    let mut config = Config::new();
+    config
+        .set_default_read_policy(
+            ReadPolicy::default().with_conversion_limits(limits),
+        )
+        .set("first", "aa")
+        .expect("first value should be stored");
+    config
+        .set("second", "bb")
+        .expect("second value should be stored");
+
+    let error = config
+        .deserialize::<StringPair>("")
+        .expect_err("the second field should exceed cumulative input bytes");
+
+    assert!(error.to_string().contains("InputBytes"));
 }

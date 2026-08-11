@@ -8,6 +8,7 @@
 // qubit-style: allow source-test-pair
 //! Serde map access over configuration objects.
 
+use qubit_datatype::ConversionSession;
 use serde::de;
 use serde::de::IntoDeserializer;
 use serde::de::MapAccess;
@@ -20,30 +21,36 @@ use crate::config_value_deserializer::ConfigValueDeserializer;
 use crate::options::ReadPolicy;
 
 /// Map access over configuration objects.
-pub(in crate::config_value_deserializer) struct ConfigMapAccess<'a> {
+pub(in crate::config_value_deserializer) struct ConfigMapAccess<
+    'policy,
+    'session,
+> {
     entries: std::vec::IntoIter<(String, Value)>,
     next_value: Option<(String, Value)>,
     key: String,
-    options: &'a ReadPolicy,
+    options: &'policy ReadPolicy,
+    session: &'session mut ConversionSession<'policy>,
 }
 
-impl<'a> ConfigMapAccess<'a> {
+impl<'policy, 'session> ConfigMapAccess<'policy, 'session> {
     /// Creates map access.
     pub(in crate::config_value_deserializer) fn new(
         values: Map<String, Value>,
         key: String,
-        options: &'a ReadPolicy,
+        options: &'policy ReadPolicy,
+        session: &'session mut ConversionSession<'policy>,
     ) -> Self {
         Self {
             entries: values.into_iter().collect::<Vec<_>>().into_iter(),
             next_value: None,
             key,
             options,
+            session,
         }
     }
 }
 
-impl<'de> MapAccess<'de> for ConfigMapAccess<'_> {
+impl<'de> MapAccess<'de> for ConfigMapAccess<'_, '_> {
     type Error = ConfigDeserializeError;
 
     /// Deserializes the next key.
@@ -82,6 +89,7 @@ impl<'de> MapAccess<'de> for ConfigMapAccess<'_> {
             value,
             child_key,
             self.options,
+            &mut *self.session,
         ))
         .map_err(|error| error.with_path(error_path))
     }

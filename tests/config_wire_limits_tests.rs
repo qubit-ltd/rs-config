@@ -8,20 +8,34 @@
 
 //! Tests for configuration wire resource limits.
 
-use qubit_budget::JsonLimits;
+use qubit_budget::JsonDecodeLimits;
+use qubit_budget::JsonEncodeLimits;
+use qubit_budget::JsonResource;
+use qubit_budget::JsonValueLimits;
+use qubit_budget::ResourceLimit;
+use qubit_budget::StructureLimits;
 use qubit_config::ConfigWireLimits;
 
 #[test]
 fn config_wire_limits_preserve_configured_shared_budget() {
-    let json = JsonLimits::new()
-        .with_max_input_bytes(123)
-        .with_max_depth(9)
-        .with_max_nodes(456);
-    let limits = ConfigWireLimits::from_json(json)
+    let value = JsonValueLimits::default().with_structure_limits(
+        StructureLimits::empty()
+            .with_depth_limit(ResourceLimit::new(JsonResource::Depth, 9))
+            .with_nodes_limit(ResourceLimit::new(JsonResource::Nodes, 456)),
+    );
+    let decode = JsonDecodeLimits::default()
+        .with_input_bytes_limit(ResourceLimit::new(
+            JsonResource::InputBytes,
+            123,
+        ))
+        .with_value_limits(value);
+    let encode = JsonEncodeLimits::default().with_value_limits(value);
+    let limits = ConfigWireLimits::from_json(decode, encode)
         .with_max_properties(7)
         .with_max_property_key_bytes(8);
 
-    assert_eq!(limits.json(), json);
+    assert_eq!(limits.json_decode(), decode);
+    assert_eq!(limits.json_encode(), encode);
     assert_eq!(limits.max_properties(), 7);
     assert_eq!(limits.max_property_key_bytes(), 8);
 }

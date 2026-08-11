@@ -185,7 +185,7 @@ fn is_effectively_missing_by<R: ConfigReader + ?Sized>(
     if !interpolate {
         return Ok(matches!(
             options
-                .conversion_options()
+                .conversion_policy()
                 .string()
                 .normalize_optional(value),
             Ok(None)
@@ -197,7 +197,7 @@ fn is_effectively_missing_by<R: ConfigReader + ?Sized>(
     let ctx = ConfigParseContext::new(name, options, &substitute, interpolate);
     let value = ctx.substitute_string(value)?;
     match options
-        .conversion_options()
+        .conversion_policy()
         .string()
         .normalize_optional(&value)
     {

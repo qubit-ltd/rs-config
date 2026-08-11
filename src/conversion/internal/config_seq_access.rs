@@ -8,6 +8,7 @@
 // qubit-style: allow source-test-pair
 //! Serde sequence access over configuration values.
 
+use qubit_datatype::ConversionSession;
 use serde::de;
 use serde::de::SeqAccess;
 use serde_json::Value;
@@ -17,30 +18,36 @@ use crate::config_value_deserializer::ConfigValueDeserializer;
 use crate::options::ReadPolicy;
 
 /// Sequence access over configuration values.
-pub(in crate::config_value_deserializer) struct ConfigSeqAccess<'a> {
+pub(in crate::config_value_deserializer) struct ConfigSeqAccess<
+    'policy,
+    'session,
+> {
     values: std::vec::IntoIter<Value>,
     key: String,
     index: usize,
-    options: &'a ReadPolicy,
+    options: &'policy ReadPolicy,
+    session: &'session mut ConversionSession<'policy>,
 }
 
-impl<'a> ConfigSeqAccess<'a> {
+impl<'policy, 'session> ConfigSeqAccess<'policy, 'session> {
     /// Creates sequence access.
     pub(in crate::config_value_deserializer) fn new(
         values: Vec<Value>,
         key: String,
-        options: &'a ReadPolicy,
+        options: &'policy ReadPolicy,
+        session: &'session mut ConversionSession<'policy>,
     ) -> Self {
         Self {
             values: values.into_iter(),
             key,
             index: 0,
             options,
+            session,
         }
     }
 }
 
-impl<'de> SeqAccess<'de> for ConfigSeqAccess<'_> {
+impl<'de> SeqAccess<'de> for ConfigSeqAccess<'_, '_> {
     type Error = ConfigDeserializeError;
 
     /// Deserializes the next element.
@@ -57,8 +64,13 @@ impl<'de> SeqAccess<'de> for ConfigSeqAccess<'_> {
         let key = format!("{}[{}]", self.key, self.index);
         self.index += 1;
         let error_path = key.clone();
-        seed.deserialize(ConfigValueDeserializer::new(value, key, self.options))
-            .map_err(|error| error.with_path(error_path))
-            .map(Some)
+        seed.deserialize(ConfigValueDeserializer::new(
+            value,
+            key,
+            self.options,
+            &mut *self.session,
+        ))
+        .map_err(|error| error.with_path(error_path))
+        .map(Some)
     }
 }

@@ -7,6 +7,7 @@
 // =============================================================================
 //! Serde-based structured reads for configuration readers.
 
+use qubit_datatype::ConversionSession;
 use qubit_datatype::DataType;
 use serde::de::DeserializeOwned;
 use serde_json::Map;
@@ -141,8 +142,17 @@ where
 {
     let path = reader.resolve_key(prefix)?;
     let value = deserialize_root_value(reader, prefix, interpolate)?;
-    let deserializer =
-        ConfigValueDeserializer::new(value, path.clone(), reader.read_policy());
+    let options = reader.read_policy();
+    let mut session = ConversionSession::new(
+        options.conversion_policy(),
+        options.conversion_limits(),
+    );
+    let deserializer = ConfigValueDeserializer::new(
+        value,
+        path.clone(),
+        options,
+        &mut session,
+    );
     let mut ignored = Vec::new();
     let result = match unknown_mode {
         UnknownPropertyMode::Reject => {
@@ -308,7 +318,7 @@ fn prepared_scalar_string_is_missing_for_deserialize(
         return Ok(false);
     };
     match options
-        .conversion_options()
+        .conversion_policy()
         .string()
         .normalize_optional(value)
     {

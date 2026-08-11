@@ -19,7 +19,7 @@ use qubit_config::options::InterpolationSources;
 use qubit_config::options::ReadPolicy;
 use qubit_datatype::DataConversionError;
 use qubit_datatype::DataType;
-use qubit_datatype::DurationConversionOptions;
+use qubit_datatype::DurationConversionPolicy;
 use qubit_datatype::DurationRoundingPolicy;
 use qubit_datatype::DurationUnit;
 use qubit_datatype::InvalidValueReason;

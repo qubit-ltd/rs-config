@@ -8,6 +8,7 @@
 // qubit-style: allow source-test-pair
 //! Serde variant access over a configuration enum payload.
 
+use qubit_datatype::ConversionSession;
 use serde::Deserialize;
 use serde::de;
 use serde::de::DeserializeSeed;
@@ -20,37 +21,48 @@ use crate::config_value_deserializer::ConfigValueDeserializer;
 use crate::options::ReadPolicy;
 
 /// Variant access over a configuration enum payload.
-pub(in crate::config_value_deserializer) struct ConfigVariantAccess<'a> {
+pub(in crate::config_value_deserializer) struct ConfigVariantAccess<
+    'policy,
+    'session,
+> {
     value: Option<Value>,
     key: String,
-    options: &'a ReadPolicy,
+    options: &'policy ReadPolicy,
+    session: &'session mut ConversionSession<'policy>,
 }
 
-impl<'a> ConfigVariantAccess<'a> {
+impl<'policy, 'session> ConfigVariantAccess<'policy, 'session> {
     /// Creates access for an optional enum payload.
     pub(in crate::config_value_deserializer) fn new(
         value: Option<Value>,
         key: String,
-        options: &'a ReadPolicy,
+        options: &'policy ReadPolicy,
+        session: &'session mut ConversionSession<'policy>,
     ) -> Self {
         Self {
             value,
             key,
             options,
+            session,
         }
     }
 }
 
-impl<'de> VariantAccess<'de> for ConfigVariantAccess<'_> {
+impl<'de> VariantAccess<'de> for ConfigVariantAccess<'_, '_> {
     type Error = ConfigDeserializeError;
 
     /// Deserializes a unit variant.
     fn unit_variant(self) -> Result<(), Self::Error> {
         match self.value {
             None | Some(Value::Null) => Ok(()),
-            Some(value) => Deserialize::deserialize(
-                ConfigValueDeserializer::new(value, self.key, self.options),
-            ),
+            Some(value) => {
+                Deserialize::deserialize(ConfigValueDeserializer::new(
+                    value,
+                    self.key,
+                    self.options,
+                    self.session,
+                ))
+            }
         }
     }
 
@@ -69,6 +81,7 @@ impl<'de> VariantAccess<'de> for ConfigVariantAccess<'_> {
             value,
             self.key,
             self.options,
+            self.session,
         ))
     }
 
@@ -88,7 +101,12 @@ impl<'de> VariantAccess<'de> for ConfigVariantAccess<'_> {
             )
         })?;
         de::Deserializer::deserialize_tuple(
-            ConfigValueDeserializer::new(value, self.key, self.options),
+            ConfigValueDeserializer::new(
+                value,
+                self.key,
+                self.options,
+                self.session,
+            ),
             len,
             visitor,
         )
@@ -110,7 +128,12 @@ impl<'de> VariantAccess<'de> for ConfigVariantAccess<'_> {
             )
         })?;
         de::Deserializer::deserialize_struct(
-            ConfigValueDeserializer::new(value, self.key, self.options),
+            ConfigValueDeserializer::new(
+                value,
+                self.key,
+                self.options,
+                self.session,
+            ),
             "",
             fields,
             visitor,

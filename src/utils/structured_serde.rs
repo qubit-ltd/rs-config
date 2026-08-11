@@ -143,7 +143,10 @@ pub(crate) fn prepare_deserialize_value<
 ) -> ConfigResult<Value> {
     let mut value = prop
         .value()
-        .to_json_value_with(primary.read_policy().conversion_options())
+        .to_json_value_with(
+            primary.read_policy().conversion_policy(),
+            primary.read_policy().conversion_limits(),
+        )
         .map_err(|error| map_value_error(path, error))?;
     if interpolate {
         substitute_json_strings_with_fallback(
