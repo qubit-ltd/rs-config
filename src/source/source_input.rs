@@ -54,19 +54,11 @@ impl SourceInput {
                         path.display().to_string(),
                         std::io::Error::new(
                             error.kind(),
-                            format!(
-                                "Failed to open {format} file '{}': {error}",
-                                path.display()
-                            ),
+                            format!("Failed to open {format} file '{}': {error}", path.display()),
                         ),
                     )
                 })?;
-                let bytes = read_file_bytes(
-                    file,
-                    limits.max_input_bytes(),
-                    path,
-                    format,
-                )?;
+                let bytes = read_file_bytes(file, limits.max_input_bytes(), path, format)?;
                 budget.consume_input_bytes(bytes.len())?;
                 String::from_utf8(bytes).map(Cow::Owned).map_err(|error| {
                     ConfigError::source_io_error(
@@ -101,10 +93,7 @@ fn read_file_bytes(
                 path.display().to_string(),
                 std::io::Error::new(
                     error.kind(),
-                    format!(
-                        "Failed to read {format} file '{}': {error}",
-                        path.display()
-                    ),
+                    format!("Failed to read {format} file '{}': {error}", path.display()),
                 ),
             )
         })?;
@@ -115,10 +104,7 @@ fn read_file_bytes(
                 path.display().to_string(),
                 std::io::Error::new(
                     error.kind(),
-                    format!(
-                        "Failed to read {format} file '{}': {error}",
-                        path.display()
-                    ),
+                    format!("Failed to read {format} file '{}': {error}", path.display()),
                 ),
             )
         })?;

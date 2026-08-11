@@ -10,6 +10,7 @@
 
 use qubit_budget::BudgetError;
 use qubit_budget::JsonResource;
+use qubit_budget::Observation;
 use qubit_config::ConfigWireEncodeError;
 use qubit_config::ConfigWireLimitKind;
 
@@ -18,7 +19,7 @@ use qubit_config::ConfigWireLimitKind;
 fn config_wire_encode_error_exposes_budget_source() {
     let error = ConfigWireEncodeError::Budget(BudgetError::LimitExceeded {
         resource: JsonResource::OutputBytes,
-        actual: 17,
+        observed: Observation::Exact(17),
         maximum: 16,
     });
 
@@ -26,7 +27,7 @@ fn config_wire_encode_error_exposes_budget_source() {
         error,
         ConfigWireEncodeError::Budget(BudgetError::LimitExceeded {
             resource: JsonResource::OutputBytes,
-            actual: 17,
+            observed: Observation::Exact(17),
             maximum: 16,
         })
     ));
@@ -37,7 +38,7 @@ fn config_wire_encode_error_exposes_budget_source() {
 fn config_wire_encode_error_preserves_budget_resource() {
     let error = ConfigWireEncodeError::Budget(BudgetError::LimitExceeded {
         resource: JsonResource::Nodes,
-        actual: 9,
+        observed: Observation::Exact(9),
         maximum: 8,
     });
 
@@ -45,7 +46,7 @@ fn config_wire_encode_error_preserves_budget_resource() {
         error,
         ConfigWireEncodeError::Budget(BudgetError::LimitExceeded {
             resource: JsonResource::Nodes,
-            actual: 9,
+            observed: Observation::Exact(9),
             maximum: 8,
         })
     ));

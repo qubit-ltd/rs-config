@@ -118,9 +118,7 @@ fn test_section_missing_candidates_report_root_relative_paths() {
     assert_eq!(error.path(), None);
     assert_eq!(
         error.candidate_paths(),
-        Some(
-            ["service.port".to_string(), "service.PORT".to_string()].as_slice(),
-        ),
+        Some(["service.port".to_string(), "service.PORT".to_string()].as_slice(),),
     );
 }
 
