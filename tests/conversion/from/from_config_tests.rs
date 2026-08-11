@@ -33,10 +33,7 @@ use qubit_datatype::NumericConversionPolicy;
 struct ContextAware(String);
 
 impl FromConfig for ContextAware {
-    fn from_config(
-        _property: &Property,
-        ctx: &ConfigParseContext<'_>,
-    ) -> ConfigResult<Self> {
+    fn from_config(_property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<Self> {
         let value = if ctx.interpolates() {
             ctx.substitute_string("${base}")?
         } else {
@@ -123,11 +120,8 @@ fn test_from_config_preserves_typed_vector_values() {
 fn test_from_config_preserves_chrono_vector_values() {
     let dates = vec![NaiveDate::from_ymd_opt(2026, 7, 13).unwrap()];
     let datetimes = vec![
-        NaiveDateTime::parse_from_str(
-            "2026-07-13T01:02:03.123456789",
-            "%Y-%m-%dT%H:%M:%S%.f",
-        )
-        .unwrap(),
+        NaiveDateTime::parse_from_str("2026-07-13T01:02:03.123456789", "%Y-%m-%dT%H:%M:%S%.f")
+            .unwrap(),
     ];
     let mut config = Config::new();
     config.set("dates", dates.clone()).unwrap();
@@ -201,8 +195,7 @@ fn test_from_config_numeric_options_are_explicit() {
     ));
 
     config.set_default_read_policy(
-        ReadPolicy::default()
-            .with_numeric_policy(NumericConversionPolicy::lossy()),
+        ReadPolicy::default().with_numeric_policy(NumericConversionPolicy::lossy()),
     );
     assert_eq!(config.get::<Vec<i32>>("values").unwrap(), vec![1, 2]);
 }

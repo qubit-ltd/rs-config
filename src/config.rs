@@ -152,8 +152,7 @@ impl PartialEq for Config {
     /// Compares only the persisted configuration data.
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.description == other.description
-            && self.properties == other.properties
+        self.description == other.description && self.properties == other.properties
     }
 }
 
@@ -220,10 +219,7 @@ impl TryFrom<ConfigWireV1> for Config {
                 value.version,
             ));
         }
-        Self::from_wire_parts(
-            value.description,
-            value.properties.into_iter().collect(),
-        )
+        Self::from_wire_parts(value.description, value.properties.into_iter().collect())
     }
 }
 
@@ -285,9 +281,8 @@ impl Config {
         for property in self.properties.values() {
             let _ = ValueWireRefV1::try_from(property.value())?;
         }
-        let mut session = JsonEncodeSession::new(limits.json_encode());
-        encode_to_vec(&ConfigWireV1Ref::from(self), &mut session)
-            .map_err(map_encode_json_error)
+        let mut session = JsonEncodeSession::owned(limits.json_encode());
+        encode_to_vec(&ConfigWireV1Ref::from(self), &mut session).map_err(map_encode_json_error)
     }
 
     /// Decodes a complete configuration JSON wire document with the
@@ -304,9 +299,7 @@ impl Config {
     /// # Errors
     ///
     /// Returns a shared budget, JSON, or configuration-invariant error.
-    pub fn decode_json_slice(
-        input: &[u8],
-    ) -> Result<Self, ConfigWireDecodeError> {
+    pub fn decode_json_slice(input: &[u8]) -> Result<Self, ConfigWireDecodeError> {
         Self::decode_json_slice_with_limits(input, ConfigWireLimits::default())
     }
 
@@ -330,32 +323,32 @@ impl Config {
         input: &[u8],
         limits: ConfigWireLimits,
     ) -> Result<Self, ConfigWireDecodeError> {
-        let mut session = JsonDecodeSession::new(limits.json_decode());
-        let wire: ConfigWire =
-            decode_slice(input, &mut session).map_err(map_decode_json_error)?;
-        let config = Self::try_from(wire)
-            .map_err(ConfigWireDecodeError::InvalidConfig)?;
+        let mut session = JsonDecodeSession::owned(limits.json_decode());
+        let wire: ConfigWire = decode_slice(input, &mut session).map_err(map_decode_json_error)?;
+        let config = Self::try_from(wire).map_err(ConfigWireDecodeError::InvalidConfig)?;
         config.check_config_limits(limits)?;
         Ok(config)
     }
 
     /// Checks configuration-specific limits that are not generic JSON costs.
-    fn check_config_limits(
-        &self,
-        limits: ConfigWireLimits,
-    ) -> Result<(), ConfigWireDecodeError> {
-        if self.properties.len() > limits.max_properties() {
+    fn check_config_limits(&self, limits: ConfigWireLimits) -> Result<(), ConfigWireDecodeError> {
+        if u64::try_from(self.properties.len()).expect("property count must fit in u64")
+            > limits.max_properties()
+        {
             return Err(ConfigWireDecodeError::LimitExceeded {
                 kind: ConfigWireLimitKind::Properties,
-                value: self.properties.len(),
+                value: u64::try_from(self.properties.len())
+                    .expect("property count must fit in u64"),
                 maximum: limits.max_properties(),
             });
         }
         for key in self.properties.keys() {
-            if key.len() > limits.max_property_key_bytes() {
+            if u64::try_from(key.len()).expect("property key length must fit in u64")
+                > limits.max_property_key_bytes()
+            {
                 return Err(ConfigWireDecodeError::LimitExceeded {
                     kind: ConfigWireLimitKind::PropertyKeyBytes,
-                    value: key.len(),
+                    value: u64::try_from(key.len()).expect("property key length must fit in u64"),
                     maximum: limits.max_property_key_bytes(),
                 });
             }
@@ -368,18 +361,23 @@ impl Config {
         &self,
         limits: ConfigWireLimits,
     ) -> Result<(), ConfigWireEncodeError> {
-        if self.properties.len() > limits.max_properties() {
+        if u64::try_from(self.properties.len()).expect("property count must fit in u64")
+            > limits.max_properties()
+        {
             return Err(ConfigWireEncodeError::LimitExceeded {
                 kind: ConfigWireLimitKind::Properties,
-                value: self.properties.len(),
+                value: u64::try_from(self.properties.len())
+                    .expect("property count must fit in u64"),
                 maximum: limits.max_properties(),
             });
         }
         for key in self.properties.keys() {
-            if key.len() > limits.max_property_key_bytes() {
+            if u64::try_from(key.len()).expect("property key length must fit in u64")
+                > limits.max_property_key_bytes()
+            {
                 return Err(ConfigWireEncodeError::LimitExceeded {
                     kind: ConfigWireLimitKind::PropertyKeyBytes,
-                    value: key.len(),
+                    value: u64::try_from(key.len()).expect("property key length must fit in u64"),
                     maximum: limits.max_property_key_bytes(),
                 });
             }
@@ -496,27 +494,19 @@ impl Default for Config {
 }
 
 /// Maps a budget-aware JSON decode failure to the configuration wire error.
-fn map_decode_json_error(
-    error: JsonSerdeError<JsonResource>,
-) -> ConfigWireDecodeError {
+fn map_decode_json_error(error: JsonSerdeError<JsonResource>) -> ConfigWireDecodeError {
     match error {
         JsonSerdeError::Budget(error) => ConfigWireDecodeError::Budget(error),
         JsonSerdeError::Json(error) => ConfigWireDecodeError::Json(error),
-        JsonSerdeError::Io(error) => {
-            ConfigWireDecodeError::Json(serde_json::Error::io(error))
-        }
+        JsonSerdeError::Io(error) => ConfigWireDecodeError::Json(serde_json::Error::io(error)),
     }
 }
 
 /// Maps a budget-aware JSON encode failure to the configuration wire error.
-fn map_encode_json_error(
-    error: JsonSerdeError<JsonResource>,
-) -> ConfigWireEncodeError {
+fn map_encode_json_error(error: JsonSerdeError<JsonResource>) -> ConfigWireEncodeError {
     match error {
         JsonSerdeError::Budget(error) => ConfigWireEncodeError::Budget(error),
         JsonSerdeError::Json(error) => ConfigWireEncodeError::Json(error),
-        JsonSerdeError::Io(error) => {
-            ConfigWireEncodeError::Json(serde_json::Error::io(error))
-        }
+        JsonSerdeError::Io(error) => ConfigWireEncodeError::Json(serde_json::Error::io(error)),
     }
 }
