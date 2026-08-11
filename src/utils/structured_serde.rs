@@ -131,10 +131,7 @@ fn json_value_kind(value: &Value) -> &'static str {
 ///
 /// Returns conversion, interpolation, or interpolation-limit errors with
 /// `path` context.
-pub(crate) fn prepare_deserialize_value<
-    P: ConfigReader + ?Sized,
-    F: ConfigReader + ?Sized,
->(
+pub(crate) fn prepare_deserialize_value<P: ConfigReader + ?Sized, F: ConfigReader + ?Sized>(
     prop: &Property,
     path: &str,
     primary: &P,
@@ -149,18 +146,13 @@ pub(crate) fn prepare_deserialize_value<
         )
         .map_err(|error| map_value_error(path, error))?;
     if interpolate {
-        substitute_json_strings_with_fallback(
-            &mut value, path, primary, fallback,
-        )?;
+        substitute_json_strings_with_fallback(&mut value, path, primary, fallback)?;
     }
     Ok(value)
 }
 
 /// Applies variable substitution to every JSON string leaf with fallback scope.
-fn substitute_json_strings_with_fallback<
-    P: ConfigReader + ?Sized,
-    F: ConfigReader + ?Sized,
->(
+fn substitute_json_strings_with_fallback<P: ConfigReader + ?Sized, F: ConfigReader + ?Sized>(
     value: &mut Value,
     path: &str,
     primary: &P,
@@ -170,22 +162,16 @@ fn substitute_json_strings_with_fallback<
 
     match value {
         Value::String(s) => {
-            *s = substitute_variables_with_fallback(
-                s, primary, fallback, options, path,
-            )?;
+            *s = substitute_variables_with_fallback(s, primary, fallback, options, path)?;
         }
         Value::Array(values) => {
             for value in values {
-                substitute_json_strings_with_fallback(
-                    value, path, primary, fallback,
-                )?;
+                substitute_json_strings_with_fallback(value, path, primary, fallback)?;
             }
         }
         Value::Object(map) => {
             for value in map.values_mut() {
-                substitute_json_strings_with_fallback(
-                    value, path, primary, fallback,
-                )?;
+                substitute_json_strings_with_fallback(value, path, primary, fallback)?;
             }
         }
         _ => {}

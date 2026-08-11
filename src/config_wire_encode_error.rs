@@ -24,21 +24,19 @@ pub enum ConfigWireEncodeError {
 
     /// A shared JSON resource limit was exceeded during serialization.
     #[error(transparent)]
-    Budget(BudgetError<JsonResource, usize>),
+    Budget(BudgetError<JsonResource, u64>),
 
     /// A configuration-specific resource limit was exceeded.
-    #[error(
-        "configuration wire {kind:?} value {value} exceeds the limit of {maximum}"
-    )]
+    #[error("configuration wire {kind:?} value {value} exceeds the limit of {maximum}")]
     LimitExceeded {
         /// Configuration resource category that exceeded its limit.
         kind: ConfigWireLimitKind,
 
         /// Observed resource value.
-        value: usize,
+        value: u64,
 
         /// Largest permitted resource value.
-        maximum: usize,
+        maximum: u64,
     },
 
     /// JSON serialization failed after bounded preflight validation.
