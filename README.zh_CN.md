@@ -98,21 +98,38 @@ fn load_server_config() -> Result<(String, u16), Box<dyn std::error::Error>> {
 
 ```rust
 use qubit_config::Config;
+use qubit_config::ReadPolicy;
+use qubit_datatype::ConversionLimits;
+use qubit_datatype::ConversionOperationLimits;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
 struct Database {
     host: String,
+    port: u16,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut config = Config::new();
+    let operation = ConversionOperationLimits::default()
+        .with_max_input_bytes(128);
+    let conversion = ConversionLimits::default()
+        .with_operation_limits(operation);
+    let policy = ReadPolicy::default().with_conversion_limits(conversion);
+    let mut config = Config::new().with_default_read_policy(policy);
     config.set("db.host", "localhost")?;
-    let db: Database = config.deserialize("db")?;
+    config.set("db.port", "5432")?;
+    let db = config.deserialize::<Database>("db")?;
     assert_eq!(db.host, "localhost");
+    assert_eq!(db.port, 5432);
     Ok(())
 }
 ```
+
+一次 `ConfigSerdeExt::deserialize::<T>` 只创建一个 `ConversionSession`，并让该会话
+贯穿本次物化中的所有字段、嵌套 map、sequence、enum 和 variant。因此，上面的
+operation limits 会在两个字段之间累计。彼此独立的普通 `get` 调用各自创建新 session，
+不会共享消耗。某个字段转换失败时，本次物化此前已接受的消耗不会回滚；被拒绝的
+charge 本身仍保持原子性。
 
 结构化读取默认拒绝目标类型未声明的配置字段，并通过
 `ConfigError::UnknownProperties` 返回 root-relative 路径。请使用目标类型的
@@ -149,7 +166,10 @@ qubit-datatype = { version = "0.10", default-features = false, features = ["conv
 `ReadPolicy` 和 `ConfigSerdeExt`。source adapter、持久化与 wire 解码以及低层
 `Property` 操作属于应用确有需要时使用的独立层。本库提供泛型类型转换、多值
 属性、严格相对 section、来源组合、可选的 TOML/YAML/`.env` 加载器、JSON 持久化
-解码和脱敏的 `Debug` 输出。内置文本 source 默认限制输入 8 MiB、assignment
+解码和脱敏的 `Debug` 输出。
+持久化层分别使用 `JsonDecodeLimits`/`JsonDecodeSession` 和
+`JsonEncodeLimits`/`JsonEncodeSession`，因此输入准入与输出限制不会消耗错误方向的
+字节资源。内置文本 source 默认限制输入 8 MiB、assignment
 65,536 次、嵌套深度 64。输入字节数限制在 parser 前检查，TOML/YAML 的
 assignment 与深度限制在物化 AST 的 flatten 阶段执行。如果输入可信且确实需要
 更大边界，可以使用 `SourceLimits` 定制。

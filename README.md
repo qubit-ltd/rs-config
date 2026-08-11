@@ -98,21 +98,40 @@ Use `Config::deserialize` when a subtree maps naturally to a Serde type:
 
 ```rust
 use qubit_config::Config;
+use qubit_config::ReadPolicy;
+use qubit_datatype::ConversionLimits;
+use qubit_datatype::ConversionOperationLimits;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
 struct Database {
     host: String,
+    port: u16,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut config = Config::new();
+    let operation = ConversionOperationLimits::default()
+        .with_max_input_bytes(128);
+    let conversion = ConversionLimits::default()
+        .with_operation_limits(operation);
+    let policy = ReadPolicy::default().with_conversion_limits(conversion);
+    let mut config = Config::new().with_default_read_policy(policy);
     config.set("db.host", "localhost")?;
-    let db: Database = config.deserialize("db")?;
+    config.set("db.port", "5432")?;
+    let db = config.deserialize::<Database>("db")?;
     assert_eq!(db.host, "localhost");
+    assert_eq!(db.port, 5432);
     Ok(())
 }
 ```
+
+One `ConfigSerdeExt::deserialize::<T>` call constructs one
+`ConversionSession` and threads it through every field, nested map, sequence,
+enum, and variant in that materialization. The operation limits above therefore
+accumulate across both fields. Separate ordinary `get` calls create fresh
+sessions and do not share consumption. A failed field conversion keeps charges
+accepted earlier in the same materialization; the rejected charge itself is
+atomic.
 
 Structured reads reject undeclared properties by default and report their
 root-relative paths through `ConfigError::UnknownProperties`. Declare accepted
@@ -151,6 +170,9 @@ low-level `Property` operations are separate layers for applications that need
 those capabilities. The library provides generic type conversion, multi-value
 properties, strict relative sections, source composition, optional TOML/YAML/
 `.env` loaders, JSON persistence decoding, and redacted `Debug` output.
+Persistence uses independent `JsonDecodeLimits`/`JsonDecodeSession` and
+`JsonEncodeLimits`/`JsonEncodeSession` profiles, so input admission and output
+limits cannot consume the wrong directional byte resource.
 Built-in text sources use default limits of 8 MiB input, 65,536 assignments,
 and 64 nesting levels. The input limit is checked before parsing; TOML/YAML
 assignment and depth limits apply while flattening the materialized AST.
