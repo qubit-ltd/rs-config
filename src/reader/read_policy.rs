@@ -175,10 +175,7 @@ impl ReadPolicy {
     ///
     /// Updated policy.
     #[inline(always)]
-    pub const fn with_interpolation_sources(
-        mut self,
-        sources: InterpolationSources,
-    ) -> Self {
+    pub const fn with_interpolation_sources(mut self, sources: InterpolationSources) -> Self {
         self.interpolation_sources = sources;
         self
     }
@@ -193,10 +190,7 @@ impl ReadPolicy {
     ///
     /// Updated policy.
     #[inline(always)]
-    pub const fn with_max_interpolation_depth(
-        mut self,
-        max_depth: usize,
-    ) -> Self {
+    pub const fn with_max_interpolation_depth(mut self, max_depth: usize) -> Self {
         self.max_interpolation_depth = max_depth;
         self
     }
@@ -211,10 +205,7 @@ impl ReadPolicy {
     ///
     /// Updated policy.
     #[inline(always)]
-    pub const fn with_max_interpolation_expansions(
-        mut self,
-        max_expansions: usize,
-    ) -> Self {
+    pub const fn with_max_interpolation_expansions(mut self, max_expansions: usize) -> Self {
         self.max_interpolation_expansions = max_expansions;
         self
     }
@@ -229,10 +220,7 @@ impl ReadPolicy {
     ///
     /// Updated policy.
     #[inline(always)]
-    pub const fn with_max_interpolation_output_bytes(
-        mut self,
-        max_output_bytes: usize,
-    ) -> Self {
+    pub const fn with_max_interpolation_output_bytes(mut self, max_output_bytes: usize) -> Self {
         self.max_interpolation_output_bytes = max_output_bytes;
         self
     }
@@ -246,12 +234,8 @@ impl ReadPolicy {
     /// # Returns
     ///
     /// Updated policy.
-    pub fn with_blank_string_policy(
-        mut self,
-        policy: BlankStringPolicy,
-    ) -> Self {
-        self.conversion_policy =
-            self.conversion_policy.with_blank_string_policy(policy);
+    pub fn with_blank_string_policy(mut self, policy: BlankStringPolicy) -> Self {
+        self.conversion_policy = self.conversion_policy.with_blank_string_policy(policy);
         self
     }
 
@@ -265,8 +249,7 @@ impl ReadPolicy {
     ///
     /// Updated policy.
     pub fn with_empty_item_policy(mut self, policy: EmptyItemPolicy) -> Self {
-        self.conversion_policy =
-            self.conversion_policy.with_empty_item_policy(policy);
+        self.conversion_policy = self.conversion_policy.with_empty_item_policy(policy);
         self
     }
 
@@ -279,12 +262,8 @@ impl ReadPolicy {
     /// # Returns
     ///
     /// Updated policy.
-    pub fn with_string_policy(
-        mut self,
-        string: StringConversionPolicy,
-    ) -> Self {
-        self.conversion_policy =
-            self.conversion_policy.with_string_policy(string);
+    pub fn with_string_policy(mut self, string: StringConversionPolicy) -> Self {
+        self.conversion_policy = self.conversion_policy.with_string_policy(string);
         self
     }
 
@@ -297,12 +276,8 @@ impl ReadPolicy {
     /// # Returns
     ///
     /// Updated policy.
-    pub fn with_boolean_policy(
-        mut self,
-        boolean: BooleanConversionPolicy,
-    ) -> Self {
-        self.conversion_policy =
-            self.conversion_policy.with_boolean_policy(boolean);
+    pub fn with_boolean_policy(mut self, boolean: BooleanConversionPolicy) -> Self {
+        self.conversion_policy = self.conversion_policy.with_boolean_policy(boolean);
         self
     }
 
@@ -315,22 +290,14 @@ impl ReadPolicy {
     /// # Returns
     ///
     /// Updated policy.
-    pub fn with_collection_policy(
-        mut self,
-        collection: CollectionConversionPolicy,
-    ) -> Self {
-        self.conversion_policy =
-            self.conversion_policy.with_collection_policy(collection);
+    pub fn with_collection_policy(mut self, collection: CollectionConversionPolicy) -> Self {
+        self.conversion_policy = self.conversion_policy.with_collection_policy(collection);
         self
     }
 
     /// Returns a copy with different collection conversion limits.
-    pub fn with_collection_limits(
-        mut self,
-        collection: CollectionConversionLimits,
-    ) -> Self {
-        self.conversion_limits =
-            self.conversion_limits.with_collection_limits(collection);
+    pub fn with_collection_limits(mut self, collection: CollectionConversionLimits) -> Self {
+        self.conversion_limits = self.conversion_limits.with_collection_limits(collection);
         self
     }
 
@@ -343,22 +310,14 @@ impl ReadPolicy {
     /// # Returns
     ///
     /// Updated policy.
-    pub fn with_duration_policy(
-        mut self,
-        duration: DurationConversionPolicy,
-    ) -> Self {
-        self.conversion_policy =
-            self.conversion_policy.with_duration_policy(duration);
+    pub fn with_duration_policy(mut self, duration: DurationConversionPolicy) -> Self {
+        self.conversion_policy = self.conversion_policy.with_duration_policy(duration);
         self
     }
 
     /// Returns a copy with different duration conversion limits.
-    pub fn with_duration_limits(
-        mut self,
-        duration: DurationConversionLimits,
-    ) -> Self {
-        self.conversion_limits =
-            self.conversion_limits.with_duration_limits(duration);
+    pub fn with_duration_limits(mut self, duration: DurationConversionLimits) -> Self {
+        self.conversion_limits = self.conversion_limits.with_duration_limits(duration);
         self
     }
 
@@ -371,22 +330,14 @@ impl ReadPolicy {
     /// # Returns
     ///
     /// Updated policy.
-    pub fn with_numeric_policy(
-        mut self,
-        numeric: NumericConversionPolicy,
-    ) -> Self {
-        self.conversion_policy =
-            self.conversion_policy.with_numeric_policy(numeric);
+    pub fn with_numeric_policy(mut self, numeric: NumericConversionPolicy) -> Self {
+        self.conversion_policy = self.conversion_policy.with_numeric_policy(numeric);
         self
     }
 
     /// Returns a copy with different numeric conversion limits.
-    pub fn with_numeric_limits(
-        mut self,
-        numeric: NumericConversionLimits,
-    ) -> Self {
-        self.conversion_limits =
-            self.conversion_limits.with_numeric_limits(numeric);
+    pub fn with_numeric_limits(mut self, numeric: NumericConversionLimits) -> Self {
+        self.conversion_limits = self.conversion_limits.with_numeric_limits(numeric);
         self
     }
 }
@@ -401,8 +352,7 @@ impl Default for ReadPolicy {
             interpolation_sources: InterpolationSources::ConfigOnly,
             max_interpolation_depth: DEFAULT_MAX_SUBSTITUTION_DEPTH,
             max_interpolation_expansions: DEFAULT_MAX_SUBSTITUTION_EXPANSIONS,
-            max_interpolation_output_bytes:
-                DEFAULT_MAX_SUBSTITUTION_OUTPUT_BYTES,
+            max_interpolation_output_bytes: DEFAULT_MAX_SUBSTITUTION_OUTPUT_BYTES,
         }
     }
 }
