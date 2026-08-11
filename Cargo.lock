@@ -613,6 +613,8 @@ dependencies = [
 name = "qubit-budget"
 version = "0.3.0"
 dependencies = [
+ "bigdecimal",
+ "num-bigint",
  "serde",
  "serde_json",
  "thiserror",
