@@ -20,10 +20,7 @@ use crate::config_deserialize_error::ConfigDeserializeError;
 use crate::options::ReadPolicy;
 
 /// Enum access over a configuration value.
-pub(in crate::config_value_deserializer) struct ConfigEnumAccess<
-    'policy,
-    'session,
-> {
+pub(in crate::config_value_deserializer) struct ConfigEnumAccess<'policy, 'session> {
     variant: String,
     value: Option<Value>,
     key: String,
@@ -50,17 +47,12 @@ impl<'policy, 'session> ConfigEnumAccess<'policy, 'session> {
     }
 }
 
-impl<'de, 'policy, 'session> EnumAccess<'de>
-    for ConfigEnumAccess<'policy, 'session>
-{
+impl<'de, 'policy, 'session> EnumAccess<'de> for ConfigEnumAccess<'policy, 'session> {
     type Error = ConfigDeserializeError;
     type Variant = ConfigVariantAccess<'policy, 'session>;
 
     /// Deserializes the enum variant identifier.
-    fn variant_seed<V>(
-        self,
-        seed: V,
-    ) -> Result<(V::Value, Self::Variant), Self::Error>
+    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), Self::Error>
     where
         V: DeserializeSeed<'de>,
     {
@@ -74,12 +66,7 @@ impl<'de, 'policy, 'session> EnumAccess<'de>
         let variant = seed.deserialize(variant_deserializer)?;
         Ok((
             variant,
-            ConfigVariantAccess::new(
-                self.value,
-                child_key,
-                self.options,
-                self.session,
-            ),
+            ConfigVariantAccess::new(self.value, child_key, self.options, self.session),
         ))
     }
 }
