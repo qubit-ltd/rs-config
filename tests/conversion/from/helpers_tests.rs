@@ -17,7 +17,8 @@ fn test_helpers_treat_blank_string_as_missing_when_policy_allows() {
     let mut config = Config::new();
     config
         .set_default_read_policy(
-            ReadPolicy::default().with_blank_string_policy(BlankStringPolicy::TreatAsMissing),
+            ReadPolicy::default()
+                .with_blank_string_policy(BlankStringPolicy::TreatAsMissing),
         )
         .set("server.host", "   ")
         .expect("setting blank value should succeed");
@@ -34,7 +35,8 @@ fn test_interpolated_helpers_resolve_values_before_missing_check() {
     let mut config = Config::new();
     config
         .set_default_read_policy(
-            ReadPolicy::default().with_blank_string_policy(BlankStringPolicy::TreatAsMissing),
+            ReadPolicy::default()
+                .with_blank_string_policy(BlankStringPolicy::TreatAsMissing),
         )
         .set("empty", "   ")
         .expect("setting blank value should succeed");

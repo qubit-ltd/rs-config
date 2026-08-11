@@ -191,7 +191,9 @@ fn is_effectively_missing_by<R: ConfigReader + ?Sized>(
             Ok(None)
         ));
     }
-    let substitute = |value: &str| substitute_for_reader(reader, name, value, options, interpolate);
+    let substitute = |value: &str| {
+        substitute_for_reader(reader, name, value, options, interpolate)
+    };
     let ctx = ConfigParseContext::new(name, options, &substitute, interpolate);
     let value = ctx.substitute_string(value)?;
     match options
@@ -217,7 +219,9 @@ where
     R: ConfigReader + ?Sized,
     T: FromConfig,
 {
-    let substitute = |value: &str| substitute_for_reader(reader, name, value, options, interpolate);
+    let substitute = |value: &str| {
+        substitute_for_reader(reader, name, value, options, interpolate)
+    };
     let ctx = ConfigParseContext::new(name, options, &substitute, interpolate);
     T::from_config(property, &ctx)
 }
@@ -252,7 +256,13 @@ fn substitute_for_reader<R: ConfigReader + ?Sized>(
     interpolate: bool,
 ) -> ConfigResult<String> {
     if interpolate {
-        utils::substitute_variables_with_fallback(value, reader, root_config(reader), options, path)
+        utils::substitute_variables_with_fallback(
+            value,
+            reader,
+            root_config(reader),
+            options,
+            path,
+        )
     } else {
         Ok(value.to_string())
     }

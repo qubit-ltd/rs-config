@@ -50,7 +50,9 @@ impl<'policy, 'session> ConfigValueDeserializer<'policy, 'session> {
     /// Converts any scalar value into a string using config read semantics.
     fn scalar_to_string(self) -> Result<String, ConfigDeserializeError> {
         match self.value {
-            Value::String(value) => convert_string_value(&self.key, self.session, &value),
+            Value::String(value) => {
+                convert_string_value(&self.key, self.session, &value)
+            }
             Value::Bool(value) => Ok(value.to_string()),
             Value::Number(value) => Ok(value.to_string()),
             Value::Null => Err(de::Error::invalid_type(
@@ -77,9 +79,9 @@ fn convert_string_value(
 ) -> Result<String, ConfigDeserializeError> {
     match QubitValue::String(value.to_string()).to_in::<String>(session) {
         Ok(value) => Ok(value),
-        Err(error) => Err(ConfigDeserializeError::from_config(ConfigError::from((
-            key, error,
-        )))),
+        Err(error) => Err(ConfigDeserializeError::from_config(
+            ConfigError::from((key, error)),
+        )),
     }
 }
 
@@ -91,9 +93,9 @@ fn convert_bool_value(
 ) -> Result<bool, ConfigDeserializeError> {
     match QubitValue::String(value.to_string()).to_in::<bool>(session) {
         Ok(value) => Ok(value),
-        Err(error) => Err(ConfigDeserializeError::from_config(ConfigError::from((
-            key, error,
-        )))),
+        Err(error) => Err(ConfigDeserializeError::from_config(
+            ConfigError::from((key, error)),
+        )),
     }
 }
 
@@ -106,9 +108,9 @@ fn convert_char_value(
 ) -> Result<char, ConfigDeserializeError> {
     match QubitValue::String(value.to_string()).to_in::<char>(session) {
         Ok(value) => Ok(value),
-        Err(error) => Err(ConfigDeserializeError::from_config(ConfigError::from((
-            key, error,
-        )))),
+        Err(error) => Err(ConfigDeserializeError::from_config(
+            ConfigError::from((key, error)),
+        )),
     }
 }
 
@@ -121,7 +123,9 @@ fn number_scalar_text(
     match value {
         Value::Number(value) => Ok(value.to_string()),
         Value::String(value) => Ok(value),
-        other => Err(de::Error::invalid_type(unexpected_value(&other), &expected)),
+        other => {
+            Err(de::Error::invalid_type(unexpected_value(&other), &expected))
+        }
     }
 }
 
@@ -132,9 +136,12 @@ macro_rules! deserialize_number {
             V: Visitor<'de>,
         {
             let value = number_scalar_text(self.value, stringify!($ty))?;
-            let value =
-                crate::config::convert_deserialize_number::<$ty>(&self.key, value, self.session)
-                    .map_err(ConfigDeserializeError::from_config)?;
+            let value = crate::config::convert_deserialize_number::<$ty>(
+                &self.key,
+                value,
+                self.session,
+            )
+            .map_err(ConfigDeserializeError::from_config)?;
             visitor.$visit(value)
         }
     };
@@ -157,12 +164,16 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
                 } else if let Some(value) = value.as_u64() {
                     visitor.visit_u64(value)
                 } else {
-                    visitor.visit_f64(value.as_f64().expect("JSON numbers are finite"))
+                    visitor.visit_f64(
+                        value.as_f64().expect("JSON numbers are finite"),
+                    )
                 }
             }
-            Value::String(value) => {
-                visitor.visit_string(convert_string_value(&self.key, self.session, &value)?)
-            }
+            Value::String(value) => visitor.visit_string(convert_string_value(
+                &self.key,
+                self.session,
+                &value,
+            )?),
             Value::Array(values) => visitor.visit_seq(ConfigSeqAccess::new(
                 values,
                 self.key,
@@ -185,9 +196,11 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
     {
         match self.value {
             Value::Bool(value) => visitor.visit_bool(value),
-            Value::String(value) => {
-                visitor.visit_bool(convert_bool_value(&self.key, self.session, &value)?)
-            }
+            Value::String(value) => visitor.visit_bool(convert_bool_value(
+                &self.key,
+                self.session,
+                &value,
+            )?),
             other => Err(de::Error::invalid_type(
                 unexpected_value(&other),
                 &"a boolean-compatible scalar",
@@ -214,9 +227,11 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
         V: Visitor<'de>,
     {
         match self.value {
-            Value::String(value) => {
-                visitor.visit_char(convert_char_value(&self.key, self.session, &value)?)
-            }
+            Value::String(value) => visitor.visit_char(convert_char_value(
+                &self.key,
+                self.session,
+                &value,
+            )?),
             other => Err(de::Error::invalid_type(
                 unexpected_value(&other),
                 &"a single character string",
@@ -249,7 +264,10 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
     }
 
     /// Deserializes bytes from a string.
-    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_byte_buf<V>(
+        self,
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
@@ -279,7 +297,9 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
     {
         match self.value {
             Value::Null => visitor.visit_unit(),
-            other => Err(de::Error::invalid_type(unexpected_value(&other), &"unit")),
+            other => {
+                Err(de::Error::invalid_type(unexpected_value(&other), &"unit"))
+            }
         }
     }
 
@@ -324,9 +344,9 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
                 let values = ValueContainer::Scalar(QubitValue::String(value))
                     .to_list_in::<String>(self.session)
                     .map_err(|error| {
-                        ConfigDeserializeError::from_config(crate::utils::map_value_error(
-                            &self.key, error,
-                        ))
+                        ConfigDeserializeError::from_config(
+                            crate::utils::map_value_error(&self.key, error),
+                        )
                     })?
                     .into_iter()
                     .map(Value::String)
@@ -346,7 +366,11 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
     }
 
     /// Deserializes a tuple.
-    fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_tuple<V>(
+        self,
+        _len: usize,
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
@@ -378,7 +402,9 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
                 self.options,
                 self.session,
             )),
-            other => Err(de::Error::invalid_type(unexpected_value(&other), &"a map")),
+            other => {
+                Err(de::Error::invalid_type(unexpected_value(&other), &"a map"))
+            }
         }
     }
 
@@ -407,7 +433,8 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
     {
         match self.value {
             Value::String(value) => {
-                let variant = convert_string_value(&self.key, self.session, &value)?;
+                let variant =
+                    convert_string_value(&self.key, self.session, &value)?;
                 visitor.visit_enum(ConfigEnumAccess::new(
                     variant,
                     None,
@@ -446,7 +473,10 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
     }
 
     /// Deserializes an identifier.
-    fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_identifier<V>(
+        self,
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
@@ -454,7 +484,10 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
     }
 
     /// Deserializes ignored values.
-    fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_ignored_any<V>(
+        self,
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {

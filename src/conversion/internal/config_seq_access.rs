@@ -18,7 +18,10 @@ use crate::config_value_deserializer::ConfigValueDeserializer;
 use crate::options::ReadPolicy;
 
 /// Sequence access over configuration values.
-pub(in crate::config_value_deserializer) struct ConfigSeqAccess<'policy, 'session> {
+pub(in crate::config_value_deserializer) struct ConfigSeqAccess<
+    'policy,
+    'session,
+> {
     values: std::vec::IntoIter<Value>,
     key: String,
     index: usize,
@@ -48,7 +51,10 @@ impl<'de> SeqAccess<'de> for ConfigSeqAccess<'_, '_> {
     type Error = ConfigDeserializeError;
 
     /// Deserializes the next element.
-    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
+    fn next_element_seed<T>(
+        &mut self,
+        seed: T,
+    ) -> Result<Option<T::Value>, Self::Error>
     where
         T: de::DeserializeSeed<'de>,
     {

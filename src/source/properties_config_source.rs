@@ -137,7 +137,10 @@ impl PropertiesConfigSource {
             let trimmed = line.trim_start();
 
             // Skip blank lines and comments
-            if trimmed.is_empty() || trimmed.starts_with('#') || trimmed.starts_with('!') {
+            if trimmed.is_empty()
+                || trimmed.starts_with('#')
+                || trimmed.starts_with('!')
+            {
                 continue;
             }
 
@@ -157,7 +160,11 @@ impl PropertiesConfigSource {
                 let key = unescape_properties(key);
                 let value = unescape_properties(value);
                 let _ = ConfigKey::parse(key.as_str()).map_err(|error| {
-                    error.with_source_context(source_id, Some(key.clone()), None)
+                    error.with_source_context(
+                        source_id,
+                        Some(key.clone()),
+                        None,
+                    )
                 })?;
                 budget.check_depth(key.split('.').count())?;
                 budget.consume_properties(1)?;
@@ -178,7 +185,8 @@ fn parse_key_value(line: &str) -> Option<(&str, &str)> {
             // Separator is escaped only if there is an odd number of trailing
             // backslashes.
             if !is_escaped_separator(line, i) {
-                let value_start = skip_properties_whitespace(line, i + ch.len_utf8());
+                let value_start =
+                    skip_properties_whitespace(line, i + ch.len_utf8());
                 return Some((&line[..i], &line[value_start..]));
             }
         }
@@ -188,7 +196,8 @@ fn parse_key_value(line: &str) -> Option<(&str, &str)> {
                 && (sep == '=' || sep == ':')
                 && !is_escaped_separator(line, value_start)
             {
-                value_start = skip_properties_whitespace(line, value_start + sep_len);
+                value_start =
+                    skip_properties_whitespace(line, value_start + sep_len);
             }
             return Some((&line[..i], &line[value_start..]));
         }
@@ -309,7 +318,8 @@ fn unescape_properties(s: &str) -> String {
                     let hex: String = chars.by_ref().take(4).collect();
                     if hex.len() == 4
                         && let Ok(code) = u32::from_str_radix(&hex, 16)
-                        && let Some(unicode_char) = decode_unicode_escape(code, &mut chars)
+                        && let Some(unicode_char) =
+                            decode_unicode_escape(code, &mut chars)
                     {
                         result.push(unicode_char);
                         continue;
@@ -350,7 +360,10 @@ fn unescape_properties(s: &str) -> String {
 }
 
 /// Decodes a Java properties `\uXXXX` escape, including UTF-16 surrogate pairs.
-fn decode_unicode_escape(code: u32, chars: &mut Peekable<Chars<'_>>) -> Option<char> {
+fn decode_unicode_escape(
+    code: u32,
+    chars: &mut Peekable<Chars<'_>>,
+) -> Option<char> {
     if is_high_surrogate(code) {
         let mut lookahead = chars.clone();
         if lookahead.next() == Some('\\') && lookahead.next() == Some('u') {
@@ -394,11 +407,12 @@ impl ConfigSource for PropertiesConfigSource {
         let mut config = Config::new();
         let source_id = self.input.label("properties");
         let content = self.input.read_to_string("properties", self.limits)?;
-        let properties = Self::parse_content_with_source(&content, self.limits, &source_id)?;
+        let properties =
+            Self::parse_content_with_source(&content, self.limits, &source_id)?;
         for (key, value) in properties {
-            config
-                .set(&key, value)
-                .map_err(|error| error.with_source_context(&source_id, Some(key.clone()), None))?;
+            config.set(&key, value).map_err(|error| {
+                error.with_source_context(&source_id, Some(key.clone()), None)
+            })?;
         }
         Ok(config)
     }
