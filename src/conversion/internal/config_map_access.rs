@@ -21,10 +21,7 @@ use crate::config_value_deserializer::ConfigValueDeserializer;
 use crate::options::ReadPolicy;
 
 /// Map access over configuration objects.
-pub(in crate::config_value_deserializer) struct ConfigMapAccess<
-    'policy,
-    'session,
-> {
+pub(in crate::config_value_deserializer) struct ConfigMapAccess<'policy, 'session> {
     entries: std::vec::IntoIter<(String, Value)>,
     next_value: Option<(String, Value)>,
     key: String,
@@ -54,18 +51,14 @@ impl<'de> MapAccess<'de> for ConfigMapAccess<'_, '_> {
     type Error = ConfigDeserializeError;
 
     /// Deserializes the next key.
-    fn next_key_seed<K>(
-        &mut self,
-        seed: K,
-    ) -> Result<Option<K::Value>, Self::Error>
+    fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error>
     where
         K: de::DeserializeSeed<'de>,
     {
         let Some((key, value)) = self.entries.next() else {
             return Ok(None);
         };
-        let key_deserializer: StringDeserializer<Self::Error> =
-            key.clone().into_deserializer();
+        let key_deserializer: StringDeserializer<Self::Error> = key.clone().into_deserializer();
         self.next_value = Some((key, value));
         seed.deserialize(key_deserializer).map(Some)
     }

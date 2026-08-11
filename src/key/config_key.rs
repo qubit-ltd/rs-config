@@ -43,11 +43,9 @@ impl ConfigKey {
     /// ends with `.`, or contains an empty dotted segment.
     pub fn parse(value: impl Into<String>) -> ConfigResult<Self> {
         let value = value.into();
-        validate_config_key(&value).map_err(|violation| {
-            ConfigError::InvalidKey {
-                key: value.clone(),
-                violation,
-            }
+        validate_config_key(&value).map_err(|violation| ConfigError::InvalidKey {
+            key: value.clone(),
+            violation,
         })?;
         Ok(Self(value))
     }

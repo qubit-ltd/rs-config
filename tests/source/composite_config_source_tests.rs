@@ -27,10 +27,7 @@ fn fixture(name: &str) -> PathBuf {
         .join(name)
 }
 
-fn load_source(
-    config: &mut Config,
-    source: &dyn ConfigSource,
-) -> ConfigResult<()> {
+fn load_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<()> {
     config.merge_properties_from_source(source)
 }
 
