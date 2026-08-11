@@ -29,7 +29,10 @@ impl<'a> SourceBudget<'a> {
     pub(crate) fn new(source_id: &'a str, limits: SourceLimits) -> Self {
         Self {
             source_id,
-            input_bytes: ResourceBudget::new(SourceLimitKind::InputBytes, limits.max_input_bytes()),
+            input_bytes: ResourceBudget::new(
+                SourceLimitKind::InputBytes,
+                limits.max_input_bytes(),
+            ),
             properties: ResourceBudget::new(
                 SourceLimitKind::PropertyCount,
                 limits.max_properties(),
@@ -39,13 +42,19 @@ impl<'a> SourceBudget<'a> {
     }
 
     /// Accounts for input bytes.
-    pub(crate) fn consume_input_bytes(&mut self, amount: usize) -> ConfigResult<()> {
+    pub(crate) fn consume_input_bytes(
+        &mut self,
+        amount: usize,
+    ) -> ConfigResult<()> {
         let result = self.input_bytes.try_consume(amount);
         result.map_err(|error| self.limit_error(error))
     }
 
     /// Accounts for emitted assignments.
-    pub(crate) fn consume_properties(&mut self, amount: usize) -> ConfigResult<()> {
+    pub(crate) fn consume_properties(
+        &mut self,
+        amount: usize,
+    ) -> ConfigResult<()> {
         let result = self.properties.try_consume(amount);
         result.map_err(|error| self.limit_error(error))
     }
@@ -66,7 +75,10 @@ impl<'a> SourceBudget<'a> {
 
     /// Creates a source limit error.
     #[allow(clippy::manual_saturating_arithmetic)]
-    fn limit_error(&self, error: BudgetError<SourceLimitKind, usize>) -> ConfigError {
+    fn limit_error(
+        &self,
+        error: BudgetError<SourceLimitKind, usize>,
+    ) -> ConfigError {
         match error {
             BudgetError::Insufficient {
                 resource,
