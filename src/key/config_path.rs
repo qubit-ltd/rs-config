@@ -45,9 +45,11 @@ impl ConfigPath {
     /// ends with `.`, or contains an empty dotted segment.
     pub fn parse(value: impl Into<String>) -> ConfigResult<Self> {
         let value = value.into();
-        validate_config_path(&value).map_err(|violation| ConfigError::InvalidPath {
-            path: value.clone(),
-            violation,
+        validate_config_path(&value).map_err(|violation| {
+            ConfigError::InvalidPath {
+                path: value.clone(),
+                violation,
+            }
         })?;
         Ok(Self(value))
     }
@@ -93,7 +95,9 @@ impl AsRef<str> for ConfigPath {
 }
 
 /// Validates a non-empty configuration property key without allocation.
-pub(crate) fn validate_config_key(value: &str) -> Result<(), ConfigPathViolation> {
+pub(crate) fn validate_config_key(
+    value: &str,
+) -> Result<(), ConfigPathViolation> {
     if value.is_empty() {
         Err(ConfigPathViolation::Empty)
     } else {
@@ -112,7 +116,9 @@ pub(crate) fn ensure_config_key(value: &str) -> ConfigResult<()> {
 /// Validates a configuration path without allocation.
 ///
 /// The empty path is accepted as the root scope.
-pub(crate) fn validate_config_path(value: &str) -> Result<(), ConfigPathViolation> {
+pub(crate) fn validate_config_path(
+    value: &str,
+) -> Result<(), ConfigPathViolation> {
     if value.is_empty() {
         Ok(())
     } else {

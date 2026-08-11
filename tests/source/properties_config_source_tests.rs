@@ -22,7 +22,10 @@ fn fixture(name: &str) -> PathBuf {
         .join(name)
 }
 
-fn merge_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<()> {
+fn merge_source(
+    config: &mut Config,
+    source: &dyn ConfigSource,
+) -> ConfigResult<()> {
     config.merge_properties_from_source(source)
 }
 
@@ -226,7 +229,8 @@ mod test_properties_config_source {
 
     #[test]
     fn test_load_basic_properties_file() {
-        let source = PropertiesConfigSource::from_file(fixture("basic.properties"));
+        let source =
+            PropertiesConfigSource::from_file(fixture("basic.properties"));
         let mut config = Config::new();
         merge_source(&mut config, &source).unwrap();
 
@@ -239,7 +243,8 @@ mod test_properties_config_source {
 
     #[test]
     fn test_load_multivalue_properties_file() {
-        let source = PropertiesConfigSource::from_file(fixture("multivalue.properties"));
+        let source =
+            PropertiesConfigSource::from_file(fixture("multivalue.properties"));
         let mut config = Config::new();
         merge_source(&mut config, &source).unwrap();
 
@@ -254,7 +259,9 @@ mod test_properties_config_source {
 
     #[test]
     fn test_load_nonexistent_file_returns_error() {
-        let source = PropertiesConfigSource::from_file("/nonexistent/path/config.properties");
+        let source = PropertiesConfigSource::from_file(
+            "/nonexistent/path/config.properties",
+        );
         let result = source.load();
         assert!(result.is_err());
         assert!(matches!(result, Err(ConfigError::SourceIoError { .. })));
@@ -264,7 +271,8 @@ mod test_properties_config_source {
 
     #[test]
     fn test_merge_from_properties_config_source() {
-        let source = PropertiesConfigSource::from_file(fixture("basic.properties"));
+        let source =
+            PropertiesConfigSource::from_file(fixture("basic.properties"));
         let mut config = Config::new();
         config.merge_properties_from_source(&source).unwrap();
 
@@ -377,6 +385,9 @@ mod test_properties_edge_cases {
             pairs[0],
             ("path:home".to_string(), "some value".to_string()),
         );
-        assert_eq!(pairs[1], ("hash#key".to_string(), "bang!value".to_string()),);
+        assert_eq!(
+            pairs[1],
+            ("hash#key".to_string(), "bang!value".to_string()),
+        );
     }
 }

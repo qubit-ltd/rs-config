@@ -54,11 +54,19 @@ impl SourceInput {
                         path.display().to_string(),
                         std::io::Error::new(
                             error.kind(),
-                            format!("Failed to open {format} file '{}': {error}", path.display()),
+                            format!(
+                                "Failed to open {format} file '{}': {error}",
+                                path.display()
+                            ),
                         ),
                     )
                 })?;
-                let bytes = read_file_bytes(file, limits.max_input_bytes(), path, format)?;
+                let bytes = read_file_bytes(
+                    file,
+                    limits.max_input_bytes(),
+                    path,
+                    format,
+                )?;
                 budget.consume_input_bytes(bytes.len())?;
                 String::from_utf8(bytes).map(Cow::Owned).map_err(|error| {
                     ConfigError::source_io_error(
@@ -93,18 +101,26 @@ fn read_file_bytes(
                 path.display().to_string(),
                 std::io::Error::new(
                     error.kind(),
-                    format!("Failed to read {format} file '{}': {error}", path.display()),
+                    format!(
+                        "Failed to read {format} file '{}': {error}",
+                        path.display()
+                    ),
                 ),
             )
         })?;
     } else {
-        let mut reader = file.take(limit.saturating_add(1) as u64);
+        let byte_limit =
+            u64::try_from(limit.saturating_add(1)).unwrap_or(u64::MAX);
+        let mut reader = file.take(byte_limit);
         reader.read_to_end(&mut bytes).map_err(|error| {
             ConfigError::source_io_error(
                 path.display().to_string(),
                 std::io::Error::new(
                     error.kind(),
-                    format!("Failed to read {format} file '{}': {error}", path.display()),
+                    format!(
+                        "Failed to read {format} file '{}': {error}",
+                        path.display()
+                    ),
                 ),
             )
         })?;
