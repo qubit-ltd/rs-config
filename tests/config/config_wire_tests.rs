@@ -9,6 +9,7 @@
 
 use qubit_budget::BudgetError;
 use qubit_budget::JsonResource;
+use qubit_budget::Observation;
 use qubit_budget::ResourceLimit;
 use qubit_config::Config;
 use qubit_config::ConfigWireDecodeError;
@@ -44,12 +45,9 @@ fn test_config_wire_serialization_is_versioned_and_deterministic() {
         .set("zebra", "last")
         .expect("setting the second property should succeed");
 
-    let first_json =
-        to_string(&first).expect("serializing the first config should succeed");
-    let second_json = to_string(&second)
-        .expect("serializing the second config should succeed");
-    let wire: Value =
-        from_str(&first_json).expect("serialized config should be valid JSON");
+    let first_json = to_string(&first).expect("serializing the first config should succeed");
+    let second_json = to_string(&second).expect("serializing the second config should succeed");
+    let wire: Value = from_str(&first_json).expect("serialized config should be valid JSON");
 
     assert_eq!(wire["version"], json!(1));
     assert_eq!(first_json, second_json);
@@ -63,15 +61,14 @@ fn test_config_wire_deserializes_legacy_unversioned_payload() {
         .set("server.port", 8080_u16)
         .expect("setting the property should succeed");
 
-    let mut legacy = to_value(&config)
-        .expect("serializing the legacy-shaped config should succeed");
+    let mut legacy =
+        to_value(&config).expect("serializing the legacy-shaped config should succeed");
     legacy
         .as_object_mut()
         .expect("config wire should be a JSON object")
         .remove("version");
 
-    let restored: Config =
-        from_value(legacy).expect("legacy config wire should remain readable");
+    let restored: Config = from_value(legacy).expect("legacy config wire should remain readable");
 
     assert_eq!(
         restored
@@ -89,8 +86,7 @@ fn test_config_wire_ignores_legacy_read_options() {
         .set("server.port", "8080")
         .expect("setting the property should succeed");
 
-    let mut legacy =
-        to_value(&config).expect("serializing config should succeed");
+    let mut legacy = to_value(&config).expect("serializing config should succeed");
     let object = legacy
         .as_object_mut()
         .expect("config wire should be a JSON object");
@@ -103,8 +99,7 @@ fn test_config_wire_ignores_legacy_read_options() {
         }),
     );
 
-    let restored: Config =
-        from_value(legacy).expect("legacy wire with runtime data should load");
+    let restored: Config = from_value(legacy).expect("legacy wire with runtime data should load");
 
     assert_eq!(restored.default_read_policy(), &ReadPolicy::default());
 }
@@ -117,12 +112,11 @@ fn test_config_wire_rejects_unknown_version() {
         .set("server.port", 8080_u16)
         .expect("setting the property should succeed");
 
-    let mut wire =
-        to_value(&config).expect("serializing config should succeed");
+    let mut wire = to_value(&config).expect("serializing config should succeed");
     wire["version"] = json!(2);
 
-    let error = from_value::<Config>(wire)
-        .expect_err("unsupported config wire versions must be rejected");
+    let error =
+        from_value::<Config>(wire).expect_err("unsupported config wire versions must be rejected");
 
     assert!(
         error
@@ -141,17 +135,13 @@ fn test_config_wire_limits_apply_to_nested_values() {
     let limits = ConfigWireLimits::default();
     let decode = limits.json_decode();
     let value = decode.value_limits();
-    let structure =
-        value
-            .structure_limits()
-            .with_sequence_items_limit(ResourceLimit::new(
-                JsonResource::SequenceItems,
-                1,
-            ));
+    let structure = value
+        .structure_limits()
+        .with_sequence_items_limit(ResourceLimit::new(JsonResource::SequenceItems, 1));
     let decode = decode
         .with_input_bytes_limit(ResourceLimit::new(
             JsonResource::InputBytes,
-            input.len(),
+            u64::try_from(input.len()).expect("input length must fit"),
         ))
         .with_value_limits(value.with_structure_limits(structure));
     let limits = limits.with_json_decode(decode);
@@ -160,7 +150,7 @@ fn test_config_wire_limits_apply_to_nested_values() {
         Config::decode_json_slice_with_limits(&input, limits),
         Err(ConfigWireDecodeError::Budget(BudgetError::LimitExceeded {
             resource: JsonResource::SequenceItems,
-            actual: 2,
+            observed: Observation::Exact(2),
             maximum: 1,
         }))
     ));
@@ -177,8 +167,7 @@ fn test_config_wire_bounded_encode_round_trips_with_default_limits() {
     let encoded = config
         .encode_json_vec()
         .expect("default limits should encode the configuration");
-    let restored = Config::decode_json_slice(&encoded)
-        .expect("the bounded encoding should decode");
+    let restored = Config::decode_json_slice(&encoded).expect("the bounded encoding should decode");
 
     assert_eq!(restored, config);
 }
@@ -231,15 +220,11 @@ fn test_config_wire_bounded_encode_rejects_final_output_bytes() {
     let encoded = config
         .encode_json_vec()
         .expect("default limits should encode the configuration");
-    let maximum = encoded.len() - 1;
+    let maximum = u64::try_from(encoded.len() - 1).expect("output length must fit");
     let limits = ConfigWireLimits::default();
-    let encode =
-        limits
-            .json_encode()
-            .with_output_bytes_limit(ResourceLimit::new(
-                JsonResource::OutputBytes,
-                maximum,
-            ));
+    let encode = limits
+        .json_encode()
+        .with_output_bytes_limit(ResourceLimit::new(JsonResource::OutputBytes, maximum));
     let limits = limits.with_json_encode(encode);
 
     let result = config.encode_json_vec_with_limits(limits);
@@ -299,19 +284,16 @@ fn test_config_wire_reports_configuration_invariant_after_decoding() {
             .expect("setting the property should succeed");
     }
 
-    let mut wire =
-        to_value(&config).expect("serializing config should succeed");
+    let mut wire = to_value(&config).expect("serializing config should succeed");
     wire["properties"]["server.item0"]["name"] = json!("bad.name");
-    let input =
-        to_vec(&wire).expect("serializing the wire object should succeed");
+    let input = to_vec(&wire).expect("serializing the wire object should succeed");
     let limits = ConfigWireLimits::default();
-    let decode =
-        limits
-            .json_decode()
-            .with_input_bytes_limit(ResourceLimit::new(
-                JsonResource::InputBytes,
-                input.len(),
-            ));
+    let decode = limits
+        .json_decode()
+        .with_input_bytes_limit(ResourceLimit::new(
+            JsonResource::InputBytes,
+            u64::try_from(input.len()).expect("input length must fit"),
+        ));
     let limits = limits.with_json_decode(decode);
 
     let result = Config::decode_json_slice_with_limits(&input, limits);
@@ -330,13 +312,11 @@ fn test_config_wire_rejects_unknown_v1_fields() {
         .set("server.port", 8080_u16)
         .expect("setting the property should succeed");
 
-    let mut wire =
-        to_value(&config).expect("serializing config should succeed");
+    let mut wire = to_value(&config).expect("serializing config should succeed");
     wire["future_field"] = json!(true);
 
-    from_value::<Config>(wire).expect_err(
-        "unknown V1 fields must not silently deserialize as legacy",
-    );
+    from_value::<Config>(wire)
+        .expect_err("unknown V1 fields must not silently deserialize as legacy");
 }
 
 /// Verifies legacy runtime policy data is not part of the versioned contract.
@@ -347,8 +327,7 @@ fn test_config_wire_rejects_read_options_in_v1_payload() {
         .set("server.port", 8080_u16)
         .expect("setting the property should succeed");
 
-    let mut wire =
-        to_value(&config).expect("serializing config should succeed");
+    let mut wire = to_value(&config).expect("serializing config should succeed");
     wire["read_options"] = json!({"environment_fallback_enabled": true});
 
     from_value::<Config>(wire)
@@ -364,12 +343,10 @@ fn test_config_wire_rejects_property_name_mismatch() {
         .set("server.port", 8080_u16)
         .expect("setting the property should succeed");
 
-    let mut wire =
-        to_value(&config).expect("serializing config should succeed");
+    let mut wire = to_value(&config).expect("serializing config should succeed");
     wire["properties"]["server.port"]["name"] = json!("wrong.name");
 
-    let error = from_value::<Config>(wire)
-        .expect_err("property name mismatches must be rejected");
+    let error = from_value::<Config>(wire).expect_err("property name mismatches must be rejected");
 
     assert!(error.to_string().contains("does not match property name"));
 }
@@ -383,8 +360,7 @@ fn test_config_wire_rejects_malformed_map_key() {
         .set("server.port", 8080_u16)
         .expect("setting the property should succeed");
 
-    let mut wire =
-        to_value(&config).expect("serializing config should succeed");
+    let mut wire = to_value(&config).expect("serializing config should succeed");
     let property = wire["properties"]
         .as_object_mut()
         .expect("properties should be an object")
@@ -397,8 +373,8 @@ fn test_config_wire_rejects_malformed_map_key() {
         .expect("properties should be an object")
         .insert("bad..key".to_string(), property);
 
-    let error = from_value::<Config>(wire)
-        .expect_err("malformed config wire keys must be rejected");
+    let error =
+        from_value::<Config>(wire).expect_err("malformed config wire keys must be rejected");
 
     assert!(
         error.to_string().contains("bad..key"),
