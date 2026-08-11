@@ -67,7 +67,8 @@ fn test_property_new() {
 
 #[test]
 fn test_property_new_collection() {
-    let value = MultiValues::String(vec!["hello".to_string(), "world".to_string()]);
+    let value =
+        MultiValues::String(vec!["hello".to_string(), "world".to_string()]);
     let prop = Property::new("test.string", value).unwrap();
 
     assert_eq!(prop.name(), "test.string");
@@ -438,7 +439,9 @@ fn test_property_int32_set() {
 #[test]
 fn test_property_int64_get() {
     let mut prop = new_unset_int32_property("test");
-    prop.set_value(MultiValues::Int64(vec![1000000000, 2000000000, 3000000000]));
+    prop.set_value(MultiValues::Int64(vec![
+        1000000000, 2000000000, 3000000000,
+    ]));
 
     let values = prop.get_list::<i64>().unwrap();
     assert_eq!(values, &[1000000000, 2000000000, 3000000000]);

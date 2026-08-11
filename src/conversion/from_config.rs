@@ -52,7 +52,10 @@ pub trait FromConfig: Sized {
     /// # Returns
     ///
     /// Parsed value, or a [`crate::ConfigError`] with key context.
-    fn from_config(property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<Self>;
+    fn from_config(
+        property: &Property,
+        ctx: &ConfigParseContext<'_>,
+    ) -> ConfigResult<Self>;
 }
 
 /// Converts the first scalar string value of a property to a target type.
@@ -65,7 +68,10 @@ pub trait FromConfig: Sized {
 /// # Returns
 ///
 /// The converted value, or a [`crate::ConfigError`] with key context.
-fn convert_first<T>(property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<T>
+fn convert_first<T>(
+    property: &Property,
+    ctx: &ConfigParseContext<'_>,
+) -> ConfigResult<T>
 where
     T: DataConversionTarget,
 {
@@ -204,7 +210,10 @@ impl FromConfig for String {
     /// # Returns
     ///
     /// Parsed value, or a [`crate::ConfigError`] with key context.
-    fn from_config(property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<Self> {
+    fn from_config(
+        property: &Property,
+        ctx: &ConfigParseContext<'_>,
+    ) -> ConfigResult<Self> {
         if let Some(value) = first_scalar_string(property) {
             let value = ctx.substitute_string(value)?;
             QubitValue::String(value)
@@ -239,7 +248,10 @@ where
     /// # Returns
     ///
     /// Parsed value, or a [`crate::ConfigError`] with key context.
-    fn from_config(property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<Self> {
+    fn from_config(
+        property: &Property,
+        ctx: &ConfigParseContext<'_>,
+    ) -> ConfigResult<Self> {
         substituted_values(property, ctx)?
             .to_list_with::<T>(
                 ctx.options().conversion_policy(),

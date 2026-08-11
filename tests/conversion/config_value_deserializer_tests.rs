@@ -115,7 +115,10 @@ impl<'de> Deserialize<'de> for StrOnly {
         impl Visitor<'_> for StrVisitor {
             type Value = StrOnly;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+            fn expecting(
+                &self,
+                formatter: &mut fmt::Formatter<'_>,
+            ) -> fmt::Result {
                 formatter.write_str("a string")
             }
 
@@ -144,7 +147,10 @@ impl<'de> Deserialize<'de> for BytesOnly {
         impl Visitor<'_> for BytesVisitor {
             type Value = BytesOnly;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+            fn expecting(
+                &self,
+                formatter: &mut fmt::Formatter<'_>,
+            ) -> fmt::Result {
                 formatter.write_str("bytes")
             }
 
@@ -173,7 +179,10 @@ impl<'de> Deserialize<'de> for ByteBufOnly {
         impl Visitor<'_> for ByteBufVisitor {
             type Value = ByteBufOnly;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+            fn expecting(
+                &self,
+                formatter: &mut fmt::Formatter<'_>,
+            ) -> fmt::Result {
                 formatter.write_str("byte buffer")
             }
 
@@ -202,7 +211,10 @@ impl<'de> Deserialize<'de> for IdentifierOnly {
         impl Visitor<'_> for IdentifierVisitor {
             type Value = IdentifierOnly;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+            fn expecting(
+                &self,
+                formatter: &mut fmt::Formatter<'_>,
+            ) -> fmt::Result {
                 formatter.write_str("an identifier")
             }
 
@@ -375,7 +387,8 @@ fn deserialize_float_scalars_from_strings_and_numbers() -> ConfigResult<()> {
 }
 
 #[test]
-fn deserialize_numeric_scalars_cover_number_and_string_paths() -> ConfigResult<()> {
+fn deserialize_numeric_scalars_cover_number_and_string_paths()
+-> ConfigResult<()> {
     let mut config = Config::new();
     config.set("i8_number.value", 8i8)?;
     config.set("i16_string.value", "16")?;
@@ -538,7 +551,10 @@ fn deserialize_enum_reports_invalid_shapes() -> ConfigResult<()> {
     let mut empty_object = Config::new();
     empty_object.insert_property(
         "case.value",
-        Property::new("case.value", MultiValues::Json(vec![serde_json::json!({})]))?,
+        Property::new(
+            "case.value",
+            MultiValues::Json(vec![serde_json::json!({})]),
+        )?,
     )?;
     assert!(
         empty_object
@@ -913,7 +929,8 @@ fn deserialize_scalar_error_branches() -> ConfigResult<()> {
 fn deserialize_read_option_error_branches() -> ConfigResult<()> {
     let mut blank_config = Config::new();
     blank_config.set_default_read_policy(
-        ReadPolicy::default().with_blank_string_policy(BlankStringPolicy::Reject),
+        ReadPolicy::default()
+            .with_blank_string_policy(BlankStringPolicy::Reject),
     );
     blank_config.set("blank_string.value", " ")?;
     blank_config.set("blank_bool.value", " ")?;
@@ -967,7 +984,8 @@ fn deserialize_read_option_error_branches() -> ConfigResult<()> {
 
     let mut list_config = Config::new();
     list_config.set_default_read_policy(
-        ReadPolicy::env_friendly().with_empty_item_policy(EmptyItemPolicy::Reject),
+        ReadPolicy::env_friendly()
+            .with_empty_item_policy(EmptyItemPolicy::Reject),
     );
     list_config.set("bad_list.value", "a,,b")?;
 
@@ -980,10 +998,12 @@ fn deserialize_read_option_error_branches() -> ConfigResult<()> {
 }
 
 #[test]
-fn deserialize_json_string_conversion_errors_use_config_read_policy() -> ConfigResult<()> {
+fn deserialize_json_string_conversion_errors_use_config_read_policy()
+-> ConfigResult<()> {
     let mut config = Config::new();
     config.set_default_read_policy(
-        ReadPolicy::default().with_blank_string_policy(BlankStringPolicy::Reject),
+        ReadPolicy::default()
+            .with_blank_string_policy(BlankStringPolicy::Reject),
     );
     config.insert_property(
         "string_value",
@@ -1008,7 +1028,10 @@ fn deserialize_json_string_conversion_errors_use_config_read_policy() -> ConfigR
     )?;
     config.insert_property(
         "any_value",
-        Property::new("any_value", MultiValues::Json(vec![serde_json::json!(" ")]))?,
+        Property::new(
+            "any_value",
+            MultiValues::Json(vec![serde_json::json!(" ")]),
+        )?,
     )?;
     config.insert_property(
         "char_value",
@@ -1019,7 +1042,10 @@ fn deserialize_json_string_conversion_errors_use_config_read_policy() -> ConfigR
     )?;
     config.insert_property(
         "str_value",
-        Property::new("str_value", MultiValues::Json(vec![serde_json::json!(" ")]))?,
+        Property::new(
+            "str_value",
+            MultiValues::Json(vec![serde_json::json!(" ")]),
+        )?,
     )?;
     config.insert_property(
         "bytes_value",
@@ -1052,10 +1078,12 @@ fn deserialize_json_string_conversion_errors_use_config_read_policy() -> ConfigR
 }
 
 #[test]
-fn deserialize_error_wrapper_formats_message_and_config_sources() -> ConfigResult<()> {
+fn deserialize_error_wrapper_formats_message_and_config_sources()
+-> ConfigResult<()> {
     let mut config_error = Config::new();
     config_error.set_default_read_policy(
-        ReadPolicy::default().with_blank_string_policy(BlankStringPolicy::Reject),
+        ReadPolicy::default()
+            .with_blank_string_policy(BlankStringPolicy::Reject),
     );
     config_error.insert_property(
         "config_error",
