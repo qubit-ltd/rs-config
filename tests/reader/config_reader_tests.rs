@@ -14,6 +14,8 @@ use qubit_config::ConfigResult;
 use qubit_config::ConfigSection;
 use qubit_config::options::ReadPolicy;
 use qubit_datatype::BlankStringPolicy;
+use qubit_datatype::ConversionLimits;
+use qubit_datatype::ConversionOperationLimits;
 use qubit_datatype::DataConversionTarget;
 use qubit_datatype::DataType;
 use qubit_datatype::InvalidValueReason;
@@ -1136,4 +1138,24 @@ fn test_is_unset_distinguishes_missing_unset_empty_and_blank_values() {
     assert!(!config.is_unset("missing").unwrap());
     assert!(!config.is_unset("empty").unwrap());
     assert!(!config.is_unset("blank").unwrap());
+}
+
+#[test]
+fn test_independent_gets_do_not_share_conversion_usage() {
+    let limits = ConversionLimits::default().with_operation_limits(
+        ConversionOperationLimits::default().with_max_input_bytes(2),
+    );
+    let mut config = Config::new();
+    config
+        .set_default_read_policy(
+            ReadPolicy::default().with_conversion_limits(limits),
+        )
+        .set("first", "aa")
+        .expect("first value should be stored");
+    config
+        .set("second", "bb")
+        .expect("second value should be stored");
+
+    assert_eq!(config.get::<String>("first").unwrap(), "aa");
+    assert_eq!(config.get::<String>("second").unwrap(), "bb");
 }

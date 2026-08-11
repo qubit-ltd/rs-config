@@ -8,13 +8,17 @@
 // qubit-style: allow multiple-public-types
 
 use qubit_datatype::BlankStringPolicy;
-use qubit_datatype::BooleanConversionOptions;
-use qubit_datatype::CollectionConversionOptions;
-use qubit_datatype::DataConversionOptions;
-use qubit_datatype::DurationConversionOptions;
+use qubit_datatype::BooleanConversionPolicy;
+use qubit_datatype::CollectionConversionLimits;
+use qubit_datatype::CollectionConversionPolicy;
+use qubit_datatype::ConversionLimits;
+use qubit_datatype::ConversionPolicy;
+use qubit_datatype::DurationConversionLimits;
+use qubit_datatype::DurationConversionPolicy;
 use qubit_datatype::EmptyItemPolicy;
-use qubit_datatype::NumericConversionOptions;
-use qubit_datatype::StringConversionOptions;
+use qubit_datatype::NumericConversionLimits;
+use qubit_datatype::NumericConversionPolicy;
+use qubit_datatype::StringConversionPolicy;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -46,8 +50,10 @@ impl Default for InterpolationSources {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ReadPolicy {
-    /// Common scalar, collection, boolean, and duration conversion options.
-    conversion: DataConversionOptions,
+    /// Semantic rules used by typed value conversions.
+    conversion_policy: ConversionPolicy,
+    /// Resource limits applied independently to each ordinary read.
+    conversion_limits: ConversionLimits,
     /// Sources consulted when resolving interpolated placeholders.
     interpolation_sources: InterpolationSources,
     /// Maximum active placeholder-reference chain length.
@@ -80,19 +86,43 @@ impl ReadPolicy {
     /// select [`InterpolationSources::ConfigThenEnv`].
     pub fn env_friendly() -> Self {
         Self {
-            conversion: DataConversionOptions::env_friendly(),
+            conversion_policy: ConversionPolicy::env_friendly(),
             ..Self::default()
         }
     }
 
-    /// Gets the underlying data conversion options.
+    /// Gets the semantic data conversion policy.
     ///
     /// # Returns
     ///
-    /// Options used by the shared `qubit-datatype` conversion layer.
+    /// Policy used by the shared `qubit-datatype` conversion layer.
     #[inline(always)]
-    pub const fn conversion_options(&self) -> &DataConversionOptions {
-        &self.conversion
+    pub const fn conversion_policy(&self) -> &ConversionPolicy {
+        &self.conversion_policy
+    }
+
+    /// Gets the resource limits for one logical conversion operation.
+    ///
+    /// # Returns
+    ///
+    /// Limits used by the shared `qubit-datatype` conversion layer.
+    #[inline(always)]
+    pub const fn conversion_limits(&self) -> &ConversionLimits {
+        &self.conversion_limits
+    }
+
+    /// Returns a copy with a different conversion policy.
+    #[inline(always)]
+    pub fn with_conversion_policy(mut self, policy: ConversionPolicy) -> Self {
+        self.conversion_policy = policy;
+        self
+    }
+
+    /// Returns a copy with different conversion resource limits.
+    #[inline(always)]
+    pub fn with_conversion_limits(mut self, limits: ConversionLimits) -> Self {
+        self.conversion_limits = limits;
+        self
     }
 
     /// Returns the configured interpolation sources.
@@ -220,7 +250,8 @@ impl ReadPolicy {
         mut self,
         policy: BlankStringPolicy,
     ) -> Self {
-        self.conversion = self.conversion.with_blank_string_policy(policy);
+        self.conversion_policy =
+            self.conversion_policy.with_blank_string_policy(policy);
         self
     }
 
@@ -234,11 +265,12 @@ impl ReadPolicy {
     ///
     /// Updated policy.
     pub fn with_empty_item_policy(mut self, policy: EmptyItemPolicy) -> Self {
-        self.conversion = self.conversion.with_empty_item_policy(policy);
+        self.conversion_policy =
+            self.conversion_policy.with_empty_item_policy(policy);
         self
     }
 
-    /// Returns a copy with different string conversion options.
+    /// Returns a copy with a different string conversion policy.
     ///
     /// # Parameters
     ///
@@ -247,15 +279,16 @@ impl ReadPolicy {
     /// # Returns
     ///
     /// Updated policy.
-    pub fn with_string_options(
+    pub fn with_string_policy(
         mut self,
-        string: StringConversionOptions,
+        string: StringConversionPolicy,
     ) -> Self {
-        self.conversion = self.conversion.with_string_options(string);
+        self.conversion_policy =
+            self.conversion_policy.with_string_policy(string);
         self
     }
 
-    /// Returns a copy with different boolean conversion options.
+    /// Returns a copy with a different Boolean conversion policy.
     ///
     /// # Parameters
     ///
@@ -264,15 +297,16 @@ impl ReadPolicy {
     /// # Returns
     ///
     /// Updated policy.
-    pub fn with_boolean_options(
+    pub fn with_boolean_policy(
         mut self,
-        boolean: BooleanConversionOptions,
+        boolean: BooleanConversionPolicy,
     ) -> Self {
-        self.conversion = self.conversion.with_boolean_options(boolean);
+        self.conversion_policy =
+            self.conversion_policy.with_boolean_policy(boolean);
         self
     }
 
-    /// Returns a copy with different collection conversion options.
+    /// Returns a copy with a different collection conversion policy.
     ///
     /// # Parameters
     ///
@@ -281,15 +315,26 @@ impl ReadPolicy {
     /// # Returns
     ///
     /// Updated policy.
-    pub fn with_collection_options(
+    pub fn with_collection_policy(
         mut self,
-        collection: CollectionConversionOptions,
+        collection: CollectionConversionPolicy,
     ) -> Self {
-        self.conversion = self.conversion.with_collection_options(collection);
+        self.conversion_policy =
+            self.conversion_policy.with_collection_policy(collection);
         self
     }
 
-    /// Returns a copy with different duration conversion options.
+    /// Returns a copy with different collection conversion limits.
+    pub fn with_collection_limits(
+        mut self,
+        collection: CollectionConversionLimits,
+    ) -> Self {
+        self.conversion_limits =
+            self.conversion_limits.with_collection_limits(collection);
+        self
+    }
+
+    /// Returns a copy with a different duration conversion policy.
     ///
     /// # Parameters
     ///
@@ -298,28 +343,50 @@ impl ReadPolicy {
     /// # Returns
     ///
     /// Updated policy.
-    pub fn with_duration_options(
+    pub fn with_duration_policy(
         mut self,
-        duration: DurationConversionOptions,
+        duration: DurationConversionPolicy,
     ) -> Self {
-        self.conversion = self.conversion.with_duration_options(duration);
+        self.conversion_policy =
+            self.conversion_policy.with_duration_policy(duration);
         self
     }
 
-    /// Returns a copy with different numeric conversion options.
+    /// Returns a copy with different duration conversion limits.
+    pub fn with_duration_limits(
+        mut self,
+        duration: DurationConversionLimits,
+    ) -> Self {
+        self.conversion_limits =
+            self.conversion_limits.with_duration_limits(duration);
+        self
+    }
+
+    /// Returns a copy with a different numeric conversion policy.
     ///
     /// # Parameters
     ///
-    /// * `numeric` - New numeric conversion policy and resource limits.
+    /// * `numeric` - New numeric conversion policy.
     ///
     /// # Returns
     ///
     /// Updated policy.
-    pub fn with_numeric_options(
+    pub fn with_numeric_policy(
         mut self,
-        numeric: NumericConversionOptions,
+        numeric: NumericConversionPolicy,
     ) -> Self {
-        self.conversion = self.conversion.with_numeric_options(numeric);
+        self.conversion_policy =
+            self.conversion_policy.with_numeric_policy(numeric);
+        self
+    }
+
+    /// Returns a copy with different numeric conversion limits.
+    pub fn with_numeric_limits(
+        mut self,
+        numeric: NumericConversionLimits,
+    ) -> Self {
+        self.conversion_limits =
+            self.conversion_limits.with_numeric_limits(numeric);
         self
     }
 }
@@ -329,7 +396,8 @@ impl Default for ReadPolicy {
     #[inline]
     fn default() -> Self {
         Self {
-            conversion: DataConversionOptions::default(),
+            conversion_policy: ConversionPolicy::default(),
+            conversion_limits: ConversionLimits::default(),
             interpolation_sources: InterpolationSources::ConfigOnly,
             max_interpolation_depth: DEFAULT_MAX_SUBSTITUTION_DEPTH,
             max_interpolation_expansions: DEFAULT_MAX_SUBSTITUTION_EXPANSIONS,
@@ -339,20 +407,28 @@ impl Default for ReadPolicy {
     }
 }
 
-impl AsRef<DataConversionOptions> for ReadPolicy {
-    /// Borrows the underlying data conversion options.
+impl AsRef<ConversionPolicy> for ReadPolicy {
+    /// Borrows the underlying data conversion policy.
     #[inline(always)]
-    fn as_ref(&self) -> &DataConversionOptions {
-        &self.conversion
+    fn as_ref(&self) -> &ConversionPolicy {
+        &self.conversion_policy
     }
 }
 
-impl From<DataConversionOptions> for ReadPolicy {
-    /// Creates a read policy from data conversion options.
+impl AsRef<ConversionLimits> for ReadPolicy {
+    /// Borrows the underlying data conversion limits.
+    #[inline(always)]
+    fn as_ref(&self) -> &ConversionLimits {
+        &self.conversion_limits
+    }
+}
+
+impl From<ConversionPolicy> for ReadPolicy {
+    /// Creates a read policy from a data conversion policy.
     #[inline]
-    fn from(conversion: DataConversionOptions) -> Self {
+    fn from(conversion_policy: ConversionPolicy) -> Self {
         Self {
-            conversion,
+            conversion_policy,
             ..Self::default()
         }
     }

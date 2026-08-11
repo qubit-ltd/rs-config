@@ -27,7 +27,7 @@ use qubit_config::conversion::ConfigParseContext;
 use qubit_config::conversion::FromConfig;
 use qubit_config::options::ReadPolicy;
 use qubit_datatype::InvalidValueReason;
-use qubit_datatype::NumericConversionOptions;
+use qubit_datatype::NumericConversionPolicy;
 
 #[derive(Debug, PartialEq)]
 struct ContextAware(String);
@@ -202,7 +202,7 @@ fn test_from_config_numeric_options_are_explicit() {
 
     config.set_default_read_policy(
         ReadPolicy::default()
-            .with_numeric_options(NumericConversionOptions::lossy()),
+            .with_numeric_policy(NumericConversionPolicy::lossy()),
     );
     assert_eq!(config.get::<Vec<i32>>("values").unwrap(), vec![1, 2]);
 }

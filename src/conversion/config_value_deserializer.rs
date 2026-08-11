@@ -7,8 +7,9 @@
 // =============================================================================
 //! Serde deserializer that applies configuration read conversion semantics.
 
-use qubit_datatype::DataType;
+use qubit_datatype::ConversionSession;
 use qubit_value::Value as QubitValue;
+use qubit_value::ValueContainer;
 use serde::de;
 use serde::de::Visitor;
 use serde_json::Value;
@@ -23,31 +24,34 @@ use crate::options::ReadPolicy;
 mod internal;
 
 /// Deserializer over a single serde value.
-pub(crate) struct ConfigValueDeserializer<'a> {
+pub(crate) struct ConfigValueDeserializer<'policy, 'session> {
     value: Value,
     key: String,
-    options: &'a ReadPolicy,
+    options: &'policy ReadPolicy,
+    session: &'session mut ConversionSession<'policy>,
 }
 
-impl<'a> ConfigValueDeserializer<'a> {
+impl<'policy, 'session> ConfigValueDeserializer<'policy, 'session> {
     /// Creates a value deserializer.
     pub(crate) fn new(
         value: Value,
         key: String,
-        options: &'a ReadPolicy,
+        options: &'policy ReadPolicy,
+        session: &'session mut ConversionSession<'policy>,
     ) -> Self {
         Self {
             value,
             key,
             options,
+            session,
         }
     }
 
     /// Converts any scalar value into a string using config read semantics.
-    fn scalar_to_string(&self) -> Result<String, ConfigDeserializeError> {
-        match &self.value {
+    fn scalar_to_string(self) -> Result<String, ConfigDeserializeError> {
+        match self.value {
             Value::String(value) => {
-                convert_string_value(&self.key, self.options, value)
+                convert_string_value(&self.key, self.session, &value)
             }
             Value::Bool(value) => Ok(value.to_string()),
             Value::Number(value) => Ok(value.to_string()),
@@ -70,12 +74,10 @@ impl<'a> ConfigValueDeserializer<'a> {
 /// Converts a scalar string using the shared conversion layer.
 fn convert_string_value(
     key: &str,
-    options: &ReadPolicy,
+    session: &mut ConversionSession<'_>,
     value: &str,
 ) -> Result<String, ConfigDeserializeError> {
-    match QubitValue::String(value.to_string())
-        .to_with::<String>(options.conversion_options())
-    {
+    match QubitValue::String(value.to_string()).to_in::<String>(session) {
         Ok(value) => Ok(value),
         Err(error) => Err(ConfigDeserializeError::from_config(
             ConfigError::from((key, error)),
@@ -86,12 +88,10 @@ fn convert_string_value(
 /// Converts a scalar string into a boolean using the shared conversion layer.
 fn convert_bool_value(
     key: &str,
-    options: &ReadPolicy,
+    session: &mut ConversionSession<'_>,
     value: &str,
 ) -> Result<bool, ConfigDeserializeError> {
-    match QubitValue::String(value.to_string())
-        .to_with::<bool>(options.conversion_options())
-    {
+    match QubitValue::String(value.to_string()).to_in::<bool>(session) {
         Ok(value) => Ok(value),
         Err(error) => Err(ConfigDeserializeError::from_config(
             ConfigError::from((key, error)),
@@ -103,12 +103,10 @@ fn convert_bool_value(
 /// layer.
 fn convert_char_value(
     key: &str,
-    options: &ReadPolicy,
+    session: &mut ConversionSession<'_>,
     value: &str,
 ) -> Result<char, ConfigDeserializeError> {
-    match QubitValue::String(value.to_string())
-        .to_with::<char>(options.conversion_options())
-    {
+    match QubitValue::String(value.to_string()).to_in::<char>(session) {
         Ok(value) => Ok(value),
         Err(error) => Err(ConfigDeserializeError::from_config(
             ConfigError::from((key, error)),
@@ -140,8 +138,8 @@ macro_rules! deserialize_number {
             let value = number_scalar_text(self.value, stringify!($ty))?;
             let value = crate::config::convert_deserialize_number::<$ty>(
                 &self.key,
-                self.options,
                 value,
+                self.session,
             )
             .map_err(ConfigDeserializeError::from_config)?;
             visitor.$visit(value)
@@ -149,7 +147,7 @@ macro_rules! deserialize_number {
     };
 }
 
-impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
+impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
     type Error = ConfigDeserializeError;
 
     /// Deserializes using the natural serde type for the stored value.
@@ -173,18 +171,20 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
             }
             Value::String(value) => visitor.visit_string(convert_string_value(
                 &self.key,
-                self.options,
+                self.session,
                 &value,
             )?),
             Value::Array(values) => visitor.visit_seq(ConfigSeqAccess::new(
                 values,
                 self.key,
                 self.options,
+                self.session,
             )),
             Value::Object(values) => visitor.visit_map(ConfigMapAccess::new(
                 values,
                 self.key,
                 self.options,
+                self.session,
             )),
         }
     }
@@ -198,7 +198,7 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
             Value::Bool(value) => visitor.visit_bool(value),
             Value::String(value) => visitor.visit_bool(convert_bool_value(
                 &self.key,
-                self.options,
+                self.session,
                 &value,
             )?),
             other => Err(de::Error::invalid_type(
@@ -229,7 +229,7 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
         match self.value {
             Value::String(value) => visitor.visit_char(convert_char_value(
                 &self.key,
-                self.options,
+                self.session,
                 &value,
             )?),
             other => Err(de::Error::invalid_type(
@@ -285,6 +285,7 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
                 value,
                 self.key,
                 self.options,
+                self.session,
             )),
         }
     }
@@ -337,56 +338,24 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
                 values,
                 self.key,
                 self.options,
+                self.session,
             )),
             Value::String(value) => {
-                let normalized = match self
-                    .options
-                    .conversion_options()
-                    .string()
-                    .normalize_optional(&value)
-                {
-                    Ok(Some(value)) => value,
-                    Ok(None) => {
-                        return Err(ConfigDeserializeError::from_config(
-                            ConfigError::PropertyHasNoValue(self.key.clone()),
-                        ));
-                    }
-                    Err(error) => {
-                        return Err(ConfigDeserializeError::from_config(
-                            ConfigError::from_data_conversion_error(
-                                &self.key,
-                                error.into_data_conversion_error(
-                                    DataType::String,
-                                ),
-                            ),
-                        ));
-                    }
-                };
-                let values = self
-                    .options
-                    .conversion_options()
-                    .collection()
-                    .scalar_items(normalized)
-                    .map(|result| {
-                        result.map(|item| Value::String(item.value.to_string()))
-                    })
-                    .collect::<Result<Vec<_>, _>>()
+                let values = ValueContainer::Scalar(QubitValue::String(value))
+                    .to_list_in::<String>(self.session)
                     .map_err(|error| {
-                        let source_index = error.source_index();
                         ConfigDeserializeError::from_config(
-                            ConfigError::ConversionError {
-                                key: self.key.clone(),
-                                source_index: Some(source_index),
-                                source: error.into_data_conversion_error(
-                                    DataType::String,
-                                ),
-                            },
+                            crate::utils::map_value_error(&self.key, error),
                         )
-                    })?;
+                    })?
+                    .into_iter()
+                    .map(Value::String)
+                    .collect();
                 visitor.visit_seq(ConfigSeqAccess::new(
                     values,
                     self.key,
                     self.options,
+                    self.session,
                 ))
             }
             other => Err(de::Error::invalid_type(
@@ -431,6 +400,7 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
                 values,
                 self.key,
                 self.options,
+                self.session,
             )),
             other => {
                 Err(de::Error::invalid_type(unexpected_value(&other), &"a map"))
@@ -464,12 +434,13 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
         match self.value {
             Value::String(value) => {
                 let variant =
-                    convert_string_value(&self.key, self.options, &value)?;
+                    convert_string_value(&self.key, self.session, &value)?;
                 visitor.visit_enum(ConfigEnumAccess::new(
                     variant,
                     None,
                     self.key,
                     self.options,
+                    self.session,
                 ))
             }
             Value::Object(values) => {
@@ -491,6 +462,7 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_> {
                     Some(value),
                     self.key,
                     self.options,
+                    self.session,
                 ))
             }
             other => Err(de::Error::invalid_type(

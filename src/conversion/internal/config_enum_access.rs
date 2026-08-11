@@ -8,6 +8,7 @@
 // qubit-style: allow source-test-pair
 //! Serde enum access over a configuration value.
 
+use qubit_datatype::ConversionSession;
 use serde::de::DeserializeSeed;
 use serde::de::EnumAccess;
 use serde::de::IntoDeserializer;
@@ -19,33 +20,41 @@ use crate::config_deserialize_error::ConfigDeserializeError;
 use crate::options::ReadPolicy;
 
 /// Enum access over a configuration value.
-pub(in crate::config_value_deserializer) struct ConfigEnumAccess<'a> {
+pub(in crate::config_value_deserializer) struct ConfigEnumAccess<
+    'policy,
+    'session,
+> {
     variant: String,
     value: Option<Value>,
     key: String,
-    options: &'a ReadPolicy,
+    options: &'policy ReadPolicy,
+    session: &'session mut ConversionSession<'policy>,
 }
 
-impl<'a> ConfigEnumAccess<'a> {
+impl<'policy, 'session> ConfigEnumAccess<'policy, 'session> {
     /// Creates enum access for a variant and optional payload.
     pub(in crate::config_value_deserializer) fn new(
         variant: String,
         value: Option<Value>,
         key: String,
-        options: &'a ReadPolicy,
+        options: &'policy ReadPolicy,
+        session: &'session mut ConversionSession<'policy>,
     ) -> Self {
         Self {
             variant,
             value,
             key,
             options,
+            session,
         }
     }
 }
 
-impl<'de, 'a> EnumAccess<'de> for ConfigEnumAccess<'a> {
+impl<'de, 'policy, 'session> EnumAccess<'de>
+    for ConfigEnumAccess<'policy, 'session>
+{
     type Error = ConfigDeserializeError;
-    type Variant = ConfigVariantAccess<'a>;
+    type Variant = ConfigVariantAccess<'policy, 'session>;
 
     /// Deserializes the enum variant identifier.
     fn variant_seed<V>(
@@ -65,7 +74,12 @@ impl<'de, 'a> EnumAccess<'de> for ConfigEnumAccess<'a> {
         let variant = seed.deserialize(variant_deserializer)?;
         Ok((
             variant,
-            ConfigVariantAccess::new(self.value, child_key, self.options),
+            ConfigVariantAccess::new(
+                self.value,
+                child_key,
+                self.options,
+                self.session,
+            ),
         ))
     }
 }

@@ -32,7 +32,7 @@ use crate::ConfigError;
 use crate::DataConversionError;
 use crate::DataType;
 use crate::Deserialize;
-use crate::DurationConversionOptions;
+use crate::DurationConversionPolicy;
 use crate::DurationRoundingPolicy;
 use crate::DurationUnit;
 use crate::InvalidValueReason;
@@ -231,8 +231,8 @@ fn test_deserialize_duration_allows_explicit_half_up_rounding() {
         Value::Duration(Duration::from_micros(1500)),
     );
     config.set_default_read_policy(
-        ReadPolicy::default().with_duration_options(
-            DurationConversionOptions::default()
+        ReadPolicy::default().with_duration_policy(
+            DurationConversionPolicy::default()
                 .with_rounding_policy(DurationRoundingPolicy::HalfUp),
         ),
     );
@@ -249,8 +249,8 @@ fn test_deserialize_duration_honors_output_unit() {
         Value::Duration(Duration::from_micros(1500)),
     );
     config.set_default_read_policy(
-        ReadPolicy::default().with_duration_options(
-            DurationConversionOptions::default()
+        ReadPolicy::default().with_duration_policy(
+            DurationConversionPolicy::default()
                 .with_output_unit(DurationUnit::Microseconds),
         ),
     );

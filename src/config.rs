@@ -15,10 +15,13 @@ mod internal;
 
 use std::collections::BTreeMap;
 
+use qubit_budget::JsonDecodeSession;
+use qubit_budget::JsonEncodeSession;
 use qubit_budget::JsonResource;
 use qubit_budget::JsonSerdeError;
-use qubit_budget::from_slice_with_budget;
-use qubit_budget::to_vec_with_budget;
+use qubit_budget::decode_slice;
+use qubit_budget::encode_to_vec;
+use qubit_datatype::ConversionSession;
 use qubit_datatype::DataConversionTarget;
 use qubit_utils::Transient;
 use qubit_value::Value as QubitValue;
@@ -70,13 +73,13 @@ mod traversal;
 /// Returns a keyed conversion error when `value` cannot be converted to `T`.
 pub(crate) fn convert_deserialize_number<T>(
     key: &str,
-    options: &ReadPolicy,
     value: String,
+    session: &mut ConversionSession<'_>,
 ) -> ConfigResult<T>
 where
     T: DataConversionTarget,
 {
-    match QubitValue::String(value).to_with::<T>(options.conversion_options()) {
+    match QubitValue::String(value).to_in::<T>(session) {
         Ok(value) => Ok(value),
         Err(error) => Err(ConfigError::from((key, error))),
     }
@@ -282,8 +285,8 @@ impl Config {
         for property in self.properties.values() {
             let _ = ValueWireRefV1::try_from(property.value())?;
         }
-        let mut budget = limits.json().budget();
-        to_vec_with_budget(&ConfigWireV1Ref::from(self), &mut budget)
+        let mut session = JsonEncodeSession::new(limits.json_encode());
+        encode_to_vec(&ConfigWireV1Ref::from(self), &mut session)
             .map_err(map_encode_json_error)
     }
 
@@ -327,9 +330,9 @@ impl Config {
         input: &[u8],
         limits: ConfigWireLimits,
     ) -> Result<Self, ConfigWireDecodeError> {
-        let mut budget = limits.json().budget();
-        let wire: ConfigWire = from_slice_with_budget(input, &mut budget)
-            .map_err(map_decode_json_error)?;
+        let mut session = JsonDecodeSession::new(limits.json_decode());
+        let wire: ConfigWire =
+            decode_slice(input, &mut session).map_err(map_decode_json_error)?;
         let config = Self::try_from(wire)
             .map_err(ConfigWireDecodeError::InvalidConfig)?;
         config.check_config_limits(limits)?;
