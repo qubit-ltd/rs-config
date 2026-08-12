@@ -43,7 +43,9 @@ pub enum ConfigError {
     },
 
     /// A configuration source exceeded a resource limit.
-    #[error("Configuration source '{source_id}' exceeded budget '{budget_id}': {source}")]
+    #[error(
+        "Configuration source '{source_id}' exceeded budget '{budget_id}': {source}"
+    )]
     SourceLimitExceeded {
         /// Source identifier or path.
         source_id: String,
@@ -389,7 +391,9 @@ impl ConfigError {
 
     /// Returns the structured budget failure for a source limit error.
     #[inline]
-    pub const fn budget_error(&self) -> Option<&BudgetError<SourceLimitKind, usize>> {
+    pub const fn budget_error(
+        &self,
+    ) -> Option<&BudgetError<SourceLimitKind, usize>> {
         match self {
             Self::SourceLimitExceeded { source, .. } => Some(source),
             _ => None,
