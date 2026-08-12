@@ -79,6 +79,12 @@ struct StringPair {
     second: String,
 }
 
+#[derive(Debug, Deserialize, PartialEq)]
+struct ScalarStringSettings {
+    enabled: String,
+    attempts: String,
+}
+
 /// Deserializes retry settings from any supported configuration reader.
 fn read_retry<R>(reader: &R) -> ConfigResult<RetrySettings>
 where
@@ -414,4 +420,52 @@ fn test_serde_materialization_shares_one_conversion_operation_limit() {
         .expect_err("the second field should exceed cumulative input bytes");
 
     assert!(error.to_string().contains("InputBytes"));
+}
+
+#[test]
+fn test_scalar_string_sequence_charges_source_and_items_once() {
+    let limits = ConversionLimits::default().with_operation_limits(
+        ConversionOperationLimits::default()
+            .with_max_items(2)
+            .with_max_input_bytes(10)
+            .with_max_output_bytes(0),
+    );
+    let policy = ReadPolicy::env_friendly().with_conversion_limits(limits);
+    let mut config = Config::new();
+    config
+        .set_default_read_policy(policy.clone())
+        .set("ports", "8080, 8081")
+        .expect("ports should be stored");
+
+    let ports: Vec<u16> = config
+        .read_with(&policy)
+        .deserialize("ports")
+        .expect("a scalar list should fit exactly within input and item limits");
+
+    assert_eq!(ports, vec![8080, 8081]);
+}
+
+#[test]
+fn test_scalar_boolean_and_number_to_string_charge_output() {
+    let limits = ConversionLimits::default().with_operation_limits(
+        ConversionOperationLimits::default()
+            .with_max_items(2)
+            .with_max_output_bytes(0),
+    );
+    let policy = ReadPolicy::default().with_conversion_limits(limits);
+    let mut config = Config::new();
+    config.set_default_read_policy(policy.clone());
+    config
+        .set("enabled", true)
+        .expect("enabled should be stored");
+    config
+        .set("attempts", 3_u16)
+        .expect("attempts should be stored");
+
+    let error = config
+        .read_with(&policy)
+        .deserialize::<ScalarStringSettings>("")
+        .expect_err("scalar boolean and number conversions must charge output bytes");
+
+    assert!(error.to_string().contains("OutputBytes"));
 }

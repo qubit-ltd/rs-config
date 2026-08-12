@@ -23,7 +23,7 @@ use qubit_redact::redacted_debug;
 
 use super::ConfigSource;
 use super::SourceLimits;
-use super::source_budget::SourceBudget;
+use super::SourceLoadSession;
 use super::source_input::SourceInput;
 use crate::Config;
 use crate::ConfigError;
@@ -71,17 +71,15 @@ fn map_dotenv_error(label: &str, error: dotenvy::Error) -> ConfigError {
                 format!("Failed to read .env source '{label}': {source}"),
             ),
         ),
-        dotenvy::Error::LineParse(line, error_index) => {
-            ConfigError::source_parse_error(
-                label,
-                format!(
-                    "Failed to parse .env file '{}' at line index \
+        dotenvy::Error::LineParse(line, error_index) => ConfigError::source_parse_error(
+            label,
+            format!(
+                "Failed to parse .env file '{}' at line index \
                      {error_index}: {:?}",
-                    label,
-                    redacted_debug(&line),
-                ),
-            )
-        }
+                label,
+                redacted_debug(&line),
+            ),
+        ),
         error => ConfigError::source_parse_error(
             label,
             format!(
@@ -186,25 +184,31 @@ impl EnvFileConfigSource {
 }
 
 impl ConfigSource for EnvFileConfigSource {
-    fn load(&self) -> ConfigResult<Config> {
+    fn source_id(&self) -> String {
+        self.input.label(".env")
+    }
+
+    fn limits(&self) -> SourceLimits {
+        self.limits
+    }
+
+    fn load_with_session(&self, session: &mut SourceLoadSession<'_>) -> ConfigResult<Config> {
         let mut config = Config::new();
         let label = self.input.label(".env");
-        let content = self.input.read_to_string(".env", self.limits)?;
+        let content = self.input.read_to_string(".env", session)?;
         let content = escape_dotenv_substitutions(&content);
         let iter = dotenvy::from_read_iter(content.as_bytes());
 
-        let mut budget = SourceBudget::new(&label, self.limits);
         for item in iter {
-            let (key, value) =
-                item.map_err(|error| map_dotenv_error(&label, error))?;
-            let _ = ConfigKey::parse(key.as_str()).map_err(|error| {
-                error.with_source_context(&label, Some(key.clone()), None)
-            })?;
-            budget.check_depth(key.split('.').count())?;
-            budget.consume_properties(1)?;
-            config.set(&key, value).map_err(|error| {
-                error.with_source_context(&label, Some(key.clone()), None)
-            })?;
+            let (key, value) = item.map_err(|error| map_dotenv_error(&label, error))?;
+            let _ = ConfigKey::parse(key.as_str())
+                .map_err(|error| error.with_source_context(&label, Some(key.clone()), None))?;
+            session.check_depth(key.split('.').count())?;
+            session.consume_nodes(1)?;
+            session.consume_properties(1)?;
+            config
+                .set(&key, value)
+                .map_err(|error| error.with_source_context(&label, Some(key.clone()), None))?;
         }
         Ok(config)
     }
