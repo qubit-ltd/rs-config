@@ -213,7 +213,12 @@ Path-sensitive methods such as `section`, `contains`, `get_property`, `is_unset`
 
 ### Load and merge sources
 
-Every `ConfigSource::load` call creates an independent layer. Built-in sources include:
+Every `ConfigSource::load` call creates an independent layer. Custom sources implement
+`load_into(&mut SourceLoadContext)` and must use that context as their only output path;
+`ConfigSourceExt` provides the standard `load` convenience method. Call
+`context.set(...)` for assignments and report external input/parser work with the
+corresponding accounting methods before doing it. The framework cannot infer omitted
+external I/O or parser work from the finished layer. Built-in sources include:
 
 - `PropertiesConfigSource`, always available, from `.properties` files or in-memory content;
 - `EnvConfigSource`, always available, from process environment variables;
@@ -233,7 +238,7 @@ values. Resolve them later through an explicit `*_interpolated` read policy;
 loading a `.env` file never reads process-environment values implicitly. YAML
 anchors and aliases are rejected by a pre-scan that skips quoted, commented,
 and block-scalar content, so alias expansion cannot multiply the materialized
-configuration. Every built-in source loads through `SourceLoadSession`; a
+configuration. Every built-in source loads through `SourceLoadContext`; a
 composite checks each charge against both the child's local policy and its
 shared aggregate policy before committing either budget. For TOML and YAML,
 node, property-count, and nesting-depth accounting begins only while flattening

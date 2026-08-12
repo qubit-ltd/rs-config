@@ -386,6 +386,20 @@ mod test_toml_type_faithful {
             }) if path == "nested"
         ));
     }
+
+    #[test]
+    fn test_toml_scalar_array_elements_count_toward_node_budget() {
+        let source = TomlConfigSource::from_content("ports = [1, 2]\n")
+            .with_limits(
+                qubit_config::source::SourceLimits::default()
+                    .with_max_nodes(3),
+            );
+        assert!(matches!(
+            source.load(),
+            Err(ConfigError::SourceLimitExceeded { kind, .. })
+                if kind == qubit_config::source::SourceLimitKind::NodeCount
+        ));
+    }
 }
 
 // ============================================================================
@@ -540,6 +554,20 @@ mod test_yaml_type_faithful {
                 source_index: Some(0),
                 ..
             }) if path == "matrix"
+        ));
+    }
+
+    #[test]
+    fn test_yaml_scalar_sequence_elements_count_toward_node_budget() {
+        let source = YamlConfigSource::from_content("ports: [1, 2]\n")
+            .with_limits(
+                qubit_config::source::SourceLimits::default()
+                    .with_max_nodes(3),
+            );
+        assert!(matches!(
+            source.load(),
+            Err(ConfigError::SourceLimitExceeded { kind, .. })
+                if kind == qubit_config::source::SourceLimitKind::NodeCount
         ));
     }
 }

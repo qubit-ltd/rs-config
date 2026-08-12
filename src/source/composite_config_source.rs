@@ -39,8 +39,7 @@
 
 use super::ConfigSource;
 use super::SourceLimits;
-use super::SourceLoadSession;
-use crate::Config;
+use super::SourceLoadContext;
 use crate::ConfigResult;
 
 /// Configuration source that merges multiple sources in order
@@ -124,14 +123,20 @@ impl ConfigSource for CompositeConfigSource {
         self.limits
     }
 
-    fn load_with_session(&self, session: &mut SourceLoadSession<'_>) -> ConfigResult<Config> {
-        let mut config = Config::new();
+    fn load_into(
+        &self,
+        context: &mut SourceLoadContext<'_>,
+    ) -> ConfigResult<()> {
         for source in &self.sources {
-            session.consume_sources(1)?;
-            let mut child = session.child(source.source_id(), source.limits());
-            let layer = source.load_with_session(&mut child)?;
-            config.merge_properties(layer)?;
+            context.consume_sources(1)?;
+            let layer = {
+                let mut child =
+                    context.child(source.source_id(), source.limits());
+                source.load_into(&mut child)?;
+                child.finish()
+            };
+            context.merge_layer(layer)?;
         }
-        Ok(config)
+        Ok(())
     }
 }
