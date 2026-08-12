@@ -13,6 +13,7 @@ use qubit_budget::BudgetError;
 use qubit_budget::JsonDecodeLimits;
 use qubit_budget::JsonEncodeLimits;
 use qubit_budget::JsonResource;
+use qubit_budget::JsonSyntaxError;
 use qubit_budget::JsonValueLimits;
 use qubit_budget::QuantityConversionError;
 use qubit_budget::ResourceLimit;
@@ -261,6 +262,7 @@ impl ConfigWireLimits {
 
 /// Error returned by bounded configuration wire decoding.
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum ConfigWireDecodeError {
     /// A shared JSON resource limit was exceeded.
     #[error(transparent)]
@@ -277,6 +279,9 @@ pub enum ConfigWireDecodeError {
         #[source]
         source: QuantityConversionError,
     },
+    /// The JSON adapter rejected the input syntax before Serde decoding.
+    #[error("invalid configuration JSON syntax: {0}")]
+    Syntax(#[from] JsonSyntaxError),
     /// A native configuration-limit measurement could not fit `u64`.
     #[error("configuration wire {kind:?} quantity conversion failed: {source}")]
     LimitQuantity {
@@ -301,6 +306,10 @@ pub enum ConfigWireDecodeError {
     /// The JSON document is malformed or violates its Serde representation.
     #[error("failed to decode configuration JSON wire input: {0}")]
     Json(#[source] serde_json::Error),
+    /// A future JSON adapter failure that has no dedicated configuration
+    /// error variant yet.
+    #[error("configuration JSON adapter failure: {0}")]
+    Adapter(String),
     /// The decoded wire fields violate a configuration invariant.
     #[error("invalid configuration wire value: {0}")]
     InvalidConfig(String),
