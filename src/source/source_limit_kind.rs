@@ -24,6 +24,10 @@ pub enum SourceLimitKind {
     InputBytes,
     /// Parsed or emitted assignment count.
     PropertyCount,
+    /// Parsed structural node count.
+    NodeCount,
+    /// Number of child sources admitted by a composite source.
+    SourceCount,
     /// Root-relative structured nesting depth.
     NestingDepth,
 }
@@ -33,6 +37,8 @@ impl Display for SourceLimitKind {
         match self {
             Self::InputBytes => formatter.write_str("input bytes"),
             Self::PropertyCount => formatter.write_str("property count"),
+            Self::NodeCount => formatter.write_str("node count"),
+            Self::SourceCount => formatter.write_str("source count"),
             Self::NestingDepth => formatter.write_str("nesting depth"),
         }
     }

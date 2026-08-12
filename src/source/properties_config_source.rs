@@ -45,7 +45,7 @@ use std::str::Chars;
 
 use super::ConfigSource;
 use super::SourceLimits;
-use super::source_budget::SourceBudget;
+use super::SourceLoadSession;
 use super::source_input::SourceInput;
 use crate::Config;
 use crate::ConfigKey;
@@ -128,8 +128,17 @@ impl PropertiesConfigSource {
         limits: SourceLimits,
         source_id: &str,
     ) -> ConfigResult<Vec<(String, String)>> {
-        let mut budget = SourceBudget::new(source_id, limits);
-        budget.consume_input_bytes(content.len())?;
+        let mut session = SourceLoadSession::new(source_id, limits);
+        session.consume_input_bytes(content.len())?;
+        Self::parse_content_with_session(content, source_id, &mut session)
+    }
+
+    /// Parses properties text through an existing load session.
+    fn parse_content_with_session(
+        content: &str,
+        source_id: &str,
+        session: &mut SourceLoadSession<'_>,
+    ) -> ConfigResult<Vec<(String, String)>> {
         let mut result = Vec::new();
         let mut lines = content.lines().peekable();
 
@@ -159,8 +168,9 @@ impl PropertiesConfigSource {
                 let _ = ConfigKey::parse(key.as_str()).map_err(|error| {
                     error.with_source_context(source_id, Some(key.clone()), None)
                 })?;
-                budget.check_depth(key.split('.').count())?;
-                budget.consume_properties(1)?;
+                session.check_depth(key.split('.').count())?;
+                session.consume_nodes(1)?;
+                session.consume_properties(1)?;
                 result.push((key, value));
             }
         }
@@ -390,11 +400,19 @@ fn decode_surrogate_pair(high: u32, low: u32) -> Option<char> {
 }
 
 impl ConfigSource for PropertiesConfigSource {
-    fn load(&self) -> ConfigResult<Config> {
+    fn source_id(&self) -> String {
+        self.input.label("properties")
+    }
+
+    fn limits(&self) -> SourceLimits {
+        self.limits
+    }
+
+    fn load_with_session(&self, session: &mut SourceLoadSession<'_>) -> ConfigResult<Config> {
         let mut config = Config::new();
         let source_id = self.input.label("properties");
-        let content = self.input.read_to_string("properties", self.limits)?;
-        let properties = Self::parse_content_with_source(&content, self.limits, &source_id)?;
+        let content = self.input.read_to_string("properties", session)?;
+        let properties = Self::parse_content_with_session(&content, &source_id, session)?;
         for (key, value) in properties {
             config
                 .set(&key, value)

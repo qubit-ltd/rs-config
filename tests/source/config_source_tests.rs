@@ -11,6 +11,8 @@ use qubit_config::Config;
 use qubit_config::ConfigResult;
 use qubit_config::options::ReadPolicy;
 use qubit_config::source::ConfigSource;
+use qubit_config::source::SourceLimits;
+use qubit_config::source::SourceLoadSession;
 
 struct InlineSource {
     key: &'static str,
@@ -18,7 +20,17 @@ struct InlineSource {
 }
 
 impl ConfigSource for InlineSource {
-    fn load(&self) -> ConfigResult<Config> {
+    fn source_id(&self) -> String {
+        "inline".to_string()
+    }
+
+    fn limits(&self) -> SourceLimits {
+        SourceLimits::default()
+    }
+
+    fn load_with_session(&self, session: &mut SourceLoadSession<'_>) -> ConfigResult<Config> {
+        session.consume_nodes(1)?;
+        session.consume_properties(1)?;
         let mut config = Config::new();
         config.set(self.key, self.value)?;
         Ok(config)
@@ -28,7 +40,17 @@ impl ConfigSource for InlineSource {
 struct MetadataSource;
 
 impl ConfigSource for MetadataSource {
-    fn load(&self) -> ConfigResult<Config> {
+    fn source_id(&self) -> String {
+        "metadata".to_string()
+    }
+
+    fn limits(&self) -> SourceLimits {
+        SourceLimits::default()
+    }
+
+    fn load_with_session(&self, session: &mut SourceLoadSession<'_>) -> ConfigResult<Config> {
+        session.consume_nodes(1)?;
+        session.consume_properties(1)?;
         let mut config = Config::new();
         config.set_description(Some("source".to_string()));
         config.set_default_read_policy(ReadPolicy::env_friendly());

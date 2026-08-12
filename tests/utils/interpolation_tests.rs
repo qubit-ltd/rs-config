@@ -122,16 +122,40 @@ fn test_get_string_accepts_substitution_output_at_byte_limit() {
 }
 
 #[test]
-fn test_get_string_rejects_nested_output_over_cumulative_byte_limit() {
+fn test_get_string_accepts_exact_nested_output_without_double_charging() {
     let mut config = Config::new();
     config.set_default_read_policy(ReadPolicy::default().with_max_interpolation_output_bytes(4));
     config.set("part", "1234").unwrap();
     config.set("value", "${part}").unwrap();
 
-    let result = config.get_interpolated::<String>("value");
+    assert_eq!(config.get_interpolated::<String>("value").unwrap(), "1234");
+}
+
+#[test]
+fn test_get_string_rejects_oversized_nested_intermediate_output() {
+    let mut config = Config::new();
+    config.set_default_read_policy(ReadPolicy::default().with_max_interpolation_output_bytes(4));
+    config.set("part", "12345").unwrap();
+    config.set("value", "${part}").unwrap();
 
     assert!(matches!(
-        result,
+        config.get_interpolated::<String>("value"),
+        Err(ConfigError::SubstitutionOutputTooLarge {
+            path,
+            max_output_bytes: 4,
+        }) if path == "value"
+    ));
+}
+
+#[test]
+fn test_get_string_rejects_oversized_final_concatenation() {
+    let mut config = Config::new();
+    config.set_default_read_policy(ReadPolicy::default().with_max_interpolation_output_bytes(4));
+    config.set("part", "12").unwrap();
+    config.set("value", "x${part}yz").unwrap();
+
+    assert!(matches!(
+        config.get_interpolated::<String>("value"),
         Err(ConfigError::SubstitutionOutputTooLarge {
             path,
             max_output_bytes: 4,

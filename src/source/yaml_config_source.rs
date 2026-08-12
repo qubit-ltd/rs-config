@@ -23,6 +23,13 @@
 //! becomes `server.host = "localhost"` and `server.port = 8080`.
 //!
 //! Arrays are stored as multi-value properties.
+//!
+//! # TODO: Streaming budget enforcement
+//!
+//! TODO: replace or wrap the third-party YAML parser with an incremental parser
+//! that charges token, string, node, and depth budgets before allocating the
+//! complete syntax tree. Current node and depth accounting begins while the
+//! already materialized YAML value tree is flattened.
 
 use std::collections::HashSet;
 use std::path::Path;
@@ -35,7 +42,7 @@ use serde_norway::from_str;
 
 use super::ConfigSource;
 use super::SourceLimits;
-use super::source_budget::SourceBudget;
+use super::SourceLoadSession;
 use super::source_input::SourceInput;
 use crate::Config;
 use crate::ConfigError;
@@ -286,18 +293,25 @@ impl YamlConfigSource {
 }
 
 impl ConfigSource for YamlConfigSource {
-    fn load(&self) -> ConfigResult<Config> {
+    fn source_id(&self) -> String {
+        self.input.label("YAML")
+    }
+
+    fn limits(&self) -> SourceLimits {
+        self.limits
+    }
+
+    fn load_with_session(&self, session: &mut SourceLoadSession<'_>) -> ConfigResult<Config> {
         let mut config = Config::new();
         let label = self.input.label("YAML");
-        let content = self.input.read_to_string("YAML", self.limits)?;
+        let content = self.input.read_to_string("YAML", session)?;
         reject_yaml_aliases(&label, &content)?;
 
         let value: YamlValue =
             from_str(&content).map_err(|error| yaml_parse_error(&label, &error))?;
 
         let mut seen = HashSet::new();
-        let mut budget = SourceBudget::new(&label, self.limits);
-        flatten_yaml_value(&label, "", &value, &mut config, &mut seen, &mut budget, 0)?;
+        flatten_yaml_value(&label, "", &value, &mut config, &mut seen, session, 0)?;
         Ok(config)
     }
 }
@@ -317,10 +331,11 @@ pub(crate) fn flatten_yaml_value(
     value: &YamlValue,
     config: &mut Config,
     seen: &mut HashSet<String>,
-    budget: &mut SourceBudget<'_>,
+    budget: &mut SourceLoadSession<'_>,
     depth: usize,
 ) -> ConfigResult<()> {
     budget.check_depth(depth)?;
+    budget.consume_nodes(1)?;
     match value {
         YamlValue::Mapping(map) => {
             for (k, v) in map {
@@ -407,7 +422,7 @@ fn ensure_yaml_property(
     source_id: &str,
     seen: &mut HashSet<String>,
     key: &str,
-    budget: &mut SourceBudget<'_>,
+    budget: &mut SourceLoadSession<'_>,
 ) -> ConfigResult<()> {
     utils::ensure_unique_flattened_key(seen, key)
         .map_err(|error| error.with_source_context(source_id, Some(key.to_string()), None))?;

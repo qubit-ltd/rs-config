@@ -23,6 +23,13 @@
 //! becomes `server.host = "localhost"` and `server.port = 8080`.
 //!
 //! Arrays are stored as multi-value properties.
+//!
+//! # TODO: Streaming budget enforcement
+//!
+//! TODO: replace or wrap the third-party TOML parser with an incremental parser
+//! that charges token, string, node, and depth budgets before allocating the
+//! complete syntax tree. Current node and depth accounting begins while the
+//! already materialized TOML value tree is flattened.
 
 use std::collections::HashSet;
 use std::path::Path;
@@ -34,7 +41,7 @@ use toml::de::Error as TomlError;
 
 use super::ConfigSource;
 use super::SourceLimits;
-use super::source_budget::SourceBudget;
+use super::SourceLoadSession;
 use super::source_input::SourceInput;
 use crate::Config;
 use crate::ConfigError;
@@ -140,24 +147,31 @@ impl TomlConfigSource {
 }
 
 impl ConfigSource for TomlConfigSource {
-    fn load(&self) -> ConfigResult<Config> {
+    fn source_id(&self) -> String {
+        self.input.label("TOML")
+    }
+
+    fn limits(&self) -> SourceLimits {
+        self.limits
+    }
+
+    fn load_with_session(&self, session: &mut SourceLoadSession<'_>) -> ConfigResult<Config> {
         let mut config = Config::new();
         let label = self.input.label("TOML");
-        let content = self.input.read_to_string("TOML", self.limits)?;
+        let content = self.input.read_to_string("TOML", session)?;
 
         let table: TomlTable = content
             .parse()
             .map_err(|error| toml_parse_error(&label, &content, &error))?;
 
         let mut seen = HashSet::new();
-        let mut budget = SourceBudget::new(&label, self.limits);
         flatten_toml_value(
             &label,
             "",
             &TomlValue::Table(table),
             &mut config,
             &mut seen,
-            &mut budget,
+            session,
             0,
         )?;
         Ok(config)
@@ -175,10 +189,11 @@ pub(crate) fn flatten_toml_value(
     value: &TomlValue,
     config: &mut Config,
     seen: &mut HashSet<String>,
-    budget: &mut SourceBudget<'_>,
+    budget: &mut SourceLoadSession<'_>,
     depth: usize,
 ) -> ConfigResult<()> {
     budget.check_depth(depth)?;
+    budget.consume_nodes(1)?;
     match value {
         TomlValue::Table(table) => {
             for (k, v) in table {
@@ -244,7 +259,7 @@ fn ensure_toml_property(
     source_id: &str,
     seen: &mut HashSet<String>,
     key: &str,
-    budget: &mut SourceBudget<'_>,
+    budget: &mut SourceLoadSession<'_>,
 ) -> ConfigResult<()> {
     utils::ensure_unique_flattened_key(seen, key)
         .map_err(|error| error.with_source_context(source_id, Some(key.to_string()), None))?;

@@ -35,8 +35,8 @@ pub enum ConfigWireLimitKind {
 pub struct ConfigWireLimits {
     json_decode: JsonDecodeLimits,
     json_encode: JsonEncodeLimits,
-    max_properties: u64,
-    max_property_key_bytes: u64,
+    properties: ResourceLimit<ConfigWireLimitKind, u64>,
+    property_key_bytes: ResourceLimit<ConfigWireLimitKind, u64>,
 }
 
 impl ConfigWireLimits {
@@ -51,8 +51,14 @@ impl ConfigWireLimits {
         Self {
             json_decode: Self::default_json_decode_limits(max_input_bytes),
             json_encode: Self::default_json_encode_limits(Self::DEFAULT_MAX_OUTPUT_BYTES),
-            max_properties: Self::DEFAULT_MAX_PROPERTIES,
-            max_property_key_bytes: Self::DEFAULT_MAX_PROPERTY_KEY_BYTES,
+            properties: ResourceLimit::new(
+                ConfigWireLimitKind::Properties,
+                Self::DEFAULT_MAX_PROPERTIES,
+            ),
+            property_key_bytes: ResourceLimit::new(
+                ConfigWireLimitKind::PropertyKeyBytes,
+                Self::DEFAULT_MAX_PROPERTY_KEY_BYTES,
+            ),
         }
     }
 
@@ -62,8 +68,14 @@ impl ConfigWireLimits {
         Self {
             json_decode,
             json_encode,
-            max_properties: Self::DEFAULT_MAX_PROPERTIES,
-            max_property_key_bytes: Self::DEFAULT_MAX_PROPERTY_KEY_BYTES,
+            properties: ResourceLimit::new(
+                ConfigWireLimitKind::Properties,
+                Self::DEFAULT_MAX_PROPERTIES,
+            ),
+            property_key_bytes: ResourceLimit::new(
+                ConfigWireLimitKind::PropertyKeyBytes,
+                Self::DEFAULT_MAX_PROPERTY_KEY_BYTES,
+            ),
         }
     }
 
@@ -87,7 +99,7 @@ impl ConfigWireLimits {
     #[inline(always)]
     #[must_use = "the configured property limit should be used"]
     pub const fn with_max_properties(mut self, max_properties: u64) -> Self {
-        self.max_properties = max_properties;
+        self.properties = ResourceLimit::new(ConfigWireLimitKind::Properties, max_properties);
         self
     }
 
@@ -95,7 +107,10 @@ impl ConfigWireLimits {
     #[inline(always)]
     #[must_use = "the configured property-key limit should be used"]
     pub const fn with_max_property_key_bytes(mut self, max_property_key_bytes: u64) -> Self {
-        self.max_property_key_bytes = max_property_key_bytes;
+        self.property_key_bytes = ResourceLimit::new(
+            ConfigWireLimitKind::PropertyKeyBytes,
+            max_property_key_bytes,
+        );
         self
     }
 
@@ -115,14 +130,26 @@ impl ConfigWireLimits {
     #[must_use]
     #[inline(always)]
     pub const fn max_properties(self) -> u64 {
-        self.max_properties
+        self.properties.maximum()
     }
 
     /// Returns the maximum UTF-8 bytes in one property key.
     #[must_use]
     #[inline(always)]
     pub const fn max_property_key_bytes(self) -> u64 {
-        self.max_property_key_bytes
+        self.property_key_bytes.maximum()
+    }
+
+    /// Returns the complete property-count point limit.
+    pub(crate) const fn properties_limit(&self) -> &ResourceLimit<ConfigWireLimitKind, u64> {
+        &self.properties
+    }
+
+    /// Returns the complete property-key byte point limit.
+    pub(crate) const fn property_key_bytes_limit(
+        &self,
+    ) -> &ResourceLimit<ConfigWireLimitKind, u64> {
+        &self.property_key_bytes
     }
 }
 

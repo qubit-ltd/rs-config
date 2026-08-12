@@ -9,6 +9,7 @@
 //!
 //! Defines all possible error scenarios in the configuration system.
 
+use qubit_budget::BudgetError;
 use qubit_datatype::DataConversionError;
 use qubit_datatype::DataType;
 use qubit_value::ValueError;
@@ -42,19 +43,21 @@ pub enum ConfigError {
     },
 
     /// A configuration source exceeded a resource limit.
-    #[error(
-        "Configuration source '{source_id}' exceeded {kind}: observed at least \
-         {observed_at_least}, limit {limit}"
-    )]
+    #[error("Configuration source '{source_id}' exceeded budget '{budget_id}': {source}")]
     SourceLimitExceeded {
         /// Source identifier or path.
         source_id: String,
+        /// Identifier of the local or aggregate budget that rejected usage.
+        budget_id: String,
         /// Bounded resource dimension.
         kind: SourceLimitKind,
         /// Configured maximum.
         limit: usize,
         /// Minimum resource usage observed before rejection.
         observed_at_least: usize,
+        /// Structured budget failure.
+        #[source]
+        source: BudgetError<SourceLimitKind, usize>,
     },
 
     /// Property not found.
@@ -346,6 +349,25 @@ impl ConfigError {
                 source_id: Some(source_id),
                 ..
             } => Some(source_id),
+            _ => None,
+        }
+    }
+
+    /// Returns the local or aggregate budget identifier for a source limit
+    /// failure.
+    #[inline]
+    pub fn source_budget_id(&self) -> Option<&str> {
+        match self {
+            Self::SourceLimitExceeded { budget_id, .. } => Some(budget_id),
+            _ => None,
+        }
+    }
+
+    /// Returns the structured budget failure for a source limit error.
+    #[inline]
+    pub const fn budget_error(&self) -> Option<&BudgetError<SourceLimitKind, usize>> {
+        match self {
+            Self::SourceLimitExceeded { source, .. } => Some(source),
             _ => None,
         }
     }

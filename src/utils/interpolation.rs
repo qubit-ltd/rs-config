@@ -7,6 +7,7 @@
 // =============================================================================
 
 use qubit_budget::ResourceBudget;
+use qubit_budget::ResourceLimit;
 
 use super::map_value_error;
 use crate::ConfigError;
@@ -20,7 +21,7 @@ use crate::options::ReadPolicy;
 enum InterpolationResource {
     /// One resolved placeholder.
     Expansions,
-    /// UTF-8 bytes appended to an intermediate interpolation result.
+    /// UTF-8 bytes present in an intermediate interpolation result.
     OutputBytes,
 }
 
@@ -57,7 +58,7 @@ fn substitute_variables_by(
         InterpolationResource::Expansions,
         options.max_interpolation_expansions(),
     );
-    let mut output_budget = ResourceBudget::new(
+    let output_limit = ResourceLimit::new(
         InterpolationResource::OutputBytes,
         options.max_interpolation_output_bytes(),
     );
@@ -67,7 +68,7 @@ fn substitute_variables_by(
         path,
         &mut stack,
         &mut expansion_budget,
-        &mut output_budget,
+        &output_limit,
         &mut resolve,
     )
 }
@@ -79,14 +80,14 @@ fn substitute_variables_recursive(
     path: &str,
     stack: &mut Vec<String>,
     expansion_budget: &mut ResourceBudget<InterpolationResource, usize>,
-    output_budget: &mut ResourceBudget<InterpolationResource, usize>,
+    output_limit: &ResourceLimit<InterpolationResource, usize>,
     resolve: &mut impl FnMut(&str) -> ConfigResult<String>,
 ) -> ConfigResult<String> {
     let max_depth = options.max_interpolation_depth();
     let max_expansions = options.max_interpolation_expansions();
     let max_output_bytes = options.max_interpolation_output_bytes();
     if value.is_empty() || find_next_variable(value, 0).is_none() {
-        charge_substitution_output(output_budget, value.len(), max_output_bytes, path)?;
+        check_substitution_output(output_limit, value.len(), max_output_bytes, path)?;
         return Ok(value.to_string());
     }
     if stack.len() >= max_depth {
@@ -103,7 +104,7 @@ fn substitute_variables_recursive(
         push_substitution_fragment(
             &mut result,
             &value[last_end..match_start],
-            output_budget,
+            output_limit,
             max_output_bytes,
             path,
         )?;
@@ -132,24 +133,18 @@ fn substitute_variables_recursive(
             path,
             stack,
             expansion_budget,
-            output_budget,
+            output_limit,
             resolve,
         )?;
         stack.pop();
-        push_substitution_fragment(
-            &mut result,
-            &expanded,
-            output_budget,
-            max_output_bytes,
-            path,
-        )?;
+        push_substitution_fragment(&mut result, &expanded, output_limit, max_output_bytes, path)?;
         last_end = match_end;
         search_from = match_end;
     }
     push_substitution_fragment(
         &mut result,
         &value[last_end..],
-        output_budget,
+        output_limit,
         max_output_bytes,
         path,
     )?;
@@ -175,28 +170,33 @@ fn find_next_variable(value: &str, mut search_from: usize) -> Option<(usize, usi
 fn push_substitution_fragment(
     result: &mut String,
     fragment: &str,
-    output_budget: &mut ResourceBudget<InterpolationResource, usize>,
+    output_limit: &ResourceLimit<InterpolationResource, usize>,
     max_output_bytes: usize,
     path: &str,
 ) -> ConfigResult<()> {
-    charge_substitution_output(output_budget, fragment.len(), max_output_bytes, path)?;
+    let prospective_len = result.len().checked_add(fragment.len()).ok_or_else(|| {
+        ConfigError::SubstitutionOutputTooLarge {
+            path: path.to_string(),
+            max_output_bytes,
+        }
+    })?;
+    check_substitution_output(output_limit, prospective_len, max_output_bytes, path)?;
     result.push_str(fragment);
     Ok(())
 }
 
-/// Consumes bytes before making them visible in an interpolation result.
+/// Checks bytes before making them visible in an interpolation result.
 ///
 /// Returns [`ConfigError::SubstitutionOutputTooLarge`] with `path` when the
-/// complete addition would exceed the configured byte limit or overflow; the
-/// budget and the caller's output remain unchanged on failure.
-fn charge_substitution_output(
-    output_budget: &mut ResourceBudget<InterpolationResource, usize>,
+/// prospective result would exceed the configured byte limit.
+fn check_substitution_output(
+    output_limit: &ResourceLimit<InterpolationResource, usize>,
     output_bytes: usize,
     max_output_bytes: usize,
     path: &str,
 ) -> ConfigResult<()> {
-    output_budget
-        .try_consume(output_bytes)
+    output_limit
+        .check(output_bytes)
         .map_err(|_| ConfigError::SubstitutionOutputTooLarge {
             path: path.to_string(),
             max_output_bytes,
