@@ -615,8 +615,6 @@ version = "0.4.0"
 dependencies = [
  "bigdecimal",
  "num-bigint",
- "serde",
- "serde_json",
  "thiserror",
 ]
 
@@ -631,6 +629,7 @@ dependencies = [
  "num-bigint",
  "qubit-budget",
  "qubit-datatype",
+ "qubit-json",
  "qubit-redact",
  "qubit-utils",
  "qubit-value",
@@ -654,10 +653,21 @@ dependencies = [
  "num-rational",
  "num-traits",
  "qubit-budget",
+ "qubit-json",
  "serde",
  "serde_json",
  "thiserror",
  "url",
+]
+
+[[package]]
+name = "qubit-json"
+version = "0.7.0"
+dependencies = [
+ "qubit-budget",
+ "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]
@@ -684,6 +694,7 @@ dependencies = [
  "num-bigint",
  "qubit-budget",
  "qubit-datatype",
+ "qubit-json",
  "qubit-redact",
  "serde",
  "serde_json",

@@ -9,8 +9,8 @@
 
 use qubit_budget::BudgetError;
 use qubit_budget::JsonResource;
-use qubit_budget::JsonSerdeError;
 use qubit_budget::QuantityConversionError;
+use qubit_json::JsonSerdeError;
 use qubit_value::ValueWireEncodeError;
 use thiserror::Error;
 

@@ -13,11 +13,11 @@ use qubit_budget::BudgetError;
 use qubit_budget::JsonDecodeLimits;
 use qubit_budget::JsonEncodeLimits;
 use qubit_budget::JsonResource;
-use qubit_budget::JsonSyntaxError;
 use qubit_budget::JsonValueLimits;
 use qubit_budget::QuantityConversionError;
 use qubit_budget::ResourceLimit;
 use qubit_budget::StructureLimits;
+use qubit_json::JsonSyntaxError;
 use thiserror::Error;
 
 /// Resource categories specific to configuration wire envelopes.
@@ -240,7 +240,9 @@ impl ConfigWireLimits {
     }
 
     /// Builds the JSON decoding profile used by configuration wire input.
-    fn default_json_decode_limits(max_input_bytes: u64) -> JsonDecodeLimits<JsonResource, u64> {
+    fn default_json_decode_limits(
+        max_input_bytes: u64,
+    ) -> JsonDecodeLimits<JsonResource, u64> {
         JsonDecodeLimits::default()
             .with_input_bytes_limit(ResourceLimit::new(
                 JsonResource::InputBytes,
@@ -250,7 +252,9 @@ impl ConfigWireLimits {
     }
 
     /// Builds the JSON encoding profile used by configuration wire output.
-    fn default_json_encode_limits(max_output_bytes: u64) -> JsonEncodeLimits<JsonResource, u64> {
+    fn default_json_encode_limits(
+        max_output_bytes: u64,
+    ) -> JsonEncodeLimits<JsonResource, u64> {
         JsonEncodeLimits::default()
             .with_output_bytes_limit(ResourceLimit::new(
                 JsonResource::OutputBytes,

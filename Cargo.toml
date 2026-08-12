@@ -46,7 +46,8 @@ formats = ["env-file", "toml", "yaml"]
 full = ["rich-types", "formats"]
 
 [dependencies]
-qubit-budget = { version = "0.4", path = "../rs-budget", features = ["serde-json"] }
+qubit-budget = { version = "0.4", path = "../rs-budget", features = ["json"] }
+qubit-json = { version = "0.7", path = "../rs-json" }
 qubit-utils = "0.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_ignored = "0.1"

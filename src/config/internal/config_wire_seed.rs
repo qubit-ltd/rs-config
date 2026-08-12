@@ -7,8 +7,8 @@
 // =============================================================================
 //! Budget-aware seed for persisted configuration wire values.
 
-use qubit_budget::BudgetedJsonValueSeed;
 use qubit_budget::JsonValueBudget;
+use qubit_json::BudgetedJsonValueSeed;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::de::DeserializeSeed;

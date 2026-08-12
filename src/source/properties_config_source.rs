@@ -45,9 +45,9 @@ use std::str::Chars;
 
 use super::ConfigSource;
 use super::SourceLimits;
-use super::source_load_session::SourceLoadSession;
 use super::SourceLoadContext;
 use super::source_input::SourceInput;
+use super::source_load_session::SourceLoadSession;
 use crate::Config;
 use crate::ConfigKey;
 use crate::ConfigResult;

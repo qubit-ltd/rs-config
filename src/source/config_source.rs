@@ -21,7 +21,10 @@ pub trait ConfigSource {
     fn limits(&self) -> SourceLimits;
 
     /// Loads source data into the context-owned independent layer.
-    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()>;
+    fn load_into(
+        &self,
+        context: &mut SourceLoadContext<'_>,
+    ) -> ConfigResult<()>;
 
     /// Loads one independent configuration layer through the standard
     /// executor. Prefer importing [`ConfigSourceExt`] in new code.
@@ -46,7 +49,8 @@ pub(crate) fn load_source<S>(source: &S) -> ConfigResult<Config>
 where
     S: ConfigSource + ?Sized,
 {
-    let mut context = SourceLoadContext::new(source.source_id(), source.limits());
+    let mut context =
+        SourceLoadContext::new(source.source_id(), source.limits());
     source.load_into(&mut context)?;
     Ok(context.finish())
 }

@@ -391,8 +391,7 @@ mod test_toml_type_faithful {
     fn test_toml_scalar_array_elements_count_toward_node_budget() {
         let source = TomlConfigSource::from_content("ports = [1, 2]\n")
             .with_limits(
-                qubit_config::source::SourceLimits::default()
-                    .with_max_nodes(3),
+                qubit_config::source::SourceLimits::default().with_max_nodes(3),
             );
         assert!(matches!(
             source.load(),
@@ -561,8 +560,7 @@ mod test_yaml_type_faithful {
     fn test_yaml_scalar_sequence_elements_count_toward_node_budget() {
         let source = YamlConfigSource::from_content("ports: [1, 2]\n")
             .with_limits(
-                qubit_config::source::SourceLimits::default()
-                    .with_max_nodes(3),
+                qubit_config::source::SourceLimits::default().with_max_nodes(3),
             );
         assert!(matches!(
             source.load(),

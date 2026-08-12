@@ -10,14 +10,14 @@
 use qubit_budget::BudgetError;
 use qubit_budget::ResourceBudget;
 use qubit_budget::ResourceLimit;
+use qubit_value::ValueContainer;
 
 use super::SourceLimitKind;
 use super::SourceLimits;
-use crate::ConfigError;
-use crate::ConfigResult;
 use crate::Config;
+use crate::ConfigError;
 use crate::ConfigName;
-use qubit_value::ValueContainer;
+use crate::ConfigResult;
 
 /// Owned resource budgets for one source or composite scope.
 struct SourceLoadBudget {
@@ -110,7 +110,9 @@ impl<'a> SourceLoadSession<'a> {
         if self.ancestors.is_empty() {
             return match self.local.input_bytes.try_consume(amount) {
                 Ok(()) => Ok(()),
-                Err(source) => Err(self.limit_error(self.source_id.clone(), source)),
+                Err(source) => {
+                    Err(self.limit_error(self.source_id.clone(), source))
+                }
             };
         }
         let source_id = self.source_id.clone();
@@ -129,7 +131,9 @@ impl<'a> SourceLoadSession<'a> {
         if self.ancestors.is_empty() {
             return match self.local.properties.try_consume(amount) {
                 Ok(()) => Ok(()),
-                Err(source) => Err(self.limit_error(self.source_id.clone(), source)),
+                Err(source) => {
+                    Err(self.limit_error(self.source_id.clone(), source))
+                }
             };
         }
         let source_id = self.source_id.clone();
@@ -148,7 +152,9 @@ impl<'a> SourceLoadSession<'a> {
         if self.ancestors.is_empty() {
             return match self.local.nodes.try_consume(amount) {
                 Ok(()) => Ok(()),
-                Err(source) => Err(self.limit_error(self.source_id.clone(), source)),
+                Err(source) => {
+                    Err(self.limit_error(self.source_id.clone(), source))
+                }
             };
         }
         let source_id = self.source_id.clone();
@@ -167,7 +173,9 @@ impl<'a> SourceLoadSession<'a> {
         if self.ancestors.is_empty() {
             return match self.local.sources.try_consume(amount) {
                 Ok(()) => Ok(()),
-                Err(source) => Err(self.limit_error(self.source_id.clone(), source)),
+                Err(source) => {
+                    Err(self.limit_error(self.source_id.clone(), source))
+                }
             };
         }
         let source_id = self.source_id.clone();
@@ -306,7 +314,11 @@ impl<'a> SourceLoadContext<'a> {
     }
 
     /// Sets one output property after validating and charging the assignment.
-    pub fn set<S>(&mut self, name: impl ConfigName, values: S) -> ConfigResult<()>
+    pub fn set<S>(
+        &mut self,
+        name: impl ConfigName,
+        values: S,
+    ) -> ConfigResult<()>
     where
         S: Into<ValueContainer>,
     {

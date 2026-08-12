@@ -9,14 +9,14 @@
 
 use qubit_config::Config;
 use qubit_config::ConfigError;
-use qubit_config::source::ConfigSource;
 use qubit_config::source::CompositeConfigSource;
-use qubit_config::source::SourceLoadContext;
+use qubit_config::source::ConfigSource;
 #[cfg(feature = "env-file")]
 use qubit_config::source::EnvFileConfigSource;
 use qubit_config::source::PropertiesConfigSource;
 use qubit_config::source::SourceLimitKind;
 use qubit_config::source::SourceLimits;
+use qubit_config::source::SourceLoadContext;
 #[cfg(feature = "toml")]
 use qubit_config::source::TomlConfigSource;
 #[cfg(feature = "yaml")]
@@ -35,16 +35,18 @@ impl ConfigSource for InputAccountingSource {
         SourceLimits::default().with_max_input_bytes(5)
     }
 
-    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> qubit_config::ConfigResult<()> {
+    fn load_into(
+        &self,
+        context: &mut SourceLoadContext<'_>,
+    ) -> qubit_config::ConfigResult<()> {
         context.consume_input_bytes(self.amount)
     }
 }
 
 #[test]
 fn source_context_charges_local_and_aggregate_budgets_atomically() {
-    let mut composite = CompositeConfigSource::new().with_limits(
-        SourceLimits::default().with_max_input_bytes(3),
-    );
+    let mut composite = CompositeConfigSource::new()
+        .with_limits(SourceLimits::default().with_max_input_bytes(3));
     composite.add(InputAccountingSource { amount: 2 });
     composite.add(InputAccountingSource { amount: 2 });
 
@@ -53,7 +55,10 @@ fn source_context_charges_local_and_aggregate_budgets_atomically() {
         .expect_err("the aggregate budget should reject the second charge");
 
     assert_eq!(error.source_id(), Some("input-accounting"));
-    assert_eq!(error.source_budget_id(), Some("composite configuration source"));
+    assert_eq!(
+        error.source_budget_id(),
+        Some("composite configuration source")
+    );
     assert_eq!(
         error.budget_error().and_then(|error| error.remaining()),
         Some(1)
@@ -107,9 +112,8 @@ fn source_budget_failed_charge_preserves_remaining_capacity() {
 /// is rejected with the configured source-limit facts.
 #[test]
 fn source_budget_nesting_depth_accepts_limit_and_rejects_next_level() {
-    let source = PropertiesConfigSource::from_content("a=1\n").with_limits(
-        SourceLimits::default().with_max_nesting_depth(0),
-    );
+    let source = PropertiesConfigSource::from_content("a=1\n")
+        .with_limits(SourceLimits::default().with_max_nesting_depth(0));
     assert!(matches!(
         source.load(),
         Err(ConfigError::SourceLimitExceeded {
