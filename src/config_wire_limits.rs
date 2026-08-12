@@ -258,6 +258,15 @@ pub enum ConfigWireDecodeError {
         #[source]
         source: QuantityConversionError,
     },
+    /// A native configuration-limit measurement could not fit `u64`.
+    #[error("configuration wire {kind:?} quantity conversion failed: {source}")]
+    LimitQuantity {
+        /// Configuration-specific resource category being measured.
+        kind: ConfigWireLimitKind,
+        /// Exact failed native quantity conversion.
+        #[source]
+        source: QuantityConversionError,
+    },
     /// A configuration-specific resource limit was exceeded.
     #[error("configuration wire {kind:?} value {value} exceeds the limit of {maximum}")]
     LimitExceeded {
