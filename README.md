@@ -178,9 +178,13 @@ payload, property-count, and property-key limits. Because a general Serde
 deserializer does not expose original bytes or lexical JSON tokens, untrusted
 JSON must use `Config::decode_json_slice` for raw-input admission as well.
 
-Built-in sources load through `SourceLoadSession`. Local and composite
-aggregate budgets are checked atomically for input bytes, assignments, parsed
-nodes, child-source count, and nesting depth. TOML and YAML are an explicit
+Built-in sources load through `SourceLoadContext` and the crate-owned executor.
+Custom `ConfigSource` implementations must write through the context (for
+example, `context.set(...)`) and explicitly report input bytes or parser nodes
+before doing work. This is the boundary that lets rs-config enforce local and
+composite aggregate budgets atomically for input bytes, assignments, parsed
+nodes, child-source count, and nesting depth; unreported external I/O or parser
+work cannot be inferred from the final layer. TOML and YAML are an explicit
 exception at the parser boundary: their third-party parsers materialize an AST
 before node, assignment, and depth accounting during flattening. Those limits
 do not bound parser allocation or recursion; a future streaming parser is
