@@ -29,7 +29,9 @@ pub enum ConfigWireEncodeError {
     Budget(BudgetError<JsonResource, u64>),
     /// A native JSON measurement could not be represented by the budget
     /// quantity type.
-    #[error("configuration wire resource quantity conversion failed for {resource:?}: {source}")]
+    #[error(
+        "configuration wire resource quantity conversion failed for {resource:?}: {source}"
+    )]
     Quantity {
         /// Resource whose measurement failed.
         resource: JsonResource,
@@ -49,7 +51,9 @@ pub enum ConfigWireEncodeError {
     },
 
     /// A configuration-specific resource limit was exceeded.
-    #[error("configuration wire {kind:?} value {value} exceeds the limit of {maximum}")]
+    #[error(
+        "configuration wire {kind:?} value {value} exceeds the limit of {maximum}"
+    )]
     LimitExceeded {
         /// Configuration resource category that exceeded its limit.
         kind: ConfigWireLimitKind,
@@ -70,16 +74,23 @@ pub enum ConfigWireEncodeError {
     InvalidConfig(String),
 }
 
-impl From<JsonSerdeError<JsonResource>> for ConfigWireEncodeError {
+impl From<JsonSerdeError<JsonResource, u64>> for ConfigWireEncodeError {
     /// Preserves the exact resource identity of a bounded JSON encoding
     /// failure.
     #[inline]
-    fn from(error: JsonSerdeError<JsonResource>) -> Self {
+    fn from(error: JsonSerdeError<JsonResource, u64>) -> Self {
         match error {
             JsonSerdeError::Budget(error) => Self::Budget(error),
-            JsonSerdeError::Quantity { resource, source } => Self::Quantity { resource, source },
+            JsonSerdeError::Quantity { resource, source } => {
+                Self::Quantity { resource, source }
+            }
             JsonSerdeError::Json(error) => Self::Json(error),
-            JsonSerdeError::Io(error) => Self::Json(serde_json::Error::io(error)),
+            JsonSerdeError::Io(error) => {
+                Self::Json(serde_json::Error::io(error))
+            }
+            _ => Self::Json(serde_json::Error::io(std::io::Error::other(
+                "unsupported JSON adapter error",
+            ))),
         }
     }
 }
