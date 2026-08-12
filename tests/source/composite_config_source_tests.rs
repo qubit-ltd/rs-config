@@ -18,6 +18,8 @@ use qubit_config::source::CompositeConfigSource;
 use qubit_config::source::ConfigSource;
 use qubit_config::source::EnvConfigSource;
 use qubit_config::source::PropertiesConfigSource;
+use qubit_config::source::SourceLimitKind;
+use qubit_config::source::SourceLimits;
 use qubit_config::source::TomlConfigSource;
 
 fn fixture(name: &str) -> PathBuf {
@@ -40,12 +42,16 @@ fn load_source(
 
 #[cfg(test)]
 mod test_composite_config_source {
+    use qubit_budget::BudgetError;
+
     use super::CompositeConfigSource;
     use super::Config;
     use super::ConfigError;
     use super::ConfigSource;
     use super::EnvConfigSource;
     use super::PropertiesConfigSource;
+    use super::SourceLimitKind;
+    use super::SourceLimits;
     use super::TomlConfigSource;
     use super::fixture;
     use super::load_source;
@@ -185,5 +191,55 @@ mod test_composite_config_source {
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
         assert_eq!(config.get::<String>("locked").unwrap(), "old");
         assert!(!config.contains("new_key").unwrap());
+    }
+
+    #[test]
+    fn test_composite_enforces_aggregate_property_budget() {
+        let mut composite = CompositeConfigSource::new()
+            .with_limits(SourceLimits::default().with_max_properties(1));
+        composite.add(PropertiesConfigSource::from_content("first=1\n"));
+        composite.add(PropertiesConfigSource::from_content("second=2\n"));
+
+        let error = composite
+            .load()
+            .expect_err("the second property should exceed the aggregate budget");
+
+        assert_eq!(
+            error.source_budget_id(),
+            Some("composite configuration source")
+        );
+        assert!(matches!(
+            error.budget_error(),
+            Some(BudgetError::Insufficient {
+                resource: SourceLimitKind::PropertyCount,
+                limit: 1,
+                remaining: 0,
+                requested: 1,
+            })
+        ));
+    }
+
+    #[test]
+    fn test_composite_rejects_source_before_loading_it() {
+        let mut composite =
+            CompositeConfigSource::new().with_limits(SourceLimits::default().with_max_sources(1));
+        composite.add(PropertiesConfigSource::from_content("first=1\n"));
+        composite.add(TomlConfigSource::from_file(
+            "/path-that-must-not-be-opened.toml",
+        ));
+
+        let error = composite
+            .load()
+            .expect_err("the aggregate source count should fail first");
+
+        assert!(matches!(
+            error.budget_error(),
+            Some(BudgetError::Insufficient {
+                resource: SourceLimitKind::SourceCount,
+                limit: 1,
+                remaining: 0,
+                requested: 1,
+            })
+        ));
     }
 }

@@ -13,8 +13,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
 
-use super::SourceLimits;
-use super::source_budget::SourceBudget;
+use super::SourceLoadSession;
 use crate::ConfigError;
 use crate::ConfigResult;
 
@@ -43,10 +42,9 @@ impl SourceInput {
     pub(crate) fn read_to_string(
         &self,
         format: &str,
-        limits: SourceLimits,
+        session: &mut SourceLoadSession<'_>,
     ) -> ConfigResult<Cow<'_, str>> {
         let label = self.label(format);
-        let mut budget = SourceBudget::new(&label, limits);
         match self {
             Self::File(path) => {
                 let file = File::open(path).map_err(|error| {
@@ -54,20 +52,11 @@ impl SourceInput {
                         path.display().to_string(),
                         std::io::Error::new(
                             error.kind(),
-                            format!(
-                                "Failed to open {format} file '{}': {error}",
-                                path.display()
-                            ),
+                            format!("Failed to open {format} file '{}': {error}", path.display()),
                         ),
                     )
                 })?;
-                let bytes = read_file_bytes(
-                    file,
-                    limits.max_input_bytes(),
-                    path,
-                    format,
-                )?;
-                budget.consume_input_bytes(bytes.len())?;
+                let bytes = read_file_bytes(file, session, path, format)?;
                 String::from_utf8(bytes).map(Cow::Owned).map_err(|error| {
                     ConfigError::source_io_error(
                         label.clone(),
@@ -79,7 +68,7 @@ impl SourceInput {
                 })
             }
             Self::Content(content) => {
-                budget.consume_input_bytes(content.len())?;
+                session.consume_input_bytes(content.len())?;
                 Ok(Cow::Borrowed(content))
             }
         }
@@ -89,41 +78,28 @@ impl SourceInput {
 /// Reads at most one byte beyond a finite file limit.
 fn read_file_bytes(
     file: File,
-    limit: usize,
+    session: &mut SourceLoadSession<'_>,
     path: &std::path::Path,
     format: &str,
 ) -> ConfigResult<Vec<u8>> {
     let mut bytes = Vec::new();
-    if limit == usize::MAX {
-        let mut reader = file;
-        reader.read_to_end(&mut bytes).map_err(|error| {
+    let mut reader = file;
+    let mut chunk = [0_u8; 8 * 1024];
+    loop {
+        let count = reader.read(&mut chunk).map_err(|error| {
             ConfigError::source_io_error(
                 path.display().to_string(),
                 std::io::Error::new(
                     error.kind(),
-                    format!(
-                        "Failed to read {format} file '{}': {error}",
-                        path.display()
-                    ),
+                    format!("Failed to read {format} file '{}': {error}", path.display()),
                 ),
             )
         })?;
-    } else {
-        let byte_limit =
-            u64::try_from(limit.saturating_add(1)).unwrap_or(u64::MAX);
-        let mut reader = file.take(byte_limit);
-        reader.read_to_end(&mut bytes).map_err(|error| {
-            ConfigError::source_io_error(
-                path.display().to_string(),
-                std::io::Error::new(
-                    error.kind(),
-                    format!(
-                        "Failed to read {format} file '{}': {error}",
-                        path.display()
-                    ),
-                ),
-            )
-        })?;
+        if count == 0 {
+            break;
+        }
+        session.consume_input_bytes(count)?;
+        bytes.extend_from_slice(&chunk[..count]);
     }
     Ok(bytes)
 }
