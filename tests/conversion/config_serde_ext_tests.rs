@@ -437,10 +437,10 @@ fn test_scalar_string_sequence_charges_source_and_items_once() {
         .set("ports", "8080, 8081")
         .expect("ports should be stored");
 
-    let ports: Vec<u16> = config
-        .read_with(&policy)
-        .deserialize("ports")
-        .expect("a scalar list should fit exactly within input and item limits");
+    let ports: Vec<u16> =
+        config.read_with(&policy).deserialize("ports").expect(
+            "a scalar list should fit exactly within input and item limits",
+        );
 
     assert_eq!(ports, vec![8080, 8081]);
 }
@@ -465,7 +465,9 @@ fn test_scalar_boolean_and_number_to_string_charge_output() {
     let error = config
         .read_with(&policy)
         .deserialize::<ScalarStringSettings>("")
-        .expect_err("scalar boolean and number conversions must charge output bytes");
+        .expect_err(
+            "scalar boolean and number conversions must charge output bytes",
+        );
 
     assert!(error.to_string().contains("OutputBytes"));
 }

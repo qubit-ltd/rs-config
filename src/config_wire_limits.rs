@@ -13,6 +13,7 @@ use qubit_budget::BudgetError;
 use qubit_budget::JsonDecodeLimits;
 use qubit_budget::JsonEncodeLimits;
 use qubit_budget::JsonResource;
+use qubit_budget::JsonSyntaxError;
 use qubit_budget::JsonValueLimits;
 use qubit_budget::QuantityConversionError;
 use qubit_budget::ResourceLimit;
@@ -33,8 +34,8 @@ pub enum ConfigWireLimitKind {
 #[must_use]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ConfigWireLimits {
-    json_decode: JsonDecodeLimits,
-    json_encode: JsonEncodeLimits,
+    json_decode: JsonDecodeLimits<JsonResource, u64>,
+    json_encode: JsonEncodeLimits<JsonResource, u64>,
     properties: ResourceLimit<ConfigWireLimitKind, u64>,
     property_key_bytes: ResourceLimit<ConfigWireLimitKind, u64>,
 }
@@ -50,7 +51,9 @@ impl ConfigWireLimits {
     pub fn new(max_input_bytes: u64) -> Self {
         Self {
             json_decode: Self::default_json_decode_limits(max_input_bytes),
-            json_encode: Self::default_json_encode_limits(Self::DEFAULT_MAX_OUTPUT_BYTES),
+            json_encode: Self::default_json_encode_limits(
+                Self::DEFAULT_MAX_OUTPUT_BYTES,
+            ),
             properties: ResourceLimit::new(
                 ConfigWireLimitKind::Properties,
                 Self::DEFAULT_MAX_PROPERTIES,
@@ -64,7 +67,10 @@ impl ConfigWireLimits {
 
     /// Creates configuration limits from an already configured JSON limit set.
     #[inline(always)]
-    pub const fn from_json(json_decode: JsonDecodeLimits, json_encode: JsonEncodeLimits) -> Self {
+    pub const fn from_json(
+        json_decode: JsonDecodeLimits<JsonResource, u64>,
+        json_encode: JsonEncodeLimits<JsonResource, u64>,
+    ) -> Self {
         Self {
             json_decode,
             json_encode,
@@ -82,7 +88,10 @@ impl ConfigWireLimits {
     /// Replaces the JSON decoding limits used by this configuration profile.
     #[inline(always)]
     #[must_use = "the configured JSON limits should be used"]
-    pub const fn with_json_decode(mut self, json_decode: JsonDecodeLimits) -> Self {
+    pub const fn with_json_decode(
+        mut self,
+        json_decode: JsonDecodeLimits<JsonResource, u64>,
+    ) -> Self {
         self.json_decode = json_decode;
         self
     }
@@ -90,7 +99,10 @@ impl ConfigWireLimits {
     /// Replaces the JSON encoding limits used by this configuration profile.
     #[inline(always)]
     #[must_use = "the configured JSON limits should be used"]
-    pub const fn with_json_encode(mut self, json_encode: JsonEncodeLimits) -> Self {
+    pub const fn with_json_encode(
+        mut self,
+        json_encode: JsonEncodeLimits<JsonResource, u64>,
+    ) -> Self {
         self.json_encode = json_encode;
         self
     }
@@ -99,14 +111,18 @@ impl ConfigWireLimits {
     #[inline(always)]
     #[must_use = "the configured property limit should be used"]
     pub const fn with_max_properties(mut self, max_properties: u64) -> Self {
-        self.properties = ResourceLimit::new(ConfigWireLimitKind::Properties, max_properties);
+        self.properties =
+            ResourceLimit::new(ConfigWireLimitKind::Properties, max_properties);
         self
     }
 
     /// Sets the maximum UTF-8 bytes in one property key.
     #[inline(always)]
     #[must_use = "the configured property-key limit should be used"]
-    pub const fn with_max_property_key_bytes(mut self, max_property_key_bytes: u64) -> Self {
+    pub const fn with_max_property_key_bytes(
+        mut self,
+        max_property_key_bytes: u64,
+    ) -> Self {
         self.property_key_bytes = ResourceLimit::new(
             ConfigWireLimitKind::PropertyKeyBytes,
             max_property_key_bytes,
@@ -116,13 +132,13 @@ impl ConfigWireLimits {
 
     /// Returns the JSON decoding limits.
     #[inline(always)]
-    pub const fn json_decode(self) -> JsonDecodeLimits {
+    pub const fn json_decode(self) -> JsonDecodeLimits<JsonResource, u64> {
         self.json_decode
     }
 
     /// Returns the JSON encoding limits.
     #[inline(always)]
-    pub const fn json_encode(self) -> JsonEncodeLimits {
+    pub const fn json_encode(self) -> JsonEncodeLimits<JsonResource, u64> {
         self.json_encode
     }
 
@@ -141,7 +157,9 @@ impl ConfigWireLimits {
     }
 
     /// Returns the complete property-count point limit.
-    pub(crate) const fn properties_limit(&self) -> &ResourceLimit<ConfigWireLimitKind, u64> {
+    pub(crate) const fn properties_limit(
+        &self,
+    ) -> &ResourceLimit<ConfigWireLimitKind, u64> {
         &self.properties
     }
 
@@ -183,7 +201,7 @@ impl ConfigWireLimits {
     pub const DEFAULT_MAX_PAYLOAD_BYTES: u64 = 1_048_576;
 
     /// Builds the direction-independent JSON value profile.
-    fn default_json_value_limits() -> JsonValueLimits {
+    fn default_json_value_limits() -> JsonValueLimits<JsonResource, u64> {
         let structure = StructureLimits::empty()
             .with_depth_limit(ResourceLimit::new(
                 JsonResource::Depth,
@@ -222,7 +240,7 @@ impl ConfigWireLimits {
     }
 
     /// Builds the JSON decoding profile used by configuration wire input.
-    fn default_json_decode_limits(max_input_bytes: u64) -> JsonDecodeLimits {
+    fn default_json_decode_limits(max_input_bytes: u64) -> JsonDecodeLimits<JsonResource, u64> {
         JsonDecodeLimits::default()
             .with_input_bytes_limit(ResourceLimit::new(
                 JsonResource::InputBytes,
@@ -232,7 +250,7 @@ impl ConfigWireLimits {
     }
 
     /// Builds the JSON encoding profile used by configuration wire output.
-    fn default_json_encode_limits(max_output_bytes: u64) -> JsonEncodeLimits {
+    fn default_json_encode_limits(max_output_bytes: u64) -> JsonEncodeLimits<JsonResource, u64> {
         JsonEncodeLimits::default()
             .with_output_bytes_limit(ResourceLimit::new(
                 JsonResource::OutputBytes,
@@ -244,13 +262,16 @@ impl ConfigWireLimits {
 
 /// Error returned by bounded configuration wire decoding.
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum ConfigWireDecodeError {
     /// A shared JSON resource limit was exceeded.
     #[error(transparent)]
     Budget(BudgetError<JsonResource, u64>),
     /// A native JSON measurement could not be represented by the budget
     /// quantity type.
-    #[error("configuration wire resource quantity conversion failed for {resource:?}: {source}")]
+    #[error(
+        "configuration wire resource quantity conversion failed for {resource:?}: {source}"
+    )]
     Quantity {
         /// Resource whose measurement failed.
         resource: JsonResource,
@@ -258,6 +279,9 @@ pub enum ConfigWireDecodeError {
         #[source]
         source: QuantityConversionError,
     },
+    /// The JSON adapter rejected the input syntax before Serde decoding.
+    #[error("invalid configuration JSON syntax: {0}")]
+    Syntax(#[from] JsonSyntaxError),
     /// A native configuration-limit measurement could not fit `u64`.
     #[error("configuration wire {kind:?} quantity conversion failed: {source}")]
     LimitQuantity {
@@ -268,7 +292,9 @@ pub enum ConfigWireDecodeError {
         source: QuantityConversionError,
     },
     /// A configuration-specific resource limit was exceeded.
-    #[error("configuration wire {kind:?} value {value} exceeds the limit of {maximum}")]
+    #[error(
+        "configuration wire {kind:?} value {value} exceeds the limit of {maximum}"
+    )]
     LimitExceeded {
         /// Resource category that exceeded its limit.
         kind: ConfigWireLimitKind,
@@ -280,6 +306,10 @@ pub enum ConfigWireDecodeError {
     /// The JSON document is malformed or violates its Serde representation.
     #[error("failed to decode configuration JSON wire input: {0}")]
     Json(#[source] serde_json::Error),
+    /// A future JSON adapter failure that has no dedicated configuration
+    /// error variant yet.
+    #[error("configuration JSON adapter failure: {0}")]
+    Adapter(String),
     /// The decoded wire fields violate a configuration invariant.
     #[error("invalid configuration wire value: {0}")]
     InvalidConfig(String),

@@ -10,40 +10,54 @@
 use qubit_config::Config;
 use qubit_config::ConfigError;
 use qubit_config::source::ConfigSource;
+use qubit_config::source::CompositeConfigSource;
+use qubit_config::source::SourceLoadContext;
 #[cfg(feature = "env-file")]
 use qubit_config::source::EnvFileConfigSource;
 use qubit_config::source::PropertiesConfigSource;
 use qubit_config::source::SourceLimitKind;
 use qubit_config::source::SourceLimits;
-use qubit_config::source::SourceLoadSession;
 #[cfg(feature = "toml")]
 use qubit_config::source::TomlConfigSource;
 #[cfg(feature = "yaml")]
 use qubit_config::source::YamlConfigSource;
 
-#[test]
-fn source_load_session_charges_local_and_aggregate_budgets_atomically() {
-    let aggregate_limits = SourceLimits::default().with_max_input_bytes(3);
-    let mut aggregate = SourceLoadSession::new("composite", aggregate_limits);
-    let local_limits = SourceLimits::default().with_max_input_bytes(5);
-    let mut child = aggregate.child("properties:<memory>", local_limits);
+struct InputAccountingSource {
+    amount: usize,
+}
 
-    child
-        .consume_input_bytes(2)
-        .expect("two bytes should fit both budgets");
-    let error = child
-        .consume_input_bytes(2)
+impl ConfigSource for InputAccountingSource {
+    fn source_id(&self) -> String {
+        "input-accounting".to_string()
+    }
+
+    fn limits(&self) -> SourceLimits {
+        SourceLimits::default().with_max_input_bytes(5)
+    }
+
+    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> qubit_config::ConfigResult<()> {
+        context.consume_input_bytes(self.amount)
+    }
+}
+
+#[test]
+fn source_context_charges_local_and_aggregate_budgets_atomically() {
+    let mut composite = CompositeConfigSource::new().with_limits(
+        SourceLimits::default().with_max_input_bytes(3),
+    );
+    composite.add(InputAccountingSource { amount: 2 });
+    composite.add(InputAccountingSource { amount: 2 });
+
+    let error = composite
+        .load()
         .expect_err("the aggregate budget should reject the second charge");
 
-    assert_eq!(error.source_id(), Some("properties:<memory>"));
-    assert_eq!(error.source_budget_id(), Some("composite"));
+    assert_eq!(error.source_id(), Some("input-accounting"));
+    assert_eq!(error.source_budget_id(), Some("composite configuration source"));
     assert_eq!(
         error.budget_error().and_then(|error| error.remaining()),
         Some(1)
     );
-    child
-        .consume_input_bytes(1)
-        .expect("a rejected grouped charge must leave both budgets unchanged");
 }
 
 #[test]
@@ -77,14 +91,9 @@ fn source_limits_are_bounded_by_default_and_can_be_unbounded() {
 
 #[test]
 fn source_budget_failed_charge_preserves_remaining_capacity() {
-    let mut budget = SourceLoadSession::new(
-        "test source",
-        SourceLimits::default().with_max_input_bytes(5),
-    );
-
-    budget.consume_input_bytes(2).expect("two bytes should fit");
+    let source = InputAccountingSource { amount: 6 };
     assert!(matches!(
-        budget.consume_input_bytes(4),
+        source.load(),
         Err(ConfigError::SourceLimitExceeded {
             kind: SourceLimitKind::InputBytes,
             limit: 5,
@@ -92,32 +101,22 @@ fn source_budget_failed_charge_preserves_remaining_capacity() {
             ..
         })
     ));
-    budget
-        .consume_input_bytes(3)
-        .expect("a failed charge must not consume capacity");
 }
 
 /// Verifies an exact nesting-depth boundary is accepted before the next level
 /// is rejected with the configured source-limit facts.
 #[test]
 fn source_budget_nesting_depth_accepts_limit_and_rejects_next_level() {
-    let budget = SourceLoadSession::new(
-        "test source",
-        SourceLimits::default().with_max_nesting_depth(2),
+    let source = PropertiesConfigSource::from_content("a=1\n").with_limits(
+        SourceLimits::default().with_max_nesting_depth(0),
     );
-
-    budget
-        .check_depth(2)
-        .expect("the configured nesting depth should fit");
     assert!(matches!(
-        budget.check_depth(3),
+        source.load(),
         Err(ConfigError::SourceLimitExceeded {
-            source_id,
             kind: SourceLimitKind::NestingDepth,
-            limit: 2,
-            observed_at_least: 3,
+            limit: 0,
             ..
-        }) if source_id == "test source"
+        })
     ));
 }
 

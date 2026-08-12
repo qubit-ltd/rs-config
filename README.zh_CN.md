@@ -174,9 +174,12 @@ property 数量和 property key 限制；通用 Serde deserializer 无法看到�
 JSON 词法 token，因此不可信 JSON 还必须通过 `Config::decode_json_slice` 执行
 原始输入准入。
 
-所有内置 source 都通过 `SourceLoadSession` 加载。输入字节、assignment、解析节点、
-子 source 数量和嵌套深度会同时检查 source 局部预算与 composite 聚合预算，任一预算
-拒绝时不会只扣减其中一层。TOML 和 YAML 在 parser 边界存在明确例外：第三方 parser
+所有内置 source 都通过 `SourceLoadContext` 和 crate-owned executor 加载。自定义
+`ConfigSource` 必须通过 context（例如 `context.set(...)`）写入输出，并在执行外部
+I/O 或 parser 工作前主动报告输入字节和解析节点；最终 layer 无法反推出未报告的
+工作量。通过 context 的输入字节、assignment、解析节点、子 source 数量和嵌套深度
+会同时检查 source 局部预算与 composite 聚合预算，任一预算拒绝时不会只扣减其中一层。
+TOML 和 YAML 在 parser 边界存在明确例外：第三方 parser
 会先物化完整 AST，节点、assignment 和深度只能在 flatten 阶段记账，所以这些限制
 不能约束 parser 自身的内存分配或递归。要获得该保证，未来需要流式 parser。只有明确
 了解输入边界时才应放宽 `SourceLimits`。
