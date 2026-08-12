@@ -21,10 +21,7 @@ use qubit_budget::JsonResource;
 use qubit_budget::JsonSerdeError;
 use qubit_budget::decode_slice;
 use qubit_budget::encode_to_vec;
-use qubit_datatype::ConversionSession;
-use qubit_datatype::DataConversionTarget;
 use qubit_utils::Transient;
-use qubit_value::Value as QubitValue;
 use qubit_value::ValueWireRefV1;
 use serde::Deserialize;
 use serde::Deserializer;
@@ -37,7 +34,6 @@ use self::internal::ConfigWire;
 use self::internal::ConfigWireV1;
 use self::internal::ConfigWireV1Ref;
 use crate::ConfigError;
-use crate::ConfigResult;
 use crate::ConfigWireDecodeError;
 use crate::ConfigWireEncodeError;
 use crate::ConfigWireLimitKind;
@@ -51,39 +47,6 @@ mod read;
 mod source_loading;
 mod structured_serde;
 mod traversal;
-
-/// Converts deserialized numeric text with the configured conversion policy.
-///
-/// # Type Parameters
-///
-/// * `T` - Target numeric type.
-///
-/// # Parameters
-///
-/// * `key` - Configuration path used for error context.
-/// * `options` - Read policy controlling conversion.
-/// * `value` - Numeric text to convert.
-///
-/// # Returns
-///
-/// The converted number.
-///
-/// # Errors
-///
-/// Returns a keyed conversion error when `value` cannot be converted to `T`.
-pub(crate) fn convert_deserialize_number<T>(
-    key: &str,
-    value: String,
-    session: &mut ConversionSession<'_>,
-) -> ConfigResult<T>
-where
-    T: DataConversionTarget,
-{
-    match QubitValue::String(value).to_in::<T>(session) {
-        Ok(value) => Ok(value),
-        Err(error) => Err(ConfigError::from((key, error))),
-    }
-}
 
 /// Configuration Manager
 ///
@@ -497,6 +460,9 @@ impl Default for Config {
 fn map_decode_json_error(error: JsonSerdeError<JsonResource>) -> ConfigWireDecodeError {
     match error {
         JsonSerdeError::Budget(error) => ConfigWireDecodeError::Budget(error),
+        JsonSerdeError::Quantity { resource, source } => {
+            ConfigWireDecodeError::Quantity { resource, source }
+        }
         JsonSerdeError::Json(error) => ConfigWireDecodeError::Json(error),
         JsonSerdeError::Io(error) => ConfigWireDecodeError::Json(serde_json::Error::io(error)),
     }
@@ -506,6 +472,9 @@ fn map_decode_json_error(error: JsonSerdeError<JsonResource>) -> ConfigWireDecod
 fn map_encode_json_error(error: JsonSerdeError<JsonResource>) -> ConfigWireEncodeError {
     match error {
         JsonSerdeError::Budget(error) => ConfigWireEncodeError::Budget(error),
+        JsonSerdeError::Quantity { resource, source } => {
+            ConfigWireEncodeError::Quantity { resource, source }
+        }
         JsonSerdeError::Json(error) => ConfigWireEncodeError::Json(error),
         JsonSerdeError::Io(error) => ConfigWireEncodeError::Json(serde_json::Error::io(error)),
     }
