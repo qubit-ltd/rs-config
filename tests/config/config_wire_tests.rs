@@ -8,7 +8,6 @@
 // Tests for the stable versioned `Config` persistence wire format.
 
 use qubit_budget::BudgetError;
-use qubit_budget::JsonResource;
 use qubit_budget::Observation;
 use qubit_budget::ResourceLimit;
 use qubit_config::Config;
@@ -17,6 +16,7 @@ use qubit_config::ConfigWireEncodeError;
 use qubit_config::ConfigWireLimitKind;
 use qubit_config::ConfigWireLimits;
 use qubit_config::options::ReadPolicy;
+use qubit_json::JsonResource;
 use qubit_json::JsonSyntaxErrorReason;
 use qubit_value::ValueWireEncodeError;
 use serde_json::Value;

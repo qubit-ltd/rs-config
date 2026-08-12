@@ -10,14 +10,14 @@
 // qubit-style: allow multiple-public-types
 
 use qubit_budget::BudgetError;
-use qubit_budget::JsonDecodeLimits;
-use qubit_budget::JsonEncodeLimits;
-use qubit_budget::JsonResource;
-use qubit_budget::JsonValueLimits;
 use qubit_budget::QuantityConversionError;
 use qubit_budget::ResourceLimit;
 use qubit_budget::StructureLimits;
+use qubit_json::JsonDecodeLimits;
+use qubit_json::JsonEncodeLimits;
+use qubit_json::JsonResource;
 use qubit_json::JsonSyntaxError;
+use qubit_json::JsonValueLimits;
 use thiserror::Error;
 
 /// Resource categories specific to configuration wire envelopes.

@@ -8,13 +8,13 @@
 
 //! Tests for configuration wire resource limits.
 
-use qubit_budget::JsonDecodeLimits;
-use qubit_budget::JsonEncodeLimits;
-use qubit_budget::JsonResource;
-use qubit_budget::JsonValueLimits;
 use qubit_budget::ResourceLimit;
 use qubit_budget::StructureLimits;
 use qubit_config::ConfigWireLimits;
+use qubit_json::JsonDecodeLimits;
+use qubit_json::JsonEncodeLimits;
+use qubit_json::JsonResource;
+use qubit_json::JsonValueLimits;
 
 #[test]
 fn config_wire_limits_preserve_configured_shared_budget() {

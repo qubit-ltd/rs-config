@@ -8,8 +8,8 @@
 //! Errors produced by bounded configuration JSON wire encoding.
 
 use qubit_budget::BudgetError;
-use qubit_budget::JsonResource;
 use qubit_budget::QuantityConversionError;
+use qubit_json::JsonResource;
 use qubit_json::JsonSerdeError;
 use qubit_value::ValueWireEncodeError;
 use thiserror::Error;
