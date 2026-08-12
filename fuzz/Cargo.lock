@@ -377,9 +377,9 @@ dependencies = [
 
 [[package]]
 name = "num-integer"
-version = "0.1.46"
+version = "0.1.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7969661fd2958a5cb096e56c8e1ad0444ac2bbcd0061bd28660485a44879858f"
+checksum = "7ce2d95d4b3734dc35aa2f45e1aa22cd416814592a4f9d9205e11affd5b8e10b"
 dependencies = [
  "num-traits",
 ]
@@ -446,8 +446,6 @@ version = "0.4.0"
 dependencies = [
  "bigdecimal",
  "num-bigint",
- "serde",
- "serde_json",
  "thiserror",
 ]
 
@@ -461,6 +459,7 @@ dependencies = [
  "num-bigint",
  "qubit-budget",
  "qubit-datatype",
+ "qubit-json",
  "qubit-redact",
  "qubit-utils",
  "qubit-value",
@@ -493,10 +492,21 @@ dependencies = [
  "num-rational",
  "num-traits",
  "qubit-budget",
+ "qubit-json",
  "serde",
  "serde_json",
  "thiserror",
  "url",
+]
+
+[[package]]
+name = "qubit-json"
+version = "0.7.0"
+dependencies = [
+ "qubit-budget",
+ "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]
@@ -523,6 +533,7 @@ dependencies = [
  "num-bigint",
  "qubit-budget",
  "qubit-datatype",
+ "qubit-json",
  "qubit-redact",
  "serde",
  "serde_json",
