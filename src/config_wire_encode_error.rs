@@ -9,6 +9,7 @@
 
 use qubit_budget::BudgetError;
 use qubit_budget::JsonResource;
+use qubit_budget::QuantityConversionError;
 use qubit_value::ValueWireEncodeError;
 use thiserror::Error;
 
@@ -25,6 +26,16 @@ pub enum ConfigWireEncodeError {
     /// A shared JSON resource limit was exceeded during serialization.
     #[error(transparent)]
     Budget(BudgetError<JsonResource, u64>),
+    /// A native JSON measurement could not be represented by the budget
+    /// quantity type.
+    #[error("configuration wire resource quantity conversion failed for {resource:?}: {source}")]
+    Quantity {
+        /// Resource whose measurement failed.
+        resource: JsonResource,
+        /// Native measurement conversion failure.
+        #[source]
+        source: QuantityConversionError,
+    },
 
     /// A configuration-specific resource limit was exceeded.
     #[error("configuration wire {kind:?} value {value} exceeds the limit of {maximum}")]
