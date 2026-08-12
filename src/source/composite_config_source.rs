@@ -38,12 +38,15 @@
 //! ```
 
 use super::ConfigSource;
+use super::SourceLimits;
+use super::SourceLoadSession;
 use crate::Config;
 use crate::ConfigResult;
 
 /// Configuration source that merges multiple sources in order
 pub struct CompositeConfigSource {
     sources: Vec<Box<dyn ConfigSource>>,
+    limits: SourceLimits,
 }
 
 impl CompositeConfigSource {
@@ -56,6 +59,7 @@ impl CompositeConfigSource {
     pub fn new() -> Self {
         Self {
             sources: Vec::new(),
+            limits: SourceLimits::default(),
         }
     }
 
@@ -96,6 +100,12 @@ impl CompositeConfigSource {
     pub fn is_empty(&self) -> bool {
         self.sources.is_empty()
     }
+
+    /// Applies aggregate resource limits to the complete composite load.
+    pub const fn with_limits(mut self, limits: SourceLimits) -> Self {
+        self.limits = limits;
+        self
+    }
 }
 
 impl Default for CompositeConfigSource {
@@ -106,10 +116,21 @@ impl Default for CompositeConfigSource {
 }
 
 impl ConfigSource for CompositeConfigSource {
-    fn load(&self) -> ConfigResult<Config> {
+    fn source_id(&self) -> String {
+        "composite configuration source".to_string()
+    }
+
+    fn limits(&self) -> SourceLimits {
+        self.limits
+    }
+
+    fn load_with_session(&self, session: &mut SourceLoadSession<'_>) -> ConfigResult<Config> {
         let mut config = Config::new();
         for source in &self.sources {
-            config.merge_properties_from_source(source.as_ref())?;
+            session.consume_sources(1)?;
+            let mut child = session.child(source.source_id(), source.limits());
+            let layer = source.load_with_session(&mut child)?;
+            config.merge_properties(layer)?;
         }
         Ok(config)
     }

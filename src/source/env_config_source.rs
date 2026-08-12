@@ -36,7 +36,7 @@ use qubit_redact::redacted_debug;
 
 use super::ConfigSource;
 use super::SourceLimits;
-use super::source_budget::SourceBudget;
+use super::SourceLoadSession;
 use crate::Config;
 use crate::ConfigError;
 use crate::ConfigKey;
@@ -356,10 +356,17 @@ impl Default for EnvConfigSource {
 }
 
 impl ConfigSource for EnvConfigSource {
-    fn load(&self) -> ConfigResult<Config> {
+    fn source_id(&self) -> String {
+        "process environment".to_string()
+    }
+
+    fn limits(&self) -> SourceLimits {
+        self.limits
+    }
+
+    fn load_with_session(&self, session: &mut SourceLoadSession<'_>) -> ConfigResult<Config> {
         let mut config = Config::new();
         let mut normalized_keys = HashMap::new();
-        let mut budget = SourceBudget::new("process environment", self.limits);
 
         for (key_os, value_os) in std::env::vars_os() {
             // Filter by prefix if set
@@ -371,7 +378,7 @@ impl ConfigSource for EnvConfigSource {
 
             let key = Self::env_key_to_string(&key_os, &value_os)?;
             let value = Self::env_value_to_string(&key_os, &value_os)?;
-            budget.consume_input_bytes(key.len().saturating_add(value.len()))?;
+            session.consume_input_bytes(key.len().saturating_add(value.len()))?;
             let transformed_key = self.transform_key(&key);
             if self.options.strip_prefix || self.options.double_underscores_to_dots {
                 utils::validate_normalized_config_key(&transformed_key, &key).map_err(|error| {
@@ -404,8 +411,9 @@ impl ConfigSource for EnvConfigSource {
                     None,
                 )
             })?;
-            budget.check_depth(transformed_key.split('.').count())?;
-            budget.consume_properties(1)?;
+            session.check_depth(transformed_key.split('.').count())?;
+            session.consume_nodes(1)?;
+            session.consume_properties(1)?;
             config.set(&transformed_key, value)?;
         }
 

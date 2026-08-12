@@ -208,3 +208,7 @@ path = "tests/source/source_input_tests.rs"
 [[test]]
 name = "source_limits_tests"
 path = "tests/source/source_limits_tests.rs"
+
+[[test]]
+name = "source_load_session_tests"
+path = "tests/source/source_load_session_tests.rs"

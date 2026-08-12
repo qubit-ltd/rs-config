@@ -8,11 +8,13 @@
 
 use serde::Deserialize;
 use serde::Deserializer;
+use serde::de::DeserializeSeed;
 use serde::de::Error as _;
 
 use super::ConfigSerdeRepr;
+use super::ConfigWireFields;
+use super::ConfigWireSeed;
 use super::ConfigWireV1;
-use super::config_wire_fields::ConfigWireFields;
 
 /// Accepted persisted `Config` wire representations.
 pub(in crate::config) enum ConfigWire {
@@ -27,13 +29,22 @@ impl<'de> Deserialize<'de> for ConfigWire {
     where
         D: Deserializer<'de>,
     {
-        let fields = ConfigWireFields::deserialize(deserializer)?;
+        ConfigWireSeed::new(crate::ConfigWireLimits::default())
+            .deserialize(deserializer)?
+            .map_err(D::Error::custom)
+    }
+}
+
+impl ConfigWire {
+    /// Selects the versioned or legacy contract after common field decoding.
+    pub(super) fn from_fields(fields: ConfigWireFields) -> Result<Self, String> {
         Ok(match fields.version.0 {
             Some(version) => {
                 if fields.read_options.is_some() {
-                    return Err(D::Error::custom(
-                        "read_options is only accepted in legacy unversioned config wire",
-                    ));
+                    return Err(
+                        "read_options is only accepted in legacy unversioned config wire"
+                            .to_string(),
+                    );
                 }
                 Self::V1(ConfigWireV1 {
                     version,
