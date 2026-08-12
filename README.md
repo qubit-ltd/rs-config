@@ -173,11 +173,19 @@ properties, strict relative sections, source composition, optional TOML/YAML/
 Persistence uses independent `JsonDecodeLimits`/`JsonDecodeSession` and
 `JsonEncodeLimits`/`JsonEncodeSession` profiles, so input admission and output
 limits cannot consume the wrong directional byte resource.
-Built-in text sources use default limits of 8 MiB input, 65,536 assignments,
-and 64 nesting levels. The input limit is checked before parsing; TOML/YAML
-assignment and depth limits apply while flattening the materialized AST.
-Customize them with `SourceLimits` when the input is trusted and the larger
-boundary is intentional.
+Ordinary `Deserialize` for `Config` applies the default decoded structure,
+payload, property-count, and property-key limits. Because a general Serde
+deserializer does not expose original bytes or lexical JSON tokens, untrusted
+JSON must use `Config::decode_json_slice` for raw-input admission as well.
+
+Built-in sources load through `SourceLoadSession`. Local and composite
+aggregate budgets are checked atomically for input bytes, assignments, parsed
+nodes, child-source count, and nesting depth. TOML and YAML are an explicit
+exception at the parser boundary: their third-party parsers materialize an AST
+before node, assignment, and depth accounting during flattening. Those limits
+do not bound parser allocation or recursion; a future streaming parser is
+required to provide that guarantee. Customize `SourceLimits` only when the
+input boundary is understood.
 
 It does not silently interpolate values during ordinary reads, expand process-environment placeholders while loading `.env` files, use defaults to hide a present but invalid value, or make `ConfigReader` into a `dyn` trait object: its generic methods make it non-object-safe. Detailed path rules, source failure behavior, structured deserialization, custom conversion, and troubleshooting are covered in the user guide.
 

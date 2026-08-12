@@ -228,9 +228,10 @@ Java properties 行为去掉前导反斜杠。
 通过显式的 `*_interpolated` 读取策略在后续读取时解析；加载 `.env` 文件不会
 隐式读取进程环境变量。YAML anchor 和 alias 会由预扫描拒绝，预扫描会跳过
 引号、注释和 block scalar 内容，因此 alias 展开不会放大物化后的配置。输入
-字节数限制在 parser 前检查。对于 TOML 和 YAML，property 数量与嵌套深度限制
-在 parser 物化 AST 后的 flatten 阶段执行；它们约束最终配置，不限制 parser
-中间阶段的内存分配或递归深度。
+所有内置 source 都通过 `SourceLoadSession` 加载；composite 会先同时检查子 source
+的局部策略与共享聚合策略，全部通过后才扣减。TOML 和 YAML 的节点、property 数量
+与嵌套深度只能在 parser 已经物化 AST 后的 flatten 阶段记账，因此它们约束可接受的
+配置结果，不限制 parser 中间阶段的内存分配或递归深度。
 
 如果不需要在加载前定制目标配置，可以使用便捷构造函数：
 
@@ -304,7 +305,11 @@ profile 组合 rs-budget 的定向 `JsonDecodeLimits`、`JsonEncodeLimits` 与�
 property、property key 限制。输入通过一个 `JsonDecodeSession` 准入，输出结构和字节
 通过一个 `JsonEncodeSession` 记账；配置专属限制仍由本 crate 处理。
 普通 Serde 序列化的行为保持不变。该 JSON budget 与读取文本 source 时
-使用的 `SourceLimits` 相互独立。
+使用的 `SourceLimits` 相互独立。普通 `Deserialize` 会用
+`ConfigWireLimits::default()` 创建预算化的已解码值 visitor，从而限制已解码结构、
+payload、property 数量和 property key。通用 Serde deserializer 不提供原始字节流或
+JSON 词法 token，因此普通 `Deserialize` 无法执行原始输入限制。不可信 JSON 应使用
+`Config::decode_json_slice` 或其自定义限制版本。
 
 ## 进阶用法
 
@@ -380,13 +385,15 @@ TOML 和 YAML source 会把 mapping 展开成点分隔 property，只接受标�
 | --- | ---: |
 | 输入字节数 | 8 MiB（`8 * 1024 * 1024`） |
 | 输出 assignment 数 | 65,536 |
+| 解析结构节点数 | 262,144 |
+| composite 子 source 数 | 256 |
 | 嵌套深度 | 64 |
 
-所有内置文本 source 对文件入口和内存入口应用同类 budget。`max_input_bytes`
-在 parser 前检查。对于 TOML 和 YAML，`max_properties` 与
-`max_nesting_depth` 在 parser 构建 AST 后、source flatten 期间执行；它们不是
-parser 阶段的内存或递归限制。`SourceLimits::unbounded()` 会关闭这三项 source
-限制；只有当输入边界由应用控制时才应使用它。
+所有内置 source 的文件入口和内存入口使用同一套 session API。
+`CompositeConfigSource::with_limits` 会在每个子 source 的局部策略之外增加共享聚合
+策略；只有所有适用预算都接受一次累计 charge 后才会统一扣减。TOML 和 YAML 的节点、
+property 与深度检查发生在 AST 已经构建之后，不能限制 parser 自身的内存或递归。
+`SourceLimits::unbounded()` 会关闭所有 source 维度；只有应用完全控制输入边界时才应使用。
 
 ## 错误与诊断
 
@@ -407,6 +414,8 @@ assert_eq!(error.path(), Some("server.port"));
 
 对于 source 的 IO、解析和限制错误，`source_id()` 会返回文件路径或稳定的
 source label；其他错误返回 `None`。
+source 预算失败时，`source_budget_id()` 会指出拒绝 charge 的局部或聚合预算，
+`budget_error()` 则返回结构化的 rs-budget 错误。
 
 `get_any` 失败时可以使用 `candidate_paths()`，因为多 key 错误可能包含按查找顺序排列的多个路径。如果集合转换错误对应原始集合中的某个元素，可以使用 `source_index()` 获取其位置。
 
@@ -436,7 +445,9 @@ source label；其他错误返回 `None`。
 
 ### source 超出 limit
 
-读取错误中的 `SourceLimitKind`，并与 `SourceLimits::max_input_bytes`、`max_properties` 和 `max_nesting_depth` 对照。只有明确了解输入边界时才增加单项限制，也可以把输入拆成更小的 source layer。
+读取 `budget_error()` 中的 `SourceLimitKind`，并与对应的 `SourceLimits` 维度对照；
+`source_budget_id()` 可以区分子 source 局部限制与 composite 聚合限制。只有明确了解
+输入边界时才增加单项限制，也可以把输入拆成更小的 source layer。
 
 ### merge 后配置没有改变
 
@@ -448,9 +459,10 @@ source label；其他错误返回 `None`。
 - 配置 key 和 section path 会被校验；不要依赖普通 key 的隐式 trim 或规范化。
 - 普通读取不会插值。把插值放在显式调用点，让信任边界清晰可见。
 - 只有选择 `InterpolationSources::ConfigThenEnv` 后才会回退到进程环境变量。
-- 内置 source 默认受边界限制。输入字节数限制保护 parser 边界，TOML/YAML 的
-  property 与深度限制保护 AST flatten；JSON wire 操作使用由 rs-budget 定向解码和
-  编码 session 支撑的独立 `ConfigWireLimits` profile。
+- 内置 source 默认同时支持局部边界与 composite 聚合边界。TOML/YAML 的节点、
+  property 和深度记账在第三方 AST 物化后才开始，不能保护 parser 自身的内存分配或
+  递归。JSON wire 使用独立的 `ConfigWireLimits` profile；需要原始输入准入时必须使用
+  bounded slice API。
 - source layer 独立创建并事务式合并，但 `Config` 本身是可变的；应用需要自行决定所有权和同步方式。
 - `ConfigReader` 是 sealed 且不是 object-safe，因为它含有泛型方法。请使用 `&impl ConfigReader` 等泛型约束，而不是 `dyn ConfigReader`。
 - `ConfigSection` 是借用视图。使用期间必须保持来源 `Config` 存活，并在 section 内使用相对 key。

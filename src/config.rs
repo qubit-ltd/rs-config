@@ -17,13 +17,11 @@ use std::collections::BTreeMap;
 
 use qubit_budget::JsonDecodeSession;
 use qubit_budget::JsonEncodeSession;
-use qubit_budget::ResourceQuantity;
-use qubit_budget::decode_slice;
+use qubit_budget::JsonResource;
+use qubit_budget::JsonSerdeError;
+use qubit_budget::decode_slice_seed;
 use qubit_budget::encode_to_vec;
-use qubit_datatype::ConversionSession;
-use qubit_datatype::DataConversionTarget;
 use qubit_utils::Transient;
-use qubit_value::Value as QubitValue;
 use qubit_value::ValueWireRefV1;
 use serde::Deserialize;
 use serde::Deserializer;
@@ -33,10 +31,10 @@ use serde::de::Error as _;
 
 use self::internal::ConfigSerdeRepr;
 use self::internal::ConfigWire;
+use self::internal::ConfigWireSeed;
 use self::internal::ConfigWireV1;
 use self::internal::ConfigWireV1Ref;
 use crate::ConfigError;
-use crate::ConfigResult;
 use crate::ConfigWireDecodeError;
 use crate::ConfigWireEncodeError;
 use crate::ConfigWireLimitKind;
@@ -50,39 +48,6 @@ mod read;
 mod source_loading;
 mod structured_serde;
 mod traversal;
-
-/// Converts deserialized numeric text with the configured conversion policy.
-///
-/// # Type Parameters
-///
-/// * `T` - Target numeric type.
-///
-/// # Parameters
-///
-/// * `key` - Configuration path used for error context.
-/// * `options` - Read policy controlling conversion.
-/// * `value` - Numeric text to convert.
-///
-/// # Returns
-///
-/// The converted number.
-///
-/// # Errors
-///
-/// Returns a keyed conversion error when `value` cannot be converted to `T`.
-pub(crate) fn convert_deserialize_number<T>(
-    key: &str,
-    value: String,
-    session: &mut ConversionSession<'_>,
-) -> ConfigResult<T>
-where
-    T: DataConversionTarget,
-{
-    match QubitValue::String(value).to_in::<T>(session) {
-        Ok(value) => Ok(value),
-        Err(error) => Err(ConfigError::from((key, error))),
-    }
-}
 
 /// Configuration Manager
 ///
@@ -151,8 +116,7 @@ impl PartialEq for Config {
     /// Compares only the persisted configuration data.
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.description == other.description
-            && self.properties == other.properties
+        self.description == other.description && self.properties == other.properties
     }
 }
 
@@ -168,6 +132,12 @@ impl Serialize for Config {
 
 impl<'de> Deserialize<'de> for Config {
     /// Deserializes either the stable V1 format or the legacy unversioned form.
+    ///
+    /// This entry point applies [`ConfigWireLimits::default`] to decoded Serde
+    /// structure, payload, properties, and property keys. A general
+    /// deserializer does not expose its original bytes or lexical tokens, so
+    /// this implementation cannot enforce the raw-input limit. Use
+    /// [`Config::decode_json_slice`] for untrusted JSON bytes.
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -219,10 +189,7 @@ impl TryFrom<ConfigWireV1> for Config {
                 value.version,
             ));
         }
-        Self::from_wire_parts(
-            value.description,
-            value.properties.into_iter().collect(),
-        )
+        Self::from_wire_parts(value.description, value.properties.into_iter().collect())
     }
 }
 
@@ -285,8 +252,7 @@ impl Config {
             let _ = ValueWireRefV1::try_from(property.value())?;
         }
         let mut session = JsonEncodeSession::owned(limits.json_encode());
-        encode_to_vec(&ConfigWireV1Ref::from(self), &mut session)
-            .map_err(ConfigWireEncodeError::from)
+        encode_to_vec(&ConfigWireV1Ref::from(self), &mut session).map_err(map_encode_json_error)
     }
 
     /// Decodes a complete configuration JSON wire document with the
@@ -303,9 +269,9 @@ impl Config {
     /// # Errors
     ///
     /// Returns a shared budget, JSON, or configuration-invariant error.
-    pub fn decode_json_slice(
-        input: &[u8],
-    ) -> Result<Self, ConfigWireDecodeError> {
+    /// Unlike ordinary [`Deserialize`], this API also admits the original JSON
+    /// slice against its raw-input limit.
+    pub fn decode_json_slice(input: &[u8]) -> Result<Self, ConfigWireDecodeError> {
         Self::decode_json_slice_with_limits(input, ConfigWireLimits::default())
     }
 
@@ -330,48 +296,10 @@ impl Config {
         limits: ConfigWireLimits,
     ) -> Result<Self, ConfigWireDecodeError> {
         let mut session = JsonDecodeSession::owned(limits.json_decode());
-        let wire: ConfigWire = decode_slice(input, &mut session)
-            .map_err(ConfigWireDecodeError::from)?;
-        let config = Self::try_from(wire)
-            .map_err(ConfigWireDecodeError::InvalidConfig)?;
-        config.check_config_limits(limits)?;
+        let wire = decode_slice_seed(ConfigWireSeed::preaccounted(limits), input, &mut session)
+            .map_err(map_decode_json_error)??;
+        let config = Self::try_from(wire).map_err(ConfigWireDecodeError::InvalidConfig)?;
         Ok(config)
-    }
-
-    /// Checks configuration-specific limits that are not generic JSON costs.
-    fn check_config_limits(
-        &self,
-        limits: ConfigWireLimits,
-    ) -> Result<(), ConfigWireDecodeError> {
-        let property_count = u64::try_from_usize(self.properties.len())
-            .map_err(|source| ConfigWireDecodeError::LimitQuantity {
-                kind: ConfigWireLimitKind::Properties,
-                source,
-            })?;
-        if property_count > limits.max_properties() {
-            return Err(ConfigWireDecodeError::LimitExceeded {
-                kind: ConfigWireLimitKind::Properties,
-                value: property_count,
-                maximum: limits.max_properties(),
-            });
-        }
-        for key in self.properties.keys() {
-            let key_bytes =
-                u64::try_from_usize(key.len()).map_err(|source| {
-                    ConfigWireDecodeError::LimitQuantity {
-                        kind: ConfigWireLimitKind::PropertyKeyBytes,
-                        source,
-                    }
-                })?;
-            if key_bytes > limits.max_property_key_bytes() {
-                return Err(ConfigWireDecodeError::LimitExceeded {
-                    kind: ConfigWireLimitKind::PropertyKeyBytes,
-                    value: key_bytes,
-                    maximum: limits.max_property_key_bytes(),
-                });
-            }
-        }
-        Ok(())
     }
 
     /// Checks configuration-specific limits for an encoding operation.
@@ -379,33 +307,30 @@ impl Config {
         &self,
         limits: ConfigWireLimits,
     ) -> Result<(), ConfigWireEncodeError> {
-        let property_count = u64::try_from_usize(self.properties.len())
-            .map_err(|source| ConfigWireEncodeError::LimitQuantity {
+        let property_count =
+            u64::try_from(self.properties.len()).expect("property count must fit in u64");
+        limits
+            .properties_limit()
+            .check(property_count)
+            .map_err(|error| ConfigWireEncodeError::LimitExceeded {
                 kind: ConfigWireLimitKind::Properties,
-                source,
+                value: error
+                    .exact_observed()
+                    .expect("point failure carries an exact value"),
+                maximum: error.maximum().expect("point failure carries a maximum"),
             })?;
-        if property_count > limits.max_properties() {
-            return Err(ConfigWireEncodeError::LimitExceeded {
-                kind: ConfigWireLimitKind::Properties,
-                value: property_count,
-                maximum: limits.max_properties(),
-            });
-        }
         for key in self.properties.keys() {
-            let key_bytes =
-                u64::try_from_usize(key.len()).map_err(|source| {
-                    ConfigWireEncodeError::LimitQuantity {
-                        kind: ConfigWireLimitKind::PropertyKeyBytes,
-                        source,
-                    }
-                })?;
-            if key_bytes > limits.max_property_key_bytes() {
-                return Err(ConfigWireEncodeError::LimitExceeded {
+            let key_bytes = u64::try_from(key.len()).expect("property key length must fit in u64");
+            limits
+                .property_key_bytes_limit()
+                .check(key_bytes)
+                .map_err(|error| ConfigWireEncodeError::LimitExceeded {
                     kind: ConfigWireLimitKind::PropertyKeyBytes,
-                    value: key_bytes,
-                    maximum: limits.max_property_key_bytes(),
-                });
-            }
+                    value: error
+                        .exact_observed()
+                        .expect("point failure carries an exact value"),
+                    maximum: error.maximum().expect("point failure carries a maximum"),
+                })?;
         }
         Ok(())
     }
@@ -515,5 +440,29 @@ impl Default for Config {
     #[inline]
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Maps a budget-aware JSON decode failure to the configuration wire error.
+fn map_decode_json_error(error: JsonSerdeError<JsonResource>) -> ConfigWireDecodeError {
+    match error {
+        JsonSerdeError::Budget(error) => ConfigWireDecodeError::Budget(error),
+        JsonSerdeError::Quantity { resource, source } => {
+            ConfigWireDecodeError::Quantity { resource, source }
+        }
+        JsonSerdeError::Json(error) => ConfigWireDecodeError::Json(error),
+        JsonSerdeError::Io(error) => ConfigWireDecodeError::Json(serde_json::Error::io(error)),
+    }
+}
+
+/// Maps a budget-aware JSON encode failure to the configuration wire error.
+fn map_encode_json_error(error: JsonSerdeError<JsonResource>) -> ConfigWireEncodeError {
+    match error {
+        JsonSerdeError::Budget(error) => ConfigWireEncodeError::Budget(error),
+        JsonSerdeError::Quantity { resource, source } => {
+            ConfigWireEncodeError::Quantity { resource, source }
+        }
+        JsonSerdeError::Json(error) => ConfigWireEncodeError::Json(error),
+        JsonSerdeError::Io(error) => ConfigWireEncodeError::Json(serde_json::Error::io(error)),
     }
 }

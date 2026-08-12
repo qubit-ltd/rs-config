@@ -233,10 +233,12 @@ values. Resolve them later through an explicit `*_interpolated` read policy;
 loading a `.env` file never reads process-environment values implicitly. YAML
 anchors and aliases are rejected by a pre-scan that skips quoted, commented,
 and block-scalar content, so alias expansion cannot multiply the materialized
-configuration. The input-byte limit is checked before parsing. For TOML and
-YAML, property-count and nesting-depth limits are enforced while flattening
-the parser's materialized AST; they constrain the resulting configuration but
-do not bound intermediate parser allocation or recursion.
+configuration. Every built-in source loads through `SourceLoadSession`; a
+composite checks each charge against both the child's local policy and its
+shared aggregate policy before committing either budget. For TOML and YAML,
+node, property-count, and nesting-depth accounting begins only while flattening
+the parser's already materialized AST. These dimensions constrain accepted
+configuration output but do not bound parser allocation or recursion.
 
 Use a convenience constructor when no target customization is needed:
 
@@ -311,9 +313,13 @@ directional `JsonDecodeLimits` and `JsonEncodeLimits` with configuration-only
 property and property-key limits. Decode input is admitted through one
 `JsonDecodeSession`; encode structure and output are charged through one
 `JsonEncodeSession`. Configuration-specific limits remain local to this crate.
-Ordinary Serde serialization remains
-available and unchanged. This JSON budget is separate from `SourceLimits`,
-which applies while ingesting text sources.
+Ordinary `Deserialize` constructs a budgeted decoded-value visitor with
+`ConfigWireLimits::default()`, so decoded structure, payload, property count,
+and property keys remain bounded. A general Serde deserializer does not expose
+the original byte stream or lexical JSON tokens; ordinary Deserialize therefore
+cannot enforce the raw-input limit. Use `Config::decode_json_slice` or its
+custom-limits variant for untrusted JSON. This wire budget is separate from
+`SourceLimits`, which applies while ingesting text sources.
 
 ## Advanced Usage
 
@@ -392,14 +398,18 @@ The default `SourceLimits` are:
 | --- | ---: |
 | Input bytes | 8 MiB (`8 * 1024 * 1024`) |
 | Emitted assignments | 65,536 |
+| Parsed structural nodes | 262,144 |
+| Composite child sources | 256 |
 | Nesting depth | 64 |
 
-All built-in text sources apply the same budget to file and in-memory entry
-points. `max_input_bytes` is checked before parsing. For TOML and YAML,
-`max_properties` and `max_nesting_depth` apply after the parser has built its
-AST, while the source is being flattened; they are not parser-stage memory or
-recursion limits. `SourceLimits::unbounded()` disables these three source
-limits; use it only when the input boundary is controlled by the application.
+All built-in sources use the same session API for file and in-memory entry
+points. `CompositeConfigSource::with_limits` configures a shared aggregate
+policy in addition to every child's local policy. Cumulative charges are
+committed to all applicable scopes only after every scope accepts them.
+For TOML and YAML, node, property, and depth checks occur after the parser has
+built its AST; they are not parser-stage allocation or recursion limits.
+`SourceLimits::unbounded()` disables every source dimension and should only be
+used when the application controls the input boundary.
 
 ## Errors and Diagnostics
 
@@ -420,6 +430,9 @@ Common categories include `InvalidKey`, `InvalidPath`, `PropertyNotFound`, `Prop
 
 `source_id()` returns the path or stable label for source I/O, parse, and limit
 errors. It returns `None` for errors that are not tied to a source loader.
+For source budget failures, `source_budget_id()` identifies the local or
+aggregate scope that rejected the charge, and `budget_error()` exposes the
+structured rs-budget failure.
 
 `candidate_paths()` is useful for `get_any` failures because a multi-key error can contain several ordered paths. `source_index()` identifies an element position when a collection conversion reports one.
 
@@ -449,7 +462,10 @@ Inspect normalized environment names or flattened structured keys. Environment p
 
 ### A source exceeds a limit
 
-Read the `SourceLimitKind` in the error and compare it with `SourceLimits::max_input_bytes`, `max_properties`, and `max_nesting_depth`. Increase one limit explicitly only when the input boundary is understood, or split the input into smaller source layers.
+Read `budget_error()` and compare its `SourceLimitKind` with the corresponding
+`SourceLimits` dimension. `source_budget_id()` distinguishes a child-local
+failure from a composite aggregate failure. Increase one limit only when the
+input boundary is understood, or split the input into smaller source layers.
 
 ### A merge changed nothing
 
@@ -461,10 +477,11 @@ Check the source result independently with `source.load()`, then inspect its key
 - Configuration keys and section paths are validated; callers should not rely on implicit trimming or normalization of ordinary keys.
 - Ordinary reads do not interpolate. Keep interpolation at explicit call sites so the trust boundary is visible.
 - Process-environment fallback is disabled unless `InterpolationSources::ConfigThenEnv` is selected.
-- Built-in source loads are bounded by default. The input-byte limit protects
-  the parser boundary; TOML/YAML property and depth limits protect AST
-  flattening. JSON wire operations have a separate `ConfigWireLimits` profile
-  backed by rs-budget's directional decode and encode sessions.
+- Built-in source loads are bounded locally and, for composites, in aggregate.
+  TOML/YAML node, property, and depth accounting starts after third-party AST
+  materialization and does not protect parser allocation or recursion. JSON
+  wire operations have a separate `ConfigWireLimits` profile; use the bounded
+  slice API when raw-input admission is required.
 - Source layers are independent and merged transactionally, but `Config` itself is mutable; choose ownership and synchronization in the application that uses it.
 - `ConfigReader` is sealed and not object-safe because it has generic methods. Use generic bounds such as `&impl ConfigReader` rather than `dyn ConfigReader`.
 - `ConfigSection` is a borrowed view. Keep the originating `Config` alive while using it and use relative keys within the section.
