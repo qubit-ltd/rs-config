@@ -9,6 +9,7 @@
 
 use qubit_budget::BudgetError;
 use qubit_budget::JsonResource;
+use qubit_budget::JsonSyntaxErrorReason;
 use qubit_budget::Observation;
 use qubit_budget::ResourceLimit;
 use qubit_config::Config;
@@ -85,16 +86,20 @@ fn test_config_wire_deserializes_legacy_unversioned_payload() {
 
 #[test]
 fn test_ordinary_deserialize_enforces_default_property_key_budget() {
-    let key =
-        "k".repeat(usize::try_from(ConfigWireLimits::DEFAULT_MAX_PROPERTY_KEY_BYTES).unwrap() + 1);
+    let key = "k".repeat(
+        usize::try_from(ConfigWireLimits::DEFAULT_MAX_PROPERTY_KEY_BYTES)
+            .unwrap()
+            + 1,
+    );
     let mut config = Config::new();
     config
         .set(&key, "value")
         .expect("the domain model accepts a long canonical key");
     let input = to_vec(&config).expect("the config should serialize");
 
-    let error = from_slice::<Config>(&input)
-        .expect_err("ordinary Deserialize should apply default decoded budgets");
+    let error = from_slice::<Config>(&input).expect_err(
+        "ordinary Deserialize should apply default decoded budgets",
+    );
 
     assert!(error.to_string().contains("PropertyKeyBytes"));
 }
@@ -102,11 +107,18 @@ fn test_ordinary_deserialize_enforces_default_property_key_budget() {
 #[test]
 fn test_ordinary_deserialize_does_not_claim_raw_input_accounting() {
     let config = Config::new();
-    let mut input = vec![b' '; usize::try_from(ConfigWireLimits::DEFAULT_MAX_INPUT_BYTES).unwrap()];
-    input.extend_from_slice(&to_vec(&config).expect("the config should serialize"));
+    let mut input =
+        vec![
+            b' ';
+            usize::try_from(ConfigWireLimits::DEFAULT_MAX_INPUT_BYTES).unwrap()
+        ];
+    input.extend_from_slice(
+        &to_vec(&config).expect("the config should serialize"),
+    );
 
-    let _ = from_slice::<Config>(&input)
-        .expect("ordinary Deserialize should only enforce decoded-value budgets");
+    let _ = from_slice::<Config>(&input).expect(
+        "ordinary Deserialize should only enforce decoded-value budgets",
+    );
     let error = Config::decode_json_slice(&input)
         .expect_err("the bounded API should reject excessive raw input");
     assert!(matches!(
@@ -127,13 +139,18 @@ fn test_ordinary_deserialize_enforces_default_decoded_string_budget() {
     config
         .set(
             "value",
-            "x".repeat(usize::try_from(ConfigWireLimits::DEFAULT_MAX_STRING_BYTES).unwrap() + 1),
+            "x".repeat(
+                usize::try_from(ConfigWireLimits::DEFAULT_MAX_STRING_BYTES)
+                    .unwrap()
+                    + 1,
+            ),
         )
         .expect("the domain model accepts the long string");
     let input = to_vec(&config).expect("the config should serialize");
 
-    let error = from_slice::<Config>(&input)
-        .expect_err("ordinary Deserialize should enforce decoded string limits");
+    let error = from_slice::<Config>(&input).expect_err(
+        "ordinary Deserialize should enforce decoded string limits",
+    );
 
     assert!(error.to_string().contains("StringBytes"));
 }
@@ -359,8 +376,11 @@ fn test_config_wire_bounded_decode_preflights_json_syntax() {
     assert!(
         matches!(
             &result,
-            Err(ConfigWireDecodeError::Json(error))
-                if error.to_string() == "invalid JSON input"
+            Err(ConfigWireDecodeError::Syntax(error))
+                if error.reason() == JsonSyntaxErrorReason::UnexpectedEnd
+                    && error.offset() == 28
+                    && error.line() == 1
+                    && error.column() == 29
         ),
         "unexpected decoding result: {result:?}"
     );

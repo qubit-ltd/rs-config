@@ -209,7 +209,11 @@ let enabled: bool = tls.get("enabled")?;
 
 ### 加载和合并 source
 
-每次调用 `ConfigSource::load` 都会生成独立 layer。内置 source 包括：
+每次调用 `ConfigSource::load` 都会生成独立 layer。自定义 source 实现
+`load_into(&mut SourceLoadContext)`，必须把 context 作为唯一输出入口；
+`ConfigSourceExt` 提供标准的 `load` 便捷方法。每次 assignment 应调用
+`context.set(...)`，外部输入和 parser 工作应在执行前通过对应 accounting 方法报告；
+框架无法从最终 layer 推断遗漏的外部 I/O 或 parser 工作。内置 source 包括：
 
 - 始终可用的 `PropertiesConfigSource`，支持 `.properties` 文件或内存内容；
 - 始终可用的 `EnvConfigSource`，读取进程环境变量；
@@ -228,7 +232,7 @@ Java properties 行为去掉前导反斜杠。
 通过显式的 `*_interpolated` 读取策略在后续读取时解析；加载 `.env` 文件不会
 隐式读取进程环境变量。YAML anchor 和 alias 会由预扫描拒绝，预扫描会跳过
 引号、注释和 block scalar 内容，因此 alias 展开不会放大物化后的配置。输入
-所有内置 source 都通过 `SourceLoadSession` 加载；composite 会先同时检查子 source
+所有内置 source 都通过 `SourceLoadContext` 加载；composite 会先同时检查子 source
 的局部策略与共享聚合策略，全部通过后才扣减。TOML 和 YAML 的节点、property 数量
 与嵌套深度只能在 parser 已经物化 AST 后的 flatten 阶段记账，因此它们约束可接受的
 配置结果，不限制 parser 中间阶段的内存分配或递归深度。

@@ -29,7 +29,9 @@ pub enum ConfigWireEncodeError {
     Budget(BudgetError<JsonResource, u64>),
     /// A native JSON measurement could not be represented by the budget
     /// quantity type.
-    #[error("configuration wire resource quantity conversion failed for {resource:?}: {source}")]
+    #[error(
+        "configuration wire resource quantity conversion failed for {resource:?}: {source}"
+    )]
     Quantity {
         /// Resource whose measurement failed.
         resource: JsonResource,
@@ -49,7 +51,9 @@ pub enum ConfigWireEncodeError {
     },
 
     /// A configuration-specific resource limit was exceeded.
-    #[error("configuration wire {kind:?} value {value} exceeds the limit of {maximum}")]
+    #[error(
+        "configuration wire {kind:?} value {value} exceeds the limit of {maximum}"
+    )]
     LimitExceeded {
         /// Configuration resource category that exceeded its limit.
         kind: ConfigWireLimitKind,
@@ -65,21 +69,31 @@ pub enum ConfigWireEncodeError {
     #[error("failed to encode configuration JSON wire output: {0}")]
     Json(#[from] serde_json::Error),
 
+    /// A future JSON adapter failure that has no dedicated configuration
+    /// error variant yet.
+    #[error("configuration JSON adapter failure: {0}")]
+    Adapter(String),
+
     /// The runtime configuration violates a persisted wire invariant.
     #[error("invalid configuration wire value: {0}")]
     InvalidConfig(String),
 }
 
-impl From<JsonSerdeError<JsonResource>> for ConfigWireEncodeError {
+impl From<JsonSerdeError<JsonResource, u64>> for ConfigWireEncodeError {
     /// Preserves the exact resource identity of a bounded JSON encoding
     /// failure.
     #[inline]
-    fn from(error: JsonSerdeError<JsonResource>) -> Self {
+    fn from(error: JsonSerdeError<JsonResource, u64>) -> Self {
         match error {
             JsonSerdeError::Budget(error) => Self::Budget(error),
-            JsonSerdeError::Quantity { resource, source } => Self::Quantity { resource, source },
+            JsonSerdeError::Quantity { resource, source } => {
+                Self::Quantity { resource, source }
+            }
             JsonSerdeError::Json(error) => Self::Json(error),
-            JsonSerdeError::Io(error) => Self::Json(serde_json::Error::io(error)),
+            JsonSerdeError::Io(error) => {
+                Self::Json(serde_json::Error::io(error))
+            }
+            error => Self::Adapter(error.to_string()),
         }
     }
 }

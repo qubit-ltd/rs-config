@@ -41,7 +41,8 @@ use toml::de::Error as TomlError;
 
 use super::ConfigSource;
 use super::SourceLimits;
-use super::SourceLoadSession;
+use super::SourceLoadContext;
+use super::source_load_session::SourceLoadSession;
 use super::source_input::SourceInput;
 use crate::Config;
 use crate::ConfigError;
@@ -166,8 +167,12 @@ impl ConfigSource for TomlConfigSource {
         self.limits
     }
 
-    fn load_with_session(&self, session: &mut SourceLoadSession<'_>) -> ConfigResult<Config> {
+    fn load_into(
+        &self,
+        context: &mut SourceLoadContext<'_>,
+    ) -> ConfigResult<()> {
         let mut config = Config::new();
+        let session = context.session_mut();
         let label = self.input.label("TOML");
         let content = self.input.read_to_string("TOML", session)?;
 
@@ -185,7 +190,8 @@ impl ConfigSource for TomlConfigSource {
             session,
             0,
         )?;
-        Ok(config)
+        context.replace_layer(config);
+        Ok(())
     }
 }
 
@@ -229,6 +235,7 @@ pub(crate) fn flatten_toml_value(
             // All elements must be the same scalar type; mixed-type arrays fall
             // back to string representation to avoid silent data loss.
             ensure_toml_property(source_id, seen, prefix, budget)?;
+            budget.consume_nodes(arr.len())?;
             flatten_toml_array(source_id, prefix, arr, config)?;
         }
         TomlValue::String(s) => {
