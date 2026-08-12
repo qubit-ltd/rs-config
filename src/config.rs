@@ -468,13 +468,12 @@ fn map_decode_json_error(
         JsonSerdeError::Quantity { resource, source } => {
             ConfigWireDecodeError::Quantity { resource, source }
         }
+        JsonSerdeError::Syntax(error) => ConfigWireDecodeError::Syntax(error),
         JsonSerdeError::Json(error) => ConfigWireDecodeError::Json(error),
         JsonSerdeError::Io(error) => {
             ConfigWireDecodeError::Json(serde_json::Error::io(error))
         }
-        _ => ConfigWireDecodeError::Json(serde_json::Error::io(
-            std::io::Error::other("unsupported JSON adapter error"),
-        )),
+        error => ConfigWireDecodeError::Adapter(error.to_string()),
     }
 }
 
@@ -491,8 +490,6 @@ fn map_encode_json_error(
         JsonSerdeError::Io(error) => {
             ConfigWireEncodeError::Json(serde_json::Error::io(error))
         }
-        _ => ConfigWireEncodeError::Json(serde_json::Error::io(
-            std::io::Error::other("unsupported JSON adapter error"),
-        )),
+        error => ConfigWireEncodeError::Adapter(error.to_string()),
     }
 }

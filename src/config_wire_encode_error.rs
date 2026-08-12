@@ -69,6 +69,11 @@ pub enum ConfigWireEncodeError {
     #[error("failed to encode configuration JSON wire output: {0}")]
     Json(#[from] serde_json::Error),
 
+    /// A future JSON adapter failure that has no dedicated configuration
+    /// error variant yet.
+    #[error("configuration JSON adapter failure: {0}")]
+    Adapter(String),
+
     /// The runtime configuration violates a persisted wire invariant.
     #[error("invalid configuration wire value: {0}")]
     InvalidConfig(String),
@@ -88,9 +93,7 @@ impl From<JsonSerdeError<JsonResource, u64>> for ConfigWireEncodeError {
             JsonSerdeError::Io(error) => {
                 Self::Json(serde_json::Error::io(error))
             }
-            _ => Self::Json(serde_json::Error::io(std::io::Error::other(
-                "unsupported JSON adapter error",
-            ))),
+            error => Self::Adapter(error.to_string()),
         }
     }
 }
