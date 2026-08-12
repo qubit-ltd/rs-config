@@ -9,12 +9,12 @@
 //! Tests for bounded configuration wire encoding errors.
 
 use qubit_budget::BudgetError;
-use qubit_budget::JsonResource;
 use qubit_budget::Observation;
 use qubit_budget::QuantityConversionError;
 use qubit_budget::QuantityMeasurement;
 use qubit_config::ConfigWireEncodeError;
 use qubit_config::ConfigWireLimitKind;
+use qubit_json::JsonResource;
 use qubit_json::JsonSerdeError;
 
 /// Verifies shared budget errors are exposed without a lossy conversion.

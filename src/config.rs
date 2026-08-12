@@ -15,9 +15,9 @@ mod internal;
 
 use std::collections::BTreeMap;
 
-use qubit_budget::JsonDecodeSession;
-use qubit_budget::JsonEncodeSession;
-use qubit_budget::JsonResource;
+use qubit_json::JsonDecodeSession;
+use qubit_json::JsonEncodeSession;
+use qubit_json::JsonResource;
 use qubit_json::JsonSerdeError;
 use qubit_json::decode_slice_seed;
 use qubit_json::encode_to_vec;
