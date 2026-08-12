@@ -9,9 +9,12 @@
 
 mod config_enum_access;
 mod config_map_access;
+mod config_scalar_seq_access;
 mod config_seq_access;
 mod config_variant_access;
 
 pub(super) use config_enum_access::ConfigEnumAccess;
 pub(super) use config_map_access::ConfigMapAccess;
+pub(super) use config_scalar_seq_access::ConfigScalarSeqAccess;
+pub(super) use config_scalar_seq_access::admit_scalar_items;
 pub(super) use config_seq_access::ConfigSeqAccess;

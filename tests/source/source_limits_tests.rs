@@ -9,48 +9,75 @@
 
 use qubit_config::Config;
 use qubit_config::ConfigError;
-use qubit_config::ConfigResult;
 use qubit_config::source::ConfigSource;
 #[cfg(feature = "env-file")]
 use qubit_config::source::EnvFileConfigSource;
 use qubit_config::source::PropertiesConfigSource;
 use qubit_config::source::SourceLimitKind;
 use qubit_config::source::SourceLimits;
+use qubit_config::source::SourceLoadSession;
 #[cfg(feature = "toml")]
 use qubit_config::source::TomlConfigSource;
 #[cfg(feature = "yaml")]
 use qubit_config::source::YamlConfigSource;
 
-#[path = "../../src/source/source_budget.rs"]
-#[allow(dead_code)]
-mod source_budget;
+#[test]
+fn source_load_session_charges_local_and_aggregate_budgets_atomically() {
+    let aggregate_limits = SourceLimits::default().with_max_input_bytes(3);
+    let mut aggregate = SourceLoadSession::new("composite", aggregate_limits);
+    let local_limits = SourceLimits::default().with_max_input_bytes(5);
+    let mut child = aggregate.child("properties:<memory>", local_limits);
 
-use source_budget::SourceBudget;
+    child
+        .consume_input_bytes(2)
+        .expect("two bytes should fit both budgets");
+    let error = child
+        .consume_input_bytes(2)
+        .expect_err("the aggregate budget should reject the second charge");
+
+    assert_eq!(error.source_id(), Some("properties:<memory>"));
+    assert_eq!(error.source_budget_id(), Some("composite"));
+    assert_eq!(
+        error.budget_error().and_then(|error| error.remaining()),
+        Some(1)
+    );
+    child
+        .consume_input_bytes(1)
+        .expect("a rejected grouped charge must leave both budgets unchanged");
+}
 
 #[test]
 fn source_limits_are_bounded_by_default_and_can_be_unbounded() {
     let limits = SourceLimits::default();
     assert_eq!(limits.max_input_bytes(), 8 * 1024 * 1024);
     assert_eq!(limits.max_properties(), 65_536);
+    assert_eq!(limits.max_nodes(), 262_144);
+    assert_eq!(limits.max_sources(), 256);
     assert_eq!(limits.max_nesting_depth(), 64);
 
     let limits = SourceLimits::unbounded();
     assert_eq!(limits.max_input_bytes(), usize::MAX);
     assert_eq!(limits.max_properties(), usize::MAX);
+    assert_eq!(limits.max_nodes(), usize::MAX);
+    assert_eq!(limits.max_sources(), usize::MAX);
     assert_eq!(limits.max_nesting_depth(), usize::MAX);
 
     let zero = SourceLimits::default()
         .with_max_input_bytes(0)
         .with_max_properties(0)
+        .with_max_nodes(0)
+        .with_max_sources(0)
         .with_max_nesting_depth(0);
     assert_eq!(zero.max_input_bytes(), 0);
     assert_eq!(zero.max_properties(), 0);
+    assert_eq!(zero.max_nodes(), 0);
+    assert_eq!(zero.max_sources(), 0);
     assert_eq!(zero.max_nesting_depth(), 0);
 }
 
 #[test]
 fn source_budget_failed_charge_preserves_remaining_capacity() {
-    let mut budget = SourceBudget::new(
+    let mut budget = SourceLoadSession::new(
         "test source",
         SourceLimits::default().with_max_input_bytes(5),
     );
@@ -74,7 +101,7 @@ fn source_budget_failed_charge_preserves_remaining_capacity() {
 /// is rejected with the configured source-limit facts.
 #[test]
 fn source_budget_nesting_depth_accepts_limit_and_rejects_next_level() {
-    let budget = SourceBudget::new(
+    let budget = SourceLoadSession::new(
         "test source",
         SourceLimits::default().with_max_nesting_depth(2),
     );
@@ -89,6 +116,7 @@ fn source_budget_nesting_depth_accepts_limit_and_rejects_next_level() {
             kind: SourceLimitKind::NestingDepth,
             limit: 2,
             observed_at_least: 3,
+            ..
         }) if source_id == "test source"
     ));
 }

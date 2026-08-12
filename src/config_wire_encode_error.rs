@@ -9,7 +9,6 @@
 
 use qubit_budget::BudgetError;
 use qubit_budget::JsonResource;
-use qubit_budget::JsonSerdeError;
 use qubit_budget::QuantityConversionError;
 use qubit_value::ValueWireEncodeError;
 use thiserror::Error;
@@ -27,35 +26,19 @@ pub enum ConfigWireEncodeError {
     /// A shared JSON resource limit was exceeded during serialization.
     #[error(transparent)]
     Budget(BudgetError<JsonResource, u64>),
-
-    /// A native JSON measurement could not fit the wire budget quantity.
-    #[error(
-        "configuration JSON wire resource quantity conversion failed for {resource:?}: {source}"
-    )]
+    /// A native JSON measurement could not be represented by the budget
+    /// quantity type.
+    #[error("configuration wire resource quantity conversion failed for {resource:?}: {source}")]
     Quantity {
-        /// Resource whose native measurement could not be represented.
+        /// Resource whose measurement failed.
         resource: JsonResource,
-
-        /// Exact failed native quantity conversion.
-        #[source]
-        source: QuantityConversionError,
-    },
-
-    /// A native configuration-limit measurement could not fit `u64`.
-    #[error("configuration wire {kind:?} quantity conversion failed: {source}")]
-    LimitQuantity {
-        /// Configuration-specific resource category being measured.
-        kind: ConfigWireLimitKind,
-
-        /// Exact failed native quantity conversion.
+        /// Native measurement conversion failure.
         #[source]
         source: QuantityConversionError,
     },
 
     /// A configuration-specific resource limit was exceeded.
-    #[error(
-        "configuration wire {kind:?} value {value} exceeds the limit of {maximum}"
-    )]
+    #[error("configuration wire {kind:?} value {value} exceeds the limit of {maximum}")]
     LimitExceeded {
         /// Configuration resource category that exceeded its limit.
         kind: ConfigWireLimitKind,
@@ -74,22 +57,4 @@ pub enum ConfigWireEncodeError {
     /// The runtime configuration violates a persisted wire invariant.
     #[error("invalid configuration wire value: {0}")]
     InvalidConfig(String),
-}
-
-impl From<JsonSerdeError<JsonResource>> for ConfigWireEncodeError {
-    /// Preserves the exact resource identity of a bounded JSON encoding
-    /// failure.
-    #[inline]
-    fn from(error: JsonSerdeError<JsonResource>) -> Self {
-        match error {
-            JsonSerdeError::Budget(error) => Self::Budget(error),
-            JsonSerdeError::Quantity { resource, source } => {
-                Self::Quantity { resource, source }
-            }
-            JsonSerdeError::Json(error) => Self::Json(error),
-            JsonSerdeError::Io(error) => {
-                Self::Json(serde_json::Error::io(error))
-            }
-        }
-    }
 }

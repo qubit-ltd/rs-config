@@ -169,10 +169,17 @@ qubit-datatype = { version = "0.10", default-features = false, features = ["conv
 解码和脱敏的 `Debug` 输出。
 持久化层分别使用 `JsonDecodeLimits`/`JsonDecodeSession` 和
 `JsonEncodeLimits`/`JsonEncodeSession`，因此输入准入与输出限制不会消耗错误方向的
-字节资源。内置文本 source 默认限制输入 8 MiB、assignment
-65,536 次、嵌套深度 64。输入字节数限制在 parser 前检查，TOML/YAML 的
-assignment 与深度限制在物化 AST 的 flatten 阶段执行。如果输入可信且确实需要
-更大边界，可以使用 `SourceLimits` 定制。
+字节资源。`Config` 的普通 `Deserialize` 会应用默认的已解码结构、payload、
+property 数量和 property key 限制；通用 Serde deserializer 无法看到原始字节或
+JSON 词法 token，因此不可信 JSON 还必须通过 `Config::decode_json_slice` 执行
+原始输入准入。
+
+所有内置 source 都通过 `SourceLoadSession` 加载。输入字节、assignment、解析节点、
+子 source 数量和嵌套深度会同时检查 source 局部预算与 composite 聚合预算，任一预算
+拒绝时不会只扣减其中一层。TOML 和 YAML 在 parser 边界存在明确例外：第三方 parser
+会先物化完整 AST，节点、assignment 和深度只能在 flatten 阶段记账，所以这些限制
+不能约束 parser 自身的内存分配或递归。要获得该保证，未来需要流式 parser。只有明确
+了解输入边界时才应放宽 `SourceLimits`。
 
 本库不会在普通读取时静默执行插值，不会在加载 `.env` 文件时展开进程环境占位符，不会用默认值掩盖已存在但无效的值，也不会把 `ConfigReader` 变成 `dyn` trait object：它的泛型方法使其不满足 object-safe。路径规则、source 失败行为、结构化反序列化、自定义转换和排障细节请参阅用户手册。
 

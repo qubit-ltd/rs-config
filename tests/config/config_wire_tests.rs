@@ -19,6 +19,7 @@ use qubit_config::ConfigWireLimits;
 use qubit_config::options::ReadPolicy;
 use qubit_value::ValueWireEncodeError;
 use serde_json::Value;
+use serde_json::from_slice;
 use serde_json::from_str;
 use serde_json::from_value;
 use serde_json::json;
@@ -80,6 +81,80 @@ fn test_config_wire_deserializes_legacy_unversioned_payload() {
             .expect("legacy property should retain its value"),
         8080,
     );
+}
+
+#[test]
+fn test_ordinary_deserialize_enforces_default_property_key_budget() {
+    let key =
+        "k".repeat(usize::try_from(ConfigWireLimits::DEFAULT_MAX_PROPERTY_KEY_BYTES).unwrap() + 1);
+    let mut config = Config::new();
+    config
+        .set(&key, "value")
+        .expect("the domain model accepts a long canonical key");
+    let input = to_vec(&config).expect("the config should serialize");
+
+    let error = from_slice::<Config>(&input)
+        .expect_err("ordinary Deserialize should apply default decoded budgets");
+
+    assert!(error.to_string().contains("PropertyKeyBytes"));
+}
+
+#[test]
+fn test_ordinary_deserialize_does_not_claim_raw_input_accounting() {
+    let config = Config::new();
+    let mut input = vec![b' '; usize::try_from(ConfigWireLimits::DEFAULT_MAX_INPUT_BYTES).unwrap()];
+    input.extend_from_slice(&to_vec(&config).expect("the config should serialize"));
+
+    let _ = from_slice::<Config>(&input)
+        .expect("ordinary Deserialize should only enforce decoded-value budgets");
+    let error = Config::decode_json_slice(&input)
+        .expect_err("the bounded API should reject excessive raw input");
+    assert!(matches!(
+        error,
+        ConfigWireDecodeError::Budget(BudgetError::LimitExceeded {
+            resource: JsonResource::InputBytes,
+            ..
+        }) | ConfigWireDecodeError::Budget(BudgetError::Insufficient {
+            resource: JsonResource::InputBytes,
+            ..
+        })
+    ));
+}
+
+#[test]
+fn test_ordinary_deserialize_enforces_default_decoded_string_budget() {
+    let mut config = Config::new();
+    config
+        .set(
+            "value",
+            "x".repeat(usize::try_from(ConfigWireLimits::DEFAULT_MAX_STRING_BYTES).unwrap() + 1),
+        )
+        .expect("the domain model accepts the long string");
+    let input = to_vec(&config).expect("the config should serialize");
+
+    let error = from_slice::<Config>(&input)
+        .expect_err("ordinary Deserialize should enforce decoded string limits");
+
+    assert!(error.to_string().contains("StringBytes"));
+}
+
+#[test]
+fn test_bounded_decode_uses_custom_config_wire_domain_budget() {
+    let mut config = Config::new();
+    config
+        .set("value", "x")
+        .expect("the property should be set");
+    let input = to_vec(&config).expect("the config should serialize");
+    let limits = ConfigWireLimits::default().with_max_properties(0);
+
+    assert!(matches!(
+        Config::decode_json_slice_with_limits(&input, limits),
+        Err(ConfigWireDecodeError::LimitExceeded {
+            kind: ConfigWireLimitKind::Properties,
+            value: 1,
+            maximum: 0,
+        })
+    ));
 }
 
 /// Verifies legacy runtime policy data is accepted but never applied.
