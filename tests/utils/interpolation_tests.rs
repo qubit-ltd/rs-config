@@ -144,7 +144,9 @@ fn test_get_string_accepts_exact_nested_output_without_double_charging() {
 #[test]
 fn test_get_string_rejects_oversized_nested_intermediate_output() {
     let mut config = Config::new();
-    config.set_default_read_policy(ReadPolicy::default().with_max_interpolation_output_bytes(4));
+    config.set_default_read_policy(
+        ReadPolicy::default().with_max_interpolation_output_bytes(4),
+    );
     config.set("part", "12345").unwrap();
     config.set("value", "${part}").unwrap();
 
@@ -160,7 +162,9 @@ fn test_get_string_rejects_oversized_nested_intermediate_output() {
 #[test]
 fn test_get_string_rejects_oversized_final_concatenation() {
     let mut config = Config::new();
-    config.set_default_read_policy(ReadPolicy::default().with_max_interpolation_output_bytes(4));
+    config.set_default_read_policy(
+        ReadPolicy::default().with_max_interpolation_output_bytes(4),
+    );
     config.set("part", "12").unwrap();
     config.set("value", "x${part}yz").unwrap();
 
