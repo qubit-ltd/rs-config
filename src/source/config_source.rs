@@ -6,6 +6,7 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 //! Public configuration-source contract and crate-owned load executor.
+// qubit-style: allow multiple-public-types
 
 use super::SourceLimits;
 use super::SourceLoadContext;

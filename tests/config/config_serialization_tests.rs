@@ -27,6 +27,8 @@ pub(crate) use qubit_config::ConfigReader;
 pub(crate) use qubit_config::Property;
 pub(crate) use qubit_config::options::InterpolationSources;
 pub(crate) use qubit_config::options::ReadPolicy;
+pub(crate) use qubit_config::source::SourceLimitKind;
+pub(crate) use qubit_config::source::SourceLimits;
 pub(crate) use qubit_datatype::BlankStringPolicy;
 pub(crate) use qubit_datatype::DataConversionError;
 pub(crate) use qubit_datatype::DataConversionErrorKind;
@@ -269,6 +271,8 @@ mod test_enhanced_errors {
 #[cfg(all(test, feature = "toml"))]
 mod test_toml_type_faithful {
     use qubit_config::source::ConfigSource;
+    use qubit_config::source::SourceLimitKind;
+    use qubit_config::source::SourceLimits;
     use qubit_config::source::TomlConfigSource;
 
     use super::Config;
@@ -390,13 +394,11 @@ mod test_toml_type_faithful {
     #[test]
     fn test_toml_scalar_array_elements_count_toward_node_budget() {
         let source = TomlConfigSource::from_content("ports = [1, 2]\n")
-            .with_limits(
-                qubit_config::source::SourceLimits::default().with_max_nodes(3),
-            );
+            .with_limits(SourceLimits::default().with_max_nodes(3));
         assert!(matches!(
             source.load(),
             Err(ConfigError::SourceLimitExceeded { kind, .. })
-                if kind == qubit_config::source::SourceLimitKind::NodeCount
+                if kind == SourceLimitKind::NodeCount
         ));
     }
 }
@@ -408,6 +410,8 @@ mod test_toml_type_faithful {
 #[cfg(all(test, feature = "yaml"))]
 mod test_yaml_type_faithful {
     use qubit_config::source::ConfigSource;
+    use qubit_config::source::SourceLimitKind;
+    use qubit_config::source::SourceLimits;
     use qubit_config::source::YamlConfigSource;
 
     use super::Config;
@@ -559,13 +563,11 @@ mod test_yaml_type_faithful {
     #[test]
     fn test_yaml_scalar_sequence_elements_count_toward_node_budget() {
         let source = YamlConfigSource::from_content("ports: [1, 2]\n")
-            .with_limits(
-                qubit_config::source::SourceLimits::default().with_max_nodes(3),
-            );
+            .with_limits(SourceLimits::default().with_max_nodes(3));
         assert!(matches!(
             source.load(),
             Err(ConfigError::SourceLimitExceeded { kind, .. })
-                if kind == qubit_config::source::SourceLimitKind::NodeCount
+                if kind == SourceLimitKind::NodeCount
         ));
     }
 }

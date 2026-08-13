@@ -8,6 +8,7 @@
 //! Errors produced by bounded configuration JSON wire encoding.
 
 use qubit_budget::BudgetError;
+use qubit_budget::MeasuredBudgetError;
 use qubit_budget::QuantityConversionError;
 use qubit_budget::json::JsonResource;
 use qubit_json::text::JsonEncodeError;
@@ -86,13 +87,10 @@ impl From<JsonEncodeError<JsonResource, u64>> for ConfigWireEncodeError {
     fn from(error: JsonEncodeError<JsonResource, u64>) -> Self {
         match error {
             JsonEncodeError::Budget(error) => match error {
-                qubit_budget::MeasuredBudgetError::Budget(error) => {
-                    Self::Budget(error)
+                MeasuredBudgetError::Budget(error) => Self::Budget(error),
+                MeasuredBudgetError::Quantity { resource, source } => {
+                    Self::Quantity { resource, source }
                 }
-                qubit_budget::MeasuredBudgetError::Quantity {
-                    resource,
-                    source,
-                } => Self::Quantity { resource, source },
             },
             JsonEncodeError::InvalidRawJson(error)
             | JsonEncodeError::Serialize(error) => Self::Json(error),

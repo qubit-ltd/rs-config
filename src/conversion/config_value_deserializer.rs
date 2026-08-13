@@ -11,6 +11,7 @@ use qubit_datatype::ConversionSession;
 use qubit_datatype::DataConversionTarget;
 use qubit_datatype::DataConverter;
 use qubit_value::Value as QubitValue;
+use qubit_value::ValueError;
 use serde::de;
 use serde::de::Visitor;
 use serde_json::Value;
@@ -146,7 +147,7 @@ where
         result.map_err(|error| {
             ConfigDeserializeError::from_config(ConfigError::from((
                 key,
-                qubit_value::ValueError::from(error),
+                ValueError::from(error),
             )))
         })
     } else {

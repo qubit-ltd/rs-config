@@ -6,6 +6,7 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 //! Serde sequence access over a delimited scalar string.
+// qubit-style: allow source-test-pair
 
 use qubit_datatype::ConversionSession;
 use qubit_datatype::DataConversionError;

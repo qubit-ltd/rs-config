@@ -9,6 +9,7 @@
 
 use qubit_config::Config;
 use qubit_config::ConfigError;
+use qubit_config::ConfigResult;
 use qubit_config::source::CompositeConfigSource;
 use qubit_config::source::ConfigSource;
 #[cfg(feature = "env-file")]
@@ -38,7 +39,7 @@ impl ConfigSource for InputAccountingSource {
     fn load_into(
         &self,
         context: &mut SourceLoadContext<'_>,
-    ) -> qubit_config::ConfigResult<()> {
+    ) -> ConfigResult<()> {
         context.consume_input_bytes(self.amount)
     }
 }
