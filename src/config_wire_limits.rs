@@ -17,6 +17,7 @@ use qubit_budget::json::JsonDecodeLimits;
 use qubit_budget::json::JsonEncodeLimits;
 use qubit_budget::json::JsonResource;
 use qubit_budget::json::JsonValueLimits;
+use qubit_json::text::JsonDeserializeError;
 use qubit_json::text::JsonSyntaxError;
 use thiserror::Error;
 
@@ -309,7 +310,7 @@ pub enum ConfigWireDecodeError {
     },
     /// The JSON document is malformed or violates its Serde representation.
     #[error("failed to decode configuration JSON wire input: {0}")]
-    Json(#[source] serde_json::Error),
+    Json(#[source] JsonDeserializeError),
     /// A future JSON adapter failure that has no dedicated configuration
     /// error variant yet.
     #[error("configuration JSON adapter failure: {0}")]
