@@ -1,0 +1,24 @@
+{
+  "threshold_exempt_files": {
+    "qubit-config": [
+      "src/conversion/internal/config_scalar_seq_access.rs",
+      "src/error/config_error.rs",
+      "src/key/config_key.rs",
+      "src/key/config_name.rs",
+      "src/key/config_path.rs",
+      "src/property/property.rs",
+      "src/reader/config_section.rs",
+      "src/reader/read_policy.rs",
+      "src/source/config_source.rs",
+      "src/source/env_config_source.rs",
+      "src/source/env_file_config_source.rs",
+      "src/source/properties_config_source.rs",
+      "src/source/source_input.rs",
+      "src/source/source_limit_kind.rs",
+      "src/source/source_load_session.rs",
+      "src/source/toml_config_source.rs",
+      "src/source/yaml_config_source.rs",
+      "src/utils/interpolation.rs"
+    ]
+  }
+}
