@@ -15,12 +15,13 @@ mod internal;
 
 use std::collections::BTreeMap;
 
-use qubit_json::JsonDecodeSession;
-use qubit_json::JsonEncodeSession;
-use qubit_json::JsonResource;
-use qubit_json::JsonSerdeError;
-use qubit_json::decode_slice_seed;
-use qubit_json::encode_to_vec;
+use qubit_budget::json::JsonDecodeSession;
+use qubit_budget::json::JsonEncodeSession;
+use qubit_budget::json::JsonResource;
+use qubit_json::text::JsonDecodeError;
+use qubit_json::text::JsonEncodeError;
+use qubit_json::text::decode_slice_seed;
+use qubit_json::text::encode_to_vec;
 use qubit_utils::Transient;
 use qubit_value::ValueWireRefV1;
 use serde::Deserialize;
@@ -116,8 +117,7 @@ impl PartialEq for Config {
     /// Compares only the persisted configuration data.
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.description == other.description
-            && self.properties == other.properties
+        self.description == other.description && self.properties == other.properties
     }
 }
 
@@ -190,10 +190,7 @@ impl TryFrom<ConfigWireV1> for Config {
                 value.version,
             ));
         }
-        Self::from_wire_parts(
-            value.description,
-            value.properties.into_iter().collect(),
-        )
+        Self::from_wire_parts(value.description, value.properties.into_iter().collect())
     }
 }
 
@@ -256,8 +253,7 @@ impl Config {
             let _ = ValueWireRefV1::try_from(property.value())?;
         }
         let mut session = JsonEncodeSession::owned(limits.json_encode());
-        encode_to_vec(&ConfigWireV1Ref::from(self), &mut session)
-            .map_err(map_encode_json_error)
+        encode_to_vec(&ConfigWireV1Ref::from(self), &mut session).map_err(map_encode_json_error)
     }
 
     /// Decodes a complete configuration JSON wire document with the
@@ -276,9 +272,7 @@ impl Config {
     /// Returns a shared budget, JSON, or configuration-invariant error.
     /// Unlike ordinary [`Deserialize`], this API also admits the original JSON
     /// slice against its raw-input limit.
-    pub fn decode_json_slice(
-        input: &[u8],
-    ) -> Result<Self, ConfigWireDecodeError> {
+    pub fn decode_json_slice(input: &[u8]) -> Result<Self, ConfigWireDecodeError> {
         Self::decode_json_slice_with_limits(input, ConfigWireLimits::default())
     }
 
@@ -303,14 +297,9 @@ impl Config {
         limits: ConfigWireLimits,
     ) -> Result<Self, ConfigWireDecodeError> {
         let mut session = JsonDecodeSession::owned(limits.json_decode());
-        let wire = decode_slice_seed(
-            ConfigWireSeed::preaccounted(limits),
-            input,
-            &mut session,
-        )
-        .map_err(map_decode_json_error)??;
-        let config = Self::try_from(wire)
-            .map_err(ConfigWireDecodeError::InvalidConfig)?;
+        let wire = decode_slice_seed(ConfigWireSeed::preaccounted(limits), input, &mut session)
+            .map_err(map_decode_json_error)??;
+        let config = Self::try_from(wire).map_err(ConfigWireDecodeError::InvalidConfig)?;
         Ok(config)
     }
 
@@ -319,8 +308,8 @@ impl Config {
         &self,
         limits: ConfigWireLimits,
     ) -> Result<(), ConfigWireEncodeError> {
-        let property_count = u64::try_from(self.properties.len())
-            .expect("property count must fit in u64");
+        let property_count =
+            u64::try_from(self.properties.len()).expect("property count must fit in u64");
         limits
             .properties_limit()
             .check(property_count)
@@ -329,24 +318,20 @@ impl Config {
                 value: error
                     .exact_observed()
                     .expect("point failure carries an exact value"),
-                maximum: error
-                    .maximum()
-                    .expect("point failure carries a maximum"),
+                maximum: error.maximum().expect("point failure carries a maximum"),
             })?;
         for key in self.properties.keys() {
-            let key_bytes = u64::try_from(key.len())
-                .expect("property key length must fit in u64");
-            limits.property_key_bytes_limit().check(key_bytes).map_err(
-                |error| ConfigWireEncodeError::LimitExceeded {
+            let key_bytes = u64::try_from(key.len()).expect("property key length must fit in u64");
+            limits
+                .property_key_bytes_limit()
+                .check(key_bytes)
+                .map_err(|error| ConfigWireEncodeError::LimitExceeded {
                     kind: ConfigWireLimitKind::PropertyKeyBytes,
                     value: error
                         .exact_observed()
                         .expect("point failure carries an exact value"),
-                    maximum: error
-                        .maximum()
-                        .expect("point failure carries a maximum"),
-                },
-            )?;
+                    maximum: error.maximum().expect("point failure carries a maximum"),
+                })?;
         }
         Ok(())
     }
@@ -460,36 +445,35 @@ impl Default for Config {
 }
 
 /// Maps a budget-aware JSON decode failure to the configuration wire error.
-fn map_decode_json_error(
-    error: JsonSerdeError<JsonResource, u64>,
-) -> ConfigWireDecodeError {
+fn map_decode_json_error(error: JsonDecodeError<JsonResource, u64>) -> ConfigWireDecodeError {
     match error {
-        JsonSerdeError::Budget(error) => ConfigWireDecodeError::Budget(error),
-        JsonSerdeError::Quantity { resource, source } => {
-            ConfigWireDecodeError::Quantity { resource, source }
-        }
-        JsonSerdeError::Syntax(error) => ConfigWireDecodeError::Syntax(error),
-        JsonSerdeError::Json(error) => ConfigWireDecodeError::Json(error),
-        JsonSerdeError::Io(error) => {
-            ConfigWireDecodeError::Json(serde_json::Error::io(error))
-        }
-        error => ConfigWireDecodeError::Adapter(error.to_string()),
+        JsonDecodeError::Budget(error) => match error {
+            qubit_budget::MeasuredBudgetError::Budget(error) => {
+                ConfigWireDecodeError::Budget(error)
+            }
+            qubit_budget::MeasuredBudgetError::Quantity { resource, source } => {
+                ConfigWireDecodeError::Quantity { resource, source }
+            }
+        },
+        JsonDecodeError::Syntax(error) => ConfigWireDecodeError::Syntax(error),
+        JsonDecodeError::Deserialize(error) => ConfigWireDecodeError::Json(error),
     }
 }
 
 /// Maps a budget-aware JSON encode failure to the configuration wire error.
-fn map_encode_json_error(
-    error: JsonSerdeError<JsonResource, u64>,
-) -> ConfigWireEncodeError {
+fn map_encode_json_error(error: JsonEncodeError<JsonResource, u64>) -> ConfigWireEncodeError {
     match error {
-        JsonSerdeError::Budget(error) => ConfigWireEncodeError::Budget(error),
-        JsonSerdeError::Quantity { resource, source } => {
-            ConfigWireEncodeError::Quantity { resource, source }
+        JsonEncodeError::Budget(error) => match error {
+            qubit_budget::MeasuredBudgetError::Budget(error) => {
+                ConfigWireEncodeError::Budget(error)
+            }
+            qubit_budget::MeasuredBudgetError::Quantity { resource, source } => {
+                ConfigWireEncodeError::Quantity { resource, source }
+            }
+        },
+        JsonEncodeError::InvalidRawJson(error) | JsonEncodeError::Serialize(error) => {
+            ConfigWireEncodeError::Json(error)
         }
-        JsonSerdeError::Json(error) => ConfigWireEncodeError::Json(error),
-        JsonSerdeError::Io(error) => {
-            ConfigWireEncodeError::Json(serde_json::Error::io(error))
-        }
-        error => ConfigWireEncodeError::Adapter(error.to_string()),
+        JsonEncodeError::Write(error) => ConfigWireEncodeError::Json(serde_json::Error::io(error)),
     }
 }

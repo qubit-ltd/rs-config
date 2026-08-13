@@ -10,11 +10,11 @@
 
 use qubit_budget::ResourceLimit;
 use qubit_budget::StructureLimits;
+use qubit_budget::json::JsonDecodeLimits;
+use qubit_budget::json::JsonEncodeLimits;
+use qubit_budget::json::JsonResource;
+use qubit_budget::json::JsonValueLimits;
 use qubit_config::ConfigWireLimits;
-use qubit_json::JsonDecodeLimits;
-use qubit_json::JsonEncodeLimits;
-use qubit_json::JsonResource;
-use qubit_json::JsonValueLimits;
 
 #[test]
 fn config_wire_limits_preserve_configured_shared_budget() {
@@ -24,10 +24,7 @@ fn config_wire_limits_preserve_configured_shared_budget() {
             .with_nodes_limit(ResourceLimit::new(JsonResource::Nodes, 456)),
     );
     let decode = JsonDecodeLimits::default()
-        .with_input_bytes_limit(ResourceLimit::new(
-            JsonResource::InputBytes,
-            123,
-        ))
+        .with_input_bytes_limit(ResourceLimit::new(JsonResource::InputBytes, 123))
         .with_value_limits(value);
     let encode = JsonEncodeLimits::default().with_value_limits(value);
     let limits = ConfigWireLimits::from_json(decode, encode)

@@ -123,15 +123,11 @@ impl ConfigSource for CompositeConfigSource {
         self.limits
     }
 
-    fn load_into(
-        &self,
-        context: &mut SourceLoadContext<'_>,
-    ) -> ConfigResult<()> {
+    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
         for source in &self.sources {
             context.consume_sources(1)?;
             let layer = {
-                let mut child =
-                    context.child(source.source_id(), source.limits());
+                let mut child = context.child(source.source_id(), source.limits());
                 source.load_into(&mut child)?;
                 child.finish()
             };
