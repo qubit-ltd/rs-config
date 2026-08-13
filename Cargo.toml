@@ -61,7 +61,7 @@ toml = { version = "0.9", features = ["parse"], optional = true }
 serde_norway = { version = "0.9", optional = true }
 dotenvy = { version = "0.15", optional = true }
 
-qubit-datatype = { version = "0.10", path = "../rs-datatype", default-features = false, features = ["converter"] }
+qubit-datatype = { version = "0.11", path = "../rs-datatype", default-features = false, features = ["converter"] }
 qubit-redact = { version = "0.4", default-features = false }
 qubit-value = { version = "0.10", path = "../rs-value", default-features = false, features = ["converter", "json"] }
 
