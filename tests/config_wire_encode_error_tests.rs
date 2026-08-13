@@ -9,13 +9,14 @@
 //! Tests for bounded configuration wire encoding errors.
 
 use qubit_budget::BudgetError;
+use qubit_budget::MeasuredBudgetError;
 use qubit_budget::Observation;
 use qubit_budget::QuantityConversionError;
 use qubit_budget::QuantityMeasurement;
+use qubit_budget::json::JsonResource;
 use qubit_config::ConfigWireEncodeError;
 use qubit_config::ConfigWireLimitKind;
-use qubit_json::JsonResource;
-use qubit_json::JsonSerdeError;
+use qubit_json::text::JsonEncodeError;
 
 /// Verifies shared budget errors are exposed without a lossy conversion.
 #[test]
@@ -77,14 +78,12 @@ fn config_wire_encode_error_preserves_config_limit() {
 /// Verifies native JSON quantity failures remain distinct from budget limits.
 #[test]
 fn config_wire_encode_error_preserves_json_quantity_failure() {
-    let source = QuantityConversionError::new(
-        QuantityMeasurement::Usize(usize::MAX),
-        "u64",
-    );
-    let error = ConfigWireEncodeError::from(JsonSerdeError::Quantity {
-        resource: JsonResource::OutputBytes,
-        source,
-    });
+    let source = QuantityConversionError::new(QuantityMeasurement::Usize(usize::MAX), "u64");
+    let error =
+        ConfigWireEncodeError::from(JsonEncodeError::Budget(MeasuredBudgetError::Quantity {
+            resource: JsonResource::OutputBytes,
+            source,
+        }));
 
     assert!(matches!(
         error,

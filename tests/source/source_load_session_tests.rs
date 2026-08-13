@@ -24,18 +24,15 @@ impl ConfigSource for ChildAccountingSource {
         SourceLimits::default().with_max_input_bytes(5)
     }
 
-    fn load_into(
-        &self,
-        context: &mut SourceLoadContext<'_>,
-    ) -> qubit_config::ConfigResult<()> {
+    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> qubit_config::ConfigResult<()> {
         context.consume_input_bytes(self.amount)
     }
 }
 
 #[test]
 fn source_load_session_charges_local_and_ancestor_budgets_atomically() {
-    let mut aggregate = CompositeConfigSource::new()
-        .with_limits(SourceLimits::default().with_max_input_bytes(3));
+    let mut aggregate =
+        CompositeConfigSource::new().with_limits(SourceLimits::default().with_max_input_bytes(3));
     aggregate.add(ChildAccountingSource { amount: 2 });
     aggregate.add(ChildAccountingSource { amount: 2 });
     let error = aggregate

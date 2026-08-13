@@ -24,10 +24,7 @@ fn fixture(name: &str) -> PathBuf {
         .join(name)
 }
 
-fn merge_source(
-    config: &mut Config,
-    source: &dyn ConfigSource,
-) -> ConfigResult<()> {
+fn merge_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<()> {
     config.merge_properties_from_source(source)
 }
 
@@ -89,8 +86,7 @@ mod test_toml_config_source {
 
     #[test]
     fn test_load_nonexistent_toml_file_returns_error() {
-        let source =
-            TomlConfigSource::from_file("/nonexistent/path/config.toml");
+        let source = TomlConfigSource::from_file("/nonexistent/path/config.toml");
         let mut config = Config::new();
         let result = merge_source(&mut config, &source);
         assert!(result.is_err());
@@ -100,8 +96,7 @@ mod test_toml_config_source {
     #[test]
     fn test_load_invalid_toml_returns_redacted_parse_error() {
         const SECRET_MARKER: &str = "RS_CONFIG_TOML_SECRET_MARKER";
-        let dir =
-            tempfile::tempdir().expect("temporary directory should be created");
+        let dir = tempfile::tempdir().expect("temporary directory should be created");
         let path = dir.path().join("invalid.toml");
         std::fs::write(&path, format!("password = \"{SECRET_MARKER}\n"))
             .expect("invalid TOML fixture should be written");
@@ -348,8 +343,8 @@ mod test_toml_edge_cases {
         .unwrap();
         let source = TomlConfigSource::from_file(&path);
         let mut config = Config::new();
-        let error = merge_source(&mut config, &source)
-            .expect_err("mixed TOML arrays should be rejected");
+        let error =
+            merge_source(&mut config, &source).expect_err("mixed TOML arrays should be rejected");
         assert!(matches!(
             error,
             ConfigError::SourceParseError {
@@ -401,10 +396,7 @@ dates = [2026-04-09T12:00:00Z, 2026-04-10T12:00:00Z]
 
         assert_eq!(config.get_list::<i64>("ints").unwrap(), vec![1, 2, 3]);
         assert_eq!(config.get_list::<f64>("floats").unwrap(), vec![1.25, 2.5]);
-        assert_eq!(
-            config.get_list::<bool>("flags").unwrap(),
-            vec![true, false]
-        );
+        assert_eq!(config.get_list::<bool>("flags").unwrap(), vec![true, false]);
         let dates = config.get::<Vec<String>>("dates").unwrap();
         assert_eq!(dates.len(), 2);
         assert!(dates[0].contains("2026-04-09"));

@@ -28,10 +28,7 @@ impl ConfigSource for InlineSource {
         SourceLimits::default()
     }
 
-    fn load_into(
-        &self,
-        context: &mut SourceLoadContext<'_>,
-    ) -> ConfigResult<()> {
+    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
         context.set(self.key, self.value)
     }
 }
@@ -47,10 +44,7 @@ impl ConfigSource for MetadataSource {
         SourceLimits::default()
     }
 
-    fn load_into(
-        &self,
-        context: &mut SourceLoadContext<'_>,
-    ) -> ConfigResult<()> {
+    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
         context.set_description(Some("source".to_string()));
         context.set_default_read_policy(ReadPolicy::env_friendly());
         context.set("server.host", "localhost")

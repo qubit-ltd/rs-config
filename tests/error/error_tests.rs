@@ -50,9 +50,7 @@ fn test_candidate_property_error_exposes_canonical_paths() {
     assert_eq!(error.path(), None);
     assert_eq!(
         error.candidate_paths(),
-        Some(
-            ["service.port".to_string(), "service.PORT".to_string()].as_slice(),
-        ),
+        Some(["service.port".to_string(), "service.PORT".to_string()].as_slice(),),
     );
     assert!(error.to_string().contains("service.port"));
     assert!(error.to_string().contains("service.PORT"));
@@ -96,10 +94,7 @@ fn test_data_conversion_missing_maps_to_no_value() {
 
 #[test]
 fn test_data_conversion_error_keeps_structure() {
-    let error = ConfigError::from_data_conversion_error(
-        "server.port",
-        invalid_integer(),
-    );
+    let error = ConfigError::from_data_conversion_error("server.port", invalid_integer());
     assert!(matches!(
         error,
         ConfigError::ConversionError {
@@ -128,10 +123,7 @@ fn test_value_error_requires_key_context() {
         ConfigError::TypeMismatch { key, .. } if key == "server.port"
     ));
 
-    let error = ConfigError::from((
-        "server.port",
-        ValueError::Conversion(invalid_integer()),
-    ));
+    let error = ConfigError::from(("server.port", ValueError::Conversion(invalid_integer())));
     assert!(matches!(
         error,
         ConfigError::ConversionError {
@@ -144,10 +136,8 @@ fn test_value_error_requires_key_context() {
 
 #[test]
 fn test_keyed_value_error_keeps_source_index() {
-    let value_error = ValueError::ListConversion(DataListConversionError::new(
-        4,
-        invalid_integer(),
-    ));
+    let value_error =
+        ValueError::ListConversion(DataListConversionError::new(4, invalid_integer()));
     let error = ConfigError::from(("ports", value_error));
     assert!(matches!(
         error,

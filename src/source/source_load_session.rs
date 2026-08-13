@@ -32,26 +32,14 @@ impl SourceLoadBudget {
     /// Creates an unused budget from one source policy.
     fn new(limits: SourceLimits) -> Self {
         Self {
-            input_bytes: ResourceBudget::new(
-                SourceLimitKind::InputBytes,
-                limits.max_input_bytes(),
-            ),
+            input_bytes: ResourceBudget::new(SourceLimitKind::InputBytes, limits.max_input_bytes()),
             properties: ResourceBudget::new(
                 SourceLimitKind::PropertyCount,
                 limits.max_properties(),
             ),
-            nodes: ResourceBudget::new(
-                SourceLimitKind::NodeCount,
-                limits.max_nodes(),
-            ),
-            sources: ResourceBudget::new(
-                SourceLimitKind::SourceCount,
-                limits.max_sources(),
-            ),
-            depth: ResourceLimit::new(
-                SourceLimitKind::NestingDepth,
-                limits.max_nesting_depth(),
-            ),
+            nodes: ResourceBudget::new(SourceLimitKind::NodeCount, limits.max_nodes()),
+            sources: ResourceBudget::new(SourceLimitKind::SourceCount, limits.max_sources()),
+            depth: ResourceLimit::new(SourceLimitKind::NestingDepth, limits.max_nesting_depth()),
         }
     }
 }
@@ -110,9 +98,7 @@ impl<'a> SourceLoadSession<'a> {
         if self.ancestors.is_empty() {
             return match self.local.input_bytes.try_consume(amount) {
                 Ok(()) => Ok(()),
-                Err(source) => {
-                    Err(self.limit_error(self.source_id.clone(), source))
-                }
+                Err(source) => Err(self.limit_error(self.source_id.clone(), source)),
             };
         }
         let source_id = self.source_id.clone();
@@ -131,9 +117,7 @@ impl<'a> SourceLoadSession<'a> {
         if self.ancestors.is_empty() {
             return match self.local.properties.try_consume(amount) {
                 Ok(()) => Ok(()),
-                Err(source) => {
-                    Err(self.limit_error(self.source_id.clone(), source))
-                }
+                Err(source) => Err(self.limit_error(self.source_id.clone(), source)),
             };
         }
         let source_id = self.source_id.clone();
@@ -152,9 +136,7 @@ impl<'a> SourceLoadSession<'a> {
         if self.ancestors.is_empty() {
             return match self.local.nodes.try_consume(amount) {
                 Ok(()) => Ok(()),
-                Err(source) => {
-                    Err(self.limit_error(self.source_id.clone(), source))
-                }
+                Err(source) => Err(self.limit_error(self.source_id.clone(), source)),
             };
         }
         let source_id = self.source_id.clone();
@@ -173,9 +155,7 @@ impl<'a> SourceLoadSession<'a> {
         if self.ancestors.is_empty() {
             return match self.local.sources.try_consume(amount) {
                 Ok(()) => Ok(()),
-                Err(source) => {
-                    Err(self.limit_error(self.source_id.clone(), source))
-                }
+                Err(source) => Err(self.limit_error(self.source_id.clone(), source)),
             };
         }
         let source_id = self.source_id.clone();
@@ -192,9 +172,10 @@ impl<'a> SourceLoadSession<'a> {
     /// Checks a root-relative depth against every active budget scope.
     pub fn check_depth(&self, depth: usize) -> ConfigResult<()> {
         for (index, budget) in self.ancestors.iter().enumerate() {
-            budget.depth.check(depth).map_err(|source| {
-                self.limit_error(self.ancestor_ids[index].clone(), source)
-            })?;
+            budget
+                .depth
+                .check(depth)
+                .map_err(|source| self.limit_error(self.ancestor_ids[index].clone(), source))?;
         }
         self.local
             .depth
@@ -314,11 +295,7 @@ impl<'a> SourceLoadContext<'a> {
     }
 
     /// Sets one output property after validating and charging the assignment.
-    pub fn set<S>(
-        &mut self,
-        name: impl ConfigName,
-        values: S,
-    ) -> ConfigResult<()>
+    pub fn set<S>(&mut self, name: impl ConfigName, values: S) -> ConfigResult<()>
     where
         S: Into<ValueContainer>,
     {
@@ -350,10 +327,7 @@ impl<'a> SourceLoadContext<'a> {
     }
 
     /// Sets the default read policy on the source-owned layer.
-    pub fn set_default_read_policy(
-        &mut self,
-        policy: crate::options::ReadPolicy,
-    ) {
+    pub fn set_default_read_policy(&mut self, policy: crate::options::ReadPolicy) {
         self.layer.set_default_read_policy(policy);
     }
 
