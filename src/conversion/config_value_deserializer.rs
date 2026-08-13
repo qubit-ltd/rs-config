@@ -11,7 +11,6 @@ use qubit_datatype::ConversionSession;
 use qubit_datatype::DataConversionTarget;
 use qubit_datatype::DataConverter;
 use qubit_value::Value as QubitValue;
-use qubit_value::ValueRef;
 use serde::de;
 use serde::de::Visitor;
 use serde_json::Value;
@@ -143,26 +142,7 @@ where
     T: DataConversionTarget,
 {
     if precharged {
-        let result = match value.view() {
-            ValueRef::Bool(value) => {
-                session.delegate::<T>(&DataConverter::from(value))
-            }
-            ValueRef::Int64(value) => {
-                session.delegate::<T>(&DataConverter::from(value))
-            }
-            ValueRef::UInt64(value) => {
-                session.delegate::<T>(&DataConverter::from(value))
-            }
-            ValueRef::Float64(value) => {
-                session.delegate::<T>(&DataConverter::from(value))
-            }
-            ValueRef::String(value) => {
-                session.delegate::<T>(&DataConverter::from(value))
-            }
-            _ => unreachable!(
-                "config scalar conversion received a non-scalar value"
-            ),
-        };
+        let result = session.delegate::<T>(&DataConverter::from(&value));
         result.map_err(|error| {
             ConfigDeserializeError::from_config(ConfigError::from((
                 key,
