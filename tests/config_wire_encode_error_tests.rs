@@ -78,12 +78,16 @@ fn config_wire_encode_error_preserves_config_limit() {
 /// Verifies native JSON quantity failures remain distinct from budget limits.
 #[test]
 fn config_wire_encode_error_preserves_json_quantity_failure() {
-    let source = QuantityConversionError::new(QuantityMeasurement::Usize(usize::MAX), "u64");
-    let error =
-        ConfigWireEncodeError::from(JsonEncodeError::Budget(MeasuredBudgetError::Quantity {
+    let source = QuantityConversionError::new(
+        QuantityMeasurement::Usize(usize::MAX),
+        "u64",
+    );
+    let error = ConfigWireEncodeError::from(JsonEncodeError::Budget(
+        MeasuredBudgetError::Quantity {
             resource: JsonResource::OutputBytes,
             source,
-        }));
+        },
+    ));
 
     assert!(matches!(
         error,
