@@ -121,9 +121,8 @@ impl<'de> DeserializeSeed<'de> for ConfigWireSeed {
         D: Deserializer<'de>,
     {
         let fields = if self.account_decoded_value {
-            let mut budget = JsonValueBudget::new(
-                *self.limits.json_decode().value_limits(),
-            );
+            let mut budget =
+                JsonValueBudget::new(*self.limits.json_decode().value_limits());
             let value = BudgetedValueSeed::new(&mut budget)
                 .deserialize(deserializer)?;
             if let Err(error) = self.check_value(&value) {
