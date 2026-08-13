@@ -35,15 +35,18 @@ impl ConfigSource for InputAccountingSource {
         SourceLimits::default().with_max_input_bytes(5)
     }
 
-    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> qubit_config::ConfigResult<()> {
+    fn load_into(
+        &self,
+        context: &mut SourceLoadContext<'_>,
+    ) -> qubit_config::ConfigResult<()> {
         context.consume_input_bytes(self.amount)
     }
 }
 
 #[test]
 fn source_context_charges_local_and_aggregate_budgets_atomically() {
-    let mut composite =
-        CompositeConfigSource::new().with_limits(SourceLimits::default().with_max_input_bytes(3));
+    let mut composite = CompositeConfigSource::new()
+        .with_limits(SourceLimits::default().with_max_input_bytes(3));
     composite.add(InputAccountingSource { amount: 2 });
     composite.add(InputAccountingSource { amount: 2 });
 

@@ -38,7 +38,9 @@ impl ConfigWireSeed {
     }
 
     /// Creates a seed for input already admitted by a JSON decode session.
-    pub(in crate::config) const fn preaccounted(limits: ConfigWireLimits) -> Self {
+    pub(in crate::config) const fn preaccounted(
+        limits: ConfigWireLimits,
+    ) -> Self {
         Self {
             limits,
             account_decoded_value: false,
@@ -51,7 +53,8 @@ impl ConfigWireSeed {
         count: usize,
         keys: impl Iterator<Item = &'a str>,
     ) -> Result<(), ConfigWireDecodeError> {
-        let count = u64::try_from(count).expect("property count must fit in u64");
+        let count =
+            u64::try_from(count).expect("property count must fit in u64");
         self.limits
             .properties_limit()
             .check(count)
@@ -60,10 +63,13 @@ impl ConfigWireSeed {
                 value: error
                     .exact_observed()
                     .expect("point failure carries an exact value"),
-                maximum: error.maximum().expect("point failure carries a maximum"),
+                maximum: error
+                    .maximum()
+                    .expect("point failure carries a maximum"),
             })?;
         for key in keys {
-            let bytes = u64::try_from(key.len()).expect("property key length must fit in u64");
+            let bytes = u64::try_from(key.len())
+                .expect("property key length must fit in u64");
             self.limits
                 .property_key_bytes_limit()
                 .check(bytes)
@@ -72,7 +78,9 @@ impl ConfigWireSeed {
                     value: error
                         .exact_observed()
                         .expect("point failure carries an exact value"),
-                    maximum: error.maximum().expect("point failure carries a maximum"),
+                    maximum: error
+                        .maximum()
+                        .expect("point failure carries a maximum"),
                 })?;
         }
         Ok(())
@@ -87,11 +95,17 @@ impl ConfigWireSeed {
         else {
             return Ok(());
         };
-        self.check_properties(properties.len(), properties.keys().map(String::as_str))
+        self.check_properties(
+            properties.len(),
+            properties.keys().map(String::as_str),
+        )
     }
 
     /// Checks property dimensions on directly decoded wire fields.
-    fn check_fields(&self, fields: &ConfigWireFields) -> Result<(), ConfigWireDecodeError> {
+    fn check_fields(
+        &self,
+        fields: &ConfigWireFields,
+    ) -> Result<(), ConfigWireDecodeError> {
         self.check_properties(
             fields.properties.len(),
             fields.properties.keys().map(String::as_str),
@@ -107,8 +121,11 @@ impl<'de> DeserializeSeed<'de> for ConfigWireSeed {
         D: Deserializer<'de>,
     {
         let fields = if self.account_decoded_value {
-            let mut budget = JsonValueBudget::new(self.limits.json_decode().value_limits());
-            let value = BudgetedValueSeed::new(&mut budget).deserialize(deserializer)?;
+            let mut budget = JsonValueBudget::new(
+                *self.limits.json_decode().value_limits(),
+            );
+            let value = BudgetedValueSeed::new(&mut budget)
+                .deserialize(deserializer)?;
             if let Err(error) = self.check_value(&value) {
                 return Ok(Err(error));
             }
@@ -120,6 +137,7 @@ impl<'de> DeserializeSeed<'de> for ConfigWireSeed {
             }
             fields
         };
-        Ok(ConfigWire::from_fields(fields).map_err(ConfigWireDecodeError::InvalidConfig))
+        Ok(ConfigWire::from_fields(fields)
+            .map_err(ConfigWireDecodeError::InvalidConfig))
     }
 }

@@ -53,7 +53,10 @@ pub(crate) fn create_test_config_with_description() -> Config {
 }
 
 /// Changes the interpolation recursion limit while preserving other options.
-pub(crate) fn set_max_interpolation_depth(config: &mut Config, max_depth: usize) {
+pub(crate) fn set_max_interpolation_depth(
+    config: &mut Config,
+    max_depth: usize,
+) {
     let options = config
         .default_read_policy()
         .clone()
@@ -117,7 +120,8 @@ mod test_enhanced_errors {
     #[test]
     fn test_get_property_not_found_carries_key() {
         let config = Config::new();
-        let result: Result<String, _> = config.get("http.logging.body_size_limit");
+        let result: Result<String, _> =
+            config.get("http.logging.body_size_limit");
         assert!(result.is_err());
         match result.unwrap_err() {
             ConfigError::PropertyNotFound(key) => {
@@ -231,7 +235,10 @@ mod test_enhanced_errors {
         match ce {
             ConfigError::ConversionError { key, source, .. } => {
                 assert_eq!(key, "converted.value");
-                assert_eq!(source.kind(), DataConversionErrorKind::InvalidValue,);
+                assert_eq!(
+                    source.kind(),
+                    DataConversionErrorKind::InvalidValue,
+                );
             }
             _ => panic!("Expected ConversionError"),
         }
@@ -383,7 +390,9 @@ mod test_toml_type_faithful {
     #[test]
     fn test_toml_scalar_array_elements_count_toward_node_budget() {
         let source = TomlConfigSource::from_content("ports = [1, 2]\n")
-            .with_limits(qubit_config::source::SourceLimits::default().with_max_nodes(3));
+            .with_limits(
+                qubit_config::source::SourceLimits::default().with_max_nodes(3),
+            );
         assert!(matches!(
             source.load(),
             Err(ConfigError::SourceLimitExceeded { kind, .. })
@@ -550,7 +559,9 @@ mod test_yaml_type_faithful {
     #[test]
     fn test_yaml_scalar_sequence_elements_count_toward_node_budget() {
         let source = YamlConfigSource::from_content("ports: [1, 2]\n")
-            .with_limits(qubit_config::source::SourceLimits::default().with_max_nodes(3));
+            .with_limits(
+                qubit_config::source::SourceLimits::default().with_max_nodes(3),
+            );
         assert!(matches!(
             source.load(),
             Err(ConfigError::SourceLimitExceeded { kind, .. })
@@ -580,7 +591,11 @@ mod test_property_insertion_api {
         config
             .insert_property(
                 "direct",
-                Property::new("direct", MultiValues::String(vec!["hello".to_string()])).unwrap(),
+                Property::new(
+                    "direct",
+                    MultiValues::String(vec!["hello".to_string()]),
+                )
+                .unwrap(),
             )
             .unwrap();
         assert_eq!(config.get::<String>("direct").unwrap(), "hello");
@@ -597,8 +612,11 @@ mod test_property_insertion_api {
     #[test]
     fn test_insert_property_name_mismatch_returns_error() {
         let mut config = Config::new();
-        let property =
-            Property::new("actual.key", MultiValues::String(vec!["hello".to_string()])).unwrap();
+        let property = Property::new(
+            "actual.key",
+            MultiValues::String(vec!["hello".to_string()]),
+        )
+        .unwrap();
         let result = config.insert_property("expected.key", property);
         assert!(matches!(result, Err(ConfigError::MergeError(_))));
     }
@@ -611,7 +629,11 @@ mod test_property_insertion_api {
 
         let result = config.insert_property(
             "final.key",
-            Property::new("final.key", MultiValues::String(vec!["v2".to_string()])).unwrap(),
+            Property::new(
+                "final.key",
+                MultiValues::String(vec!["v2".to_string()]),
+            )
+            .unwrap(),
         );
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
     }
@@ -848,7 +870,8 @@ mod test_source_backed_constructors {
 
     #[test]
     fn test_from_properties_file_loads_properties_config() {
-        let config = Config::from_properties_file(fixture("basic.properties")).unwrap();
+        let config =
+            Config::from_properties_file(fixture("basic.properties")).unwrap();
 
         assert_eq!(config.get::<String>("host").unwrap(), "localhost");
         assert_eq!(config.get::<String>("app.version").unwrap(), "1.0.0");
@@ -912,7 +935,9 @@ mod test_source_backed_constructors {
             std::env::set_var("QOPTS_MY_KEY", "raw-value");
         }
 
-        let config = Config::from_env_options(EnvConfigOptions::new().prefix("QOPTS_")).unwrap();
+        let config =
+            Config::from_env_options(EnvConfigOptions::new().prefix("QOPTS_"))
+                .unwrap();
 
         assert_eq!(config.get::<String>("QOPTS_MY_KEY").unwrap(), "raw-value");
         assert!(!config.contains("my.key").unwrap());
