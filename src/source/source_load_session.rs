@@ -6,10 +6,12 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 //! Shared local and aggregate accounting for configuration source loading.
+// qubit-style: allow multiple-public-types
 
 use qubit_budget::BudgetError;
 use qubit_budget::ResourceBudget;
 use qubit_budget::ResourceLimit;
+use qubit_datatype::DataType;
 use qubit_value::ValueContainer;
 
 use super::SourceLimitKind;
@@ -334,7 +336,7 @@ impl<'a> SourceLoadContext<'a> {
     pub fn set_null(
         &mut self,
         name: impl ConfigName,
-        data_type: qubit_datatype::DataType,
+        data_type: DataType,
     ) -> ConfigResult<()> {
         name.with_config_name(|name| {
             self.session.check_depth(name.split('.').count())?;

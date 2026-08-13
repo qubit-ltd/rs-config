@@ -2,3 +2,5 @@ multiple-public-types | src/config/internal/config_wire_fields.rs | Wire fields 
 multiple-public-types | src/config_wire_limits.rs | Wire limit dimensions, limits, and decode errors form one bounded wire-format API.
 multiple-public-types | src/reader/read_policy.rs | Interpolation sources and the read policy are one cohesive reader-policy API.
 multiple-public-types | src/source/env_config_source.rs | Environment source options and the source implementation are intentionally co-located.
+multiple-public-types | src/source/config_source.rs | The source contract and its extension trait form one cohesive public loading API.
+multiple-public-types | src/source/source_load_session.rs | The public source context and its private accounting session share one transactional loading boundary.

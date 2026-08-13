@@ -15,6 +15,7 @@ mod internal;
 
 use std::collections::BTreeMap;
 
+use qubit_budget::MeasuredBudgetError;
 use qubit_budget::json::JsonDecodeSession;
 use qubit_budget::json::JsonEncodeSession;
 use qubit_budget::json::JsonResource;
@@ -466,13 +467,12 @@ fn map_decode_json_error(
 ) -> ConfigWireDecodeError {
     match error {
         JsonDecodeError::Budget(error) => match error {
-            qubit_budget::MeasuredBudgetError::Budget(error) => {
+            MeasuredBudgetError::Budget(error) => {
                 ConfigWireDecodeError::Budget(error)
             }
-            qubit_budget::MeasuredBudgetError::Quantity {
-                resource,
-                source,
-            } => ConfigWireDecodeError::Quantity { resource, source },
+            MeasuredBudgetError::Quantity { resource, source } => {
+                ConfigWireDecodeError::Quantity { resource, source }
+            }
         },
         JsonDecodeError::Syntax(error) => ConfigWireDecodeError::Syntax(error),
         JsonDecodeError::Deserialize(error) => {
@@ -487,13 +487,12 @@ fn map_encode_json_error(
 ) -> ConfigWireEncodeError {
     match error {
         JsonEncodeError::Budget(error) => match error {
-            qubit_budget::MeasuredBudgetError::Budget(error) => {
+            MeasuredBudgetError::Budget(error) => {
                 ConfigWireEncodeError::Budget(error)
             }
-            qubit_budget::MeasuredBudgetError::Quantity {
-                resource,
-                source,
-            } => ConfigWireEncodeError::Quantity { resource, source },
+            MeasuredBudgetError::Quantity { resource, source } => {
+                ConfigWireEncodeError::Quantity { resource, source }
+            }
         },
         JsonEncodeError::InvalidRawJson(error)
         | JsonEncodeError::Serialize(error) => {

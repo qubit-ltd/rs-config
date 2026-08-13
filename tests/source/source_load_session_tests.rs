@@ -6,6 +6,7 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+use qubit_config::ConfigResult;
 use qubit_config::source::CompositeConfigSource;
 use qubit_config::source::ConfigSource;
 use qubit_config::source::SourceLimits;
@@ -27,7 +28,7 @@ impl ConfigSource for ChildAccountingSource {
     fn load_into(
         &self,
         context: &mut SourceLoadContext<'_>,
-    ) -> qubit_config::ConfigResult<()> {
+    ) -> ConfigResult<()> {
         context.consume_input_bytes(self.amount)
     }
 }
