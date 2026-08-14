@@ -210,10 +210,11 @@ let enabled: bool = tls.get("enabled")?;
 ### 加载和合并 source
 
 每次调用 `ConfigSource::load` 都会生成独立 layer。自定义 source 实现
-`load_into(&mut SourceLoadContext)`，必须把 context 作为唯一输出入口；
-`ConfigSourceExt` 提供标准的 `load` 便捷方法。每次 assignment 应调用
-`context.set(...)`，外部输入和 parser 工作应在执行前通过对应 accounting 方法报告；
-框架无法从最终 layer 推断遗漏的外部 I/O 或 parser 工作。内置 source 包括：
+`load_into(&mut SourceLoadContext)`，必须把 context 作为唯一输出入口。
+默认的 `ConfigSource::load` 方法会通过标准预算和事务 layer 执行器加载 source。
+每次 assignment 应调用 `context.set(...)`，外部输入和 parser 工作应在执行前通过
+对应 accounting 方法报告；框架无法从最终 layer 推断遗漏的外部 I/O 或 parser 工作。
+内置 source 包括：
 
 - 始终可用的 `PropertiesConfigSource`，支持 `.properties` 文件或内存内容；
 - 始终可用的 `EnvConfigSource`，读取进程环境变量；

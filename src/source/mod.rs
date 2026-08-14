@@ -64,7 +64,6 @@ mod yaml_config_source;
 
 pub use composite_config_source::CompositeConfigSource;
 pub use config_source::ConfigSource;
-pub use config_source::ConfigSourceExt;
 pub use env_config_source::EnvConfigOptions;
 pub use env_config_source::EnvConfigSource;
 #[cfg(feature = "env-file")]
