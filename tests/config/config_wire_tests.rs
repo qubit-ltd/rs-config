@@ -343,9 +343,11 @@ fn test_config_wire_bounded_encode_rejects_final_output_bytes() {
             Err(ConfigWireEncodeError::Budget(BudgetError::Insufficient {
                 resource: JsonResource::OutputBytes,
                 limit,
-                remaining: 0,
-                requested: 1,
+                remaining,
+                requested,
             })) if *limit == maximum
+                && *remaining == maximum
+                && *requested == maximum + 1
         ),
         "unexpected encoding result: {result:?}"
     );
