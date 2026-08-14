@@ -7,6 +7,7 @@
 // =============================================================================
 //! Serde deserializer that applies configuration read conversion semantics.
 
+use qubit_datatype::AdmittedScalarItem;
 use qubit_datatype::ConversionSession;
 use qubit_datatype::DataConversionTarget;
 use qubit_datatype::DataConverter;
@@ -58,6 +59,17 @@ impl<'policy, 'session> ConfigValueDeserializer<'policy, 'session> {
         value: Value,
         key: String,
         options: &'policy ReadPolicy,
+        _admission: AdmittedScalarItem,
+        session: &'session mut ConversionSession<'policy>,
+    ) -> Self {
+        Self::new_precharged_value(value, key, options, session)
+    }
+
+    /// Creates a child deserializer that inherits a previous item admission.
+    fn new_precharged_value(
+        value: Value,
+        key: String,
+        options: &'policy ReadPolicy,
         session: &'session mut ConversionSession<'policy>,
     ) -> Self {
         Self {
@@ -72,12 +84,9 @@ impl<'policy, 'session> ConfigValueDeserializer<'policy, 'session> {
     /// Converts any scalar value into a string using config read semantics.
     fn scalar_to_string(self) -> Result<String, ConfigDeserializeError> {
         match self.value {
-            Value::String(value) => convert_string_value(
-                &self.key,
-                self.session,
-                &value,
-                self.precharged,
-            ),
+            Value::String(value) => {
+                convert_string_value(&self.key, self.session, &value, self.precharged)
+            }
             Value::Bool(value) => convert_scalar_value(
                 &self.key,
                 self.session,
@@ -90,16 +99,9 @@ impl<'policy, 'session> ConfigValueDeserializer<'policy, 'session> {
                 } else if let Some(value) = value.as_u64() {
                     QubitValue::UInt64(value)
                 } else {
-                    QubitValue::Float64(
-                        value.as_f64().expect("JSON numbers are finite"),
-                    )
+                    QubitValue::Float64(value.as_f64().expect("JSON numbers are finite"))
                 };
-                convert_scalar_value(
-                    &self.key,
-                    self.session,
-                    source,
-                    self.precharged,
-                )
+                convert_scalar_value(&self.key, self.session, source, self.precharged)
             }
             Value::Null => Err(de::Error::invalid_type(
                 de::Unexpected::Unit,
@@ -124,12 +126,19 @@ fn convert_string_value(
     value: &str,
     precharged: bool,
 ) -> Result<String, ConfigDeserializeError> {
-    convert_scalar_value(
-        key,
-        session,
-        QubitValue::String(value.to_string()),
-        precharged,
-    )
+    let source = DataConverter::from(value);
+    if precharged {
+        session.delegate::<String>(&source).map_err(|error| {
+            ConfigDeserializeError::from_config(ConfigError::from((key, ValueError::from(error))))
+        })
+    } else {
+        source.to_in::<String>(session).map_err(|error| {
+            ConfigDeserializeError::from_config(crate::utils::map_value_error(
+                key,
+                ValueError::from(error),
+            ))
+        })
+    }
 }
 
 /// Converts a scalar through either top-level or nested session accounting.
@@ -145,16 +154,11 @@ where
     if precharged {
         let result = session.delegate::<T>(&DataConverter::from(&value));
         result.map_err(|error| {
-            ConfigDeserializeError::from_config(ConfigError::from((
-                key,
-                ValueError::from(error),
-            )))
+            ConfigDeserializeError::from_config(ConfigError::from((key, ValueError::from(error))))
         })
     } else {
         value.to_in::<T>(session).map_err(|error| {
-            ConfigDeserializeError::from_config(crate::utils::map_value_error(
-                key, error,
-            ))
+            ConfigDeserializeError::from_config(crate::utils::map_value_error(key, error))
         })
     }
 }
@@ -166,12 +170,19 @@ fn convert_bool_value(
     value: &str,
     precharged: bool,
 ) -> Result<bool, ConfigDeserializeError> {
-    convert_scalar_value(
-        key,
-        session,
-        QubitValue::String(value.to_string()),
-        precharged,
-    )
+    let source = DataConverter::from(value);
+    if precharged {
+        session.delegate::<bool>(&source).map_err(|error| {
+            ConfigDeserializeError::from_config(ConfigError::from((key, ValueError::from(error))))
+        })
+    } else {
+        source.to_in::<bool>(session).map_err(|error| {
+            ConfigDeserializeError::from_config(crate::utils::map_value_error(
+                key,
+                ValueError::from(error),
+            ))
+        })
+    }
 }
 
 /// Converts a scalar string into a character using the shared conversion
@@ -182,12 +193,19 @@ fn convert_char_value(
     value: &str,
     precharged: bool,
 ) -> Result<char, ConfigDeserializeError> {
-    convert_scalar_value(
-        key,
-        session,
-        QubitValue::String(value.to_string()),
-        precharged,
-    )
+    let source = DataConverter::from(value);
+    if precharged {
+        session.delegate::<char>(&source).map_err(|error| {
+            ConfigDeserializeError::from_config(ConfigError::from((key, ValueError::from(error))))
+        })
+    } else {
+        source.to_in::<char>(session).map_err(|error| {
+            ConfigDeserializeError::from_config(crate::utils::map_value_error(
+                key,
+                ValueError::from(error),
+            ))
+        })
+    }
 }
 
 /// Converts a JSON number or string into the scalar text consumed by
@@ -199,9 +217,7 @@ fn number_scalar_text(
     match value {
         Value::Number(value) => Ok(value.to_string()),
         Value::String(value) => Ok(value),
-        other => {
-            Err(de::Error::invalid_type(unexpected_value(&other), &expected))
-        }
+        other => Err(de::Error::invalid_type(unexpected_value(&other), &expected)),
     }
 }
 
@@ -240,9 +256,7 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
                 } else if let Some(value) = value.as_u64() {
                     visitor.visit_u64(value)
                 } else {
-                    visitor.visit_f64(
-                        value.as_f64().expect("JSON numbers are finite"),
-                    )
+                    visitor.visit_f64(value.as_f64().expect("JSON numbers are finite"))
                 }
             }
             Value::String(value) => visitor.visit_string(convert_string_value(
@@ -343,10 +357,7 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
     }
 
     /// Deserializes bytes from a string.
-    fn deserialize_byte_buf<V>(
-        self,
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
+    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
@@ -361,19 +372,14 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
         match self.value {
             Value::Null => visitor.visit_none(),
             value => visitor.visit_some(if self.precharged {
-                ConfigValueDeserializer::new_precharged(
+                ConfigValueDeserializer::new_precharged_value(
                     value,
                     self.key,
                     self.options,
                     self.session,
                 )
             } else {
-                ConfigValueDeserializer::new(
-                    value,
-                    self.key,
-                    self.options,
-                    self.session,
-                )
+                ConfigValueDeserializer::new(value, self.key, self.options, self.session)
             }),
         }
     }
@@ -385,9 +391,7 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
     {
         match self.value {
             Value::Null => visitor.visit_unit(),
-            other => {
-                Err(de::Error::invalid_type(unexpected_value(&other), &"unit"))
-            }
+            other => Err(de::Error::invalid_type(unexpected_value(&other), &"unit")),
         }
     }
 
@@ -429,12 +433,7 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
                 self.session,
             )),
             Value::String(value) => {
-                let values = admit_scalar_items(
-                    &self.key,
-                    &value,
-                    self.options,
-                    self.session,
-                )?;
+                let values = admit_scalar_items(&self.key, &value, self.options, self.session)?;
                 visitor.visit_seq(ConfigScalarSeqAccess::new(
                     values,
                     self.key,
@@ -450,11 +449,7 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
     }
 
     /// Deserializes a tuple.
-    fn deserialize_tuple<V>(
-        self,
-        _len: usize,
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
+    fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
@@ -486,9 +481,7 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
                 self.options,
                 self.session,
             )),
-            other => {
-                Err(de::Error::invalid_type(unexpected_value(&other), &"a map"))
-            }
+            other => Err(de::Error::invalid_type(unexpected_value(&other), &"a map")),
         }
     }
 
@@ -517,12 +510,8 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
     {
         match self.value {
             Value::String(value) => {
-                let variant = convert_string_value(
-                    &self.key,
-                    self.session,
-                    &value,
-                    self.precharged,
-                )?;
+                let variant =
+                    convert_string_value(&self.key, self.session, &value, self.precharged)?;
                 visitor.visit_enum(ConfigEnumAccess::new(
                     variant,
                     None,
@@ -561,10 +550,7 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
     }
 
     /// Deserializes an identifier.
-    fn deserialize_identifier<V>(
-        self,
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
+    fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
@@ -572,10 +558,7 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
     }
 
     /// Deserializes ignored values.
-    fn deserialize_ignored_any<V>(
-        self,
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
+    fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {

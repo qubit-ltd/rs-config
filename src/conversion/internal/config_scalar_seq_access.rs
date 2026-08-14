@@ -11,6 +11,7 @@
 use qubit_datatype::ConversionSession;
 use qubit_datatype::DataConversionError;
 use qubit_datatype::DataType;
+use qubit_datatype::ScalarItem;
 use qubit_value::ValueError;
 use serde::de;
 use serde::de::SeqAccess;
@@ -21,10 +22,7 @@ use crate::config_value_deserializer::ConfigValueDeserializer;
 use crate::options::ReadPolicy;
 
 /// Sequence access for scalar strings admitted as collection input.
-pub(in crate::config_value_deserializer) struct ConfigScalarSeqAccess<
-    'policy,
-    'session,
-> {
+pub(in crate::config_value_deserializer) struct ConfigScalarSeqAccess<'policy, 'session> {
     values: std::vec::IntoIter<String>,
     key: String,
     index: usize,
@@ -54,10 +52,7 @@ impl<'de> SeqAccess<'de> for ConfigScalarSeqAccess<'_, '_> {
     type Error = ConfigDeserializeError;
 
     /// Deserializes the next retained item without charging its source again.
-    fn next_element_seed<T>(
-        &mut self,
-        seed: T,
-    ) -> Result<Option<T::Value>, Self::Error>
+    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
     where
         T: de::DeserializeSeed<'de>,
     {
@@ -67,20 +62,27 @@ impl<'de> SeqAccess<'de> for ConfigScalarSeqAccess<'_, '_> {
         let key = format!("{}[{}]", self.key, self.index);
         self.index += 1;
         let error_path = key.clone();
-        self.session.consume_item().map_err(|error| {
-            ConfigDeserializeError::from_config(ConfigError::from((
-                error_path.as_str(),
-                ValueError::from(DataConversionError::limit_exceeded(
-                    DataType::String,
-                    DataType::String,
-                    error,
-                )),
-            )))
-        })?;
+        let admitted = self
+            .session
+            .admit_scalar_item(ScalarItem {
+                source_index: self.index - 1,
+                value: &value,
+            })
+            .map_err(|error| {
+                ConfigDeserializeError::from_config(ConfigError::from((
+                    error_path.as_str(),
+                    ValueError::from(DataConversionError::limit_exceeded(
+                        DataType::String,
+                        DataType::String,
+                        error,
+                    )),
+                )))
+            })?;
         seed.deserialize(ConfigValueDeserializer::new_precharged(
             serde_json::Value::String(value),
             key,
             self.options,
+            admitted,
             &mut *self.session,
         ))
         .map_err(|error| error.with_path(error_path))
@@ -96,19 +98,7 @@ pub(in crate::config_value_deserializer) fn admit_scalar_items(
     session: &mut ConversionSession<'_>,
 ) -> Result<Vec<String>, ConfigDeserializeError> {
     session
-        .check_collection_source_bytes_usize(value.len())
-        .map_err(|error| {
-            ConfigDeserializeError::from_config(ConfigError::from((
-                key,
-                ValueError::from(DataConversionError::measured_limit(
-                    DataType::String,
-                    DataType::String,
-                    error,
-                )),
-            )))
-        })?;
-    session
-        .consume_input_bytes_usize(value.len())
+        .admit_scalar_source_bytes_usize(value.len())
         .map_err(|error| {
             ConfigDeserializeError::from_config(ConfigError::from((
                 key,
@@ -128,9 +118,7 @@ pub(in crate::config_value_deserializer) fn admit_scalar_items(
             item.map(|item| item.value.to_owned()).map_err(|error| {
                 ConfigDeserializeError::from_config(ConfigError::from((
                     key,
-                    ValueError::from(
-                        error.into_data_conversion_error(DataType::String),
-                    ),
+                    ValueError::from(error.into_data_conversion_error(DataType::String)),
                 )))
             })
         })
