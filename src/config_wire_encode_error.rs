@@ -12,6 +12,7 @@ use qubit_budget::MeasuredBudgetError;
 use qubit_budget::QuantityConversionError;
 use qubit_budget::json::JsonResource;
 use qubit_json::text::JsonEncodeError;
+use qubit_json::text::JsonSyntaxError;
 use qubit_value::ValueWireEncodeError;
 use thiserror::Error;
 
@@ -66,6 +67,10 @@ pub enum ConfigWireEncodeError {
         maximum: u64,
     },
 
+    /// The JSON adapter rejected invalid raw JSON syntax during serialization.
+    #[error("invalid configuration JSON syntax: {0}")]
+    Syntax(#[from] JsonSyntaxError),
+
     /// JSON serialization failed after bounded preflight validation.
     #[error("failed to encode configuration JSON wire output: {0}")]
     Json(#[from] serde_json::Error),
@@ -92,8 +97,8 @@ impl From<JsonEncodeError<JsonResource, u64>> for ConfigWireEncodeError {
                     Self::Quantity { resource, source }
                 }
             },
-            JsonEncodeError::InvalidRawJson(error)
-            | JsonEncodeError::Serialize(error) => Self::Json(error),
+            JsonEncodeError::InvalidRawJson(error) => Self::Syntax(error),
+            JsonEncodeError::Serialize(error) => Self::Json(error),
             JsonEncodeError::Write(error) => {
                 Self::Json(serde_json::Error::io(error))
             }

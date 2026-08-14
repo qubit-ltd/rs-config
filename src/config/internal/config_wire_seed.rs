@@ -8,7 +8,7 @@
 //! Budget-aware seed for persisted configuration wire values.
 
 use qubit_budget::json::JsonValueBudget;
-use qubit_json::tree::BudgetedValueSeed;
+use qubit_json::value::BudgetedJsonValueSeed;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::de::DeserializeSeed;
@@ -123,7 +123,7 @@ impl<'de> DeserializeSeed<'de> for ConfigWireSeed {
         let fields = if self.account_decoded_value {
             let mut budget =
                 JsonValueBudget::new(*self.limits.json_decode().value_limits());
-            let value = BudgetedValueSeed::new(&mut budget)
+            let value = BudgetedJsonValueSeed::new(&mut budget)
                 .deserialize(deserializer)?;
             if let Err(error) = self.check_value(&value) {
                 return Ok(Err(error));
