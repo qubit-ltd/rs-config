@@ -494,10 +494,10 @@ fn map_encode_json_error(
                 ConfigWireEncodeError::Quantity { resource, source }
             }
         },
-        JsonEncodeError::InvalidRawJson(error)
-        | JsonEncodeError::Serialize(error) => {
-            ConfigWireEncodeError::Json(error)
+        JsonEncodeError::InvalidRawJson(error) => {
+            ConfigWireEncodeError::Syntax(error)
         }
+        JsonEncodeError::Serialize(error) => ConfigWireEncodeError::Json(error),
         JsonEncodeError::Write(error) => {
             ConfigWireEncodeError::Json(serde_json::Error::io(error))
         }
