@@ -95,29 +95,30 @@ pub(in crate::config_value_deserializer) fn admit_scalar_items(
     options: &ReadPolicy,
     session: &mut ConversionSession<'_>,
 ) -> Result<Vec<String>, ConfigDeserializeError> {
-    let bytes = u64::try_from(value.len()).unwrap();
     session
-        .check_collection_source_bytes(bytes)
+        .check_collection_source_bytes_usize(value.len())
         .map_err(|error| {
             ConfigDeserializeError::from_config(ConfigError::from((
                 key,
-                ValueError::from(DataConversionError::limit_exceeded(
+                ValueError::from(DataConversionError::measured_limit(
                     DataType::String,
                     DataType::String,
                     error,
                 )),
             )))
         })?;
-    session.consume_input_bytes(bytes).map_err(|error| {
-        ConfigDeserializeError::from_config(ConfigError::from((
-            key,
-            ValueError::from(DataConversionError::limit_exceeded(
-                DataType::String,
-                DataType::String,
-                error,
-            )),
-        )))
-    })?;
+    session
+        .consume_input_bytes_usize(value.len())
+        .map_err(|error| {
+            ConfigDeserializeError::from_config(ConfigError::from((
+                key,
+                ValueError::from(DataConversionError::measured_limit(
+                    DataType::String,
+                    DataType::String,
+                    error,
+                )),
+            )))
+        })?;
 
     options
         .conversion_policy()
