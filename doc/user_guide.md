@@ -214,11 +214,12 @@ Path-sensitive methods such as `section`, `contains`, `get_property`, `is_unset`
 ### Load and merge sources
 
 Every `ConfigSource::load` call creates an independent layer. Custom sources implement
-`load_into(&mut SourceLoadContext)` and must use that context as their only output path;
-`ConfigSourceExt` provides the standard `load` convenience method. Call
-`context.set(...)` for assignments and report external input/parser work with the
-corresponding accounting methods before doing it. The framework cannot infer omitted
-external I/O or parser work from the finished layer. Built-in sources include:
+`load_into(&mut SourceLoadContext)` and must use that context as their only output path.
+The default `ConfigSource::load` method executes the source through the standard budget
+and transactional layer executor. Call `context.set(...)` for assignments and report
+external input/parser work with the corresponding accounting methods before doing it.
+The framework cannot infer omitted external I/O or parser work from the finished layer.
+Built-in sources include:
 
 - `PropertiesConfigSource`, always available, from `.properties` files or in-memory content;
 - `EnvConfigSource`, always available, from process environment variables;

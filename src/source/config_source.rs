@@ -28,22 +28,11 @@ pub trait ConfigSource {
     ) -> ConfigResult<()>;
 
     /// Loads one independent configuration layer through the standard
-    /// executor. Prefer importing [`ConfigSourceExt`] in new code.
+    /// budget and transactional executor.
     fn load(&self) -> ConfigResult<Config> {
         load_source(self)
     }
 }
-
-/// Convenience methods for executing a [`ConfigSource`] through the standard
-/// budget and transactional layer executor.
-pub trait ConfigSourceExt: ConfigSource {
-    /// Loads one independent configuration layer.
-    fn load(&self) -> ConfigResult<Config> {
-        ConfigSource::load(self)
-    }
-}
-
-impl<S> ConfigSourceExt for S where S: ConfigSource + ?Sized {}
 
 /// Executes a source with a fresh local budget and output layer.
 pub(crate) fn load_source<S>(source: &S) -> ConfigResult<Config>
