@@ -128,8 +128,8 @@ impl Config {
     ///
     /// # Errors
     ///
-    /// Returns [`crate::ConfigError::IoError`] if the file cannot be read,
-    /// [`crate::ConfigError::ParseError`] if the TOML cannot be parsed, or
+    /// Returns [`crate::ConfigError::SourceIoError`] if the file cannot be read,
+    /// [`crate::ConfigError::SourceParseError`] if the TOML cannot be parsed, or
     /// another [`crate::ConfigError`] if setting a loaded property fails.
     #[cfg(feature = "toml")]
     #[inline]
@@ -150,8 +150,8 @@ impl Config {
     ///
     /// # Errors
     ///
-    /// Returns [`crate::ConfigError::IoError`] if the file cannot be read,
-    /// [`crate::ConfigError::ParseError`] if the YAML cannot be parsed, or
+    /// Returns [`crate::ConfigError::SourceIoError`] if the file cannot be read,
+    /// [`crate::ConfigError::SourceParseError`] if the YAML cannot be parsed, or
     /// another [`crate::ConfigError`] if setting a loaded property fails.
     #[cfg(feature = "yaml")]
     #[inline]
@@ -172,7 +172,7 @@ impl Config {
     ///
     /// # Errors
     ///
-    /// Returns [`crate::ConfigError::IoError`] if the file cannot be read, or
+    /// Returns [`crate::ConfigError::SourceIoError`] if the file cannot be read, or
     /// another [`crate::ConfigError`] if setting a loaded property fails.
     #[inline]
     pub fn from_properties_file<P: AsRef<Path>>(path: P) -> ConfigResult<Self> {
@@ -192,8 +192,8 @@ impl Config {
     ///
     /// # Errors
     ///
-    /// Returns [`crate::ConfigError::IoError`] if the file cannot be read,
-    /// [`crate::ConfigError::ParseError`] if dotenv parsing fails, or another
+    /// Returns [`crate::ConfigError::SourceIoError`] if the file cannot be read,
+    /// [`crate::ConfigError::SourceParseError`] if dotenv parsing fails, or another
     /// [`crate::ConfigError`] if setting a loaded property fails.
     #[cfg(feature = "env-file")]
     #[inline]
