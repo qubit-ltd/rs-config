@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+// qubit-style: allow multiple-public-types
 //! Budget-aware seed for persisted configuration wire values.
 
 use qubit_budget::json::JsonValueBudget;
@@ -65,9 +66,7 @@ impl ConfigWireSeed {
                 value: error
                     .exact_observed()
                     .expect("point failure carries an exact value"),
-                maximum: error
-                    .maximum()
-                    .expect("point failure carries a maximum"),
+                maximum: error.maximum(),
             })?;
         for key in keys {
             let bytes = u64::try_from(key.len())
@@ -80,9 +79,7 @@ impl ConfigWireSeed {
                     value: error
                         .exact_observed()
                         .expect("point failure carries an exact value"),
-                    maximum: error
-                        .maximum()
-                        .expect("point failure carries a maximum"),
+                    maximum: error.maximum(),
                 })?;
         }
         Ok(())
@@ -120,9 +117,7 @@ impl PreaccountedConfigWireSeed {
                 value: error
                     .exact_observed()
                     .expect("point failure carries an exact value"),
-                maximum: error
-                    .maximum()
-                    .expect("point failure carries a maximum"),
+                maximum: error.maximum(),
             })?;
         for key in fields.properties.keys() {
             let bytes = u64::try_from(key.len())
@@ -135,9 +130,7 @@ impl PreaccountedConfigWireSeed {
                     value: error
                         .exact_observed()
                         .expect("point failure carries an exact value"),
-                    maximum: error
-                        .maximum()
-                        .expect("point failure carries a maximum"),
+                    maximum: error.maximum(),
                 })?;
         }
         Ok(())
