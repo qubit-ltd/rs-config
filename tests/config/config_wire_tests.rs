@@ -20,6 +20,7 @@ use qubit_config::options::ReadPolicy;
 use qubit_json::text::JsonSyntaxErrorReason;
 use qubit_value::ValueWireEncodeError;
 use serde_json::Value;
+use serde_json::error::Category;
 use serde_json::from_slice;
 use serde_json::from_str;
 use serde_json::from_value;
@@ -60,7 +61,7 @@ fn test_config_wire_serialization_is_versioned_and_deterministic() {
 
 /// Verifies persisted payloads written before the V1 envelope remain readable.
 #[test]
-fn test_config_wire_deserializes_legacy_unversioned_payload() {
+fn test_config_wire_deserializes_unversioned_payload() {
     let mut config = Config::new();
     config
         .set("server.port", 8080_u16)
@@ -176,7 +177,7 @@ fn test_bounded_decode_uses_custom_config_wire_domain_budget() {
 
 /// Verifies legacy runtime policy data is accepted but never applied.
 #[test]
-fn test_config_wire_ignores_legacy_read_options() {
+fn test_config_wire_ignores_unversioned_read_options() {
     let mut config = Config::new();
     config
         .set("server.port", "8080")
@@ -386,6 +387,23 @@ fn test_config_wire_bounded_decode_preflights_json_syntax() {
         ),
         "unexpected decoding result: {result:?}"
     );
+}
+
+/// Verifies typed JSON decoding exposes only safe Serde error metadata.
+#[test]
+fn test_config_wire_bounded_decode_preserves_json_error_metadata() {
+    let error =
+        Config::decode_json_slice(br#"{"version":true,"properties":{}}"#)
+            .expect_err("an invalid wire version type must be rejected");
+
+    assert!(matches!(
+        error,
+        ConfigWireDecodeError::Json {
+            category: Category::Data,
+            line: 1,
+            column: 15,
+        }
+    ));
 }
 
 /// Verifies configuration invariants are reported after runtime decoding.
