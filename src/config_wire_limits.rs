@@ -12,7 +12,6 @@
 use qubit_budget::BudgetError;
 use qubit_budget::QuantityConversionError;
 use qubit_budget::ResourceLimit;
-use qubit_budget::StructureLimits;
 use qubit_budget::json::JsonDecodeLimits;
 use qubit_budget::json::JsonEncodeLimits;
 use qubit_budget::json::JsonResource;
@@ -203,41 +202,15 @@ impl ConfigWireLimits {
 
     /// Builds the direction-independent JSON value profile.
     fn default_json_value_limits() -> JsonValueLimits<JsonResource, u64> {
-        let structure = StructureLimits::empty()
-            .with_depth_limit(ResourceLimit::new(
-                JsonResource::Depth,
-                Self::DEFAULT_MAX_DEPTH,
-            ))
-            .with_nodes_limit(ResourceLimit::new(
-                JsonResource::Nodes,
-                Self::DEFAULT_MAX_NODES,
-            ))
-            .with_sequence_items_limit(ResourceLimit::new(
-                JsonResource::SequenceItems,
-                Self::DEFAULT_MAX_SEQUENCE_ITEMS,
-            ))
-            .with_map_entries_limit(ResourceLimit::new(
-                JsonResource::MapEntries,
-                Self::DEFAULT_MAX_MAP_ENTRIES,
-            ))
-            .with_key_bytes_limit(ResourceLimit::new(
-                JsonResource::KeyBytes,
-                Self::DEFAULT_MAX_KEY_BYTES,
-            ));
-        JsonValueLimits::default()
-            .with_structure_limits(structure)
-            .with_string_bytes_limit(ResourceLimit::new(
-                JsonResource::StringBytes,
-                Self::DEFAULT_MAX_STRING_BYTES,
-            ))
-            .with_number_bytes_limit(ResourceLimit::new(
-                JsonResource::NumberBytes,
-                Self::DEFAULT_MAX_NUMBER_BYTES,
-            ))
-            .with_payload_bytes_limit(ResourceLimit::new(
-                JsonResource::PayloadBytes,
-                Self::DEFAULT_MAX_PAYLOAD_BYTES,
-            ))
+        JsonValueLimits::<JsonResource, u64>::unconfigured()
+            .with_max_depth(Self::DEFAULT_MAX_DEPTH)
+            .with_max_nodes(Self::DEFAULT_MAX_NODES)
+            .with_max_sequence_items(Self::DEFAULT_MAX_SEQUENCE_ITEMS)
+            .with_max_map_entries(Self::DEFAULT_MAX_MAP_ENTRIES)
+            .with_max_key_bytes(Self::DEFAULT_MAX_KEY_BYTES)
+            .with_max_string_bytes(Self::DEFAULT_MAX_STRING_BYTES)
+            .with_max_number_bytes(Self::DEFAULT_MAX_NUMBER_BYTES)
+            .with_max_payload_bytes(Self::DEFAULT_MAX_PAYLOAD_BYTES)
     }
 
     /// Builds the JSON decoding profile used by configuration wire input.
