@@ -113,7 +113,7 @@ impl<'a> SourceLoadSession<'a> {
             return match self.local.input_bytes.try_consume(amount) {
                 Ok(()) => Ok(()),
                 Err(source) => {
-                    Err(self.limit_error(self.source_id.clone(), source))
+                    Err(self.limit_error(self.source_id.clone(), source.into()))
                 }
             };
         }
@@ -134,7 +134,7 @@ impl<'a> SourceLoadSession<'a> {
             return match self.local.properties.try_consume(amount) {
                 Ok(()) => Ok(()),
                 Err(source) => {
-                    Err(self.limit_error(self.source_id.clone(), source))
+                    Err(self.limit_error(self.source_id.clone(), source.into()))
                 }
             };
         }
@@ -155,7 +155,7 @@ impl<'a> SourceLoadSession<'a> {
             return match self.local.nodes.try_consume(amount) {
                 Ok(()) => Ok(()),
                 Err(source) => {
-                    Err(self.limit_error(self.source_id.clone(), source))
+                    Err(self.limit_error(self.source_id.clone(), source.into()))
                 }
             };
         }
@@ -176,7 +176,7 @@ impl<'a> SourceLoadSession<'a> {
             return match self.local.sources.try_consume(amount) {
                 Ok(()) => Ok(()),
                 Err(source) => {
-                    Err(self.limit_error(self.source_id.clone(), source))
+                    Err(self.limit_error(self.source_id.clone(), source.into()))
                 }
             };
         }
@@ -195,13 +195,15 @@ impl<'a> SourceLoadSession<'a> {
     pub fn check_depth(&self, depth: usize) -> ConfigResult<()> {
         for (index, budget) in self.ancestors.iter().enumerate() {
             budget.depth.check(depth).map_err(|source| {
-                self.limit_error(self.ancestor_ids[index].clone(), source)
+                self.limit_error(
+                    self.ancestor_ids[index].clone(),
+                    source.into(),
+                )
             })?;
         }
-        self.local
-            .depth
-            .check(depth)
-            .map_err(|source| self.limit_error(self.source_id.clone(), source))
+        self.local.depth.check(depth).map_err(|source| {
+            self.limit_error(self.source_id.clone(), source.into())
+        })
     }
 
     /// Atomically consumes one cumulative resource across all scopes.
@@ -211,39 +213,27 @@ impl<'a> SourceLoadSession<'a> {
         mut budgets: Vec<&mut ResourceBudget<SourceLimitKind, usize>>,
         amount: usize,
     ) -> ConfigResult<()> {
-        ResourceBudget::try_consume_group(&mut budgets, amount).map_err(|error| {
-            let index = error.index();
-            let budget_id = ancestor_ids
-                .get(index)
-                .cloned()
-                .unwrap_or_else(|| source_id.to_string());
-            ConfigError::SourceLimitExceeded {
-                source_id: source_id.to_string(),
-                budget_id,
-                kind: *error.source_error().resource(),
-                limit: error
-                    .source_error()
-                    .limit()
-                    .expect("cumulative budget errors always carry a limit"),
-                observed_at_least: error
-                    .source_error()
-                    .limit()
-                    .expect("cumulative budget errors always carry a limit")
-                    .saturating_sub(
-                        error
-                            .source_error()
-                            .remaining()
-                            .expect("cumulative budget errors always carry remaining capacity"),
-                    )
-                    .saturating_add(
-                        error
-                            .source_error()
-                            .requested()
-                            .expect("cumulative budget errors always carry a request"),
-                    ),
-                source: error.into_source_error(),
-            }
-        })
+        ResourceBudget::try_consume_group(&mut budgets, amount).map_err(
+            |error| {
+                let index = error.index();
+                let budget_id = ancestor_ids
+                    .get(index)
+                    .cloned()
+                    .unwrap_or_else(|| source_id.to_string());
+                ConfigError::SourceLimitExceeded {
+                    source_id: source_id.to_string(),
+                    budget_id,
+                    kind: *error.source_error().resource(),
+                    limit: error.source_error().limit(),
+                    observed_at_least: error
+                        .source_error()
+                        .limit()
+                        .saturating_sub(error.source_error().remaining())
+                        .saturating_add(error.source_error().requested()),
+                    source: error.into_source_error().into(),
+                }
+            },
+        )
     }
 
     /// Wraps a point-limit failure with source and budget scope context.
