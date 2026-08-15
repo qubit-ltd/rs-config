@@ -17,5 +17,6 @@ pub(super) use config_serde_repr::ConfigSerdeRepr;
 pub(super) use config_wire::ConfigWire;
 pub(super) use config_wire_fields::ConfigWireFields;
 pub(super) use config_wire_seed::ConfigWireSeed;
+pub(super) use config_wire_seed::PreaccountedConfigWireSeed;
 pub(super) use config_wire_v1::ConfigWireV1;
 pub(super) use config_wire_v1_ref::ConfigWireV1Ref;

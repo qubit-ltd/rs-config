@@ -21,7 +21,7 @@ use qubit_budget::json::JsonEncodeSession;
 use qubit_budget::json::JsonResource;
 use qubit_json::text::JsonDecodeError;
 use qubit_json::text::JsonEncodeError;
-use qubit_json::text::decode_slice_seed;
+use qubit_json::text::decode_admitted_slice_seed;
 use qubit_json::text::encode_to_vec;
 use qubit_utils::Transient;
 use qubit_value::ValueWireRefV1;
@@ -33,9 +33,9 @@ use serde::de::Error as _;
 
 use self::internal::ConfigSerdeRepr;
 use self::internal::ConfigWire;
-use self::internal::ConfigWireSeed;
 use self::internal::ConfigWireV1;
 use self::internal::ConfigWireV1Ref;
+use self::internal::PreaccountedConfigWireSeed;
 use crate::ConfigError;
 use crate::ConfigWireDecodeError;
 use crate::ConfigWireEncodeError;
@@ -305,8 +305,8 @@ impl Config {
         limits: ConfigWireLimits,
     ) -> Result<Self, ConfigWireDecodeError> {
         let mut session = JsonDecodeSession::owned(limits.json_decode());
-        let wire = decode_slice_seed(
-            ConfigWireSeed::preaccounted(limits),
+        let wire = decode_admitted_slice_seed(
+            PreaccountedConfigWireSeed::preaccounted(limits),
             input,
             &mut session,
         )
