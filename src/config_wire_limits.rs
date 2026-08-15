@@ -16,8 +16,8 @@ use qubit_budget::json::JsonDecodeLimits;
 use qubit_budget::json::JsonEncodeLimits;
 use qubit_budget::json::JsonResource;
 use qubit_budget::json::JsonValueLimits;
-use qubit_json::text::JsonDeserializeError;
 use qubit_json::text::JsonSyntaxError;
+use serde_json::error::Category;
 use thiserror::Error;
 
 /// Resource categories specific to configuration wire envelopes.
@@ -281,9 +281,18 @@ pub enum ConfigWireDecodeError {
         /// Largest permitted resource value.
         maximum: u64,
     },
-    /// The JSON document is malformed or violates its Serde representation.
-    #[error("failed to decode configuration JSON wire input: {0}")]
-    Json(#[source] JsonDeserializeError),
+    /// The admitted JSON document violates its Serde representation.
+    #[error(
+        "failed to decode configuration JSON wire input ({category:?}) at line {line}, column {column}"
+    )]
+    Json {
+        /// Broad Serde failure category.
+        category: Category,
+        /// One-based line reported by Serde, or zero when unavailable.
+        line: usize,
+        /// One-based column reported by Serde, or zero when unavailable.
+        column: usize,
+    },
     /// A future JSON adapter failure that has no dedicated configuration
     /// error variant yet.
     #[error("configuration JSON adapter failure: {0}")]
