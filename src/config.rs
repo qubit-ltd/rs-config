@@ -21,8 +21,8 @@ use qubit_budget::json::JsonEncodeSession;
 use qubit_budget::json::JsonResource;
 use qubit_json::text::JsonDecodeError;
 use qubit_json::text::JsonEncodeError;
-use qubit_json::text::decode_admitted_slice_seed;
-use qubit_json::text::encode_to_vec;
+use qubit_json::text::JsonTextDecoder;
+use qubit_json::text::JsonTextEncoder;
 use qubit_utils::Transient;
 use qubit_value::ValueWireRefV1;
 use serde::Deserialize;
@@ -258,7 +258,8 @@ impl Config {
             let _ = ValueWireRefV1::try_from(property.value())?;
         }
         let mut session = JsonEncodeSession::owned(limits.json_encode());
-        encode_to_vec(&ConfigWireV1Ref::from(self), &mut session)
+        JsonTextEncoder::new(&mut session)
+            .to_vec(&ConfigWireV1Ref::from(self))
             .map_err(map_encode_json_error)
     }
 
@@ -305,12 +306,12 @@ impl Config {
         limits: ConfigWireLimits,
     ) -> Result<Self, ConfigWireDecodeError> {
         let mut session = JsonDecodeSession::owned(limits.json_decode());
-        let wire = decode_admitted_slice_seed(
-            PreaccountedConfigWireSeed::preaccounted(limits),
-            input,
-            &mut session,
-        )
-        .map_err(map_decode_json_error)??;
+        let wire = JsonTextDecoder::new(&mut session)
+            .decode_seed(
+                PreaccountedConfigWireSeed::preaccounted(limits),
+                input,
+            )
+            .map_err(map_decode_json_error)??;
         let config = Self::try_from(wire)
             .map_err(ConfigWireDecodeError::InvalidConfig)?;
         Ok(config)
@@ -471,9 +472,15 @@ fn map_decode_json_error(
             }
         },
         JsonDecodeError::Syntax(error) => ConfigWireDecodeError::Syntax(error),
-        JsonDecodeError::Deserialize(error) => {
-            ConfigWireDecodeError::Json(error)
-        }
+        JsonDecodeError::Deserialize {
+            category,
+            line,
+            column,
+        } => ConfigWireDecodeError::Json {
+            category,
+            line,
+            column,
+        },
     }
 }
 
