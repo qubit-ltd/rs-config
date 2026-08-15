@@ -202,7 +202,7 @@ impl ConfigWireLimits {
 
     /// Builds the direction-independent JSON value profile.
     fn default_json_value_limits() -> JsonValueLimits<JsonResource, u64> {
-        JsonValueLimits::<JsonResource, u64>::unconfigured()
+        JsonValueLimits::<JsonResource, u64>::new()
             .with_max_depth(Self::DEFAULT_MAX_DEPTH)
             .with_max_nodes(Self::DEFAULT_MAX_NODES)
             .with_max_sequence_items(Self::DEFAULT_MAX_SEQUENCE_ITEMS)
