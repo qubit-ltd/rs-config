@@ -331,9 +331,7 @@ impl Config {
                 value: error
                     .exact_observed()
                     .expect("point failure carries an exact value"),
-                maximum: error
-                    .maximum()
-                    .expect("point failure carries a maximum"),
+                maximum: error.maximum(),
             })?;
         for key in self.properties.keys() {
             let key_bytes = u64::try_from(key.len())
@@ -344,9 +342,7 @@ impl Config {
                     value: error
                         .exact_observed()
                         .expect("point failure carries an exact value"),
-                    maximum: error
-                        .maximum()
-                        .expect("point failure carries a maximum"),
+                    maximum: error.maximum(),
                 },
             )?;
         }

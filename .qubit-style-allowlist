@@ -1,4 +1,5 @@
 multiple-public-types | src/config/internal/config_wire_fields.rs | Wire fields and their version marker are private to the config wire decoder and must be deserialized together.
+multiple-public-types | src/config/internal/config_wire_seed.rs | Wire seed variants share one private decoding boundary and must be constructed together.
 multiple-public-types | src/config_wire_limits.rs | Wire limit dimensions, limits, and decode errors form one bounded wire-format API.
 multiple-public-types | src/reader/read_policy.rs | Interpolation sources and the read policy are one cohesive reader-policy API.
 multiple-public-types | src/source/env_config_source.rs | Environment source options and the source implementation are intentionally co-located.
