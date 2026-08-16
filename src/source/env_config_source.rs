@@ -31,7 +31,7 @@
 use std::collections::HashMap;
 use std::ffi::OsStr;
 
-use qubit_redact::env::EnvRedactor;
+use qubit_redact::formats::env::EnvRedactor;
 use qubit_redact::redacted_debug;
 
 use super::ConfigSource;

@@ -18,7 +18,7 @@ use qubit_config::source::ConfigSource;
 use qubit_config::source::EnvConfigOptions;
 use qubit_config::source::EnvConfigSource;
 use qubit_redact::RedactionCompletion;
-use qubit_redact::env::EnvRedactor;
+use qubit_redact::formats::env::EnvRedactor;
 
 /// Serializes tests that mutate or read process environment variables.
 fn env_test_lock() -> MutexGuard<'static, ()> {
