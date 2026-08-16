@@ -21,13 +21,13 @@ mod test_max_interpolation_depth {
 
     #[test]
     fn test_set_max_interpolation_depth_sets_value() {
-        let options = ReadPolicy::default().with_max_interpolation_depth(100);
+        let options = ReadPolicy::builder().max_interpolation_depth(100).build();
         assert_eq!(options.max_interpolation_depth(), 100);
     }
 
     #[test]
     fn test_set_max_interpolation_depth_sets_zero() {
-        let options = ReadPolicy::default().with_max_interpolation_depth(0);
+        let options = ReadPolicy::builder().max_interpolation_depth(0).build();
         assert_eq!(options.max_interpolation_depth(), 0);
     }
 }

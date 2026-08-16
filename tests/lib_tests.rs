@@ -28,7 +28,7 @@ fn crate_public_modules_are_reachable() {
     assert_from_config::<u16>();
     let _ = ReadPolicy::default();
     let _ = InterpolationSources::ConfigThenEnv;
-    let _ = EnvConfigOptions::new();
+    let _ = EnvConfigOptions::builder().build();
 }
 
 /// Verifies both README files use current and process-safe examples.

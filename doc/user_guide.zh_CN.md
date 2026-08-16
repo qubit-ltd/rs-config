@@ -66,7 +66,7 @@ server.timeout=30
 - 应用通过相对 section 读取 `server`；
 - 格式错误的值返回错误，而不是静默选择默认值。
 
-下面的示例先使用内存中的 `.properties` layer 以保证确定性，再加入进程环境变量 layer。`EnvConfigSource::with_prefix` 会选择 `APP_`，去除此前缀，将剩余部分转成小写，并把双下划线转换为点号，单个下划线保留。
+下面的示例先使用内存中的 `.properties` layer 以保证确定性，再加入进程环境变量 layer。`EnvConfigSource::from_prefix` 会选择 `APP_`，去除此前缀，将剩余部分转成小写，并把双下划线转换为点号，单个下划线保留。
 
 ```rust
 use qubit_config::{Config, ConfigReader};
@@ -79,7 +79,7 @@ fn load_server() -> Result<(String, u16, u64), Box<dyn std::error::Error>> {
     sources.add(PropertiesConfigSource::from_content(
         "server.host=localhost\nserver.port=8080\nserver.timeout=30\n",
     ));
-    sources.add(EnvConfigSource::with_prefix("APP_"));
+    sources.add(EnvConfigSource::from_prefix("APP_"));
 
     let mut config = Config::new();
     config.merge_properties_from_source(&sources)?;
@@ -362,16 +362,17 @@ assert_eq!(config.get_interpolated::<String>("url")?, "http://localhost");
 use qubit_config::{Config, ConfigReader};
 use qubit_config::options::{InterpolationSources, ReadPolicy};
 
-let policy = ReadPolicy::env_friendly()
-    .with_interpolation_sources(InterpolationSources::ConfigThenEnv);
-let config = Config::new().with_default_read_policy(policy);
+let policy = ReadPolicy::builder_from(&ReadPolicy::env_friendly())
+    .interpolation_sources(InterpolationSources::ConfigThenEnv)
+    .build();
+let config = Config::builder().default_read_policy(policy).build();
 ```
 
 能够选择环境变量名称的配置应被视为受信任输入。插值还具备递归深度、展开次数和输出大小限制；超限会返回结构化 `ConfigError` 类别。
 
 ### 规范化环境变量 key
 
-`EnvConfigSource::with_prefix("APP_")` 依次执行：
+`EnvConfigSource::from_prefix("APP_")` 依次执行：
 
 1. 选择以 `APP_` 开头的名称；
 2. 去除前缀；
@@ -395,7 +396,7 @@ TOML 和 YAML source 会把 mapping 展开成点分隔 property，只接受标�
 | 嵌套深度 | 64 |
 
 所有内置 source 的文件入口和内存入口使用同一套 session API。
-`CompositeConfigSource::with_limits` 会在每个子 source 的局部策略之外增加共享聚合
+`CompositeConfigSource::builder().limits(...).build()` 会在每个子 source 的局部策略之外增加共享聚合
 策略；只有所有适用预算都接受一次累计 charge 后才会统一扣减。TOML 和 YAML 的节点、
 property 与深度检查发生在 AST 已经构建之后，不能限制 parser 自身的内存或递归。
 `SourceLimits::unbounded()` 会关闭所有 source 维度；只有应用完全控制输入边界时才应使用。

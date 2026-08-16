@@ -22,21 +22,19 @@ impl ConfigSource for ChildAccountingSource {
     }
 
     fn limits(&self) -> SourceLimits {
-        SourceLimits::default().with_max_input_bytes(5)
+        SourceLimits::builder().max_input_bytes(5).build()
     }
 
-    fn load_into(
-        &self,
-        context: &mut SourceLoadContext<'_>,
-    ) -> ConfigResult<()> {
+    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
         context.consume_input_bytes(self.amount)
     }
 }
 
 #[test]
 fn source_load_session_charges_local_and_ancestor_budgets_atomically() {
-    let mut aggregate = CompositeConfigSource::new()
-        .with_limits(SourceLimits::default().with_max_input_bytes(3));
+    let mut aggregate = CompositeConfigSource::builder()
+        .limits(SourceLimits::builder().max_input_bytes(3).build())
+        .build();
     aggregate.add(ChildAccountingSource { amount: 2 });
     aggregate.add(ChildAccountingSource { amount: 2 });
     let error = aggregate

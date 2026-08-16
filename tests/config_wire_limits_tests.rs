@@ -31,9 +31,12 @@ fn config_wire_limits_preserve_configured_shared_budget() {
         .value_limits(value)
         .build();
     let encode = JsonEncodeLimits::builder().value_limits(value).build();
-    let limits = ConfigWireLimits::from_json(decode, encode)
-        .with_max_properties(7)
-        .with_max_property_key_bytes(8);
+    let limits = ConfigWireLimits::builder()
+        .json_decode(decode)
+        .json_encode(encode)
+        .max_properties(7)
+        .max_property_key_bytes(8)
+        .build();
 
     assert_eq!(limits.json_decode(), decode);
     assert_eq!(limits.json_encode(), encode);
