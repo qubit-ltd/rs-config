@@ -16,7 +16,7 @@ use qubit_budget::QuantityMeasurement;
 use qubit_budget::json::JsonResource;
 use qubit_config::ConfigWireEncodeError;
 use qubit_config::ConfigWireLimitKind;
-use qubit_json::text::JsonEncodeError;
+use qubit_json::encode::JsonEncodeError;
 
 /// Verifies shared budget errors are exposed without a lossy conversion.
 #[test]
