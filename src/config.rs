@@ -313,10 +313,11 @@ impl Config {
         limits: ConfigWireLimits,
     ) -> Result<Self, ConfigWireDecodeError> {
         let mut session = JsonDecodeSession::owned(limits.json_decode());
-        let wire = JsonDecoder::new(&mut session)
-            .decode_seed(
+        let wire = JsonDecoder::default()
+            .decode_seed_utf8(
                 PreaccountedConfigWireSeed::preaccounted(limits),
                 input,
+                &mut session,
             )
             .map_err(map_decode_json_error)??;
         let config = Self::try_from(wire)
