@@ -227,8 +227,7 @@ impl<'a> SourceLoadSession<'a> {
                     limit: error.source_error().limit(),
                     observed_at_least: error
                         .source_error()
-                        .limit()
-                        .saturating_sub(error.source_error().remaining())
+                        .used()
                         .saturating_add(error.source_error().requested()),
                     source: error.into_source_error().into(),
                 }
@@ -242,18 +241,12 @@ impl<'a> SourceLoadSession<'a> {
         budget_id: String,
         source: BudgetError<SourceLimitKind, usize>,
     ) -> ConfigError {
-        let limit = source
-            .maximum()
-            .or(source.limit())
-            .expect("source budget errors always carry a limit");
+        let limit = source.configured_limit();
         let observed_at_least = source.observed_lower_bound().or_else(|| {
             Some(
-                limit
-                    .saturating_sub(
-                        source
-                            .remaining()
-                            .expect("cumulative budget errors carry remaining"),
-                    )
+                source
+                    .used()
+                    .expect("cumulative budget errors carry usage")
                     .saturating_add(
                         source
                             .requested()

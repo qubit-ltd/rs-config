@@ -19,7 +19,7 @@ use qubit_config::ConfigWireLimits;
 #[test]
 fn config_wire_limits_preserve_configured_shared_budget() {
     let value = JsonValueLimits::default().with_structure_limits(
-        StructureLimits::empty()
+        StructureLimits::<StructureResource, usize>::new()
             .with_depth_limit(ResourceLimit::new(JsonResource::Depth, 9))
             .with_nodes_limit(ResourceLimit::new(JsonResource::Nodes, 456)),
     );
