@@ -36,7 +36,10 @@ impl ConfigSource for InputAccountingSource {
         SourceLimits::builder().max_input_bytes(5).build()
     }
 
-    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
+    fn load_into(
+        &self,
+        context: &mut SourceLoadContext<'_>,
+    ) -> ConfigResult<()> {
         context.consume_input_bytes(self.amount)
     }
 }

@@ -220,7 +220,9 @@ fn test_get_string_uses_environment_fallback() {
         std::env::set_var("QUBIT_CONFIG_TEST_ENV_VAR", "test_value");
     }
     let mut config = Config::new();
-    config.set_default_read_policy(crate::with_environment_fallback(ReadPolicy::default()));
+    config.set_default_read_policy(crate::with_environment_fallback(
+        ReadPolicy::default(),
+    ));
     config
         .set("value", "Value: ${QUBIT_CONFIG_TEST_ENV_VAR}")
         .unwrap();
@@ -343,7 +345,9 @@ fn test_get_string_uses_config_and_environment_sources() {
         std::env::set_var("QUBIT_CONFIG_TEST_ENV_SOURCE", "from_env");
     }
     let mut config = Config::new();
-    config.set_default_read_policy(crate::with_environment_fallback(ReadPolicy::default()));
+    config.set_default_read_policy(crate::with_environment_fallback(
+        ReadPolicy::default(),
+    ));
     config.set("CONFIG_SOURCE", "from_config").unwrap();
     config
         .set(
@@ -366,7 +370,9 @@ fn test_get_string_config_value_has_priority_over_environment() {
         std::env::set_var("QUBIT_CONFIG_TEST_SHARED_VAR", "from_env");
     }
     let mut config = Config::new();
-    config.set_default_read_policy(crate::with_environment_fallback(ReadPolicy::default()));
+    config.set_default_read_policy(crate::with_environment_fallback(
+        ReadPolicy::default(),
+    ));
     config
         .set("QUBIT_CONFIG_TEST_SHARED_VAR", "from_config")
         .unwrap();
@@ -388,7 +394,9 @@ fn test_get_string_converts_config_value_instead_of_environment() {
         std::env::set_var("QUBIT_CONFIG_TEST_STRICT_VAR", "from_env");
     }
     let mut config = Config::new();
-    config.set_default_read_policy(crate::with_environment_fallback(ReadPolicy::default()));
+    config.set_default_read_policy(crate::with_environment_fallback(
+        ReadPolicy::default(),
+    ));
     config.set("QUBIT_CONFIG_TEST_STRICT_VAR", 8080i32).unwrap();
     config
         .set("value", "${QUBIT_CONFIG_TEST_STRICT_VAR}")
@@ -405,7 +413,9 @@ fn test_get_string_converts_config_value_instead_of_environment() {
 #[test]
 fn test_get_string_environment_fallback_reports_missing_env_var() {
     let mut config = Config::new();
-    config.set_default_read_policy(crate::with_environment_fallback(ReadPolicy::default()));
+    config.set_default_read_policy(crate::with_environment_fallback(
+        ReadPolicy::default(),
+    ));
     config
         .set("value", "${QUBIT_CONFIG_TEST_ENV_MISSING_FOR_FALLBACK}")
         .unwrap();
