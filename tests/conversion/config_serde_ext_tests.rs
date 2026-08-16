@@ -132,8 +132,9 @@ fn test_deserialize_matches_config_inherent_method() {
     let inherent: ServerSettings = config
         .deserialize("server")
         .expect("inherent method should deserialize");
-    let extension: ServerSettings = ConfigSerdeExt::deserialize(&config, "server")
-        .expect("extension method should deserialize");
+    let extension: ServerSettings =
+        ConfigSerdeExt::deserialize(&config, "server")
+            .expect("extension method should deserialize");
 
     assert_eq!(extension, inherent);
 }
@@ -360,7 +361,8 @@ fn test_deserialize_lenient_explicitly_ignores_unknown_properties() {
 }
 
 #[test]
-fn test_deserialize_strict_supports_serde_alias_default_nested_map_and_flatten() {
+fn test_deserialize_strict_supports_serde_alias_default_nested_map_and_flatten()
+{
     let mut config = Config::new();
     config.set("retry.attempts", 5_u32).unwrap();
     config.set("nested.retry.attempts", 5_u32).unwrap();
@@ -411,7 +413,9 @@ fn test_serde_materialization_shares_one_conversion_operation_limit() {
         .build();
     let mut config = Config::new();
     config
-        .set_default_read_policy(ReadPolicy::builder().conversion_limits(limits).build())
+        .set_default_read_policy(
+            ReadPolicy::builder().conversion_limits(limits).build(),
+        )
         .set("first", "aa")
         .expect("first value should be stored");
     config
@@ -445,10 +449,10 @@ fn test_scalar_string_sequence_charges_source_and_items_once() {
         .set("ports", "8080, 8081")
         .expect("ports should be stored");
 
-    let ports: Vec<u16> = config
-        .read_with(&policy)
-        .deserialize("ports")
-        .expect("a scalar list should fit exactly within input and item limits");
+    let ports: Vec<u16> =
+        config.read_with(&policy).deserialize("ports").expect(
+            "a scalar list should fit exactly within input and item limits",
+        );
 
     assert_eq!(ports, vec![8080, 8081]);
 }
@@ -476,7 +480,9 @@ fn test_scalar_boolean_and_number_to_string_charge_output() {
     let error = config
         .read_with(&policy)
         .deserialize::<ScalarStringSettings>("")
-        .expect_err("scalar boolean and number conversions must charge output bytes");
+        .expect_err(
+            "scalar boolean and number conversions must charge output bytes",
+        );
 
     assert!(error.to_string().contains("OutputBytes"));
 }

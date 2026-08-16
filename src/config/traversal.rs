@@ -17,7 +17,7 @@ use crate::config_path::ensure_config_path;
 
 impl Config {
     // ========================================================================
-    // Prefix Traversal and Sub-tree Extraction (v0.4.0)
+    // Prefix Traversal and Sub-tree Extraction (v0.3.0)
     // ========================================================================
 
     /// Iterates over all configuration entries as `(key, &Property)` pairs.

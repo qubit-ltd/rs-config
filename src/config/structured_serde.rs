@@ -16,7 +16,7 @@ use crate::config_serde_ext::ConfigSerdeExt;
 
 impl Config {
     // ========================================================================
-    // Structured Config Deserialization (v0.4.0)
+    // Structured Config Deserialization (v0.3.0)
     // ========================================================================
 
     /// Deserializes the subtree at `prefix` through the configuration Serde

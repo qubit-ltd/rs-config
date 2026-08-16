@@ -376,7 +376,9 @@ impl EnvConfigSource {
             let pair = EnvRedactor::default().redact_os_pair(key, value);
             ConfigError::source_parse_error(
                 "process environment",
-                format!("Environment variable value is not valid Unicode: {pair}",),
+                format!(
+                    "Environment variable value is not valid Unicode: {pair}",
+                ),
             )
         })
     }
@@ -441,7 +443,10 @@ impl ConfigSource for EnvConfigSource {
         self.limits
     }
 
-    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
+    fn load_into(
+        &self,
+        context: &mut SourceLoadContext<'_>,
+    ) -> ConfigResult<()> {
         let mut config = Config::new();
         let session = context.session_mut();
         let mut normalized_keys = HashMap::new();
@@ -456,10 +461,14 @@ impl ConfigSource for EnvConfigSource {
 
             let key = Self::env_key_to_string(&key_os, &value_os)?;
             let value = Self::env_value_to_string(&key_os, &value_os)?;
-            session.consume_input_bytes(key.len().saturating_add(value.len()))?;
+            session
+                .consume_input_bytes(key.len().saturating_add(value.len()))?;
             let transformed_key = self.transform_key(&key);
-            if self.options.strip_prefix || self.options.double_underscores_to_dots {
-                utils::validate_normalized_config_key(&transformed_key, &key).map_err(|error| {
+            if self.options.strip_prefix
+                || self.options.double_underscores_to_dots
+            {
+                utils::validate_normalized_config_key(&transformed_key, &key)
+                    .map_err(|error| {
                     error.with_source_context(
                         "process environment",
                         Some(transformed_key.clone()),
@@ -468,7 +477,8 @@ impl ConfigSource for EnvConfigSource {
                 })?;
             }
             if self.can_collapse_distinct_keys()
-                && let Some(existing) = normalized_keys.insert(transformed_key.clone(), key.clone())
+                && let Some(existing) =
+                    normalized_keys.insert(transformed_key.clone(), key.clone())
             {
                 let (first, second) = if existing.as_str() <= key.as_str() {
                     (&existing, &key)
@@ -482,13 +492,15 @@ impl ConfigSource for EnvConfigSource {
                     incoming: format!("environment variable '{second}'"),
                 });
             }
-            let _ = ConfigKey::parse(transformed_key.as_str()).map_err(|error| {
-                error.with_source_context(
-                    "process environment",
-                    Some(transformed_key.clone()),
-                    None,
-                )
-            })?;
+            let _ = ConfigKey::parse(transformed_key.as_str()).map_err(
+                |error| {
+                    error.with_source_context(
+                        "process environment",
+                        Some(transformed_key.clone()),
+                        None,
+                    )
+                },
+            )?;
             session.check_depth(transformed_key.split('.').count())?;
             session.consume_nodes(1)?;
             session.consume_properties(1)?;

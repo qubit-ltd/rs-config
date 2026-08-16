@@ -88,7 +88,8 @@ fn test_deserialize_config_error_preserves_kind_and_leaf_path() {
     config
         .insert_property(
             "app.value",
-            Property::new("app.value", Value::Json(serde_json::json!(" "))).unwrap(),
+            Property::new("app.value", Value::Json(serde_json::json!(" ")))
+                .unwrap(),
         )
         .expect("inserting property should succeed");
 
