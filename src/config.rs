@@ -8,6 +8,7 @@
 //! # Configuration Manager
 //!
 //! Provides storage, retrieval, and management of configurations.
+// qubit-style: allow multiple-public-types
 
 #![allow(private_bounds)]
 
@@ -118,8 +119,7 @@ impl PartialEq for Config {
     /// Compares only the persisted configuration data.
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.description == other.description
-            && self.properties == other.properties
+        self.description == other.description && self.properties == other.properties
     }
 }
 
@@ -192,10 +192,7 @@ impl TryFrom<ConfigWireV1> for Config {
                 value.version,
             ));
         }
-        Self::from_wire_parts(
-            value.description,
-            value.properties.into_iter().collect(),
-        )
+        Self::from_wire_parts(value.description, value.properties.into_iter().collect())
     }
 }
 
@@ -216,6 +213,12 @@ impl TryFrom<ConfigWire> for Config {
 }
 
 impl Config {
+    /// Creates a builder initialized with an empty configuration.
+    #[inline]
+    pub fn builder() -> ConfigBuilder {
+        ConfigBuilder::new()
+    }
+
     /// Encodes this configuration as a V1 JSON wire document with the
     /// configuration crate's default JSON budget profile.
     ///
@@ -279,9 +282,7 @@ impl Config {
     /// Returns a shared budget, JSON, or configuration-invariant error.
     /// Unlike ordinary [`Deserialize`], this API also admits the original JSON
     /// slice against its raw-input limit.
-    pub fn decode_json_slice(
-        input: &[u8],
-    ) -> Result<Self, ConfigWireDecodeError> {
+    pub fn decode_json_slice(input: &[u8]) -> Result<Self, ConfigWireDecodeError> {
         Self::decode_json_slice_with_limits(input, ConfigWireLimits::default())
     }
 
@@ -307,13 +308,9 @@ impl Config {
     ) -> Result<Self, ConfigWireDecodeError> {
         let mut session = JsonDecodeSession::owned(limits.json_decode());
         let wire = JsonTextDecoder::new(&mut session)
-            .decode_seed(
-                PreaccountedConfigWireSeed::preaccounted(limits),
-                input,
-            )
+            .decode_seed(PreaccountedConfigWireSeed::preaccounted(limits), input)
             .map_err(map_decode_json_error)??;
-        let config = Self::try_from(wire)
-            .map_err(ConfigWireDecodeError::InvalidConfig)?;
+        let config = Self::try_from(wire).map_err(ConfigWireDecodeError::InvalidConfig)?;
         Ok(config)
     }
 
@@ -322,8 +319,8 @@ impl Config {
         &self,
         limits: ConfigWireLimits,
     ) -> Result<(), ConfigWireEncodeError> {
-        let property_count = u64::try_from(self.properties.len())
-            .expect("property count must fit in u64");
+        let property_count =
+            u64::try_from(self.properties.len()).expect("property count must fit in u64");
         limits
             .properties_limit()
             .check(property_count)
@@ -335,17 +332,17 @@ impl Config {
                 maximum: error.maximum(),
             })?;
         for key in self.properties.keys() {
-            let key_bytes = u64::try_from(key.len())
-                .expect("property key length must fit in u64");
-            limits.property_key_bytes_limit().check(key_bytes).map_err(
-                |error| ConfigWireEncodeError::LimitExceeded {
+            let key_bytes = u64::try_from(key.len()).expect("property key length must fit in u64");
+            limits
+                .property_key_bytes_limit()
+                .check(key_bytes)
+                .map_err(|error| ConfigWireEncodeError::LimitExceeded {
                     kind: ConfigWireLimitKind::PropertyKeyBytes,
                     value: error
                         .exact_observed()
                         .expect("point failure carries an exact value"),
                     maximum: error.maximum(),
-                },
-            )?;
+                })?;
         }
         Ok(())
     }
@@ -402,38 +399,56 @@ impl Config {
     /// ```
     #[inline]
     pub fn new() -> Self {
+        Self::builder().build()
+    }
+}
+
+/// Builder for [`Config`].
+#[must_use]
+#[derive(Debug, Clone)]
+pub struct ConfigBuilder {
+    description: Option<String>,
+    default_read_policy: ReadPolicy,
+}
+
+impl ConfigBuilder {
+    /// Creates a builder initialized with an empty configuration.
+    #[inline]
+    pub fn new() -> Self {
         Self {
             description: None,
-            properties: BTreeMap::new(),
-            default_read_policy: Transient::new(ReadPolicy::default()),
+            default_read_policy: ReadPolicy::default(),
         }
     }
 
-    /// Creates a configuration with description
-    ///
-    /// # Parameters
-    ///
-    /// * `description` - Configuration description
-    ///
-    /// # Returns
-    ///
-    /// Returns a new configuration instance
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use qubit_config::Config;
-    ///
-    /// let config = Config::with_description("Server Configuration");
-    /// assert_eq!(config.description(), Some("Server Configuration"));
-    /// ```
+    /// Sets the configuration description.
     #[inline]
-    pub fn with_description(description: &str) -> Self {
-        Self {
-            description: Some(description.to_string()),
+    pub fn description(mut self, description: &str) -> Self {
+        self.description = Some(description.to_string());
+        self
+    }
+
+    /// Sets the default runtime read policy.
+    #[inline]
+    pub fn default_read_policy(mut self, policy: ReadPolicy) -> Self {
+        self.default_read_policy = policy;
+        self
+    }
+
+    /// Builds the configured empty configuration.
+    #[inline]
+    pub fn build(self) -> Config {
+        Config {
+            description: self.description,
             properties: BTreeMap::new(),
-            default_read_policy: Transient::new(ReadPolicy::default()),
+            default_read_policy: Transient::new(self.default_read_policy),
         }
+    }
+}
+
+impl Default for ConfigBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -459,14 +474,10 @@ impl Default for Config {
 }
 
 /// Maps a budget-aware JSON decode failure to the configuration wire error.
-fn map_decode_json_error(
-    error: JsonDecodeError<JsonResource, u64>,
-) -> ConfigWireDecodeError {
+fn map_decode_json_error(error: JsonDecodeError<JsonResource, u64>) -> ConfigWireDecodeError {
     match error {
         JsonDecodeError::Budget(error) => match error {
-            MeasuredBudgetError::Budget(error) => {
-                ConfigWireDecodeError::Budget(error)
-            }
+            MeasuredBudgetError::Budget(error) => ConfigWireDecodeError::Budget(error),
             MeasuredBudgetError::Quantity { resource, source } => {
                 ConfigWireDecodeError::Quantity { resource, source }
             }
@@ -485,24 +496,16 @@ fn map_decode_json_error(
 }
 
 /// Maps a budget-aware JSON encode failure to the configuration wire error.
-fn map_encode_json_error(
-    error: JsonEncodeError<JsonResource, u64>,
-) -> ConfigWireEncodeError {
+fn map_encode_json_error(error: JsonEncodeError<JsonResource, u64>) -> ConfigWireEncodeError {
     match error {
         JsonEncodeError::Budget(error) => match error {
-            MeasuredBudgetError::Budget(error) => {
-                ConfigWireEncodeError::Budget(error)
-            }
+            MeasuredBudgetError::Budget(error) => ConfigWireEncodeError::Budget(error),
             MeasuredBudgetError::Quantity { resource, source } => {
                 ConfigWireEncodeError::Quantity { resource, source }
             }
         },
-        JsonEncodeError::InvalidRawJson(error) => {
-            ConfigWireEncodeError::Syntax(error)
-        }
+        JsonEncodeError::InvalidRawJson(error) => ConfigWireEncodeError::Syntax(error),
         JsonEncodeError::Serialize(error) => ConfigWireEncodeError::Json(error),
-        JsonEncodeError::Write(error) => {
-            ConfigWireEncodeError::Json(serde_json::Error::io(error))
-        }
+        JsonEncodeError::Write(error) => ConfigWireEncodeError::Json(serde_json::Error::io(error)),
     }
 }
