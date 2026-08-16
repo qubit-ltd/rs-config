@@ -228,9 +228,7 @@ impl<'a> SourceLoadSession<'a> {
                     observed_at_least: error
                         .source_error()
                         .used()
-                        .saturating_add(
-                            error.source_error().requested(),
-                        ),
+                        .saturating_add(error.source_error().requested()),
                     source: error.into_source_error().into(),
                 }
             },
