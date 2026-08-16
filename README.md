@@ -80,7 +80,7 @@ fn load_server_config() -> Result<(String, u16), Box<dyn std::error::Error>> {
     sources.add(PropertiesConfigSource::from_content(
         "server.host=localhost\nserver.port=8080\n",
     ));
-    sources.add(EnvConfigSource::with_prefix("APP_"));
+    sources.add(EnvConfigSource::from_prefix("APP_"));
 
     let mut config = Config::new();
     config.merge_properties_from_source(&sources)?;
@@ -114,8 +114,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_max_input_bytes(128);
     let conversion = ConversionLimits::default()
         .with_operation_limits(operation);
-    let policy = ReadPolicy::default().with_conversion_limits(conversion);
-    let mut config = Config::new().with_default_read_policy(policy);
+    let policy = ReadPolicy::builder().conversion_limits(conversion).build();
+    let mut config = Config::builder().default_read_policy(policy).build();
     config.set("db.host", "localhost")?;
     config.set("db.port", "5432")?;
     let db = config.deserialize::<Database>("db")?;

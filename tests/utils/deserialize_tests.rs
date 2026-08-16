@@ -169,8 +169,9 @@ fn test_deserialize_with_optional_null_field() {
 
 #[test]
 fn test_deserialize_blank_field_with_missing_policy_behaves_as_absent() {
-    let mut config =
-        Config::new().with_default_read_policy(ReadPolicy::env_friendly());
+    let mut config = Config::builder()
+        .default_read_policy(ReadPolicy::env_friendly())
+        .build();
     config.set("srv.host", "localhost").unwrap();
     config.set("srv.port", "   ").unwrap();
 
@@ -189,8 +190,7 @@ fn test_deserialize_hashmap() {
         .set("headers.content-type", "application/json")
         .unwrap();
 
-    let headers: HashMap<String, String> =
-        config.deserialize("headers").unwrap();
+    let headers: HashMap<String, String> = config.deserialize("headers").unwrap();
     assert_eq!(
         headers.get("authorization"),
         Some(&"Bearer token".to_string())
@@ -225,8 +225,7 @@ fn test_deserialize_conflicting_dotted_key_does_not_keep_flat_fallback() {
     config.set("ctx.a", 1).unwrap();
     config.set("ctx.a.b", "conflict").unwrap();
 
-    let result =
-        config.deserialize::<HashMap<String, serde_json::Value>>("ctx");
+    let result = config.deserialize::<HashMap<String, serde_json::Value>>("ctx");
     assert!(matches!(
         result,
         Err(ConfigError::KeyConflict { path, .. }) if path == "a"
@@ -261,15 +260,11 @@ fn test_deserialize_dotted_parent_conflict_reports_scalar_kinds() {
     for (parent_value, expected_kind, message) in cases {
         let mut config = Config::new();
         config
-            .insert_property(
-                "ctx.a",
-                Property::new("ctx.a", parent_value).unwrap(),
-            )
+            .insert_property("ctx.a", Property::new("ctx.a", parent_value).unwrap())
             .unwrap();
         config.set("ctx.a.b", "conflict").unwrap();
 
-        let result =
-            config.deserialize::<HashMap<String, serde_json::Value>>("ctx");
+        let result = config.deserialize::<HashMap<String, serde_json::Value>>("ctx");
 
         assert!(
             matches!(
@@ -400,8 +395,7 @@ fn test_deserialize_substitutes_string_fields_and_lists() {
         )
         .unwrap();
 
-    let svc: ServiceConfig =
-        config.deserialize_interpolated_lenient("svc").unwrap();
+    let svc: ServiceConfig = config.deserialize_interpolated_lenient("svc").unwrap();
     assert_eq!(svc.base_url, "http://localhost:8080");
     assert_eq!(
         svc.endpoints,
@@ -451,8 +445,9 @@ fn test_deserialize_substitution_local_conversion_has_priority_over_root() {
 fn test_deserialize_exact_blank_string_can_be_treated_as_null() {
     let mut config = Config::new();
     config.set_default_read_policy(
-        ReadPolicy::env_friendly()
-            .with_blank_string_policy(BlankStringPolicy::TreatAsMissing),
+        ReadPolicy::builder_from(&ReadPolicy::env_friendly())
+            .blank_string_policy(BlankStringPolicy::TreatAsMissing)
+            .build(),
     );
     config.set("value", "   ").unwrap();
 
@@ -533,8 +528,7 @@ fn test_deserialize_substitutes_nested_json_strings() {
         )
         .unwrap();
 
-    let svc: ServiceConfig =
-        config.deserialize_interpolated_lenient("svc").unwrap();
+    let svc: ServiceConfig = config.deserialize_interpolated_lenient("svc").unwrap();
     assert_eq!(
         svc.meta,
         serde_json::json!({
@@ -574,23 +568,18 @@ fn test_deserialize_unresolved_variable_returns_substitution_error() {
 
     let err = config
         .deserialize_interpolated::<ServiceConfig>("svc")
-        .expect_err(
-            "unresolved variable should fail before serde deserialization",
-        );
+        .expect_err("unresolved variable should fail before serde deserialization");
     match err {
         ConfigError::SubstitutionError { path, message } => {
             assert_eq!(path, "svc.url");
-            assert!(
-                message.contains("QUBIT_CONFIG_UNSET_DESERIALIZE_VAR_12345")
-            );
+            assert!(message.contains("QUBIT_CONFIG_UNSET_DESERIALIZE_VAR_12345"));
         }
         other => panic!("Expected SubstitutionError, got {:?}", other),
     }
 }
 
 #[test]
-fn test_deserialize_unresolved_variable_in_json_leaf_returns_substitution_error()
- {
+fn test_deserialize_unresolved_variable_in_json_leaf_returns_substitution_error() {
     #[derive(Deserialize, Debug, PartialEq)]
     struct ServiceConfig {
         meta: serde_json::Value,

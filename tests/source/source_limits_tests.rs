@@ -33,21 +33,19 @@ impl ConfigSource for InputAccountingSource {
     }
 
     fn limits(&self) -> SourceLimits {
-        SourceLimits::default().with_max_input_bytes(5)
+        SourceLimits::builder().max_input_bytes(5).build()
     }
 
-    fn load_into(
-        &self,
-        context: &mut SourceLoadContext<'_>,
-    ) -> ConfigResult<()> {
+    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
         context.consume_input_bytes(self.amount)
     }
 }
 
 #[test]
 fn source_context_charges_local_and_aggregate_budgets_atomically() {
-    let mut composite = CompositeConfigSource::new()
-        .with_limits(SourceLimits::default().with_max_input_bytes(3));
+    let mut composite = CompositeConfigSource::builder()
+        .limits(SourceLimits::builder().max_input_bytes(3).build())
+        .build();
     composite.add(InputAccountingSource { amount: 2 });
     composite.add(InputAccountingSource { amount: 2 });
 
@@ -68,7 +66,7 @@ fn source_context_charges_local_and_aggregate_budgets_atomically() {
 
 #[test]
 fn source_limits_are_bounded_by_default_and_can_be_unbounded() {
-    let limits = SourceLimits::default();
+    let limits = SourceLimits::builder().build();
     assert_eq!(limits.max_input_bytes(), 8 * 1024 * 1024);
     assert_eq!(limits.max_properties(), 65_536);
     assert_eq!(limits.max_nodes(), 262_144);
@@ -82,12 +80,13 @@ fn source_limits_are_bounded_by_default_and_can_be_unbounded() {
     assert_eq!(limits.max_sources(), usize::MAX);
     assert_eq!(limits.max_nesting_depth(), usize::MAX);
 
-    let zero = SourceLimits::default()
-        .with_max_input_bytes(0)
-        .with_max_properties(0)
-        .with_max_nodes(0)
-        .with_max_sources(0)
-        .with_max_nesting_depth(0);
+    let zero = SourceLimits::builder()
+        .max_input_bytes(0)
+        .max_properties(0)
+        .max_nodes(0)
+        .max_sources(0)
+        .max_nesting_depth(0)
+        .build();
     assert_eq!(zero.max_input_bytes(), 0);
     assert_eq!(zero.max_properties(), 0);
     assert_eq!(zero.max_nodes(), 0);
@@ -113,8 +112,10 @@ fn source_budget_failed_charge_preserves_remaining_capacity() {
 /// is rejected with the configured source-limit facts.
 #[test]
 fn source_budget_nesting_depth_accepts_limit_and_rejects_next_level() {
-    let source = PropertiesConfigSource::from_content("a=1\n")
-        .with_limits(SourceLimits::default().with_max_nesting_depth(0));
+    let source = PropertiesConfigSource::builder()
+        .content("a=1\n")
+        .limits(SourceLimits::builder().max_nesting_depth(0).build())
+        .build();
     assert!(matches!(
         source.load(),
         Err(ConfigError::SourceLimitExceeded {
@@ -127,8 +128,10 @@ fn source_budget_nesting_depth_accepts_limit_and_rejects_next_level() {
 
 #[test]
 fn properties_source_rejects_oversized_input_transactionally() {
-    let source = PropertiesConfigSource::from_content("a=1\n")
-        .with_limits(SourceLimits::default().with_max_input_bytes(3));
+    let source = PropertiesConfigSource::builder()
+        .content("a=1\n")
+        .limits(SourceLimits::builder().max_input_bytes(3).build())
+        .build();
     let mut config = Config::new();
     config.set("existing", "kept").unwrap();
 
@@ -152,8 +155,10 @@ fn properties_file_source_reports_file_identity_for_limits() {
     let dir = tempfile::tempdir().expect("temporary directory should exist");
     let path = dir.path().join("limited.properties");
     std::fs::write(&path, "a=1\n").expect("properties file should be written");
-    let source = PropertiesConfigSource::from_file(&path)
-        .with_limits(SourceLimits::default().with_max_input_bytes(3));
+    let source = PropertiesConfigSource::builder()
+        .file(&path)
+        .limits(SourceLimits::builder().max_input_bytes(3).build())
+        .build();
 
     let error = source
         .load()
@@ -167,8 +172,10 @@ fn properties_file_source_reports_file_identity_for_limits() {
 
 #[test]
 fn properties_source_counts_duplicate_assignments() {
-    let source = PropertiesConfigSource::from_content("same=1\nsame=2\n")
-        .with_limits(SourceLimits::default().with_max_properties(1));
+    let source = PropertiesConfigSource::builder()
+        .content("same=1\nsame=2\n")
+        .limits(SourceLimits::builder().max_properties(1).build())
+        .build();
 
     assert!(matches!(
         source.load(),
@@ -184,8 +191,10 @@ fn properties_source_counts_duplicate_assignments() {
 /// Verifies a property-budget failure leaves the target configuration intact.
 #[test]
 fn properties_source_property_budget_failure_is_transactional() {
-    let source = PropertiesConfigSource::from_content("first=1\nsecond=2\n")
-        .with_limits(SourceLimits::default().with_max_properties(1));
+    let source = PropertiesConfigSource::builder()
+        .content("first=1\nsecond=2\n")
+        .limits(SourceLimits::builder().max_properties(1).build())
+        .build();
     let mut config = Config::new();
     config
         .set("existing", "kept")
@@ -223,8 +232,10 @@ fn properties_source_rejects_invalid_keys_and_excessive_key_depth() {
     ));
 
     let deep_key = std::iter::repeat_n("a", 65).collect::<Vec<_>>().join(".");
-    let source = PropertiesConfigSource::from_content(format!("{deep_key}=1"))
-        .with_limits(SourceLimits::default().with_max_nesting_depth(64));
+    let source = PropertiesConfigSource::builder()
+        .content(format!("{deep_key}=1"))
+        .limits(SourceLimits::builder().max_nesting_depth(64).build())
+        .build();
     assert!(matches!(
         source.load(),
         Err(ConfigError::SourceLimitExceeded {
@@ -239,8 +250,10 @@ fn properties_source_rejects_invalid_keys_and_excessive_key_depth() {
 #[cfg(feature = "env-file")]
 #[test]
 fn env_file_memory_source_enforces_property_budget() {
-    let source = EnvFileConfigSource::from_content("FIRST=1\nSECOND=2\n")
-        .with_limits(SourceLimits::default().with_max_properties(1));
+    let source = EnvFileConfigSource::builder()
+        .content("FIRST=1\nSECOND=2\n")
+        .limits(SourceLimits::builder().max_properties(1).build())
+        .build();
     assert!(matches!(
         source.load(),
         Err(ConfigError::SourceLimitExceeded {
@@ -255,8 +268,10 @@ fn env_file_memory_source_enforces_property_budget() {
 #[cfg(feature = "toml")]
 #[test]
 fn toml_source_rejects_excessive_nesting_depth() {
-    let source = TomlConfigSource::from_content("[server]\nport = 8080\n")
-        .with_limits(SourceLimits::default().with_max_nesting_depth(1));
+    let source = TomlConfigSource::builder()
+        .content("[server]\nport = 8080\n")
+        .limits(SourceLimits::builder().max_nesting_depth(1).build())
+        .build();
     assert!(matches!(
         source.load(),
         Err(ConfigError::SourceLimitExceeded {
@@ -271,8 +286,10 @@ fn toml_source_rejects_excessive_nesting_depth() {
 #[cfg(feature = "yaml")]
 #[test]
 fn yaml_source_rejects_excessive_nesting_depth() {
-    let source = YamlConfigSource::from_content("server:\n  port: 8080\n")
-        .with_limits(SourceLimits::default().with_max_nesting_depth(1));
+    let source = YamlConfigSource::builder()
+        .content("server:\n  port: 8080\n")
+        .limits(SourceLimits::builder().max_nesting_depth(1).build())
+        .build();
     assert!(matches!(
         source.load(),
         Err(ConfigError::SourceLimitExceeded {

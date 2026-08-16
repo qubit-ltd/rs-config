@@ -68,7 +68,7 @@ The deployment may set `APP_SERVER__HOST` and `APP_SERVER__PORT`. The success cr
 - the application reads `server` through a relative section;
 - a malformed value returns an error instead of silently selecting a default.
 
-The following uses an in-memory `.properties` layer so the example is deterministic, then adds the process environment layer. `EnvConfigSource::with_prefix` selects `APP_`, strips it, lowercases the remainder, and converts double underscores to dots while preserving single underscores.
+The following uses an in-memory `.properties` layer so the example is deterministic, then adds the process environment layer. `EnvConfigSource::from_prefix` selects `APP_`, strips it, lowercases the remainder, and converts double underscores to dots while preserving single underscores.
 
 ```rust
 use qubit_config::{Config, ConfigReader};
@@ -81,7 +81,7 @@ fn load_server() -> Result<(String, u16, u64), Box<dyn std::error::Error>> {
     sources.add(PropertiesConfigSource::from_content(
         "server.host=localhost\nserver.port=8080\nserver.timeout=30\n",
     ));
-    sources.add(EnvConfigSource::with_prefix("APP_"));
+    sources.add(EnvConfigSource::from_prefix("APP_"));
 
     let mut config = Config::new();
     config.merge_properties_from_source(&sources)?;
@@ -373,16 +373,17 @@ The default interpolation source is `ConfigOnly`. To fall back to process enviro
 use qubit_config::{Config, ConfigReader};
 use qubit_config::options::{InterpolationSources, ReadPolicy};
 
-let policy = ReadPolicy::env_friendly()
-    .with_interpolation_sources(InterpolationSources::ConfigThenEnv);
-let config = Config::new().with_default_read_policy(policy);
+let policy = ReadPolicy::builder_from(&ReadPolicy::env_friendly())
+    .interpolation_sources(InterpolationSources::ConfigThenEnv)
+    .build();
+let config = Config::builder().default_read_policy(policy).build();
 ```
 
 Treat configuration that can select environment-variable names as trusted input. Interpolation also has configurable recursion-depth, expansion-count, and output-size limits; failures are reported as structured `ConfigError` categories.
 
 ### Normalize environment keys
 
-`EnvConfigSource::with_prefix("APP_")` applies all of these transformations:
+`EnvConfigSource::from_prefix("APP_")` applies all of these transformations:
 
 1. select names beginning with `APP_`;
 2. remove the prefix;
@@ -409,7 +410,7 @@ The default `SourceLimits` are:
 | Nesting depth | 64 |
 
 All built-in sources use the same session API for file and in-memory entry
-points. `CompositeConfigSource::with_limits` configures a shared aggregate
+points. `CompositeConfigSource::builder().limits(...).build()` configures a shared aggregate
 policy in addition to every child's local policy. Cumulative charges are
 committed to all applicable scopes only after every scope accepts them.
 For TOML and YAML, node, property, and depth checks occur after the parser has

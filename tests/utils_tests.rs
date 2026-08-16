@@ -34,15 +34,16 @@ fn utility_test_modules_are_registered() {
 }
 
 fn set_max_interpolation_depth(config: &mut Config, max_depth: usize) {
-    let options = config
-        .default_read_policy()
-        .clone()
-        .with_max_interpolation_depth(max_depth);
+    let options = ReadPolicy::builder_from(config.default_read_policy())
+        .max_interpolation_depth(max_depth)
+        .build();
     config.set_default_read_policy(options);
 }
 
 fn with_environment_fallback(options: ReadPolicy) -> ReadPolicy {
-    options.with_interpolation_sources(InterpolationSources::ConfigThenEnv)
+    ReadPolicy::builder_from(&options)
+        .interpolation_sources(InterpolationSources::ConfigThenEnv)
+        .build()
 }
 
 // ============================================================================

@@ -29,10 +29,7 @@ fn fixture(name: &str) -> PathBuf {
         .join(name)
 }
 
-fn load_source(
-    config: &mut Config,
-    source: &dyn ConfigSource,
-) -> ConfigResult<()> {
+fn load_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<()> {
     config.merge_properties_from_source(source)
 }
 
@@ -132,7 +129,7 @@ mod test_composite_config_source {
 
         let mut composite = CompositeConfigSource::new();
         composite.add(TomlConfigSource::from_file(fixture("basic.toml")));
-        composite.add(EnvConfigSource::with_prefix("CTEST_"));
+        composite.add(EnvConfigSource::from_prefix("CTEST_"));
 
         let mut config = Config::new();
         load_source(&mut config, &composite).unwrap();
@@ -195,14 +192,15 @@ mod test_composite_config_source {
 
     #[test]
     fn test_composite_enforces_aggregate_property_budget() {
-        let mut composite = CompositeConfigSource::new()
-            .with_limits(SourceLimits::default().with_max_properties(1));
+        let mut composite = CompositeConfigSource::builder()
+            .limits(SourceLimits::builder().max_properties(1).build())
+            .build();
         composite.add(PropertiesConfigSource::from_content("first=1\n"));
         composite.add(PropertiesConfigSource::from_content("second=2\n"));
 
-        let error = composite.load().expect_err(
-            "the second property should exceed the aggregate budget",
-        );
+        let error = composite
+            .load()
+            .expect_err("the second property should exceed the aggregate budget");
 
         assert_eq!(
             error.source_budget_id(),
@@ -221,8 +219,9 @@ mod test_composite_config_source {
 
     #[test]
     fn test_composite_rejects_source_before_loading_it() {
-        let mut composite = CompositeConfigSource::new()
-            .with_limits(SourceLimits::default().with_max_sources(1));
+        let mut composite = CompositeConfigSource::builder()
+            .limits(SourceLimits::builder().max_sources(1).build())
+            .build();
         composite.add(PropertiesConfigSource::from_content("first=1\n"));
         composite.add(TomlConfigSource::from_file(
             "/path-that-must-not-be-opened.toml",

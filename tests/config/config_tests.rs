@@ -46,25 +46,23 @@ pub(crate) fn create_test_config() -> Config {
 /// Creates a test configuration with description
 #[allow(dead_code)]
 pub(crate) fn create_test_config_with_description() -> Config {
-    Config::with_description("Test Configuration")
+    Config::builder().description("Test Configuration").build()
 }
 
 /// Changes the interpolation recursion limit while preserving other options.
-pub(crate) fn set_max_interpolation_depth(
-    config: &mut Config,
-    max_depth: usize,
-) {
-    let options = config
-        .default_read_policy()
-        .clone()
-        .with_max_interpolation_depth(max_depth);
+pub(crate) fn set_max_interpolation_depth(config: &mut Config, max_depth: usize) {
+    let options = ReadPolicy::builder_from(config.default_read_policy())
+        .max_interpolation_depth(max_depth)
+        .build();
     config.set_default_read_policy(options);
 }
 
 #[test]
 fn test_default_read_policy_is_transient_and_preserved_by_mutations() {
     let policy = ReadPolicy::env_friendly();
-    let mut config = Config::new().with_default_read_policy(policy.clone());
+    let mut config = Config::builder()
+        .default_read_policy(policy.clone())
+        .build();
     config
         .set("value", "1")
         .expect("setting the value should succeed");
@@ -96,8 +94,9 @@ fn test_config_equality_ignores_transient_read_policy() {
 
 #[test]
 fn test_read_with_is_non_mutating_and_overrides_only_the_view() {
-    let mut config =
-        Config::new().with_default_read_policy(ReadPolicy::env_friendly());
+    let mut config = Config::builder()
+        .default_read_policy(ReadPolicy::env_friendly())
+        .build();
     config
         .set("ports", "8080,,8081")
         .expect("setting the list should succeed");
@@ -208,14 +207,14 @@ mod test_with_description {
 
     #[test]
     fn test_with_description_creates_config_with_description() {
-        let config = Config::with_description("Test Configuration");
+        let config = Config::builder().description("Test Configuration").build();
         assert_eq!(config.description(), Some("Test Configuration"));
         assert!(config.is_empty());
     }
 
     #[test]
     fn test_with_description_has_correct_default_values() {
-        let config = Config::with_description("Test Configuration");
+        let config = Config::builder().description("Test Configuration").build();
         assert_eq!(
             config.default_read_policy().interpolation_sources(),
             InterpolationSources::ConfigOnly
@@ -225,7 +224,7 @@ mod test_with_description {
 
     #[test]
     fn test_with_description_with_empty_string() {
-        let config = Config::with_description("");
+        let config = Config::builder().description("").build();
         assert_eq!(config.description(), Some(""));
     }
 }
@@ -255,7 +254,7 @@ mod test_description {
 
     #[test]
     fn test_description_returns_some_for_config_with_description() {
-        let config = Config::with_description("Test Configuration");
+        let config = Config::builder().description("Test Configuration").build();
         assert_eq!(config.description(), Some("Test Configuration"));
     }
 
@@ -268,14 +267,18 @@ mod test_description {
 
     #[test]
     fn test_set_description_clears_description() {
-        let mut config = Config::with_description("Original description");
+        let mut config = Config::builder()
+            .description("Original description")
+            .build();
         config.set_description(None);
         assert!(config.description().is_none());
     }
 
     #[test]
     fn test_set_description_updates_description() {
-        let mut config = Config::with_description("Original description");
+        let mut config = Config::builder()
+            .description("Original description")
+            .build();
         config.set_description(Some("New description".to_string()));
         assert_eq!(config.description(), Some("New description"));
     }
@@ -448,19 +451,13 @@ mod test_get_property_mut {
         config.set("test", "value").unwrap();
 
         {
-            let mut property =
-                config.get_property_mut("test").unwrap().unwrap();
+            let mut property = config.get_property_mut("test").unwrap().unwrap();
             property.set_final(true).unwrap();
 
-            let desc_result =
-                property.set_description(Some("blocked".to_string()));
-            assert!(matches!(
-                desc_result,
-                Err(ConfigError::PropertyIsFinal(_))
-            ));
+            let desc_result = property.set_description(Some("blocked".to_string()));
+            assert!(matches!(desc_result, Err(ConfigError::PropertyIsFinal(_))));
 
-            let set_result = property
-                .set_value(MultiValues::String(vec!["new-value".to_string()]));
+            let set_result = property.set_value(MultiValues::String(vec!["new-value".to_string()]));
             assert!(matches!(set_result, Err(ConfigError::PropertyIsFinal(_))));
 
             let generic_set_result = property.set("new-value");
@@ -473,16 +470,10 @@ mod test_get_property_mut {
             assert!(matches!(add_result, Err(ConfigError::PropertyIsFinal(_))));
 
             let unset_result = property.unset();
-            assert!(matches!(
-                unset_result,
-                Err(ConfigError::PropertyIsFinal(_))
-            ));
+            assert!(matches!(unset_result, Err(ConfigError::PropertyIsFinal(_))));
 
             let unset_result = property.set_final(false);
-            assert!(matches!(
-                unset_result,
-                Err(ConfigError::PropertyIsFinal(_))
-            ));
+            assert!(matches!(unset_result, Err(ConfigError::PropertyIsFinal(_))));
         }
 
         assert_eq!(config.get::<String>("test").unwrap(), "value");
@@ -494,8 +485,7 @@ mod test_get_property_mut {
         config.set("test", "value").unwrap();
 
         {
-            let mut property =
-                config.get_property_mut("test").unwrap().unwrap();
+            let mut property = config.get_property_mut("test").unwrap().unwrap();
             assert_eq!(property.name(), "test");
             assert_eq!(property.as_property().name(), "test");
             property
@@ -981,8 +971,7 @@ mod test_get_or {
     #[test]
     fn test_get_or_with_string_default() {
         let config = Config::new();
-        let value =
-            config.get_or("nonexistent", "default".to_string()).unwrap();
+        let value = config.get_or("nonexistent", "default".to_string()).unwrap();
         assert_eq!(value, "default");
     }
 
@@ -1017,10 +1006,7 @@ mod test_get_or {
             .get_or::<Vec<String>>("nonexistent", ["default1", "default2"])
             .unwrap();
 
-        assert_eq!(
-            values,
-            vec!["default1".to_string(), "default2".to_string()]
-        );
+        assert_eq!(values, vec!["default1".to_string(), "default2".to_string()]);
     }
 
     #[test]
@@ -1032,10 +1018,7 @@ mod test_get_or {
             .get_or::<Vec<String>>("nonexistent", defaults.as_slice())
             .unwrap();
 
-        assert_eq!(
-            values,
-            vec!["default1".to_string(), "default2".to_string()]
-        );
+        assert_eq!(values, vec!["default1".to_string(), "default2".to_string()]);
     }
 
     #[test]

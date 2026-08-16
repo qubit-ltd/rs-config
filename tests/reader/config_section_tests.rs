@@ -81,7 +81,9 @@ fn test_read_policy_view_is_borrowed_and_inherited_by_nested_sections() {
     config
         .set("service.child.values", "alpha,beta")
         .expect("the list should be configurable");
-    let options = ReadPolicy::env_friendly().with_max_interpolation_depth(7);
+    let options = ReadPolicy::builder_from(&ReadPolicy::env_friendly())
+        .max_interpolation_depth(7)
+        .build();
 
     let service = config.section("service").unwrap().read_with(&options);
     let child = service.section("child").unwrap();
@@ -118,9 +120,7 @@ fn test_section_missing_candidates_report_root_relative_paths() {
     assert_eq!(error.path(), None);
     assert_eq!(
         error.candidate_paths(),
-        Some(
-            ["service.port".to_string(), "service.PORT".to_string()].as_slice(),
-        ),
+        Some(["service.port".to_string(), "service.PORT".to_string()].as_slice(),),
     );
 }
 
