@@ -91,7 +91,7 @@ impl Config {
     /// not valid Unicode, or if setting a loaded property fails.
     #[inline]
     pub fn from_env_prefix(prefix: &str) -> ConfigResult<Self> {
-        let source = EnvConfigSource::with_prefix(prefix);
+        let source = EnvConfigSource::from_prefix(prefix);
         Self::from_source(&source)
     }
 
@@ -112,7 +112,7 @@ impl Config {
     /// not valid Unicode, or if setting a loaded property fails.
     #[inline]
     pub fn from_env_options(options: EnvConfigOptions) -> ConfigResult<Self> {
-        let source = EnvConfigSource::with_options(options);
+        let source = EnvConfigSource::from_options(options);
         Self::from_source(&source)
     }
 

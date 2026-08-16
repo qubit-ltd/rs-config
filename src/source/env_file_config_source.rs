@@ -8,6 +8,7 @@
 //! # `.env` File Configuration Source
 //!
 //! Loads configuration from `.env` format files (as used by dotenv tools).
+// qubit-style: allow multiple-public-types
 //!
 //! # Format
 //!
@@ -71,17 +72,15 @@ fn map_dotenv_error(label: &str, error: dotenvy::Error) -> ConfigError {
                 format!("Failed to read .env source '{label}': {source}"),
             ),
         ),
-        dotenvy::Error::LineParse(line, error_index) => {
-            ConfigError::source_parse_error(
-                label,
-                format!(
-                    "Failed to parse .env file '{}' at line index \
+        dotenvy::Error::LineParse(line, error_index) => ConfigError::source_parse_error(
+            label,
+            format!(
+                "Failed to parse .env file '{}' at line index \
                      {error_index}: {:?}",
-                    label,
-                    redacted_debug(&line),
-                ),
-            )
-        }
+                label,
+                redacted_debug(&line),
+            ),
+        ),
         error => ConfigError::source_parse_error(
             label,
             format!(
@@ -164,24 +163,62 @@ impl EnvFileConfigSource {
     /// * `path` - Path to the `.env` file
     #[inline]
     pub fn from_file<P: AsRef<Path>>(path: P) -> Self {
-        Self {
-            input: SourceInput::File(path.as_ref().to_path_buf()),
-            limits: SourceLimits::default(),
-        }
+        Self::builder().file(path).build()
     }
 
     /// Creates a dotenv source backed by in-memory text.
     pub fn from_content(content: impl Into<String>) -> Self {
+        Self::builder().content(content).build()
+    }
+
+    /// Creates a builder for a dotenv source.
+    pub fn builder() -> EnvFileConfigSourceBuilder {
+        EnvFileConfigSourceBuilder::new()
+    }
+}
+
+/// Builder for [`EnvFileConfigSource`].
+#[must_use]
+pub struct EnvFileConfigSourceBuilder {
+    input: SourceInput,
+    limits: SourceLimits,
+}
+
+#[allow(missing_docs)]
+impl EnvFileConfigSourceBuilder {
+    pub fn new() -> Self {
         Self {
-            input: SourceInput::Content(content.into()),
+            input: SourceInput::Content(String::new()),
             limits: SourceLimits::default(),
         }
     }
 
-    /// Applies resource limits to this source.
-    pub const fn with_limits(mut self, limits: SourceLimits) -> Self {
+    pub fn content(mut self, content: impl Into<String>) -> Self {
+        self.input = SourceInput::Content(content.into());
+        self
+    }
+
+    pub fn file<P: AsRef<Path>>(mut self, path: P) -> Self {
+        self.input = SourceInput::File(path.as_ref().to_path_buf());
+        self
+    }
+
+    pub const fn limits(mut self, limits: SourceLimits) -> Self {
         self.limits = limits;
         self
+    }
+
+    pub fn build(self) -> EnvFileConfigSource {
+        EnvFileConfigSource {
+            input: self.input,
+            limits: self.limits,
+        }
+    }
+}
+
+impl Default for EnvFileConfigSourceBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -194,10 +231,7 @@ impl ConfigSource for EnvFileConfigSource {
         self.limits
     }
 
-    fn load_into(
-        &self,
-        context: &mut SourceLoadContext<'_>,
-    ) -> ConfigResult<()> {
+    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
         let mut config = Config::new();
         let session = context.session_mut();
         let label = self.input.label(".env");
@@ -206,17 +240,15 @@ impl ConfigSource for EnvFileConfigSource {
         let iter = dotenvy::from_read_iter(content.as_bytes());
 
         for item in iter {
-            let (key, value) =
-                item.map_err(|error| map_dotenv_error(&label, error))?;
-            let _ = ConfigKey::parse(key.as_str()).map_err(|error| {
-                error.with_source_context(&label, Some(key.clone()), None)
-            })?;
+            let (key, value) = item.map_err(|error| map_dotenv_error(&label, error))?;
+            let _ = ConfigKey::parse(key.as_str())
+                .map_err(|error| error.with_source_context(&label, Some(key.clone()), None))?;
             session.check_depth(key.split('.').count())?;
             session.consume_nodes(1)?;
             session.consume_properties(1)?;
-            config.set(&key, value).map_err(|error| {
-                error.with_source_context(&label, Some(key.clone()), None)
-            })?;
+            config
+                .set(&key, value)
+                .map_err(|error| error.with_source_context(&label, Some(key.clone()), None))?;
         }
         context.replace_layer(config);
         Ok(())

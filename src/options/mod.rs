@@ -10,3 +10,4 @@
 
 pub use crate::read_policy::InterpolationSources;
 pub use crate::read_policy::ReadPolicy;
+pub use crate::read_policy::ReadPolicyBuilder;

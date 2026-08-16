@@ -8,6 +8,7 @@
 //! # TOML File Configuration Source
 //!
 //! Loads configuration from TOML format files.
+// qubit-style: allow multiple-public-types
 //!
 //! # Flattening Strategy
 //!
@@ -82,10 +83,7 @@ pub struct TomlConfigSource {
 ///
 /// `Some((line, column))` when the span starts at a valid UTF-8 boundary,
 /// otherwise `None`.
-fn toml_error_location(
-    content: &str,
-    error: &TomlError,
-) -> Option<(usize, usize)> {
+fn toml_error_location(content: &str, error: &TomlError) -> Option<(usize, usize)> {
     let offset = error.span()?.start;
     let prefix = content.get(..offset)?;
     let line = prefix.bytes().filter(|byte| *byte == b'\n').count() + 1;
@@ -108,11 +106,7 @@ fn toml_error_location(
 ///
 /// A source-aware [`ConfigError`] containing safe path, message, and location
 /// context.
-fn toml_parse_error(
-    label: &str,
-    content: &str,
-    error: &TomlError,
-) -> ConfigError {
+fn toml_parse_error(label: &str, content: &str, error: &TomlError) -> ConfigError {
     let message = match toml_error_location(content, error) {
         Some((line, column)) => format!(
             "Failed to parse TOML file '{}' at line {line}, column \
@@ -120,11 +114,7 @@ fn toml_parse_error(
             label,
             error.message(),
         ),
-        None => format!(
-            "Failed to parse TOML file '{}': {}",
-            label,
-            error.message(),
-        ),
+        None => format!("Failed to parse TOML file '{}': {}", label, error.message(),),
     };
     ConfigError::source_parse_error(label, message)
 }
@@ -137,24 +127,62 @@ impl TomlConfigSource {
     /// * `path` - Path to the TOML file
     #[inline]
     pub fn from_file<P: AsRef<Path>>(path: P) -> Self {
-        Self {
-            input: SourceInput::File(path.as_ref().to_path_buf()),
-            limits: SourceLimits::default(),
-        }
+        Self::builder().file(path).build()
     }
 
     /// Creates a TOML source backed by in-memory text.
     pub fn from_content(content: impl Into<String>) -> Self {
+        Self::builder().content(content).build()
+    }
+
+    /// Creates a builder for a TOML source.
+    pub fn builder() -> TomlConfigSourceBuilder {
+        TomlConfigSourceBuilder::new()
+    }
+}
+
+/// Builder for [`TomlConfigSource`].
+#[must_use]
+pub struct TomlConfigSourceBuilder {
+    input: SourceInput,
+    limits: SourceLimits,
+}
+
+#[allow(missing_docs)]
+impl TomlConfigSourceBuilder {
+    pub fn new() -> Self {
         Self {
-            input: SourceInput::Content(content.into()),
+            input: SourceInput::Content(String::new()),
             limits: SourceLimits::default(),
         }
     }
 
-    /// Applies resource limits to this source.
-    pub const fn with_limits(mut self, limits: SourceLimits) -> Self {
+    pub fn content(mut self, content: impl Into<String>) -> Self {
+        self.input = SourceInput::Content(content.into());
+        self
+    }
+
+    pub fn file<P: AsRef<Path>>(mut self, path: P) -> Self {
+        self.input = SourceInput::File(path.as_ref().to_path_buf());
+        self
+    }
+
+    pub const fn limits(mut self, limits: SourceLimits) -> Self {
         self.limits = limits;
         self
+    }
+
+    pub fn build(self) -> TomlConfigSource {
+        TomlConfigSource {
+            input: self.input,
+            limits: self.limits,
+        }
+    }
+}
+
+impl Default for TomlConfigSourceBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -167,10 +195,7 @@ impl ConfigSource for TomlConfigSource {
         self.limits
     }
 
-    fn load_into(
-        &self,
-        context: &mut SourceLoadContext<'_>,
-    ) -> ConfigResult<()> {
+    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
         let mut config = Config::new();
         let session = context.session_mut();
         let label = self.input.label("TOML");
@@ -241,51 +266,31 @@ pub(crate) fn flatten_toml_value(
         TomlValue::String(s) => {
             ensure_toml_property(source_id, seen, prefix, budget)?;
             config.set(prefix, s.clone()).map_err(|error| {
-                error.with_source_context(
-                    source_id,
-                    Some(prefix.to_string()),
-                    None,
-                )
+                error.with_source_context(source_id, Some(prefix.to_string()), None)
             })?;
         }
         TomlValue::Integer(i) => {
             ensure_toml_property(source_id, seen, prefix, budget)?;
             config.set(prefix, *i).map_err(|error| {
-                error.with_source_context(
-                    source_id,
-                    Some(prefix.to_string()),
-                    None,
-                )
+                error.with_source_context(source_id, Some(prefix.to_string()), None)
             })?;
         }
         TomlValue::Float(f) => {
             ensure_toml_property(source_id, seen, prefix, budget)?;
             config.set(prefix, *f).map_err(|error| {
-                error.with_source_context(
-                    source_id,
-                    Some(prefix.to_string()),
-                    None,
-                )
+                error.with_source_context(source_id, Some(prefix.to_string()), None)
             })?;
         }
         TomlValue::Boolean(b) => {
             ensure_toml_property(source_id, seen, prefix, budget)?;
             config.set(prefix, *b).map_err(|error| {
-                error.with_source_context(
-                    source_id,
-                    Some(prefix.to_string()),
-                    None,
-                )
+                error.with_source_context(source_id, Some(prefix.to_string()), None)
             })?;
         }
         TomlValue::Datetime(dt) => {
             ensure_toml_property(source_id, seen, prefix, budget)?;
             config.set(prefix, dt.to_string()).map_err(|error| {
-                error.with_source_context(
-                    source_id,
-                    Some(prefix.to_string()),
-                    None,
-                )
+                error.with_source_context(source_id, Some(prefix.to_string()), None)
             })?;
         }
     }
@@ -299,9 +304,8 @@ fn ensure_toml_property(
     key: &str,
     budget: &mut SourceLoadSession<'_>,
 ) -> ConfigResult<()> {
-    utils::ensure_unique_flattened_key(seen, key).map_err(|error| {
-        error.with_source_context(source_id, Some(key.to_string()), None)
-    })?;
+    utils::ensure_unique_flattened_key(seen, key)
+        .map_err(|error| error.with_source_context(source_id, Some(key.to_string()), None))?;
     budget.consume_properties(1)
 }
 
@@ -342,52 +346,26 @@ fn flatten_toml_array(
     }
 
     match &arr[0] {
-        TomlValue::Integer(_)
-            if all_toml_values_match(arr, TomlValue::is_integer) =>
-        {
-            set_toml_array_values(
-                source_id,
-                prefix,
-                arr,
-                config,
-                TomlValue::as_integer,
-            )
+        TomlValue::Integer(_) if all_toml_values_match(arr, TomlValue::is_integer) => {
+            set_toml_array_values(source_id, prefix, arr, config, TomlValue::as_integer)
         }
-        TomlValue::Float(_)
-            if all_toml_values_match(arr, TomlValue::is_float) =>
-        {
-            set_toml_array_values(
-                source_id,
-                prefix,
-                arr,
-                config,
-                TomlValue::as_float,
-            )
+        TomlValue::Float(_) if all_toml_values_match(arr, TomlValue::is_float) => {
+            set_toml_array_values(source_id, prefix, arr, config, TomlValue::as_float)
         }
-        TomlValue::Boolean(_)
-            if all_toml_values_match(arr, TomlValue::is_bool) =>
-        {
-            set_toml_array_values(
-                source_id,
-                prefix,
-                arr,
-                config,
-                TomlValue::as_bool,
-            )
+        TomlValue::Boolean(_) if all_toml_values_match(arr, TomlValue::is_bool) => {
+            set_toml_array_values(source_id, prefix, arr, config, TomlValue::as_bool)
         }
         TomlValue::String(_) | TomlValue::Datetime(_)
-            if arr.iter().all(|value| {
-                matches!(value, TomlValue::String(_) | TomlValue::Datetime(_))
-            }) =>
+            if arr
+                .iter()
+                .all(|value| matches!(value, TomlValue::String(_) | TomlValue::Datetime(_))) =>
         {
             set_toml_string_array(source_id, prefix, arr, config)
         }
         TomlValue::Table(_) | TomlValue::Array(_) => {
             let index = arr
                 .iter()
-                .position(|value| {
-                    matches!(value, TomlValue::Table(_) | TomlValue::Array(_))
-                })
+                .position(|value| matches!(value, TomlValue::Table(_) | TomlValue::Array(_)))
                 .unwrap_or(0);
             Err(ConfigError::source_parse_error_at(
                 source_id,
@@ -450,9 +428,9 @@ where
     Vec<T>: Into<ValueContainer>,
 {
     let values = arr.iter().filter_map(convert).collect::<Vec<_>>();
-    config.set(prefix, values).map_err(|error| {
-        error.with_source_context(source_id, Some(prefix.to_string()), None)
-    })
+    config
+        .set(prefix, values)
+        .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))
 }
 
 /// Converts TOML scalar values to strings and writes them as one property.
@@ -481,16 +459,13 @@ fn set_toml_string_array(
         .iter()
         .map(|value| toml_scalar_to_string(value, prefix))
         .collect::<ConfigResult<Vec<_>>>()?;
-    config.set(prefix, values).map_err(|error| {
-        error.with_source_context(source_id, Some(prefix.to_string()), None)
-    })
+    config
+        .set(prefix, values)
+        .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))
 }
 
 /// Tests whether all TOML values satisfy a scalar type predicate.
-fn all_toml_values_match(
-    values: &[TomlValue],
-    predicate: impl Fn(&TomlValue) -> bool,
-) -> bool {
+fn all_toml_values_match(values: &[TomlValue], predicate: impl Fn(&TomlValue) -> bool) -> bool {
     values.iter().all(predicate)
 }
 

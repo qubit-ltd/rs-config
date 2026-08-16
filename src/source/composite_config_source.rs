@@ -8,6 +8,7 @@
 //! # Composite Configuration Source
 //!
 //! Merges configuration from multiple sources in order.
+// qubit-style: allow multiple-public-types
 //!
 //! Sources are applied in the order they are added. Later sources override
 //! earlier sources for the same key (unless the property is marked as final).
@@ -49,6 +50,12 @@ pub struct CompositeConfigSource {
 }
 
 impl CompositeConfigSource {
+    /// Creates a builder initialized with an empty composite source.
+    #[inline]
+    pub fn builder() -> CompositeConfigSourceBuilder {
+        CompositeConfigSourceBuilder::new()
+    }
+
     /// Creates a new empty `CompositeConfigSource`.
     ///
     /// # Returns
@@ -56,10 +63,7 @@ impl CompositeConfigSource {
     /// An empty composite with no inner sources.
     #[inline]
     pub fn new() -> Self {
-        Self {
-            sources: Vec::new(),
-            limits: SourceLimits::default(),
-        }
+        Self::builder().build()
     }
 
     /// Adds a configuration source
@@ -99,11 +103,48 @@ impl CompositeConfigSource {
     pub fn is_empty(&self) -> bool {
         self.sources.is_empty()
     }
+}
 
-    /// Applies aggregate resource limits to the complete composite load.
-    pub const fn with_limits(mut self, limits: SourceLimits) -> Self {
+/// Builder for [`CompositeConfigSource`].
+#[must_use]
+pub struct CompositeConfigSourceBuilder {
+    sources: Vec<Box<dyn ConfigSource>>,
+    limits: SourceLimits,
+}
+
+impl CompositeConfigSourceBuilder {
+    /// Creates an empty composite source builder.
+    pub fn new() -> Self {
+        Self {
+            sources: Vec::new(),
+            limits: SourceLimits::default(),
+        }
+    }
+
+    /// Adds a source to the composite in application order.
+    pub fn add_source<S: ConfigSource + 'static>(mut self, source: S) -> Self {
+        self.sources.push(Box::new(source));
+        self
+    }
+
+    /// Sets aggregate resource limits for the complete composite load.
+    pub fn limits(mut self, limits: SourceLimits) -> Self {
         self.limits = limits;
         self
+    }
+
+    /// Builds the configured composite source.
+    pub fn build(self) -> CompositeConfigSource {
+        CompositeConfigSource {
+            sources: self.sources,
+            limits: self.limits,
+        }
+    }
+}
+
+impl Default for CompositeConfigSourceBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -123,15 +164,11 @@ impl ConfigSource for CompositeConfigSource {
         self.limits
     }
 
-    fn load_into(
-        &self,
-        context: &mut SourceLoadContext<'_>,
-    ) -> ConfigResult<()> {
+    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
         for source in &self.sources {
             context.consume_sources(1)?;
             let layer = {
-                let mut child =
-                    context.child(source.source_id(), source.limits());
+                let mut child = context.child(source.source_id(), source.limits());
                 source.load_into(&mut child)?;
                 child.finish()
             };

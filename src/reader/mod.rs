@@ -11,3 +11,4 @@ pub use crate::config_reader::ConfigReader;
 pub use crate::config_section::ConfigSection;
 pub use crate::read_policy::InterpolationSources;
 pub use crate::read_policy::ReadPolicy;
+pub use crate::read_policy::ReadPolicyBuilder;

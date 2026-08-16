@@ -8,6 +8,7 @@
 //! # Properties File Configuration Source
 //!
 //! Loads configuration from Java `.properties` format files.
+// qubit-style: allow multiple-public-types
 //!
 //! # Format
 //!
@@ -75,6 +76,11 @@ pub struct PropertiesConfigSource {
 }
 
 impl PropertiesConfigSource {
+    /// Creates a builder initialized with empty in-memory content.
+    pub fn builder() -> PropertiesConfigSourceBuilder {
+        PropertiesConfigSourceBuilder::new()
+    }
+
     /// Creates a new `PropertiesConfigSource` from a file path
     ///
     /// # Parameters
@@ -82,24 +88,12 @@ impl PropertiesConfigSource {
     /// * `path` - Path to the `.properties` file
     #[inline]
     pub fn from_file<P: AsRef<Path>>(path: P) -> Self {
-        Self {
-            input: SourceInput::File(path.as_ref().to_path_buf()),
-            limits: SourceLimits::default(),
-        }
+        Self::builder().file(path).build()
     }
 
     /// Creates a properties source backed by in-memory text.
     pub fn from_content(content: impl Into<String>) -> Self {
-        Self {
-            input: SourceInput::Content(content.into()),
-            limits: SourceLimits::default(),
-        }
-    }
-
-    /// Applies resource limits to this source.
-    pub const fn with_limits(mut self, limits: SourceLimits) -> Self {
-        self.limits = limits;
-        self
+        Self::builder().content(content).build()
     }
 
     /// Parses a `.properties` format string into key-value pairs
@@ -147,10 +141,7 @@ impl PropertiesConfigSource {
             let trimmed = line.trim_start();
 
             // Skip blank lines and comments
-            if trimmed.is_empty()
-                || trimmed.starts_with('#')
-                || trimmed.starts_with('!')
-            {
+            if trimmed.is_empty() || trimmed.starts_with('#') || trimmed.starts_with('!') {
                 continue;
             }
 
@@ -170,11 +161,7 @@ impl PropertiesConfigSource {
                 let key = unescape_properties(key);
                 let value = unescape_properties(value);
                 let _ = ConfigKey::parse(key.as_str()).map_err(|error| {
-                    error.with_source_context(
-                        source_id,
-                        Some(key.clone()),
-                        None,
-                    )
+                    error.with_source_context(source_id, Some(key.clone()), None)
                 })?;
                 session.check_depth(key.split('.').count())?;
                 session.consume_nodes(1)?;
@@ -187,6 +174,55 @@ impl PropertiesConfigSource {
     }
 }
 
+/// Builder for [`PropertiesConfigSource`].
+#[must_use]
+pub struct PropertiesConfigSourceBuilder {
+    input: SourceInput,
+    limits: SourceLimits,
+}
+
+impl PropertiesConfigSourceBuilder {
+    /// Creates a builder with empty in-memory content.
+    pub fn new() -> Self {
+        Self {
+            input: SourceInput::Content(String::new()),
+            limits: SourceLimits::default(),
+        }
+    }
+
+    /// Sets in-memory properties content.
+    pub fn content(mut self, content: impl Into<String>) -> Self {
+        self.input = SourceInput::Content(content.into());
+        self
+    }
+
+    /// Sets a properties file path.
+    pub fn file<P: AsRef<Path>>(mut self, path: P) -> Self {
+        self.input = SourceInput::File(path.as_ref().to_path_buf());
+        self
+    }
+
+    /// Sets source resource limits.
+    pub const fn limits(mut self, limits: SourceLimits) -> Self {
+        self.limits = limits;
+        self
+    }
+
+    /// Builds the configured properties source.
+    pub fn build(self) -> PropertiesConfigSource {
+        PropertiesConfigSource {
+            input: self.input,
+            limits: self.limits,
+        }
+    }
+}
+
+impl Default for PropertiesConfigSourceBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Parses a single `key=value`, `key: value`, or `key value` line.
 fn parse_key_value(line: &str) -> Option<(&str, &str)> {
     let line = line.trim_start();
@@ -196,8 +232,7 @@ fn parse_key_value(line: &str) -> Option<(&str, &str)> {
             // Separator is escaped only if there is an odd number of trailing
             // backslashes.
             if !is_escaped_separator(line, i) {
-                let value_start =
-                    skip_properties_whitespace(line, i + ch.len_utf8());
+                let value_start = skip_properties_whitespace(line, i + ch.len_utf8());
                 return Some((&line[..i], &line[value_start..]));
             }
         }
@@ -207,8 +242,7 @@ fn parse_key_value(line: &str) -> Option<(&str, &str)> {
                 && (sep == '=' || sep == ':')
                 && !is_escaped_separator(line, value_start)
             {
-                value_start =
-                    skip_properties_whitespace(line, value_start + sep_len);
+                value_start = skip_properties_whitespace(line, value_start + sep_len);
             }
             return Some((&line[..i], &line[value_start..]));
         }
@@ -329,8 +363,7 @@ fn unescape_properties(s: &str) -> String {
                     let hex: String = chars.by_ref().take(4).collect();
                     if hex.len() == 4
                         && let Ok(code) = u32::from_str_radix(&hex, 16)
-                        && let Some(unicode_char) =
-                            decode_unicode_escape(code, &mut chars)
+                        && let Some(unicode_char) = decode_unicode_escape(code, &mut chars)
                     {
                         result.push(unicode_char);
                         continue;
@@ -371,10 +404,7 @@ fn unescape_properties(s: &str) -> String {
 }
 
 /// Decodes a Java properties `\uXXXX` escape, including UTF-16 surrogate pairs.
-fn decode_unicode_escape(
-    code: u32,
-    chars: &mut Peekable<Chars<'_>>,
-) -> Option<char> {
+fn decode_unicode_escape(code: u32, chars: &mut Peekable<Chars<'_>>) -> Option<char> {
     if is_high_surrogate(code) {
         let mut lookahead = chars.clone();
         if lookahead.next() == Some('\\') && lookahead.next() == Some('u') {
@@ -422,20 +452,16 @@ impl ConfigSource for PropertiesConfigSource {
         self.limits
     }
 
-    fn load_into(
-        &self,
-        context: &mut SourceLoadContext<'_>,
-    ) -> ConfigResult<()> {
+    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
         let mut config = Config::new();
         let session = context.session_mut();
         let source_id = self.input.label("properties");
         let content = self.input.read_to_string("properties", session)?;
-        let properties =
-            Self::parse_content_with_session(&content, &source_id, session)?;
+        let properties = Self::parse_content_with_session(&content, &source_id, session)?;
         for (key, value) in properties {
-            config.set(&key, value).map_err(|error| {
-                error.with_source_context(&source_id, Some(key.clone()), None)
-            })?;
+            config
+                .set(&key, value)
+                .map_err(|error| error.with_source_context(&source_id, Some(key.clone()), None))?;
         }
         context.replace_layer(config);
         Ok(())

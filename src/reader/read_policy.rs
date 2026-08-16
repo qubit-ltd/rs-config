@@ -65,6 +65,25 @@ pub struct ReadPolicy {
 }
 
 impl ReadPolicy {
+    /// Creates a builder initialized with the default read policy.
+    #[inline]
+    pub fn builder() -> ReadPolicyBuilder {
+        ReadPolicyBuilder::new()
+    }
+
+    /// Creates a builder initialized from an existing read policy.
+    #[inline]
+    pub fn builder_from(policy: &Self) -> ReadPolicyBuilder {
+        ReadPolicyBuilder {
+            conversion_policy: policy.conversion_policy.clone(),
+            conversion_limits: policy.conversion_limits.clone(),
+            interpolation_sources: policy.interpolation_sources,
+            max_interpolation_depth: policy.max_interpolation_depth,
+            max_interpolation_expansions: policy.max_interpolation_expansions,
+            max_interpolation_output_bytes: policy.max_interpolation_output_bytes,
+        }
+    }
+
     /// Creates a policy that resolves placeholders from configuration only.
     ///
     /// # Returns
@@ -85,10 +104,9 @@ impl ReadPolicy {
     /// reads still resolve from configuration data unless callers explicitly
     /// select [`InterpolationSources::ConfigThenEnv`].
     pub fn env_friendly() -> Self {
-        Self {
-            conversion_policy: ConversionPolicy::env_friendly(),
-            ..Self::default()
-        }
+        Self::builder()
+            .conversion_policy(ConversionPolicy::env_friendly())
+            .build()
     }
 
     /// Gets the semantic data conversion policy.
@@ -109,20 +127,6 @@ impl ReadPolicy {
     #[inline(always)]
     pub const fn conversion_limits(&self) -> &ConversionLimits {
         &self.conversion_limits
-    }
-
-    /// Returns a copy with a different conversion policy.
-    #[inline(always)]
-    pub fn with_conversion_policy(mut self, policy: ConversionPolicy) -> Self {
-        self.conversion_policy = policy;
-        self
-    }
-
-    /// Returns a copy with different conversion resource limits.
-    #[inline(always)]
-    pub fn with_conversion_limits(mut self, limits: ConversionLimits) -> Self {
-        self.conversion_limits = limits;
-        self
     }
 
     /// Returns the configured interpolation sources.
@@ -164,230 +168,244 @@ impl ReadPolicy {
     pub const fn max_interpolation_output_bytes(&self) -> usize {
         self.max_interpolation_output_bytes
     }
+}
 
-    /// Returns a copy with different interpolation sources.
-    ///
-    /// # Parameters
-    ///
-    /// * `sources` - Sources consulted for unresolved placeholders.
-    ///
-    /// # Returns
-    ///
-    /// Updated policy.
-    #[inline(always)]
-    pub const fn with_interpolation_sources(
-        mut self,
-        sources: InterpolationSources,
-    ) -> Self {
+/// Builder for [`ReadPolicy`].
+#[must_use]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReadPolicyBuilder {
+    conversion_policy: ConversionPolicy,
+    conversion_limits: ConversionLimits,
+    interpolation_sources: InterpolationSources,
+    max_interpolation_depth: usize,
+    max_interpolation_expansions: usize,
+    max_interpolation_output_bytes: usize,
+}
+
+impl ReadPolicyBuilder {
+    fn rebuild_conversion_policy(&self) -> ConversionPolicy {
+        ConversionPolicy::builder()
+            .numeric_policy(self.conversion_policy.numeric().clone())
+            .string_policy(self.conversion_policy.string().clone())
+            .blank_string_policy(self.conversion_policy.string().blank_string_policy())
+            .boolean_policy(self.conversion_policy.boolean().clone())
+            .collection_policy(self.conversion_policy.collection().clone())
+            .empty_item_policy(self.conversion_policy.collection().empty_item_policy())
+            .duration_policy(self.conversion_policy.duration().clone())
+            .build()
+    }
+
+    fn rebuild_conversion_limits(&self) -> ConversionLimits {
+        ConversionLimits::builder()
+            .numeric_limits(*self.conversion_limits.numeric())
+            .collection_limits(*self.conversion_limits.collection())
+            .duration_limits(*self.conversion_limits.duration())
+            .structured_limits(*self.conversion_limits.structured())
+            .operation_limits(*self.conversion_limits.operation())
+            .build()
+    }
+
+    /// Creates a builder initialized with the default read policy.
+    pub fn new() -> Self {
+        Self {
+            conversion_policy: ConversionPolicy::default(),
+            conversion_limits: ConversionLimits::default(),
+            interpolation_sources: InterpolationSources::ConfigOnly,
+            max_interpolation_depth: DEFAULT_MAX_SUBSTITUTION_DEPTH,
+            max_interpolation_expansions: DEFAULT_MAX_SUBSTITUTION_EXPANSIONS,
+            max_interpolation_output_bytes: DEFAULT_MAX_SUBSTITUTION_OUTPUT_BYTES,
+        }
+    }
+
+    /// Sets the data conversion policy.
+    pub fn conversion_policy(mut self, policy: ConversionPolicy) -> Self {
+        self.conversion_policy = policy;
+        self
+    }
+
+    /// Sets the data conversion limits.
+    pub fn conversion_limits(mut self, limits: ConversionLimits) -> Self {
+        self.conversion_limits = limits;
+        self
+    }
+
+    /// Sets the interpolation sources.
+    pub const fn interpolation_sources(mut self, sources: InterpolationSources) -> Self {
         self.interpolation_sources = sources;
         self
     }
 
-    /// Returns a copy with a different recursive interpolation-depth limit.
-    ///
-    /// # Parameters
-    ///
-    /// * `max_depth` - Maximum active placeholder-reference chain length.
-    ///
-    /// # Returns
-    ///
-    /// Updated policy.
-    #[inline(always)]
-    pub const fn with_max_interpolation_depth(
-        mut self,
-        max_depth: usize,
-    ) -> Self {
-        self.max_interpolation_depth = max_depth;
+    /// Sets the maximum recursive interpolation depth.
+    pub const fn max_interpolation_depth(mut self, maximum: usize) -> Self {
+        self.max_interpolation_depth = maximum;
         self
     }
 
-    /// Returns a copy with a different placeholder-resolution limit.
-    ///
-    /// # Parameters
-    ///
-    /// * `max_expansions` - Maximum resolved placeholders per read.
-    ///
-    /// # Returns
-    ///
-    /// Updated policy.
-    #[inline(always)]
-    pub const fn with_max_interpolation_expansions(
-        mut self,
-        max_expansions: usize,
-    ) -> Self {
-        self.max_interpolation_expansions = max_expansions;
+    /// Sets the maximum placeholder-resolution count per read.
+    pub const fn max_interpolation_expansions(mut self, maximum: usize) -> Self {
+        self.max_interpolation_expansions = maximum;
         self
     }
 
-    /// Returns a copy with a different interpolated-output byte limit.
-    ///
-    /// # Parameters
-    ///
-    /// * `max_output_bytes` - Maximum UTF-8 bytes in one interpolated value.
-    ///
-    /// # Returns
-    ///
-    /// Updated policy.
-    #[inline(always)]
-    pub const fn with_max_interpolation_output_bytes(
-        mut self,
-        max_output_bytes: usize,
-    ) -> Self {
-        self.max_interpolation_output_bytes = max_output_bytes;
+    /// Sets the maximum interpolated output byte length.
+    pub const fn max_interpolation_output_bytes(mut self, maximum: usize) -> Self {
+        self.max_interpolation_output_bytes = maximum;
         self
     }
 
-    /// Returns a copy with a different blank string policy.
-    ///
-    /// # Parameters
-    ///
-    /// * `policy` - New blank string policy.
-    ///
-    /// # Returns
-    ///
-    /// Updated policy.
-    pub fn with_blank_string_policy(
-        mut self,
-        policy: BlankStringPolicy,
-    ) -> Self {
-        self.conversion_policy =
-            self.conversion_policy.with_blank_string_policy(policy);
+    /// Sets the blank string conversion policy.
+    pub fn blank_string_policy(mut self, policy: BlankStringPolicy) -> Self {
+        self.conversion_policy = ConversionPolicy::builder()
+            .numeric_policy(self.conversion_policy.numeric().clone())
+            .string_policy(self.conversion_policy.string().clone())
+            .blank_string_policy(policy)
+            .boolean_policy(self.conversion_policy.boolean().clone())
+            .collection_policy(self.conversion_policy.collection().clone())
+            .empty_item_policy(self.conversion_policy.collection().empty_item_policy())
+            .duration_policy(self.conversion_policy.duration().clone())
+            .build();
         self
     }
 
-    /// Returns a copy with a different empty collection item policy.
-    ///
-    /// # Parameters
-    ///
-    /// * `policy` - New empty item policy.
-    ///
-    /// # Returns
-    ///
-    /// Updated policy.
-    pub fn with_empty_item_policy(mut self, policy: EmptyItemPolicy) -> Self {
-        self.conversion_policy =
-            self.conversion_policy.with_empty_item_policy(policy);
+    /// Sets the empty collection item policy.
+    pub fn empty_item_policy(mut self, policy: EmptyItemPolicy) -> Self {
+        self.conversion_policy = ConversionPolicy::builder()
+            .numeric_policy(self.conversion_policy.numeric().clone())
+            .string_policy(self.conversion_policy.string().clone())
+            .blank_string_policy(self.conversion_policy.string().blank_string_policy())
+            .boolean_policy(self.conversion_policy.boolean().clone())
+            .collection_policy(self.conversion_policy.collection().clone())
+            .empty_item_policy(policy)
+            .duration_policy(self.conversion_policy.duration().clone())
+            .build();
         self
     }
 
-    /// Returns a copy with a different string conversion policy.
-    ///
-    /// # Parameters
-    ///
-    /// * `string` - New string conversion policy.
-    ///
-    /// # Returns
-    ///
-    /// Updated policy.
-    pub fn with_string_policy(
-        mut self,
-        string: StringConversionPolicy,
-    ) -> Self {
-        self.conversion_policy =
-            self.conversion_policy.with_string_policy(string);
+    /// Sets the string conversion policy.
+    pub fn string_policy(mut self, policy: StringConversionPolicy) -> Self {
+        self.conversion_policy = ConversionPolicy::builder()
+            .numeric_policy(self.conversion_policy.numeric().clone())
+            .string_policy(policy)
+            .blank_string_policy(self.conversion_policy.string().blank_string_policy())
+            .boolean_policy(self.conversion_policy.boolean().clone())
+            .collection_policy(self.conversion_policy.collection().clone())
+            .empty_item_policy(self.conversion_policy.collection().empty_item_policy())
+            .duration_policy(self.conversion_policy.duration().clone())
+            .build();
         self
     }
 
-    /// Returns a copy with a different Boolean conversion policy.
-    ///
-    /// # Parameters
-    ///
-    /// * `boolean` - New boolean conversion policy.
-    ///
-    /// # Returns
-    ///
-    /// Updated policy.
-    pub fn with_boolean_policy(
-        mut self,
-        boolean: BooleanConversionPolicy,
-    ) -> Self {
-        self.conversion_policy =
-            self.conversion_policy.with_boolean_policy(boolean);
+    /// Sets the Boolean conversion policy.
+    pub fn boolean_policy(mut self, policy: BooleanConversionPolicy) -> Self {
+        self.conversion_policy = ConversionPolicy::builder()
+            .numeric_policy(self.conversion_policy.numeric().clone())
+            .string_policy(self.conversion_policy.string().clone())
+            .blank_string_policy(self.conversion_policy.string().blank_string_policy())
+            .boolean_policy(policy)
+            .collection_policy(self.conversion_policy.collection().clone())
+            .empty_item_policy(self.conversion_policy.collection().empty_item_policy())
+            .duration_policy(self.conversion_policy.duration().clone())
+            .build();
         self
     }
 
-    /// Returns a copy with a different collection conversion policy.
-    ///
-    /// # Parameters
-    ///
-    /// * `collection` - New collection conversion policy.
-    ///
-    /// # Returns
-    ///
-    /// Updated policy.
-    pub fn with_collection_policy(
-        mut self,
-        collection: CollectionConversionPolicy,
-    ) -> Self {
-        self.conversion_policy =
-            self.conversion_policy.with_collection_policy(collection);
+    /// Sets the collection conversion policy.
+    pub fn collection_policy(mut self, policy: CollectionConversionPolicy) -> Self {
+        self.conversion_policy = ConversionPolicy::builder()
+            .numeric_policy(self.conversion_policy.numeric().clone())
+            .string_policy(self.conversion_policy.string().clone())
+            .blank_string_policy(self.conversion_policy.string().blank_string_policy())
+            .boolean_policy(self.conversion_policy.boolean().clone())
+            .collection_policy(policy)
+            .empty_item_policy(self.conversion_policy.collection().empty_item_policy())
+            .duration_policy(self.conversion_policy.duration().clone())
+            .build();
         self
     }
 
-    /// Returns a copy with different collection conversion limits.
-    pub fn with_collection_limits(
-        mut self,
-        collection: CollectionConversionLimits,
-    ) -> Self {
-        self.conversion_limits =
-            self.conversion_limits.with_collection_limits(collection);
+    /// Sets the collection conversion limits.
+    pub fn collection_limits(mut self, limits: CollectionConversionLimits) -> Self {
+        self.conversion_limits = self.rebuild_conversion_limits();
+        self.conversion_limits = ConversionLimits::builder()
+            .numeric_limits(*self.conversion_limits.numeric())
+            .collection_limits(limits)
+            .duration_limits(*self.conversion_limits.duration())
+            .structured_limits(*self.conversion_limits.structured())
+            .operation_limits(*self.conversion_limits.operation())
+            .build();
         self
     }
 
-    /// Returns a copy with a different duration conversion policy.
-    ///
-    /// # Parameters
-    ///
-    /// * `duration` - New duration conversion policy.
-    ///
-    /// # Returns
-    ///
-    /// Updated policy.
-    pub fn with_duration_policy(
-        mut self,
-        duration: DurationConversionPolicy,
-    ) -> Self {
-        self.conversion_policy =
-            self.conversion_policy.with_duration_policy(duration);
+    /// Sets the duration conversion policy.
+    pub fn duration_policy(mut self, policy: DurationConversionPolicy) -> Self {
+        self.conversion_policy = self.rebuild_conversion_policy();
+        self.conversion_policy = ConversionPolicy::builder()
+            .numeric_policy(self.conversion_policy.numeric().clone())
+            .string_policy(self.conversion_policy.string().clone())
+            .blank_string_policy(self.conversion_policy.string().blank_string_policy())
+            .boolean_policy(self.conversion_policy.boolean().clone())
+            .collection_policy(self.conversion_policy.collection().clone())
+            .empty_item_policy(self.conversion_policy.collection().empty_item_policy())
+            .duration_policy(policy)
+            .build();
         self
     }
 
-    /// Returns a copy with different duration conversion limits.
-    pub fn with_duration_limits(
-        mut self,
-        duration: DurationConversionLimits,
-    ) -> Self {
-        self.conversion_limits =
-            self.conversion_limits.with_duration_limits(duration);
+    /// Sets the duration conversion limits.
+    pub fn duration_limits(mut self, limits: DurationConversionLimits) -> Self {
+        self.conversion_limits = ConversionLimits::builder()
+            .numeric_limits(*self.conversion_limits.numeric())
+            .collection_limits(*self.conversion_limits.collection())
+            .duration_limits(limits)
+            .structured_limits(*self.conversion_limits.structured())
+            .operation_limits(*self.conversion_limits.operation())
+            .build();
         self
     }
 
-    /// Returns a copy with a different numeric conversion policy.
-    ///
-    /// # Parameters
-    ///
-    /// * `numeric` - New numeric conversion policy.
-    ///
-    /// # Returns
-    ///
-    /// Updated policy.
-    pub fn with_numeric_policy(
-        mut self,
-        numeric: NumericConversionPolicy,
-    ) -> Self {
-        self.conversion_policy =
-            self.conversion_policy.with_numeric_policy(numeric);
+    /// Sets the numeric conversion policy.
+    pub fn numeric_policy(mut self, policy: NumericConversionPolicy) -> Self {
+        self.conversion_policy = self.rebuild_conversion_policy();
+        self.conversion_policy = ConversionPolicy::builder()
+            .numeric_policy(policy)
+            .string_policy(self.conversion_policy.string().clone())
+            .blank_string_policy(self.conversion_policy.string().blank_string_policy())
+            .boolean_policy(self.conversion_policy.boolean().clone())
+            .collection_policy(self.conversion_policy.collection().clone())
+            .empty_item_policy(self.conversion_policy.collection().empty_item_policy())
+            .duration_policy(self.conversion_policy.duration().clone())
+            .build();
         self
     }
 
-    /// Returns a copy with different numeric conversion limits.
-    pub fn with_numeric_limits(
-        mut self,
-        numeric: NumericConversionLimits,
-    ) -> Self {
-        self.conversion_limits =
-            self.conversion_limits.with_numeric_limits(numeric);
+    /// Sets the numeric conversion limits.
+    pub fn numeric_limits(mut self, limits: NumericConversionLimits) -> Self {
+        self.conversion_limits = ConversionLimits::builder()
+            .numeric_limits(limits)
+            .collection_limits(*self.conversion_limits.collection())
+            .duration_limits(*self.conversion_limits.duration())
+            .structured_limits(*self.conversion_limits.structured())
+            .operation_limits(*self.conversion_limits.operation())
+            .build();
         self
+    }
+
+    /// Builds the configured read policy.
+    pub fn build(self) -> ReadPolicy {
+        ReadPolicy {
+            conversion_policy: self.conversion_policy,
+            conversion_limits: self.conversion_limits,
+            interpolation_sources: self.interpolation_sources,
+            max_interpolation_depth: self.max_interpolation_depth,
+            max_interpolation_expansions: self.max_interpolation_expansions,
+            max_interpolation_output_bytes: self.max_interpolation_output_bytes,
+        }
+    }
+}
+
+impl Default for ReadPolicyBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -395,15 +413,7 @@ impl Default for ReadPolicy {
     /// Creates the default conversion and bounded interpolation policy.
     #[inline]
     fn default() -> Self {
-        Self {
-            conversion_policy: ConversionPolicy::default(),
-            conversion_limits: ConversionLimits::default(),
-            interpolation_sources: InterpolationSources::ConfigOnly,
-            max_interpolation_depth: DEFAULT_MAX_SUBSTITUTION_DEPTH,
-            max_interpolation_expansions: DEFAULT_MAX_SUBSTITUTION_EXPANSIONS,
-            max_interpolation_output_bytes:
-                DEFAULT_MAX_SUBSTITUTION_OUTPUT_BYTES,
-        }
+        Self::builder().build()
     }
 }
 
@@ -427,9 +437,6 @@ impl From<ConversionPolicy> for ReadPolicy {
     /// Creates a read policy from a data conversion policy.
     #[inline]
     fn from(conversion_policy: ConversionPolicy) -> Self {
-        Self {
-            conversion_policy,
-            ..Self::default()
-        }
+        Self::builder().conversion_policy(conversion_policy).build()
     }
 }

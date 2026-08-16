@@ -5,3 +5,9 @@ multiple-public-types | src/reader/read_policy.rs | Interpolation sources and th
 multiple-public-types | src/source/env_config_source.rs | Environment source options and the source implementation are intentionally co-located.
 multiple-public-types | src/source/config_source.rs | The source contract and its extension trait form one cohesive public loading API.
 multiple-public-types | src/source/source_load_session.rs | The public source context and its private accounting session share one transactional loading boundary.
+multiple-public-types | src/config.rs | Config and its consuming builder form one cohesive configuration API.
+multiple-public-types | src/source/composite_config_source.rs | The composite source and its builder form one cohesive source composition API.
+multiple-public-types | src/source/env_file_config_source.rs | The dotenv source and its builder form one cohesive source-loading API.
+multiple-public-types | src/source/properties_config_source.rs | The properties source and its builder form one cohesive source-loading API.
+multiple-public-types | src/source/source_limits.rs | Source limits and their builder form one cohesive resource-budget API.
+multiple-public-types | src/source/toml_config_source.rs | The TOML source and its builder form one cohesive source-loading API.

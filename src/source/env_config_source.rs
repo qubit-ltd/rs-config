@@ -58,7 +58,25 @@ pub struct EnvConfigOptions {
 }
 
 impl EnvConfigOptions {
-    /// Creates environment options with no prefix filter or key transformation.
+    /// Creates a builder initialized with no prefix filter or transformation.
+    #[inline]
+    pub const fn builder() -> EnvConfigOptionsBuilder {
+        EnvConfigOptionsBuilder::new()
+    }
+}
+
+/// Builder for [`EnvConfigOptions`].
+#[must_use]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EnvConfigOptionsBuilder {
+    prefix: Option<String>,
+    strip_prefix: bool,
+    double_underscores_to_dots: bool,
+    lowercase_keys: bool,
+}
+
+impl EnvConfigOptionsBuilder {
+    /// Creates a builder with no prefix filter or transformation.
     #[inline]
     pub const fn new() -> Self {
         Self {
@@ -96,13 +114,30 @@ impl EnvConfigOptions {
         self.lowercase_keys = true;
         self
     }
+
+    /// Builds the configured environment options.
+    #[inline]
+    pub fn build(self) -> EnvConfigOptions {
+        EnvConfigOptions {
+            prefix: self.prefix,
+            strip_prefix: self.strip_prefix,
+            double_underscores_to_dots: self.double_underscores_to_dots,
+            lowercase_keys: self.lowercase_keys,
+        }
+    }
 }
 
-impl Default for EnvConfigOptions {
+impl Default for EnvConfigOptionsBuilder {
     /// Creates environment options with no prefix filter or key transformation.
     #[inline]
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl Default for EnvConfigOptions {
+    fn default() -> Self {
+        Self::builder().build()
     }
 }
 
@@ -118,7 +153,7 @@ impl Default for EnvConfigOptions {
 /// let source = EnvConfigSource::new();
 ///
 /// // Load only vars with prefix "APP_", strip prefix and normalize key
-/// let source = EnvConfigSource::with_prefix("APP_");
+/// let source = EnvConfigSource::from_prefix("APP_");
 ///
 /// let config = source.load().unwrap();
 /// ```
@@ -131,6 +166,12 @@ pub struct EnvConfigSource {
 }
 
 impl EnvConfigSource {
+    /// Creates a builder initialized with default environment options.
+    #[inline]
+    pub fn builder() -> EnvConfigSourceBuilder {
+        EnvConfigSourceBuilder::new()
+    }
+
     /// Creates a new `EnvConfigSource` that loads all environment variables.
     ///
     /// Keys are loaded as-is (no prefix filtering, no transformation).
@@ -160,15 +201,17 @@ impl EnvConfigSource {
     ///
     /// A source with prefix filtering and key normalization enabled.
     #[inline]
-    pub fn with_prefix(prefix: &str) -> Self {
-        Self {
-            options: EnvConfigOptions::new()
-                .prefix(prefix)
-                .strip_prefix()
-                .double_underscores_to_dots()
-                .lowercase_keys(),
-            limits: SourceLimits::default(),
-        }
+    pub fn from_prefix(prefix: &str) -> Self {
+        Self::builder()
+            .options(
+                EnvConfigOptions::builder()
+                    .prefix(prefix)
+                    .strip_prefix()
+                    .double_underscores_to_dots()
+                    .lowercase_keys()
+                    .build(),
+            )
+            .build()
     }
 
     /// Creates a new `EnvConfigSource` with explicit key options.
@@ -181,17 +224,8 @@ impl EnvConfigSource {
     ///
     /// A configured [`EnvConfigSource`].
     #[inline]
-    pub fn with_options(options: EnvConfigOptions) -> Self {
-        Self {
-            options,
-            limits: SourceLimits::default(),
-        }
-    }
-
-    /// Applies resource limits to this source.
-    pub const fn with_limits(mut self, limits: SourceLimits) -> Self {
-        self.limits = limits;
-        self
+    pub fn from_options(options: EnvConfigOptions) -> Self {
+        Self::builder().options(options).build()
     }
 
     /// Transforms an environment variable key according to the source's
@@ -342,11 +376,52 @@ impl EnvConfigSource {
             let pair = EnvRedactor::default().redact_os_pair(key, value);
             ConfigError::source_parse_error(
                 "process environment",
-                format!(
-                    "Environment variable value is not valid Unicode: {pair}",
-                ),
+                format!("Environment variable value is not valid Unicode: {pair}",),
             )
         })
+    }
+}
+
+/// Builder for [`EnvConfigSource`].
+#[must_use]
+pub struct EnvConfigSourceBuilder {
+    options: EnvConfigOptions,
+    limits: SourceLimits,
+}
+
+impl EnvConfigSourceBuilder {
+    /// Creates a builder with default options and limits.
+    pub fn new() -> Self {
+        Self {
+            options: EnvConfigOptions::default(),
+            limits: SourceLimits::default(),
+        }
+    }
+
+    /// Sets environment key transformation options.
+    pub fn options(mut self, options: EnvConfigOptions) -> Self {
+        self.options = options;
+        self
+    }
+
+    /// Sets source resource limits.
+    pub fn limits(mut self, limits: SourceLimits) -> Self {
+        self.limits = limits;
+        self
+    }
+
+    /// Builds the configured environment source.
+    pub fn build(self) -> EnvConfigSource {
+        EnvConfigSource {
+            options: self.options,
+            limits: self.limits,
+        }
+    }
+}
+
+impl Default for EnvConfigSourceBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -366,10 +441,7 @@ impl ConfigSource for EnvConfigSource {
         self.limits
     }
 
-    fn load_into(
-        &self,
-        context: &mut SourceLoadContext<'_>,
-    ) -> ConfigResult<()> {
+    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
         let mut config = Config::new();
         let session = context.session_mut();
         let mut normalized_keys = HashMap::new();
@@ -384,14 +456,10 @@ impl ConfigSource for EnvConfigSource {
 
             let key = Self::env_key_to_string(&key_os, &value_os)?;
             let value = Self::env_value_to_string(&key_os, &value_os)?;
-            session
-                .consume_input_bytes(key.len().saturating_add(value.len()))?;
+            session.consume_input_bytes(key.len().saturating_add(value.len()))?;
             let transformed_key = self.transform_key(&key);
-            if self.options.strip_prefix
-                || self.options.double_underscores_to_dots
-            {
-                utils::validate_normalized_config_key(&transformed_key, &key)
-                    .map_err(|error| {
+            if self.options.strip_prefix || self.options.double_underscores_to_dots {
+                utils::validate_normalized_config_key(&transformed_key, &key).map_err(|error| {
                     error.with_source_context(
                         "process environment",
                         Some(transformed_key.clone()),
@@ -400,8 +468,7 @@ impl ConfigSource for EnvConfigSource {
                 })?;
             }
             if self.can_collapse_distinct_keys()
-                && let Some(existing) =
-                    normalized_keys.insert(transformed_key.clone(), key.clone())
+                && let Some(existing) = normalized_keys.insert(transformed_key.clone(), key.clone())
             {
                 let (first, second) = if existing.as_str() <= key.as_str() {
                     (&existing, &key)
@@ -415,15 +482,13 @@ impl ConfigSource for EnvConfigSource {
                     incoming: format!("environment variable '{second}'"),
                 });
             }
-            let _ = ConfigKey::parse(transformed_key.as_str()).map_err(
-                |error| {
-                    error.with_source_context(
-                        "process environment",
-                        Some(transformed_key.clone()),
-                        None,
-                    )
-                },
-            )?;
+            let _ = ConfigKey::parse(transformed_key.as_str()).map_err(|error| {
+                error.with_source_context(
+                    "process environment",
+                    Some(transformed_key.clone()),
+                    None,
+                )
+            })?;
             session.check_depth(transformed_key.split('.').count())?;
             session.consume_nodes(1)?;
             session.consume_properties(1)?;
