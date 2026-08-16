@@ -202,39 +202,42 @@ impl ConfigWireLimits {
 
     /// Builds the direction-independent JSON value profile.
     fn default_json_value_limits() -> JsonValueLimits<JsonResource, u64> {
-        JsonValueLimits::<JsonResource, u64>::new()
-            .with_max_depth(Self::DEFAULT_MAX_DEPTH)
-            .with_max_nodes(Self::DEFAULT_MAX_NODES)
-            .with_max_sequence_items(Self::DEFAULT_MAX_SEQUENCE_ITEMS)
-            .with_max_map_entries(Self::DEFAULT_MAX_MAP_ENTRIES)
-            .with_max_key_bytes(Self::DEFAULT_MAX_KEY_BYTES)
-            .with_max_string_bytes(Self::DEFAULT_MAX_STRING_BYTES)
-            .with_max_number_bytes(Self::DEFAULT_MAX_NUMBER_BYTES)
-            .with_max_payload_bytes(Self::DEFAULT_MAX_PAYLOAD_BYTES)
+        JsonValueLimits::<JsonResource, u64>::builder()
+            .max_depth(Self::DEFAULT_MAX_DEPTH)
+            .max_nodes(Self::DEFAULT_MAX_NODES)
+            .max_sequence_items(Self::DEFAULT_MAX_SEQUENCE_ITEMS)
+            .max_map_entries(Self::DEFAULT_MAX_MAP_ENTRIES)
+            .max_key_bytes(Self::DEFAULT_MAX_KEY_BYTES)
+            .max_string_bytes(Self::DEFAULT_MAX_STRING_BYTES)
+            .max_number_bytes(Self::DEFAULT_MAX_NUMBER_BYTES)
+            .max_payload_bytes(Self::DEFAULT_MAX_PAYLOAD_BYTES)
+            .build()
     }
 
     /// Builds the JSON decoding profile used by configuration wire input.
     fn default_json_decode_limits(
         max_input_bytes: u64,
     ) -> JsonDecodeLimits<JsonResource, u64> {
-        JsonDecodeLimits::default()
-            .with_input_bytes_limit(ResourceLimit::new(
+        JsonDecodeLimits::builder()
+            .input_bytes_limit(ResourceLimit::new(
                 JsonResource::InputBytes,
                 max_input_bytes,
             ))
-            .with_value_limits(Self::default_json_value_limits())
+            .value_limits(Self::default_json_value_limits())
+            .build()
     }
 
     /// Builds the JSON encoding profile used by configuration wire output.
     fn default_json_encode_limits(
         max_output_bytes: u64,
     ) -> JsonEncodeLimits<JsonResource, u64> {
-        JsonEncodeLimits::default()
-            .with_output_bytes_limit(ResourceLimit::new(
+        JsonEncodeLimits::builder()
+            .output_bytes_limit(ResourceLimit::new(
                 JsonResource::OutputBytes,
                 max_output_bytes,
             ))
-            .with_value_limits(Self::default_json_value_limits())
+            .value_limits(Self::default_json_value_limits())
+            .build()
     }
 }
 
