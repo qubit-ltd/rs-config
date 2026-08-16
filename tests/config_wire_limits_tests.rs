@@ -18,18 +18,19 @@ use qubit_config::ConfigWireLimits;
 
 #[test]
 fn config_wire_limits_preserve_configured_shared_budget() {
-    let value = JsonValueLimits::default().with_structure_limits(
-        StructureLimits::<StructureResource, usize>::new()
-            .with_depth_limit(ResourceLimit::new(JsonResource::Depth, 9))
-            .with_nodes_limit(ResourceLimit::new(JsonResource::Nodes, 456)),
-    );
-    let decode = JsonDecodeLimits::default()
-        .with_input_bytes_limit(ResourceLimit::new(
-            JsonResource::InputBytes,
-            123,
-        ))
-        .with_value_limits(value);
-    let encode = JsonEncodeLimits::default().with_value_limits(value);
+    let value = JsonValueLimits::builder()
+        .structure_limits(
+            StructureLimits::<JsonResource, u64>::builder()
+                .depth_limit(ResourceLimit::new(JsonResource::Depth, 9))
+                .nodes_limit(ResourceLimit::new(JsonResource::Nodes, 456))
+                .build(),
+        )
+        .build();
+    let decode = JsonDecodeLimits::builder()
+        .input_bytes_limit(ResourceLimit::new(JsonResource::InputBytes, 123))
+        .value_limits(value)
+        .build();
+    let encode = JsonEncodeLimits::builder().value_limits(value).build();
     let limits = ConfigWireLimits::from_json(decode, encode)
         .with_max_properties(7)
         .with_max_property_key_bytes(8);

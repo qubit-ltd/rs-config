@@ -10,7 +10,11 @@
 use qubit_budget::BudgetError;
 use qubit_budget::Observation;
 use qubit_budget::ResourceLimit;
+use qubit_budget::StructureLimits;
+use qubit_budget::json::JsonDecodeLimits;
+use qubit_budget::json::JsonEncodeLimits;
 use qubit_budget::json::JsonResource;
+use qubit_budget::json::JsonValueLimits;
 use qubit_config::Config;
 use qubit_config::ConfigWireDecodeError;
 use qubit_config::ConfigWireEncodeError;
@@ -233,21 +237,22 @@ fn test_config_wire_limits_apply_to_nested_values() {
         .expect("setting the collection should succeed");
     let input = to_vec(&config).expect("config should serialize");
     let limits = ConfigWireLimits::default();
-    let decode = limits.json_decode();
-    let value = decode.value_limits();
-    let structure =
-        value
-            .structure_limits()
-            .with_sequence_items_limit(ResourceLimit::new(
-                JsonResource::SequenceItems,
-                1,
-            ));
-    let decode = decode
-        .with_input_bytes_limit(ResourceLimit::new(
+    let structure = StructureLimits::builder()
+        .sequence_items_limit(ResourceLimit::new(
+            JsonResource::SequenceItems,
+            1,
+        ))
+        .build();
+    let value = JsonValueLimits::builder()
+        .structure_limits(structure)
+        .build();
+    let decode = JsonDecodeLimits::builder()
+        .input_bytes_limit(ResourceLimit::new(
             JsonResource::InputBytes,
             u64::try_from(input.len()).expect("input length must fit"),
         ))
-        .with_value_limits(value.with_structure_limits(structure));
+        .value_limits(value)
+        .build();
     let limits = limits.with_json_decode(decode);
 
     assert!(matches!(
@@ -328,13 +333,12 @@ fn test_config_wire_bounded_encode_rejects_final_output_bytes() {
     let maximum =
         u64::try_from(encoded.len() - 1).expect("output length must fit");
     let limits = ConfigWireLimits::default();
-    let encode =
-        limits
-            .json_encode()
-            .with_output_bytes_limit(ResourceLimit::new(
-                JsonResource::OutputBytes,
-                maximum,
-            ));
+    let encode = JsonEncodeLimits::builder()
+        .output_bytes_limit(ResourceLimit::new(
+            JsonResource::OutputBytes,
+            maximum,
+        ))
+        .build();
     let limits = limits.with_json_encode(encode);
 
     let result = config.encode_json_vec_with_limits(limits);
@@ -422,13 +426,12 @@ fn test_config_wire_reports_configuration_invariant_after_decoding() {
     let input =
         to_vec(&wire).expect("serializing the wire object should succeed");
     let limits = ConfigWireLimits::default();
-    let decode =
-        limits
-            .json_decode()
-            .with_input_bytes_limit(ResourceLimit::new(
-                JsonResource::InputBytes,
-                u64::try_from(input.len()).expect("input length must fit"),
-            ));
+    let decode = JsonDecodeLimits::builder()
+        .input_bytes_limit(ResourceLimit::new(
+            JsonResource::InputBytes,
+            u64::try_from(input.len()).expect("input length must fit"),
+        ))
+        .build();
     let limits = limits.with_json_decode(decode);
 
     let result = Config::decode_json_slice_with_limits(&input, limits);
