@@ -264,8 +264,8 @@ impl Config {
         for property in self.properties.values() {
             let _ = ValueWireRefV1::try_from(property.value())?;
         }
-        let mut session = JsonEncodeSession::owned(limits.json_encode());
-        JsonEncoder::new(&mut session)
+        let session = JsonEncodeSession::owned(limits.json_encode());
+        JsonEncoder::new(session)
             .to_vec(&ConfigWireV1Ref::from(self))
             .map_err(map_encode_json_error)
     }
@@ -312,14 +312,13 @@ impl Config {
         input: &[u8],
         limits: ConfigWireLimits,
     ) -> Result<Self, ConfigWireDecodeError> {
-        let mut session = JsonDecodeSession::owned(limits.json_decode());
-        let wire = JsonDecoder::default()
+        let session = JsonDecodeSession::owned(limits.json_decode());
+        let wire = JsonDecoder::new(session)
             .decode_seed_utf8(
                 PreaccountedConfigWireSeed::preaccounted(limits),
                 input,
-                &mut session,
             )
-            .map_err(map_decode_json_error)??;
+            .map_err(|error| map_decode_json_error(error))??;
         let config = Self::try_from(wire)
             .map_err(ConfigWireDecodeError::InvalidConfig)?;
         Ok(config)
