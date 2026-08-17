@@ -265,10 +265,7 @@ impl ConfigWireLimits {
         max_input_bytes: u64,
     ) -> JsonDecodeLimits<JsonResource, u64> {
         JsonDecodeLimits::builder()
-            .input_bytes_limit(ResourceLimit::new(
-                JsonResource::InputBytes,
-                max_input_bytes,
-            ))
+            .max_input_bytes(max_input_bytes)
             .value_limits(Self::default_json_value_limits())
             .build()
     }
@@ -278,10 +275,7 @@ impl ConfigWireLimits {
         max_output_bytes: u64,
     ) -> JsonEncodeLimits<JsonResource, u64> {
         JsonEncodeLimits::builder()
-            .output_bytes_limit(ResourceLimit::new(
-                JsonResource::OutputBytes,
-                max_output_bytes,
-            ))
+            .max_output_bytes(max_output_bytes)
             .value_limits(Self::default_json_value_limits())
             .build()
     }
