@@ -318,7 +318,7 @@ impl Config {
                 PreaccountedConfigWireSeed::preaccounted(limits),
                 input,
             )
-            .map_err(|error| map_decode_json_error(error))??;
+            .map_err(map_decode_json_error)??;
         let config = Self::try_from(wire)
             .map_err(ConfigWireDecodeError::InvalidConfig)?;
         Ok(config)
