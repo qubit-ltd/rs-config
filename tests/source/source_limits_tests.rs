@@ -17,6 +17,7 @@ use qubit_config::source::EnvFileConfigSource;
 use qubit_config::source::PropertiesConfigSource;
 use qubit_config::source::SourceLimitKind;
 use qubit_config::source::SourceLimits;
+use qubit_config::source::SourceLimitsBuilder;
 use qubit_config::source::SourceLoadContext;
 #[cfg(feature = "toml")]
 use qubit_config::source::TomlConfigSource;
@@ -70,6 +71,8 @@ fn source_context_charges_local_and_aggregate_budgets_atomically() {
 #[test]
 fn source_limits_are_bounded_by_default_and_can_be_unbounded() {
     let limits = SourceLimits::builder().build();
+    assert_eq!(SourceLimits::default(), limits);
+    assert_eq!(SourceLimitsBuilder::default(), SourceLimits::builder());
     assert_eq!(limits.max_input_bytes(), 8 * 1024 * 1024);
     assert_eq!(limits.max_properties(), 65_536);
     assert_eq!(limits.max_nodes(), 262_144);
@@ -95,6 +98,15 @@ fn source_limits_are_bounded_by_default_and_can_be_unbounded() {
     assert_eq!(zero.max_nodes(), 0);
     assert_eq!(zero.max_sources(), 0);
     assert_eq!(zero.max_nesting_depth(), 0);
+}
+
+#[test]
+fn source_limit_kinds_have_stable_display_names() {
+    assert_eq!(SourceLimitKind::InputBytes.to_string(), "input bytes");
+    assert_eq!(SourceLimitKind::PropertyCount.to_string(), "property count");
+    assert_eq!(SourceLimitKind::NodeCount.to_string(), "node count");
+    assert_eq!(SourceLimitKind::SourceCount.to_string(), "source count");
+    assert_eq!(SourceLimitKind::NestingDepth.to_string(), "nesting depth");
 }
 
 #[test]
