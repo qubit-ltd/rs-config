@@ -57,7 +57,7 @@ mod test_env_config_source {
     fn test_default_env_policy_redacts_sensitive_utf8_value() {
         let redacted = EnvRedactor::default()
             .redact_os_pair("APP_PASSWORD".as_ref(), "plain-secret".as_ref());
-        let rendered = redacted.log_safe_text().as_str();
+        let rendered = redacted.text().as_str();
 
         assert_eq!(redacted.completion(), RedactionCompletion::Complete);
         assert_eq!(rendered, "APP_PASSWORD=<redacted>");
