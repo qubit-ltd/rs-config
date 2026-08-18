@@ -444,6 +444,8 @@ dependencies = [
 [[package]]
 name = "qubit-budget"
 version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "076075301fd9ed7b4828fa12a74d8a072839d654c2151729ebef33a48ce2dd6c"
 dependencies = [
  "bigdecimal",
  "num-bigint",
@@ -522,9 +524,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-utils"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a4e2a99ede9d46a1cccb7631957f553c1f91e6dfde5a0d628058b92d6566b55"
+checksum = "a10f49f1e871d14bce08182c456b9a90146e7e40a40165861fed4d9e5d204fc1"
 
 [[package]]
 name = "qubit-value"
@@ -992,9 +994,9 @@ dependencies = [
 
 [[package]]
 name = "zerovec-derive"
-version = "0.11.4"
+version = "0.11.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47402523226a02bfe5230160dc3ccc089aa6f6f19e7fcbb4e6f824bbb1b4aa62"
+checksum = "9f212a141d820099d57ffafb9569be9617a6f27d3dc881fbee8fb56642f917a9"
 dependencies = [
  "proc-macro2",
  "quote",
