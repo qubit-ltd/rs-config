@@ -18,7 +18,7 @@ use qubit_config::source::ConfigSource;
 use qubit_config::source::EnvConfigOptions;
 use qubit_config::source::EnvConfigSource;
 use qubit_redact::RedactionCompletion;
-use qubit_redact::formats::env::EnvRedactor;
+use qubit_redact::Redactor;
 
 /// Serializes tests that mutate or read process environment variables.
 fn env_test_lock() -> MutexGuard<'static, ()> {
@@ -46,8 +46,8 @@ mod test_env_config_source {
     use super::ConfigSource;
     use super::EnvConfigOptions;
     use super::EnvConfigSource;
-    use super::EnvRedactor;
     use super::RedactionCompletion;
+    use super::Redactor;
     use super::env_test_lock;
     use super::merge_source;
 
@@ -55,11 +55,14 @@ mod test_env_config_source {
     /// sensitive pair.
     #[test]
     fn test_default_env_policy_redacts_sensitive_utf8_value() {
-        let redacted = EnvRedactor::default()
-            .redact_os_pair("APP_PASSWORD".as_ref(), "plain-secret".as_ref());
+        let redacted =
+            Redactor::standard().redact_env("APP_PASSWORD", "plain-secret");
         let rendered = redacted.text().as_str();
 
-        assert_eq!(redacted.completion(), RedactionCompletion::Complete);
+        assert_eq!(
+            redacted.summary().completion(),
+            RedactionCompletion::Complete
+        );
         assert_eq!(rendered, "APP_PASSWORD=<redacted>");
         assert!(!rendered.contains("plain-secret"));
     }

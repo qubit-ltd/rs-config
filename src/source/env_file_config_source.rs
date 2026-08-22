@@ -20,8 +20,6 @@
 
 use std::path::Path;
 
-use qubit_redact::redacted_debug;
-
 use super::ConfigSource;
 use super::SourceLimits;
 use super::SourceLoadContext;
@@ -72,23 +70,21 @@ fn map_dotenv_error(label: &str, error: dotenvy::Error) -> ConfigError {
                 format!("Failed to read .env source '{label}': {source}"),
             ),
         ),
-        dotenvy::Error::LineParse(line, error_index) => {
+        dotenvy::Error::LineParse(_line, error_index) => {
             ConfigError::source_parse_error(
                 label,
                 format!(
                     "Failed to parse .env file '{}' at line index \
-                     {error_index}: {:?}",
+                    {error_index}: invalid assignment: <redacted>",
                     label,
-                    redacted_debug(&line),
                 ),
             )
         }
-        error => ConfigError::source_parse_error(
+        _error => ConfigError::source_parse_error(
             label,
             format!(
-                "Failed to parse .env file '{}': {:?}",
-                label,
-                redacted_debug(&error),
+                "Failed to parse .env file '{}': invalid dotenv input: <redacted>",
+                label
             ),
         ),
     }

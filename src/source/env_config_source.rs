@@ -31,9 +31,6 @@
 use std::collections::HashMap;
 use std::ffi::OsStr;
 
-use qubit_redact::formats::env::EnvRedactor;
-use qubit_redact::redacted_debug;
-
 use super::ConfigSource;
 use super::SourceLimits;
 use super::SourceLoadContext;
@@ -342,15 +339,11 @@ impl EnvConfigSource {
     /// Returns a source-aware parse error with a fixed redaction marker when
     /// the key is not valid Unicode.
     #[inline]
-    fn env_key_to_string(key: &OsStr, value: &OsStr) -> ConfigResult<String> {
+    fn env_key_to_string(key: &OsStr, _value: &OsStr) -> ConfigResult<String> {
         key.to_str().map(str::to_owned).ok_or_else(|| {
-            let pair = EnvRedactor::default().redact_os_pair(key, value);
             ConfigError::source_parse_error(
                 "process environment",
-                format!(
-                    "Environment variable key is not valid Unicode: {:?}",
-                    redacted_debug(&pair),
-                ),
+                "Environment variable key is not valid Unicode: <redacted>",
             )
         })
     }
@@ -373,11 +366,11 @@ impl EnvConfigSource {
     #[inline]
     fn env_value_to_string(key: &OsStr, value: &OsStr) -> ConfigResult<String> {
         value.to_str().map(str::to_owned).ok_or_else(|| {
-            let pair = EnvRedactor::default().redact_os_pair(key, value);
             ConfigError::source_parse_error(
                 "process environment",
                 format!(
-                    "Environment variable value is not valid Unicode: {pair}",
+                    "Environment variable value is not valid Unicode for {}: <redacted>",
+                    key.to_str().unwrap_or("<redacted>"),
                 ),
             )
         })

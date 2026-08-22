@@ -34,7 +34,6 @@
 use std::collections::HashSet;
 use std::path::Path;
 
-use qubit_redact::redacted_debug;
 use qubit_value::ValueContainer;
 use serde_norway::Error as YamlError;
 use serde_norway::Value as YamlValue;
@@ -713,8 +712,7 @@ fn yaml_scalar_to_string(value: &YamlValue, key: &str) -> ConfigResult<String> {
         YamlValue::Sequence(_)
         | YamlValue::Mapping(_)
         | YamlValue::Tagged(_) => Err(ConfigError::ParseError(format!(
-            "Unsupported nested YAML structure at key '{key}': {:?}",
-            redacted_debug(value),
+            "Unsupported nested YAML structure at key '{key}'",
         ))),
     }
 }
