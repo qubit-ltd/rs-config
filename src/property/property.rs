@@ -20,7 +20,7 @@ use std::ops::Deref;
 use std::ops::DerefMut;
 
 use qubit_datatype::DataType;
-use qubit_redact::redacted_debug;
+use qubit_redact::Redactor;
 use qubit_value::StrictValueRead;
 use qubit_value::ValueContainer;
 use qubit_value::ValueResult;
@@ -83,7 +83,13 @@ impl Debug for Property {
         formatter
             .debug_struct("Property")
             .field("name", &self.name)
-            .field("value", &redacted_debug(&self.value))
+            .field(
+                "value",
+                &Redactor::strict()
+                    .redact_field("value", &format!("{:?}", self.value))
+                    .into_text()
+                    .as_str(),
+            )
             .field("description", &self.description)
             .field("is_final", &self.is_final)
             .finish()
