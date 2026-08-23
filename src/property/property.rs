@@ -87,7 +87,7 @@ impl Debug for Property {
                 "value",
                 &Redactor::strict()
                     .redact_field("value", &format!("{:?}", self.value))
-                    .into_text()
+                    .into_text_or_marker("<redaction incomplete>")
                     .as_str(),
             )
             .field("description", &self.description)
