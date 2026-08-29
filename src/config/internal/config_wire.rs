@@ -11,9 +11,9 @@ use serde::Deserializer;
 use serde::de::DeserializeSeed;
 use serde::de::Error as _;
 
+use super::AccountingConfigWireSeed;
 use super::ConfigSerdeRepr;
 use super::ConfigWireFields;
-use super::ConfigWireSeed;
 use super::ConfigWireV1;
 
 /// Accepted persisted `Config` wire representations.
@@ -29,7 +29,7 @@ impl<'de> Deserialize<'de> for ConfigWire {
     where
         D: Deserializer<'de>,
     {
-        ConfigWireSeed::new(crate::ConfigWireLimits::default())
+        AccountingConfigWireSeed::new(crate::ConfigWireLimits::default())
             .deserialize(deserializer)?
             .map_err(D::Error::custom)
     }
