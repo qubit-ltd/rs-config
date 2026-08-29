@@ -37,7 +37,7 @@ use self::internal::ConfigSerdeRepr;
 use self::internal::ConfigWire;
 use self::internal::ConfigWireV1;
 use self::internal::ConfigWireV1Ref;
-use self::internal::PreaccountedConfigWireSeed;
+use self::internal::JsonAdmittedConfigWireSeed;
 use crate::ConfigError;
 use crate::ConfigWireDecodeError;
 use crate::ConfigWireEncodeError;
@@ -315,10 +315,7 @@ impl Config {
     ) -> Result<Self, ConfigWireDecodeError> {
         let session = JsonDecodeSession::from_limits(limits.json_decode());
         let wire = JsonDecoder::new(session)
-            .decode_seed_utf8(
-                PreaccountedConfigWireSeed::preaccounted(limits),
-                input,
-            )
+            .decode_seed_utf8(JsonAdmittedConfigWireSeed::new(limits), input)
             .map_err(map_decode_json_error)??;
         let config = Self::try_from(wire)
             .map_err(ConfigWireDecodeError::InvalidConfig)?;

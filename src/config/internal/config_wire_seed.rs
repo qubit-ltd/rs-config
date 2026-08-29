@@ -9,7 +9,7 @@
 //! Budget-aware seed for persisted configuration wire values.
 
 use qubit_budget::json::JsonValueBudget;
-use qubit_json::value::JsonValueSeed;
+use qubit_json::value::AccountingJsonValueSeed;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::de::DeserializeSeed;
@@ -24,11 +24,11 @@ use crate::ConfigWireLimitKind;
 use crate::ConfigWireLimits;
 
 /// Decodes one Config wire value under explicit domain limits.
-pub(in crate::config) struct ConfigWireSeed {
+pub(in crate::config) struct AccountingConfigWireSeed {
     limits: ConfigWireLimits,
 }
 
-impl ConfigWireSeed {
+impl AccountingConfigWireSeed {
     /// Creates a seed that budgets decoded Serde events.
     pub(in crate::config) const fn new(limits: ConfigWireLimits) -> Self {
         Self { limits }
@@ -36,20 +36,18 @@ impl ConfigWireSeed {
 }
 
 /// Decodes a wire value whose JSON tree was admitted by a decode session.
-pub(in crate::config) struct PreaccountedConfigWireSeed {
+pub(in crate::config) struct JsonAdmittedConfigWireSeed {
     limits: ConfigWireLimits,
 }
 
-impl PreaccountedConfigWireSeed {
+impl JsonAdmittedConfigWireSeed {
     /// Creates a seed for input already admitted by a JSON decode session.
-    pub(in crate::config) const fn preaccounted(
-        limits: ConfigWireLimits,
-    ) -> Self {
+    pub(in crate::config) const fn new(limits: ConfigWireLimits) -> Self {
         Self { limits }
     }
 }
 
-impl ConfigWireSeed {
+impl AccountingConfigWireSeed {
     /// Checks the configuration-specific property dimensions.
     fn check_properties<'a>(
         &self,
@@ -101,7 +99,7 @@ impl ConfigWireSeed {
     }
 }
 
-impl PreaccountedConfigWireSeed {
+impl JsonAdmittedConfigWireSeed {
     /// Checks property dimensions on directly decoded wire fields.
     fn check_fields(
         &self,
@@ -137,7 +135,7 @@ impl PreaccountedConfigWireSeed {
     }
 }
 
-impl<'de> DeserializeSeed<'de> for ConfigWireSeed {
+impl<'de> DeserializeSeed<'de> for AccountingConfigWireSeed {
     type Value = Result<ConfigWire, ConfigWireDecodeError>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
@@ -147,8 +145,8 @@ impl<'de> DeserializeSeed<'de> for ConfigWireSeed {
         let mut budget =
             JsonValueBudget::new(*self.limits.json_decode().value_limits());
         let mut transaction = budget.transaction();
-        let value =
-            JsonValueSeed::new(&mut transaction).deserialize(deserializer)?;
+        let value = AccountingJsonValueSeed::new(&mut transaction)
+            .deserialize(deserializer)?;
         transaction.commit();
         if let Err(error) = self.check_value(&value) {
             return Ok(Err(error));
@@ -159,7 +157,7 @@ impl<'de> DeserializeSeed<'de> for ConfigWireSeed {
     }
 }
 
-impl<'de> DeserializeSeed<'de> for PreaccountedConfigWireSeed {
+impl<'de> DeserializeSeed<'de> for JsonAdmittedConfigWireSeed {
     type Value = Result<ConfigWire, ConfigWireDecodeError>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
