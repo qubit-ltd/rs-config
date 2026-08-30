@@ -168,6 +168,7 @@ config.set("worker.invalid", "abc")?;
 let error = config.get_or::<u16>("worker.invalid", 30).unwrap_err();
 assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Conversion);
 assert!(matches!(error, ConfigError::ConversionError { .. }));
+# Ok::<(), ConfigError>(())
 ```
 
 The important missing-value rules are:
@@ -201,10 +202,14 @@ assert_eq!(read_endpoint(&config)?, ("localhost".to_owned(), 8080));
 `ConfigSection` is strictly relative and can be nested:
 
 ```rust
+# use qubit_config::{Config, ConfigReader};
+# let mut config = Config::new();
+# config.set("server.tls.enabled", true)?;
 let server = config.section("server")?;
 let tls = server.section("tls")?;
 let enabled: bool = tls.get("enabled")?;
 # let _ = enabled;
+# Ok::<(), qubit_config::ConfigError>(())
 ```
 
 Use `contains_section("server.tls")` for dotted section membership. Use `contains_key_prefix("server")` only when raw character-prefix matching is intended; it can also match a sibling such as `server2`.
@@ -248,9 +253,12 @@ configuration output but do not bound parser allocation or recursion.
 
 Use a convenience constructor when no target customization is needed:
 
-```rust
+```rust,no_run
+use qubit_config::Config;
+
 let config = Config::from_properties_file("config.properties")?;
 # let _ = config;
+# Ok::<(), qubit_config::ConfigError>(())
 ```
 
 Use `merge_properties_from_source` when the target already has values or a read policy:
@@ -259,6 +267,7 @@ Use `merge_properties_from_source` when the target already has values or a read 
 use qubit_config::source::{
     CompositeConfigSource, PropertiesConfigSource,
 };
+use qubit_config::Config;
 
 let mut source = CompositeConfigSource::new();
 source.add(PropertiesConfigSource::from_content("port=8080\n"));
@@ -341,7 +350,8 @@ let mut config = Config::new();
 config.set("HTTP_ENABLED", "yes")?;
 config.set("HTTP_PORTS", "8080, 8081,,8082")?;
 
-let reader = config.read_with(&ReadPolicy::env_friendly());
+let policy = ReadPolicy::env_friendly();
+let reader = config.read_with(&policy);
 let enabled: bool = reader.get("HTTP_ENABLED")?;
 let ports: Vec<u16> = reader.get("HTTP_PORTS")?;
 assert!(enabled);
@@ -349,7 +359,7 @@ assert_eq!(ports, [8080, 8081, 8082]);
 # Ok::<(), qubit_config::ConfigError>(())
 ```
 
-`ReadPolicy` groups string blank handling, boolean literals, collection splitting, numeric conversion, duration conversion, and interpolation limits. Use its builder methods when the application needs a stricter or different policy. The conversion option types are supplied by `qubit-datatype`; applications that configure those lower-level options directly should depend on that crate as well.
+`ReadPolicy` groups string blank handling, boolean literals, collection splitting, numeric conversion, duration conversion, and interpolation limits. Use its builder methods when the application needs a stricter or different policy. Passing a complete `StringConversionPolicy` or `CollectionConversionPolicy` installs that nested policy unchanged; the leaf-level `blank_string_policy` and `empty_item_policy` setters change only their respective nested setting. The conversion option types are supplied by `qubit-datatype`; applications that configure those lower-level options directly should depend on that crate as well.
 
 ### Interpolate explicitly
 

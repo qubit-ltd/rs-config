@@ -166,6 +166,7 @@ config.set("worker.invalid", "abc")?;
 let error = config.get_or::<u16>("worker.invalid", 30).unwrap_err();
 assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Conversion);
 assert!(matches!(error, ConfigError::ConversionError { .. }));
+# Ok::<(), ConfigError>(())
 ```
 
 缺失值的关键规则如下：
@@ -199,10 +200,14 @@ assert_eq!(read_endpoint(&config)?, ("localhost".to_owned(), 8080));
 `ConfigSection` 是严格相对的，可以继续嵌套：
 
 ```rust
+# use qubit_config::{Config, ConfigReader};
+# let mut config = Config::new();
+# config.set("server.tls.enabled", true)?;
 let server = config.section("server")?;
 let tls = server.section("tls")?;
 let enabled: bool = tls.get("enabled")?;
 # let _ = enabled;
+# Ok::<(), qubit_config::ConfigError>(())
 ```
 
 判断点分 section 是否存在时使用 `contains_section("server.tls")`。只有明确需要原始字符前缀匹配时才使用 `contains_key_prefix("server")`；它也可能匹配 `server2` 等同名前缀。path-sensitive 的 `section`、`contains`、`get_property`、`is_unset`、`remove` 和 `ConfigReader::resolve_key` 都返回 `ConfigResult`，因为非法路径是可观察错误。
@@ -240,9 +245,12 @@ Java properties 行为去掉前导反斜杠。
 
 如果不需要在加载前定制目标配置，可以使用便捷构造函数：
 
-```rust
+```rust,no_run
+use qubit_config::Config;
+
 let config = Config::from_properties_file("config.properties")?;
 # let _ = config;
+# Ok::<(), qubit_config::ConfigError>(())
 ```
 
 如果目标已有值或读取策略，则使用 `merge_properties_from_source`：
@@ -251,6 +259,7 @@ let config = Config::from_properties_file("config.properties")?;
 use qubit_config::source::{
     CompositeConfigSource, PropertiesConfigSource,
 };
+use qubit_config::Config;
 
 let mut source = CompositeConfigSource::new();
 source.add(PropertiesConfigSource::from_content("port=8080\n"));
@@ -330,7 +339,8 @@ let mut config = Config::new();
 config.set("HTTP_ENABLED", "yes")?;
 config.set("HTTP_PORTS", "8080, 8081,,8082")?;
 
-let reader = config.read_with(&ReadPolicy::env_friendly());
+let policy = ReadPolicy::env_friendly();
+let reader = config.read_with(&policy);
 let enabled: bool = reader.get("HTTP_ENABLED")?;
 let ports: Vec<u16> = reader.get("HTTP_PORTS")?;
 assert!(enabled);
@@ -338,7 +348,7 @@ assert_eq!(ports, [8080, 8081, 8082]);
 # Ok::<(), qubit_config::ConfigError>(())
 ```
 
-`ReadPolicy` 组合控制字符串空白处理、布尔字面量、集合拆分、数值转换、Duration 转换和插值限制。应用可以使用 builder 方法选择更严格或不同的策略。底层转换选项类型由 `qubit-datatype` 提供；如果应用直接配置这些低层选项，也应直接依赖该 crate。
+`ReadPolicy` 组合控制字符串空白处理、布尔字面量、集合拆分、数值转换、Duration 转换和插值限制。应用可以使用 builder 方法选择更严格或不同的策略。传入完整的 `StringConversionPolicy` 或 `CollectionConversionPolicy` 时，该嵌套策略会原样替换；叶级 `blank_string_policy` 和 `empty_item_policy` setter 只修改各自对应的嵌套设置。底层转换选项类型由 `qubit-datatype` 提供；如果应用直接配置这些低层选项，也应直接依赖该 crate。
 
 ### 显式执行插值
 
