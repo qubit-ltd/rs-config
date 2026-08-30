@@ -147,7 +147,7 @@ impl<'de> DeserializeSeed<'de> for AccountingConfigWireSeed {
         let mut transaction = budget.transaction();
         let value = AccountingJsonValueSeed::new(&mut transaction)
             .deserialize(deserializer)?;
-        transaction.commit();
+        transaction.commit().map_err(D::Error::custom)?;
         if let Err(error) = self.check_value(&value) {
             return Ok(Err(error));
         }
