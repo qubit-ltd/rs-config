@@ -212,6 +212,42 @@ fn test_collection_options_builder_is_exposed_directly() {
 }
 
 #[test]
+fn test_string_policy_preserves_its_own_blank_string_policy() {
+    let string_policy = StringConversionPolicy::builder()
+        .blank_string_policy(BlankStringPolicy::Reject)
+        .build();
+
+    let policy = ReadPolicy::builder()
+        .blank_string_policy(BlankStringPolicy::TreatAsMissing)
+        .string_policy(string_policy.clone())
+        .build();
+
+    assert_eq!(policy.conversion_policy().string(), &string_policy);
+    assert_eq!(
+        policy.conversion_policy().string().blank_string_policy(),
+        BlankStringPolicy::Reject,
+    );
+}
+
+#[test]
+fn test_collection_policy_preserves_its_own_empty_item_policy() {
+    let collection_policy = CollectionConversionPolicy::builder()
+        .empty_item_policy(EmptyItemPolicy::Reject)
+        .build();
+
+    let policy = ReadPolicy::builder()
+        .empty_item_policy(EmptyItemPolicy::Skip)
+        .collection_policy(collection_policy.clone())
+        .build();
+
+    assert_eq!(policy.conversion_policy().collection(), &collection_policy,);
+    assert_eq!(
+        policy.conversion_policy().collection().empty_item_policy(),
+        EmptyItemPolicy::Reject,
+    );
+}
+
+#[test]
 fn test_from_and_as_ref_preserve_conversion_policy_and_limits() {
     let conversion = ConversionPolicy::env_friendly();
 

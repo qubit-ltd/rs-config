@@ -184,32 +184,6 @@ pub struct ReadPolicyBuilder {
 }
 
 impl ReadPolicyBuilder {
-    fn rebuild_conversion_policy(&self) -> ConversionPolicy {
-        ConversionPolicy::builder()
-            .numeric_policy(self.conversion_policy.numeric().clone())
-            .string_policy(self.conversion_policy.string().clone())
-            .blank_string_policy(
-                self.conversion_policy.string().blank_string_policy(),
-            )
-            .boolean_policy(self.conversion_policy.boolean().clone())
-            .collection_policy(self.conversion_policy.collection().clone())
-            .empty_item_policy(
-                self.conversion_policy.collection().empty_item_policy(),
-            )
-            .duration_policy(self.conversion_policy.duration().clone())
-            .build()
-    }
-
-    fn rebuild_conversion_limits(&self) -> ConversionLimits {
-        ConversionLimits::builder()
-            .numeric_limits(*self.conversion_limits.numeric())
-            .collection_limits(*self.conversion_limits.collection())
-            .duration_limits(*self.conversion_limits.duration())
-            .structured_limits(*self.conversion_limits.structured())
-            .operation_limits(*self.conversion_limits.operation())
-            .build()
-    }
-
     /// Creates a builder initialized with the default read policy.
     pub fn new() -> Self {
         Self {
@@ -270,68 +244,40 @@ impl ReadPolicyBuilder {
 
     /// Sets the blank string conversion policy.
     pub fn blank_string_policy(mut self, policy: BlankStringPolicy) -> Self {
-        self.conversion_policy = ConversionPolicy::builder()
-            .numeric_policy(self.conversion_policy.numeric().clone())
-            .string_policy(self.conversion_policy.string().clone())
+        self.conversion_policy = self
+            .conversion_policy
+            .into_builder()
             .blank_string_policy(policy)
-            .boolean_policy(self.conversion_policy.boolean().clone())
-            .collection_policy(self.conversion_policy.collection().clone())
-            .empty_item_policy(
-                self.conversion_policy.collection().empty_item_policy(),
-            )
-            .duration_policy(self.conversion_policy.duration().clone())
             .build();
         self
     }
 
     /// Sets the empty collection item policy.
     pub fn empty_item_policy(mut self, policy: EmptyItemPolicy) -> Self {
-        self.conversion_policy = ConversionPolicy::builder()
-            .numeric_policy(self.conversion_policy.numeric().clone())
-            .string_policy(self.conversion_policy.string().clone())
-            .blank_string_policy(
-                self.conversion_policy.string().blank_string_policy(),
-            )
-            .boolean_policy(self.conversion_policy.boolean().clone())
-            .collection_policy(self.conversion_policy.collection().clone())
+        self.conversion_policy = self
+            .conversion_policy
+            .into_builder()
             .empty_item_policy(policy)
-            .duration_policy(self.conversion_policy.duration().clone())
             .build();
         self
     }
 
     /// Sets the string conversion policy.
     pub fn string_policy(mut self, policy: StringConversionPolicy) -> Self {
-        self.conversion_policy = ConversionPolicy::builder()
-            .numeric_policy(self.conversion_policy.numeric().clone())
+        self.conversion_policy = self
+            .conversion_policy
+            .into_builder()
             .string_policy(policy)
-            .blank_string_policy(
-                self.conversion_policy.string().blank_string_policy(),
-            )
-            .boolean_policy(self.conversion_policy.boolean().clone())
-            .collection_policy(self.conversion_policy.collection().clone())
-            .empty_item_policy(
-                self.conversion_policy.collection().empty_item_policy(),
-            )
-            .duration_policy(self.conversion_policy.duration().clone())
             .build();
         self
     }
 
     /// Sets the Boolean conversion policy.
     pub fn boolean_policy(mut self, policy: BooleanConversionPolicy) -> Self {
-        self.conversion_policy = ConversionPolicy::builder()
-            .numeric_policy(self.conversion_policy.numeric().clone())
-            .string_policy(self.conversion_policy.string().clone())
-            .blank_string_policy(
-                self.conversion_policy.string().blank_string_policy(),
-            )
+        self.conversion_policy = self
+            .conversion_policy
+            .into_builder()
             .boolean_policy(policy)
-            .collection_policy(self.conversion_policy.collection().clone())
-            .empty_item_policy(
-                self.conversion_policy.collection().empty_item_policy(),
-            )
-            .duration_policy(self.conversion_policy.duration().clone())
             .build();
         self
     }
@@ -341,18 +287,10 @@ impl ReadPolicyBuilder {
         mut self,
         policy: CollectionConversionPolicy,
     ) -> Self {
-        self.conversion_policy = ConversionPolicy::builder()
-            .numeric_policy(self.conversion_policy.numeric().clone())
-            .string_policy(self.conversion_policy.string().clone())
-            .blank_string_policy(
-                self.conversion_policy.string().blank_string_policy(),
-            )
-            .boolean_policy(self.conversion_policy.boolean().clone())
+        self.conversion_policy = self
+            .conversion_policy
+            .into_builder()
             .collection_policy(policy)
-            .empty_item_policy(
-                self.conversion_policy.collection().empty_item_policy(),
-            )
-            .duration_policy(self.conversion_policy.duration().clone())
             .build();
         self
     }
@@ -362,31 +300,19 @@ impl ReadPolicyBuilder {
         mut self,
         limits: CollectionConversionLimits,
     ) -> Self {
-        self.conversion_limits = self.rebuild_conversion_limits();
-        self.conversion_limits = ConversionLimits::builder()
-            .numeric_limits(*self.conversion_limits.numeric())
+        self.conversion_limits = self
+            .conversion_limits
+            .into_builder()
             .collection_limits(limits)
-            .duration_limits(*self.conversion_limits.duration())
-            .structured_limits(*self.conversion_limits.structured())
-            .operation_limits(*self.conversion_limits.operation())
             .build();
         self
     }
 
     /// Sets the duration conversion policy.
     pub fn duration_policy(mut self, policy: DurationConversionPolicy) -> Self {
-        self.conversion_policy = self.rebuild_conversion_policy();
-        self.conversion_policy = ConversionPolicy::builder()
-            .numeric_policy(self.conversion_policy.numeric().clone())
-            .string_policy(self.conversion_policy.string().clone())
-            .blank_string_policy(
-                self.conversion_policy.string().blank_string_policy(),
-            )
-            .boolean_policy(self.conversion_policy.boolean().clone())
-            .collection_policy(self.conversion_policy.collection().clone())
-            .empty_item_policy(
-                self.conversion_policy.collection().empty_item_policy(),
-            )
+        self.conversion_policy = self
+            .conversion_policy
+            .into_builder()
             .duration_policy(policy)
             .build();
         self
@@ -394,43 +320,30 @@ impl ReadPolicyBuilder {
 
     /// Sets the duration conversion limits.
     pub fn duration_limits(mut self, limits: DurationConversionLimits) -> Self {
-        self.conversion_limits = ConversionLimits::builder()
-            .numeric_limits(*self.conversion_limits.numeric())
-            .collection_limits(*self.conversion_limits.collection())
+        self.conversion_limits = self
+            .conversion_limits
+            .into_builder()
             .duration_limits(limits)
-            .structured_limits(*self.conversion_limits.structured())
-            .operation_limits(*self.conversion_limits.operation())
             .build();
         self
     }
 
     /// Sets the numeric conversion policy.
     pub fn numeric_policy(mut self, policy: NumericConversionPolicy) -> Self {
-        self.conversion_policy = self.rebuild_conversion_policy();
-        self.conversion_policy = ConversionPolicy::builder()
+        self.conversion_policy = self
+            .conversion_policy
+            .into_builder()
             .numeric_policy(policy)
-            .string_policy(self.conversion_policy.string().clone())
-            .blank_string_policy(
-                self.conversion_policy.string().blank_string_policy(),
-            )
-            .boolean_policy(self.conversion_policy.boolean().clone())
-            .collection_policy(self.conversion_policy.collection().clone())
-            .empty_item_policy(
-                self.conversion_policy.collection().empty_item_policy(),
-            )
-            .duration_policy(self.conversion_policy.duration().clone())
             .build();
         self
     }
 
     /// Sets the numeric conversion limits.
     pub fn numeric_limits(mut self, limits: NumericConversionLimits) -> Self {
-        self.conversion_limits = ConversionLimits::builder()
+        self.conversion_limits = self
+            .conversion_limits
+            .into_builder()
             .numeric_limits(limits)
-            .collection_limits(*self.conversion_limits.collection())
-            .duration_limits(*self.conversion_limits.duration())
-            .structured_limits(*self.conversion_limits.structured())
-            .operation_limits(*self.conversion_limits.operation())
             .build();
         self
     }
