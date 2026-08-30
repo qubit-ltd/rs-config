@@ -110,10 +110,12 @@ struct Database {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let operation = ConversionOperationLimits::default()
-        .with_max_input_bytes(128);
-    let conversion = ConversionLimits::default()
-        .with_operation_limits(operation);
+    let operation = ConversionOperationLimits::builder()
+        .max_input_bytes(128)
+        .build();
+    let conversion = ConversionLimits::builder()
+        .operation_limits(operation)
+        .build();
     let policy = ReadPolicy::builder().conversion_limits(conversion).build();
     let mut config = Config::builder().default_read_policy(policy).build();
     config.set("db.host", "localhost")?;
