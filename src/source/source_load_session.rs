@@ -9,6 +9,7 @@
 // qubit-style: allow multiple-public-types
 
 use qubit_budget::BudgetError;
+use qubit_budget::InsufficientBudgetError;
 use qubit_budget::ResourceBudget;
 use qubit_budget::ResourceLimit;
 use qubit_datatype::DataType;
@@ -54,6 +55,43 @@ impl SourceLoadBudget {
                 SourceLimitKind::NestingDepth,
                 limits.max_nesting_depth(),
             ),
+        }
+    }
+}
+
+/// Selects one cumulative dimension from every active source budget.
+#[derive(Clone, Copy)]
+enum CumulativeDimension {
+    InputBytes,
+    Properties,
+    Nodes,
+    Sources,
+}
+
+impl CumulativeDimension {
+    /// Borrows the selected cumulative resource budget.
+    fn get(
+        self,
+        budget: &SourceLoadBudget,
+    ) -> &ResourceBudget<SourceLimitKind, usize> {
+        match self {
+            Self::InputBytes => &budget.input_bytes,
+            Self::Properties => &budget.properties,
+            Self::Nodes => &budget.nodes,
+            Self::Sources => &budget.sources,
+        }
+    }
+
+    /// Mutably borrows the selected cumulative resource budget.
+    fn get_mut(
+        self,
+        budget: &mut SourceLoadBudget,
+    ) -> &mut ResourceBudget<SourceLimitKind, usize> {
+        match self {
+            Self::InputBytes => &mut budget.input_bytes,
+            Self::Properties => &mut budget.properties,
+            Self::Nodes => &mut budget.nodes,
+            Self::Sources => &mut budget.sources,
         }
     }
 }
@@ -109,86 +147,22 @@ impl<'a> SourceLoadSession<'a> {
 
     /// Charges raw input bytes to every active budget scope.
     pub fn consume_input_bytes(&mut self, amount: usize) -> ConfigResult<()> {
-        if self.ancestors.is_empty() {
-            return match self.local.input_bytes.try_consume(amount) {
-                Ok(()) => Ok(()),
-                Err(source) => {
-                    Err(self.limit_error(self.source_id.clone(), source.into()))
-                }
-            };
-        }
-        let source_id = self.source_id.clone();
-        let ancestor_ids = self.ancestor_ids.clone();
-        let mut budgets = self
-            .ancestors
-            .iter_mut()
-            .map(|budget| &mut budget.input_bytes)
-            .collect::<Vec<_>>();
-        budgets.push(&mut self.local.input_bytes);
-        Self::consume_group(&source_id, &ancestor_ids, budgets, amount)
+        self.consume_cumulative(CumulativeDimension::InputBytes, amount)
     }
 
     /// Charges emitted properties to every active budget scope.
     pub fn consume_properties(&mut self, amount: usize) -> ConfigResult<()> {
-        if self.ancestors.is_empty() {
-            return match self.local.properties.try_consume(amount) {
-                Ok(()) => Ok(()),
-                Err(source) => {
-                    Err(self.limit_error(self.source_id.clone(), source.into()))
-                }
-            };
-        }
-        let source_id = self.source_id.clone();
-        let ancestor_ids = self.ancestor_ids.clone();
-        let mut budgets = self
-            .ancestors
-            .iter_mut()
-            .map(|budget| &mut budget.properties)
-            .collect::<Vec<_>>();
-        budgets.push(&mut self.local.properties);
-        Self::consume_group(&source_id, &ancestor_ids, budgets, amount)
+        self.consume_cumulative(CumulativeDimension::Properties, amount)
     }
 
     /// Charges parsed structural nodes to every active budget scope.
     pub fn consume_nodes(&mut self, amount: usize) -> ConfigResult<()> {
-        if self.ancestors.is_empty() {
-            return match self.local.nodes.try_consume(amount) {
-                Ok(()) => Ok(()),
-                Err(source) => {
-                    Err(self.limit_error(self.source_id.clone(), source.into()))
-                }
-            };
-        }
-        let source_id = self.source_id.clone();
-        let ancestor_ids = self.ancestor_ids.clone();
-        let mut budgets = self
-            .ancestors
-            .iter_mut()
-            .map(|budget| &mut budget.nodes)
-            .collect::<Vec<_>>();
-        budgets.push(&mut self.local.nodes);
-        Self::consume_group(&source_id, &ancestor_ids, budgets, amount)
+        self.consume_cumulative(CumulativeDimension::Nodes, amount)
     }
 
     /// Charges admitted child sources to every active budget scope.
     pub fn consume_sources(&mut self, amount: usize) -> ConfigResult<()> {
-        if self.ancestors.is_empty() {
-            return match self.local.sources.try_consume(amount) {
-                Ok(()) => Ok(()),
-                Err(source) => {
-                    Err(self.limit_error(self.source_id.clone(), source.into()))
-                }
-            };
-        }
-        let source_id = self.source_id.clone();
-        let ancestor_ids = self.ancestor_ids.clone();
-        let mut budgets = self
-            .ancestors
-            .iter_mut()
-            .map(|budget| &mut budget.sources)
-            .collect::<Vec<_>>();
-        budgets.push(&mut self.local.sources);
-        Self::consume_group(&source_id, &ancestor_ids, budgets, amount)
+        self.consume_cumulative(CumulativeDimension::Sources, amount)
     }
 
     /// Checks a root-relative depth against every active budget scope.
@@ -206,33 +180,55 @@ impl<'a> SourceLoadSession<'a> {
         })
     }
 
-    /// Atomically consumes one cumulative resource across all scopes.
-    fn consume_group(
-        source_id: &str,
-        ancestor_ids: &[String],
-        mut budgets: Vec<&mut ResourceBudget<SourceLimitKind, usize>>,
+    /// Atomically consumes one cumulative resource across all active scopes.
+    fn consume_cumulative(
+        &mut self,
+        dimension: CumulativeDimension,
         amount: usize,
     ) -> ConfigResult<()> {
-        ResourceBudget::try_consume_group(&mut budgets, amount).map_err(
-            |error| {
-                let index = error.index();
-                let budget_id = ancestor_ids
+        for (index, budget) in self.ancestors.iter().enumerate() {
+            if let Err(source) = dimension.get(budget).check_available(amount) {
+                let budget_id = self
+                    .ancestor_ids
                     .get(index)
-                    .cloned()
-                    .unwrap_or_else(|| source_id.to_string());
-                ConfigError::SourceLimitExceeded {
-                    source_id: source_id.to_string(),
+                    .map_or(self.source_id.as_str(), String::as_str);
+                return Err(Self::cumulative_limit_error(
+                    &self.source_id,
                     budget_id,
-                    kind: *error.source_error().resource(),
-                    limit: error.source_error().limit(),
-                    observed_at_least: error
-                        .source_error()
-                        .used()
-                        .saturating_add(error.source_error().requested()),
-                    source: error.into_source_error().into(),
-                }
-            },
-        )
+                    source,
+                ));
+            }
+        }
+        if let Err(source) = dimension.get(&self.local).check_available(amount)
+        {
+            return Err(Self::cumulative_limit_error(
+                &self.source_id,
+                &self.source_id,
+                source,
+            ));
+        }
+
+        for budget in &mut self.ancestors {
+            let _ = dimension.get_mut(budget).consume_available(amount);
+        }
+        let _ = dimension.get_mut(&mut self.local).consume_available(amount);
+        Ok(())
+    }
+
+    /// Wraps a cumulative failure with source and budget scope context.
+    fn cumulative_limit_error(
+        source_id: &str,
+        budget_id: &str,
+        source: InsufficientBudgetError<SourceLimitKind, usize>,
+    ) -> ConfigError {
+        ConfigError::SourceLimitExceeded {
+            source_id: source_id.to_owned(),
+            budget_id: budget_id.to_owned(),
+            kind: *source.resource(),
+            limit: source.limit(),
+            observed_at_least: source.used().saturating_add(source.requested()),
+            source: source.into(),
+        }
     }
 
     /// Wraps a point-limit failure with source and budget scope context.
@@ -242,25 +238,23 @@ impl<'a> SourceLoadSession<'a> {
         source: BudgetError<SourceLimitKind, usize>,
     ) -> ConfigError {
         let limit = source.configured_limit();
-        let observed_at_least = source.observed_lower_bound().or_else(|| {
-            Some(
-                source
-                    .used()
-                    .expect("cumulative budget errors carry usage")
-                    .saturating_add(
-                        source
-                            .requested()
-                            .expect("cumulative budget errors carry request"),
-                    ),
-            )
-        });
+        let observed_at_least = match &source {
+            BudgetError::LimitExceeded { observed, .. } => {
+                observed.lower_bound()
+            }
+            BudgetError::Insufficient {
+                limit,
+                remaining,
+                requested,
+                ..
+            } => (*limit - *remaining).saturating_add(*requested),
+        };
         ConfigError::SourceLimitExceeded {
             source_id: self.source_id.clone(),
             budget_id,
             kind: *source.resource(),
             limit,
-            observed_at_least: observed_at_least
-                .expect("source budget errors always carry an observation"),
+            observed_at_least,
             source,
         }
     }

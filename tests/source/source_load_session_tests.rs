@@ -33,6 +33,29 @@ impl ConfigSource for ChildAccountingSource {
     }
 }
 
+struct RecoveringLocalFailureSource;
+
+impl ConfigSource for RecoveringLocalFailureSource {
+    fn source_id(&self) -> String {
+        "recovering child".to_string()
+    }
+
+    fn limits(&self) -> SourceLimits {
+        SourceLimits::builder().max_input_bytes(1).build()
+    }
+
+    fn load_into(
+        &self,
+        context: &mut SourceLoadContext<'_>,
+    ) -> ConfigResult<()> {
+        let error = context
+            .consume_input_bytes(2)
+            .expect_err("the local budget should reject two bytes");
+        assert_eq!(error.source_budget_id(), Some("recovering child"));
+        context.consume_input_bytes(1)
+    }
+}
+
 #[test]
 fn source_load_session_charges_local_and_ancestor_budgets_atomically() {
     let mut aggregate = CompositeConfigSource::builder()
@@ -48,4 +71,33 @@ fn source_load_session_charges_local_and_ancestor_budgets_atomically() {
         error.source_budget_id(),
         Some("composite configuration source")
     );
+}
+
+#[test]
+fn source_load_session_reports_outermost_failing_budget_first() {
+    let mut aggregate = CompositeConfigSource::builder()
+        .limits(SourceLimits::builder().max_input_bytes(1).build())
+        .build();
+    aggregate.add(ChildAccountingSource { amount: 2 });
+
+    let error = aggregate.load().expect_err(
+        "both aggregate and child budgets should reject the charge",
+    );
+
+    assert_eq!(
+        error.source_budget_id(),
+        Some("composite configuration source")
+    );
+}
+
+#[test]
+fn source_load_session_failed_local_charge_leaves_every_scope_unchanged() {
+    let mut aggregate = CompositeConfigSource::builder()
+        .limits(SourceLimits::builder().max_input_bytes(2).build())
+        .build();
+    aggregate.add(RecoveringLocalFailureSource);
+
+    let _ = aggregate
+        .load()
+        .expect("a rejected local charge must not consume any scope");
 }
