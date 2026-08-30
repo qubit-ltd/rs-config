@@ -9,6 +9,7 @@
 
 use qubit_datatype::AdmittedScalarItem;
 use qubit_datatype::ConversionSession;
+use qubit_datatype::DataConversionError;
 use qubit_datatype::DataConversionTarget;
 use qubit_datatype::DataConverter;
 use qubit_value::Value as QubitValue;
@@ -29,15 +30,24 @@ use crate::options::ReadPolicy;
 mod internal;
 
 /// Deserializer over a single serde value.
-pub(crate) struct ConfigValueDeserializer<'policy, 'session> {
-    value: Value,
+pub(crate) struct ConfigValueDeserializer<'policy, 'session, 'source> {
+    input: ConfigConversionInput<'session, 'policy, 'source>,
     key: String,
     options: &'policy ReadPolicy,
-    session: &'session mut ConversionSession<'policy>,
-    precharged: bool,
 }
 
-impl<'policy, 'session> ConfigValueDeserializer<'policy, 'session> {
+/// Owns exactly one conversion source and its associated session capability.
+enum ConfigConversionInput<'session, 'policy, 'source> {
+    /// A normal Serde value that has not been admitted as a scalar item.
+    TopLevel {
+        value: Value,
+        session: &'session mut ConversionSession<'policy>,
+    },
+    /// A scalar value already charged to the bound conversion session.
+    AdmittedScalar(AdmittedScalarItem<'session, 'policy, 'source>),
+}
+
+impl<'policy, 'session> ConfigValueDeserializer<'policy, 'session, 'static> {
     /// Creates a value deserializer.
     pub(crate) fn new(
         value: Value,
@@ -46,87 +56,83 @@ impl<'policy, 'session> ConfigValueDeserializer<'policy, 'session> {
         session: &'session mut ConversionSession<'policy>,
     ) -> Self {
         Self {
-            value,
+            input: ConfigConversionInput::TopLevel { value, session },
             key,
             options,
-            session,
-            precharged: false,
         }
     }
+}
 
+impl<'policy, 'session, 'source>
+    ConfigValueDeserializer<'policy, 'session, 'source>
+{
     /// Creates a deserializer for an item already admitted by a scalar list.
-    pub(crate) fn new_precharged(
-        value: Value,
+    pub(crate) fn new_admitted(
         key: String,
         options: &'policy ReadPolicy,
-        _admission: AdmittedScalarItem,
-        session: &'session mut ConversionSession<'policy>,
-    ) -> Self {
-        Self::new_precharged_value(value, key, options, session)
-    }
-
-    /// Creates a child deserializer that inherits a previous item admission.
-    fn new_precharged_value(
-        value: Value,
-        key: String,
-        options: &'policy ReadPolicy,
-        session: &'session mut ConversionSession<'policy>,
+        admission: AdmittedScalarItem<'session, 'policy, 'source>,
     ) -> Self {
         Self {
-            value,
+            input: ConfigConversionInput::AdmittedScalar(admission),
             key,
             options,
-            session,
-            precharged: true,
         }
     }
 
     /// Converts any scalar value into a string using config read semantics.
     fn scalar_to_string(self) -> Result<String, ConfigDeserializeError> {
-        match self.value {
-            Value::String(value) => convert_string_value(
-                &self.key,
-                self.session,
-                &value,
-                self.precharged,
-            ),
-            Value::Bool(value) => convert_scalar_value(
-                &self.key,
-                self.session,
-                QubitValue::Bool(value),
-                self.precharged,
-            ),
-            Value::Number(value) => {
-                let source = if let Some(value) = value.as_i64() {
-                    QubitValue::Int64(value)
-                } else if let Some(value) = value.as_u64() {
-                    QubitValue::UInt64(value)
-                } else {
-                    QubitValue::Float64(
-                        value.as_f64().expect("JSON numbers are finite"),
-                    )
-                };
-                convert_scalar_value(
+        match self.input {
+            ConfigConversionInput::AdmittedScalar(admission) => admission
+                .convert::<String>()
+                .map_err(|error| map_admitted_error(&self.key, error)),
+            ConfigConversionInput::TopLevel { value, session } => match value {
+                Value::String(value) => {
+                    convert_string_value(&self.key, session, &value)
+                }
+                Value::Bool(value) => convert_scalar_value(
                     &self.key,
-                    self.session,
-                    source,
-                    self.precharged,
-                )
-            }
-            Value::Null => Err(de::Error::invalid_type(
-                de::Unexpected::Unit,
-                &"a string-compatible scalar",
-            )),
-            Value::Array(_) => Err(de::Error::invalid_type(
-                de::Unexpected::Seq,
-                &"a string-compatible scalar",
-            )),
-            Value::Object(_) => Err(de::Error::invalid_type(
-                de::Unexpected::Map,
-                &"a string-compatible scalar",
-            )),
+                    session,
+                    QubitValue::Bool(value),
+                ),
+                Value::Number(value) => {
+                    let source = if let Some(value) = value.as_i64() {
+                        QubitValue::Int64(value)
+                    } else if let Some(value) = value.as_u64() {
+                        QubitValue::UInt64(value)
+                    } else {
+                        QubitValue::Float64(
+                            value.as_f64().expect("JSON numbers are finite"),
+                        )
+                    };
+                    convert_scalar_value(&self.key, session, source)
+                }
+                Value::Null => Err(de::Error::invalid_type(
+                    de::Unexpected::Unit,
+                    &"a string-compatible scalar",
+                )),
+                Value::Array(_) => Err(de::Error::invalid_type(
+                    de::Unexpected::Seq,
+                    &"a string-compatible scalar",
+                )),
+                Value::Object(_) => Err(de::Error::invalid_type(
+                    de::Unexpected::Map,
+                    &"a string-compatible scalar",
+                )),
+            },
         }
     }
+}
+
+/// Maps an error from an already admitted scalar without adding another
+/// top-level accounting layer.
+fn map_admitted_error(
+    key: &str,
+    error: DataConversionError,
+) -> ConfigDeserializeError {
+    ConfigDeserializeError::from_config(ConfigError::from((
+        key,
+        ValueError::from(error),
+    )))
 }
 
 /// Converts a scalar string using the shared conversion layer.
@@ -134,24 +140,14 @@ fn convert_string_value(
     key: &str,
     session: &mut ConversionSession<'_>,
     value: &str,
-    precharged: bool,
 ) -> Result<String, ConfigDeserializeError> {
     let source = DataConverter::from(value);
-    if precharged {
-        session.delegate::<String>(&source).map_err(|error| {
-            ConfigDeserializeError::from_config(ConfigError::from((
-                key,
-                ValueError::from(error),
-            )))
-        })
-    } else {
-        source.to_in::<String>(session).map_err(|error| {
-            ConfigDeserializeError::from_config(crate::utils::map_value_error(
-                key,
-                ValueError::from(error),
-            ))
-        })
-    }
+    source.to_in::<String>(session).map_err(|error| {
+        ConfigDeserializeError::from_config(crate::utils::map_value_error(
+            key,
+            ValueError::from(error),
+        ))
+    })
 }
 
 /// Converts a scalar through either top-level or nested session accounting.
@@ -159,26 +155,15 @@ fn convert_scalar_value<T>(
     key: &str,
     session: &mut ConversionSession<'_>,
     value: QubitValue,
-    precharged: bool,
 ) -> Result<T, ConfigDeserializeError>
 where
     T: DataConversionTarget,
 {
-    if precharged {
-        let result = session.delegate::<T>(&DataConverter::from(&value));
-        result.map_err(|error| {
-            ConfigDeserializeError::from_config(ConfigError::from((
-                key,
-                ValueError::from(error),
-            )))
-        })
-    } else {
-        value.to_in::<T>(session).map_err(|error| {
-            ConfigDeserializeError::from_config(crate::utils::map_value_error(
-                key, error,
-            ))
-        })
-    }
+    value.to_in::<T>(session).map_err(|error| {
+        ConfigDeserializeError::from_config(crate::utils::map_value_error(
+            key, error,
+        ))
+    })
 }
 
 /// Converts a scalar string into a boolean using the shared conversion layer.
@@ -186,24 +171,14 @@ fn convert_bool_value(
     key: &str,
     session: &mut ConversionSession<'_>,
     value: &str,
-    precharged: bool,
 ) -> Result<bool, ConfigDeserializeError> {
     let source = DataConverter::from(value);
-    if precharged {
-        session.delegate::<bool>(&source).map_err(|error| {
-            ConfigDeserializeError::from_config(ConfigError::from((
-                key,
-                ValueError::from(error),
-            )))
-        })
-    } else {
-        source.to_in::<bool>(session).map_err(|error| {
-            ConfigDeserializeError::from_config(crate::utils::map_value_error(
-                key,
-                ValueError::from(error),
-            ))
-        })
-    }
+    source.to_in::<bool>(session).map_err(|error| {
+        ConfigDeserializeError::from_config(crate::utils::map_value_error(
+            key,
+            ValueError::from(error),
+        ))
+    })
 }
 
 /// Converts a scalar string into a character using the shared conversion
@@ -212,24 +187,14 @@ fn convert_char_value(
     key: &str,
     session: &mut ConversionSession<'_>,
     value: &str,
-    precharged: bool,
 ) -> Result<char, ConfigDeserializeError> {
     let source = DataConverter::from(value);
-    if precharged {
-        session.delegate::<char>(&source).map_err(|error| {
-            ConfigDeserializeError::from_config(ConfigError::from((
-                key,
-                ValueError::from(error),
-            )))
-        })
-    } else {
-        source.to_in::<char>(session).map_err(|error| {
-            ConfigDeserializeError::from_config(crate::utils::map_value_error(
-                key,
-                ValueError::from(error),
-            ))
-        })
-    }
+    source.to_in::<char>(session).map_err(|error| {
+        ConfigDeserializeError::from_config(crate::utils::map_value_error(
+            key,
+            ValueError::from(error),
+        ))
+    })
 }
 
 /// Converts a JSON number or string into the scalar text consumed by
@@ -253,19 +218,25 @@ macro_rules! deserialize_number {
         where
             V: Visitor<'de>,
         {
-            let value = number_scalar_text(self.value, stringify!($ty))?;
-            let value = convert_scalar_value::<$ty>(
-                &self.key,
-                self.session,
-                QubitValue::String(value),
-                self.precharged,
-            )?;
+            let value = match self.input {
+                ConfigConversionInput::AdmittedScalar(admission) => admission
+                    .convert::<$ty>()
+                    .map_err(|error| map_admitted_error(&self.key, error))?,
+                ConfigConversionInput::TopLevel { value, session } => {
+                    let value = number_scalar_text(value, stringify!($ty))?;
+                    convert_scalar_value::<$ty>(
+                        &self.key,
+                        session,
+                        QubitValue::String(value),
+                    )?
+                }
+            };
             visitor.$visit(value)
         }
     };
 }
 
-impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
+impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_, '_> {
     type Error = ConfigDeserializeError;
 
     /// Deserializes using the natural serde type for the stored value.
@@ -273,38 +244,47 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
     where
         V: Visitor<'de>,
     {
-        match self.value {
-            Value::Null => visitor.visit_unit(),
-            Value::Bool(value) => visitor.visit_bool(value),
-            Value::Number(value) => {
-                if let Some(value) = value.as_i64() {
-                    visitor.visit_i64(value)
-                } else if let Some(value) = value.as_u64() {
-                    visitor.visit_u64(value)
-                } else {
-                    visitor.visit_f64(
-                        value.as_f64().expect("JSON numbers are finite"),
-                    )
-                }
+        match self.input {
+            ConfigConversionInput::AdmittedScalar(admission) => {
+                let value = admission
+                    .convert::<String>()
+                    .map_err(|error| map_admitted_error(&self.key, error))?;
+                visitor.visit_string(value)
             }
-            Value::String(value) => visitor.visit_string(convert_string_value(
-                &self.key,
-                self.session,
-                &value,
-                self.precharged,
-            )?),
-            Value::Array(values) => visitor.visit_seq(ConfigSeqAccess::new(
-                values,
-                self.key,
-                self.options,
-                self.session,
-            )),
-            Value::Object(values) => visitor.visit_map(ConfigMapAccess::new(
-                values,
-                self.key,
-                self.options,
-                self.session,
-            )),
+            ConfigConversionInput::TopLevel { value, session } => match value {
+                Value::Null => visitor.visit_unit(),
+                Value::Bool(value) => visitor.visit_bool(value),
+                Value::Number(value) => {
+                    if let Some(value) = value.as_i64() {
+                        visitor.visit_i64(value)
+                    } else if let Some(value) = value.as_u64() {
+                        visitor.visit_u64(value)
+                    } else {
+                        visitor.visit_f64(
+                            value.as_f64().expect("JSON numbers are finite"),
+                        )
+                    }
+                }
+                Value::String(value) => visitor.visit_string(
+                    convert_string_value(&self.key, session, &value)?,
+                ),
+                Value::Array(values) => {
+                    visitor.visit_seq(ConfigSeqAccess::new(
+                        values,
+                        self.key,
+                        self.options,
+                        session,
+                    ))
+                }
+                Value::Object(values) => {
+                    visitor.visit_map(ConfigMapAccess::new(
+                        values,
+                        self.key,
+                        self.options,
+                        session,
+                    ))
+                }
+            },
         }
     }
 
@@ -313,18 +293,23 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
     where
         V: Visitor<'de>,
     {
-        match self.value {
-            Value::Bool(value) => visitor.visit_bool(value),
-            Value::String(value) => visitor.visit_bool(convert_bool_value(
-                &self.key,
-                self.session,
-                &value,
-                self.precharged,
-            )?),
-            other => Err(de::Error::invalid_type(
-                unexpected_value(&other),
-                &"a boolean-compatible scalar",
-            )),
+        match self.input {
+            ConfigConversionInput::AdmittedScalar(admission) => visitor
+                .visit_bool(
+                    admission.convert::<bool>().map_err(|error| {
+                        map_admitted_error(&self.key, error)
+                    })?,
+                ),
+            ConfigConversionInput::TopLevel { value, session } => match value {
+                Value::Bool(value) => visitor.visit_bool(value),
+                Value::String(value) => visitor.visit_bool(convert_bool_value(
+                    &self.key, session, &value,
+                )?),
+                other => Err(de::Error::invalid_type(
+                    unexpected_value(&other),
+                    &"a boolean-compatible scalar",
+                )),
+            },
         }
     }
 
@@ -346,17 +331,22 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
     where
         V: Visitor<'de>,
     {
-        match self.value {
-            Value::String(value) => visitor.visit_char(convert_char_value(
-                &self.key,
-                self.session,
-                &value,
-                self.precharged,
-            )?),
-            other => Err(de::Error::invalid_type(
-                unexpected_value(&other),
-                &"a single character string",
-            )),
+        match self.input {
+            ConfigConversionInput::AdmittedScalar(admission) => visitor
+                .visit_char(
+                    admission.convert::<char>().map_err(|error| {
+                        map_admitted_error(&self.key, error)
+                    })?,
+                ),
+            ConfigConversionInput::TopLevel { value, session } => match value {
+                Value::String(value) => visitor.visit_char(convert_char_value(
+                    &self.key, session, &value,
+                )?),
+                other => Err(de::Error::invalid_type(
+                    unexpected_value(&other),
+                    &"a single character string",
+                )),
+            },
         }
     }
 
@@ -400,22 +390,14 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
     where
         V: Visitor<'de>,
     {
-        match self.value {
-            Value::Null => visitor.visit_none(),
-            value => visitor.visit_some(if self.precharged {
-                ConfigValueDeserializer::new_precharged_value(
-                    value,
-                    self.key,
-                    self.options,
-                    self.session,
-                )
-            } else {
-                ConfigValueDeserializer::new(
-                    value,
-                    self.key,
-                    self.options,
-                    self.session,
-                )
+        match self.input {
+            ConfigConversionInput::TopLevel {
+                value: Value::Null, ..
+            } => visitor.visit_none(),
+            input => visitor.visit_some(Self {
+                input,
+                key: self.key,
+                options: self.options,
             }),
         }
     }
@@ -425,10 +407,18 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
     where
         V: Visitor<'de>,
     {
-        match self.value {
-            Value::Null => visitor.visit_unit(),
-            other => {
-                Err(de::Error::invalid_type(unexpected_value(&other), &"unit"))
+        match self.input {
+            ConfigConversionInput::TopLevel {
+                value: Value::Null, ..
+            } => visitor.visit_unit(),
+            ConfigConversionInput::TopLevel { value, .. } => {
+                Err(de::Error::invalid_type(unexpected_value(&value), &"unit"))
+            }
+            ConfigConversionInput::AdmittedScalar(_) => {
+                Err(de::Error::invalid_type(
+                    de::Unexpected::Other("admitted scalar"),
+                    &"unit",
+                ))
             }
         }
     }
@@ -463,31 +453,45 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
     where
         V: Visitor<'de>,
     {
-        match self.value {
-            Value::Array(values) => visitor.visit_seq(ConfigSeqAccess::new(
+        match self.input {
+            ConfigConversionInput::TopLevel {
+                value: Value::Array(values),
+                session,
+            } => visitor.visit_seq(ConfigSeqAccess::new(
                 values,
                 self.key,
                 self.options,
-                self.session,
+                session,
             )),
-            Value::String(value) => {
+            ConfigConversionInput::TopLevel {
+                value: Value::String(value),
+                session,
+            } => {
                 let values = admit_scalar_items(
                     &self.key,
                     &value,
                     self.options,
-                    self.session,
+                    session,
                 )?;
                 visitor.visit_seq(ConfigScalarSeqAccess::new(
                     values,
                     self.key,
                     self.options,
-                    self.session,
+                    session,
                 ))
             }
-            other => Err(de::Error::invalid_type(
-                unexpected_value(&other),
-                &"a sequence",
-            )),
+            ConfigConversionInput::TopLevel { value, .. } => {
+                Err(de::Error::invalid_type(
+                    unexpected_value(&value),
+                    &"a sequence",
+                ))
+            }
+            ConfigConversionInput::AdmittedScalar(_) => {
+                Err(de::Error::invalid_type(
+                    de::Unexpected::Other("admitted scalar"),
+                    &"a sequence",
+                ))
+            }
         }
     }
 
@@ -521,15 +525,24 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
     where
         V: Visitor<'de>,
     {
-        match self.value {
-            Value::Object(values) => visitor.visit_map(ConfigMapAccess::new(
+        match self.input {
+            ConfigConversionInput::TopLevel {
+                value: Value::Object(values),
+                session,
+            } => visitor.visit_map(ConfigMapAccess::new(
                 values,
                 self.key,
                 self.options,
-                self.session,
+                session,
             )),
-            other => {
-                Err(de::Error::invalid_type(unexpected_value(&other), &"a map"))
+            ConfigConversionInput::TopLevel { value, .. } => {
+                Err(de::Error::invalid_type(unexpected_value(&value), &"a map"))
+            }
+            ConfigConversionInput::AdmittedScalar(_) => {
+                Err(de::Error::invalid_type(
+                    de::Unexpected::Other("admitted scalar"),
+                    &"a map",
+                ))
             }
         }
     }
@@ -557,23 +570,36 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
     where
         V: Visitor<'de>,
     {
-        match self.value {
-            Value::String(value) => {
-                let variant = convert_string_value(
-                    &self.key,
-                    self.session,
-                    &value,
-                    self.precharged,
-                )?;
+        match self.input {
+            ConfigConversionInput::AdmittedScalar(admission) => {
+                let (variant, session) = admission
+                    .convert_with_session::<String>()
+                    .map_err(|error| map_admitted_error(&self.key, error))?;
                 visitor.visit_enum(ConfigEnumAccess::new(
                     variant,
                     None,
                     self.key,
                     self.options,
-                    self.session,
+                    session,
                 ))
             }
-            Value::Object(values) => {
+            ConfigConversionInput::TopLevel {
+                value: Value::String(value),
+                session,
+            } => {
+                let variant = convert_string_value(&self.key, session, &value)?;
+                visitor.visit_enum(ConfigEnumAccess::new(
+                    variant,
+                    None,
+                    self.key,
+                    self.options,
+                    session,
+                ))
+            }
+            ConfigConversionInput::TopLevel {
+                value: Value::Object(values),
+                session,
+            } => {
                 let mut entries = values.into_iter();
                 let Some((variant, value)) = entries.next() else {
                     return Err(de::Error::invalid_value(
@@ -592,13 +618,15 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_> {
                     Some(value),
                     self.key,
                     self.options,
-                    self.session,
+                    session,
                 ))
             }
-            other => Err(de::Error::invalid_type(
-                unexpected_value(&other),
-                &"a string enum variant or externally tagged enum object",
-            )),
+            ConfigConversionInput::TopLevel { value, .. } => {
+                Err(de::Error::invalid_type(
+                    unexpected_value(&value),
+                    &"a string enum variant or externally tagged enum object",
+                ))
+            }
         }
     }
 

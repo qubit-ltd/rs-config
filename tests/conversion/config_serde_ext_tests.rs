@@ -458,6 +458,23 @@ fn test_scalar_string_sequence_charges_source_and_items_once() {
 }
 
 #[test]
+fn test_scalar_string_sequence_preserves_admitted_item_errors() {
+    let policy = ReadPolicy::env_friendly();
+    let mut config = Config::new();
+    config
+        .set_default_read_policy(policy.clone())
+        .set("ports", "8080, invalid")
+        .expect("ports should be stored");
+
+    let error = config
+        .read_with(&policy)
+        .deserialize::<Vec<u16>>("ports")
+        .expect_err("an invalid admitted item must fail conversion");
+
+    assert!(error.to_string().contains("ports[1]"));
+}
+
+#[test]
 fn test_scalar_boolean_and_number_to_string_charge_output() {
     let limits = ConversionLimits::builder()
         .operation_limits(

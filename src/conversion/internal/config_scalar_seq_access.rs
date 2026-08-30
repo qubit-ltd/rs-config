@@ -9,9 +9,8 @@
 // qubit-style: allow source-test-pair
 
 use qubit_datatype::ConversionSession;
-use qubit_datatype::DataConversionError;
+use qubit_datatype::DataConverter;
 use qubit_datatype::DataType;
-use qubit_datatype::ScalarItem;
 use qubit_value::ValueError;
 use serde::de;
 use serde::de::SeqAccess;
@@ -70,26 +69,17 @@ impl<'de> SeqAccess<'de> for ConfigScalarSeqAccess<'_, '_> {
         let error_path = key.clone();
         let admitted = self
             .session
-            .admit_scalar_item(ScalarItem {
-                source_index: self.index - 1,
-                value: &value,
-            })
+            .admit_scalar_item(self.index - 1, DataConverter::from(value))
             .map_err(|error| {
                 ConfigDeserializeError::from_config(ConfigError::from((
                     error_path.as_str(),
-                    ValueError::from(DataConversionError::limit_exceeded(
-                        DataType::String,
-                        DataType::String,
-                        error,
-                    )),
+                    ValueError::from(error),
                 )))
             })?;
-        seed.deserialize(ConfigValueDeserializer::new_precharged(
-            serde_json::Value::String(value),
+        seed.deserialize(ConfigValueDeserializer::new_admitted(
             key,
             self.options,
             admitted,
-            &mut *self.session,
         ))
         .map_err(|error| error.with_path(error_path))
         .map(Some)
@@ -104,15 +94,11 @@ pub(in crate::config_value_deserializer) fn admit_scalar_items(
     session: &mut ConversionSession<'_>,
 ) -> Result<Vec<String>, ConfigDeserializeError> {
     session
-        .admit_scalar_source_bytes_usize(value.len())
+        .admit_scalar_source(DataType::String, DataType::String, value.len())
         .map_err(|error| {
             ConfigDeserializeError::from_config(ConfigError::from((
                 key,
-                ValueError::from(DataConversionError::measured_limit(
-                    DataType::String,
-                    DataType::String,
-                    error,
-                )),
+                ValueError::from(error),
             )))
         })?;
 
