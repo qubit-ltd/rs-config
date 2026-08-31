@@ -17,6 +17,8 @@ use qubit_budget::json::JsonResource;
 use qubit_config::ConfigWireEncodeError;
 use qubit_config::ConfigWireLimitKind;
 use qubit_json::encode::JsonEncodeError;
+use qubit_json::encode::JsonSerializationError;
+use qubit_json::encode::JsonSerializationErrorKind;
 
 /// Verifies shared budget errors are exposed without a lossy conversion.
 #[test]
@@ -34,6 +36,21 @@ fn config_wire_encode_error_exposes_budget_source() {
             observed: Observation::Exact(17),
             maximum: 16,
         })
+    ));
+}
+
+/// Verifies configuration conversion retains structured serialization errors.
+#[test]
+fn config_wire_encode_error_preserves_serialization_kind() {
+    let source = JsonSerializationError::new(
+        JsonSerializationErrorKind::CustomSerialization,
+    );
+    let error = ConfigWireEncodeError::from(JsonEncodeError::Serialize(source));
+
+    assert!(matches!(
+        error,
+        ConfigWireEncodeError::Json(source)
+            if source.kind() == JsonSerializationErrorKind::CustomSerialization
     ));
 }
 
