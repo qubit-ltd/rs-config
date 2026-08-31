@@ -526,8 +526,10 @@ fn map_encode_json_error(
             ConfigWireEncodeError::Syntax(error)
         }
         JsonEncodeError::Serialize(error) => ConfigWireEncodeError::Json(error),
-        JsonEncodeError::Write(error) => {
-            ConfigWireEncodeError::Json(serde_json::Error::io(error))
+        JsonEncodeError::Write(_) => {
+            ConfigWireEncodeError::Adapter(String::from(
+                "unexpected writer failure while buffering configuration JSON",
+            ))
         }
     }
 }

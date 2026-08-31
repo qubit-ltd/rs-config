@@ -13,6 +13,7 @@ use qubit_budget::QuantityConversionError;
 use qubit_budget::json::JsonResource;
 use qubit_json::decode::JsonSyntaxError;
 use qubit_json::encode::JsonEncodeError;
+use qubit_json::encode::JsonSerializationError;
 use qubit_value::ValueWireEncodeError;
 use thiserror::Error;
 
@@ -71,9 +72,9 @@ pub enum ConfigWireEncodeError {
     #[error("invalid configuration JSON syntax: {0}")]
     Syntax(#[from] JsonSyntaxError),
 
-    /// JSON serialization failed after bounded preflight validation.
+    /// Strict JSON serialization failed after bounded preflight validation.
     #[error("failed to encode configuration JSON wire output: {0}")]
-    Json(#[from] serde_json::Error),
+    Json(#[from] JsonSerializationError),
 
     /// A future JSON adapter failure that has no dedicated configuration
     /// error variant yet.
@@ -99,9 +100,9 @@ impl From<JsonEncodeError<JsonResource, u64>> for ConfigWireEncodeError {
             },
             JsonEncodeError::InvalidRawJson(error) => Self::Syntax(error),
             JsonEncodeError::Serialize(error) => Self::Json(error),
-            JsonEncodeError::Write(error) => {
-                Self::Json(serde_json::Error::io(error))
-            }
+            JsonEncodeError::Write(_) => Self::Adapter(String::from(
+                "unexpected writer failure while buffering configuration JSON",
+            )),
         }
     }
 }
