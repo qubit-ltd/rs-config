@@ -17,7 +17,8 @@ use qubit_budget::json::JsonResource;
 use qubit_config::ConfigWireEncodeError;
 use qubit_config::ConfigWireLimitKind;
 use qubit_json::encode::JsonEncodeError;
-use qubit_json::encode::JsonSerializationError;
+use qubit_json::encode::JsonEncoder;
+use qubit_json::encode::JsonIntegerSignedness;
 use qubit_json::encode::JsonSerializationErrorKind;
 
 /// Verifies shared budget errors are exposed without a lossy conversion.
@@ -42,15 +43,22 @@ fn config_wire_encode_error_exposes_budget_source() {
 /// Verifies configuration conversion retains structured serialization errors.
 #[test]
 fn config_wire_encode_error_preserves_serialization_kind() {
-    let source = JsonSerializationError::new(
-        JsonSerializationErrorKind::CustomSerialization,
-    );
-    let error = ConfigWireEncodeError::from(JsonEncodeError::Serialize(source));
+    let mut encoder =
+        JsonEncoder::with_limits(qubit_budget::json::JsonEncodeLimits::<
+            JsonResource,
+            u64,
+        >::default());
+    let source = encoder
+        .to_vec(&u128::MAX)
+        .expect_err("wide integer must fail JSON serialization");
+    let error = ConfigWireEncodeError::from(source);
 
     assert!(matches!(
         error,
         ConfigWireEncodeError::Json(source)
-            if source.kind() == JsonSerializationErrorKind::CustomSerialization
+            if source.kind() == JsonSerializationErrorKind::IntegerOutOfRange {
+                signedness: JsonIntegerSignedness::Unsigned,
+            }
     ));
 }
 
@@ -99,7 +107,7 @@ fn config_wire_encode_error_preserves_json_quantity_failure() {
         QuantityMeasurement::Usize(usize::MAX),
         "u64",
     );
-    let error = ConfigWireEncodeError::from(JsonEncodeError::Budget(
+    let error = ConfigWireEncodeError::from(JsonEncodeError::from(
         MeasuredBudgetError::Quantity {
             resource: JsonResource::OutputBytes,
             source,
