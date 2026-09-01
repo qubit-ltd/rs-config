@@ -57,10 +57,7 @@ pub(crate) fn create_test_config_with_description() -> Config {
 }
 
 /// Changes the interpolation recursion limit while preserving other options.
-pub(crate) fn set_max_interpolation_depth(
-    config: &mut Config,
-    max_depth: usize,
-) {
+pub(crate) fn set_max_interpolation_depth(config: &mut Config, max_depth: usize) {
     let options = ReadPolicy::builder_from(config.default_read_policy())
         .max_interpolation_depth(max_depth)
         .build();
@@ -247,10 +244,7 @@ mod test_get_and_get_list_error_mapping_additional_paths {
         config
             .set(
                 "map_value",
-                std::collections::HashMap::from([(
-                    "key".to_string(),
-                    "value".to_string(),
-                )]),
+                std::collections::HashMap::from([("key".to_string(), "value".to_string())]),
             )
             .unwrap();
         config.set("bad_int", "abc").unwrap();
@@ -260,24 +254,21 @@ mod test_get_and_get_list_error_mapping_additional_paths {
         let err = config.get::<i32>("map_value").unwrap_err();
         assert!(matches!(
             err,
-            ConfigError::ConversionError { .. }
-                | ConfigError::TypeMismatch { .. }
+            ConfigError::ConversionError { .. } | ConfigError::TypeMismatch { .. }
         ));
 
         // Invalid syntax path in get().
         let err = config.get::<i32>("bad_int").unwrap_err();
         assert!(matches!(
             err,
-            ConfigError::ConversionError { .. }
-                | ConfigError::TypeMismatch { .. }
+            ConfigError::ConversionError { .. } | ConfigError::TypeMismatch { .. }
         ));
 
         // JSON deserialization error path in get().
         let err = config.get::<JsonValue>("bad_json").unwrap_err();
         assert!(matches!(
             err,
-            ConfigError::ConversionError { .. }
-                | ConfigError::TypeMismatch { .. }
+            ConfigError::ConversionError { .. } | ConfigError::TypeMismatch { .. }
         ));
 
         // An unset property remains missing for list conversion.
@@ -344,12 +335,7 @@ mod test_is_unset {
     fn test_is_unset_after_unset() {
         let mut config = Config::new();
         config.set("host", "localhost").unwrap();
-        config
-            .get_property_mut("host")
-            .unwrap()
-            .unwrap()
-            .unset()
-            .unwrap();
+        config.get_property_mut("host").unwrap().unwrap().unset().unwrap();
         assert!(config.is_unset("host").unwrap());
     }
 }
@@ -441,8 +427,7 @@ mod test_get_optional_list {
     #[test]
     fn test_get_optional_list_missing_key_returns_none() {
         let config = Config::new();
-        let result: Option<Vec<i32>> =
-            config.get_optional_list("missing").unwrap();
+        let result: Option<Vec<i32>> = config.get_optional_list("missing").unwrap();
         assert_eq!(result, None);
     }
 
@@ -450,8 +435,7 @@ mod test_get_optional_list {
     fn test_get_optional_list_existing_key_returns_some() {
         let mut config = Config::new();
         config.set("ports", vec![8080, 8081, 8082]).unwrap();
-        let result: Option<Vec<i32>> =
-            config.get_optional_list("ports").unwrap();
+        let result: Option<Vec<i32>> = config.get_optional_list("ports").unwrap();
         assert_eq!(result, Some(vec![8080, 8081, 8082]));
     }
 
@@ -459,8 +443,7 @@ mod test_get_optional_list {
     fn test_get_optional_list_null_property_returns_none() {
         let mut config = Config::new();
         config.set_null("nullable", DataType::Int32).unwrap();
-        let result: Option<Vec<i32>> =
-            config.get_optional_list("nullable").unwrap();
+        let result: Option<Vec<i32>> = config.get_optional_list("nullable").unwrap();
         assert_eq!(result, None);
     }
 
@@ -468,8 +451,7 @@ mod test_get_optional_list {
     fn test_get_optional_list_single_value() {
         let mut config = Config::new();
         config.set("port", 8080).unwrap();
-        let result: Option<Vec<i32>> =
-            config.get_optional_list("port").unwrap();
+        let result: Option<Vec<i32>> = config.get_optional_list("port").unwrap();
         assert_eq!(result, Some(vec![8080]));
     }
 
@@ -477,8 +459,7 @@ mod test_get_optional_list {
     fn test_get_optional_list_type_mismatch_returns_error() {
         let mut config = Config::new();
         config.set("ports", vec!["yes", "no"]).unwrap();
-        let result: Result<Option<Vec<bool>>, _> =
-            config.get_optional_list("ports");
+        let result: Result<Option<Vec<bool>>, _> = config.get_optional_list("ports");
         assert!(result.is_err());
         match result.unwrap_err() {
             ConfigError::ConversionError { key, .. } => {
@@ -529,10 +510,7 @@ mod test_get_optional_string {
         let mut config = Config::new();
         config.set("greeting", "hello").unwrap();
         assert_eq!(
-            config
-                .get_optional::<String>("greeting")
-                .unwrap()
-                .as_deref(),
+            config.get_optional::<String>("greeting").unwrap().as_deref(),
             Some("hello")
         );
     }
@@ -541,10 +519,7 @@ mod test_get_optional_string {
     fn test_get_optional_string_empty_string_is_some() {
         let mut config = Config::new();
         config.set("empty", "").unwrap();
-        assert_eq!(
-            config.get_optional::<String>("empty").unwrap().as_deref(),
-            Some("")
-        );
+        assert_eq!(config.get_optional::<String>("empty").unwrap().as_deref(), Some(""));
     }
 
     #[test]
@@ -553,10 +528,7 @@ mod test_get_optional_string {
         config.set("base", "http://localhost").unwrap();
         config.set("api", "${base}/api").unwrap();
         assert_eq!(
-            config
-                .get_optional_interpolated::<String>("api")
-                .unwrap()
-                .as_deref(),
+            config.get_optional_interpolated::<String>("api").unwrap().as_deref(),
             Some("http://localhost/api")
         );
     }
@@ -575,20 +547,14 @@ mod test_get_optional_string {
     fn test_get_optional_string_type_mismatch_returns_error() {
         let mut config = Config::new();
         config.set("port", 8080i32).unwrap();
-        assert_eq!(
-            config.get_optional::<String>("port").unwrap(),
-            Some("8080".to_string())
-        );
+        assert_eq!(config.get_optional::<String>("port").unwrap(), Some("8080".to_string()));
     }
 
     #[test]
     fn test_get_optional_string_unresolved_variable_returns_error() {
         let mut config = Config::new();
         config
-            .set(
-                "bad",
-                "${qubit_cfg_test_var_that_must_not_exist_7a8b9c0d1e2f}",
-            )
+            .set("bad", "${qubit_cfg_test_var_that_must_not_exist_7a8b9c0d1e2f}")
             .unwrap();
         let result = config.get_optional_interpolated::<String>("bad");
         assert!(matches!(
@@ -616,33 +582,23 @@ mod test_get_optional_string {
     #[test]
     fn test_get_optional_string_list_missing_returns_none() {
         let config = Config::new();
-        assert_eq!(
-            config.get_optional::<Vec<String>>("missing").unwrap(),
-            None
-        );
+        assert_eq!(config.get_optional::<Vec<String>>("missing").unwrap(), None);
     }
 
     #[test]
     fn test_get_optional_string_list_null_returns_none() {
         let mut config = Config::new();
         config.set_null("nullable", DataType::String).unwrap();
-        assert_eq!(
-            config.get_optional::<Vec<String>>("nullable").unwrap(),
-            None
-        );
+        assert_eq!(config.get_optional::<Vec<String>>("nullable").unwrap(), None);
     }
 
     #[test]
     fn test_get_optional_string_list_substitution() {
         let mut config = Config::new();
         config.set("root", "/opt/app").unwrap();
-        config
-            .set("paths", vec!["${root}/bin", "${root}/lib"])
-            .unwrap();
+        config.set("paths", vec!["${root}/bin", "${root}/lib"]).unwrap();
         assert_eq!(
-            config
-                .get_optional_interpolated::<Vec<String>>("paths")
-                .unwrap(),
+            config.get_optional_interpolated::<Vec<String>>("paths").unwrap(),
             Some(vec!["/opt/app/bin".to_string(), "/opt/app/lib".to_string()])
         );
     }
@@ -699,16 +655,12 @@ mod test_get_optional_string {
     }
 
     #[test]
-    fn test_get_optional_string_list_unresolved_variable_in_element_returns_error()
-     {
+    fn test_get_optional_string_list_unresolved_variable_in_element_returns_error() {
         let mut config = Config::new();
         config
             .set(
                 "items",
-                vec![
-                    "ok",
-                    "${qubit_cfg_list_bad_var_that_must_not_exist_9f8e7d6c5b4a}",
-                ],
+                vec!["ok", "${qubit_cfg_list_bad_var_that_must_not_exist_9f8e7d6c5b4a}"],
             )
             .unwrap();
         let result = config.get_optional_interpolated::<Vec<String>>("items");

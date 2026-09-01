@@ -31,10 +31,7 @@ enum InterpolationResource {
 /// the fallback reader, then to environment variables only when the active
 /// read policy permits environment fallback. Type and conversion errors in the
 /// primary reader are returned directly.
-pub(crate) fn substitute_variables_with_fallback<
-    P: ConfigReader + ?Sized,
-    F: ConfigReader + ?Sized,
->(
+pub(crate) fn substitute_variables_with_fallback<P: ConfigReader + ?Sized, F: ConfigReader + ?Sized>(
     value: &str,
     primary: &P,
     fallback: &F,
@@ -42,9 +39,7 @@ pub(crate) fn substitute_variables_with_fallback<
     path: &str,
 ) -> ConfigResult<String> {
     substitute_variables_by(value, options, path, |var_name| {
-        find_variable_value_with_fallback(
-            var_name, primary, fallback, options, path,
-        )
+        find_variable_value_with_fallback(var_name, primary, fallback, options, path)
     })
 }
 
@@ -89,12 +84,7 @@ fn substitute_variables_recursive(
     let max_expansions = options.max_interpolation_expansions();
     let max_output_bytes = options.max_interpolation_output_bytes();
     if value.is_empty() || find_next_variable(value, 0).is_none() {
-        check_substitution_output(
-            output_limit,
-            value.len(),
-            max_output_bytes,
-            path,
-        )?;
+        check_substitution_output(output_limit, value.len(), max_output_bytes, path)?;
         return Ok(value.to_string());
     }
     if stack.len() >= max_depth {
@@ -107,9 +97,7 @@ fn substitute_variables_recursive(
     let mut result = String::with_capacity(value.len().min(max_output_bytes));
     let mut last_end = 0;
     let mut search_from = 0;
-    while let Some((match_start, match_end, var_name)) =
-        find_next_variable(value, search_from)
-    {
+    while let Some((match_start, match_end, var_name)) = find_next_variable(value, search_from) {
         push_substitution_fragment(
             &mut result,
             &value[last_end..match_start],
@@ -127,12 +115,12 @@ fn substitute_variables_recursive(
             });
         }
 
-        expansion_budget.try_consume(1).map_err(|_| {
-            ConfigError::SubstitutionExpansionLimitExceeded {
+        expansion_budget
+            .try_consume(1)
+            .map_err(|_| ConfigError::SubstitutionExpansionLimitExceeded {
                 path: path.to_string(),
                 max_expansions,
-            }
-        })?;
+            })?;
 
         stack.push(var_name.to_string());
         let raw_value = resolve(var_name)?;
@@ -146,42 +134,23 @@ fn substitute_variables_recursive(
             resolve,
         )?;
         stack.pop();
-        push_substitution_fragment(
-            &mut result,
-            &expanded,
-            output_limit,
-            max_output_bytes,
-            path,
-        )?;
+        push_substitution_fragment(&mut result, &expanded, output_limit, max_output_bytes, path)?;
         last_end = match_end;
         search_from = match_end;
     }
-    push_substitution_fragment(
-        &mut result,
-        &value[last_end..],
-        output_limit,
-        max_output_bytes,
-        path,
-    )?;
+    push_substitution_fragment(&mut result, &value[last_end..], output_limit, max_output_bytes, path)?;
     Ok(result)
 }
 
 /// Finds the next non-empty `${name}` placeholder in `value`.
-fn find_next_variable(
-    value: &str,
-    mut search_from: usize,
-) -> Option<(usize, usize, &str)> {
+fn find_next_variable(value: &str, mut search_from: usize) -> Option<(usize, usize, &str)> {
     while let Some(relative_start) = value.get(search_from..)?.find("${") {
         let match_start = search_from + relative_start;
         let name_start = match_start + 2;
         let relative_end = value.get(name_start..)?.find('}')?;
         let name_end = name_start + relative_end;
         if name_end > name_start {
-            return Some((
-                match_start,
-                name_end + 1,
-                &value[name_start..name_end],
-            ));
+            return Some((match_start, name_end + 1, &value[name_start..name_end]));
         }
         search_from = name_start;
     }
@@ -197,18 +166,14 @@ fn push_substitution_fragment(
     path: &str,
 ) -> ConfigResult<()> {
     let prospective_len =
-        result.len().checked_add(fragment.len()).ok_or_else(|| {
-            ConfigError::SubstitutionOutputTooLarge {
+        result
+            .len()
+            .checked_add(fragment.len())
+            .ok_or_else(|| ConfigError::SubstitutionOutputTooLarge {
                 path: path.to_string(),
                 max_output_bytes,
-            }
-        })?;
-    check_substitution_output(
-        output_limit,
-        prospective_len,
-        max_output_bytes,
-        path,
-    )?;
+            })?;
+    check_substitution_output(output_limit, prospective_len, max_output_bytes, path)?;
     result.push_str(fragment);
     Ok(())
 }
@@ -223,12 +188,12 @@ fn check_substitution_output(
     max_output_bytes: usize,
     path: &str,
 ) -> ConfigResult<()> {
-    output_limit.check(output_bytes).map_err(|_| {
-        ConfigError::SubstitutionOutputTooLarge {
+    output_limit
+        .check(output_bytes)
+        .map_err(|_| ConfigError::SubstitutionOutputTooLarge {
             path: path.to_string(),
             max_output_bytes,
-        }
-    })
+        })
 }
 
 /// Finds the value of a variable.
@@ -239,24 +204,17 @@ fn find_variable_value<R: ConfigReader + ?Sized>(
     path: &str,
 ) -> ConfigResult<String> {
     match config.get_property(var_name)? {
-        Some(property) if !property.is_unset() => {
-            match property.value().to_first::<String>() {
-                Ok(value) => Ok(value),
-                Err(error) => {
-                    let resolved = config.resolve_key(var_name)?;
-                    Err(map_value_error(&resolved, error))
-                }
+        Some(property) if !property.is_unset() => match property.value().to_first::<String>() {
+            Ok(value) => Ok(value),
+            Err(error) => {
+                let resolved = config.resolve_key(var_name)?;
+                Err(map_value_error(&resolved, error))
             }
-        }
-        Some(_) | None
-            if options.interpolation_sources()
-                == InterpolationSources::ConfigThenEnv =>
-        {
-            std::env::var(var_name).map_err(|_| {
-                ConfigError::SubstitutionError {
-                    path: path.to_string(),
-                    message: format!("Cannot resolve variable: {var_name}"),
-                }
+        },
+        Some(_) | None if options.interpolation_sources() == InterpolationSources::ConfigThenEnv => {
+            std::env::var(var_name).map_err(|_| ConfigError::SubstitutionError {
+                path: path.to_string(),
+                message: format!("Cannot resolve variable: {var_name}"),
             })
         }
         Some(_) | None => Err(ConfigError::SubstitutionError {
@@ -267,10 +225,7 @@ fn find_variable_value<R: ConfigReader + ?Sized>(
 }
 
 /// Finds a variable value from `primary`, then `fallback`.
-fn find_variable_value_with_fallback<
-    P: ConfigReader + ?Sized,
-    F: ConfigReader + ?Sized,
->(
+fn find_variable_value_with_fallback<P: ConfigReader + ?Sized, F: ConfigReader + ?Sized>(
     var_name: &str,
     primary: &P,
     fallback: &F,
@@ -278,17 +233,13 @@ fn find_variable_value_with_fallback<
     path: &str,
 ) -> ConfigResult<String> {
     match primary.get_property(var_name)? {
-        Some(property) if !property.is_unset() => {
-            match property.value().to_first::<String>() {
-                Ok(value) => Ok(value),
-                Err(error) => {
-                    let resolved = primary.resolve_key(var_name)?;
-                    Err(map_value_error(&resolved, error))
-                }
+        Some(property) if !property.is_unset() => match property.value().to_first::<String>() {
+            Ok(value) => Ok(value),
+            Err(error) => {
+                let resolved = primary.resolve_key(var_name)?;
+                Err(map_value_error(&resolved, error))
             }
-        }
-        Some(_) | None => {
-            find_variable_value(var_name, fallback, options, path)
-        }
+        },
+        Some(_) | None => find_variable_value(var_name, fallback, options, path),
     }
 }
