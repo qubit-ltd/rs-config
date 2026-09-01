@@ -16,7 +16,12 @@ use qubit_config::ConfigReader;
 
 #[test]
 fn config_key_accepts_canonical_dotted_names() {
-    for value in ["server", "server.port", "default_headers.x-request-id", "服务.端口"] {
+    for value in [
+        "server",
+        "server.port",
+        "default_headers.x-request-id",
+        "服务.端口",
+    ] {
         assert_eq!(ConfigKey::parse(value).unwrap().as_str(), value);
     }
 }
@@ -71,7 +76,10 @@ fn path_sensitive_lookups_reject_malformed_keys() {
 #[test]
 fn sections_reject_malformed_paths_and_preserve_the_root() {
     let config = Config::new();
-    assert!(matches!(config.section(".http"), Err(ConfigError::InvalidPath { .. })));
+    assert!(matches!(
+        config.section(".http"),
+        Err(ConfigError::InvalidPath { .. })
+    ));
     assert_eq!(config.section("").unwrap().path(), "");
 }
 
@@ -85,7 +93,10 @@ fn nested_sections_validate_before_joining_paths() {
         proxy.section("bad..path"),
         Err(ConfigError::InvalidPath { .. })
     ));
-    assert_eq!(ConfigReader::resolve_key(&proxy, "host").unwrap(), "http.proxy.host");
+    assert_eq!(
+        ConfigReader::resolve_key(&proxy, "host").unwrap(),
+        "http.proxy.host"
+    );
 }
 
 #[test]
@@ -102,6 +113,12 @@ fn multi_key_reads_validate_every_candidate_before_lookup() {
 #[test]
 fn writes_and_removals_share_the_canonical_key_contract() {
     let mut config = Config::new();
-    assert!(matches!(config.set(".bad", 1u8), Err(ConfigError::InvalidKey { .. })));
-    assert!(matches!(config.remove("bad."), Err(ConfigError::InvalidKey { .. })));
+    assert!(matches!(
+        config.set(".bad", 1u8),
+        Err(ConfigError::InvalidKey { .. })
+    ));
+    assert!(matches!(
+        config.remove("bad."),
+        Err(ConfigError::InvalidKey { .. })
+    ));
 }

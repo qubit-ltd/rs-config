@@ -54,24 +54,31 @@ impl AccountingConfigWireSeed {
         count: usize,
         keys: impl Iterator<Item = &'a str>,
     ) -> Result<(), ConfigWireDecodeError> {
-        let count = u64::try_from(count).expect("property count must fit in u64");
+        let count =
+            u64::try_from(count).expect("property count must fit in u64");
         self.limits
             .properties_limit()
             .check(count)
             .map_err(|error| ConfigWireDecodeError::LimitExceeded {
                 kind: ConfigWireLimitKind::Properties,
-                value: error.exact_observed().expect("point failure carries an exact value"),
+                value: error
+                    .exact_observed()
+                    .expect("point failure carries an exact value"),
                 maximum: error.maximum(),
             })?;
         for key in keys {
-            let bytes = u64::try_from(key.len()).expect("property key length must fit in u64");
-            self.limits.property_key_bytes_limit().check(bytes).map_err(|error| {
-                ConfigWireDecodeError::LimitExceeded {
+            let bytes = u64::try_from(key.len())
+                .expect("property key length must fit in u64");
+            self.limits
+                .property_key_bytes_limit()
+                .check(bytes)
+                .map_err(|error| ConfigWireDecodeError::LimitExceeded {
                     kind: ConfigWireLimitKind::PropertyKeyBytes,
-                    value: error.exact_observed().expect("point failure carries an exact value"),
+                    value: error
+                        .exact_observed()
+                        .expect("point failure carries an exact value"),
                     maximum: error.maximum(),
-                }
-            })?;
+                })?;
         }
         Ok(())
     }
@@ -85,31 +92,44 @@ impl AccountingConfigWireSeed {
         else {
             return Ok(());
         };
-        self.check_properties(properties.len(), properties.keys().map(String::as_str))
+        self.check_properties(
+            properties.len(),
+            properties.keys().map(String::as_str),
+        )
     }
 }
 
 impl JsonAdmittedConfigWireSeed {
     /// Checks property dimensions on directly decoded wire fields.
-    fn check_fields(&self, fields: &ConfigWireFields) -> Result<(), ConfigWireDecodeError> {
-        let count = u64::try_from(fields.properties.len()).expect("property count must fit in u64");
+    fn check_fields(
+        &self,
+        fields: &ConfigWireFields,
+    ) -> Result<(), ConfigWireDecodeError> {
+        let count = u64::try_from(fields.properties.len())
+            .expect("property count must fit in u64");
         self.limits
             .properties_limit()
             .check(count)
             .map_err(|error| ConfigWireDecodeError::LimitExceeded {
                 kind: ConfigWireLimitKind::Properties,
-                value: error.exact_observed().expect("point failure carries an exact value"),
+                value: error
+                    .exact_observed()
+                    .expect("point failure carries an exact value"),
                 maximum: error.maximum(),
             })?;
         for key in fields.properties.keys() {
-            let bytes = u64::try_from(key.len()).expect("property key length must fit in u64");
-            self.limits.property_key_bytes_limit().check(bytes).map_err(|error| {
-                ConfigWireDecodeError::LimitExceeded {
+            let bytes = u64::try_from(key.len())
+                .expect("property key length must fit in u64");
+            self.limits
+                .property_key_bytes_limit()
+                .check(bytes)
+                .map_err(|error| ConfigWireDecodeError::LimitExceeded {
                     kind: ConfigWireLimitKind::PropertyKeyBytes,
-                    value: error.exact_observed().expect("point failure carries an exact value"),
+                    value: error
+                        .exact_observed()
+                        .expect("point failure carries an exact value"),
                     maximum: error.maximum(),
-                }
-            })?;
+                })?;
         }
         Ok(())
     }
@@ -122,15 +142,18 @@ impl<'de> DeserializeSeed<'de> for AccountingConfigWireSeed {
     where
         D: Deserializer<'de>,
     {
-        let mut budget = JsonValueBudget::new(*self.limits.json_decode().value_limits());
+        let mut budget =
+            JsonValueBudget::new(*self.limits.json_decode().value_limits());
         let mut transaction = budget.transaction();
-        let value = AccountingJsonValueSeed::new(&mut transaction).deserialize(deserializer)?;
+        let value = AccountingJsonValueSeed::new(&mut transaction)
+            .deserialize(deserializer)?;
         transaction.commit().map_err(D::Error::custom)?;
         if let Err(error) = self.check_value(&value) {
             return Ok(Err(error));
         }
         let fields = from_value(value).map_err(D::Error::custom)?;
-        Ok(ConfigWire::from_fields(fields).map_err(ConfigWireDecodeError::InvalidConfig))
+        Ok(ConfigWire::from_fields(fields)
+            .map_err(ConfigWireDecodeError::InvalidConfig))
     }
 }
 
@@ -145,6 +168,7 @@ impl<'de> DeserializeSeed<'de> for JsonAdmittedConfigWireSeed {
         if let Err(error) = self.check_fields(&fields) {
             return Ok(Err(error));
         }
-        Ok(ConfigWire::from_fields(fields).map_err(ConfigWireDecodeError::InvalidConfig))
+        Ok(ConfigWire::from_fields(fields)
+            .map_err(ConfigWireDecodeError::InvalidConfig))
     }
 }

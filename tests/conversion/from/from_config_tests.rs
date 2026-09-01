@@ -33,7 +33,10 @@ use qubit_datatype::NumericConversionPolicy;
 struct ContextAware(String);
 
 impl FromConfig for ContextAware {
-    fn from_config(_property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<Self> {
+    fn from_config(
+        _property: &Property,
+        ctx: &ConfigParseContext<'_>,
+    ) -> ConfigResult<Self> {
         let value = if ctx.interpolates() {
             ctx.substitute_string("${base}")?
         } else {
@@ -50,7 +53,10 @@ fn test_external_from_config_can_observe_interpolation_context() {
     config.set("value", "ignored").expect("set value");
 
     assert_eq!(config.get::<ContextAware>("value").unwrap().0, "${base}");
-    assert_eq!(config.get_interpolated::<ContextAware>("value").unwrap().0, "resolved");
+    assert_eq!(
+        config.get_interpolated::<ContextAware>("value").unwrap().0,
+        "resolved"
+    );
 }
 
 #[test]
@@ -103,7 +109,9 @@ fn test_from_config_preserves_typed_vector_values() {
     let chars = vec!['A', '中'];
     let mut config = Config::new();
     config.set("chars", chars.clone()).expect("set chars");
-    config.set("durations", durations.clone()).expect("set durations");
+    config
+        .set("durations", durations.clone())
+        .expect("set durations");
 
     assert_eq!(config.get::<Vec<char>>("chars").unwrap(), chars);
     assert_eq!(config.get::<Vec<Duration>>("durations").unwrap(), durations,);
@@ -114,14 +122,22 @@ fn test_from_config_preserves_typed_vector_values() {
 #[test]
 fn test_from_config_preserves_chrono_vector_values() {
     let dates = vec![NaiveDate::from_ymd_opt(2026, 7, 13).unwrap()];
-    let datetimes =
-        vec![NaiveDateTime::parse_from_str("2026-07-13T01:02:03.123456789", "%Y-%m-%dT%H:%M:%S%.f").unwrap()];
+    let datetimes = vec![
+        NaiveDateTime::parse_from_str(
+            "2026-07-13T01:02:03.123456789",
+            "%Y-%m-%dT%H:%M:%S%.f",
+        )
+        .unwrap(),
+    ];
     let mut config = Config::new();
     config.set("dates", dates.clone()).unwrap();
     config.set("datetimes", datetimes.clone()).unwrap();
 
     assert_eq!(config.get::<Vec<NaiveDate>>("dates").unwrap(), dates);
-    assert_eq!(config.get::<Vec<NaiveDateTime>>("datetimes").unwrap(), datetimes,);
+    assert_eq!(
+        config.get::<Vec<NaiveDateTime>>("datetimes").unwrap(),
+        datetimes,
+    );
 }
 
 /// Test big integer vectors preserve their original representations.
@@ -150,7 +166,9 @@ fn test_from_config_preserves_big_decimal_vector_values() {
 #[test]
 fn test_from_config_list_error_preserves_source_index() {
     let mut config = Config::new();
-    config.set("ports", vec!["1", "bad", "3"]).expect("set ports");
+    config
+        .set("ports", vec!["1", "bad", "3"])
+        .expect("set ports");
 
     assert!(matches!(
         config.get::<Vec<u16>>("ports"),

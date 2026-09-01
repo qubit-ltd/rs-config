@@ -138,7 +138,10 @@ impl Config {
 
     /// Deserializes an interpolated subtree while explicitly ignoring fields
     /// not consumed by the target type.
-    pub fn deserialize_interpolated_lenient<T>(&self, prefix: &str) -> ConfigResult<T>
+    pub fn deserialize_interpolated_lenient<T>(
+        &self,
+        prefix: &str,
+    ) -> ConfigResult<T>
     where
         T: DeserializeOwned,
     {

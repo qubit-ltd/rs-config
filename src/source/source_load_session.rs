@@ -35,11 +35,26 @@ impl SourceLoadBudget {
     /// Creates an unused budget from one source policy.
     fn new(limits: SourceLimits) -> Self {
         Self {
-            input_bytes: ResourceBudget::new(SourceLimitKind::InputBytes, limits.max_input_bytes()),
-            properties: ResourceBudget::new(SourceLimitKind::PropertyCount, limits.max_properties()),
-            nodes: ResourceBudget::new(SourceLimitKind::NodeCount, limits.max_nodes()),
-            sources: ResourceBudget::new(SourceLimitKind::SourceCount, limits.max_sources()),
-            depth: ResourceLimit::new(SourceLimitKind::NestingDepth, limits.max_nesting_depth()),
+            input_bytes: ResourceBudget::new(
+                SourceLimitKind::InputBytes,
+                limits.max_input_bytes(),
+            ),
+            properties: ResourceBudget::new(
+                SourceLimitKind::PropertyCount,
+                limits.max_properties(),
+            ),
+            nodes: ResourceBudget::new(
+                SourceLimitKind::NodeCount,
+                limits.max_nodes(),
+            ),
+            sources: ResourceBudget::new(
+                SourceLimitKind::SourceCount,
+                limits.max_sources(),
+            ),
+            depth: ResourceLimit::new(
+                SourceLimitKind::NestingDepth,
+                limits.max_nesting_depth(),
+            ),
         }
     }
 }
@@ -55,7 +70,10 @@ enum CumulativeDimension {
 
 impl CumulativeDimension {
     /// Borrows the selected cumulative resource budget.
-    fn get(self, budget: &SourceLoadBudget) -> &ResourceBudget<SourceLimitKind, usize> {
+    fn get(
+        self,
+        budget: &SourceLoadBudget,
+    ) -> &ResourceBudget<SourceLimitKind, usize> {
         match self {
             Self::InputBytes => &budget.input_bytes,
             Self::Properties => &budget.properties,
@@ -65,7 +83,10 @@ impl CumulativeDimension {
     }
 
     /// Mutably borrows the selected cumulative resource budget.
-    fn get_mut(self, budget: &mut SourceLoadBudget) -> &mut ResourceBudget<SourceLimitKind, usize> {
+    fn get_mut(
+        self,
+        budget: &mut SourceLoadBudget,
+    ) -> &mut ResourceBudget<SourceLimitKind, usize> {
         match self {
             Self::InputBytes => &mut budget.input_bytes,
             Self::Properties => &mut budget.properties,
@@ -147,30 +168,44 @@ impl<'a> SourceLoadSession<'a> {
     /// Checks a root-relative depth against every active budget scope.
     pub fn check_depth(&self, depth: usize) -> ConfigResult<()> {
         for (index, budget) in self.ancestors.iter().enumerate() {
-            budget
-                .depth
-                .check(depth)
-                .map_err(|source| self.limit_error(self.ancestor_ids[index].clone(), source.into()))?;
+            budget.depth.check(depth).map_err(|source| {
+                self.limit_error(
+                    self.ancestor_ids[index].clone(),
+                    source.into(),
+                )
+            })?;
         }
-        self.local
-            .depth
-            .check(depth)
-            .map_err(|source| self.limit_error(self.source_id.clone(), source.into()))
+        self.local.depth.check(depth).map_err(|source| {
+            self.limit_error(self.source_id.clone(), source.into())
+        })
     }
 
     /// Atomically consumes one cumulative resource across all active scopes.
-    fn consume_cumulative(&mut self, dimension: CumulativeDimension, amount: usize) -> ConfigResult<()> {
+    fn consume_cumulative(
+        &mut self,
+        dimension: CumulativeDimension,
+        amount: usize,
+    ) -> ConfigResult<()> {
         for (index, budget) in self.ancestors.iter().enumerate() {
             if let Err(source) = dimension.get(budget).check_available(amount) {
                 let budget_id = self
                     .ancestor_ids
                     .get(index)
                     .map_or(self.source_id.as_str(), String::as_str);
-                return Err(Self::cumulative_limit_error(&self.source_id, budget_id, source));
+                return Err(Self::cumulative_limit_error(
+                    &self.source_id,
+                    budget_id,
+                    source,
+                ));
             }
         }
-        if let Err(source) = dimension.get(&self.local).check_available(amount) {
-            return Err(Self::cumulative_limit_error(&self.source_id, &self.source_id, source));
+        if let Err(source) = dimension.get(&self.local).check_available(amount)
+        {
+            return Err(Self::cumulative_limit_error(
+                &self.source_id,
+                &self.source_id,
+                source,
+            ));
         }
 
         for budget in &mut self.ancestors {
@@ -197,10 +232,16 @@ impl<'a> SourceLoadSession<'a> {
     }
 
     /// Wraps a point-limit failure with source and budget scope context.
-    fn limit_error(&self, budget_id: String, source: BudgetError<SourceLimitKind, usize>) -> ConfigError {
+    fn limit_error(
+        &self,
+        budget_id: String,
+        source: BudgetError<SourceLimitKind, usize>,
+    ) -> ConfigError {
         let limit = source.configured_limit();
         let observed_at_least = match &source {
-            BudgetError::LimitExceeded { observed, .. } => observed.lower_bound(),
+            BudgetError::LimitExceeded { observed, .. } => {
+                observed.lower_bound()
+            }
             BudgetError::Insufficient {
                 limit,
                 remaining,
@@ -252,7 +293,11 @@ impl<'a> SourceLoadContext<'a> {
     }
 
     /// Sets one output property after validating and charging the assignment.
-    pub fn set<S>(&mut self, name: impl ConfigName, values: S) -> ConfigResult<()>
+    pub fn set<S>(
+        &mut self,
+        name: impl ConfigName,
+        values: S,
+    ) -> ConfigResult<()>
     where
         S: Into<ValueContainer>,
     {
@@ -265,7 +310,11 @@ impl<'a> SourceLoadContext<'a> {
     }
 
     /// Sets an explicitly typed null value after charging the assignment.
-    pub fn set_null(&mut self, name: impl ConfigName, data_type: DataType) -> ConfigResult<()> {
+    pub fn set_null(
+        &mut self,
+        name: impl ConfigName,
+        data_type: DataType,
+    ) -> ConfigResult<()> {
         name.with_config_name(|name| {
             self.session.check_depth(name.split('.').count())?;
             self.session.consume_nodes(1)?;
@@ -280,7 +329,10 @@ impl<'a> SourceLoadContext<'a> {
     }
 
     /// Sets the default read policy on the source-owned layer.
-    pub fn set_default_read_policy(&mut self, policy: crate::options::ReadPolicy) {
+    pub fn set_default_read_policy(
+        &mut self,
+        policy: crate::options::ReadPolicy,
+    ) {
         self.layer.set_default_read_policy(policy);
     }
 

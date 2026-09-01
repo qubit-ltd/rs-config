@@ -91,7 +91,10 @@ fn yaml_parse_error(label: &str, error: &YamlError) -> ConfigError {
             location.line(),
             location.column(),
         ),
-        None => format!("Failed to parse YAML file '{}': invalid YAML syntax", label,),
+        None => format!(
+            "Failed to parse YAML file '{}': invalid YAML syntax",
+            label,
+        ),
     };
     ConfigError::source_parse_error(label, message)
 }
@@ -126,8 +129,10 @@ fn reject_yaml_aliases(label: &str, content: &str) -> ConfigResult<()> {
         let line = line.strip_suffix('\r').unwrap_or(line);
 
         if let Some(parent_indent) = block_scalar_parent_indent {
-            let content_indent = line.bytes().take_while(|byte| *byte == b' ').count();
-            let is_blank = line[content_indent..].chars().all(char::is_whitespace);
+            let content_indent =
+                line.bytes().take_while(|byte| *byte == b' ').count();
+            let is_blank =
+                line[content_indent..].chars().all(char::is_whitespace);
             let is_block_content = is_blank || content_indent > parent_indent;
             if is_block_content {
                 continue;
@@ -173,14 +178,18 @@ fn reject_yaml_aliases(label: &str, content: &str) -> ConfigResult<()> {
                 continue;
             }
             if matches!(character, '|' | '>') && block_scalar_header.is_none() {
-                block_scalar_header = yaml_block_scalar_indent(line, byte_index, previous);
+                block_scalar_header =
+                    yaml_block_scalar_indent(line, byte_index, previous);
             }
             if matches!(character, '&' | '*') {
-                let next_is_anchor_character = characters
-                    .peek()
-                    .is_some_and(|(_, next)| next.is_ascii_alphanumeric() || *next == '_');
-                let at_token_boundary = previous
-                    .is_none_or(|previous| previous.is_whitespace() || matches!(previous, ':' | '[' | '{' | ',' | '-'));
+                let next_is_anchor_character =
+                    characters.peek().is_some_and(|(_, next)| {
+                        next.is_ascii_alphanumeric() || *next == '_'
+                    });
+                let at_token_boundary = previous.is_none_or(|previous| {
+                    previous.is_whitespace()
+                        || matches!(previous, ':' | '[' | '{' | ',' | '-')
+                });
                 if next_is_anchor_character && at_token_boundary {
                     return Err(ConfigError::source_parse_error(
                         label,
@@ -198,7 +207,8 @@ fn reject_yaml_aliases(label: &str, content: &str) -> ConfigResult<()> {
         comment = false;
         escaped = false;
         if block_scalar_header.is_some() {
-            block_scalar_parent_indent = Some(line.bytes().take_while(|byte| *byte == b' ').count());
+            block_scalar_parent_indent =
+                Some(line.bytes().take_while(|byte| *byte == b' ').count());
         }
     }
 
@@ -220,9 +230,15 @@ fn reject_yaml_aliases(label: &str, content: &str) -> ConfigResult<()> {
 ///
 /// `Some` when the candidate is a valid block scalar header, with the optional
 /// explicit indentation indicator; otherwise `None`.
-fn yaml_block_scalar_indent(line: &str, byte_index: usize, previous: Option<char>) -> Option<Option<usize>> {
-    let at_token_boundary =
-        previous.is_none_or(|previous| previous.is_whitespace() || matches!(previous, ':' | '[' | '{' | ',' | '-'));
+fn yaml_block_scalar_indent(
+    line: &str,
+    byte_index: usize,
+    previous: Option<char>,
+) -> Option<Option<usize>> {
+    let at_token_boundary = previous.is_none_or(|previous| {
+        previous.is_whitespace()
+            || matches!(previous, ':' | '[' | '{' | ',' | '-')
+    });
     if !at_token_boundary {
         return None;
     }
@@ -332,17 +348,29 @@ impl ConfigSource for YamlConfigSource {
         self.limits
     }
 
-    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
+    fn load_into(
+        &self,
+        context: &mut SourceLoadContext<'_>,
+    ) -> ConfigResult<()> {
         let mut config = Config::new();
         let session = context.session_mut();
         let label = self.input.label("YAML");
         let content = self.input.read_to_string("YAML", session)?;
         reject_yaml_aliases(&label, &content)?;
 
-        let value: YamlValue = from_str(&content).map_err(|error| yaml_parse_error(&label, &error))?;
+        let value: YamlValue = from_str(&content)
+            .map_err(|error| yaml_parse_error(&label, &error))?;
 
         let mut seen = HashSet::new();
-        flatten_yaml_value(&label, "", &value, &mut config, &mut seen, session, 0)?;
+        flatten_yaml_value(
+            &label,
+            "",
+            &value,
+            &mut config,
+            &mut seen,
+            session,
+            0,
+        )?;
         context.replace_layer(config);
         Ok(())
     }
@@ -371,14 +399,27 @@ pub(crate) fn flatten_yaml_value(
     match value {
         YamlValue::Mapping(map) => {
             for (k, v) in map {
-                let key_str = yaml_key_to_string(k)
-                    .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))?;
+                let key_str = yaml_key_to_string(k).map_err(|error| {
+                    error.with_source_context(
+                        source_id,
+                        Some(prefix.to_string()),
+                        None,
+                    )
+                })?;
                 let key = if prefix.is_empty() {
                     key_str
                 } else {
                     format!("{}.{}", prefix, key_str)
                 };
-                flatten_yaml_value(source_id, &key, v, config, seen, budget, depth.saturating_add(1))?;
+                flatten_yaml_value(
+                    source_id,
+                    &key,
+                    v,
+                    config,
+                    seen,
+                    budget,
+                    depth.saturating_add(1),
+                )?;
             }
         }
         YamlValue::Sequence(seq) => {
@@ -391,43 +432,75 @@ pub(crate) fn flatten_yaml_value(
             // semantics.
             use qubit_datatype::DataType;
             ensure_yaml_property(source_id, seen, prefix, budget)?;
-            config
-                .set_null(prefix, DataType::String)
-                .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))?;
+            config.set_null(prefix, DataType::String).map_err(|error| {
+                error.with_source_context(
+                    source_id,
+                    Some(prefix.to_string()),
+                    None,
+                )
+            })?;
         }
         YamlValue::Bool(b) => {
             ensure_yaml_property(source_id, seen, prefix, budget)?;
-            config
-                .set(prefix, *b)
-                .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))?;
+            config.set(prefix, *b).map_err(|error| {
+                error.with_source_context(
+                    source_id,
+                    Some(prefix.to_string()),
+                    None,
+                )
+            })?;
         }
         YamlValue::Number(n) => {
             ensure_yaml_property(source_id, seen, prefix, budget)?;
             if let Some(i) = n.as_i64() {
-                config
-                    .set(prefix, i)
-                    .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))?;
+                config.set(prefix, i).map_err(|error| {
+                    error.with_source_context(
+                        source_id,
+                        Some(prefix.to_string()),
+                        None,
+                    )
+                })?;
             } else if let Some(i) = n.as_u64() {
-                config
-                    .set(prefix, i)
-                    .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))?;
+                config.set(prefix, i).map_err(|error| {
+                    error.with_source_context(
+                        source_id,
+                        Some(prefix.to_string()),
+                        None,
+                    )
+                })?;
             } else {
-                let f = n
-                    .as_f64()
-                    .expect("YAML number should be representable as i64, u64, or f64");
-                config
-                    .set(prefix, f)
-                    .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))?;
+                let f = n.as_f64().expect(
+                    "YAML number should be representable as i64, u64, or f64",
+                );
+                config.set(prefix, f).map_err(|error| {
+                    error.with_source_context(
+                        source_id,
+                        Some(prefix.to_string()),
+                        None,
+                    )
+                })?;
             }
         }
         YamlValue::String(s) => {
             ensure_yaml_property(source_id, seen, prefix, budget)?;
-            config
-                .set(prefix, s.clone())
-                .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))?;
+            config.set(prefix, s.clone()).map_err(|error| {
+                error.with_source_context(
+                    source_id,
+                    Some(prefix.to_string()),
+                    None,
+                )
+            })?;
         }
         YamlValue::Tagged(tagged) => {
-            flatten_yaml_value(source_id, prefix, &tagged.value, config, seen, budget, depth)?;
+            flatten_yaml_value(
+                source_id,
+                prefix,
+                &tagged.value,
+                config,
+                seen,
+                budget,
+                depth,
+            )?;
         }
     }
     Ok(())
@@ -440,8 +513,9 @@ fn ensure_yaml_property(
     key: &str,
     budget: &mut SourceLoadSession<'_>,
 ) -> ConfigResult<()> {
-    utils::ensure_unique_flattened_key(seen, key)
-        .map_err(|error| error.with_source_context(source_id, Some(key.to_string()), None))?;
+    utils::ensure_unique_flattened_key(seen, key).map_err(|error| {
+        error.with_source_context(source_id, Some(key.to_string()), None)
+    })?;
     budget.consume_properties(1)
 }
 
@@ -469,18 +543,25 @@ fn ensure_yaml_property(
 ///
 /// Returns an error when the sequence contains nested structures or when the
 /// configuration rejects the write, for example because the property is final.
-fn flatten_yaml_sequence(source_id: &str, prefix: &str, seq: &[YamlValue], config: &mut Config) -> ConfigResult<()> {
+fn flatten_yaml_sequence(
+    source_id: &str,
+    prefix: &str,
+    seq: &[YamlValue],
+    config: &mut Config,
+) -> ConfigResult<()> {
     if seq.is_empty() {
-        config
-            .set(prefix, Vec::<String>::new())
-            .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))?;
+        config.set(prefix, Vec::<String>::new()).map_err(|error| {
+            error.with_source_context(source_id, Some(prefix.to_string()), None)
+        })?;
         return Ok(());
     }
 
     if let Some(index) = seq.iter().position(|value| {
         matches!(
             value,
-            YamlValue::Mapping(_) | YamlValue::Sequence(_) | YamlValue::Tagged(_)
+            YamlValue::Mapping(_)
+                | YamlValue::Sequence(_)
+                | YamlValue::Tagged(_)
         )
     }) {
         return Err(ConfigError::source_parse_error_at(
@@ -565,9 +646,9 @@ where
     Vec<T>: Into<ValueContainer>,
 {
     let values = seq.iter().filter_map(convert).collect::<Vec<_>>();
-    config
-        .set(prefix, values)
-        .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))
+    config.set(prefix, values).map_err(|error| {
+        error.with_source_context(source_id, Some(prefix.to_string()), None)
+    })
 }
 
 /// Converts YAML scalar values to strings and writes them as one property.
@@ -586,14 +667,19 @@ where
 ///
 /// Returns an error when `seq` contains a nested structure or when the
 /// configuration rejects the write.
-fn set_yaml_string_sequence(source_id: &str, prefix: &str, seq: &[YamlValue], config: &mut Config) -> ConfigResult<()> {
+fn set_yaml_string_sequence(
+    source_id: &str,
+    prefix: &str,
+    seq: &[YamlValue],
+    config: &mut Config,
+) -> ConfigResult<()> {
     let values = seq
         .iter()
         .map(|value| yaml_scalar_to_string(value, prefix))
         .collect::<ConfigResult<Vec<_>>>()?;
-    config
-        .set(prefix, values)
-        .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))
+    config.set(prefix, values).map_err(|error| {
+        error.with_source_context(source_id, Some(prefix.to_string()), None)
+    })
 }
 
 /// Converts a YAML mapping key to a string.
@@ -602,7 +688,9 @@ fn set_yaml_string_sequence(source_id: &str, prefix: &str, seq: &[YamlValue], co
 fn yaml_key_to_string(value: &YamlValue) -> ConfigResult<String> {
     match value {
         YamlValue::String(s) => Ok(s.clone()),
-        _ => Err(ConfigError::ParseError("YAML mapping keys must be strings".to_string())),
+        _ => Err(ConfigError::ParseError(
+            "YAML mapping keys must be strings".to_string(),
+        )),
     }
 }
 
@@ -617,7 +705,9 @@ fn yaml_scalar_to_string(value: &YamlValue, key: &str) -> ConfigResult<String> {
         YamlValue::Number(n) => Ok(n.to_string()),
         YamlValue::Bool(b) => Ok(b.to_string()),
         YamlValue::Null => Ok(String::new()),
-        YamlValue::Sequence(_) | YamlValue::Mapping(_) | YamlValue::Tagged(_) => Err(ConfigError::ParseError(format!(
+        YamlValue::Sequence(_)
+        | YamlValue::Mapping(_)
+        | YamlValue::Tagged(_) => Err(ConfigError::ParseError(format!(
             "Unsupported nested YAML structure at key '{key}'",
         ))),
     }
@@ -630,7 +720,9 @@ fn same_yaml_scalar_kind(first: &YamlValue, other: &YamlValue) -> bool {
         | (YamlValue::Bool(_), YamlValue::Bool(_))
         | (YamlValue::String(_), YamlValue::String(_)) => true,
         (YamlValue::Number(first), YamlValue::Number(other)) => {
-            first.is_i64() == other.is_i64() && first.is_u64() == other.is_u64() && first.is_f64() == other.is_f64()
+            first.is_i64() == other.is_i64()
+                && first.is_u64() == other.is_u64()
+                && first.is_f64() == other.is_f64()
         }
         _ => false,
     }

@@ -137,7 +137,9 @@ impl Config {
         name.with_config_name(|name| {
             let property = self.get_property_by_name(name)?;
 
-            property.get_first::<T>().map_err(|e| utils::map_value_error(name, e))
+            property
+                .get_first::<T>()
+                .map_err(|e| utils::map_value_error(name, e))
         })
     }
 
@@ -173,7 +175,11 @@ impl Config {
     /// assert_eq!(port, 8080);
     /// assert_eq!(host, "localhost");
     /// ```
-    pub fn get_or<T>(&self, name: impl ConfigName, default: impl IntoConfigDefault<T>) -> ConfigResult<T>
+    pub fn get_or<T>(
+        &self,
+        name: impl ConfigName,
+        default: impl IntoConfigDefault<T>,
+    ) -> ConfigResult<T>
     where
         T: FromConfig,
     {
@@ -200,7 +206,11 @@ impl Config {
     /// Returns interpolation and conversion errors instead of hiding them
     /// behind the default.
     #[inline(always)]
-    pub fn get_interpolated_or<T>(&self, name: impl ConfigName, default: impl IntoConfigDefault<T>) -> ConfigResult<T>
+    pub fn get_interpolated_or<T>(
+        &self,
+        name: impl ConfigName,
+        default: impl IntoConfigDefault<T>,
+    ) -> ConfigResult<T>
     where
         T: FromConfig,
     {
@@ -242,7 +252,10 @@ impl Config {
     /// Returns missing-value, interpolation, resource-limit, or conversion
     /// errors.
     #[inline(always)]
-    pub fn get_any_interpolated<T>(&self, names: impl ConfigNames) -> ConfigResult<T>
+    pub fn get_any_interpolated<T>(
+        &self,
+        names: impl ConfigNames,
+    ) -> ConfigResult<T>
     where
         T: FromConfig,
     {
@@ -258,7 +271,10 @@ impl Config {
     /// # Returns
     ///
     /// `Ok(None)` when every key is absent or effectively missing.
-    pub fn get_optional_any<T>(&self, names: impl ConfigNames) -> ConfigResult<Option<T>>
+    pub fn get_optional_any<T>(
+        &self,
+        names: impl ConfigNames,
+    ) -> ConfigResult<Option<T>>
     where
         T: FromConfig,
     {
@@ -284,7 +300,10 @@ impl Config {
     ///
     /// Returns interpolation, resource-limit, or conversion errors.
     #[inline(always)]
-    pub fn get_optional_any_interpolated<T>(&self, names: impl ConfigNames) -> ConfigResult<Option<T>>
+    pub fn get_optional_any_interpolated<T>(
+        &self,
+        names: impl ConfigNames,
+    ) -> ConfigResult<Option<T>>
     where
         T: FromConfig,
     {
@@ -302,7 +321,11 @@ impl Config {
     /// # Returns
     ///
     /// Parsed value or `default`; conversion errors are returned.
-    pub fn get_any_or<T>(&self, names: impl ConfigNames, default: impl IntoConfigDefault<T>) -> ConfigResult<T>
+    pub fn get_any_or<T>(
+        &self,
+        names: impl ConfigNames,
+        default: impl IntoConfigDefault<T>,
+    ) -> ConfigResult<T>
     where
         T: FromConfig,
     {
@@ -396,13 +419,18 @@ impl Config {
     ///
     /// A vector of exact typed values on success, or a [`crate::ConfigError`]
     /// on failure.
-    pub fn get_list_strict<T>(&self, name: impl ConfigName) -> ConfigResult<Vec<T>>
+    pub fn get_list_strict<T>(
+        &self,
+        name: impl ConfigName,
+    ) -> ConfigResult<Vec<T>>
     where
         T: StrictValueRead,
     {
         name.with_config_name(|name| {
             let property = self.get_property_by_name(name)?;
-            property.get_list::<T>().map_err(|e| utils::map_value_error(name, e))
+            property
+                .get_list::<T>()
+                .map_err(|e| utils::map_value_error(name, e))
         })
     }
 
@@ -484,7 +512,10 @@ impl Config {
     /// let missing: Option<i32> = config.get_optional("missing").unwrap();
     /// assert_eq!(missing, None);
     /// ```
-    pub fn get_optional<T>(&self, name: impl ConfigName) -> ConfigResult<Option<T>>
+    pub fn get_optional<T>(
+        &self,
+        name: impl ConfigName,
+    ) -> ConfigResult<Option<T>>
     where
         T: FromConfig,
     {
@@ -511,7 +542,10 @@ impl Config {
     /// Returns interpolation, resource-limit, or conversion errors with key
     /// context.
     #[inline(always)]
-    pub fn get_optional_interpolated<T>(&self, name: impl ConfigName) -> ConfigResult<Option<T>>
+    pub fn get_optional_interpolated<T>(
+        &self,
+        name: impl ConfigName,
+    ) -> ConfigResult<Option<T>>
     where
         T: FromConfig,
     {
@@ -560,7 +594,10 @@ impl Config {
     /// let missing: Option<Vec<i32>> = config.get_optional_list("missing").unwrap();
     /// assert_eq!(missing, None);
     /// ```
-    pub fn get_optional_list<T>(&self, name: impl ConfigName) -> ConfigResult<Option<Vec<T>>>
+    pub fn get_optional_list<T>(
+        &self,
+        name: impl ConfigName,
+    ) -> ConfigResult<Option<Vec<T>>>
     where
         T: DataConversionTarget,
     {
@@ -574,7 +611,10 @@ impl ConfigReader for Config {
     }
 
     #[inline]
-    fn get_property(&self, name: impl ConfigName) -> ConfigResult<Option<&Property>> {
+    fn get_property(
+        &self,
+        name: impl ConfigName,
+    ) -> ConfigResult<Option<&Property>> {
         Config::get_property(self, name)
     }
 
@@ -625,12 +665,17 @@ impl ConfigReader for Config {
     }
 
     #[inline]
-    fn iter_prefix<'a>(&'a self, prefix: &'a str) -> impl Iterator<Item = (&'a str, &'a Property)> + 'a {
+    fn iter_prefix<'a>(
+        &'a self,
+        prefix: &'a str,
+    ) -> impl Iterator<Item = (&'a str, &'a Property)> + 'a {
         Config::iter_prefix(self, prefix)
     }
 
     #[inline]
-    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a str, &'a Property)> + 'a> {
+    fn iter<'a>(
+        &'a self,
+    ) -> Box<dyn Iterator<Item = (&'a str, &'a Property)> + 'a> {
         Box::new(Config::iter(self))
     }
 

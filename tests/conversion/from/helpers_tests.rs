@@ -46,5 +46,10 @@ fn test_interpolated_helpers_resolve_values_before_missing_check() {
         .set("server.host", "${empty}")
         .expect("setting substituted value should succeed");
 
-    assert_eq!(config.get_optional_interpolated::<String>("server.host").unwrap(), None,);
+    assert_eq!(
+        config
+            .get_optional_interpolated::<String>("server.host")
+            .unwrap(),
+        None,
+    );
 }

@@ -21,7 +21,9 @@ fn properties_source_rejects_oversized_in_memory_input_before_loading() {
         .build();
     let _config = Config::new();
 
-    let error = source.load().expect_err("oversized in-memory input must be rejected");
+    let error = source
+        .load()
+        .expect_err("oversized in-memory input must be rejected");
     assert!(matches!(
         error,
         ConfigError::SourceLimitExceeded {
