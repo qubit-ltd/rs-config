@@ -106,7 +106,10 @@ pub trait ConfigSerdeExt: ConfigReader {
     ///
     /// Use this only when the target intentionally permits additional
     /// configuration fields; strict reads are the default contract.
-    fn deserialize_interpolated_lenient<T>(&self, prefix: &str) -> ConfigResult<T>
+    fn deserialize_interpolated_lenient<T>(
+        &self,
+        prefix: &str,
+    ) -> ConfigResult<T>
     where
         T: DeserializeOwned,
     {
@@ -140,12 +143,22 @@ where
     let path = reader.resolve_key(prefix)?;
     let value = deserialize_root_value(reader, prefix, interpolate)?;
     let options = reader.read_policy();
-    let mut session = ConversionSession::new(options.conversion_policy(), options.conversion_limits());
-    let deserializer = ConfigValueDeserializer::new(value, path.clone(), options, &mut session);
+    let mut session = ConversionSession::new(
+        options.conversion_policy(),
+        options.conversion_limits(),
+    );
+    let deserializer = ConfigValueDeserializer::new(
+        value,
+        path.clone(),
+        options,
+        &mut session,
+    );
     let mut ignored = Vec::new();
     let result = match unknown_mode {
         UnknownPropertyMode::Reject => {
-            serde_ignored::deserialize(deserializer, |ignored_path| ignored.push(ignored_path.to_string()))
+            serde_ignored::deserialize(deserializer, |ignored_path| {
+                ignored.push(ignored_path.to_string())
+            })
         }
         UnknownPropertyMode::Ignore => T::deserialize(deserializer),
     };
@@ -182,7 +195,11 @@ fn join_ignored_path(prefix: &str, ignored_path: &str) -> String {
 ///
 /// Returns a key conflict when an exact property and descendants coexist, or
 /// propagates conversion and interpolation errors.
-fn deserialize_root_value<R>(reader: &R, prefix: &str, interpolate: bool) -> ConfigResult<JsonValue>
+fn deserialize_root_value<R>(
+    reader: &R,
+    prefix: &str,
+    interpolate: bool,
+) -> ConfigResult<JsonValue>
 where
     R: ConfigReader + ?Sized,
 {
@@ -199,9 +216,13 @@ where
             existing: "exact value".to_string(),
             incoming: "nested child keys".to_string(),
         }),
-        (Some(property), false) => {
-            deserialize_exact_value(reader, root_config(reader), property.name(), property, interpolate)
-        }
+        (Some(property), false) => deserialize_exact_value(
+            reader,
+            root_config(reader),
+            property.name(),
+            property,
+            interpolate,
+        ),
         (None, _) => deserialize_subtree_value(reader, prefix, interpolate),
     }
 }
@@ -222,8 +243,19 @@ where
     P: ConfigReader + ?Sized,
     F: ConfigReader + ?Sized,
 {
-    let value = utils::prepare_deserialize_value(property, path, primary, fallback, interpolate)?;
-    if prepared_scalar_string_is_missing_for_deserialize(&value, path, property, primary.read_policy())? {
+    let value = utils::prepare_deserialize_value(
+        property,
+        path,
+        primary,
+        fallback,
+        interpolate,
+    )?;
+    if prepared_scalar_string_is_missing_for_deserialize(
+        &value,
+        path,
+        property,
+        primary.read_policy(),
+    )? {
         return Ok(JsonValue::Null);
     }
     Ok(value)
@@ -235,7 +267,11 @@ where
 ///
 /// Returns dotted-key conflicts or propagates conversion and interpolation
 /// errors from the active reader.
-fn deserialize_subtree_value<R>(reader: &R, prefix: &str, interpolate: bool) -> ConfigResult<JsonValue>
+fn deserialize_subtree_value<R>(
+    reader: &R,
+    prefix: &str,
+    interpolate: bool,
+) -> ConfigResult<JsonValue>
 where
     R: ConfigReader + ?Sized,
 {
@@ -244,8 +280,19 @@ where
     let mut map = Map::new();
     for (key, property) in subtree.iter() {
         let path = property.name();
-        let value = utils::prepare_deserialize_value(property, path, &subtree, fallback, interpolate)?;
-        if prepared_scalar_string_is_missing_for_deserialize(&value, path, property, subtree.read_policy())? {
+        let value = utils::prepare_deserialize_value(
+            property,
+            path,
+            &subtree,
+            fallback,
+            interpolate,
+        )?;
+        if prepared_scalar_string_is_missing_for_deserialize(
+            &value,
+            path,
+            property,
+            subtree.read_policy(),
+        )? {
             continue;
         }
         utils::insert_deserialize_value(&mut map, key, value)?;
@@ -270,7 +317,11 @@ fn prepared_scalar_string_is_missing_for_deserialize(
     let JsonValue::String(value) = value else {
         return Ok(false);
     };
-    match options.conversion_policy().string().normalize_optional(value) {
+    match options
+        .conversion_policy()
+        .string()
+        .normalize_optional(value)
+    {
         Ok(Some(_)) => Ok(false),
         Ok(None) => Ok(true),
         Err(error) => Err(ConfigError::from_data_conversion_error(

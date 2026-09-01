@@ -23,8 +23,10 @@ fuzz_target!(|data: &[u8]| {
     let Ok(config) = Config::decode_json_slice(data) else {
         return;
     };
-    let encoded = serde_json::to_vec(&config).expect("a decoded config must serialize through the V1 wire format");
-    let decoded = Config::decode_json_slice(&encoded).expect("a serialized V1 config must deserialize");
+    let encoded = serde_json::to_vec(&config)
+        .expect("a decoded config must serialize through the V1 wire format");
+    let decoded = Config::decode_json_slice(&encoded)
+        .expect("a serialized V1 config must deserialize");
 
     assert_eq!(decoded, config);
 });

@@ -44,7 +44,10 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// For a [`ConfigSection`], `name` is resolved relative to the view
     /// prefix (same rules as [`Self::get`]).
-    fn get_property(&self, name: impl ConfigName) -> ConfigResult<Option<&Property>>;
+    fn get_property(
+        &self,
+        name: impl ConfigName,
+    ) -> ConfigResult<Option<&Property>>;
 
     /// Number of configuration entries visible to this reader (all keys for
     /// [`crate::Config`]; relative keys only for a [`ConfigSection`]).
@@ -90,14 +93,30 @@ pub trait ConfigReader: internal::Sealed {
             let property = match self.get_property(name)? {
                 Some(property) => property,
                 None => {
-                    return Err(ConfigError::PropertyNotFound(self.resolve_key(name)?));
+                    return Err(ConfigError::PropertyNotFound(
+                        self.resolve_key(name)?,
+                    ));
                 }
             };
             let resolved = property.name();
-            if !property.is_unset() && is_effectively_missing(self, resolved, property, self.read_policy())? {
-                return Err(ConfigError::PropertyHasNoValue(resolved.to_owned()));
+            if !property.is_unset()
+                && is_effectively_missing(
+                    self,
+                    resolved,
+                    property,
+                    self.read_policy(),
+                )?
+            {
+                return Err(ConfigError::PropertyHasNoValue(
+                    resolved.to_owned(),
+                ));
             }
-            parse_property_from_reader(self, resolved, property, self.read_policy())
+            parse_property_from_reader(
+                self,
+                resolved,
+                property,
+                self.read_policy(),
+            )
         })
     }
 
@@ -132,16 +151,30 @@ pub trait ConfigReader: internal::Sealed {
             let property = match self.get_property(name)? {
                 Some(property) => property,
                 None => {
-                    return Err(ConfigError::PropertyNotFound(self.resolve_key(name)?));
+                    return Err(ConfigError::PropertyNotFound(
+                        self.resolve_key(name)?,
+                    ));
                 }
             };
             let resolved = property.name();
             if !property.is_unset()
-                && is_effectively_missing_interpolated(self, resolved, property, self.read_policy())?
+                && is_effectively_missing_interpolated(
+                    self,
+                    resolved,
+                    property,
+                    self.read_policy(),
+                )?
             {
-                return Err(ConfigError::PropertyHasNoValue(resolved.to_owned()));
+                return Err(ConfigError::PropertyHasNoValue(
+                    resolved.to_owned(),
+                ));
             }
-            parse_property_from_reader_interpolated(self, resolved, property, self.read_policy())
+            parse_property_from_reader_interpolated(
+                self,
+                resolved,
+                property,
+                self.read_policy(),
+            )
         })
     }
 
@@ -206,7 +239,11 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// Conversion errors are returned instead of being hidden by the default.
     #[inline]
-    fn get_or<T>(&self, name: impl ConfigName, default: impl IntoConfigDefault<T>) -> ConfigResult<T>
+    fn get_or<T>(
+        &self,
+        name: impl ConfigName,
+        default: impl IntoConfigDefault<T>,
+    ) -> ConfigResult<T>
     where
         T: FromConfig,
     {
@@ -237,7 +274,11 @@ pub trait ConfigReader: internal::Sealed {
     /// Returns interpolation and conversion errors instead of hiding them
     /// behind the default.
     #[inline]
-    fn get_interpolated_or<T>(&self, name: impl ConfigName, default: impl IntoConfigDefault<T>) -> ConfigResult<T>
+    fn get_interpolated_or<T>(
+        &self,
+        name: impl ConfigName,
+        default: impl IntoConfigDefault<T>,
+    ) -> ConfigResult<T>
     where
         T: FromConfig,
     {
@@ -268,10 +309,21 @@ pub trait ConfigReader: internal::Sealed {
             None => Ok(None),
             Some(property) => {
                 let resolved = property.name();
-                if is_effectively_missing(self, resolved, property, self.read_policy())? {
+                if is_effectively_missing(
+                    self,
+                    resolved,
+                    property,
+                    self.read_policy(),
+                )? {
                     Ok(None)
                 } else {
-                    parse_property_from_reader(self, resolved, property, self.read_policy()).map(Some)
+                    parse_property_from_reader(
+                        self,
+                        resolved,
+                        property,
+                        self.read_policy(),
+                    )
+                    .map(Some)
                 }
             }
         })
@@ -298,7 +350,10 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// Returns interpolation, resource-limit, or conversion errors with key
     /// context.
-    fn get_optional_interpolated<T>(&self, name: impl ConfigName) -> ConfigResult<Option<T>>
+    fn get_optional_interpolated<T>(
+        &self,
+        name: impl ConfigName,
+    ) -> ConfigResult<Option<T>>
     where
         T: FromConfig,
     {
@@ -306,10 +361,21 @@ pub trait ConfigReader: internal::Sealed {
             None => Ok(None),
             Some(property) => {
                 let resolved = property.name();
-                if is_effectively_missing_interpolated(self, resolved, property, self.read_policy())? {
+                if is_effectively_missing_interpolated(
+                    self,
+                    resolved,
+                    property,
+                    self.read_policy(),
+                )? {
                     Ok(None)
                 } else {
-                    parse_property_from_reader_interpolated(self, resolved, property, self.read_policy()).map(Some)
+                    parse_property_from_reader_interpolated(
+                        self,
+                        resolved,
+                        property,
+                        self.read_policy(),
+                    )
+                    .map(Some)
                 }
             }
         })
@@ -386,7 +452,10 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// Returns missing-value, interpolation, resource-limit, or conversion
     /// errors. An error from a selected key stops the search.
-    fn get_any_interpolated<T>(&self, names: impl ConfigNames) -> ConfigResult<T>
+    fn get_any_interpolated<T>(
+        &self,
+        names: impl ConfigNames,
+    ) -> ConfigResult<T>
     where
         T: FromConfig,
     {
@@ -405,11 +474,21 @@ pub trait ConfigReader: internal::Sealed {
     /// # Returns
     ///
     /// `Ok(None)` only when every key is absent or effectively missing.
-    fn get_optional_any<T>(&self, names: impl ConfigNames) -> ConfigResult<Option<T>>
+    fn get_optional_any<T>(
+        &self,
+        names: impl ConfigNames,
+    ) -> ConfigResult<Option<T>>
     where
         T: FromConfig,
     {
-        names.with_config_names(|names| get_optional_any_with_options(self, names, self.read_policy(), false))
+        names.with_config_names(|names| {
+            get_optional_any_with_options(
+                self,
+                names,
+                self.read_policy(),
+                false,
+            )
+        })
     }
 
     /// Reads an optional interpolated value from the first configured key.
@@ -431,11 +510,16 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// Returns interpolation, resource-limit, or conversion errors from the
     /// selected key.
-    fn get_optional_any_interpolated<T>(&self, names: impl ConfigNames) -> ConfigResult<Option<T>>
+    fn get_optional_any_interpolated<T>(
+        &self,
+        names: impl ConfigNames,
+    ) -> ConfigResult<Option<T>>
     where
         T: FromConfig,
     {
-        names.with_config_names(|names| get_optional_any_with_options(self, names, self.read_policy(), true))
+        names.with_config_names(|names| {
+            get_optional_any_with_options(self, names, self.read_policy(), true)
+        })
     }
 
     /// Reads a value from any key, using `default` only when every key is
@@ -449,13 +533,18 @@ pub trait ConfigReader: internal::Sealed {
     /// # Returns
     ///
     /// Parsed value or `default`; parsing errors are never swallowed.
-    fn get_any_or<T>(&self, names: impl ConfigNames, default: impl IntoConfigDefault<T>) -> ConfigResult<T>
+    fn get_any_or<T>(
+        &self,
+        names: impl ConfigNames,
+        default: impl IntoConfigDefault<T>,
+    ) -> ConfigResult<T>
     where
         T: FromConfig,
     {
         names.with_config_names(|names| {
-            self.get_optional_any(names)
-                .map(|value| value.unwrap_or_else(|| default.into_config_default()))
+            self.get_optional_any(names).map(|value| {
+                value.unwrap_or_else(|| default.into_config_default())
+            })
         })
     }
 
@@ -479,13 +568,18 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// Returns interpolation, resource-limit, or conversion errors from the
     /// selected key.
-    fn get_any_interpolated_or<T>(&self, names: impl ConfigNames, default: impl IntoConfigDefault<T>) -> ConfigResult<T>
+    fn get_any_interpolated_or<T>(
+        &self,
+        names: impl ConfigNames,
+        default: impl IntoConfigDefault<T>,
+    ) -> ConfigResult<T>
     where
         T: FromConfig,
     {
         names.with_config_names(|names| {
-            self.get_optional_any_interpolated(names)
-                .map(|value| value.unwrap_or_else(|| default.into_config_default()))
+            self.get_optional_any_interpolated(names).map(|value| {
+                value.unwrap_or_else(|| default.into_config_default())
+            })
         })
     }
 
@@ -504,7 +598,10 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// `Ok(Some(vec))`, including `Some(Vec::new())` for a concrete empty
     /// collection; `Ok(None)` only when absent or effectively missing.
-    fn get_optional_list<T>(&self, name: impl ConfigName) -> ConfigResult<Option<Vec<T>>>
+    fn get_optional_list<T>(
+        &self,
+        name: impl ConfigName,
+    ) -> ConfigResult<Option<Vec<T>>>
     where
         T: DataConversionTarget,
     {
@@ -543,11 +640,16 @@ pub trait ConfigReader: internal::Sealed {
     /// # Returns
     ///
     /// An iterator over matching entries without dynamic dispatch.
-    fn iter_prefix<'a>(&'a self, prefix: &'a str) -> impl Iterator<Item = (&'a str, &'a Property)> + 'a;
+    fn iter_prefix<'a>(
+        &'a self,
+        prefix: &'a str,
+    ) -> impl Iterator<Item = (&'a str, &'a Property)> + 'a;
 
     /// Iterates all `(key, property)` pairs visible to this reader (same scope
     /// as [`Self::keys`]).
-    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a str, &'a Property)> + 'a>;
+    fn iter<'a>(
+        &'a self,
+    ) -> Box<dyn Iterator<Item = (&'a str, &'a Property)> + 'a>;
 
     /// Returns whether `name` exists as an unset property.
     ///
@@ -601,7 +703,10 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// Returns [`ConfigError::InvalidPath`] when `path` is not canonical.
     #[inline]
-    fn section_if_present(&self, path: &str) -> ConfigResult<Option<ConfigSection<'_>>> {
+    fn section_if_present(
+        &self,
+        path: &str,
+    ) -> ConfigResult<Option<ConfigSection<'_>>> {
         let section = self.section(path)?;
         if section.is_empty() {
             Ok(None)
@@ -643,7 +748,10 @@ where
 }
 
 /// Creates a structured error for an unsuccessful multi-key lookup.
-fn missing_candidates_error<R>(reader: &R, names: &[&str]) -> ConfigResult<ConfigError>
+fn missing_candidates_error<R>(
+    reader: &R,
+    names: &[&str],
+) -> ConfigResult<ConfigError>
 where
     R: ConfigReader + ?Sized,
 {
@@ -675,7 +783,9 @@ where
             };
             let resolved = property.name();
             let missing = if interpolate {
-                is_effectively_missing_interpolated(reader, resolved, property, options)?
+                is_effectively_missing_interpolated(
+                    reader, resolved, property, options,
+                )?
             } else {
                 is_effectively_missing(reader, resolved, property, options)?
             };
@@ -683,9 +793,13 @@ where
                 continue;
             }
             return if interpolate {
-                parse_property_from_reader_interpolated(reader, resolved, property, options).map(Some)
+                parse_property_from_reader_interpolated(
+                    reader, resolved, property, options,
+                )
+                .map(Some)
             } else {
-                parse_property_from_reader(reader, resolved, property, options).map(Some)
+                parse_property_from_reader(reader, resolved, property, options)
+                    .map(Some)
             };
         }
         Ok(None)

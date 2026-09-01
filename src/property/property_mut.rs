@@ -70,7 +70,10 @@ impl<'a> ConfigPropertyMut<'a> {
     /// Returns [`ConfigError::PropertyIsFinal`] if the property has already
     /// been marked final.
     #[inline]
-    pub fn set_description(&mut self, description: Option<String>) -> ConfigResult<()> {
+    pub fn set_description(
+        &mut self,
+        description: Option<String>,
+    ) -> ConfigResult<()> {
         self.ensure_not_final()?;
         self.property.set_description(description);
         Ok(())
@@ -97,7 +100,9 @@ impl<'a> ConfigPropertyMut<'a> {
     #[inline]
     pub fn set_final(&mut self, is_final: bool) -> ConfigResult<()> {
         if self.property.is_final() && !is_final {
-            return Err(ConfigError::PropertyIsFinal(self.property.name().to_string()));
+            return Err(ConfigError::PropertyIsFinal(
+                self.property.name().to_string(),
+            ));
         }
         self.property.set_final(is_final);
         Ok(())
@@ -118,7 +123,10 @@ impl<'a> ConfigPropertyMut<'a> {
     /// Returns [`ConfigError::PropertyIsFinal`] if the property has already
     /// been marked final.
     #[inline]
-    pub fn set_value(&mut self, value: impl Into<ValueContainer>) -> ConfigResult<()> {
+    pub fn set_value(
+        &mut self,
+        value: impl Into<ValueContainer>,
+    ) -> ConfigResult<()> {
         self.ensure_not_final()?;
         self.property.set_value(value);
         Ok(())
@@ -209,7 +217,9 @@ impl<'a> ConfigPropertyMut<'a> {
     #[inline]
     fn ensure_not_final(&self) -> ConfigResult<()> {
         if self.property.is_final() {
-            return Err(ConfigError::PropertyIsFinal(self.property.name().to_string()));
+            return Err(ConfigError::PropertyIsFinal(
+                self.property.name().to_string(),
+            ));
         }
         Ok(())
     }

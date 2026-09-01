@@ -37,7 +37,10 @@ impl ConfigDeserializeError {
     /// Attaches a leaf path to a serde-originated error when it has none.
     pub(crate) fn with_path(self, path: String) -> Self {
         match self {
-            Self::Message { message, path: None } => Self::Message {
+            Self::Message {
+                message,
+                path: None,
+            } => Self::Message {
                 message,
                 path: Some(path),
             },
@@ -48,9 +51,13 @@ impl ConfigDeserializeError {
     /// Converts this error into the public configuration error type.
     pub(crate) fn into_config_error(self, path: &str) -> ConfigError {
         match self {
-            ConfigDeserializeError::Message { path: message_path, .. } => ConfigError::DeserializeError {
+            ConfigDeserializeError::Message {
+                path: message_path, ..
+            } => ConfigError::DeserializeError {
                 path: message_path.unwrap_or_else(|| path.to_string()),
-                message: "configuration value does not match the requested type".to_string(),
+                message:
+                    "configuration value does not match the requested type"
+                        .to_string(),
                 source: None,
             },
             ConfigDeserializeError::Config(error) => error,
@@ -72,7 +79,9 @@ impl fmt::Display for ConfigDeserializeError {
     /// Formats the error message.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ConfigDeserializeError::Message { message, .. } => f.write_str(message),
+            ConfigDeserializeError::Message { message, .. } => {
+                f.write_str(message)
+            }
             ConfigDeserializeError::Config(error) => error.fmt(f),
         }
     }

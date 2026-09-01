@@ -29,7 +29,10 @@ fn fixture(name: &str) -> PathBuf {
         .join(name)
 }
 
-fn load_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<()> {
+fn load_source(
+    config: &mut Config,
+    source: &dyn ConfigSource,
+) -> ConfigResult<()> {
     config.merge_properties_from_source(source)
 }
 
@@ -72,7 +75,9 @@ mod test_composite_config_source {
     fn test_add_multiple_sources() {
         let mut composite = CompositeConfigSource::new();
         composite.add(TomlConfigSource::from_file(fixture("basic.toml")));
-        composite.add(PropertiesConfigSource::from_file(fixture("basic.properties")));
+        composite.add(PropertiesConfigSource::from_file(fixture(
+            "basic.properties",
+        )));
         assert_eq!(composite.len(), 2);
     }
 
@@ -196,11 +201,14 @@ mod test_composite_config_source {
         composite.add(PropertiesConfigSource::from_content("first=1\n"));
         composite.add(PropertiesConfigSource::from_content("second=2\n"));
 
-        let error = composite
-            .load()
-            .expect_err("the second property should exceed the aggregate budget");
+        let error = composite.load().expect_err(
+            "the second property should exceed the aggregate budget",
+        );
 
-        assert_eq!(error.source_budget_id(), Some("composite configuration source"));
+        assert_eq!(
+            error.source_budget_id(),
+            Some("composite configuration source")
+        );
         assert!(matches!(
             error.budget_error(),
             Some(BudgetError::Insufficient {
@@ -218,7 +226,9 @@ mod test_composite_config_source {
             .limits(SourceLimits::builder().max_sources(1).build())
             .build();
         composite.add(PropertiesConfigSource::from_content("first=1\n"));
-        composite.add(TomlConfigSource::from_file("/path-that-must-not-be-opened.toml"));
+        composite.add(TomlConfigSource::from_file(
+            "/path-that-must-not-be-opened.toml",
+        ));
 
         let error = composite
             .load()

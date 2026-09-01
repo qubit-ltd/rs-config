@@ -80,7 +80,8 @@ impl ReadPolicy {
             interpolation_sources: policy.interpolation_sources,
             max_interpolation_depth: policy.max_interpolation_depth,
             max_interpolation_expansions: policy.max_interpolation_expansions,
-            max_interpolation_output_bytes: policy.max_interpolation_output_bytes,
+            max_interpolation_output_bytes: policy
+                .max_interpolation_output_bytes,
         }
     }
 
@@ -191,7 +192,8 @@ impl ReadPolicyBuilder {
             interpolation_sources: InterpolationSources::ConfigOnly,
             max_interpolation_depth: DEFAULT_MAX_SUBSTITUTION_DEPTH,
             max_interpolation_expansions: DEFAULT_MAX_SUBSTITUTION_EXPANSIONS,
-            max_interpolation_output_bytes: DEFAULT_MAX_SUBSTITUTION_OUTPUT_BYTES,
+            max_interpolation_output_bytes:
+                DEFAULT_MAX_SUBSTITUTION_OUTPUT_BYTES,
         }
     }
 
@@ -208,7 +210,10 @@ impl ReadPolicyBuilder {
     }
 
     /// Sets the interpolation sources.
-    pub const fn interpolation_sources(mut self, sources: InterpolationSources) -> Self {
+    pub const fn interpolation_sources(
+        mut self,
+        sources: InterpolationSources,
+    ) -> Self {
         self.interpolation_sources = sources;
         self
     }
@@ -220,13 +225,19 @@ impl ReadPolicyBuilder {
     }
 
     /// Sets the maximum placeholder-resolution count per read.
-    pub const fn max_interpolation_expansions(mut self, maximum: usize) -> Self {
+    pub const fn max_interpolation_expansions(
+        mut self,
+        maximum: usize,
+    ) -> Self {
         self.max_interpolation_expansions = maximum;
         self
     }
 
     /// Sets the maximum interpolated output byte length.
-    pub const fn max_interpolation_output_bytes(mut self, maximum: usize) -> Self {
+    pub const fn max_interpolation_output_bytes(
+        mut self,
+        maximum: usize,
+    ) -> Self {
         self.max_interpolation_output_bytes = maximum;
         self
     }
@@ -243,55 +254,97 @@ impl ReadPolicyBuilder {
 
     /// Sets the empty collection item policy.
     pub fn empty_item_policy(mut self, policy: EmptyItemPolicy) -> Self {
-        self.conversion_policy = self.conversion_policy.into_builder().empty_item_policy(policy).build();
+        self.conversion_policy = self
+            .conversion_policy
+            .into_builder()
+            .empty_item_policy(policy)
+            .build();
         self
     }
 
     /// Sets the string conversion policy.
     pub fn string_policy(mut self, policy: StringConversionPolicy) -> Self {
-        self.conversion_policy = self.conversion_policy.into_builder().string_policy(policy).build();
+        self.conversion_policy = self
+            .conversion_policy
+            .into_builder()
+            .string_policy(policy)
+            .build();
         self
     }
 
     /// Sets the Boolean conversion policy.
     pub fn boolean_policy(mut self, policy: BooleanConversionPolicy) -> Self {
-        self.conversion_policy = self.conversion_policy.into_builder().boolean_policy(policy).build();
+        self.conversion_policy = self
+            .conversion_policy
+            .into_builder()
+            .boolean_policy(policy)
+            .build();
         self
     }
 
     /// Sets the collection conversion policy.
-    pub fn collection_policy(mut self, policy: CollectionConversionPolicy) -> Self {
-        self.conversion_policy = self.conversion_policy.into_builder().collection_policy(policy).build();
+    pub fn collection_policy(
+        mut self,
+        policy: CollectionConversionPolicy,
+    ) -> Self {
+        self.conversion_policy = self
+            .conversion_policy
+            .into_builder()
+            .collection_policy(policy)
+            .build();
         self
     }
 
     /// Sets the collection conversion limits.
-    pub fn collection_limits(mut self, limits: CollectionConversionLimits) -> Self {
-        self.conversion_limits = self.conversion_limits.into_builder().collection_limits(limits).build();
+    pub fn collection_limits(
+        mut self,
+        limits: CollectionConversionLimits,
+    ) -> Self {
+        self.conversion_limits = self
+            .conversion_limits
+            .into_builder()
+            .collection_limits(limits)
+            .build();
         self
     }
 
     /// Sets the duration conversion policy.
     pub fn duration_policy(mut self, policy: DurationConversionPolicy) -> Self {
-        self.conversion_policy = self.conversion_policy.into_builder().duration_policy(policy).build();
+        self.conversion_policy = self
+            .conversion_policy
+            .into_builder()
+            .duration_policy(policy)
+            .build();
         self
     }
 
     /// Sets the duration conversion limits.
     pub fn duration_limits(mut self, limits: DurationConversionLimits) -> Self {
-        self.conversion_limits = self.conversion_limits.into_builder().duration_limits(limits).build();
+        self.conversion_limits = self
+            .conversion_limits
+            .into_builder()
+            .duration_limits(limits)
+            .build();
         self
     }
 
     /// Sets the numeric conversion policy.
     pub fn numeric_policy(mut self, policy: NumericConversionPolicy) -> Self {
-        self.conversion_policy = self.conversion_policy.into_builder().numeric_policy(policy).build();
+        self.conversion_policy = self
+            .conversion_policy
+            .into_builder()
+            .numeric_policy(policy)
+            .build();
         self
     }
 
     /// Sets the numeric conversion limits.
     pub fn numeric_limits(mut self, limits: NumericConversionLimits) -> Self {
-        self.conversion_limits = self.conversion_limits.into_builder().numeric_limits(limits).build();
+        self.conversion_limits = self
+            .conversion_limits
+            .into_builder()
+            .numeric_limits(limits)
+            .build();
         self
     }
 

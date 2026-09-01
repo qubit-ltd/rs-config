@@ -24,7 +24,9 @@ fuzz_target!(|data: &[u8]| {
         return;
     };
 
-    let mut config = Config::builder().default_read_policy(ReadPolicy::config_only()).build();
+    let mut config = Config::builder()
+        .default_read_policy(ReadPolicy::config_only())
+        .build();
     config
         .set("value", value)
         .expect("the fixed fuzzing key should always be valid");

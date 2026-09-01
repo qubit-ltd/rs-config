@@ -50,7 +50,10 @@ pub(crate) fn create_test_config_with_description() -> Config {
 }
 
 /// Changes the interpolation recursion limit while preserving other options.
-pub(crate) fn set_max_interpolation_depth(config: &mut Config, max_depth: usize) {
+pub(crate) fn set_max_interpolation_depth(
+    config: &mut Config,
+    max_depth: usize,
+) {
     let options = ReadPolicy::builder_from(config.default_read_policy())
         .max_interpolation_depth(max_depth)
         .build();
@@ -86,10 +89,12 @@ mod test_into_config_default {
         let vec_source = vec![4, 5, 6];
         let array_ref_source = [7, 8, 9];
 
-        let from_slice: Vec<i32> = slice_source.as_slice().into_config_default();
+        let from_slice: Vec<i32> =
+            slice_source.as_slice().into_config_default();
         let from_vec_ref: Vec<i32> = (&vec_source).into_config_default();
         let from_array: Vec<i32> = [10, 11, 12].into_config_default();
-        let from_array_ref: Vec<i32> = (&array_ref_source).into_config_default();
+        let from_array_ref: Vec<i32> =
+            (&array_ref_source).into_config_default();
 
         assert_eq!(from_slice, vec![1, 2, 3]);
         assert_eq!(from_vec_ref, vec![4, 5, 6]);
@@ -107,7 +112,8 @@ mod test_into_config_default {
         let from_vec_ref: Vec<String> = (&vec_ref_source).into_config_default();
         let from_vec: Vec<String> = vec!["e", "f"].into_config_default();
         let from_array: Vec<String> = ["i", "j"].into_config_default();
-        let from_array_ref: Vec<String> = (&array_ref_source).into_config_default();
+        let from_array_ref: Vec<String> =
+            (&array_ref_source).into_config_default();
 
         assert_eq!(from_slice, vec!["a".to_string(), "b".to_string()]);
         assert_eq!(from_vec_ref, vec!["c".to_string(), "d".to_string()]);
@@ -138,7 +144,11 @@ mod test_get_list {
         config
             .set(
                 "test",
-                vec!["value1".to_string(), "value2".to_string(), "value3".to_string()],
+                vec![
+                    "value1".to_string(),
+                    "value2".to_string(),
+                    "value3".to_string(),
+                ],
             )
             .unwrap();
         let values: Vec<String> = config.get_list("test").unwrap();
@@ -321,8 +331,11 @@ mod test_set {
 
         let date = NaiveDate::from_ymd_opt(2023, 12, 25).unwrap();
         let time = NaiveTime::from_hms_opt(12, 30, 45).unwrap();
-        let datetime = DateTime::<Utc>::from_timestamp(1703505600, 0).unwrap().naive_utc();
-        let utc_datetime = DateTime::<Utc>::from_timestamp(1703505600, 0).unwrap();
+        let datetime = DateTime::<Utc>::from_timestamp(1703505600, 0)
+            .unwrap()
+            .naive_utc();
+        let utc_datetime =
+            DateTime::<Utc>::from_timestamp(1703505600, 0).unwrap();
 
         config.set("date", date).unwrap();
         config.set("time", time).unwrap();
@@ -335,7 +348,10 @@ mod test_set {
         assert_eq!(config.get::<NaiveDate>("date").unwrap(), date);
         assert_eq!(config.get::<NaiveTime>("time").unwrap(), time);
         assert_eq!(config.get::<NaiveDateTime>("datetime").unwrap(), datetime);
-        assert_eq!(config.get::<DateTime<Utc>>("utc_datetime").unwrap(), utc_datetime);
+        assert_eq!(
+            config.get::<DateTime<Utc>>("utc_datetime").unwrap(),
+            utc_datetime
+        );
     }
 }
 
@@ -504,7 +520,9 @@ mod test_get_string_list {
     #[test]
     fn test_get_string_list_returns_string_list() {
         let mut config = Config::new();
-        config.set("test", vec!["value1", "value2", "value3"]).unwrap();
+        config
+            .set("test", vec!["value1", "value2", "value3"])
+            .unwrap();
         let values = config.get::<Vec<String>>("test").unwrap();
         assert_eq!(values, vec!["value1", "value2", "value3"]);
     }
@@ -513,9 +531,14 @@ mod test_get_string_list {
     fn test_get_string_list_with_variable_substitution() {
         let mut config = Config::new();
         config.set("base", "http://localhost").unwrap();
-        config.set("urls", vec!["${base}/api", "${base}/admin"]).unwrap();
+        config
+            .set("urls", vec!["${base}/api", "${base}/admin"])
+            .unwrap();
         let urls = config.get_interpolated::<Vec<String>>("urls").unwrap();
-        assert_eq!(urls, vec!["http://localhost/api", "http://localhost/admin"]);
+        assert_eq!(
+            urls,
+            vec!["http://localhost/api", "http://localhost/admin"]
+        );
     }
 
     #[test]
@@ -523,16 +546,23 @@ mod test_get_string_list {
         let mut config = Config::new();
         config.set("host", "localhost").unwrap();
         config.set("base", "http://${host}").unwrap();
-        config.set("urls", vec!["${base}/api", "${base}/admin"]).unwrap();
+        config
+            .set("urls", vec!["${base}/api", "${base}/admin"])
+            .unwrap();
         let urls = config.get_interpolated::<Vec<String>>("urls").unwrap();
-        assert_eq!(urls, vec!["http://localhost/api", "http://localhost/admin"]);
+        assert_eq!(
+            urls,
+            vec!["http://localhost/api", "http://localhost/admin"]
+        );
     }
 
     #[test]
     fn test_get_string_list_preserves_placeholders() {
         let mut config = Config::new();
         config.set("base", "http://localhost").unwrap();
-        config.set("urls", vec!["${base}/api", "${base}/admin"]).unwrap();
+        config
+            .set("urls", vec!["${base}/api", "${base}/admin"])
+            .unwrap();
         let urls = config.get::<Vec<String>>("urls").unwrap();
         assert_eq!(urls, vec!["${base}/api", "${base}/admin"]);
     }
@@ -581,14 +611,17 @@ mod test_get_string_list_or {
     fn test_get_string_list_or_returns_value_when_property_exists() {
         let mut config = Config::new();
         config.set("test", vec!["value1", "value2"]).unwrap();
-        let values = config.get_or::<Vec<String>>("test", &["default"]).unwrap();
+        let values =
+            config.get_or::<Vec<String>>("test", &["default"]).unwrap();
         assert_eq!(values, vec!["value1", "value2"]);
     }
 
     #[test]
     fn test_get_string_list_or_returns_default_when_property_not_exists() {
         let config = Config::new();
-        let values = config.get_or::<Vec<String>>("nonexistent", &["default"]).unwrap();
+        let values = config
+            .get_or::<Vec<String>>("nonexistent", &["default"])
+            .unwrap();
         assert_eq!(values, vec!["default"]);
     }
 
@@ -596,7 +629,8 @@ mod test_get_string_list_or {
     fn test_get_string_list_or_converts_non_string_values() {
         let mut config = Config::new();
         config.set("test", vec![1, 2, 3]).unwrap();
-        let values = config.get_or::<Vec<String>>("test", &["default"]).unwrap();
+        let values =
+            config.get_or::<Vec<String>>("test", &["default"]).unwrap();
         assert_eq!(values, vec!["1", "2", "3"]);
     }
 
@@ -604,9 +638,16 @@ mod test_get_string_list_or {
     fn test_get_string_list_or_with_variable_substitution() {
         let mut config = Config::new();
         config.set("base", "http://localhost").unwrap();
-        config.set("urls", vec!["${base}/api", "${base}/admin"]).unwrap();
-        let urls = config.get_interpolated_or::<Vec<String>>("urls", &["default"]).unwrap();
-        assert_eq!(urls, vec!["http://localhost/api", "http://localhost/admin"]);
+        config
+            .set("urls", vec!["${base}/api", "${base}/admin"])
+            .unwrap();
+        let urls = config
+            .get_interpolated_or::<Vec<String>>("urls", &["default"])
+            .unwrap();
+        assert_eq!(
+            urls,
+            vec!["http://localhost/api", "http://localhost/admin"]
+        );
     }
 
     #[test]
@@ -622,7 +663,9 @@ mod test_get_string_list_or {
     fn test_get_string_list_or_with_vec_default() {
         let config = Config::new();
         let default_vec = vec!["vec1", "vec2", "vec3"];
-        let values = config.get_or::<Vec<String>>("nonexistent", &default_vec).unwrap();
+        let values = config
+            .get_or::<Vec<String>>("nonexistent", &default_vec)
+            .unwrap();
         assert_eq!(values, vec!["vec1", "vec2", "vec3"]);
     }
 }
@@ -707,7 +750,9 @@ mod test_final_property {
         let mut config = Config::new();
 
         // Set initial value
-        config.set("immutable_list", vec!["value1", "value2"]).unwrap();
+        config
+            .set("immutable_list", vec!["value1", "value2"])
+            .unwrap();
 
         config.set_final("immutable_list", true).unwrap();
 
