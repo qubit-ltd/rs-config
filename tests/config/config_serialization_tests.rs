@@ -55,10 +55,7 @@ pub(crate) fn create_test_config_with_description() -> Config {
 }
 
 /// Changes the interpolation recursion limit while preserving other options.
-pub(crate) fn set_max_interpolation_depth(
-    config: &mut Config,
-    max_depth: usize,
-) {
+pub(crate) fn set_max_interpolation_depth(config: &mut Config, max_depth: usize) {
     let options = ReadPolicy::builder_from(config.default_read_policy())
         .max_interpolation_depth(max_depth)
         .build();
@@ -90,11 +87,7 @@ mod test_enhanced_errors {
         let result: Result<bool, _> = config.get_strict("server.port");
         assert!(result.is_err());
         match result.unwrap_err() {
-            ConfigError::TypeMismatch {
-                key,
-                expected,
-                actual,
-            } => {
+            ConfigError::TypeMismatch { key, expected, actual } => {
                 assert_eq!(key, "server.port");
                 assert_eq!(expected, DataType::Bool);
                 assert_eq!(actual, DataType::Int32);
@@ -121,8 +114,7 @@ mod test_enhanced_errors {
     #[test]
     fn test_get_property_not_found_carries_key() {
         let config = Config::new();
-        let result: Result<String, _> =
-            config.get("http.logging.body_size_limit");
+        let result: Result<String, _> = config.get("http.logging.body_size_limit");
         assert!(result.is_err());
         match result.unwrap_err() {
             ConfigError::PropertyNotFound(key) => {
@@ -167,9 +159,7 @@ mod test_enhanced_errors {
             source: DataConversionError::invalid(
                 DataType::String,
                 DataType::Duration,
-                InvalidValueReason::InvalidSyntax {
-                    expected: "a duration",
-                },
+                InvalidValueReason::InvalidSyntax { expected: "a duration" },
             ),
         };
         let msg = format!("{}", error);
@@ -198,11 +188,7 @@ mod test_enhanced_errors {
         };
         let ce = ConfigError::from(("typed.value", ve));
         match ce {
-            ConfigError::TypeMismatch {
-                key,
-                expected,
-                actual,
-            } => {
+            ConfigError::TypeMismatch { key, expected, actual } => {
                 assert_eq!(key, "typed.value");
                 assert_eq!(expected, DataType::Int32);
                 assert_eq!(actual, DataType::String);
@@ -236,10 +222,7 @@ mod test_enhanced_errors {
         match ce {
             ConfigError::ConversionError { key, source, .. } => {
                 assert_eq!(key, "converted.value");
-                assert_eq!(
-                    source.kind(),
-                    DataConversionErrorKind::InvalidValue,
-                );
+                assert_eq!(source.kind(), DataConversionErrorKind::InvalidValue,);
             }
             _ => panic!("Expected ConversionError"),
         }
@@ -248,10 +231,7 @@ mod test_enhanced_errors {
     #[test]
     fn test_conversion_failed_from_value_error_requires_explicit_key() {
         use qubit_value::ValueError;
-        let ve = ValueError::Conversion(DataConversionError::unsupported(
-            DataType::String,
-            DataType::Int32,
-        ));
+        let ve = ValueError::Conversion(DataConversionError::unsupported(DataType::String, DataType::Int32));
         let ce = ConfigError::from(("unsupported.value", ve));
         match ce {
             ConfigError::ConversionError { key, source, .. } => {
@@ -359,9 +339,7 @@ mod test_toml_type_faithful {
         let path = dir.path().join("mixed.toml");
         std::fs::write(&path, "mixed = [1, \"two\", 3]\n").unwrap();
         let source = TomlConfigSource::from_file(&path);
-        let error = source
-            .load()
-            .expect_err("mixed TOML arrays should be rejected");
+        let error = source.load().expect_err("mixed TOML arrays should be rejected");
         assert!(matches!(
             error,
             ConfigError::SourceParseError {
@@ -512,9 +490,7 @@ mod test_yaml_type_faithful {
         let path = dir.path().join("mixed.yaml");
         std::fs::write(&path, "mixed:\n  - 1\n  - two\n  - 3\n").unwrap();
         let source = YamlConfigSource::from_file(&path);
-        let error = source
-            .load()
-            .expect_err("mixed YAML sequences should be rejected");
+        let error = source.load().expect_err("mixed YAML sequences should be rejected");
         assert!(matches!(
             error,
             ConfigError::SourceParseError {
@@ -537,10 +513,7 @@ mod test_yaml_type_faithful {
     fn test_yaml_empty_sequence() {
         let config = load_yaml("empty: []\n");
         assert!(config.contains("empty").unwrap());
-        assert_eq!(
-            config.get_list::<String>("empty").unwrap(),
-            Vec::<String>::new()
-        );
+        assert_eq!(config.get_list::<String>("empty").unwrap(), Vec::<String>::new());
         assert_eq!(config.get_list::<i64>("empty").unwrap(), Vec::<i64>::new());
     }
 
@@ -596,11 +569,7 @@ mod test_property_insertion_api {
         config
             .insert_property(
                 "direct",
-                Property::new(
-                    "direct",
-                    MultiValues::String(vec!["hello".to_string()]),
-                )
-                .unwrap(),
+                Property::new("direct", MultiValues::String(vec!["hello".to_string()])).unwrap(),
             )
             .unwrap();
         assert_eq!(config.get::<String>("direct").unwrap(), "hello");
@@ -617,11 +586,7 @@ mod test_property_insertion_api {
     #[test]
     fn test_insert_property_name_mismatch_returns_error() {
         let mut config = Config::new();
-        let property = Property::new(
-            "actual.key",
-            MultiValues::String(vec!["hello".to_string()]),
-        )
-        .unwrap();
+        let property = Property::new("actual.key", MultiValues::String(vec!["hello".to_string()])).unwrap();
         let result = config.insert_property("expected.key", property);
         assert!(matches!(result, Err(ConfigError::MergeError(_))));
     }
@@ -634,11 +599,7 @@ mod test_property_insertion_api {
 
         let result = config.insert_property(
             "final.key",
-            Property::new(
-                "final.key",
-                MultiValues::String(vec!["v2".to_string()]),
-            )
-            .unwrap(),
+            Property::new("final.key", MultiValues::String(vec!["v2".to_string()])).unwrap(),
         );
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
     }
@@ -875,8 +836,7 @@ mod test_source_backed_constructors {
 
     #[test]
     fn test_from_properties_file_loads_properties_config() {
-        let config =
-            Config::from_properties_file(fixture("basic.properties")).unwrap();
+        let config = Config::from_properties_file(fixture("basic.properties")).unwrap();
 
         assert_eq!(config.get::<String>("host").unwrap(), "localhost");
         assert_eq!(config.get::<String>("app.version").unwrap(), "1.0.0");
@@ -900,9 +860,7 @@ mod test_source_backed_constructors {
         let config = Config::from_env().unwrap();
 
         assert_eq!(
-            config
-                .get::<String>("QUBIT_CONFIG_FROM_ENV_TEST_KEY")
-                .unwrap(),
+            config.get::<String>("QUBIT_CONFIG_FROM_ENV_TEST_KEY").unwrap(),
             "from-env"
         );
 
@@ -940,10 +898,7 @@ mod test_source_backed_constructors {
             std::env::set_var("QOPTS_MY_KEY", "raw-value");
         }
 
-        let config = Config::from_env_options(
-            EnvConfigOptions::builder().prefix("QOPTS_").build(),
-        )
-        .unwrap();
+        let config = Config::from_env_options(EnvConfigOptions::builder().prefix("QOPTS_").build()).unwrap();
 
         assert_eq!(config.get::<String>("QOPTS_MY_KEY").unwrap(), "raw-value");
         assert!(!config.contains("my.key").unwrap());

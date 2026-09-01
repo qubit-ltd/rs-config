@@ -22,9 +22,7 @@ fn test_config_error_exposes_stable_kind_and_path() {
         DataConversionError::invalid(
             DataType::String,
             DataType::Duration,
-            InvalidValueReason::InvalidSyntax {
-                expected: "a duration",
-            },
+            InvalidValueReason::InvalidSyntax { expected: "a duration" },
         ),
     );
 
@@ -85,9 +83,7 @@ fn test_config_error_kind_covers_every_public_variant() {
         DataConversionError::invalid(
             DataType::String,
             DataType::Duration,
-            InvalidValueReason::InvalidSyntax {
-                expected: "a duration",
-            },
+            InvalidValueReason::InvalidSyntax { expected: "a duration" },
         )
     };
     let cases = [
@@ -180,10 +176,7 @@ fn test_config_error_kind_covers_every_public_variant() {
             },
             ConfigErrorKind::SubstitutionCycle,
         ),
-        (
-            ConfigError::MergeError("failed".to_string()),
-            ConfigErrorKind::Merge,
-        ),
+        (ConfigError::MergeError("failed".to_string()), ConfigErrorKind::Merge),
         (
             ConfigError::PropertyIsFinal("key".to_string()),
             ConfigErrorKind::PropertyIsFinal,
@@ -207,10 +200,7 @@ fn test_config_error_kind_covers_every_public_variant() {
             ConfigError::IoError(std::io::Error::other("failed")),
             ConfigErrorKind::Io,
         ),
-        (
-            ConfigError::ParseError("failed".to_string()),
-            ConfigErrorKind::Parse,
-        ),
+        (ConfigError::ParseError("failed".to_string()), ConfigErrorKind::Parse),
         (
             ConfigError::DeserializeError {
                 path: "key".to_string(),
@@ -219,18 +209,11 @@ fn test_config_error_kind_covers_every_public_variant() {
             },
             ConfigErrorKind::Deserialize,
         ),
-        (
-            ConfigError::Other("failed".to_string()),
-            ConfigErrorKind::Other,
-        ),
+        (ConfigError::Other("failed".to_string()), ConfigErrorKind::Other),
     ];
 
     for (error, expected_kind) in cases {
-        assert_eq!(
-            error.kind(),
-            expected_kind,
-            "unexpected error kind for {error}"
-        );
+        assert_eq!(error.kind(), expected_kind, "unexpected error kind for {error}");
     }
 }
 
