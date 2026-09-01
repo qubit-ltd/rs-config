@@ -149,7 +149,7 @@ serde_json = "1.0"
 如果需要直接定制转换选项，请依赖其所属的 `qubit-datatype` crate：
 
 ```toml
-qubit-datatype = { version = "0.11", default-features = false, features = ["converter"] }
+qubit-datatype = { version = "0.12", default-features = false, features = ["converter"] }
 ```
 
 ## 为什么需要这个项目
