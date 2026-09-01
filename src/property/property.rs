@@ -102,8 +102,7 @@ impl Serialize for Property {
     where
         S: Serializer,
     {
-        let value = ValueWireRefV1::try_from(&self.value)
-            .map_err(<S::Error as SerError>::custom)?;
+        let value = ValueWireRefV1::try_from(&self.value).map_err(<S::Error as SerError>::custom)?;
         PropertyWireRef {
             name: self.name(),
             value,
@@ -167,10 +166,7 @@ impl Property {
     /// assert_eq!(prop.len(), 1);
     /// ```
     #[inline]
-    pub fn new(
-        name: impl Into<String>,
-        value: impl Into<ValueContainer>,
-    ) -> ConfigResult<Self> {
+    pub fn new(name: impl Into<String>, value: impl Into<ValueContainer>) -> ConfigResult<Self> {
         let name = ConfigKey::parse(name.into())?.into_string();
         Ok(Self {
             name,

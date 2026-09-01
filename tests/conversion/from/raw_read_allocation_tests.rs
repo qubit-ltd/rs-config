@@ -60,14 +60,10 @@ fn test_raw_scalar_conversion_does_not_clone_source_text() {
     config
         .set("port", "8080")
         .expect("the test configuration should accept the value");
-    let _: u32 = config
-        .get("port")
-        .expect("the warm-up conversion should succeed");
+    let _: u32 = config.get("port").expect("the warm-up conversion should succeed");
 
     reset_test_thread_allocations();
-    let value: u32 = config
-        .get("port")
-        .expect("the raw conversion should succeed");
+    let value: u32 = config.get("port").expect("the raw conversion should succeed");
     let allocations = test_thread_allocations();
 
     assert_eq!(value, 8080);
@@ -87,10 +83,7 @@ fn test_root_reader_prefix_iteration_does_not_box() {
     config
         .set("http.host", "localhost")
         .expect("the test configuration should accept the value");
-    assert_eq!(
-        <Config as ConfigReader>::iter_prefix(&config, "http.").count(),
-        1,
-    );
+    assert_eq!(<Config as ConfigReader>::iter_prefix(&config, "http.").count(), 1,);
 
     reset_test_thread_allocations();
     let count = <Config as ConfigReader>::iter_prefix(&config, "http.").count();

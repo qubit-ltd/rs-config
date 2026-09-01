@@ -20,18 +20,8 @@ fn test_config_names_accepts_str_slice_array_and_vec() {
     let vec_names = vec!["server.port", "legacy.port"];
 
     assert_eq!(config.get_any::<i32>(slice).unwrap(), 8080);
-    assert_eq!(
-        config
-            .get_any::<i32>(["server.port", "legacy.port"])
-            .unwrap(),
-        8080
-    );
-    assert_eq!(
-        config
-            .get_any::<i32>(&["server.port", "legacy.port"])
-            .unwrap(),
-        8080
-    );
+    assert_eq!(config.get_any::<i32>(["server.port", "legacy.port"]).unwrap(), 8080);
+    assert_eq!(config.get_any::<i32>(&["server.port", "legacy.port"]).unwrap(), 8080);
     assert_eq!(config.get_any::<i32>(vec_names).unwrap(), 8080);
 }
 

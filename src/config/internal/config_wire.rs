@@ -37,16 +37,11 @@ impl<'de> Deserialize<'de> for ConfigWire {
 
 impl ConfigWire {
     /// Selects the versioned or legacy contract after common field decoding.
-    pub(super) fn from_fields(
-        fields: ConfigWireFields,
-    ) -> Result<Self, String> {
+    pub(super) fn from_fields(fields: ConfigWireFields) -> Result<Self, String> {
         Ok(match fields.version.0 {
             Some(version) => {
                 if fields.read_options.is_some() {
-                    return Err(
-                        "read_options is only accepted in legacy unversioned config wire"
-                            .to_string(),
-                    );
+                    return Err("read_options is only accepted in legacy unversioned config wire".to_string());
                 }
                 Self::V1(ConfigWireV1 {
                     version,
