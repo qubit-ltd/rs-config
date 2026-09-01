@@ -27,13 +27,10 @@ use crate::utils;
 ///
 /// Returns `Some(&str)` only when the property has scalar string shape.
 pub(crate) fn first_scalar_string(property: &Property) -> Option<&str> {
-    property
-        .value()
-        .as_scalar()
-        .and_then(|value| match value.view() {
-            ValueRef::String(value) => Some(value),
-            _ => None,
-        })
+    property.value().as_scalar().and_then(|value| match value.view() {
+        ValueRef::String(value) => Some(value),
+        _ => None,
+    })
 }
 
 /// Checks whether a property should be treated as missing for read operations.
@@ -184,23 +181,14 @@ fn is_effectively_missing_by<R: ConfigReader + ?Sized>(
     };
     if !interpolate {
         return Ok(matches!(
-            options
-                .conversion_policy()
-                .string()
-                .normalize_optional(value),
+            options.conversion_policy().string().normalize_optional(value),
             Ok(None)
         ));
     }
-    let substitute = |value: &str| {
-        substitute_for_reader(reader, name, value, options, interpolate)
-    };
+    let substitute = |value: &str| substitute_for_reader(reader, name, value, options, interpolate);
     let ctx = ConfigParseContext::new(name, options, &substitute, interpolate);
     let value = ctx.substitute_string(value)?;
-    match options
-        .conversion_policy()
-        .string()
-        .normalize_optional(&value)
-    {
+    match options.conversion_policy().string().normalize_optional(&value) {
         Ok(Some(_)) | Err(_) => Ok(false),
         Ok(None) => Ok(true),
     }
@@ -219,9 +207,7 @@ where
     R: ConfigReader + ?Sized,
     T: FromConfig,
 {
-    let substitute = |value: &str| {
-        substitute_for_reader(reader, name, value, options, interpolate)
-    };
+    let substitute = |value: &str| substitute_for_reader(reader, name, value, options, interpolate);
     let ctx = ConfigParseContext::new(name, options, &substitute, interpolate);
     T::from_config(property, &ctx)
 }
@@ -256,13 +242,7 @@ fn substitute_for_reader<R: ConfigReader + ?Sized>(
     interpolate: bool,
 ) -> ConfigResult<String> {
     if interpolate {
-        utils::substitute_variables_with_fallback(
-            value,
-            reader,
-            root_config(reader),
-            options,
-            path,
-        )
+        utils::substitute_variables_with_fallback(value, reader, root_config(reader), options, path)
     } else {
         Ok(value.to_string())
     }

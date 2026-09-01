@@ -24,10 +24,7 @@ fn fixture(name: &str) -> PathBuf {
         .join(name)
 }
 
-fn merge_source(
-    config: &mut Config,
-    source: &dyn ConfigSource,
-) -> ConfigResult<()> {
+fn merge_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<()> {
     config.merge_properties_from_source(source)
 }
 
@@ -89,8 +86,7 @@ mod test_toml_config_source {
 
     #[test]
     fn test_load_nonexistent_toml_file_returns_error() {
-        let source =
-            TomlConfigSource::from_file("/nonexistent/path/config.toml");
+        let source = TomlConfigSource::from_file("/nonexistent/path/config.toml");
         let mut config = Config::new();
         let result = merge_source(&mut config, &source);
         assert!(result.is_err());
@@ -100,16 +96,13 @@ mod test_toml_config_source {
     #[test]
     fn test_load_invalid_toml_returns_redacted_parse_error() {
         const SECRET_MARKER: &str = "RS_CONFIG_TOML_SECRET_MARKER";
-        let dir =
-            tempfile::tempdir().expect("temporary directory should be created");
+        let dir = tempfile::tempdir().expect("temporary directory should be created");
         let path = dir.path().join("invalid.toml");
         std::fs::write(&path, format!("password = \"{SECRET_MARKER}\n"))
             .expect("invalid TOML fixture should be written");
 
         let source = TomlConfigSource::from_file(&path);
-        let error = source
-            .load()
-            .expect_err("unterminated TOML string should fail");
+        let error = source.load().expect_err("unterminated TOML string should fail");
 
         assert!(matches!(&error, ConfigError::SourceParseError { .. }));
         let display = error.to_string();
@@ -157,10 +150,7 @@ pool = 5
         assert_eq!(config.get::<i64>("value").unwrap(), 42);
         // Boolean values are stored as bool
         assert!(!config.get::<bool>("enabled").unwrap());
-        assert_eq!(
-            config.get::<String>("db.url").unwrap(),
-            "postgres://localhost/mydb"
-        );
+        assert_eq!(config.get::<String>("db.url").unwrap(), "postgres://localhost/mydb");
         // Integer values are stored as i64
         assert_eq!(config.get::<i64>("db.pool").unwrap(), 5);
     }
@@ -266,10 +256,7 @@ mod test_toml_edge_cases {
         merge_source(&mut config, &source).unwrap();
 
         assert!(config.contains("empty").unwrap());
-        assert_eq!(
-            config.get::<Vec<String>>("empty").unwrap(),
-            Vec::<String>::new()
-        );
+        assert_eq!(config.get::<Vec<String>>("empty").unwrap(), Vec::<String>::new());
         assert_eq!(config.get_list::<i64>("empty").unwrap(), Vec::<i64>::new());
     }
 
@@ -341,15 +328,10 @@ mod test_toml_edge_cases {
     fn test_toml_mixed_type_array_is_rejected() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("mixed.toml");
-        std::fs::write(
-            &path,
-            "tags = [1, 2.5, true, \"a\", 2026-04-09T12:00:00Z]\n",
-        )
-        .unwrap();
+        std::fs::write(&path, "tags = [1, 2.5, true, \"a\", 2026-04-09T12:00:00Z]\n").unwrap();
         let source = TomlConfigSource::from_file(&path);
         let mut config = Config::new();
-        let error = merge_source(&mut config, &source)
-            .expect_err("mixed TOML arrays should be rejected");
+        let error = merge_source(&mut config, &source).expect_err("mixed TOML arrays should be rejected");
         assert!(matches!(
             error,
             ConfigError::SourceParseError {
@@ -401,10 +383,7 @@ dates = [2026-04-09T12:00:00Z, 2026-04-10T12:00:00Z]
 
         assert_eq!(config.get_list::<i64>("ints").unwrap(), vec![1, 2, 3]);
         assert_eq!(config.get_list::<f64>("floats").unwrap(), vec![1.25, 2.5]);
-        assert_eq!(
-            config.get_list::<bool>("flags").unwrap(),
-            vec![true, false]
-        );
+        assert_eq!(config.get_list::<bool>("flags").unwrap(), vec![true, false]);
         let dates = config.get::<Vec<String>>("dates").unwrap();
         assert_eq!(dates.len(), 2);
         assert!(dates[0].contains("2026-04-09"));
@@ -415,11 +394,7 @@ dates = [2026-04-09T12:00:00Z, 2026-04-10T12:00:00Z]
     fn test_toml_array_of_tables_nested_error() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("nested_tbl.toml");
-        std::fs::write(
-            &path,
-            "[[servers]]\nhost = \"a\"\n\n[[servers]]\nhost = \"b\"\n",
-        )
-        .unwrap();
+        std::fs::write(&path, "[[servers]]\nhost = \"a\"\n\n[[servers]]\nhost = \"b\"\n").unwrap();
         let source = TomlConfigSource::from_file(&path);
         let mut config = Config::new();
         let result = merge_source(&mut config, &source);
@@ -448,12 +423,7 @@ locked_datetime = 1979-05-27T07:32:00Z
         )
         .unwrap();
 
-        for key in [
-            "locked_int",
-            "locked_float",
-            "locked_bool",
-            "locked_datetime",
-        ] {
+        for key in ["locked_int", "locked_float", "locked_bool", "locked_datetime"] {
             let source = TomlConfigSource::from_file(&path);
             let mut config = Config::new();
             config.set(key, "old").unwrap();

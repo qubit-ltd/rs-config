@@ -25,10 +25,7 @@ impl ConfigSource for ChildAccountingSource {
         SourceLimits::builder().max_input_bytes(5).build()
     }
 
-    fn load_into(
-        &self,
-        context: &mut SourceLoadContext<'_>,
-    ) -> ConfigResult<()> {
+    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
         context.consume_input_bytes(self.amount)
     }
 }
@@ -44,10 +41,7 @@ impl ConfigSource for RecoveringLocalFailureSource {
         SourceLimits::builder().max_input_bytes(1).build()
     }
 
-    fn load_into(
-        &self,
-        context: &mut SourceLoadContext<'_>,
-    ) -> ConfigResult<()> {
+    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
         let error = context
             .consume_input_bytes(2)
             .expect_err("the local budget should reject two bytes");
@@ -67,10 +61,7 @@ fn source_load_session_charges_local_and_ancestor_budgets_atomically() {
         .load()
         .expect_err("the aggregate budget should reject the second charge");
 
-    assert_eq!(
-        error.source_budget_id(),
-        Some("composite configuration source")
-    );
+    assert_eq!(error.source_budget_id(), Some("composite configuration source"));
 }
 
 #[test]
@@ -80,14 +71,11 @@ fn source_load_session_reports_outermost_failing_budget_first() {
         .build();
     aggregate.add(ChildAccountingSource { amount: 2 });
 
-    let error = aggregate.load().expect_err(
-        "both aggregate and child budgets should reject the charge",
-    );
+    let error = aggregate
+        .load()
+        .expect_err("both aggregate and child budgets should reject the charge");
 
-    assert_eq!(
-        error.source_budget_id(),
-        Some("composite configuration source")
-    );
+    assert_eq!(error.source_budget_id(), Some("composite configuration source"));
 }
 
 #[test]

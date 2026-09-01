@@ -72,10 +72,7 @@ impl ConfigWireLimits {
         Self {
             json_decode,
             json_encode,
-            properties: ResourceLimit::new(
-                ConfigWireLimitKind::Properties,
-                Self::DEFAULT_MAX_PROPERTIES,
-            ),
+            properties: ResourceLimit::new(ConfigWireLimitKind::Properties, Self::DEFAULT_MAX_PROPERTIES),
             property_key_bytes: ResourceLimit::new(
                 ConfigWireLimitKind::PropertyKeyBytes,
                 Self::DEFAULT_MAX_PROPERTY_KEY_BYTES,
@@ -110,16 +107,12 @@ impl ConfigWireLimits {
     }
 
     /// Returns the complete property-count point limit.
-    pub(crate) const fn properties_limit(
-        &self,
-    ) -> &ResourceLimit<ConfigWireLimitKind, u64> {
+    pub(crate) const fn properties_limit(&self) -> &ResourceLimit<ConfigWireLimitKind, u64> {
         &self.properties
     }
 
     /// Returns the complete property-key byte point limit.
-    pub(crate) const fn property_key_bytes_limit(
-        &self,
-    ) -> &ResourceLimit<ConfigWireLimitKind, u64> {
+    pub(crate) const fn property_key_bytes_limit(&self) -> &ResourceLimit<ConfigWireLimitKind, u64> {
         &self.property_key_bytes
     }
 }
@@ -139,42 +132,30 @@ impl ConfigWireLimitsBuilder {
     #[inline]
     pub fn new() -> Self {
         Self {
-            json_decode: ConfigWireLimits::default_json_decode_limits(
-                ConfigWireLimits::DEFAULT_MAX_INPUT_BYTES,
-            ),
-            json_encode: ConfigWireLimits::default_json_encode_limits(
-                ConfigWireLimits::DEFAULT_MAX_OUTPUT_BYTES,
-            ),
+            json_decode: ConfigWireLimits::default_json_decode_limits(ConfigWireLimits::DEFAULT_MAX_INPUT_BYTES),
+            json_encode: ConfigWireLimits::default_json_encode_limits(ConfigWireLimits::DEFAULT_MAX_OUTPUT_BYTES),
             max_properties: ConfigWireLimits::DEFAULT_MAX_PROPERTIES,
-            max_property_key_bytes:
-                ConfigWireLimits::DEFAULT_MAX_PROPERTY_KEY_BYTES,
+            max_property_key_bytes: ConfigWireLimits::DEFAULT_MAX_PROPERTY_KEY_BYTES,
         }
     }
 
     /// Sets the maximum complete JSON input length.
     #[inline]
     pub fn max_input_bytes(mut self, maximum: u64) -> Self {
-        self.json_decode =
-            ConfigWireLimits::default_json_decode_limits(maximum);
+        self.json_decode = ConfigWireLimits::default_json_decode_limits(maximum);
         self
     }
 
     /// Replaces the JSON decoding limits.
     #[inline]
-    pub fn json_decode(
-        mut self,
-        limits: JsonDecodeLimits<JsonResource, u64>,
-    ) -> Self {
+    pub fn json_decode(mut self, limits: JsonDecodeLimits<JsonResource, u64>) -> Self {
         self.json_decode = limits;
         self
     }
 
     /// Replaces the JSON encoding limits.
     #[inline]
-    pub fn json_encode(
-        mut self,
-        limits: JsonEncodeLimits<JsonResource, u64>,
-    ) -> Self {
+    pub fn json_encode(mut self, limits: JsonEncodeLimits<JsonResource, u64>) -> Self {
         self.json_encode = limits;
         self
     }
@@ -199,14 +180,8 @@ impl ConfigWireLimitsBuilder {
         ConfigWireLimits {
             json_decode: self.json_decode,
             json_encode: self.json_encode,
-            properties: ResourceLimit::new(
-                ConfigWireLimitKind::Properties,
-                self.max_properties,
-            ),
-            property_key_bytes: ResourceLimit::new(
-                ConfigWireLimitKind::PropertyKeyBytes,
-                self.max_property_key_bytes,
-            ),
+            properties: ResourceLimit::new(ConfigWireLimitKind::Properties, self.max_properties),
+            property_key_bytes: ResourceLimit::new(ConfigWireLimitKind::PropertyKeyBytes, self.max_property_key_bytes),
         }
     }
 }
@@ -261,9 +236,7 @@ impl ConfigWireLimits {
     }
 
     /// Builds the JSON decoding profile used by configuration wire input.
-    fn default_json_decode_limits(
-        max_input_bytes: u64,
-    ) -> JsonDecodeLimits<JsonResource, u64> {
+    fn default_json_decode_limits(max_input_bytes: u64) -> JsonDecodeLimits<JsonResource, u64> {
         JsonDecodeLimits::builder()
             .max_input_bytes(max_input_bytes)
             .value_limits(Self::default_json_value_limits())
@@ -271,9 +244,7 @@ impl ConfigWireLimits {
     }
 
     /// Builds the JSON encoding profile used by configuration wire output.
-    fn default_json_encode_limits(
-        max_output_bytes: u64,
-    ) -> JsonEncodeLimits<JsonResource, u64> {
+    fn default_json_encode_limits(max_output_bytes: u64) -> JsonEncodeLimits<JsonResource, u64> {
         JsonEncodeLimits::builder()
             .max_output_bytes(max_output_bytes)
             .value_limits(Self::default_json_value_limits())
@@ -290,9 +261,7 @@ pub enum ConfigWireDecodeError {
     Budget(BudgetError<JsonResource, u64>),
     /// A native JSON measurement could not be represented by the budget
     /// quantity type.
-    #[error(
-        "configuration wire resource quantity conversion failed for {resource:?}: {source}"
-    )]
+    #[error("configuration wire resource quantity conversion failed for {resource:?}: {source}")]
     Quantity {
         /// Resource whose measurement failed.
         resource: JsonResource,
@@ -313,9 +282,7 @@ pub enum ConfigWireDecodeError {
         source: QuantityConversionError,
     },
     /// A configuration-specific resource limit was exceeded.
-    #[error(
-        "configuration wire {kind:?} value {value} exceeds the limit of {maximum}"
-    )]
+    #[error("configuration wire {kind:?} value {value} exceeds the limit of {maximum}")]
     LimitExceeded {
         /// Resource category that exceeded its limit.
         kind: ConfigWireLimitKind,
@@ -325,9 +292,7 @@ pub enum ConfigWireDecodeError {
         maximum: u64,
     },
     /// The admitted JSON document violates its Serde representation.
-    #[error(
-        "failed to decode configuration JSON wire input ({category:?}) at line {line}, column {column}"
-    )]
+    #[error("failed to decode configuration JSON wire input ({category:?}) at line {line}, column {column}")]
     Json {
         /// Broad Serde failure category.
         category: Category,

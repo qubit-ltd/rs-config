@@ -21,10 +21,7 @@ use crate::config_value_deserializer::ConfigValueDeserializer;
 use crate::options::ReadPolicy;
 
 /// Sequence access for scalar strings admitted as collection input.
-pub(in crate::config_value_deserializer) struct ConfigScalarSeqAccess<
-    'policy,
-    'session,
-> {
+pub(in crate::config_value_deserializer) struct ConfigScalarSeqAccess<'policy, 'session> {
     values: std::vec::IntoIter<String>,
     key: String,
     index: usize,
@@ -54,10 +51,7 @@ impl<'de> SeqAccess<'de> for ConfigScalarSeqAccess<'_, '_> {
     type Error = ConfigDeserializeError;
 
     /// Deserializes the next retained item without charging its source again.
-    fn next_element_seed<T>(
-        &mut self,
-        seed: T,
-    ) -> Result<Option<T::Value>, Self::Error>
+    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
     where
         T: de::DeserializeSeed<'de>,
     {
@@ -71,18 +65,11 @@ impl<'de> SeqAccess<'de> for ConfigScalarSeqAccess<'_, '_> {
             .session
             .admit_scalar_item(self.index - 1, DataConverter::from(value))
             .map_err(|error| {
-                ConfigDeserializeError::from_config(ConfigError::from((
-                    error_path.as_str(),
-                    ValueError::from(error),
-                )))
+                ConfigDeserializeError::from_config(ConfigError::from((error_path.as_str(), ValueError::from(error))))
             })?;
-        seed.deserialize(ConfigValueDeserializer::new_admitted(
-            key,
-            self.options,
-            admitted,
-        ))
-        .map_err(|error| error.with_path(error_path))
-        .map(Some)
+        seed.deserialize(ConfigValueDeserializer::new_admitted(key, self.options, admitted))
+            .map_err(|error| error.with_path(error_path))
+            .map(Some)
     }
 }
 
@@ -95,12 +82,7 @@ pub(in crate::config_value_deserializer) fn admit_scalar_items(
 ) -> Result<Vec<String>, ConfigDeserializeError> {
     session
         .admit_scalar_source(DataType::String, DataType::String, value.len())
-        .map_err(|error| {
-            ConfigDeserializeError::from_config(ConfigError::from((
-                key,
-                ValueError::from(error),
-            )))
-        })?;
+        .map_err(|error| ConfigDeserializeError::from_config(ConfigError::from((key, ValueError::from(error)))))?;
 
     options
         .conversion_policy()
@@ -110,9 +92,7 @@ pub(in crate::config_value_deserializer) fn admit_scalar_items(
             item.map(|item| item.value.to_owned()).map_err(|error| {
                 ConfigDeserializeError::from_config(ConfigError::from((
                     key,
-                    ValueError::from(
-                        error.into_data_conversion_error(DataType::String),
-                    ),
+                    ValueError::from(error.into_data_conversion_error(DataType::String)),
                 )))
             })
         })
