@@ -361,8 +361,8 @@ impl EnvConfigSource {
     ///
     /// # Errors
     ///
-    /// Returns a source-aware parse error containing a log-safe pair produced
-    /// by [`EnvRedactor`] when the value is not valid Unicode.
+    /// Returns a source-aware parse error containing only the reviewed key and
+    /// a fixed redaction marker when the value is not valid Unicode.
     #[inline]
     fn env_value_to_string(key: &OsStr, value: &OsStr) -> ConfigResult<String> {
         value.to_str().map(str::to_owned).ok_or_else(|| {
