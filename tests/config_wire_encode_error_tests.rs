@@ -13,6 +13,7 @@ use qubit_budget::MeasuredBudgetError;
 use qubit_budget::Observation;
 use qubit_budget::QuantityConversionError;
 use qubit_budget::QuantityMeasurement;
+use qubit_budget::json::JsonEncodeLimits;
 use qubit_budget::json::JsonResource;
 use qubit_config::ConfigWireEncodeError;
 use qubit_config::ConfigWireLimitKind;
@@ -43,11 +44,10 @@ fn config_wire_encode_error_exposes_budget_source() {
 /// Verifies configuration conversion retains structured serialization errors.
 #[test]
 fn config_wire_encode_error_preserves_serialization_kind() {
-    let mut encoder =
-        JsonEncoder::with_limits(qubit_budget::json::JsonEncodeLimits::<
-            JsonResource,
-            u64,
-        >::default());
+    let mut encoder = JsonEncoder::with_limits(JsonEncodeLimits::<
+        JsonResource,
+        u64,
+    >::default());
     let source = encoder
         .to_vec(&u128::MAX)
         .expect_err("wide integer must fail JSON serialization");
