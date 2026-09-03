@@ -49,7 +49,7 @@
 需要具体能力时再使用的外围 API。当前稳定核心不包含 reload framework、
 异步 source、object-safe reader 或 schema DSL。
 
-## 贯穿场景：基础配置叠加部署覆盖
+## 实战场景：基础配置叠加部署覆盖
 
 假设服务有如下本地基础配置：
 
