@@ -24,7 +24,6 @@ use qubit_json::decode::JsonDecodeError;
 use qubit_json::decode::JsonDecodeErrorKind;
 use qubit_json::decode::JsonDecoder;
 use qubit_json::encode::JsonEncodeError;
-use qubit_json::encode::JsonEncodeErrorKind;
 use qubit_json::encode::JsonEncoder;
 use qubit_utils::Transient;
 use qubit_value::ValueWireRefV1;
@@ -514,32 +513,5 @@ fn map_decode_json_error(
 fn map_encode_json_error(
     error: JsonEncodeError<JsonResource, u64>,
 ) -> ConfigWireEncodeError {
-    match error.kind() {
-        JsonEncodeErrorKind::Budget => match error
-            .into_budget_error()
-            .expect("budget kind must retain a budget source")
-        {
-            MeasuredBudgetError::Budget(error) => {
-                ConfigWireEncodeError::Budget(error)
-            }
-            MeasuredBudgetError::Quantity { resource, source } => {
-                ConfigWireEncodeError::Quantity { resource, source }
-            }
-        },
-        JsonEncodeErrorKind::InvalidRawJson => ConfigWireEncodeError::Syntax(
-            error
-                .into_syntax_error()
-                .expect("invalid raw JSON kind must retain a syntax source"),
-        ),
-        JsonEncodeErrorKind::Serialize => ConfigWireEncodeError::Json(
-            error
-                .into_serialization_error()
-                .expect("serialize kind must retain a serialization source"),
-        ),
-        JsonEncodeErrorKind::Write => {
-            ConfigWireEncodeError::Adapter(String::from(
-                "unexpected writer failure while buffering configuration JSON",
-            ))
-        }
-    }
+    error.into()
 }

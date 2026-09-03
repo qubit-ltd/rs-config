@@ -8,6 +8,9 @@
 
 //! Tests for bounded configuration wire encoding errors.
 
+use std::io;
+use std::io::Write;
+
 use qubit_budget::BudgetError;
 use qubit_budget::MeasuredBudgetError;
 use qubit_budget::Observation;
@@ -21,6 +24,37 @@ use qubit_json::encode::JsonEncodeError;
 use qubit_json::encode::JsonEncoder;
 use qubit_json::encode::JsonIntegerSignedness;
 use qubit_json::encode::JsonSerializationErrorKind;
+use serde::Serialize;
+use serde::Serializer;
+use serde::ser::SerializeStruct;
+
+/// Emits invalid JSON through serde_json's public RawValue protocol behavior.
+struct InvalidRawValue;
+
+impl Serialize for InvalidRawValue {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let token = concat!("$", "serde_json", ":", ":private::RawValue");
+        let mut state = serializer.serialize_struct(token, 1)?;
+        state.serialize_field(token, "[")?;
+        state.end()
+    }
+}
+
+/// Rejects every non-empty JSON output write.
+struct RejectingWriter;
+
+impl Write for RejectingWriter {
+    fn write(&mut self, _buffer: &[u8]) -> io::Result<usize> {
+        Err(io::Error::other("rejected"))
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
 
 /// Verifies shared budget errors are exposed without a lossy conversion.
 #[test]
@@ -59,6 +93,36 @@ fn config_wire_encode_error_preserves_serialization_kind() {
             if source.kind() == JsonSerializationErrorKind::IntegerOutOfRange {
                 signedness: JsonIntegerSignedness::Unsigned,
             }
+    ));
+}
+
+/// Verifies syntax and buffered-writer sources use their dedicated
+/// configuration mapping policies.
+#[test]
+fn config_wire_encode_error_maps_syntax_and_writer_sources() {
+    let mut raw_encoder = JsonEncoder::with_limits(JsonEncodeLimits::<
+        JsonResource,
+        u64,
+    >::default());
+    let syntax = raw_encoder
+        .to_vec(&InvalidRawValue)
+        .expect_err("invalid RawValue text must fail");
+    assert!(matches!(
+        ConfigWireEncodeError::from(syntax),
+        ConfigWireEncodeError::Syntax(_)
+    ));
+
+    let mut writer_encoder = JsonEncoder::with_limits(JsonEncodeLimits::<
+        JsonResource,
+        u64,
+    >::default());
+    let writer = writer_encoder
+        .write_buffered(RejectingWriter, &true)
+        .expect_err("rejecting writer must fail");
+    assert!(matches!(
+        ConfigWireEncodeError::from(writer),
+        ConfigWireEncodeError::Adapter(message)
+            if message == "unexpected writer failure while buffering configuration JSON"
     ));
 }
 
