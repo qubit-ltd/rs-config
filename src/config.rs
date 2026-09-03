@@ -21,7 +21,7 @@ use qubit_budget::json::JsonDecodeSession;
 use qubit_budget::json::JsonEncodeSession;
 use qubit_budget::json::JsonResource;
 use qubit_json::decode::JsonDecodeError;
-use qubit_json::decode::JsonDecodeErrorKind;
+use qubit_json::decode::JsonDecodeErrorSource;
 use qubit_json::decode::JsonDecoder;
 use qubit_json::encode::JsonEncodeError;
 use qubit_json::encode::JsonEncoder;
@@ -485,27 +485,31 @@ impl Default for Config {
 fn map_decode_json_error(
     error: JsonDecodeError<JsonResource, u64>,
 ) -> ConfigWireDecodeError {
-    if let Some(error) = error.budget_error().cloned() {
-        return match error {
+    let message = error.to_string();
+    match error.into_source() {
+        JsonDecodeErrorSource::Budget { source, .. } => match source {
             MeasuredBudgetError::Budget(error) => {
                 ConfigWireDecodeError::Budget(error)
             }
             MeasuredBudgetError::Quantity { resource, source } => {
                 ConfigWireDecodeError::Quantity { resource, source }
             }
-        };
-    }
-    if let Some(error) = error.syntax_error() {
-        return ConfigWireDecodeError::Syntax(*error);
-    }
-    if error.kind() == JsonDecodeErrorKind::Deserialize {
-        ConfigWireDecodeError::Json {
-            category: serde_json::error::Category::Data,
-            line: error.line().unwrap_or(0),
-            column: error.column().unwrap_or(0),
+        },
+        JsonDecodeErrorSource::InvalidJson { syntax, .. } => {
+            ConfigWireDecodeError::Syntax(syntax)
         }
-    } else {
-        ConfigWireDecodeError::Adapter(error.to_string())
+        JsonDecodeErrorSource::Deserialize { line, column, .. } => {
+            ConfigWireDecodeError::Json {
+                category: serde_json::error::Category::Data,
+                line,
+                column,
+            }
+        }
+        JsonDecodeErrorSource::EmptyInput { .. }
+        | JsonDecodeErrorSource::InvalidUtf8 { .. }
+        | JsonDecodeErrorSource::UnexpectedTopLevel { .. } => {
+            ConfigWireDecodeError::Adapter(message)
+        }
     }
 }
 
