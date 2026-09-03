@@ -13,7 +13,7 @@ use qubit_budget::QuantityConversionError;
 use qubit_budget::json::JsonResource;
 use qubit_json::decode::JsonSyntaxError;
 use qubit_json::encode::JsonEncodeError;
-use qubit_json::encode::JsonEncodeErrorKind;
+use qubit_json::encode::JsonEncodeErrorSource;
 use qubit_json::encode::JsonSerializationError;
 use qubit_value::ValueWireEncodeError;
 use thiserror::Error;
@@ -92,27 +92,18 @@ impl From<JsonEncodeError<JsonResource, u64>> for ConfigWireEncodeError {
     /// failure.
     #[inline]
     fn from(error: JsonEncodeError<JsonResource, u64>) -> Self {
-        match error.kind() {
-            JsonEncodeErrorKind::Budget => match error
-                .into_budget_error()
-                .expect("budget kind must retain a budget source")
-            {
+        match error.into_source() {
+            JsonEncodeErrorSource::Budget(source) => match source {
                 MeasuredBudgetError::Budget(error) => Self::Budget(error),
                 MeasuredBudgetError::Quantity { resource, source } => {
                     Self::Quantity { resource, source }
                 }
             },
-            JsonEncodeErrorKind::InvalidRawJson => {
-                Self::Syntax(error.into_syntax_error().expect(
-                    "invalid raw JSON kind must retain a syntax source",
-                ))
+            JsonEncodeErrorSource::InvalidRawJson(source) => {
+                Self::Syntax(source)
             }
-            JsonEncodeErrorKind::Serialize => {
-                Self::Json(error.into_serialization_error().expect(
-                    "serialize kind must retain a serialization source",
-                ))
-            }
-            JsonEncodeErrorKind::Write => Self::Adapter(String::from(
+            JsonEncodeErrorSource::Serialize(source) => Self::Json(source),
+            JsonEncodeErrorSource::Write(_) => Self::Adapter(String::from(
                 "unexpected writer failure while buffering configuration JSON",
             )),
         }
