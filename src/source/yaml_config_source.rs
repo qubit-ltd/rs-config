@@ -598,7 +598,11 @@ fn flatten_yaml_sequence(
         YamlValue::Bool(_) if seq.iter().all(|value| matches!(value, YamlValue::Bool(_))) => {
             set_yaml_sequence_values(source_id, prefix, seq, config, YamlValue::as_bool)
         }
-        YamlValue::String(_) if seq.iter().all(|value| matches!(value, YamlValue::String(_))) => {
+        YamlValue::String(_)
+            if seq
+                .iter()
+                .all(|value| matches!(value, YamlValue::String(_))) =>
+        {
             set_yaml_string_sequence(source_id, prefix, seq, config)
         }
         YamlValue::Mapping(_) | YamlValue::Sequence(_) | YamlValue::Tagged(_) => {

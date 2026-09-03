@@ -705,7 +705,10 @@ mod test_get_optional_string {
         config
             .set(
                 "items",
-                vec!["ok", "${qubit_cfg_list_bad_var_that_must_not_exist_9f8e7d6c5b4a}"],
+                vec![
+                    "ok",
+                    "${qubit_cfg_list_bad_var_that_must_not_exist_9f8e7d6c5b4a}",
+                ],
             )
             .unwrap();
         let result = config.get_optional_interpolated::<Vec<String>>("items");
