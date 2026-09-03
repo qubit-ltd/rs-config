@@ -47,7 +47,7 @@ full = ["rich-types", "formats"]
 
 [dependencies]
 qubit-budget = { version = "0.4", features = ["json"] }
-qubit-json = { version = "0.8", path = "../rs-json" }
+qubit-json = "0.8"
 qubit-utils = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_ignored = "0.1"
