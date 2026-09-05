@@ -78,10 +78,7 @@ fn config_wire_encode_error_exposes_budget_source() {
 /// Verifies configuration conversion retains structured serialization errors.
 #[test]
 fn config_wire_encode_error_preserves_serialization_kind() {
-    let mut encoder = JsonEncoder::with_limits(JsonEncodeLimits::<
-        JsonResource,
-        u64,
-    >::default());
+    let mut encoder = JsonEncoder::with_limits(JsonEncodeLimits::<JsonResource, u64>::default());
     let source = encoder
         .to_vec(&u128::MAX)
         .expect_err("wide integer must fail JSON serialization");
@@ -100,10 +97,7 @@ fn config_wire_encode_error_preserves_serialization_kind() {
 /// configuration mapping policies.
 #[test]
 fn config_wire_encode_error_maps_syntax_and_writer_sources() {
-    let mut raw_encoder = JsonEncoder::with_limits(JsonEncodeLimits::<
-        JsonResource,
-        u64,
-    >::default());
+    let mut raw_encoder = JsonEncoder::with_limits(JsonEncodeLimits::<JsonResource, u64>::default());
     let syntax = raw_encoder
         .to_vec(&InvalidRawValue)
         .expect_err("invalid RawValue text must fail");
@@ -112,10 +106,7 @@ fn config_wire_encode_error_maps_syntax_and_writer_sources() {
         ConfigWireEncodeError::Syntax(_)
     ));
 
-    let mut writer_encoder = JsonEncoder::with_limits(JsonEncodeLimits::<
-        JsonResource,
-        u64,
-    >::default());
+    let mut writer_encoder = JsonEncoder::with_limits(JsonEncodeLimits::<JsonResource, u64>::default());
     let writer = writer_encoder
         .write_buffered(RejectingWriter, &true)
         .expect_err("rejecting writer must fail");
@@ -167,16 +158,11 @@ fn config_wire_encode_error_preserves_config_limit() {
 /// Verifies native JSON quantity failures remain distinct from budget limits.
 #[test]
 fn config_wire_encode_error_preserves_json_quantity_failure() {
-    let source = QuantityConversionError::new(
-        QuantityMeasurement::Usize(usize::MAX),
-        "u64",
-    );
-    let error = ConfigWireEncodeError::from(JsonEncodeError::from(
-        MeasuredBudgetError::Quantity {
-            resource: JsonResource::OutputBytes,
-            source,
-        },
-    ));
+    let source = QuantityConversionError::new(QuantityMeasurement::Usize(usize::MAX), "u64");
+    let error = ConfigWireEncodeError::from(JsonEncodeError::from(MeasuredBudgetError::Quantity {
+        resource: JsonResource::OutputBytes,
+        source,
+    }));
 
     assert!(matches!(
         error,

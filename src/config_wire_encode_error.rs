@@ -33,9 +33,7 @@ pub enum ConfigWireEncodeError {
     Budget(BudgetError<JsonResource, u64>),
     /// A native JSON measurement could not be represented by the budget
     /// quantity type.
-    #[error(
-        "configuration wire resource quantity conversion failed for {resource:?}: {source}"
-    )]
+    #[error("configuration wire resource quantity conversion failed for {resource:?}: {source}")]
     Quantity {
         /// Resource whose measurement failed.
         resource: JsonResource,
@@ -55,9 +53,7 @@ pub enum ConfigWireEncodeError {
     },
 
     /// A configuration-specific resource limit was exceeded.
-    #[error(
-        "configuration wire {kind:?} value {value} exceeds the limit of {maximum}"
-    )]
+    #[error("configuration wire {kind:?} value {value} exceeds the limit of {maximum}")]
     LimitExceeded {
         /// Configuration resource category that exceeded its limit.
         kind: ConfigWireLimitKind,
@@ -95,13 +91,9 @@ impl From<JsonEncodeError<JsonResource, u64>> for ConfigWireEncodeError {
         match error.into_source() {
             JsonEncodeErrorSource::Budget(source) => match source {
                 MeasuredBudgetError::Budget(error) => Self::Budget(error),
-                MeasuredBudgetError::Quantity { resource, source } => {
-                    Self::Quantity { resource, source }
-                }
+                MeasuredBudgetError::Quantity { resource, source } => Self::Quantity { resource, source },
             },
-            JsonEncodeErrorSource::InvalidRawJson(source) => {
-                Self::Syntax(source)
-            }
+            JsonEncodeErrorSource::InvalidRawJson(source) => Self::Syntax(source),
             JsonEncodeErrorSource::Serialize(source) => Self::Json(source),
             JsonEncodeErrorSource::Write(_) => Self::Adapter(String::from(
                 "unexpected writer failure while buffering configuration JSON",

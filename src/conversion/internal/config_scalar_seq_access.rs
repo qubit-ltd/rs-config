@@ -20,11 +20,7 @@ use crate::config_value_deserializer::ConfigValueDeserializer;
 use crate::options::ReadPolicy;
 
 /// Sequence access borrowing a charged scalar source without copying its items.
-pub(in crate::config_value_deserializer) struct ConfigScalarSeqAccess<
-    'policy,
-    'session,
-    'source,
-> {
+pub(in crate::config_value_deserializer) struct ConfigScalarSeqAccess<'policy, 'session, 'source> {
     /// Source-bound admission owns the exclusive session borrow.
     source: AdmittedScalarSource<'session, 'policy, 'source>,
     /// Parent configuration path used for source-index diagnostics.
@@ -33,9 +29,7 @@ pub(in crate::config_value_deserializer) struct ConfigScalarSeqAccess<
     options: &'policy ReadPolicy,
 }
 
-impl<'policy: 'source, 'session, 'source>
-    ConfigScalarSeqAccess<'policy, 'session, 'source>
-{
+impl<'policy: 'source, 'session, 'source> ConfigScalarSeqAccess<'policy, 'session, 'source> {
     /// Admits the entire source before exposing its lazily split elements.
     ///
     /// Returns a keyed conversion error if source bytes exceed the configured
@@ -46,32 +40,19 @@ impl<'policy: 'source, 'session, 'source>
         options: &'policy ReadPolicy,
         session: &'session mut ConversionSession<'policy>,
     ) -> Result<Self, ConfigDeserializeError> {
-        let source =
-            session.admit_scalar_string_source(value).map_err(|error| {
-                ConfigDeserializeError::from_config(ConfigError::from((
-                    key.as_str(),
-                    ValueError::from(error),
-                )))
-            })?;
-        Ok(Self {
-            source,
-            key,
-            options,
-        })
+        let source = session.admit_scalar_string_source(value).map_err(|error| {
+            ConfigDeserializeError::from_config(ConfigError::from((key.as_str(), ValueError::from(error))))
+        })?;
+        Ok(Self { source, key, options })
     }
 }
 
-impl<'de, 'policy: 'source, 'source> SeqAccess<'de>
-    for ConfigScalarSeqAccess<'policy, '_, 'source>
-{
+impl<'de, 'policy: 'source, 'source> SeqAccess<'de> for ConfigScalarSeqAccess<'policy, '_, 'source> {
     type Error = ConfigDeserializeError;
 
     /// Deserializes one original source position after its item budget admits
     /// it.
-    fn next_element_seed<T>(
-        &mut self,
-        seed: T,
-    ) -> Result<Option<T::Value>, Self::Error>
+    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
     where
         T: de::DeserializeSeed<'de>,
     {
@@ -81,19 +62,12 @@ impl<'de, 'policy: 'source, 'source> SeqAccess<'de>
         let admitted = item.map_err(|error| {
             let (source_index, error) = error.into_parts();
             let key = format!("{}[{}]", self.key, source_index);
-            ConfigDeserializeError::from_config(ConfigError::from((
-                key.as_str(),
-                ValueError::from(error),
-            )))
+            ConfigDeserializeError::from_config(ConfigError::from((key.as_str(), ValueError::from(error))))
         })?;
         let key = format!("{}[{}]", self.key, admitted.source_index());
         let error_path = key.clone();
-        seed.deserialize(ConfigValueDeserializer::new_admitted(
-            key,
-            self.options,
-            admitted,
-        ))
-        .map_err(|error| error.with_path(error_path))
-        .map(Some)
+        seed.deserialize(ConfigValueDeserializer::new_admitted(key, self.options, admitted))
+            .map_err(|error| error.with_path(error_path))
+            .map(Some)
     }
 }
