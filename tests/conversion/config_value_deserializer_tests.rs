@@ -16,6 +16,8 @@ use qubit_config::ConfigResult;
 use qubit_config::Property;
 use qubit_config::options::ReadPolicy;
 use qubit_datatype::BlankStringPolicy;
+use qubit_datatype::CollectionConversionLimits;
+use qubit_datatype::ConversionPolicy;
 use qubit_datatype::DataConversionErrorKind;
 use qubit_datatype::DataType;
 use qubit_datatype::EmptyItemPolicy;
@@ -23,7 +25,94 @@ use qubit_value::MultiValues;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::de;
+use serde::de::SeqAccess;
 use serde::de::Visitor;
+
+/// Scalar-list diagnostics retain positions before empty items are skipped.
+#[test]
+fn test_scalar_list_error_preserves_original_index() -> ConfigResult<()> {
+    let mut config = Config::new();
+    config.set_default_read_policy(ReadPolicy::env_friendly());
+    config.set("case.value", "1,,bad")?;
+    let error = config
+        .deserialize::<OneField<Vec<u8>>>("case")
+        .expect_err("the third raw item is not an integer");
+    assert_eq!(error.path(), Some("case.value[2]"));
+    Ok(())
+}
+
+/// Conversion stops at the first invalid retained item, before scanning tails.
+#[test]
+fn test_scalar_list_conversion_precedes_tail_validation() -> ConfigResult<()> {
+    let mut config = Config::new();
+    let policy = ReadPolicy::builder()
+        .conversion_policy(ConversionPolicy::env_friendly())
+        .empty_item_policy(EmptyItemPolicy::Reject)
+        .build();
+    config.set_default_read_policy(policy);
+    config.set("case.value", "bad,,2")?;
+    let error = config.deserialize::<OneField<Vec<u8>>>("case").expect_err(
+        "the first invalid integer must fail before the empty tail item",
+    );
+    assert_eq!(error.path(), Some("case.value[0]"));
+    Ok(())
+}
+
+/// A custom consumer may finish after one item without validating the tail.
+#[test]
+fn test_scalar_list_visitor_can_stop_before_tail_limit() -> ConfigResult<()> {
+    let mut config = Config::new();
+    config.set_default_read_policy(
+        ReadPolicy::builder()
+            .conversion_policy(ConversionPolicy::env_friendly())
+            .collection_limits(
+                CollectionConversionLimits::builder().max_items(1).build(),
+            )
+            .empty_item_policy(EmptyItemPolicy::Reject)
+            .build(),
+    );
+    config.set("case.value", "7,,invalid,9")?;
+    let first = config.deserialize::<OneField<FirstScalarItem>>("case")?;
+    assert_eq!(first.value, FirstScalarItem(7));
+    Ok(())
+}
+
+/// Test-only consumer that intentionally ignores every element after the first.
+#[derive(Debug, PartialEq)]
+struct FirstScalarItem(u8);
+
+impl<'de> Deserialize<'de> for FirstScalarItem {
+    /// Requests sequence access and consumes its first retained element only.
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct FirstVisitor;
+        impl<'de> Visitor<'de> for FirstVisitor {
+            type Value = FirstScalarItem;
+
+            /// Describes the nonempty scalar-list contract.
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a nonempty list")
+            }
+
+            /// Stops before requesting or validating the tail.
+            fn visit_seq<A>(
+                self,
+                mut sequence: A,
+            ) -> Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                sequence
+                    .next_element::<u8>()?
+                    .map(FirstScalarItem)
+                    .ok_or_else(|| de::Error::custom("missing first item"))
+            }
+        }
+        deserializer.deserialize_seq(FirstVisitor)
+    }
+}
 
 #[derive(Debug, Deserialize, PartialEq)]
 struct SignedScalars {

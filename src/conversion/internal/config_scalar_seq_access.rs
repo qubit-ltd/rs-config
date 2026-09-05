@@ -8,9 +8,8 @@
 //! Serde sequence access over a delimited scalar string.
 // qubit-style: allow source-test-pair
 
+use qubit_datatype::AdmittedScalarSource;
 use qubit_datatype::ConversionSession;
-use qubit_datatype::DataConverter;
-use qubit_datatype::DataType;
 use qubit_value::ValueError;
 use serde::de;
 use serde::de::SeqAccess;
@@ -20,40 +19,55 @@ use crate::config_deserialize_error::ConfigDeserializeError;
 use crate::config_value_deserializer::ConfigValueDeserializer;
 use crate::options::ReadPolicy;
 
-/// Sequence access for scalar strings admitted as collection input.
+/// Sequence access borrowing a charged scalar source without copying its items.
 pub(in crate::config_value_deserializer) struct ConfigScalarSeqAccess<
     'policy,
     'session,
+    'source,
 > {
-    values: std::vec::IntoIter<String>,
+    /// Source-bound admission owns the exclusive session borrow.
+    source: AdmittedScalarSource<'session, 'policy, 'source>,
+    /// Parent configuration path used for source-index diagnostics.
     key: String,
-    index: usize,
+    /// Read semantics forwarded to each nested deserializer.
     options: &'policy ReadPolicy,
-    session: &'session mut ConversionSession<'policy>,
 }
 
-impl<'policy, 'session> ConfigScalarSeqAccess<'policy, 'session> {
-    /// Creates scalar sequence access from already admitted item text.
+impl<'policy: 'source, 'session, 'source>
+    ConfigScalarSeqAccess<'policy, 'session, 'source>
+{
+    /// Admits the entire source before exposing its lazily split elements.
+    ///
+    /// Returns a keyed conversion error if source bytes exceed the configured
+    /// collection or cumulative input budget. No item text is copied.
     pub(in crate::config_value_deserializer) fn new(
-        values: Vec<String>,
+        value: &'source str,
         key: String,
         options: &'policy ReadPolicy,
         session: &'session mut ConversionSession<'policy>,
-    ) -> Self {
-        Self {
-            values: values.into_iter(),
+    ) -> Result<Self, ConfigDeserializeError> {
+        let source =
+            session.admit_scalar_string_source(value).map_err(|error| {
+                ConfigDeserializeError::from_config(ConfigError::from((
+                    key.as_str(),
+                    ValueError::from(error),
+                )))
+            })?;
+        Ok(Self {
+            source,
             key,
-            index: 0,
             options,
-            session,
-        }
+        })
     }
 }
 
-impl<'de> SeqAccess<'de> for ConfigScalarSeqAccess<'_, '_> {
+impl<'de, 'policy: 'source, 'source> SeqAccess<'de>
+    for ConfigScalarSeqAccess<'policy, '_, 'source>
+{
     type Error = ConfigDeserializeError;
 
-    /// Deserializes the next retained item without charging its source again.
+    /// Deserializes one original source position after its item budget admits
+    /// it.
     fn next_element_seed<T>(
         &mut self,
         seed: T,
@@ -61,21 +75,19 @@ impl<'de> SeqAccess<'de> for ConfigScalarSeqAccess<'_, '_> {
     where
         T: de::DeserializeSeed<'de>,
     {
-        let Some(value) = self.values.next() else {
+        let Some(item) = self.source.next_item() else {
             return Ok(None);
         };
-        let key = format!("{}[{}]", self.key, self.index);
-        self.index += 1;
+        let admitted = item.map_err(|error| {
+            let (source_index, error) = error.into_parts();
+            let key = format!("{}[{}]", self.key, source_index);
+            ConfigDeserializeError::from_config(ConfigError::from((
+                key.as_str(),
+                ValueError::from(error),
+            )))
+        })?;
+        let key = format!("{}[{}]", self.key, admitted.source_index());
         let error_path = key.clone();
-        let admitted = self
-            .session
-            .admit_scalar_item(self.index - 1, DataConverter::from(value))
-            .map_err(|error| {
-                ConfigDeserializeError::from_config(ConfigError::from((
-                    error_path.as_str(),
-                    ValueError::from(error),
-                )))
-            })?;
         seed.deserialize(ConfigValueDeserializer::new_admitted(
             key,
             self.options,
@@ -84,35 +96,4 @@ impl<'de> SeqAccess<'de> for ConfigScalarSeqAccess<'_, '_> {
         .map_err(|error| error.with_path(error_path))
         .map(Some)
     }
-}
-
-/// Admits and splits a scalar source once for sequence deserialization.
-pub(in crate::config_value_deserializer) fn admit_scalar_items(
-    key: &str,
-    value: &str,
-    options: &ReadPolicy,
-    session: &mut ConversionSession<'_>,
-) -> Result<Vec<String>, ConfigDeserializeError> {
-    session.admit_scalar_string_source(value).map_err(|error| {
-        ConfigDeserializeError::from_config(ConfigError::from((
-            key,
-            ValueError::from(error),
-        )))
-    })?;
-
-    options
-        .conversion_policy()
-        .collection()
-        .scalar_items(options.conversion_limits().collection(), value)
-        .map(|item| {
-            item.map(|item| item.value.to_owned()).map_err(|error| {
-                ConfigDeserializeError::from_config(ConfigError::from((
-                    key,
-                    ValueError::from(
-                        error.into_data_conversion_error(DataType::String),
-                    ),
-                )))
-            })
-        })
-        .collect()
 }
