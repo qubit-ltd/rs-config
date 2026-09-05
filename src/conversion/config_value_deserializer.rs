@@ -24,7 +24,6 @@ use crate::config_value_deserializer::internal::ConfigEnumAccess;
 use crate::config_value_deserializer::internal::ConfigMapAccess;
 use crate::config_value_deserializer::internal::ConfigScalarSeqAccess;
 use crate::config_value_deserializer::internal::ConfigSeqAccess;
-use crate::config_value_deserializer::internal::admit_scalar_items;
 use crate::options::ReadPolicy;
 
 mod internal;
@@ -466,20 +465,12 @@ impl<'de> de::Deserializer<'de> for ConfigValueDeserializer<'_, '_, '_> {
             ConfigConversionInput::TopLevel {
                 value: Value::String(value),
                 session,
-            } => {
-                let values = admit_scalar_items(
-                    &self.key,
-                    &value,
-                    self.options,
-                    session,
-                )?;
-                visitor.visit_seq(ConfigScalarSeqAccess::new(
-                    values,
-                    self.key,
-                    self.options,
-                    session,
-                ))
-            }
+            } => visitor.visit_seq(ConfigScalarSeqAccess::new(
+                &value,
+                self.key,
+                self.options,
+                session,
+            )?),
             ConfigConversionInput::TopLevel { value, .. } => {
                 Err(de::Error::invalid_type(
                     unexpected_value(&value),
