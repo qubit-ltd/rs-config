@@ -28,10 +28,7 @@ fn env_test_lock() -> MutexGuard<'static, ()> {
         .expect("environment test lock should not be poisoned")
 }
 
-fn merge_source(
-    config: &mut Config,
-    source: &dyn ConfigSource,
-) -> ConfigResult<()> {
+fn merge_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<()> {
     config.merge_properties_from_source(source)
 }
 
@@ -55,14 +52,10 @@ mod test_env_config_source {
     /// sensitive pair.
     #[test]
     fn test_default_env_policy_redacts_sensitive_utf8_value() {
-        let redacted =
-            Redactor::standard().redact_env("APP_PASSWORD", "plain-secret");
+        let redacted = Redactor::standard().redact_env("APP_PASSWORD", "plain-secret");
         let rendered = redacted.text().as_str();
 
-        assert_eq!(
-            redacted.summary().completion(),
-            RedactionCompletion::Complete
-        );
+        assert_eq!(redacted.summary().completion(), RedactionCompletion::Complete);
         assert_eq!(rendered, "APP_PASSWORD=<redacted>");
         assert!(!rendered.contains("plain-secret"));
     }
@@ -226,9 +219,7 @@ mod test_env_config_source {
             std::env::set_var("RAWAPP_MY_KEY", "raw_val");
         }
 
-        let source = EnvConfigSource::from_options(
-            EnvConfigOptions::builder().prefix("RAWAPP_").build(),
-        );
+        let source = EnvConfigSource::from_options(EnvConfigOptions::builder().prefix("RAWAPP_").build());
         let mut config = Config::new();
         merge_source(&mut config, &source).unwrap();
 
@@ -270,17 +261,14 @@ mod test_env_config_source {
         const INJECTION_MARKER: &str = "FORGED_ENV_VALUE_LINE";
         let key = "QUNICODE_BAD_VALUE";
         let mut raw_value = SECRET_MARKER.as_bytes().to_vec();
-        raw_value
-            .extend_from_slice(format!("\n{INJECTION_MARKER}\r").as_bytes());
+        raw_value.extend_from_slice(format!("\n{INJECTION_MARKER}\r").as_bytes());
         raw_value.push(0xFF);
         unsafe {
             std::env::set_var(key, OsString::from_vec(raw_value));
         }
 
         let source = EnvConfigSource::from_prefix("QUNICODE_");
-        let error = source
-            .load()
-            .expect_err("non-Unicode environment value should fail");
+        let error = source.load().expect_err("non-Unicode environment value should fail");
 
         unsafe {
             std::env::remove_var(key);
@@ -320,9 +308,7 @@ mod test_env_config_source {
         }
 
         let source = EnvConfigSource::from_prefix("QUNICODE_");
-        let error = source
-            .load()
-            .expect_err("non-Unicode environment key should fail");
+        let error = source.load().expect_err("non-Unicode environment key should fail");
 
         unsafe {
             std::env::remove_var(&key);
@@ -473,9 +459,7 @@ mod test_env_edge_cases {
         unsafe {
             std::env::set_var("COVTEST_FOO", "bar");
         }
-        let source = EnvConfigSource::from_options(
-            EnvConfigOptions::builder().prefix("COVTEST_").build(),
-        );
+        let source = EnvConfigSource::from_options(EnvConfigOptions::builder().prefix("COVTEST_").build());
         let mut config = Config::new();
         merge_source(&mut config, &source).unwrap();
         // Key kept as-is (not stripped, not lowercased, not converted)
@@ -493,19 +477,13 @@ mod test_env_edge_cases {
         }
 
         let mut config = Config::new();
-        let source = EnvConfigSource::from_options(
-            EnvConfigOptions::builder().prefix("OPTTEST_").build(),
-        );
+        let source = EnvConfigSource::from_options(EnvConfigOptions::builder().prefix("OPTTEST_").build());
         merge_source(&mut config, &source).unwrap();
         assert!(config.contains("OPTTEST_Mixed_Key").unwrap());
 
         let mut config = Config::new();
-        let source = EnvConfigSource::from_options(
-            EnvConfigOptions::builder()
-                .prefix("OPTTEST_")
-                .strip_prefix()
-                .build(),
-        );
+        let source =
+            EnvConfigSource::from_options(EnvConfigOptions::builder().prefix("OPTTEST_").strip_prefix().build());
         merge_source(&mut config, &source).unwrap();
         assert!(config.contains("Mixed_Key").unwrap());
 
@@ -520,12 +498,8 @@ mod test_env_edge_cases {
         assert!(config.contains("OPTTEST_Mixed_Key").unwrap());
 
         let mut config = Config::new();
-        let source = EnvConfigSource::from_options(
-            EnvConfigOptions::builder()
-                .prefix("OPTTEST_")
-                .lowercase_keys()
-                .build(),
-        );
+        let source =
+            EnvConfigSource::from_options(EnvConfigOptions::builder().prefix("OPTTEST_").lowercase_keys().build());
         merge_source(&mut config, &source).unwrap();
         assert!(config.contains("opttest_mixed_key").unwrap());
 

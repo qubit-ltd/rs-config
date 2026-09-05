@@ -68,10 +68,7 @@ impl Config {
     /// assert_eq!(http_entries.len(), 2);
     /// ```
     #[inline]
-    pub fn iter_prefix<'a>(
-        &'a self,
-        prefix: &'a str,
-    ) -> impl Iterator<Item = (&'a str, &'a Property)> {
+    pub fn iter_prefix<'a>(&'a self, prefix: &'a str) -> impl Iterator<Item = (&'a str, &'a Property)> {
         self.properties
             .range::<str, _>((Bound::Included(prefix), Bound::Unbounded))
             .take_while(move |(key, _)| key.starts_with(prefix))

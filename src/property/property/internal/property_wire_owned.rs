@@ -13,9 +13,7 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::de::DeserializeSeed;
 
-fn deserialize_value_wire<'de, D>(
-    deserializer: D,
-) -> Result<ValueWireV1, D::Error>
+fn deserialize_value_wire<'de, D>(deserializer: D) -> Result<ValueWireV1, D::Error>
 where
     D: Deserializer<'de>,
 {
