@@ -17,6 +17,7 @@ use qubit_config::options::ReadPolicy;
 use qubit_datatype::BlankStringPolicy;
 use qubit_datatype::ConversionLimits;
 use qubit_datatype::ConversionOperationLimits;
+use qubit_value::ValueError;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -106,8 +107,7 @@ fn test_deserialize_interpolated_supports_generic_scoped_reader() {
         .set("retry.enabled", "true")
         .expect("retry enabled value should be set");
 
-    let settings = read_retry(&config.section("retry").unwrap())
-        .expect("scoped retry settings should deserialize");
+    let settings = read_retry(&config.section("retry").unwrap()).expect("scoped retry settings should deserialize");
 
     assert_eq!(
         settings,
@@ -125,16 +125,13 @@ fn test_deserialize_matches_config_inherent_method() {
     config
         .set("server.host", "localhost")
         .expect("server host should be set");
-    config
-        .set("server.port", 8080_u16)
-        .expect("server port should be set");
+    config.set("server.port", 8080_u16).expect("server port should be set");
 
     let inherent: ServerSettings = config
         .deserialize("server")
         .expect("inherent method should deserialize");
     let extension: ServerSettings =
-        ConfigSerdeExt::deserialize(&config, "server")
-            .expect("extension method should deserialize");
+        ConfigSerdeExt::deserialize(&config, "server").expect("extension method should deserialize");
 
     assert_eq!(extension, inherent);
 }
@@ -244,9 +241,7 @@ fn test_deserialize_interpolated_preserves_expansion_limit_error() {
     config
         .set("retry.label", "${first}-${second}")
         .expect("label placeholders should be set");
-    let options = ReadPolicy::builder()
-        .max_interpolation_expansions(1)
-        .build();
+    let options = ReadPolicy::builder().max_interpolation_expansions(1).build();
     let section = config.section("retry").unwrap().read_with(&options);
 
     let error = section
@@ -361,8 +356,7 @@ fn test_deserialize_lenient_explicitly_ignores_unknown_properties() {
 }
 
 #[test]
-fn test_deserialize_strict_supports_serde_alias_default_nested_map_and_flatten()
-{
+fn test_deserialize_strict_supports_serde_alias_default_nested_map_and_flatten() {
     let mut config = Config::new();
     config.set("retry.attempts", 5_u32).unwrap();
     config.set("nested.retry.attempts", 5_u32).unwrap();
@@ -405,22 +399,14 @@ fn test_deserialize_unknown_properties_are_sorted_and_deduplicated() {
 #[test]
 fn test_serde_materialization_shares_one_conversion_operation_limit() {
     let limits = ConversionLimits::builder()
-        .operation_limits(
-            ConversionOperationLimits::builder()
-                .max_input_bytes(3)
-                .build(),
-        )
+        .operation_limits(ConversionOperationLimits::builder().max_input_bytes(3).build())
         .build();
     let mut config = Config::new();
     config
-        .set_default_read_policy(
-            ReadPolicy::builder().conversion_limits(limits).build(),
-        )
+        .set_default_read_policy(ReadPolicy::builder().conversion_limits(limits).build())
         .set("first", "aa")
         .expect("first value should be stored");
-    config
-        .set("second", "bb")
-        .expect("second value should be stored");
+    config.set("second", "bb").expect("second value should be stored");
 
     let error = config
         .deserialize::<StringPair>("")
@@ -449,10 +435,10 @@ fn test_scalar_string_sequence_charges_source_and_items_once() {
         .set("ports", "8080, 8081")
         .expect("ports should be stored");
 
-    let ports: Vec<u16> =
-        config.read_with(&policy).deserialize("ports").expect(
-            "a scalar list should fit exactly within input and item limits",
-        );
+    let ports: Vec<u16> = config
+        .read_with(&policy)
+        .deserialize("ports")
+        .expect("a scalar list should fit exactly within input and item limits");
 
     assert_eq!(ports, vec![8080, 8081]);
 }
@@ -487,19 +473,56 @@ fn test_scalar_boolean_and_number_to_string_charge_output() {
     let policy = ReadPolicy::builder().conversion_limits(limits).build();
     let mut config = Config::new();
     config.set_default_read_policy(policy.clone());
-    config
-        .set("enabled", true)
-        .expect("enabled should be stored");
-    config
-        .set("attempts", 3_u16)
-        .expect("attempts should be stored");
+    config.set("enabled", true).expect("enabled should be stored");
+    config.set("attempts", 3_u16).expect("attempts should be stored");
 
     let error = config
         .read_with(&policy)
         .deserialize::<ScalarStringSettings>("")
-        .expect_err(
-            "scalar boolean and number conversions must charge output bytes",
-        );
+        .expect_err("scalar boolean and number conversions must charge output bytes");
 
     assert!(error.to_string().contains("OutputBytes"));
+}
+
+/// Intermediate JSON capacity does not grant final String output capacity.
+#[test]
+fn test_intermediate_projection_preserves_final_output_limit() {
+    let limits = ConversionLimits::builder()
+        .operation_limits(ConversionOperationLimits::builder().max_output_bytes(0).build())
+        .build();
+    let policy = ReadPolicy::builder().conversion_limits(limits).build();
+    let mut config = Config::new();
+    config.set("name", "worker").expect("store source");
+    let error = config
+        .read_with(&policy)
+        .deserialize::<String>("name")
+        .expect_err("final String output remains forbidden");
+    assert!(error.to_string().contains("OutputBytes"));
+}
+
+/// The intermediate projection is still bounded before typed conversion.
+#[test]
+fn test_intermediate_projection_preserves_structured_payload_limit() {
+    let limits = ConversionLimits::builder()
+        .operation_limits(
+            ConversionOperationLimits::builder()
+                .max_output_bytes(0)
+                .max_structured_payload_bytes(2)
+                .build(),
+        )
+        .build();
+    let policy = ReadPolicy::builder().conversion_limits(limits).build();
+    let mut config = Config::new();
+    config.set("port", "8080").expect("store source");
+    let error = config
+        .read_with(&policy)
+        .deserialize::<u16>("port")
+        .expect_err("intermediate source exceeds structured payload bound");
+    assert!(matches!(
+        error,
+        ConfigError::ValueError {
+            source: ValueError::JsonProjectionLimit { .. },
+            ..
+        }
+    ));
 }
