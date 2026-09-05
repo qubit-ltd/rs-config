@@ -19,11 +19,7 @@ use crate::Property;
 
 /// Inserts a value into the serde object used by
 /// [`crate::Config::deserialize`].
-pub(crate) fn insert_deserialize_value(
-    root: &mut Map<String, Value>,
-    key: &str,
-    value: Value,
-) -> ConfigResult<()> {
+pub(crate) fn insert_deserialize_value(root: &mut Map<String, Value>, key: &str, value: Value) -> ConfigResult<()> {
     if !key.contains('.') || key.is_empty() {
         root.insert(key.to_string(), value);
         return Ok(());
@@ -33,11 +29,7 @@ pub(crate) fn insert_deserialize_value(
 }
 
 /// Tries to insert a dotted key as a nested JSON object path.
-fn try_insert_nested_json_value(
-    root: &mut Map<String, Value>,
-    key: &str,
-    value: Value,
-) -> ConfigResult<()> {
+fn try_insert_nested_json_value(root: &mut Map<String, Value>, key: &str, value: Value) -> ConfigResult<()> {
     let parts: Vec<&str> = key.split('.').collect();
     if parts.iter().any(|part| part.is_empty()) {
         return Err(ConfigError::KeyConflict {
@@ -131,36 +123,39 @@ fn json_value_kind(value: &Value) -> &'static str {
 ///
 /// Returns conversion, interpolation, or interpolation-limit errors with
 /// `path` context.
-pub(crate) fn prepare_deserialize_value<
-    P: ConfigReader + ?Sized,
-    F: ConfigReader + ?Sized,
->(
+pub(crate) fn prepare_deserialize_value<P: ConfigReader + ?Sized, F: ConfigReader + ?Sized>(
     prop: &Property,
     path: &str,
     primary: &P,
     fallback: &F,
     interpolate: bool,
 ) -> ConfigResult<Value> {
+    let limits = primary.read_policy().conversion_limits();
+    // This JSON tree is an intermediate input representation. Its payload is
+    // bounded by the structured allowance; output_bytes belongs to the final
+    // target conversions, which run in their own shared ConversionSession.
+    let projection_limits = limits
+        .clone()
+        .into_builder()
+        .operation_limits(
+            (*limits.operation())
+                .into_builder()
+                .max_output_bytes(limits.operation().max_structured_payload_bytes())
+                .build(),
+        )
+        .build();
     let mut value = prop
         .value()
-        .to_json_value_with(
-            primary.read_policy().conversion_policy(),
-            primary.read_policy().conversion_limits(),
-        )
+        .to_json_value_with(primary.read_policy().conversion_policy(), &projection_limits)
         .map_err(|error| map_value_error(path, error))?;
     if interpolate {
-        substitute_json_strings_with_fallback(
-            &mut value, path, primary, fallback,
-        )?;
+        substitute_json_strings_with_fallback(&mut value, path, primary, fallback)?;
     }
     Ok(value)
 }
 
 /// Applies variable substitution to every JSON string leaf with fallback scope.
-fn substitute_json_strings_with_fallback<
-    P: ConfigReader + ?Sized,
-    F: ConfigReader + ?Sized,
->(
+fn substitute_json_strings_with_fallback<P: ConfigReader + ?Sized, F: ConfigReader + ?Sized>(
     value: &mut Value,
     path: &str,
     primary: &P,
@@ -170,22 +165,16 @@ fn substitute_json_strings_with_fallback<
 
     match value {
         Value::String(s) => {
-            *s = substitute_variables_with_fallback(
-                s, primary, fallback, options, path,
-            )?;
+            *s = substitute_variables_with_fallback(s, primary, fallback, options, path)?;
         }
         Value::Array(values) => {
             for value in values {
-                substitute_json_strings_with_fallback(
-                    value, path, primary, fallback,
-                )?;
+                substitute_json_strings_with_fallback(value, path, primary, fallback)?;
             }
         }
         Value::Object(map) => {
             for value in map.values_mut() {
-                substitute_json_strings_with_fallback(
-                    value, path, primary, fallback,
-                )?;
+                substitute_json_strings_with_fallback(value, path, primary, fallback)?;
             }
         }
         _ => {}
