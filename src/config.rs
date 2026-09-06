@@ -26,6 +26,8 @@ use qubit_json::decode::JsonDecoder;
 use qubit_json::encode::JsonEncodeError;
 use qubit_json::encode::JsonEncoder;
 use qubit_utils::Transient;
+use qubit_value::ValueWireEncodeError;
+use qubit_value::ValueWireEncodePreflight;
 use qubit_value::ValueWireRefV1;
 use serde::Deserialize;
 use serde::Deserializer;
@@ -251,7 +253,11 @@ impl Config {
     /// serialization error, or a configuration-specific limit error.
     pub fn encode_json_vec_with_limits(&self, limits: ConfigWireLimits) -> Result<Vec<u8>, ConfigWireEncodeError> {
         self.check_config_limits_encode(limits)?;
+        let mut preflight = ValueWireEncodePreflight::new_u64_limits(limits.json_encode());
         for property in self.properties.values() {
+            preflight
+                .check_container(property.value())
+                .map_err(ValueWireEncodeError::from)?;
             let _ = ValueWireRefV1::try_from(property.value())?;
         }
         let session = JsonEncodeSession::from_limits(limits.json_encode());

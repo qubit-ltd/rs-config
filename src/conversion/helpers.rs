@@ -6,8 +6,6 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-use qubit_value::ValueRef;
-
 use super::config_parse_context::ConfigParseContext;
 use super::from_config::FromConfig;
 use crate::ConfigResult;
@@ -27,10 +25,10 @@ use crate::utils;
 ///
 /// Returns `Some(&str)` only when the property has scalar string shape.
 pub(crate) fn first_scalar_string(property: &Property) -> Option<&str> {
-    property.value().as_scalar().and_then(|value| match value.view() {
-        ValueRef::String(value) => Some(value),
-        _ => None,
-    })
+    property
+        .value()
+        .as_scalar()
+        .and_then(|value| value.get_ref::<str>().ok())
 }
 
 /// Checks whether a property should be treated as missing for read operations.
