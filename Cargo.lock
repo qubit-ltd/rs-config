@@ -681,6 +681,7 @@ dependencies = [
 name = "qubit-redact"
 version = "0.6.0"
 dependencies = [
+ "bigdecimal",
  "qubit-budget",
  "qubit-json",
  "serde",
