@@ -41,13 +41,22 @@ impl<'policy: 'source, 'session, 'source> ConfigScalarSeqAccess<'policy, 'sessio
         session: &'session mut ConversionSession<'policy>,
     ) -> Result<Self, ConfigDeserializeError> {
         let source = session.admit_scalar_string_source(value).map_err(|error| {
-            ConfigDeserializeError::from_config(ConfigError::from((key.as_str(), ValueError::from(error))))
+            ConfigDeserializeError::from_config(ConfigError::from((
+                key.as_str(),
+                ValueError::from(error),
+            )))
         })?;
-        Ok(Self { source, key, options })
+        Ok(Self {
+            source,
+            key,
+            options,
+        })
     }
 }
 
-impl<'de, 'policy: 'source, 'source> SeqAccess<'de> for ConfigScalarSeqAccess<'policy, '_, 'source> {
+impl<'de, 'policy: 'source, 'source> SeqAccess<'de>
+    for ConfigScalarSeqAccess<'policy, '_, 'source>
+{
     type Error = ConfigDeserializeError;
 
     /// Deserializes one original source position after its item budget admits
@@ -62,12 +71,19 @@ impl<'de, 'policy: 'source, 'source> SeqAccess<'de> for ConfigScalarSeqAccess<'p
         let admitted = item.map_err(|error| {
             let (source_index, error) = error.into_parts();
             let key = format!("{}[{}]", self.key, source_index);
-            ConfigDeserializeError::from_config(ConfigError::from((key.as_str(), ValueError::from(error))))
+            ConfigDeserializeError::from_config(ConfigError::from((
+                key.as_str(),
+                ValueError::from(error),
+            )))
         })?;
         let key = format!("{}[{}]", self.key, admitted.source_index());
         let error_path = key.clone();
-        seed.deserialize(ConfigValueDeserializer::new_admitted(key, self.options, admitted))
-            .map_err(|error| error.with_path(error_path))
-            .map(Some)
+        seed.deserialize(ConfigValueDeserializer::new_admitted(
+            key,
+            self.options,
+            admitted,
+        ))
+        .map_err(|error| error.with_path(error_path))
+        .map(Some)
     }
 }

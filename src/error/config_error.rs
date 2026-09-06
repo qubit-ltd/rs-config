@@ -277,7 +277,9 @@ impl ConfigError {
             Self::ValueError { .. } => ConfigErrorKind::Value,
             Self::SubstitutionError { .. } => ConfigErrorKind::Substitution,
             Self::SubstitutionDepthExceeded { .. } => ConfigErrorKind::SubstitutionDepthExceeded,
-            Self::SubstitutionExpansionLimitExceeded { .. } => ConfigErrorKind::SubstitutionExpansionLimitExceeded,
+            Self::SubstitutionExpansionLimitExceeded { .. } => {
+                ConfigErrorKind::SubstitutionExpansionLimitExceeded
+            }
             Self::SubstitutionOutputTooLarge { .. } => ConfigErrorKind::SubstitutionOutputTooLarge,
             Self::SubstitutionCycle { .. } => ConfigErrorKind::SubstitutionCycle,
             Self::MergeError(_) => ConfigErrorKind::Merge,
@@ -308,9 +310,9 @@ impl ConfigError {
                 [path] => Some(path),
                 _ => None,
             },
-            Self::TypeMismatch { key, .. } | Self::ConversionError { key, .. } | Self::ValueError { key, .. } => {
-                Some(key)
-            }
+            Self::TypeMismatch { key, .. }
+            | Self::ConversionError { key, .. }
+            | Self::ValueError { key, .. } => Some(key),
             Self::KeyConflict { path, .. }
             | Self::DeserializeError { path, .. }
             | Self::SubstitutionError { path, .. }
@@ -318,7 +320,9 @@ impl ConfigError {
             | Self::SubstitutionExpansionLimitExceeded { path, .. }
             | Self::SubstitutionOutputTooLarge { path, .. }
             | Self::SubstitutionCycle { path, .. } => Some(path),
-            Self::SourceParseError { path: Some(path), .. } => Some(path),
+            Self::SourceParseError {
+                path: Some(path), ..
+            } => Some(path),
             Self::UnknownProperties { paths } => match paths.as_slice() {
                 [path] => Some(path),
                 _ => None,
@@ -377,7 +381,10 @@ impl ConfigError {
     }
 
     /// Creates a parse error associated with a named configuration source.
-    pub(crate) fn source_parse_error(source_id: impl Into<String>, message: impl Into<String>) -> Self {
+    pub(crate) fn source_parse_error(
+        source_id: impl Into<String>,
+        message: impl Into<String>,
+    ) -> Self {
         Self::SourceParseError {
             source_id: source_id.into(),
             path: None,
@@ -467,7 +474,8 @@ impl ConfigError {
     #[inline(always)]
     pub const fn source_index(&self) -> Option<usize> {
         match self {
-            Self::ConversionError { source_index, .. } | Self::SourceParseError { source_index, .. } => *source_index,
+            Self::ConversionError { source_index, .. }
+            | Self::SourceParseError { source_index, .. } => *source_index,
             _ => None,
         }
     }
@@ -508,7 +516,11 @@ impl ConfigError {
     fn from_value_error(key: &str, error: ValueError) -> Self {
         match error {
             ValueError::Missing(missing) => match missing {
-                ValueMissing::CollectionItem { source_index, from, to } => Self::ConversionError {
+                ValueMissing::CollectionItem {
+                    source_index,
+                    from,
+                    to,
+                } => Self::ConversionError {
                     key: key.to_string(),
                     source_index: Some(source_index),
                     source: DataConversionError::missing(from, to),

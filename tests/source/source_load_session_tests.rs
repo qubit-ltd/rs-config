@@ -61,7 +61,10 @@ fn source_load_session_charges_local_and_ancestor_budgets_atomically() {
         .load()
         .expect_err("the aggregate budget should reject the second charge");
 
-    assert_eq!(error.source_budget_id(), Some("composite configuration source"));
+    assert_eq!(
+        error.source_budget_id(),
+        Some("composite configuration source")
+    );
 }
 
 #[test]
@@ -75,7 +78,10 @@ fn source_load_session_reports_outermost_failing_budget_first() {
         .load()
         .expect_err("both aggregate and child budgets should reject the charge");
 
-    assert_eq!(error.source_budget_id(), Some("composite configuration source"));
+    assert_eq!(
+        error.source_budget_id(),
+        Some("composite configuration source")
+    );
 }
 
 #[test]

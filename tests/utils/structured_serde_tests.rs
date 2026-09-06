@@ -165,7 +165,11 @@ fn test_deserialize_float32_nan_is_rejected() {
     assert_eq!(source_index, Some(0));
     assert_eq!(
         source,
-        DataConversionError::invalid(DataType::Float32, DataType::Json, InvalidValueReason::NonFinite,)
+        DataConversionError::invalid(
+            DataType::Float32,
+            DataType::Json,
+            InvalidValueReason::NonFinite,
+        )
     );
 }
 
@@ -186,7 +190,11 @@ fn test_deserialize_float64_infinity_is_rejected_with_source_index() {
     assert_eq!(source_index, Some(1));
     assert_eq!(
         source,
-        DataConversionError::invalid(DataType::Float64, DataType::Json, InvalidValueReason::NonFinite,)
+        DataConversionError::invalid(
+            DataType::Float64,
+            DataType::Json,
+            InvalidValueReason::NonFinite,
+        )
     );
 }
 
@@ -347,7 +355,9 @@ fn test_deserialize_time() {
 #[cfg(feature = "chrono")]
 #[test]
 fn test_deserialize_instant() {
-    let instant: DateTime<Utc> = DateTime::parse_from_rfc3339("2026-04-09T12:00:00Z").unwrap().into();
+    let instant: DateTime<Utc> = DateTime::parse_from_rfc3339("2026-04-09T12:00:00Z")
+        .unwrap()
+        .into();
     let config = config_with_value("x.val", Value::Instant(instant));
     let s: AnyStruct = config.deserialize("x").unwrap();
     assert!(s.val.is_string());
@@ -391,7 +401,10 @@ fn test_deserialize_multi_int32_array() {
 
 #[test]
 fn test_deserialize_multi_string_array() {
-    let config = config_with_mv("x.val", MultiValues::String(vec!["a".to_string(), "b".to_string()]));
+    let config = config_with_mv(
+        "x.val",
+        MultiValues::String(vec!["a".to_string(), "b".to_string()]),
+    );
     let s: AnyStruct = config.deserialize("x").unwrap();
     assert!(s.val.is_array());
 }

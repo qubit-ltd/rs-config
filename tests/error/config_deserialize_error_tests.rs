@@ -61,7 +61,11 @@ fn test_nested_sequence_message_error_has_leaf_path() {
     config
         .insert_property(
             "app.items",
-            Property::new("app.items", Value::Json(serde_json::json!([{ "value": null }]))).unwrap(),
+            Property::new(
+                "app.items",
+                Value::Json(serde_json::json!([{ "value": null }])),
+            )
+            .unwrap(),
         )
         .expect("inserting nested items should succeed");
 

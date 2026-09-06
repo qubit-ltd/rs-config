@@ -51,7 +51,11 @@ fn test_config_error_maps_data_conversion_missing_with_key() {
 fn test_config_error_retains_structured_failure() {
     let error = ConfigError::from_data_conversion_error(
         "server.enabled",
-        DataConversionError::invalid(DataType::String, DataType::Bool, InvalidValueReason::InvalidBoolean),
+        DataConversionError::invalid(
+            DataType::String,
+            DataType::Bool,
+            InvalidValueReason::InvalidBoolean,
+        ),
     );
 
     assert!(matches!(

@@ -97,7 +97,8 @@ fn config_wire_encode_error_preserves_serialization_kind() {
 /// configuration mapping policies.
 #[test]
 fn config_wire_encode_error_maps_syntax_and_writer_sources() {
-    let mut raw_encoder = JsonEncoder::with_limits(JsonEncodeLimits::<JsonResource, u64>::default());
+    let mut raw_encoder =
+        JsonEncoder::with_limits(JsonEncodeLimits::<JsonResource, u64>::default());
     let syntax = raw_encoder
         .to_vec(&InvalidRawValue)
         .expect_err("invalid RawValue text must fail");
@@ -106,7 +107,8 @@ fn config_wire_encode_error_maps_syntax_and_writer_sources() {
         ConfigWireEncodeError::Syntax(_)
     ));
 
-    let mut writer_encoder = JsonEncoder::with_limits(JsonEncodeLimits::<JsonResource, u64>::default());
+    let mut writer_encoder =
+        JsonEncoder::with_limits(JsonEncodeLimits::<JsonResource, u64>::default());
     let writer = writer_encoder
         .write_buffered(RejectingWriter, &true)
         .expect_err("rejecting writer must fail");

@@ -38,7 +38,10 @@ mod test_config_reader_smoke {
     #[test]
     fn config_exposes_config_reader_string_api() {
         let c = create_test_config();
-        assert_eq!(ConfigReader::get::<String>(&c, "string_value").unwrap(), "test");
+        assert_eq!(
+            ConfigReader::get::<String>(&c, "string_value").unwrap(),
+            "test"
+        );
     }
 }
 
@@ -57,7 +60,11 @@ mod test_config_reader {
     }
 
     fn read_http_host_via_section(reader: &impl ConfigReader) -> String {
-        reader.section("http").unwrap().get::<String>("host").unwrap()
+        reader
+            .section("http")
+            .unwrap()
+            .get::<String>("host")
+            .unwrap()
     }
 
     fn read_converted_list<T>(reader: &impl ConfigReader, key: &str) -> ConfigResult<Vec<T>>
@@ -71,7 +78,10 @@ mod test_config_reader {
     fn test_config_reader_conversion_bound_is_target_side() {
         let mut config = Config::new();
         config.set("ports", vec![8080_i32, 8081]).unwrap();
-        assert_eq!(read_converted_list::<u16>(&config, "ports").unwrap(), vec![8080, 8081]);
+        assert_eq!(
+            read_converted_list::<u16>(&config, "ports").unwrap(),
+            vec![8080, 8081]
+        );
     }
 
     #[test]
@@ -112,7 +122,9 @@ mod test_config_reader {
         let mut config = Config::new();
         config.set("http.proxy.host", "localhost").unwrap();
 
-        let http = ConfigReader::section_if_present(&config, "http").unwrap().unwrap();
+        let http = ConfigReader::section_if_present(&config, "http")
+            .unwrap()
+            .unwrap();
         let proxy = http.section_if_present("proxy").unwrap().unwrap();
         assert_eq!(proxy.path(), "http.proxy");
         assert_eq!(proxy.get::<String>("host").unwrap(), "localhost");
@@ -143,11 +155,13 @@ mod test_config_reader {
 
         let reader = &config;
         assert_eq!(
-            <Config as ConfigReader>::get_interpolated_or::<String>(reader, "missing", "fallback").unwrap(),
+            <Config as ConfigReader>::get_interpolated_or::<String>(reader, "missing", "fallback")
+                .unwrap(),
             "fallback"
         );
         assert_eq!(
-            <Config as ConfigReader>::get_or::<Vec<String>>(reader, "missing.list", &["x", "y"]).unwrap(),
+            <Config as ConfigReader>::get_or::<Vec<String>>(reader, "missing.list", &["x", "y"])
+                .unwrap(),
             vec!["x".to_string(), "y".to_string()]
         );
         assert_eq!(
@@ -167,7 +181,8 @@ mod test_config_reader {
             None
         );
         assert_eq!(
-            <Config as ConfigReader>::get_interpolated_or::<String>(reader, "url", "fallback").unwrap(),
+            <Config as ConfigReader>::get_interpolated_or::<String>(reader, "url", "fallback")
+                .unwrap(),
             "http://alice"
         );
     }
@@ -182,11 +197,15 @@ mod test_config_reader {
 
         let view = config.section("http").unwrap();
         assert_eq!(
-            <ConfigSection<'_> as ConfigReader>::get_interpolated_or::<String>(&view, "missing", "fallback").unwrap(),
+            <ConfigSection<'_> as ConfigReader>::get_interpolated_or::<String>(
+                &view, "missing", "fallback"
+            )
+            .unwrap(),
             "fallback"
         );
         assert_eq!(
-            <ConfigSection<'_> as ConfigReader>::get_or::<Vec<String>>(&view, "missing", &["m"]).unwrap(),
+            <ConfigSection<'_> as ConfigReader>::get_or::<Vec<String>>(&view, "missing", &["m"])
+                .unwrap(),
             vec!["m".to_string()]
         );
         assert_eq!(
@@ -194,20 +213,27 @@ mod test_config_reader {
             Some("localhost".to_string())
         );
         assert_eq!(
-            <ConfigSection<'_> as ConfigReader>::get_optional::<Vec<String>>(&view, "names").unwrap(),
+            <ConfigSection<'_> as ConfigReader>::get_optional::<Vec<String>>(&view, "names")
+                .unwrap(),
             Some(vec!["a".to_string(), "b".to_string()])
         );
         let timeout: i32 = <ConfigSection<'_> as ConfigReader>::get(&view, "timeout").unwrap();
         assert_eq!(timeout, 30);
-        let timeout_list: Vec<i32> = <ConfigSection<'_> as ConfigReader>::get_list(&view, "timeout").unwrap();
+        let timeout_list: Vec<i32> =
+            <ConfigSection<'_> as ConfigReader>::get_list(&view, "timeout").unwrap();
         assert_eq!(timeout_list, vec![30]);
-        assert!(<ConfigSection<'_> as ConfigReader>::contains_key_prefix(&view, "na"));
+        assert!(<ConfigSection<'_> as ConfigReader>::contains_key_prefix(
+            &view, "na"
+        ));
         let keys: Vec<&str> = <ConfigSection<'_> as ConfigReader>::iter_prefix(&view, "h")
             .map(|(k, _)| k)
             .collect();
         assert_eq!(keys, vec!["host"]);
         assert_eq!(
-            <ConfigSection<'_> as ConfigReader>::get_interpolated_or::<String>(&view, "url", "fallback").unwrap(),
+            <ConfigSection<'_> as ConfigReader>::get_interpolated_or::<String>(
+                &view, "url", "fallback"
+            )
+            .unwrap(),
             "http://localhost"
         );
     }
@@ -263,7 +289,9 @@ mod test_config_reader {
             vec![true, false]
         );
         assert!(<ConfigSection<'_> as ConfigReader>::get_strict::<bool>(&http, "enabled").is_err());
-        assert!(<ConfigSection<'_> as ConfigReader>::get_list_strict::<bool>(&http, "flags").is_err());
+        assert!(
+            <ConfigSection<'_> as ConfigReader>::get_list_strict::<bool>(&http, "flags").is_err()
+        );
     }
 
     #[test]
@@ -301,8 +329,14 @@ mod test_config_reader_extended_surface {
         let mut config = Config::new();
         config.set("http.proxy.host", "proxy").unwrap();
 
-        assert_eq!(<Config as ConfigReader>::resolve_key(&config, "k").unwrap(), "k");
-        assert_eq!(<Config as ConfigReader>::resolve_key(&config, "").unwrap(), "");
+        assert_eq!(
+            <Config as ConfigReader>::resolve_key(&config, "k").unwrap(),
+            "k"
+        );
+        assert_eq!(
+            <Config as ConfigReader>::resolve_key(&config, "").unwrap(),
+            ""
+        );
 
         let http = config.section("http").unwrap();
         assert_eq!(
@@ -332,7 +366,11 @@ mod test_config_reader_extended_surface {
         config.set_null("nullish", DataType::Int32).unwrap();
         config.set_null("empty.names", DataType::String).unwrap();
 
-        assert!(<Config as ConfigReader>::get_property(&config, "k").unwrap().is_some());
+        assert!(
+            <Config as ConfigReader>::get_property(&config, "k")
+                .unwrap()
+                .is_some()
+        );
         assert!(
             <Config as ConfigReader>::get_property(&config, "nullish")
                 .unwrap()
@@ -349,13 +387,23 @@ mod test_config_reader_extended_surface {
         keys.sort();
         assert_eq!(
             keys,
-            vec!["empty.names".to_string(), "k".to_string(), "nullish".to_string(),],
+            vec![
+                "empty.names".to_string(),
+                "k".to_string(),
+                "nullish".to_string(),
+            ],
         );
 
         assert_eq!(<Config as ConfigReader>::iter(&config).count(), 3);
 
-        assert_eq!(<Config as ConfigReader>::get_or(&config, "k", 0i32).unwrap(), 1);
-        assert_eq!(<Config as ConfigReader>::get_or(&config, "missing", 99i32).unwrap(), 99);
+        assert_eq!(
+            <Config as ConfigReader>::get_or(&config, "k", 0i32).unwrap(),
+            1
+        );
+        assert_eq!(
+            <Config as ConfigReader>::get_or(&config, "missing", 99i32).unwrap(),
+            99
+        );
 
         assert_eq!(
             <Config as ConfigReader>::get_optional::<String>(&config, "nullish").unwrap(),
@@ -379,7 +427,10 @@ mod test_config_reader_extended_surface {
         assert_eq!(<ConfigSection<'_> as ConfigReader>::len(&view), 3);
         let mut keys = <ConfigSection<'_> as ConfigReader>::keys(&view);
         keys.sort();
-        assert_eq!(keys, vec!["empty".to_string(), "x".to_string(), "y".to_string()]);
+        assert_eq!(
+            keys,
+            vec!["empty".to_string(), "x".to_string(), "y".to_string()]
+        );
         assert_eq!(<ConfigSection<'_> as ConfigReader>::iter(&view).count(), 3);
 
         assert!(
@@ -425,7 +476,8 @@ mod test_config_reader_extended_surface {
             Some(vec![8080, 8081])
         );
         assert_eq!(
-            <ConfigSection<'_> as ConfigReader>::get_optional_list::<i32>(&view, "missing").unwrap(),
+            <ConfigSection<'_> as ConfigReader>::get_optional_list::<i32>(&view, "missing")
+                .unwrap(),
             None
         );
     }
@@ -466,7 +518,9 @@ mod test_config_reader_alias_reads {
     #[test]
     fn test_any_reads_accept_convenient_name_lists() {
         let mut config = Config::new();
-        config.set("server.port", "8080").expect("setting value should succeed");
+        config
+            .set("server.port", "8080")
+            .expect("setting value should succeed");
 
         let direct_array = config
             .get_any_or::<u16>(["missing.port", "server.port"], 9000)
@@ -546,7 +600,9 @@ mod test_config_reader_alias_reads {
     #[test]
     fn test_get_any_and_get_optional_any_use_alias_order() {
         let mut config = Config::new();
-        config.set("PORT", "8080").expect("setting alias value should succeed");
+        config
+            .set("PORT", "8080")
+            .expect("setting alias value should succeed");
 
         let value = config
             .get_any::<u16>(&["server.port", "PORT"])
@@ -607,7 +663,9 @@ mod test_config_reader_alias_reads {
     #[test]
     fn test_get_any_interpolated_or_applies_interpolation() {
         let mut config = Config::new();
-        config.set("host", "localhost").expect("setting host should succeed");
+        config
+            .set("host", "localhost")
+            .expect("setting host should succeed");
         config
             .set("SERVICE_URL", "http://${host}:8080")
             .expect("setting alias should succeed");
@@ -709,7 +767,9 @@ mod test_config_reader_alias_reads {
         let mut config = Config::new();
         config.set("host", "localhost").unwrap();
         config.set("url", "http://${host}").unwrap();
-        let options = ReadPolicy::builder().max_interpolation_expansions(0).build();
+        let options = ReadPolicy::builder()
+            .max_interpolation_expansions(0)
+            .build();
 
         let result = config
             .read_with(&options)
@@ -727,7 +787,9 @@ mod test_config_reader_alias_reads {
     #[test]
     fn test_get_string_any_or_applies_alias_order_and_substitution() {
         let mut config = Config::new();
-        config.set("host", "localhost").expect("setting host should succeed");
+        config
+            .set("host", "localhost")
+            .expect("setting host should succeed");
         config
             .set("SERVICE_URL", "http://${host}:8080")
             .expect("setting alias value should succeed");
@@ -746,7 +808,9 @@ mod test_config_reader_alias_reads {
     #[test]
     fn test_get_string_any_and_optional_string_any_use_alias_order() {
         let mut config = Config::new();
-        config.set("host", "localhost").expect("setting host should succeed");
+        config
+            .set("host", "localhost")
+            .expect("setting host should succeed");
         config
             .set("SERVICE_URL", "http://${host}:8080")
             .expect("setting alias value should succeed");
@@ -780,7 +844,9 @@ mod test_config_reader_alias_reads {
         config
             .set("empty.list", vec!["${blank}"])
             .expect("setting empty string list should succeed");
-        config.set("blank", "").expect("setting blank source should succeed");
+        config
+            .set("blank", "")
+            .expect("setting blank source should succeed");
         config
             .set("fallback", "value")
             .expect("setting fallback should succeed");
@@ -798,7 +864,9 @@ mod test_config_reader_alias_reads {
             .get_any_interpolated::<String>(["missing", "also.missing"])
             .expect_err("all missing aliases should report not found");
 
-        assert!(matches!(missing_string, ConfigError::PropertyHasNoValue(key) if key == "empty.string"));
+        assert!(
+            matches!(missing_string, ConfigError::PropertyHasNoValue(key) if key == "empty.string")
+        );
         assert!(matches!(
             missing_list,
             ConfigError::ConversionError {
@@ -917,7 +985,9 @@ fn test_is_unset_distinguishes_missing_unset_empty_and_blank_values() {
     config
         .set("empty", Vec::<String>::new())
         .expect("empty collection should be stored");
-    config.set("blank", "").expect("blank string should be stored");
+    config
+        .set("blank", "")
+        .expect("blank string should be stored");
 
     assert!(config.is_unset("unset").unwrap());
     assert!(!config.is_unset("missing").unwrap());
@@ -928,14 +998,20 @@ fn test_is_unset_distinguishes_missing_unset_empty_and_blank_values() {
 #[test]
 fn test_independent_gets_do_not_share_conversion_usage() {
     let limits = ConversionLimits::builder()
-        .operation_limits(ConversionOperationLimits::builder().max_input_bytes(2).build())
+        .operation_limits(
+            ConversionOperationLimits::builder()
+                .max_input_bytes(2)
+                .build(),
+        )
         .build();
     let mut config = Config::new();
     config
         .set_default_read_policy(ReadPolicy::builder().conversion_limits(limits).build())
         .set("first", "aa")
         .expect("first value should be stored");
-    config.set("second", "bb").expect("second value should be stored");
+    config
+        .set("second", "bb")
+        .expect("second value should be stored");
 
     assert_eq!(config.get::<String>("first").unwrap(), "aa");
     assert_eq!(config.get::<String>("second").unwrap(), "bb");

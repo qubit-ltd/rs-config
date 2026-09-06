@@ -31,7 +31,10 @@ enum InterpolationResource {
 /// the fallback reader, then to environment variables only when the active
 /// read policy permits environment fallback. Type and conversion errors in the
 /// primary reader are returned directly.
-pub(crate) fn substitute_variables_with_fallback<P: ConfigReader + ?Sized, F: ConfigReader + ?Sized>(
+pub(crate) fn substitute_variables_with_fallback<
+    P: ConfigReader + ?Sized,
+    F: ConfigReader + ?Sized,
+>(
     value: &str,
     primary: &P,
     fallback: &F,
@@ -115,12 +118,12 @@ fn substitute_variables_recursive(
             });
         }
 
-        expansion_budget
-            .try_consume(1)
-            .map_err(|_| ConfigError::SubstitutionExpansionLimitExceeded {
+        expansion_budget.try_consume(1).map_err(|_| {
+            ConfigError::SubstitutionExpansionLimitExceeded {
                 path: path.to_string(),
                 max_expansions,
-            })?;
+            }
+        })?;
 
         stack.push(var_name.to_string());
         let raw_value = resolve(var_name)?;
@@ -138,7 +141,13 @@ fn substitute_variables_recursive(
         last_end = match_end;
         search_from = match_end;
     }
-    push_substitution_fragment(&mut result, &value[last_end..], output_limit, max_output_bytes, path)?;
+    push_substitution_fragment(
+        &mut result,
+        &value[last_end..],
+        output_limit,
+        max_output_bytes,
+        path,
+    )?;
     Ok(result)
 }
 
@@ -165,14 +174,12 @@ fn push_substitution_fragment(
     max_output_bytes: usize,
     path: &str,
 ) -> ConfigResult<()> {
-    let prospective_len =
-        result
-            .len()
-            .checked_add(fragment.len())
-            .ok_or_else(|| ConfigError::SubstitutionOutputTooLarge {
-                path: path.to_string(),
-                max_output_bytes,
-            })?;
+    let prospective_len = result.len().checked_add(fragment.len()).ok_or_else(|| {
+        ConfigError::SubstitutionOutputTooLarge {
+            path: path.to_string(),
+            max_output_bytes,
+        }
+    })?;
     check_substitution_output(output_limit, prospective_len, max_output_bytes, path)?;
     result.push_str(fragment);
     Ok(())
@@ -211,7 +218,9 @@ fn find_variable_value<R: ConfigReader + ?Sized>(
                 Err(map_value_error(&resolved, error))
             }
         },
-        Some(_) | None if options.interpolation_sources() == InterpolationSources::ConfigThenEnv => {
+        Some(_) | None
+            if options.interpolation_sources() == InterpolationSources::ConfigThenEnv =>
+        {
             std::env::var(var_name).map_err(|_| ConfigError::SubstitutionError {
                 path: path.to_string(),
                 message: format!("Cannot resolve variable: {var_name}"),

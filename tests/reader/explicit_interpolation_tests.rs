@@ -40,8 +40,12 @@ fn test_get_optional_and_get_any_preserve_placeholders() {
     config.set("host", "localhost").expect("set host");
     config.set("URL", "http://${host}/api").expect("set URL");
 
-    let optional = config.get_optional::<String>("URL").expect("read optional URL");
-    let any = config.get_any::<String>(["url", "URL"]).expect("read aliased URL");
+    let optional = config
+        .get_optional::<String>("URL")
+        .expect("read optional URL");
+    let any = config
+        .get_any::<String>(["url", "URL"])
+        .expect("read aliased URL");
 
     assert_eq!(optional.as_deref(), Some("http://${host}/api"));
     assert_eq!(any, "http://${host}/api");
@@ -69,10 +73,16 @@ fn test_get_interpolated_resolves_string_and_numeric_values() {
     let mut config = Config::new();
     config.set("host", "localhost").expect("set host");
     config.set("port", "8080").expect("set port");
-    config.set("url", "http://${host}:${port}/api").expect("set URL");
-    config.set("server.port", "${port}").expect("set server port");
+    config
+        .set("url", "http://${host}:${port}/api")
+        .expect("set URL");
+    config
+        .set("server.port", "${port}")
+        .expect("set server port");
 
-    let url = config.get_interpolated::<String>("url").expect("interpolate URL");
+    let url = config
+        .get_interpolated::<String>("url")
+        .expect("interpolate URL");
     let port = config
         .get_interpolated::<u16>("server.port")
         .expect("interpolate numeric port");
@@ -91,7 +101,9 @@ fn test_interpolation_skips_empty_placeholder_and_resolves_following_value() {
         .set("url", "${}-${host}")
         .expect("set URL with empty placeholder");
 
-    let value = config.get_interpolated::<String>("url").expect("interpolate URL");
+    let value = config
+        .get_interpolated::<String>("url")
+        .expect("interpolate URL");
 
     assert_eq!(value, "${}-localhost");
 }
@@ -107,7 +119,9 @@ fn test_section_get_interpolated_falls_back_to_root_configuration() {
         .set("service.url", "https://${global.host}/v1")
         .expect("scoped URL should be set");
 
-    let service = config.section("service").expect("service section should be valid");
+    let service = config
+        .section("service")
+        .expect("service section should be valid");
     let url = service
         .get_interpolated::<String>("url")
         .expect("scoped interpolation should fall back to root keys");
@@ -163,11 +177,15 @@ fn test_deserialize_is_raw_and_deserialize_interpolated_is_explicit() {
     let mut config = Config::new();
     config.set("host", "localhost").expect("set host");
     config.set("base_port", "8080").expect("set base port");
-    config.set("raw.url", "http://${host}/api").expect("set raw URL");
+    config
+        .set("raw.url", "http://${host}/api")
+        .expect("set raw URL");
     config
         .set("endpoint.url", "http://${host}/api")
         .expect("set endpoint URL");
-    config.set("endpoint.port", "${base_port}").expect("set endpoint port");
+    config
+        .set("endpoint.port", "${base_port}")
+        .expect("set endpoint port");
 
     let raw = config
         .deserialize::<RawEndpoint>("raw")

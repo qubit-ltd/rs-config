@@ -65,7 +65,10 @@ fn map_dotenv_error(label: &str, error: dotenvy::Error) -> ConfigError {
     match error {
         dotenvy::Error::Io(source) => ConfigError::source_io_error(
             label,
-            std::io::Error::new(source.kind(), format!("Failed to read .env source '{label}': {source}")),
+            std::io::Error::new(
+                source.kind(),
+                format!("Failed to read .env source '{label}': {source}"),
+            ),
         ),
         dotenvy::Error::LineParse(_line, error_index) => ConfigError::source_parse_error(
             label,

@@ -61,7 +61,8 @@ impl<'de, 'policy, 'session> EnumAccess<'de> for ConfigEnumAccess<'policy, 'sess
         } else {
             format!("{}.{}", self.key, self.variant)
         };
-        let variant_deserializer: StringDeserializer<Self::Error> = self.variant.into_deserializer();
+        let variant_deserializer: StringDeserializer<Self::Error> =
+            self.variant.into_deserializer();
         let variant = seed.deserialize(variant_deserializer)?;
         Ok((
             variant,

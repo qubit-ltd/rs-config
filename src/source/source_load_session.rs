@@ -36,7 +36,10 @@ impl SourceLoadBudget {
     fn new(limits: SourceLimits) -> Self {
         Self {
             input_bytes: ResourceBudget::new(SourceLimitKind::InputBytes, limits.max_input_bytes()),
-            properties: ResourceBudget::new(SourceLimitKind::PropertyCount, limits.max_properties()),
+            properties: ResourceBudget::new(
+                SourceLimitKind::PropertyCount,
+                limits.max_properties(),
+            ),
             nodes: ResourceBudget::new(SourceLimitKind::NodeCount, limits.max_nodes()),
             sources: ResourceBudget::new(SourceLimitKind::SourceCount, limits.max_sources()),
             depth: ResourceLimit::new(SourceLimitKind::NestingDepth, limits.max_nesting_depth()),
@@ -147,10 +150,9 @@ impl<'a> SourceLoadSession<'a> {
     /// Checks a root-relative depth against every active budget scope.
     pub fn check_depth(&self, depth: usize) -> ConfigResult<()> {
         for (index, budget) in self.ancestors.iter().enumerate() {
-            budget
-                .depth
-                .check(depth)
-                .map_err(|source| self.limit_error(self.ancestor_ids[index].clone(), source.into()))?;
+            budget.depth.check(depth).map_err(|source| {
+                self.limit_error(self.ancestor_ids[index].clone(), source.into())
+            })?;
         }
         self.local
             .depth
@@ -159,18 +161,30 @@ impl<'a> SourceLoadSession<'a> {
     }
 
     /// Atomically consumes one cumulative resource across all active scopes.
-    fn consume_cumulative(&mut self, dimension: CumulativeDimension, amount: usize) -> ConfigResult<()> {
+    fn consume_cumulative(
+        &mut self,
+        dimension: CumulativeDimension,
+        amount: usize,
+    ) -> ConfigResult<()> {
         for (index, budget) in self.ancestors.iter().enumerate() {
             if let Err(source) = dimension.get(budget).check_available(amount) {
                 let budget_id = self
                     .ancestor_ids
                     .get(index)
                     .map_or(self.source_id.as_str(), String::as_str);
-                return Err(Self::cumulative_limit_error(&self.source_id, budget_id, source));
+                return Err(Self::cumulative_limit_error(
+                    &self.source_id,
+                    budget_id,
+                    source,
+                ));
             }
         }
         if let Err(source) = dimension.get(&self.local).check_available(amount) {
-            return Err(Self::cumulative_limit_error(&self.source_id, &self.source_id, source));
+            return Err(Self::cumulative_limit_error(
+                &self.source_id,
+                &self.source_id,
+                source,
+            ));
         }
 
         for budget in &mut self.ancestors {
@@ -197,7 +211,11 @@ impl<'a> SourceLoadSession<'a> {
     }
 
     /// Wraps a point-limit failure with source and budget scope context.
-    fn limit_error(&self, budget_id: String, source: BudgetError<SourceLimitKind, usize>) -> ConfigError {
+    fn limit_error(
+        &self,
+        budget_id: String,
+        source: BudgetError<SourceLimitKind, usize>,
+    ) -> ConfigError {
         let limit = source.configured_limit();
         let observed_at_least = match &source {
             BudgetError::LimitExceeded { observed, .. } => observed.lower_bound(),

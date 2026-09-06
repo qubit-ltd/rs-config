@@ -60,18 +60,23 @@ impl AccountingConfigWireSeed {
             .check(count)
             .map_err(|error| ConfigWireDecodeError::LimitExceeded {
                 kind: ConfigWireLimitKind::Properties,
-                value: error.exact_observed().expect("point failure carries an exact value"),
+                value: error
+                    .exact_observed()
+                    .expect("point failure carries an exact value"),
                 maximum: error.maximum(),
             })?;
         for key in keys {
             let bytes = u64::try_from(key.len()).expect("property key length must fit in u64");
-            self.limits.property_key_bytes_limit().check(bytes).map_err(|error| {
-                ConfigWireDecodeError::LimitExceeded {
+            self.limits
+                .property_key_bytes_limit()
+                .check(bytes)
+                .map_err(|error| ConfigWireDecodeError::LimitExceeded {
                     kind: ConfigWireLimitKind::PropertyKeyBytes,
-                    value: error.exact_observed().expect("point failure carries an exact value"),
+                    value: error
+                        .exact_observed()
+                        .expect("point failure carries an exact value"),
                     maximum: error.maximum(),
-                }
-            })?;
+                })?;
         }
         Ok(())
     }
@@ -98,18 +103,23 @@ impl JsonAdmittedConfigWireSeed {
             .check(count)
             .map_err(|error| ConfigWireDecodeError::LimitExceeded {
                 kind: ConfigWireLimitKind::Properties,
-                value: error.exact_observed().expect("point failure carries an exact value"),
+                value: error
+                    .exact_observed()
+                    .expect("point failure carries an exact value"),
                 maximum: error.maximum(),
             })?;
         for key in fields.properties.keys() {
             let bytes = u64::try_from(key.len()).expect("property key length must fit in u64");
-            self.limits.property_key_bytes_limit().check(bytes).map_err(|error| {
-                ConfigWireDecodeError::LimitExceeded {
+            self.limits
+                .property_key_bytes_limit()
+                .check(bytes)
+                .map_err(|error| ConfigWireDecodeError::LimitExceeded {
                     kind: ConfigWireLimitKind::PropertyKeyBytes,
-                    value: error.exact_observed().expect("point failure carries an exact value"),
+                    value: error
+                        .exact_observed()
+                        .expect("point failure carries an exact value"),
                     maximum: error.maximum(),
-                }
-            })?;
+                })?;
         }
         Ok(())
     }

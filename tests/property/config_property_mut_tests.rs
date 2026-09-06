@@ -48,7 +48,9 @@ fn test_config_property_mut_rejects_mutation_after_marking_final() {
             .get_property_mut("server.host")
             .expect("mutable access should succeed")
             .expect("property should exist");
-        property.set_final(true).expect("marking property final should succeed");
+        property
+            .set_final(true)
+            .expect("marking property final should succeed");
 
         assert!(matches!(
             property.set("example.com"),

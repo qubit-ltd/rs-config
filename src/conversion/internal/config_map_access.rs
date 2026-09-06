@@ -68,7 +68,10 @@ impl<'de> MapAccess<'de> for ConfigMapAccess<'_, '_> {
     where
         V: de::DeserializeSeed<'de>,
     {
-        let (key, value) = self.next_value.take().expect("map value requested before key");
+        let (key, value) = self
+            .next_value
+            .take()
+            .expect("map value requested before key");
         let child_key = if self.key.is_empty() {
             key
         } else {

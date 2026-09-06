@@ -265,7 +265,9 @@ impl EnvConfigSource {
     /// by a single load operation.
     #[inline]
     fn can_collapse_distinct_keys(&self) -> bool {
-        self.options.strip_prefix || self.options.double_underscores_to_dots || self.options.lowercase_keys
+        self.options.strip_prefix
+            || self.options.double_underscores_to_dots
+            || self.options.lowercase_keys
     }
 
     /// Checks whether an environment variable key matches a UTF-8 prefix.
@@ -453,7 +455,11 @@ impl ConfigSource for EnvConfigSource {
             let transformed_key = self.transform_key(&key);
             if self.options.strip_prefix || self.options.double_underscores_to_dots {
                 utils::validate_normalized_config_key(&transformed_key, &key).map_err(|error| {
-                    error.with_source_context("process environment", Some(transformed_key.clone()), None)
+                    error.with_source_context(
+                        "process environment",
+                        Some(transformed_key.clone()),
+                        None,
+                    )
                 })?;
             }
             if self.can_collapse_distinct_keys()
@@ -472,7 +478,11 @@ impl ConfigSource for EnvConfigSource {
                 });
             }
             let _ = ConfigKey::parse(transformed_key.as_str()).map_err(|error| {
-                error.with_source_context("process environment", Some(transformed_key.clone()), None)
+                error.with_source_context(
+                    "process environment",
+                    Some(transformed_key.clone()),
+                    None,
+                )
             })?;
             session.check_depth(transformed_key.split('.').count())?;
             session.consume_nodes(1)?;
