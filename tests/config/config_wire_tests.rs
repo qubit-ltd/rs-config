@@ -23,6 +23,13 @@ use qubit_config::ConfigWireLimits;
 use qubit_config::options::ReadPolicy;
 use qubit_json::decode::JsonSyntaxErrorReason;
 use qubit_value::ValueWireEncodeError;
+use serde::Deserialize;
+use serde::Deserializer;
+use serde::de::IntoDeserializer;
+use serde::de::Visitor;
+use serde::de::value::Error as ValueDeserializerError;
+use serde::de::value::MapDeserializer;
+use serde::de::value::SeqDeserializer;
 use serde_json::Value;
 use serde_json::error::Category;
 use serde_json::from_slice;
@@ -32,6 +39,132 @@ use serde_json::json;
 use serde_json::to_string;
 use serde_json::to_value;
 use serde_json::to_vec;
+
+/// Serde events used to verify format-independent `Config` deserialization.
+enum WireEvent {
+    Bool(bool),
+    I64(i64),
+    I128(i128),
+    U64(u64),
+    U128(u128),
+    F64(f64),
+    Str(String),
+    String(String),
+    None,
+    Unit,
+    Some(Box<Self>),
+    Newtype(Box<Self>),
+    Seq(Vec<Self>),
+    Map(Vec<(Self, Self)>),
+    Bytes(&'static [u8]),
+}
+
+impl<'de> IntoDeserializer<'de, ValueDeserializerError> for WireEvent {
+    type Deserializer = Self;
+
+    fn into_deserializer(self) -> Self::Deserializer {
+        self
+    }
+}
+
+impl<'de> Deserializer<'de> for WireEvent {
+    type Error = ValueDeserializerError;
+
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        match self {
+            Self::Bool(value) => visitor.visit_bool(value),
+            Self::I64(value) => visitor.visit_i64(value),
+            Self::I128(value) => visitor.visit_i128(value),
+            Self::U64(value) => visitor.visit_u64(value),
+            Self::U128(value) => visitor.visit_u128(value),
+            Self::F64(value) => visitor.visit_f64(value),
+            Self::Str(value) => visitor.visit_str(&value),
+            Self::String(value) => visitor.visit_string(value),
+            Self::None => visitor.visit_none(),
+            Self::Unit => visitor.visit_unit(),
+            Self::Some(value) => visitor.visit_some(*value),
+            Self::Newtype(value) => visitor.visit_newtype_struct(*value),
+            Self::Seq(values) => visitor.visit_seq(SeqDeserializer::new(values.into_iter())),
+            Self::Map(entries) => visitor.visit_map(MapDeserializer::new(entries.into_iter())),
+            Self::Bytes(value) => visitor.visit_bytes(value),
+        }
+    }
+
+    serde::forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
+        bytes byte_buf option unit unit_struct newtype_struct seq tuple tuple_struct
+        map struct enum identifier ignored_any
+    }
+}
+
+#[derive(Default)]
+struct WireEventCounts {
+    negative_numbers: usize,
+    positive_numbers: usize,
+    strings: usize,
+    nulls: usize,
+}
+
+fn into_wire_events(value: Value, counts: &mut WireEventCounts) -> WireEvent {
+    match value {
+        Value::Null => {
+            counts.nulls += 1;
+            if counts.nulls == 1 {
+                WireEvent::None
+            } else {
+                WireEvent::Unit
+            }
+        }
+        Value::Bool(value) => WireEvent::Bool(value),
+        Value::Number(number) => {
+            if let Some(value) = number.as_i64().filter(|value| *value < 0) {
+                counts.negative_numbers += 1;
+                if counts.negative_numbers == 1 {
+                    WireEvent::I128(i128::from(value))
+                } else {
+                    WireEvent::I64(value)
+                }
+            } else if let Some(value) = number.as_u64() {
+                counts.positive_numbers += 1;
+                if counts.positive_numbers == 1 {
+                    WireEvent::Newtype(Box::new(WireEvent::U128(u128::from(value))))
+                } else {
+                    WireEvent::U64(value)
+                }
+            } else {
+                WireEvent::F64(number.as_f64().expect("the JSON number should fit in f64"))
+            }
+        }
+        Value::String(value) => {
+            counts.strings += 1;
+            let event = if counts.strings.is_multiple_of(2) {
+                WireEvent::String(value)
+            } else {
+                WireEvent::Str(value)
+            };
+            if counts.strings == 1 {
+                WireEvent::Some(Box::new(event))
+            } else {
+                event
+            }
+        }
+        Value::Array(values) => WireEvent::Seq(
+            values
+                .into_iter()
+                .map(|value| into_wire_events(value, counts))
+                .collect(),
+        ),
+        Value::Object(values) => WireEvent::Map(
+            values
+                .into_iter()
+                .map(|(key, value)| (WireEvent::String(key), into_wire_events(value, counts)))
+                .collect(),
+        ),
+    }
+}
 
 /// Verifies serialization emits the stable V1 envelope in deterministic order.
 #[test]
@@ -178,6 +311,78 @@ fn test_ordinary_deserialize_accounts_array_values_and_missing_properties() {
     let empty: Config =
         from_value(json!({"version": 1})).expect("a versioned wire value may omit its defaulted property map");
     assert!(empty.is_empty());
+}
+
+#[test]
+fn test_ordinary_deserialize_accepts_equivalent_serde_value_events() {
+    let mut expected = Config::builder().description("Serde event coverage").build();
+    expected
+        .set("numbers.first", -7_i32)
+        .expect("the first signed value should be set");
+    expected
+        .set("numbers.second", -9_i64)
+        .expect("the second signed value should be set");
+    expected
+        .set("numbers.ratio", 1.5_f64)
+        .expect("the floating-point value should be set");
+    expected
+        .set("flags", vec![true, false])
+        .expect("the Boolean sequence should be set");
+    expected
+        .set("labels", vec!["alpha", "beta"])
+        .expect("the string sequence should be set");
+
+    let wire = to_value(&expected).expect("the configuration should serialize");
+    let mut counts = WireEventCounts::default();
+    let events = into_wire_events(wire, &mut counts);
+
+    assert!(
+        counts.negative_numbers >= 2,
+        "the fixture should exercise i128 and i64 events"
+    );
+    assert!(
+        counts.positive_numbers >= 2,
+        "the fixture should exercise u128 and u64 events"
+    );
+    assert!(
+        counts.strings >= 2,
+        "the fixture should exercise borrowed and owned string events"
+    );
+    assert!(counts.nulls >= 2, "the fixture should exercise none and unit events");
+
+    let restored = <Config as Deserialize>::deserialize(events).expect("equivalent Serde events should decode");
+    assert_eq!(restored, expected);
+}
+
+#[test]
+fn test_ordinary_deserialize_rejects_unrepresentable_serde_value_events() {
+    let cases = [
+        (
+            WireEvent::I128(i128::MAX),
+            "JSON integer is outside the supported 64-bit range",
+        ),
+        (
+            WireEvent::U128(u128::MAX),
+            "JSON integer is outside the supported 64-bit range",
+        ),
+        (
+            WireEvent::F64(f64::NAN),
+            "non-finite float is not representable as JSON",
+        ),
+        (
+            WireEvent::Bytes(b"not a wire value"),
+            "a JSON value with unique object keys",
+        ),
+    ];
+
+    for (events, expected_message) in cases {
+        let error =
+            <Config as Deserialize>::deserialize(events).expect_err("the unsupported Serde event must be rejected");
+        assert!(
+            error.to_string().contains(expected_message),
+            "unexpected event error: {error}",
+        );
+    }
 }
 
 #[test]
