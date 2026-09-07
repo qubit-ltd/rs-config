@@ -26,6 +26,7 @@ use chrono::Utc;
 #[cfg(feature = "num-bigint")]
 use num_bigint::BigInt;
 use qubit_config::ConfigError;
+use qubit_config::ConfigPathViolation;
 use qubit_config::Property;
 use qubit_datatype::DataType;
 use qubit_value::MultiValues;
@@ -1741,10 +1742,10 @@ fn test_property_partial_eq() {
 #[test]
 fn property_names_cover_empty_separators_unicode_and_spaces() {
     for (name, violation) in [
-        ("", qubit_config::ConfigPathViolation::Empty),
-        (".name", qubit_config::ConfigPathViolation::LeadingSeparator),
-        ("name.", qubit_config::ConfigPathViolation::TrailingSeparator),
-        ("name..part", qubit_config::ConfigPathViolation::EmptySegment),
+        ("", ConfigPathViolation::Empty),
+        (".name", ConfigPathViolation::LeadingSeparator),
+        ("name.", ConfigPathViolation::TrailingSeparator),
+        ("name..part", ConfigPathViolation::EmptySegment),
     ] {
         let error = Property::new(name, "value").unwrap_err();
         assert!(matches!(

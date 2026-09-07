@@ -11,6 +11,7 @@ use qubit_config::Config;
 use qubit_config::ConfigError;
 use qubit_config::ConfigKey;
 use qubit_config::ConfigReader;
+use qubit_config::ConfigPathViolation;
 
 #[test]
 fn test_config_name_accepts_str_string_and_string_ref() {
@@ -70,7 +71,7 @@ fn config_name_rejects_empty_keys_before_lookup() {
         error,
         ConfigError::InvalidKey {
             key,
-            violation: qubit_config::ConfigPathViolation::Empty,
+            violation: ConfigPathViolation::Empty,
         } if key.is_empty()
     ));
 }
