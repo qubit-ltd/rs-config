@@ -60,35 +60,35 @@ impl SourceLimits {
     }
 
     /// Returns the maximum accepted input byte length.
-    #[inline]
+    #[inline(always)]
     #[must_use]
     pub const fn max_input_bytes(self) -> usize {
         self.max_input_bytes
     }
 
     /// Returns the maximum number of emitted properties.
-    #[inline]
+    #[inline(always)]
     #[must_use]
     pub const fn max_properties(self) -> usize {
         self.max_properties
     }
 
     /// Returns the maximum number of parsed structural nodes.
-    #[inline]
+    #[inline(always)]
     #[must_use]
     pub const fn max_nodes(self) -> usize {
         self.max_nodes
     }
 
     /// Returns the maximum number of child sources in a composite.
-    #[inline]
+    #[inline(always)]
     #[must_use]
     pub const fn max_sources(self) -> usize {
         self.max_sources
     }
 
     /// Returns the maximum structured nesting depth.
-    #[inline]
+    #[inline(always)]
     #[must_use]
     pub const fn max_nesting_depth(self) -> usize {
         self.max_nesting_depth

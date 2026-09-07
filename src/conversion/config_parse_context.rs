@@ -55,7 +55,7 @@ impl<'a> ConfigParseContext<'a> {
     /// # Returns
     ///
     /// The root-relative configuration key.
-    #[inline]
+    #[inline(always)]
     #[must_use]
     pub fn key(&self) -> &str {
         self.key
@@ -66,7 +66,7 @@ impl<'a> ConfigParseContext<'a> {
     /// # Returns
     ///
     /// Read policy selected by the reader.
-    #[inline]
+    #[inline(always)]
     #[must_use]
     pub fn options(&self) -> &ReadPolicy {
         self.options

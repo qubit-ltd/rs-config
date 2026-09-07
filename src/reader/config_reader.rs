@@ -342,6 +342,7 @@ pub trait ConfigReader: internal::Sealed {
     /// # Returns
     ///
     /// The policy inherited by ordinary reads.
+    #[must_use]
     fn read_policy(&self) -> &ReadPolicy;
 
     /// Creates a borrowed reader view using `policy` for typed reads.
@@ -366,6 +367,7 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// The root reader returns an empty string.
     #[inline(always)]
+    #[must_use]
     fn scope_path(&self) -> &str {
         ""
     }
@@ -543,6 +545,7 @@ pub trait ConfigReader: internal::Sealed {
     /// # Returns
     ///
     /// `true` if at least one matching key exists.
+    #[must_use]
     fn contains_key_prefix(&self, prefix: &str) -> bool;
 
     /// Returns whether a dotted section visible to this reader has children.

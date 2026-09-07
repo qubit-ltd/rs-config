@@ -145,6 +145,7 @@ impl<'a> ConfigSection<'a> {
 
     /// Returns the root configuration backing this section.
     #[inline(always)]
+    #[must_use]
     pub(crate) fn root_config(&self) -> &'a Config {
         self.config
     }

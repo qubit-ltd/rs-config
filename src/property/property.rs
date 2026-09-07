@@ -243,6 +243,7 @@ impl Property {
     ///
     /// Returns a mutable reference to the property value
     #[inline(always)]
+    #[must_use]
     pub fn value_mut(&mut self) -> &mut ValueContainer {
         &mut self.value
     }

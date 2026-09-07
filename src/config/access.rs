@@ -290,7 +290,7 @@ impl Config {
     /// # Returns
     ///
     /// Returns the number of configuration items
-    #[inline]
+    #[inline(always)]
     #[must_use]
     pub fn len(&self) -> usize {
         self.properties.len()
@@ -301,7 +301,7 @@ impl Config {
     /// # Returns
     ///
     /// Returns `true` if the configuration contains no items
-    #[inline]
+    #[inline(always)]
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.properties.is_empty()
