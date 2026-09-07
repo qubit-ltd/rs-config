@@ -1,0 +1,187 @@
+name: Downstream compatibility
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/downstream.yml"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "src/**"
+      - "tests/**"
+  workflow_dispatch:
+  schedule:
+    - cron: "17 4 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  downstream:
+    name: Test pinned downstream consumers
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rs_config_ref: ${{ github.sha }}
+            rs_http_ref: ff922aa231d6d4c4da192b24a4a0fa54d64265b5
+            rs_mime_ref: 693d66d7be990da264b16d8866fc4135af29294e
+            rs_magika_ref: fe633c9fe58bc84c7ad12962268cbefd0adcff85
+            rs_retry_ref: 0503b98cfbc3fd5a45ca19dfd90aec7d7861a118
+            rs_redact_ref: 41adde89b8b2b842bbb3e6c7a1d786a1818f2cc4
+            rs_fs_ref: 53a8d872f34482d3087d80847a9e51d800d6065e
+            rs_command_ref: d67d1f3c85623762e3b76a66b69b1c1854f7e719
+            rs_local_files_ref: 50caa00c2134850540e6b6a7885384e3685010c6
+            rs_spi_ref: 80b8be648664a031513be88f1c0ac8347d1e5ca1
+            rs_fs_local_ref: d5a68daf9bc886b2553145a7e2d4dcc7357c2703
+            rs_fs_registry_ref: ad4ed252875ef0ca4b6cabc3cfad0fa8f5488064
+            rs_fs_testkit_ref: 090b0266b97f4cf744ab6221c355f77212b2f1ad
+
+    steps:
+      - name: Checkout rs-config under test
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          path: rust-common/rs-config
+          ref: ${{ matrix.rs_config_ref }}
+          fetch-depth: 1
+
+      - name: Checkout rs-http
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: qubit-ltd/rs-http
+          path: rust-common/rs-http
+          ref: ${{ matrix.rs_http_ref }}
+          fetch-depth: 1
+
+      - name: Checkout rs-mime
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: qubit-ltd/rs-mime
+          path: rust-common/rs-mime
+          ref: ${{ matrix.rs_mime_ref }}
+          fetch-depth: 1
+
+      - name: Checkout rs-magika
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: qubit-ltd/rs-magika
+          path: rust-common/rs-magika
+          ref: ${{ matrix.rs_magika_ref }}
+          fetch-depth: 1
+
+      - name: Checkout rs-retry
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: qubit-ltd/rs-retry
+          path: rust-common/rs-retry
+          ref: ${{ matrix.rs_retry_ref }}
+          fetch-depth: 1
+
+      - name: Checkout rs-redact
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: qubit-ltd/rs-redact
+          path: rust-common/rs-redact
+          ref: ${{ matrix.rs_redact_ref }}
+          fetch-depth: 1
+
+      - name: Checkout rs-fs
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: qubit-ltd/rs-fs
+          path: rust-common/rs-fs
+          ref: ${{ matrix.rs_fs_ref }}
+          fetch-depth: 1
+
+      - name: Checkout rs-command
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: qubit-ltd/rs-command
+          path: rust-common/rs-command
+          ref: ${{ matrix.rs_command_ref }}
+          fetch-depth: 1
+
+      - name: Checkout rs-local-files
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: qubit-ltd/rs-local-files
+          path: rust-common/rs-local-files
+          ref: ${{ matrix.rs_local_files_ref }}
+          fetch-depth: 1
+
+      - name: Checkout rs-spi
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: qubit-ltd/rs-spi
+          path: rust-common/rs-spi
+          ref: ${{ matrix.rs_spi_ref }}
+          fetch-depth: 1
+
+      - name: Checkout rs-fs-local
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: qubit-ltd/rs-fs-local
+          path: rust-common/rs-fs-local
+          ref: ${{ matrix.rs_fs_local_ref }}
+          fetch-depth: 1
+
+      - name: Checkout rs-fs-registry
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: qubit-ltd/rs-fs-registry
+          path: rust-common/rs-fs-registry
+          ref: ${{ matrix.rs_fs_registry_ref }}
+          fetch-depth: 1
+
+      - name: Checkout rs-fs-testkit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: qubit-ltd/rs-fs-testkit
+          path: rust-common/rs-fs-testkit
+          ref: ${{ matrix.rs_fs_testkit_ref }}
+          fetch-depth: 1
+
+      - name: Verify path dependency closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          verify_ref() {
+            local repository=$1
+            local expected_ref=$2
+            local repository_path="rust-common/${repository}"
+            test -d "$repository_path"
+            test -f "${repository_path}/Cargo.toml"
+            local actual_ref
+            actual_ref=$(git -C "$repository_path" rev-parse HEAD)
+            if [[ "$actual_ref" != "$expected_ref" ]]; then
+              echo "Unexpected ${repository} ref: ${actual_ref} (expected ${expected_ref})" >&2
+              exit 1
+            fi
+          }
+
+          verify_ref rs-config "${{ matrix.rs_config_ref }}"
+          verify_ref rs-http "${{ matrix.rs_http_ref }}"
+          verify_ref rs-mime "${{ matrix.rs_mime_ref }}"
+          verify_ref rs-magika "${{ matrix.rs_magika_ref }}"
+          verify_ref rs-retry "${{ matrix.rs_retry_ref }}"
+          verify_ref rs-redact "${{ matrix.rs_redact_ref }}"
+          verify_ref rs-fs "${{ matrix.rs_fs_ref }}"
+          verify_ref rs-command "${{ matrix.rs_command_ref }}"
+          verify_ref rs-local-files "${{ matrix.rs_local_files_ref }}"
+          verify_ref rs-spi "${{ matrix.rs_spi_ref }}"
+          verify_ref rs-fs-local "${{ matrix.rs_fs_local_ref }}"
+          verify_ref rs-fs-registry "${{ matrix.rs_fs_registry_ref }}"
+          verify_ref rs-fs-testkit "${{ matrix.rs_fs_testkit_ref }}"
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install 1.94 --profile minimal
+          rustup default 1.94
+
+      - name: Test downstream consumers serially
+        shell: bash
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/target/downstream
+          CHECK_DOWNSTREAM_COMPATIBILITY: "1"
+          DOWNSTREAM_ROOT: ${{ github.workspace }}/rust-common
+        run: ./rust-common/rs-config/project-ci-check.sh
