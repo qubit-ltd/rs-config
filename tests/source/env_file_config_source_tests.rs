@@ -185,6 +185,19 @@ mod test_env_file_config_source {
             std::env::remove_var(KEY);
         }
     }
+
+    #[test]
+    fn test_env_file_preserves_dotenv_escape_rules_around_substitutions() {
+        let source = EnvFileConfigSource::from_content(
+            "WEAK=\"line\\n${NAME}\"\nOUTSIDE=escaped\\ value\nSTRONG='${NAME}'\n",
+        );
+
+        let config = source.load().expect("escaped dotenv content should load");
+
+        assert_eq!(config.get::<String>("WEAK").unwrap(), "line\n${NAME}");
+        assert_eq!(config.get::<String>("OUTSIDE").unwrap(), "escaped value");
+        assert_eq!(config.get::<String>("STRONG").unwrap(), "${NAME}");
+    }
 }
 
 #[cfg(test)]

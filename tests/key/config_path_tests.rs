@@ -53,7 +53,7 @@ fn config_path_allows_only_the_empty_root_exception() {
 
 #[test]
 fn path_sensitive_lookups_reject_malformed_keys() {
-    let config = Config::new();
+    let mut config = Config::new();
     assert!(matches!(
         config.get_property("bad..key"),
         Err(ConfigError::InvalidKey { .. })
@@ -64,6 +64,14 @@ fn path_sensitive_lookups_reject_malformed_keys() {
     ));
     assert!(matches!(
         config.is_unset("server."),
+        Err(ConfigError::InvalidKey { .. })
+    ));
+    assert!(matches!(
+        config.get_property_mut("bad..key"),
+        Err(ConfigError::InvalidKey { .. })
+    ));
+    assert!(matches!(
+        config.set_final(".server", true),
         Err(ConfigError::InvalidKey { .. })
     ));
 }
@@ -129,6 +137,23 @@ fn config_path_rejects_each_separator_boundary_with_the_specific_violation() {
             ConfigError::InvalidPath { violation: actual, .. } if actual == violation
         ));
     }
+}
+
+#[test]
+fn config_path_violations_have_stable_value_free_messages() {
+    assert_eq!(ConfigPathViolation::Empty.to_string(), "the key is empty");
+    assert_eq!(
+        ConfigPathViolation::LeadingSeparator.to_string(),
+        "the path starts with a separator"
+    );
+    assert_eq!(
+        ConfigPathViolation::TrailingSeparator.to_string(),
+        "the path ends with a separator"
+    );
+    assert_eq!(
+        ConfigPathViolation::EmptySegment.to_string(),
+        "the path contains an empty segment"
+    );
 }
 
 #[test]

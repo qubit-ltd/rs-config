@@ -17,11 +17,14 @@ use qubit_config::Property;
 use qubit_config::options::ReadPolicy;
 use qubit_datatype::BlankStringPolicy;
 use qubit_datatype::CollectionConversionLimits;
+use qubit_datatype::ConversionLimits;
+use qubit_datatype::ConversionOperationLimits;
 use qubit_datatype::ConversionPolicy;
 use qubit_datatype::DataConversionErrorKind;
 use qubit_datatype::DataType;
 use qubit_datatype::EmptyItemPolicy;
 use qubit_value::MultiValues;
+use qubit_value::Value as QubitValue;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::de;
@@ -239,6 +242,8 @@ enum Tagged {
 struct DirectEntryPoints {
     string_from_bool: String,
     string_from_number: String,
+    string_from_unsigned: String,
+    string_from_float: String,
     str_only: StrOnly,
     bytes_only: BytesOnly,
     byte_buf_only: ByteBufOnly,
@@ -685,7 +690,7 @@ fn deserialize_enum_reports_invalid_shapes() -> ConfigResult<()> {
     let mut empty_object = Config::new();
     empty_object.insert_property(
         "case.value",
-        Property::new("case.value", MultiValues::Json(vec![serde_json::json!({})]))?,
+        Property::new("case.value", QubitValue::Json(serde_json::json!({})))?,
     )?;
     assert!(
         empty_object
@@ -698,10 +703,10 @@ fn deserialize_enum_reports_invalid_shapes() -> ConfigResult<()> {
         "case.value",
         Property::new(
             "case.value",
-            MultiValues::Json(vec![serde_json::json!({
+            QubitValue::Json(serde_json::json!({
                 "Unit": null,
                 "Code": 200
-            })]),
+            })),
         )?,
     )?;
     assert!(
@@ -761,6 +766,8 @@ fn deserialize_direct_scalar_entry_points() -> ConfigResult<()> {
     let mut config = Config::new();
     config.set("direct.string_from_bool", true)?;
     config.set("direct.string_from_number", 123i32)?;
+    config.set("direct.string_from_unsigned", u64::MAX)?;
+    config.set("direct.string_from_float", 1.25_f64)?;
     config.set("direct.str_only", "abc")?;
     config.set("direct.bytes_only", "abc")?;
     config.set("direct.byte_buf_only", "xyz")?;
@@ -774,6 +781,8 @@ fn deserialize_direct_scalar_entry_points() -> ConfigResult<()> {
 
     assert_eq!(actual.string_from_bool, "true");
     assert_eq!(actual.string_from_number, "123");
+    assert_eq!(actual.string_from_unsigned, u64::MAX.to_string());
+    assert_eq!(actual.string_from_float, "1.25");
     assert_eq!(actual.str_only.0, "abc");
     assert_eq!(actual.bytes_only.0, b"abc");
     assert_eq!(actual.byte_buf_only.0, b"xyz");
@@ -782,6 +791,96 @@ fn deserialize_direct_scalar_entry_points() -> ConfigResult<()> {
     assert_eq!(actual.any_number, serde_json::json!(u64::MAX));
     assert_eq!(actual.any_array, serde_json::json!([1, 2]));
     assert_eq!(actual.any_null, serde_json::Value::Null);
+    Ok(())
+}
+
+#[test]
+fn deserialize_scalar_lists_cover_admitted_serde_entry_points() -> ConfigResult<()> {
+    let mut config = Config::new();
+    config.set_default_read_policy(ReadPolicy::env_friendly());
+    config.set("strings.value", "alpha,beta")?;
+    config.set("bools.value", "true,false")?;
+    config.set("chars.value", "a,b")?;
+    config.set("modes.value", "Fast,Slow")?;
+    config.set("units.value", "not-unit")?;
+    config.set("sequences.value", "1,2")?;
+    config.set("maps.value", "a,b")?;
+
+    assert_eq!(
+        config
+            .deserialize::<OneField<Vec<serde_json::Value>>>("strings")?
+            .value,
+        vec![serde_json::json!("alpha"), serde_json::json!("beta")]
+    );
+    assert_eq!(
+        config.deserialize::<OneField<Vec<bool>>>("bools")?.value,
+        vec![true, false]
+    );
+    assert_eq!(
+        config.deserialize::<OneField<Vec<char>>>("chars")?.value,
+        vec!['a', 'b']
+    );
+    assert_eq!(
+        config.deserialize::<OneField<Vec<Mode>>>("modes")?.value,
+        vec![Mode::Fast, Mode::Slow]
+    );
+    assert!(
+        config
+            .deserialize::<OneField<Vec<()>>>("units")
+            .is_err()
+    );
+    assert!(
+        config
+            .deserialize::<OneField<Vec<Vec<u8>>>>("sequences")
+            .is_err()
+    );
+    assert!(
+        config
+            .deserialize::<OneField<Vec<HashMap<String, u8>>>>("maps")
+            .is_err()
+    );
+
+    let mut invalid = Config::new();
+    invalid.set_default_read_policy(ReadPolicy::env_friendly());
+    invalid.set("bools.value", "true,not-a-boolean")?;
+    invalid.set("chars.value", "a,too-long")?;
+    invalid.set("modes.value", "Fast,Turbo")?;
+    assert!(
+        invalid
+            .deserialize::<OneField<Vec<bool>>>("bools")
+            .is_err()
+    );
+    assert!(
+        invalid
+            .deserialize::<OneField<Vec<char>>>("chars")
+            .is_err()
+    );
+    assert!(
+        invalid
+            .deserialize::<OneField<Vec<Mode>>>("modes")
+            .is_err()
+    );
+
+    let limits = ConversionLimits::builder()
+        .operation_limits(ConversionOperationLimits::builder().max_output_bytes(0).build())
+        .build();
+    let mut limited = Config::new();
+    limited.set_default_read_policy(
+        ReadPolicy::builder_from(&ReadPolicy::env_friendly())
+            .conversion_limits(limits)
+            .build(),
+    );
+    limited.set("value.value", "one,two")?;
+    assert!(
+        limited
+            .deserialize::<OneField<Vec<String>>>("value")
+            .is_err()
+    );
+    assert!(
+        limited
+            .deserialize::<OneField<Vec<serde_json::Value>>>("value")
+            .is_err()
+    );
     Ok(())
 }
 
@@ -1005,6 +1104,7 @@ fn deserialize_scalar_error_branches() -> ConfigResult<()> {
     config.set("array_string.value", vec![1u8, 2u8])?;
     config.set("object_string.value.a", 1u8)?;
     config.set("bool_number.value", 1u8)?;
+    config.set("bool_string.value", "not-a-boolean")?;
     config.set("u8_overflow.value", 1000u16)?;
     config.set("seq_bool.value", true)?;
     config.set("map_bool.value", true)?;
@@ -1066,6 +1166,7 @@ fn deserialize_scalar_error_branches() -> ConfigResult<()> {
             .is_err()
     );
     assert!(config.deserialize::<OneField<bool>>("bool_number").is_err());
+    assert!(config.deserialize::<OneField<bool>>("bool_string").is_err());
     assert!(config.deserialize::<OneField<u8>>("u8_overflow").is_err());
     assert!(config.deserialize::<OneField<Vec<u8>>>("seq_bool").is_err());
     assert!(

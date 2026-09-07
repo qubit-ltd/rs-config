@@ -189,3 +189,33 @@ fn test_from_config_numeric_options_are_explicit() {
     );
     assert_eq!(config.get::<Vec<i32>>("values").unwrap(), vec![1, 2]);
 }
+
+#[test]
+fn test_from_config_interpolation_preserves_non_string_shapes() {
+    let mut config = Config::new();
+    config.set("base", "41").unwrap();
+    config.set("scalar", 7_u16).unwrap();
+    config.set("numbers", vec![1_u16, 2_u16]).unwrap();
+    config.set("interpolated", "${base}").unwrap();
+    config.set("bad_base", "not-a-number").unwrap();
+    config.set("bad_interpolated", "${bad_base}").unwrap();
+    config.set("invalid", "${missing}").unwrap();
+
+    assert_eq!(
+        config.get_interpolated::<Vec<u16>>("scalar").unwrap(),
+        vec![7]
+    );
+    assert_eq!(
+        config.get_interpolated::<Vec<u16>>("numbers").unwrap(),
+        vec![1, 2]
+    );
+    assert_eq!(config.get_interpolated::<u16>("interpolated").unwrap(), 41);
+    assert!(matches!(
+        config.get_interpolated::<u16>("bad_interpolated"),
+        Err(ConfigError::ConversionError { key, .. }) if key == "bad_interpolated"
+    ));
+    assert!(matches!(
+        config.get_interpolated::<u16>("invalid"),
+        Err(ConfigError::SubstitutionError { path, .. }) if path == "invalid"
+    ));
+}

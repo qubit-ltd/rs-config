@@ -157,14 +157,12 @@ fn push_substitution_fragment(
     max_output_bytes: usize,
     path: &str,
 ) -> ConfigResult<()> {
-    let prospective_len =
-        result
-            .len()
-            .checked_add(fragment.len())
-            .ok_or_else(|| ConfigError::SubstitutionOutputTooLarge {
-                path: path.to_string(),
-                max_output_bytes,
-            })?;
+    let Some(prospective_len) = result.len().checked_add(fragment.len()) else {
+        return Err(ConfigError::SubstitutionOutputTooLarge {
+            path: path.to_string(),
+            max_output_bytes,
+        });
+    };
     check_substitution_output(output_limit, prospective_len, max_output_bytes, path)?;
     result.push_str(fragment);
     Ok(())

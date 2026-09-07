@@ -60,14 +60,13 @@ impl AccountingConfigWireSeed {
         keys: impl Iterator<Item = &'a str>,
     ) -> Result<(), ConfigWireDecodeError> {
         let count = u64::try_from(count).expect("property count must fit in u64");
-        self.limits
-            .properties_limit()
-            .check(count)
-            .map_err(|error| ConfigWireDecodeError::LimitExceeded {
+        if let Err(error) = self.limits.properties_limit().check(count) {
+            return Err(ConfigWireDecodeError::LimitExceeded {
                 kind: ConfigWireLimitKind::Properties,
                 value: error.exact_observed().expect("point failure carries an exact value"),
                 maximum: error.maximum(),
-            })?;
+            });
+        }
         for key in keys {
             let bytes = u64::try_from(key.len()).expect("property key length must fit in u64");
             self.limits.property_key_bytes_limit().check(bytes).map_err(|error| {

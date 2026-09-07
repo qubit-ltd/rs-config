@@ -258,9 +258,9 @@ impl ConfigSource for EnvFileConfigSource {
             session.check_depth(key.split('.').count())?;
             session.consume_nodes(1)?;
             session.consume_properties(1)?;
-            config
-                .set(&key, value)
-                .map_err(|error| error.with_source_context(&label, Some(key.clone()), None))?;
+            if let Err(error) = config.set(&key, value) {
+                return Err(error.with_source_context(&label, Some(key), None));
+            }
         }
         context.replace_layer(config);
         Ok(())

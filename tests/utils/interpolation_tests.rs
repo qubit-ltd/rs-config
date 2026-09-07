@@ -315,6 +315,29 @@ fn test_get_string_without_variables_returns_original_value() {
 }
 
 #[test]
+fn test_get_string_preserves_unterminated_placeholder_text() {
+    let mut config = Config::new();
+    config.set("value", "prefix ${unterminated").unwrap();
+
+    assert_eq!(
+        config.get_interpolated::<String>("value").unwrap(),
+        "prefix ${unterminated"
+    );
+}
+
+#[test]
+fn test_get_string_reports_non_string_convertible_variable_value() {
+    let mut config = Config::new();
+    config.set("complex", Vec::<String>::new()).unwrap();
+    config.set("value", "${complex}").unwrap();
+
+    let error = config
+        .get_interpolated::<String>("value")
+        .expect_err("the conversion output budget should apply to interpolation variables");
+    assert_eq!(error.path(), Some("complex"));
+}
+
+#[test]
 fn test_get_string_uses_config_and_environment_sources() {
     unsafe {
         std::env::set_var("QUBIT_CONFIG_TEST_ENV_SOURCE", "from_env");

@@ -247,6 +247,11 @@ fn test_deserialize_dotted_parent_conflict_reports_scalar_kinds() {
             "array",
             "array parent should not be treated as an object",
         ),
+        (
+            ValueContainer::Scalar(Value::Int32(7)),
+            "number",
+            "number parent should not be treated as an object",
+        ),
     ];
 
     for (parent_value, expected_kind, message) in cases {
@@ -267,6 +272,36 @@ fn test_deserialize_dotted_parent_conflict_reports_scalar_kinds() {
             "{message}"
         );
     }
+}
+
+#[test]
+fn test_deserialize_dotted_child_rejects_object_scalar_shape_change() {
+    let mut config = Config::new();
+    config
+        .insert_property(
+            "ctx.a",
+            Property::new(
+                "ctx.a",
+                Value::Json(serde_json::json!({
+                    "b": {"nested": true},
+                })),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+    config.set("ctx.a.b", "scalar").unwrap();
+
+    let result = config.deserialize::<HashMap<String, serde_json::Value>>("ctx");
+
+    assert!(matches!(
+        result,
+        Err(ConfigError::KeyConflict {
+            path,
+            existing,
+            incoming,
+            ..
+        }) if path == "a.b" && existing == "object" && incoming == "string"
+    ));
 }
 
 #[test]

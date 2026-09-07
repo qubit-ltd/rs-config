@@ -141,6 +141,22 @@ fn test_ordinary_deserialize_enforces_default_decoded_string_budget() {
 }
 
 #[test]
+fn test_ordinary_deserialize_accounts_array_values_and_missing_properties() {
+    let mut config = Config::new();
+    config
+        .set("values", vec![1_i32, 2_i32])
+        .expect("the collection should be set");
+    let wire = to_value(&config).expect("the config should serialize");
+
+    let restored: Config = from_value(wire).expect("ordinary Deserialize should admit arrays");
+    assert_eq!(restored.get::<Vec<i32>>("values").unwrap(), vec![1, 2]);
+
+    let empty: Config = from_value(json!({"version": 1}))
+        .expect("a versioned wire value may omit its defaulted property map");
+    assert!(empty.is_empty());
+}
+
+#[test]
 fn test_bounded_decode_uses_custom_config_wire_domain_budget() {
     let mut config = Config::new();
     config
@@ -157,6 +173,42 @@ fn test_bounded_decode_uses_custom_config_wire_domain_budget() {
             maximum: 0,
         })
     ));
+}
+
+#[test]
+fn test_bounded_decode_uses_custom_property_key_budget() {
+    let mut config = Config::new();
+    config.set("long-key", "value").unwrap();
+    let input = to_vec(&config).expect("the config should serialize");
+    let limits = ConfigWireLimits::builder()
+        .max_property_key_bytes(3)
+        .build();
+
+    assert!(matches!(
+        Config::decode_json_slice_with_limits(&input, limits),
+        Err(ConfigWireDecodeError::LimitExceeded {
+            kind: ConfigWireLimitKind::PropertyKeyBytes,
+            value: 8,
+            maximum: 3,
+        })
+    ));
+}
+
+#[test]
+fn test_ordinary_deserialize_enforces_default_property_count_budget() {
+    let mut config = Config::new();
+    for index in 0..=ConfigWireLimits::DEFAULT_MAX_PROPERTIES {
+        config.set(format!("item{index}"), index).unwrap();
+    }
+    let input = to_vec(&config).expect("the large config should serialize");
+
+    let error = from_slice::<Config>(&input)
+        .expect_err("ordinary Deserialize should reject a map beyond the shared entry budget");
+
+    assert!(
+        error.to_string().contains("MapEntries"),
+        "unexpected budget error: {error}"
+    );
 }
 
 /// Verifies legacy runtime policy data is accepted but never applied.
