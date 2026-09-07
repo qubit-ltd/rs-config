@@ -17,9 +17,11 @@ COVERAGE_ENFORCE_THRESHOLDS=1 ./coverage.sh json
 ```
 
 The run uses all Cargo features and writes the machine-readable report to
-`target/llvm-cov/coverage.json`. `scripts/check-coverage-files.py` reads that
-report and `.rs-ci-coverage.json`, excludes only the configured instrumentation
-exceptions, and checks every remaining reported production file under `src/`:
+`target/llvm-cov/coverage.json`. After the shared coverage generator succeeds,
+the project `coverage.sh` wrapper immediately runs
+`scripts/check-coverage-files.py`. The checker reads that fresh report and
+`.rs-ci-coverage.json`, excludes only the configured instrumentation exceptions,
+and checks every remaining reported production file under `src/`:
 
 - functions must be at least 95%;
 - lines must be greater than 90%; and
@@ -27,6 +29,14 @@ exceptions, and checks every remaining reported production file under `src/`:
 
 The aggregate summary printed by `coverage.sh` cannot replace this per-file
 gate. A high crate-wide percentage can otherwise hide a low-coverage file.
+Missing or invalid JSON fails the wrapper; it is never treated as a skipped
+check.
+
+The project-specific hook runs before the shared CI runner's coverage step and
+therefore does not own this gate. The root `ci-check.sh` wrapper preserves the
+fresh JSON until the shared runner finishes, invokes the per-file checker, and
+only then applies the requested artifact cleanup policy. This ordering makes a
+clean checkout enforce the same gate as the authoritative coverage command.
 
 The evidence below was captured on 2026-09-07 with `cargo-llvm-cov 0.8.6` from
 `target/llvm-cov/coverage.json`, after running the command above. The JSON
@@ -65,10 +75,11 @@ and a focused test that proves the corresponding observable behavior. Changes
 to the English and Simplified Chinese documents must remain synchronized.
 
 When a Rust/LLVM or `cargo-llvm-cov` update fixes counter attribution, remove
-the affected exception before weakening or changing a threshold. Run both the
-per-file checker and the package listing after every policy change:
+the affected exception before weakening or changing a threshold. Run the
+authoritative coverage wrapper and the package listing after every policy
+change:
 
 ```text
-python3 scripts/check-coverage-files.py
+COVERAGE_ENFORCE_THRESHOLDS=1 ./coverage.sh json
 cargo package --list --allow-dirty
 ```

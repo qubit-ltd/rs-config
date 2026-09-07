@@ -6,13 +6,6 @@ cd "$PROJECT_ROOT"
 
 python3 scripts/check-doc-examples.py
 
-coverage_json=${COVERAGE_JSON:-target/llvm-cov/coverage.json}
-if [[ -f "$coverage_json" ]]; then
-  python3 scripts/check-coverage-files.py "$coverage_json"
-else
-  echo "Skipping per-file coverage check: report not found at $coverage_json"
-fi
-
 cargo check --examples
 cargo check --all-features --examples
 
