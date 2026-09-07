@@ -50,11 +50,13 @@ if [[ "${CHECK_DOWNSTREAM_COMPATIBILITY:-0}" == "1" ]]; then
   downstream_consumers=(rs-http rs-mime rs-magika)
   for consumer in "${downstream_consumers[@]}"; do
     consumer_path="${DOWNSTREAM_ROOT}/${consumer}"
-    printf '+ (cd %q && cargo test --all-features --quiet)\n' "$consumer_path"
+    printf '+ (cd %q && cargo metadata --locked --format-version 1)\n' "$consumer_path"
+    printf '+ (cd %q && cargo test --locked --all-features --quiet)\n' "$consumer_path"
     if [[ "${DOWNSTREAM_DRY_RUN:-0}" != "1" ]]; then
       (
         cd "$consumer_path"
-        cargo test --all-features --quiet
+        cargo metadata --locked --format-version 1 > /dev/null
+        cargo test --locked --all-features --quiet
       )
     fi
   done

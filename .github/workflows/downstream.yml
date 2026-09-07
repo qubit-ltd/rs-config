@@ -24,10 +24,12 @@ jobs:
       matrix:
         include:
           - rs_config_ref: ${{ github.sha }}
-            rs_http_ref: ff922aa231d6d4c4da192b24a4a0fa54d64265b5
+            # This rs-http ref requires qubit-redact 0.7 and qubit-retry 0.21.
+            rs_http_ref: 8ef9d96dac22874b25f3d00113de611f6d55dde1
             rs_mime_ref: 693d66d7be990da264b16d8866fc4135af29294e
             rs_magika_ref: fe633c9fe58bc84c7ad12962268cbefd0adcff85
-            rs_retry_ref: 0503b98cfbc3fd5a45ca19dfd90aec7d7861a118
+            # Last qubit-retry 0.21 commit before the 0.22 version bump.
+            rs_retry_ref: 7dc012b8d3801211174ef0ba41d65e476d191a42
             rs_redact_ref: 41adde89b8b2b842bbb3e6c7a1d786a1818f2cc4
             rs_fs_ref: 53a8d872f34482d3087d80847a9e51d800d6065e
             rs_command_ref: d67d1f3c85623762e3b76a66b69b1c1854f7e719
@@ -188,10 +190,58 @@ jobs:
           rustup toolchain install 1.94 --profile minimal
           rustup default 1.94
 
+      - name: Prepare compatibility checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          compatibility_root="${RUNNER_TEMP}/rs-config-downstream"
+          test ! -e "$compatibility_root"
+          mkdir -p "$compatibility_root"
+          for repository in \
+            rs-config \
+            rs-http \
+            rs-mime \
+            rs-magika \
+            rs-retry \
+            rs-redact \
+            rs-fs \
+            rs-command \
+            rs-local-files \
+            rs-spi \
+            rs-fs-local \
+            rs-fs-registry \
+            rs-fs-testkit \
+            rs-value
+          do
+            mkdir -p "${compatibility_root}/${repository}"
+            git -C "rust-common/${repository}" archive HEAD \
+              | tar -x -C "${compatibility_root}/${repository}"
+          done
+
+      - name: Prepare explicit rs-magika lock overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          compatibility_root="${RUNNER_TEMP}/rs-config-downstream"
+          pinned_lock="${RUNNER_TEMP}/rs-magika.Cargo.lock.pinned"
+          mkdir -p "${compatibility_root}/rs-magika/.cargo"
+          printf '%s\n' \
+            '[patch."https://github.com/qubit-ltd/rs-redact"]' \
+            "qubit-redact = { path = \"${compatibility_root}/rs-redact\" }" \
+            > "${compatibility_root}/rs-magika/.cargo/config.toml"
+          cp "${compatibility_root}/rs-magika/Cargo.lock" "$pinned_lock"
+          cd "${compatibility_root}/rs-magika"
+          cargo update \
+            --package "path+file://${compatibility_root}/rs-redact#qubit-redact@0.6.0" \
+            --precise 0.7.0
+          cargo metadata --locked --format-version 1 > /dev/null
+          echo "Compatibility lock overlay (pinned rs-magika ref remains unchanged):"
+          diff -u "$pinned_lock" Cargo.lock || true
+
       - name: Test downstream consumers serially
         shell: bash
         env:
           CARGO_TARGET_DIR: ${{ github.workspace }}/target/downstream
           CHECK_DOWNSTREAM_COMPATIBILITY: "1"
-          DOWNSTREAM_ROOT: ${{ github.workspace }}/rust-common
+          DOWNSTREAM_ROOT: ${{ runner.temp }}/rs-config-downstream
         run: ./rust-common/rs-config/project-ci-check.sh
