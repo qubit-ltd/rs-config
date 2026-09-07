@@ -17,6 +17,8 @@ use qubit_config::ConfigErrorKind;
 use qubit_config::ConfigResult;
 use qubit_config::Property;
 use qubit_config::source::ConfigSource;
+use qubit_config::source::SourceLimitKind;
+use qubit_config::source::SourceLimits;
 use qubit_config::source::YamlConfigSource;
 use qubit_value::MultiValues;
 
@@ -443,6 +445,8 @@ mod test_yaml_edge_cases {
     use super::Config;
     use super::ConfigError;
     use super::ConfigSource;
+    use super::SourceLimitKind;
+    use super::SourceLimits;
     use super::YamlConfigSource;
     use super::merge_source;
 
@@ -693,5 +697,127 @@ locked_strings:
             assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
             assert_eq!(config.get::<Vec<String>>(key).unwrap(), vec!["old"]);
         }
+    }
+
+    #[test]
+    fn test_yaml_empty_document_loads_empty_config() {
+        let config = YamlConfigSource::from_content("")
+            .load()
+            .expect("empty YAML content should load");
+
+        assert_eq!(config.len(), 0);
+    }
+
+    #[test]
+    fn test_yaml_input_limit_reports_observed_bytes() {
+        let source = YamlConfigSource::builder()
+            .content("key: 1\n")
+            .limits(SourceLimits::builder().max_input_bytes(6).build())
+            .build();
+
+        assert!(matches!(
+            source.load(),
+            Err(ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::InputBytes,
+                limit: 6,
+                observed_at_least: 7,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn test_yaml_property_limit_counts_flattened_properties() {
+        let source = YamlConfigSource::builder()
+            .content("first: 1\nsecond: 2\n")
+            .limits(SourceLimits::builder().max_properties(1).build())
+            .build();
+
+        assert!(matches!(
+            source.load(),
+            Err(ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::PropertyCount,
+                limit: 1,
+                observed_at_least: 2,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn test_yaml_node_limit_counts_root_and_values() {
+        let source = YamlConfigSource::builder()
+            .content("first: 1\nsecond: 2\n")
+            .limits(SourceLimits::builder().max_nodes(2).build())
+            .build();
+
+        assert!(matches!(
+            source.load(),
+            Err(ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::NodeCount,
+                limit: 2,
+                observed_at_least: 3,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn test_yaml_nesting_limit_rejects_nested_value() {
+        let source = YamlConfigSource::builder()
+            .content("server:\n  port: 8080\n")
+            .limits(SourceLimits::builder().max_nesting_depth(1).build())
+            .build();
+
+        assert!(matches!(
+            source.load(),
+            Err(ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::NestingDepth,
+                limit: 1,
+                observed_at_least: 2,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn test_yaml_directory_path_returns_io_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = YamlConfigSource::from_file(dir.path());
+
+        assert!(matches!(source.load(), Err(ConfigError::SourceIoError { .. })));
+    }
+
+    #[test]
+    fn test_yaml_invalid_utf8_returns_io_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("invalid-utf8.yaml");
+        std::fs::write(&path, [0xff]).unwrap();
+        let source = YamlConfigSource::from_file(&path);
+
+        assert!(matches!(source.load(), Err(ConfigError::SourceIoError { .. })));
+    }
+
+    #[test]
+    fn test_yaml_limit_failure_is_transactional() {
+        let source = YamlConfigSource::builder()
+            .content("first: 1\nsecond: 2\n")
+            .limits(SourceLimits::builder().max_properties(1).build())
+            .build();
+        let mut config = Config::new();
+        config.set("existing", "kept").unwrap();
+
+        let result = merge_source(&mut config, &source);
+
+        assert!(matches!(
+            result,
+            Err(ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::PropertyCount,
+                ..
+            })
+        ));
+        assert_eq!(config.len(), 1);
+        assert_eq!(config.get::<String>("existing").unwrap(), "kept");
+        assert!(!config.contains("first").unwrap());
     }
 }

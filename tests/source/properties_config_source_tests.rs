@@ -14,6 +14,8 @@ use qubit_config::ConfigError;
 use qubit_config::ConfigResult;
 use qubit_config::source::ConfigSource;
 use qubit_config::source::PropertiesConfigSource;
+use qubit_config::source::SourceLimitKind;
+use qubit_config::source::SourceLimits;
 
 fn fixture(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -270,7 +272,13 @@ mod test_properties_config_source {
 #[cfg(test)]
 mod test_properties_edge_cases {
 
+    use super::Config;
+    use super::ConfigError;
+    use super::ConfigSource;
     use super::PropertiesConfigSource;
+    use super::SourceLimitKind;
+    use super::SourceLimits;
+    use super::merge_source;
 
     #[test]
     fn test_properties_key_only_line() {
@@ -369,5 +377,144 @@ mod test_properties_edge_cases {
         assert_eq!(pairs.len(), 2);
         assert_eq!(pairs[0], ("path:home".to_string(), "some value".to_string()),);
         assert_eq!(pairs[1], ("hash#key".to_string(), "bang!value".to_string()),);
+    }
+
+    #[test]
+    fn test_properties_empty_content_loads_empty_config() {
+        let config = PropertiesConfigSource::from_content("")
+            .load()
+            .expect("empty properties content should load");
+
+        assert_eq!(config.len(), 0);
+    }
+
+    #[test]
+    fn test_properties_invalid_key_returns_source_parse_error() {
+        let error = PropertiesConfigSource::from_content("invalid..key=value\n")
+            .load()
+            .expect_err("invalid property key should fail");
+
+        assert!(matches!(
+            error,
+            ConfigError::SourceParseError {
+                source_id,
+                path: Some(path),
+                source_index: None,
+                ..
+            } if source_id == "properties:<memory>" && path == "invalid..key"
+        ));
+    }
+
+    #[test]
+    fn test_properties_input_limit_reports_observed_bytes() {
+        let source = PropertiesConfigSource::builder()
+            .content("KEY=VALUE")
+            .limits(SourceLimits::builder().max_input_bytes(8).build())
+            .build();
+
+        assert!(matches!(
+            source.load(),
+            Err(ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::InputBytes,
+                limit: 8,
+                observed_at_least: 9,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn test_properties_property_limit_counts_duplicate_assignments() {
+        let source = PropertiesConfigSource::builder()
+            .content("same=1\nsame=2\n")
+            .limits(SourceLimits::builder().max_properties(1).build())
+            .build();
+
+        assert!(matches!(
+            source.load(),
+            Err(ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::PropertyCount,
+                limit: 1,
+                observed_at_least: 2,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn test_properties_node_limit_counts_each_assignment() {
+        let source = PropertiesConfigSource::builder()
+            .content("first=1\nsecond=2\n")
+            .limits(SourceLimits::builder().max_nodes(1).build())
+            .build();
+
+        assert!(matches!(
+            source.load(),
+            Err(ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::NodeCount,
+                limit: 1,
+                observed_at_least: 2,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn test_properties_nesting_limit_rejects_deep_key() {
+        let source = PropertiesConfigSource::builder()
+            .content("server.port=8080\n")
+            .limits(SourceLimits::builder().max_nesting_depth(1).build())
+            .build();
+
+        assert!(matches!(
+            source.load(),
+            Err(ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::NestingDepth,
+                limit: 1,
+                observed_at_least: 2,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn test_properties_directory_path_returns_io_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = PropertiesConfigSource::from_file(dir.path());
+
+        assert!(matches!(source.load(), Err(ConfigError::SourceIoError { .. })));
+    }
+
+    #[test]
+    fn test_properties_invalid_utf8_returns_io_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("invalid-utf8.properties");
+        std::fs::write(&path, [0xff]).unwrap();
+        let source = PropertiesConfigSource::from_file(&path);
+
+        assert!(matches!(source.load(), Err(ConfigError::SourceIoError { .. })));
+    }
+
+    #[test]
+    fn test_properties_limit_failure_is_transactional() {
+        let source = PropertiesConfigSource::builder()
+            .content("first=1\nsecond=2\n")
+            .limits(SourceLimits::builder().max_properties(1).build())
+            .build();
+        let mut config = Config::new();
+        config.set("existing", "kept").unwrap();
+
+        let result = merge_source(&mut config, &source);
+
+        assert!(matches!(
+            result,
+            Err(ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::PropertyCount,
+                ..
+            })
+        ));
+        assert_eq!(config.len(), 1);
+        assert_eq!(config.get::<String>("existing").unwrap(), "kept");
+        assert!(!config.contains("first").unwrap());
     }
 }

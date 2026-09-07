@@ -339,6 +339,11 @@ impl ConfigSource for YamlConfigSource {
         let content = self.input.read_to_string("YAML", session)?;
         reject_yaml_aliases(&label, &content)?;
 
+        if content.trim().is_empty() {
+            context.replace_layer(config);
+            return Ok(());
+        }
+
         let value: YamlValue = from_str(&content).map_err(|error| yaml_parse_error(&label, &error))?;
 
         let mut seen = HashSet::new();

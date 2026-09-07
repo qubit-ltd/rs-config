@@ -15,6 +15,8 @@ use qubit_config::Config;
 use qubit_config::ConfigError;
 use qubit_config::ConfigResult;
 use qubit_config::source::ConfigSource;
+use qubit_config::source::SourceLimitKind;
+use qubit_config::source::SourceLimits;
 use qubit_config::source::TomlConfigSource;
 
 fn fixture(name: &str) -> PathBuf {
@@ -229,6 +231,9 @@ port = 9090
 mod test_toml_edge_cases {
     use super::Config;
     use super::ConfigError;
+    use super::ConfigSource;
+    use super::SourceLimitKind;
+    use super::SourceLimits;
     use super::TomlConfigSource;
     use super::merge_source;
 
@@ -493,5 +498,104 @@ locked = "attempted"
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
         assert_eq!(config.get::<String>("locked").unwrap(), "old");
         assert!(!config.contains("new_key").unwrap());
+    }
+
+    #[test]
+    fn test_toml_empty_content_loads_empty_config() {
+        let config = TomlConfigSource::from_content("")
+            .load()
+            .expect("empty TOML content should load");
+
+        assert_eq!(config.len(), 0);
+    }
+
+    #[test]
+    fn test_toml_input_limit_reports_observed_bytes() {
+        let source = TomlConfigSource::builder()
+            .content("key = 1\n")
+            .limits(SourceLimits::builder().max_input_bytes(7).build())
+            .build();
+
+        assert!(matches!(
+            source.load(),
+            Err(ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::InputBytes,
+                limit: 7,
+                observed_at_least: 8,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn test_toml_property_limit_counts_flattened_properties() {
+        let source = TomlConfigSource::builder()
+            .content("first = 1\nsecond = 2\n")
+            .limits(SourceLimits::builder().max_properties(1).build())
+            .build();
+
+        assert!(matches!(
+            source.load(),
+            Err(ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::PropertyCount,
+                limit: 1,
+                observed_at_least: 2,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn test_toml_node_limit_counts_root_and_values() {
+        let source = TomlConfigSource::builder()
+            .content("first = 1\nsecond = 2\n")
+            .limits(SourceLimits::builder().max_nodes(2).build())
+            .build();
+
+        assert!(matches!(
+            source.load(),
+            Err(ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::NodeCount,
+                limit: 2,
+                observed_at_least: 3,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn test_toml_nesting_limit_rejects_nested_value() {
+        let source = TomlConfigSource::builder()
+            .content("[server]\nport = 8080\n")
+            .limits(SourceLimits::builder().max_nesting_depth(1).build())
+            .build();
+
+        assert!(matches!(
+            source.load(),
+            Err(ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::NestingDepth,
+                limit: 1,
+                observed_at_least: 2,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn test_toml_directory_path_returns_io_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = TomlConfigSource::from_file(dir.path());
+
+        assert!(matches!(source.load(), Err(ConfigError::SourceIoError { .. })));
+    }
+
+    #[test]
+    fn test_toml_invalid_utf8_returns_io_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("invalid-utf8.toml");
+        std::fs::write(&path, [0xff]).unwrap();
+        let source = TomlConfigSource::from_file(&path);
+
+        assert!(matches!(source.load(), Err(ConfigError::SourceIoError { .. })));
     }
 }

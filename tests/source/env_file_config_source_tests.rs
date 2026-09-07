@@ -19,6 +19,8 @@ use qubit_config::ConfigError;
 use qubit_config::ConfigResult;
 use qubit_config::source::ConfigSource;
 use qubit_config::source::EnvFileConfigSource;
+use qubit_config::source::SourceLimitKind;
+use qubit_config::source::SourceLimits;
 
 fn env_test_lock() -> MutexGuard<'static, ()> {
     static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
@@ -177,9 +179,13 @@ mod test_env_file_config_source {
 #[cfg(test)]
 mod test_env_file_edge_cases {
 
+    use super::Config;
     use super::ConfigError;
     use super::ConfigSource;
     use super::EnvFileConfigSource;
+    use super::SourceLimitKind;
+    use super::SourceLimits;
+    use super::merge_source;
 
     // ---- env_file: non-existent file returns IoError ----
     #[test]
@@ -234,5 +240,119 @@ mod test_env_file_edge_cases {
         source
             .load()
             .expect_err("loading a directory as an .env file should fail");
+    }
+
+    #[test]
+    fn test_env_file_invalid_utf8_returns_io_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("invalid-utf8.env");
+        std::fs::write(&path, [0xff]).unwrap();
+        let source = EnvFileConfigSource::from_file(&path);
+
+        assert!(matches!(source.load(), Err(ConfigError::SourceIoError { .. })));
+    }
+
+    #[test]
+    fn test_env_file_empty_content_loads_empty_config() {
+        let config = EnvFileConfigSource::from_content("")
+            .load()
+            .expect("empty dotenv content should load");
+
+        assert_eq!(config.len(), 0);
+    }
+
+    #[test]
+    fn test_env_file_input_limit_reports_observed_bytes() {
+        let source = EnvFileConfigSource::builder()
+            .content("KEY=VALUE")
+            .limits(SourceLimits::builder().max_input_bytes(8).build())
+            .build();
+
+        assert!(matches!(
+            source.load(),
+            Err(ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::InputBytes,
+                limit: 8,
+                observed_at_least: 9,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn test_env_file_property_limit_counts_each_assignment() {
+        let source = EnvFileConfigSource::builder()
+            .content("FIRST=1\nSECOND=2\n")
+            .limits(SourceLimits::builder().max_properties(1).build())
+            .build();
+
+        assert!(matches!(
+            source.load(),
+            Err(ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::PropertyCount,
+                limit: 1,
+                observed_at_least: 2,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn test_env_file_node_limit_counts_each_assignment() {
+        let source = EnvFileConfigSource::builder()
+            .content("FIRST=1\nSECOND=2\n")
+            .limits(SourceLimits::builder().max_nodes(1).build())
+            .build();
+
+        assert!(matches!(
+            source.load(),
+            Err(ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::NodeCount,
+                limit: 1,
+                observed_at_least: 2,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn test_env_file_nesting_limit_rejects_deep_key() {
+        let source = EnvFileConfigSource::builder()
+            .content("server.port=8080\n")
+            .limits(SourceLimits::builder().max_nesting_depth(1).build())
+            .build();
+
+        assert!(matches!(
+            source.load(),
+            Err(ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::NestingDepth,
+                limit: 1,
+                observed_at_least: 2,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn test_env_file_limit_failure_is_transactional() {
+        let source = EnvFileConfigSource::builder()
+            .content("first=1\nsecond=2\n")
+            .limits(SourceLimits::builder().max_properties(1).build())
+            .build();
+        let mut config = Config::new();
+        config.set("existing", "kept").unwrap();
+
+        let result = merge_source(&mut config, &source);
+
+        assert!(matches!(
+            result,
+            Err(ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::PropertyCount,
+                ..
+            })
+        ));
+        assert_eq!(config.len(), 1);
+        assert_eq!(config.get::<String>("existing").unwrap(), "kept");
+        assert!(!config.contains("first").unwrap());
     }
 }
