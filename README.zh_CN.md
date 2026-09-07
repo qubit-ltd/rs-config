@@ -186,12 +186,14 @@ TOML 和 YAML 在 parser 边界存在明确例外：第三方 parser
 不能约束 parser 自身的内存分配或递归。要获得该保证，未来需要流式 parser。只有明确
 了解输入边界时才应放宽 `SourceLimits`。
 
-本库不会在普通读取时静默执行插值，不会在加载 `.env` 文件时展开进程环境占位符，不会用默认值掩盖已存在但无效的值，也不会把 `ConfigReader` 变成 `dyn` trait object：它的泛型方法使其不满足 object-safe。路径规则、source 失败行为、结构化反序列化、自定义转换和排障细节请参阅用户手册。
+本库不会在普通读取时静默执行插值，不会在加载 `.env` 文件时展开进程环境占位符，也不会用默认值掩盖已存在但无效的值。`ConfigReader` 是封闭（sealed）trait，不能由第三方实现；它包含泛型方法，因此不支持 `dyn ConfigReader`。路径规则、配置源失败行为、结构化反序列化、自定义转换和排障细节请参阅用户手册；当前组件边界与兼容承诺记录在设计说明中。
 
 ## 延伸阅读
 
 - [English user guide](doc/user_guide.md)
 - [中文用户手册](doc/user_guide.zh_CN.md)
+- [English design document](doc/design.md)
+- [中文设计说明](doc/design.zh_CN.md)
 - [docs.rs API 文档](https://docs.rs/qubit-config)
 - [English README](README.md)
 - [仓库](https://github.com/qubit-ltd/rs-config)

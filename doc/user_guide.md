@@ -389,7 +389,7 @@ let policy = ReadPolicy::builder_from(&ReadPolicy::env_friendly())
 let config = Config::builder().default_read_policy(policy).build();
 ```
 
-Treat configuration that can select environment-variable names as trusted input. Interpolation also has configurable recursion-depth, expansion-count, and output-size limits; failures are reported as structured `ConfigError` categories.
+Treat configuration that can select environment-variable names as trusted input. The default interpolation limits are a reference-chain depth of 64, 4,096 placeholder expansions per read, and 1 MiB of UTF-8 output. `ReadPolicy::builder()` can change each dimension; failures are reported as structured `ConfigError` categories.
 
 ### Normalize environment keys
 
@@ -509,5 +509,7 @@ Check the source result independently with `source.load()`, then inspect its key
 - [Project README](../README.md)
 - [中文 README](../README.zh_CN.md)
 - [中文用户手册](user_guide.zh_CN.md)
+- [English design document](design.md)
+- [中文设计说明](design.zh_CN.md)
 - [API documentation on docs.rs](https://docs.rs/qubit-config)
 - [Repository](https://github.com/qubit-ltd/rs-config)
