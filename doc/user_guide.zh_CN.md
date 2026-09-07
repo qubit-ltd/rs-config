@@ -363,10 +363,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     config.set("url", "http://${host}")?;
 
     assert_eq!(config.get::<String>("url")?, "http://${host}");
-    assert_eq!(
-        config.get_interpolated::<String>("url")?,
-        "http://localhost",
-    );
+    assert_eq!(config.get_interpolated::<String>("url")?, "http://localhost",);
     Ok(())
 }
 ```
