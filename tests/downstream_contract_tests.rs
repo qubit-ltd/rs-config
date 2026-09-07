@@ -150,8 +150,10 @@ fn mime_style_multi_key_interpolated_lookup_honors_priority_and_default() {
     config
         .set("QUBIT_MIME_DETECTOR_DEFAULT", "environment")
         .unwrap();
+    config.set("mime.enable.precise.detection", "yes").unwrap();
 
     let policy = ReadPolicy::builder()
+        .conversion_policy(ConversionPolicy::env_friendly())
         .interpolation_sources(InterpolationSources::ConfigThenEnv)
         .build();
     let value_config = config.read_with(&policy);
@@ -171,6 +173,22 @@ fn mime_style_multi_key_interpolated_lookup_honors_priority_and_default() {
             .unwrap(),
         "fallback"
     );
+    assert!(
+        value_config
+            .get_any_interpolated_or::<bool>(
+                [
+                    "mime.enable.precise.detection",
+                    "QUBIT_MIME_ENABLE_PRECISE_DETECTION",
+                ],
+                false,
+            )
+            .unwrap()
+    );
+    let strict_error = config
+        .read_with(&ReadPolicy::config_only())
+        .get::<bool>("mime.enable.precise.detection")
+        .expect_err("the strict default boolean policy must reject MIME's yes literal");
+    assert_eq!(strict_error.kind(), ConfigErrorKind::Conversion);
 }
 
 #[test]
