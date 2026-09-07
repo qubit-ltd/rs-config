@@ -74,6 +74,22 @@ name = "config_lookup_bench"
 path = "benches/config_lookup_bench.rs"
 harness = false
 
+[[bench]]
+name = "source_parsing_bench"
+path = "benches/source_parsing_bench.rs"
+harness = false
+required-features = ["formats"]
+
+[[bench]]
+name = "interpolation_bench"
+path = "benches/interpolation_bench.rs"
+harness = false
+
+[[bench]]
+name = "typed_collection_bench"
+path = "benches/typed_collection_bench.rs"
+harness = false
+
 [[test]]
 name = "composite_config_source_tests"
 path = "tests/source/composite_config_source_tests.rs"

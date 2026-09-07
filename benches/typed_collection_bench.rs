@@ -1,0 +1,112 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+// =============================================================================
+//! Typed collection conversion benchmarks.
+
+use std::collections::HashMap;
+use std::hint::black_box;
+
+use criterion::BenchmarkId;
+use criterion::Criterion;
+use criterion::criterion_group;
+use criterion::criterion_main;
+#[cfg(feature = "rich-types")]
+use num_bigint::BigInt;
+use qubit_config::Config;
+
+const COLLECTION_SIZES: [usize; 3] = [32, 1_024, 16_384];
+
+fn collection_fixtures() -> Vec<(usize, Config)> {
+    COLLECTION_SIZES
+        .into_iter()
+        .map(|size| {
+            let mut config = Config::new();
+            config
+                .set(
+                    "i64_values",
+                    (0..size).map(|value| value as i64).collect::<Vec<_>>(),
+                )
+                .expect("valid benchmark key");
+            config
+                .set(
+                    "string_values",
+                    (0..size)
+                        .map(|value| format!("value_{value}"))
+                        .collect::<Vec<_>>(),
+                )
+                .expect("valid benchmark key");
+            let map = (0..size)
+                .map(|value| (format!("key_{value}"), format!("value_{value}")))
+                .collect::<HashMap<_, _>>();
+            config.set("string_map", map).expect("valid benchmark key");
+
+            #[cfg(feature = "rich-types")]
+            config
+                .set(
+                    "big_integers",
+                    (0..size)
+                        .map(|value| BigInt::from(value as i64))
+                        .collect::<Vec<_>>(),
+                )
+                .expect("valid benchmark key");
+
+            (size, config)
+        })
+        .collect()
+}
+
+fn benchmark_typed_collections(criterion: &mut Criterion) {
+    let fixtures = collection_fixtures();
+    let mut group = criterion.benchmark_group("typed_collections");
+
+    for (size, config) in &fixtures {
+        group.bench_with_input(
+            BenchmarkId::new("vec_i64", size),
+            config,
+            |bencher, config| {
+                bencher.iter(|| black_box(config.get::<Vec<i64>>("i64_values")));
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("vec_string", size),
+            config,
+            |bencher, config| {
+                bencher.iter(|| black_box(config.get::<Vec<String>>("string_values")));
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("string_map", size),
+            config,
+            |bencher, config| {
+                bencher.iter(|| black_box(config.get::<HashMap<String, String>>("string_map")));
+            },
+        );
+
+        #[cfg(feature = "rich-types")]
+        group.bench_with_input(
+            BenchmarkId::new("vec_big_int", size),
+            config,
+            |bencher, config| {
+                bencher.iter(|| black_box(config.get::<Vec<BigInt>>("big_integers")));
+            },
+        );
+    }
+    group.finish();
+}
+
+criterion_group!(benches, benchmark_typed_collections);
+criterion_main!(benches);

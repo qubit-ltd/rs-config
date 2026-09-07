@@ -189,7 +189,7 @@ fn test_get_string_substitution_output_limit_counts_utf8_bytes() {
     let mut config = Config::new();
     config.set_default_read_policy(
         ReadPolicy::builder()
-            .max_interpolation_output_bytes(5)
+            .max_interpolation_output_bytes(2)
             .build(),
     );
     config.set("part", "界").unwrap();
@@ -199,7 +199,7 @@ fn test_get_string_substitution_output_limit_counts_utf8_bytes() {
         config.get_interpolated::<String>("value"),
         Err(ConfigError::SubstitutionOutputTooLarge {
             path,
-            max_output_bytes: 5,
+            max_output_bytes: 2,
         }) if path == "value"
     ));
 }
