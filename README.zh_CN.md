@@ -72,11 +72,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 <!-- example: config_sources -->
 ```rust
-use qubit_config::{Config, ConfigReader};
-use qubit_config::source::{
-    CompositeConfigSource, EnvConfigSource, PropertiesConfigSource,
-};
+use qubit_config::Config;
+use qubit_config::ConfigReader;
+use qubit_config::source::CompositeConfigSource;
+use qubit_config::source::EnvConfigSource;
+use qubit_config::source::PropertiesConfigSource;
 
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let (host, port) = load_server_config()?;
+    println!("server listening at {host}:{port}");
+    Ok(())
+}
+
+// These sources are part of the default feature set, so this example compiles
+// both with default features and with `--all-features`.
 fn load_server_config() -> Result<(String, u16), Box<dyn std::error::Error>> {
     let mut sources = CompositeConfigSource::new();
     sources.add(PropertiesConfigSource::from_content(
@@ -101,12 +110,13 @@ fn load_server_config() -> Result<(String, u16), Box<dyn std::error::Error>> {
 <!-- example: config_structured -->
 ```rust
 use qubit_config::Config;
+use qubit_config::ConfigError;
 use qubit_config::ReadPolicy;
 use qubit_datatype::ConversionLimits;
 use qubit_datatype::ConversionOperationLimits;
 use serde::Deserialize;
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 struct Database {
     host: String,
     port: u16,
@@ -123,9 +133,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut config = Config::builder().default_read_policy(policy).build();
     config.set("db.host", "localhost")?;
     config.set("db.port", "5432")?;
-    let db = config.deserialize::<Database>("db")?;
-    assert_eq!(db.host, "localhost");
-    assert_eq!(db.port, 5432);
+    config.set("db.pool_size", 16)?;
+
+    let error = config
+        .deserialize::<Database>("db")
+        .expect_err("strict reads reject unknown fields");
+    assert!(matches!(error, ConfigError::UnknownProperties { .. }));
+
+    let database = config.deserialize_lenient::<Database>("db")?;
+    assert_eq!(
+        database,
+        Database {
+            host: "localhost".to_owned(),
+            port: 5432,
+        },
+    );
     Ok(())
 }
 ```

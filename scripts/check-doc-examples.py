@@ -21,6 +21,15 @@ DOCUMENTS = tuple(dict.fromkeys(path for paths in EXAMPLE_DOCS.values() for path
 MARKER_PATTERN = re.compile(r"^<!-- example: (.*?) -->$")
 EXAMPLE_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 RUST_FENCE_PATTERN = re.compile(r"^```rust(?:,[a-z0-9_-]+)*$")
+COPYRIGHT_HEADER = """// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+
+"""
 
 
 @dataclass(frozen=True)
@@ -90,8 +99,18 @@ def check_examples() -> list[str]:
 
     for example_id, (english_path, chinese_path) in EXAMPLE_DOCS.items():
         example_path = ROOT / "examples" / f"{example_id}.rs"
+        canonical_code: str | None = None
         if not example_path.is_file():
             errors.append(f"{english_path}: example ID '{example_id}' has no file at {example_path.relative_to(ROOT)}")
+        else:
+            example_code = example_path.read_text(encoding="utf-8")
+            if not example_code.startswith(COPYRIGHT_HEADER):
+                errors.append(
+                    f"{example_path.relative_to(ROOT)}: example ID '{example_id}' "
+                    "does not start with the canonical copyright header"
+                )
+            else:
+                canonical_code = example_code.removeprefix(COPYRIGHT_HEADER)
 
         english = by_document[english_path].get(example_id)
         chinese = by_document[chinese_path].get(example_id)
@@ -104,6 +123,12 @@ def check_examples() -> list[str]:
                 f"{chinese_path}:{chinese.line}: example ID '{example_id}' differs from "
                 f"{english_path}:{english.line}"
             )
+        for documented in (english, chinese):
+            if documented is not None and canonical_code is not None and documented.code != canonical_code:
+                errors.append(
+                    f"{documented.document}:{documented.line}: example ID '{example_id}' "
+                    f"differs from canonical {example_path.relative_to(ROOT)}"
+                )
 
         actual_paths = {example.document for example in occurrences.get(example_id, [])}
         expected_paths = {english_path, chinese_path}

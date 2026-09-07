@@ -355,15 +355,20 @@ assert_eq!(ports, [8080, 8081, 8082]);
 
 <!-- example: config_interpolation -->
 ```rust
-use qubit_config::{Config, ConfigReader};
+use qubit_config::Config;
 
-let mut config = Config::new();
-config.set("host", "localhost")?;
-config.set("url", "http://${host}")?;
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut config = Config::new();
+    config.set("host", "localhost")?;
+    config.set("url", "http://${host}")?;
 
-assert_eq!(config.get::<String>("url")?, "http://${host}");
-assert_eq!(config.get_interpolated::<String>("url")?, "http://localhost");
-# Ok::<(), qubit_config::ConfigError>(())
+    assert_eq!(config.get::<String>("url")?, "http://${host}");
+    assert_eq!(
+        config.get_interpolated::<String>("url")?,
+        "http://localhost",
+    );
+    Ok(())
+}
 ```
 
 默认插值来源是 `ConfigOnly`。如果要回退查询进程环境变量，必须显式配置：

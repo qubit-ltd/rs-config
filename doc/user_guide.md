@@ -367,15 +367,20 @@ Ordinary `get` and `deserialize` calls preserve placeholders such as `${host}`. 
 
 <!-- example: config_interpolation -->
 ```rust
-use qubit_config::{Config, ConfigReader};
+use qubit_config::Config;
 
-let mut config = Config::new();
-config.set("host", "localhost")?;
-config.set("url", "http://${host}")?;
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut config = Config::new();
+    config.set("host", "localhost")?;
+    config.set("url", "http://${host}")?;
 
-assert_eq!(config.get::<String>("url")?, "http://${host}");
-assert_eq!(config.get_interpolated::<String>("url")?, "http://localhost");
-# Ok::<(), qubit_config::ConfigError>(())
+    assert_eq!(config.get::<String>("url")?, "http://${host}");
+    assert_eq!(
+        config.get_interpolated::<String>("url")?,
+        "http://localhost",
+    );
+    Ok(())
+}
 ```
 
 The default interpolation source is `ConfigOnly`. To fall back to process environment variables, configure it explicitly:
