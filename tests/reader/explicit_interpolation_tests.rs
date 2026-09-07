@@ -10,6 +10,8 @@
 use qubit_config::Config;
 use qubit_config::ConfigError;
 use qubit_config::ConfigReader;
+use qubit_config::options::InterpolationSources;
+use qubit_config::options::ReadPolicy;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize, PartialEq, Eq)]
@@ -184,4 +186,39 @@ fn test_deserialize_is_raw_and_deserialize_interpolated_is_explicit() {
             port: 8080,
         },
     );
+}
+
+#[test]
+fn test_interpolated_reads_keep_environment_outside_the_trust_boundary() {
+    const VARIABLE: &str = "QUBIT_CONFIG_EXPLICIT_TRUST_BOUNDARY";
+    unsafe {
+        std::env::set_var(VARIABLE, "from-env");
+    }
+
+    let mut config = Config::new();
+    config
+        .set_default_read_policy(ReadPolicy::env_friendly())
+        .set("value", "${QUBIT_CONFIG_EXPLICIT_TRUST_BOUNDARY}")
+        .expect("set interpolated value");
+
+    let default_result = config.get_interpolated::<String>("value");
+    assert!(matches!(
+        default_result,
+        Err(ConfigError::SubstitutionError { path, .. }) if path == "value"
+    ));
+
+    let trusted_policy = ReadPolicy::builder()
+        .interpolation_sources(InterpolationSources::ConfigThenEnv)
+        .build();
+    assert_eq!(
+        config
+            .read_with(&trusted_policy)
+            .get_interpolated::<String>("value")
+            .unwrap(),
+        "from-env"
+    );
+
+    unsafe {
+        std::env::remove_var(VARIABLE);
+    }
 }

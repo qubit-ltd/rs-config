@@ -411,3 +411,30 @@ fn test_read_policy_serde_boolean_literals_and_errors() {
     assert!(serde_json::from_value::<ReadPolicy>(bad_true).is_err());
     assert!(serde_json::from_value::<ReadPolicy>(bad_false).is_err());
 }
+
+#[test]
+fn test_read_policy_override_combines_conversion_and_interpolation_limits() {
+    let mut config = Config::new();
+    config.set("part", "ok").unwrap();
+    config.set("service.value", "${part}").unwrap();
+    config.set("service.port", "8080").unwrap();
+
+    let policy = ReadPolicy::builder()
+        .blank_string_policy(BlankStringPolicy::TreatAsMissing)
+        .max_interpolation_expansions(0)
+        .build();
+    let service = config.section("service").unwrap().read_with(&policy);
+
+    assert!(matches!(
+        service.get_interpolated::<String>("value"),
+        Err(ConfigError::SubstitutionExpansionLimitExceeded {
+            path,
+            max_expansions: 0,
+        }) if path == "service.value"
+    ));
+    assert_eq!(service.get::<u16>("port").unwrap(), 8080);
+    assert_eq!(
+        config.get_interpolated::<String>("service.value").unwrap(),
+        "ok"
+    );
+}

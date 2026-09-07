@@ -137,3 +137,27 @@ fn test_section_iter_prefix_stays_within_full_prefix_boundary() {
 
     assert_eq!(keys, ["proxy.host", "proxy.port"]);
 }
+
+#[test]
+fn test_section_relative_keys_cannot_escape_or_be_reinterpreted_as_absolute() {
+    let mut config = Config::new();
+    config.set("service.child.value", "inside").unwrap();
+    config.set("service2.child.value", "sibling").unwrap();
+
+    let service = config.section("service").unwrap();
+    assert_eq!(service.get::<String>("child.value").unwrap(), "inside");
+    assert!(matches!(
+        service.get::<String>("service.child.value"),
+        Err(ConfigError::PropertyNotFound(path)) if path == "service.service.child.value"
+    ));
+    assert!(matches!(
+        service.section(".."),
+        Err(ConfigError::InvalidPath { .. })
+    ));
+    assert!(matches!(
+        service.section(".child"),
+        Err(ConfigError::InvalidPath { .. })
+    ));
+    assert!(service.contains_section("child").unwrap());
+    assert!(!service.contains_section("child.value").unwrap());
+}

@@ -909,6 +909,39 @@ fn test_read_with_policy_applies_to_list_aliases() {
 }
 
 #[test]
+fn test_reader_combines_scoped_policy_alias_interpolation_and_prefix_reads() {
+    let mut config = Config::new();
+    config.set("global.host", "api.example.test").unwrap();
+    config.set("service.primary_url", "   ").unwrap();
+    config
+        .set("service.URL", "https://${global.host}/v1")
+        .unwrap();
+    config.set("service.timeout", "30").unwrap();
+
+    let policy = ReadPolicy::builder()
+        .blank_string_policy(BlankStringPolicy::TreatAsMissing)
+        .max_interpolation_expansions(1)
+        .build();
+    let service = config.section("service").unwrap().read_with(&policy);
+
+    assert_eq!(service.get_optional::<String>("primary_url").unwrap(), None);
+    assert_eq!(
+        service
+            .get_any_interpolated_or::<String>(["primary_url", "URL"], "https://fallback")
+            .unwrap(),
+        "https://api.example.test/v1"
+    );
+    assert!(service.contains_key_prefix("U"));
+    assert_eq!(
+        service
+            .iter_prefix("U")
+            .map(|(key, _)| key)
+            .collect::<Vec<_>>(),
+        vec!["URL"]
+    );
+}
+
+#[test]
 fn test_is_unset_distinguishes_missing_unset_empty_and_blank_values() {
     let mut config = Config::new();
     config
