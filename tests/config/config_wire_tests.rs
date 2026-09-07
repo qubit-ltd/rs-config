@@ -135,6 +135,36 @@ fn test_ordinary_deserialize_enforces_default_decoded_string_budget() {
 }
 
 #[test]
+fn test_ordinary_deserialize_enforces_default_depth_budget() {
+    let mut nested = json!(true);
+    for _ in 0..ConfigWireLimits::DEFAULT_MAX_DEPTH {
+        nested = json!({"nested": nested});
+    }
+    let mut config = Config::new();
+    config
+        .set("nested", nested)
+        .expect("the nested JSON value should be accepted by the domain model");
+    let input = to_vec(&config).expect("the config should serialize");
+
+    let error = from_slice::<Config>(&input).expect_err("ordinary Deserialize should enforce depth limits");
+    assert!(error.to_string().contains("Depth"), "unexpected error: {error}");
+}
+
+#[test]
+fn test_ordinary_deserialize_enforces_default_node_budget_incrementally() {
+    let mut config = Config::new();
+    for index in 0..ConfigWireLimits::DEFAULT_MAX_PROPERTIES {
+        config
+            .set(format!("values{index}"), vec![0_i32; 25])
+            .expect("the large collection should be accepted by the domain model");
+    }
+    let input = to_vec(&config).expect("the config should serialize");
+
+    let error = from_slice::<Config>(&input).expect_err("ordinary Deserialize should enforce node limits");
+    assert!(error.to_string().contains("Nodes"), "unexpected error: {error}");
+}
+
+#[test]
 fn test_ordinary_deserialize_accounts_array_values_and_missing_properties() {
     let mut config = Config::new();
     config
