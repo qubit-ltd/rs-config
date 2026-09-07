@@ -39,6 +39,25 @@ use crate::options::ReadPolicy;
 /// The trait is sealed because its default methods rely on invariants shared by
 /// [`Config`] and [`ConfigSection`]. Consumers can use it as a generic bound
 /// but cannot provide third-party implementations.
+///
+/// # Examples
+///
+/// Generic consumers can read either a complete configuration or a section:
+///
+/// ```rust
+/// use qubit_config::{Config, ConfigReader, ConfigResult};
+///
+/// fn read_endpoint(reader: &impl ConfigReader) -> ConfigResult<(String, u16)> {
+///     Ok((reader.get("host")?, reader.get("port")?))
+/// }
+///
+/// let mut config = Config::new();
+/// config.set("host", "localhost")?;
+/// config.set("port", 8080_u16)?;
+///
+/// assert_eq!(read_endpoint(&config)?, ("localhost".to_string(), 8080));
+/// # Ok::<(), qubit_config::ConfigError>(())
+/// ```
 pub trait ConfigReader: internal::Sealed {
     /// Returns a reference to the raw [`Property`] for `name`, if present.
     ///

@@ -26,6 +26,22 @@ use crate::options::ReadPolicy;
 /// Every property name is resolved strictly relative to [`Self::path`]. An
 /// exact scalar stored at the section path is not part of the section; only
 /// descendants beginning with `{path}.` are visible.
+///
+/// # Examples
+///
+/// ```rust
+/// use qubit_config::{Config, ConfigReader};
+///
+/// let mut config = Config::new();
+/// config.set("server.host", "localhost")?;
+/// config.set("server.port", 8080_u16)?;
+///
+/// let server = config.section("server")?;
+/// assert_eq!(server.path(), "server");
+/// assert_eq!(server.get::<String>("host")?, "localhost");
+/// assert_eq!(server.get::<u16>("port")?, 8080);
+/// # Ok::<(), qubit_config::ConfigError>(())
+/// ```
 #[must_use]
 #[derive(Debug, Clone)]
 pub struct ConfigSection<'a> {

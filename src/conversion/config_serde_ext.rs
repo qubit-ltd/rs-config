@@ -29,6 +29,36 @@ use crate::utils;
 /// [`crate::Config`] and [`crate::ConfigSection`]. Prefixes are relative to the
 /// current reader scope. Import this trait when calling its methods through a
 /// generic reader or a section.
+///
+/// # Examples
+///
+/// Structured reads reject unconsumed fields by default. Use a lenient read
+/// only when the selected subtree intentionally permits additional fields:
+///
+/// ```rust
+/// use qubit_config::{Config, ConfigError, ConfigReader, ConfigResult, ConfigSerdeExt};
+/// use serde::Deserialize;
+///
+/// #[derive(Debug, Deserialize, PartialEq)]
+/// struct Server {
+///     port: u16,
+/// }
+///
+/// fn read_server(reader: &impl ConfigReader) -> ConfigResult<Server> {
+///     reader.deserialize_lenient("server")
+/// }
+///
+/// let mut config = Config::new();
+/// config.set("server.port", 8080_u16)?;
+/// config.set("server.label", "public")?;
+///
+/// let error = config
+///     .deserialize::<Server>("server")
+///     .expect_err("strict reads must reject unknown fields");
+/// assert!(matches!(error, ConfigError::UnknownProperties { .. }));
+/// assert_eq!(read_server(&config)?, Server { port: 8080 });
+/// # Ok::<(), qubit_config::ConfigError>(())
+/// ```
 pub trait ConfigSerdeExt: ConfigReader {
     /// Deserializes an exact property or subtree without interpolation.
     ///

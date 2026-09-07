@@ -46,6 +46,27 @@ impl Default for InterpolationSources {
 }
 
 /// Runtime policy that controls configuration conversion and interpolation.
+///
+/// A policy can be borrowed by [`crate::ConfigReader::read_with`] without
+/// changing the configuration's default policy.
+///
+/// # Examples
+///
+/// ```rust
+/// use qubit_config::{Config, ConfigReader, ReadPolicy};
+///
+/// let mut config = Config::new();
+/// config.set("enabled", "yes")?;
+///
+/// let policy = ReadPolicy::builder_from(&ReadPolicy::env_friendly())
+///     .max_interpolation_depth(8)
+///     .build();
+/// let reader = config.read_with(&policy);
+///
+/// assert!(reader.get::<bool>("enabled")?);
+/// assert_eq!(reader.read_policy().max_interpolation_depth(), 8);
+/// # Ok::<(), qubit_config::ConfigError>(())
+/// ```
 #[must_use]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
