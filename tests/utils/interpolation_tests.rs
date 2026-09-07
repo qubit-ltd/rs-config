@@ -187,11 +187,7 @@ fn test_get_string_substitution_depth_at_limit_succeeds() {
 #[test]
 fn test_get_string_substitution_output_limit_counts_utf8_bytes() {
     let mut config = Config::new();
-    config.set_default_read_policy(
-        ReadPolicy::builder()
-            .max_interpolation_output_bytes(2)
-            .build(),
-    );
+    config.set_default_read_policy(ReadPolicy::builder().max_interpolation_output_bytes(2).build());
     config.set("part", "界").unwrap();
     config.set("value", "${part}").unwrap();
 

@@ -10,8 +10,8 @@
 use qubit_config::Config;
 use qubit_config::ConfigError;
 use qubit_config::ConfigKey;
-use qubit_config::ConfigReader;
 use qubit_config::ConfigPathViolation;
+use qubit_config::ConfigReader;
 
 #[test]
 fn test_config_name_accepts_str_string_and_string_ref() {

@@ -201,14 +201,8 @@ fn test_from_config_interpolation_preserves_non_string_shapes() {
     config.set("bad_interpolated", "${bad_base}").unwrap();
     config.set("invalid", "${missing}").unwrap();
 
-    assert_eq!(
-        config.get_interpolated::<Vec<u16>>("scalar").unwrap(),
-        vec![7]
-    );
-    assert_eq!(
-        config.get_interpolated::<Vec<u16>>("numbers").unwrap(),
-        vec![1, 2]
-    );
+    assert_eq!(config.get_interpolated::<Vec<u16>>("scalar").unwrap(), vec![7]);
+    assert_eq!(config.get_interpolated::<Vec<u16>>("numbers").unwrap(), vec![1, 2]);
     assert_eq!(config.get_interpolated::<u16>("interpolated").unwrap(), 41);
     assert!(matches!(
         config.get_interpolated::<u16>("bad_interpolated"),

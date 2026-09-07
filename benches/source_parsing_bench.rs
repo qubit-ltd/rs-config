@@ -65,17 +65,13 @@ fn yaml_content(property_count: usize) -> String {
 fn source_fixtures(property_count: usize) -> Vec<(&'static str, Box<dyn ConfigSource>)> {
     let mut fixtures: Vec<(&'static str, Box<dyn ConfigSource>)> = vec![(
         "properties",
-        Box::new(PropertiesConfigSource::from_content(properties_content(
-            property_count,
-        ))),
+        Box::new(PropertiesConfigSource::from_content(properties_content(property_count))),
     )];
 
     #[cfg(feature = "env-file")]
     fixtures.push((
         "env-file",
-        Box::new(EnvFileConfigSource::from_content(env_file_content(
-            property_count,
-        ))),
+        Box::new(EnvFileConfigSource::from_content(env_file_content(property_count))),
     ));
     #[cfg(feature = "toml")]
     fixtures.push((
@@ -111,13 +107,9 @@ fn benchmark_source_parsing(criterion: &mut Criterion) {
 
     for (property_count, sources) in &fixtures {
         for (format, source) in sources {
-            group.bench_with_input(
-                BenchmarkId::new(*format, property_count),
-                source,
-                |bencher, source| {
-                    bencher.iter(|| black_box(source.load().unwrap()));
-                },
-            );
+            group.bench_with_input(BenchmarkId::new(*format, property_count), source, |bencher, source| {
+                bencher.iter(|| black_box(source.load().unwrap()));
+            });
         }
     }
     group.finish();

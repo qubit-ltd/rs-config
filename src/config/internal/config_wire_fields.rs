@@ -11,9 +11,9 @@ use std::collections::BTreeMap;
 use qubit_json::value::DuplicateKeyRejectingJsonValueSeed;
 use serde::Deserialize;
 use serde::Deserializer;
-use serde::de::IgnoredAny;
 use serde::de::DeserializeSeed;
 use serde::de::Error as _;
+use serde::de::IgnoredAny;
 use serde_json::from_value;
 
 use crate::Property;

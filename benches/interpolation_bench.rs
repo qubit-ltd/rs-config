@@ -35,20 +35,12 @@ struct InterpolationFixture {
 /// before Criterion starts timing iterations.
 fn interpolation_fixtures() -> Vec<InterpolationFixture> {
     let mut single = Config::new();
-    single
-        .set("host", "localhost")
-        .expect("valid benchmark key");
-    single
-        .set("value", "https://${host}")
-        .expect("valid benchmark key");
+    single.set("host", "localhost").expect("valid benchmark key");
+    single.set("value", "https://${host}").expect("valid benchmark key");
 
     let mut multiple = Config::new();
-    multiple
-        .set("scheme", "https")
-        .expect("valid benchmark key");
-    multiple
-        .set("host", "config.example")
-        .expect("valid benchmark key");
+    multiple.set("scheme", "https").expect("valid benchmark key");
+    multiple.set("host", "config.example").expect("valid benchmark key");
     multiple.set("port", 8443).expect("valid benchmark key");
     multiple
         .set("value", "${scheme}://${host}:${port}/api")
@@ -61,11 +53,9 @@ fn interpolation_fixtures() -> Vec<InterpolationFixture> {
         } else {
             format!("${{level_{}}}", index + 1)
         };
-        deep.set(format!("level_{index}"), value)
-            .expect("valid benchmark key");
+        deep.set(format!("level_{index}"), value).expect("valid benchmark key");
     }
-    deep.set("value", "${level_1}")
-        .expect("valid benchmark key");
+    deep.set("value", "${level_1}").expect("valid benchmark key");
 
     let output_budget = ReadPolicy::default().max_interpolation_output_bytes();
     let near_budget_value = "x".repeat(output_budget.saturating_sub(1_024));
@@ -73,9 +63,7 @@ fn interpolation_fixtures() -> Vec<InterpolationFixture> {
     near_budget
         .set("payload", near_budget_value)
         .expect("valid benchmark key");
-    near_budget
-        .set("value", "${payload}")
-        .expect("valid benchmark key");
+    near_budget.set("value", "${payload}").expect("valid benchmark key");
 
     vec![
         InterpolationFixture {
@@ -117,14 +105,7 @@ fn benchmark_interpolation(criterion: &mut Criterion) {
 
     for fixture in &fixtures {
         group.bench_function(fixture.name, |bencher| {
-            bencher.iter(|| {
-                black_box(
-                    fixture
-                        .config
-                        .get_interpolated::<String>(fixture.key)
-                        .unwrap(),
-                )
-            });
+            bencher.iter(|| black_box(fixture.config.get_interpolated::<String>(fixture.key).unwrap()));
         });
     }
     group.finish();

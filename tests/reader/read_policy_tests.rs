@@ -435,10 +435,7 @@ fn test_read_policy_override_combines_conversion_and_interpolation_limits() {
         }) if path == "service.value"
     ));
     assert_eq!(service.get::<u16>("port").unwrap(), 8080);
-    assert_eq!(
-        config.get_interpolated::<String>("service.value").unwrap(),
-        "ok"
-    );
+    assert_eq!(config.get_interpolated::<String>("service.value").unwrap(), "ok");
 }
 
 #[test]

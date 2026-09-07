@@ -67,10 +67,7 @@ fn http_style_section_reads_optional_and_interpolated_values() {
     config.set("http.base_url", "https://${host}/v1").unwrap();
     config.set("http.user_agent", "${host}").unwrap();
     config
-        .set(
-            "http.log_redaction.sensitive_headers",
-            vec!["authorization", "${host}"],
-        )
+        .set("http.log_redaction.sensitive_headers", vec!["authorization", "${host}"])
         .unwrap();
     config.set("http.ipv4_only", true).unwrap();
 
@@ -83,17 +80,13 @@ fn http_style_section_reads_optional_and_interpolated_values() {
         "https://api.example.test/v1"
     );
     assert_eq!(
-        http.get_optional_interpolated::<String>("user_agent")
-            .unwrap(),
+        http.get_optional_interpolated::<String>("user_agent").unwrap(),
         Some("api.example.test".to_owned())
     );
     assert_eq!(
         http.get_optional_interpolated::<Vec<String>>("log_redaction.sensitive_headers")
             .unwrap(),
-        Some(vec![
-            "authorization".to_owned(),
-            "api.example.test".to_owned()
-        ])
+        Some(vec!["authorization".to_owned(), "api.example.test".to_owned()])
     );
 }
 
@@ -104,12 +97,8 @@ fn http_style_prefix_iteration_reads_default_headers_in_a_section() {
     config
         .set("http.default_headers.authorization", "Bearer ${token}")
         .unwrap();
-    config
-        .set("http.default_headers.user-agent", "qubit-client")
-        .unwrap();
-    config
-        .set("http.default_headers_extra.ignored", "nope")
-        .unwrap();
+    config.set("http.default_headers.user-agent", "qubit-client").unwrap();
+    config.set("http.default_headers_extra.ignored", "nope").unwrap();
     config.set("http.server.host", "api.example.test").unwrap();
 
     let http = config.section("http").unwrap();
@@ -122,21 +111,14 @@ fn http_style_prefix_iteration_reads_default_headers_in_a_section() {
     sorted_keys.sort_unstable();
     assert_eq!(
         sorted_keys,
-        [
-            "default_headers.authorization",
-            "default_headers.user-agent"
-        ]
+        ["default_headers.authorization", "default_headers.user-agent"]
     );
     assert_eq!(
         http.get_interpolated::<String>("default_headers.authorization")
             .unwrap(),
         "Bearer secret-token"
     );
-    assert!(
-        !keys
-            .iter()
-            .any(|key| key.starts_with("default_headers_extra."))
-    );
+    assert!(!keys.iter().any(|key| key.starts_with("default_headers_extra.")));
 
     let all_keys: Vec<_> = http.iter().map(|(key, _)| key.to_owned()).collect();
     assert!(all_keys.contains(&"default_headers.authorization".to_owned()));
@@ -148,9 +130,7 @@ fn mime_style_multi_key_interpolated_lookup_honors_priority_and_default() {
     let mut config = Config::new();
     config.set("selector", "repository").unwrap();
     config.set("mime.detector.default", "${selector}").unwrap();
-    config
-        .set("QUBIT_MIME_DETECTOR_DEFAULT", "environment")
-        .unwrap();
+    config.set("QUBIT_MIME_DETECTOR_DEFAULT", "environment").unwrap();
     config.set("mime.enable.precise.detection", "yes").unwrap();
 
     let policy = ReadPolicy::builder()
@@ -161,10 +141,7 @@ fn mime_style_multi_key_interpolated_lookup_honors_priority_and_default() {
 
     assert_eq!(
         value_config
-            .get_any_interpolated_or::<String>(
-                ["mime.detector.default", "QUBIT_MIME_DETECTOR_DEFAULT"],
-                "fallback",
-            )
+            .get_any_interpolated_or::<String>(["mime.detector.default", "QUBIT_MIME_DETECTOR_DEFAULT"], "fallback",)
             .unwrap(),
         "repository"
     );
@@ -177,10 +154,7 @@ fn mime_style_multi_key_interpolated_lookup_honors_priority_and_default() {
     assert!(
         value_config
             .get_any_interpolated_or::<bool>(
-                [
-                    "mime.enable.precise.detection",
-                    "QUBIT_MIME_ENABLE_PRECISE_DETECTION",
-                ],
+                ["mime.enable.precise.detection", "QUBIT_MIME_ENABLE_PRECISE_DETECTION",],
                 false,
             )
             .unwrap()
@@ -195,9 +169,7 @@ fn mime_style_multi_key_interpolated_lookup_honors_priority_and_default() {
 #[test]
 fn mime_style_read_policies_cover_list_mapping_and_duration_values() {
     let mut config = Config::new();
-    config
-        .set("mime.detector.fallbacks", "file;repository")
-        .unwrap();
+    config.set("mime.detector.fallbacks", "file;repository").unwrap();
     config
         .set(
             "mime.ambiguous.mime.mapping",
@@ -247,10 +219,7 @@ fn mime_style_read_policies_cover_list_mapping_and_duration_values() {
     let list_config = config.read_with(&list_policy);
     assert_eq!(
         list_config
-            .get_any_interpolated_or::<Vec<String>>(
-                ["mime.detector.fallbacks"],
-                Vec::<String>::new()
-            )
+            .get_any_interpolated_or::<Vec<String>>(["mime.detector.fallbacks"], Vec::<String>::new())
             .unwrap(),
         ["file", "repository"]
     );
@@ -258,10 +227,7 @@ fn mime_style_read_policies_cover_list_mapping_and_duration_values() {
     let mapping_config = config.read_with(&mapping_policy);
     assert_eq!(
         mapping_config
-            .get_any_interpolated_or::<Vec<String>>(
-                ["mime.ambiguous.mime.mapping"],
-                Vec::<String>::new(),
-            )
+            .get_any_interpolated_or::<Vec<String>>(["mime.ambiguous.mime.mapping"], Vec::<String>::new(),)
             .unwrap(),
         ["webm:video/webm,audio/webm", "ogg:video/ogg,audio/ogg"]
     );
@@ -283,10 +249,7 @@ fn read_with_allows_explicit_environment_interpolation_for_downstream_readers() 
 
     let mut config = Config::new();
     config
-        .set(
-            "http.default_headers.authorization",
-            format!("${{{env_name}}}"),
-        )
+        .set("http.default_headers.authorization", format!("${{{env_name}}}"))
         .unwrap();
 
     let default_error = config

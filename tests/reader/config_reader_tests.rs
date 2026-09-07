@@ -913,9 +913,7 @@ fn test_reader_combines_scoped_policy_alias_interpolation_and_prefix_reads() {
     let mut config = Config::new();
     config.set("global.host", "api.example.test").unwrap();
     config.set("service.primary_url", "   ").unwrap();
-    config
-        .set("service.URL", "https://${global.host}/v1")
-        .unwrap();
+    config.set("service.URL", "https://${global.host}/v1").unwrap();
     config.set("service.timeout", "30").unwrap();
 
     let policy = ReadPolicy::builder()
@@ -933,10 +931,7 @@ fn test_reader_combines_scoped_policy_alias_interpolation_and_prefix_reads() {
     );
     assert!(service.contains_key_prefix("U"));
     assert_eq!(
-        service
-            .iter_prefix("U")
-            .map(|(key, _)| key)
-            .collect::<Vec<_>>(),
+        service.iter_prefix("U").map(|(key, _)| key).collect::<Vec<_>>(),
         vec!["URL"]
     );
 }

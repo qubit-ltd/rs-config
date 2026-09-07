@@ -151,10 +151,7 @@ fn test_section_relative_keys_cannot_escape_or_be_reinterpreted_as_absolute() {
         service.get::<String>("service.child.value"),
         Err(ConfigError::PropertyNotFound(path)) if path == "service.service.child.value"
     ));
-    assert!(matches!(
-        service.section(".."),
-        Err(ConfigError::InvalidPath { .. })
-    ));
+    assert!(matches!(service.section(".."), Err(ConfigError::InvalidPath { .. })));
     assert!(matches!(
         service.section(".child"),
         Err(ConfigError::InvalidPath { .. })
@@ -169,9 +166,6 @@ fn section_path_and_presence_accessors_are_callable_as_functions() {
     config.set("service.child.value", true).unwrap();
     let section = config.section("service").unwrap();
 
-    assert_eq!(
-        std::hint::black_box(ConfigSection::path)(&section),
-        "service"
-    );
+    assert_eq!(std::hint::black_box(ConfigSection::path)(&section), "service");
     assert!(std::hint::black_box(ConfigSection::contains_section)(&section, "child").unwrap());
 }

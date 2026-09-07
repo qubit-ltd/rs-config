@@ -78,10 +78,5 @@ fn config_names_support_unicode_candidates_and_preserve_priority() {
     let mut config = Config::new();
     config.set("服务.备用", "fallback").unwrap();
 
-    assert_eq!(
-        config
-            .get_any::<String>(["服务.主", "服务.备用"])
-            .unwrap(),
-        "fallback"
-    );
+    assert_eq!(config.get_any::<String>(["服务.主", "服务.备用"]).unwrap(), "fallback");
 }

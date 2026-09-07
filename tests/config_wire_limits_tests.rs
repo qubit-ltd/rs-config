@@ -53,18 +53,13 @@ fn config_wire_limits_support_json_profiles_and_default_builder_overrides() {
 
     assert_eq!(from_json.json_decode(), decode);
     assert_eq!(from_json.json_encode(), encode);
-    assert_eq!(
-        from_json.max_properties(),
-        ConfigWireLimits::DEFAULT_MAX_PROPERTIES
-    );
+    assert_eq!(from_json.max_properties(), ConfigWireLimits::DEFAULT_MAX_PROPERTIES);
     assert_eq!(
         from_json.max_property_key_bytes(),
         ConfigWireLimits::DEFAULT_MAX_PROPERTY_KEY_BYTES
     );
 
-    let overridden = ConfigWireLimitsBuilder::default()
-        .max_input_bytes(23)
-        .build();
+    let overridden = ConfigWireLimitsBuilder::default().max_input_bytes(23).build();
     assert_eq!(overridden.json_decode().max_input_bytes(), Some(23));
 }
 
@@ -104,57 +99,21 @@ fn config_wire_limits_builder_covers_every_json_budget_dimension() {
     assert_eq!(limits.json_decode().max_input_bytes(), Some(11));
     assert_eq!(limits.json_decode().value_limits().max_depth(), Some(12));
     assert_eq!(limits.json_decode().value_limits().max_nodes(), Some(13));
-    assert_eq!(
-        limits.json_decode().value_limits().max_sequence_items(),
-        Some(14)
-    );
-    assert_eq!(
-        limits.json_decode().value_limits().max_map_entries(),
-        Some(15)
-    );
-    assert_eq!(
-        limits.json_decode().value_limits().max_key_bytes(),
-        Some(16)
-    );
-    assert_eq!(
-        limits.json_decode().value_limits().max_string_bytes(),
-        Some(17)
-    );
-    assert_eq!(
-        limits.json_decode().value_limits().max_number_bytes(),
-        Some(18)
-    );
-    assert_eq!(
-        limits.json_decode().value_limits().max_payload_bytes(),
-        Some(19)
-    );
+    assert_eq!(limits.json_decode().value_limits().max_sequence_items(), Some(14));
+    assert_eq!(limits.json_decode().value_limits().max_map_entries(), Some(15));
+    assert_eq!(limits.json_decode().value_limits().max_key_bytes(), Some(16));
+    assert_eq!(limits.json_decode().value_limits().max_string_bytes(), Some(17));
+    assert_eq!(limits.json_decode().value_limits().max_number_bytes(), Some(18));
+    assert_eq!(limits.json_decode().value_limits().max_payload_bytes(), Some(19));
     assert_eq!(limits.json_encode().max_output_bytes(), Some(21));
     assert_eq!(limits.json_encode().value_limits().max_depth(), Some(22));
     assert_eq!(limits.json_encode().value_limits().max_nodes(), Some(23));
-    assert_eq!(
-        limits.json_encode().value_limits().max_sequence_items(),
-        Some(24)
-    );
-    assert_eq!(
-        limits.json_encode().value_limits().max_map_entries(),
-        Some(25)
-    );
-    assert_eq!(
-        limits.json_encode().value_limits().max_key_bytes(),
-        Some(26)
-    );
-    assert_eq!(
-        limits.json_encode().value_limits().max_string_bytes(),
-        Some(27)
-    );
-    assert_eq!(
-        limits.json_encode().value_limits().max_number_bytes(),
-        Some(28)
-    );
-    assert_eq!(
-        limits.json_encode().value_limits().max_payload_bytes(),
-        Some(29)
-    );
+    assert_eq!(limits.json_encode().value_limits().max_sequence_items(), Some(24));
+    assert_eq!(limits.json_encode().value_limits().max_map_entries(), Some(25));
+    assert_eq!(limits.json_encode().value_limits().max_key_bytes(), Some(26));
+    assert_eq!(limits.json_encode().value_limits().max_string_bytes(), Some(27));
+    assert_eq!(limits.json_encode().value_limits().max_number_bytes(), Some(28));
+    assert_eq!(limits.json_encode().value_limits().max_payload_bytes(), Some(29));
 }
 
 #[test]

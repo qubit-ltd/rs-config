@@ -38,9 +38,10 @@ fn load_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<(
 fn composite_builder_default_and_consuming_add_source_preserve_order() {
     let default_builder: fn() -> CompositeConfigSourceBuilder = Default::default;
     let builder = std::hint::black_box(default_builder)();
-    let composite = std::hint::black_box(
-        CompositeConfigSourceBuilder::add_source::<PropertiesConfigSource>,
-    )(builder, PropertiesConfigSource::from_content("answer=42\n"))
+    let composite = std::hint::black_box(CompositeConfigSourceBuilder::add_source::<PropertiesConfigSource>)(
+        builder,
+        PropertiesConfigSource::from_content("answer=42\n"),
+    )
     .build();
 
     assert_eq!(composite.len(), 1);

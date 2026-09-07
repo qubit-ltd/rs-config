@@ -18,12 +18,12 @@ use qubit_value::ValueError;
 use super::ConfigError;
 use super::ConfigResult;
 
+#[path = "utils/internal/mod.rs"]
+mod internal;
 #[path = "utils/interpolation.rs"]
 mod interpolation;
 #[path = "utils/structured_serde.rs"]
 mod structured_serde;
-#[path = "utils/internal/mod.rs"]
-mod internal;
 
 pub(crate) use interpolation::substitute_variables_with_fallback;
 pub(crate) use structured_serde::insert_deserialize_value;
