@@ -21,8 +21,11 @@ use std::ops::DerefMut;
 
 use qubit_datatype::DataType;
 use qubit_redact::Redactor;
+use qubit_value::MultiValues;
 use qubit_value::StrictValueRead;
+use qubit_value::Value;
 use qubit_value::ValueContainer;
+use qubit_value::ValueError;
 use qubit_value::ValueResult;
 use qubit_value::ValueWireRefV1;
 use serde::Deserialize;
@@ -220,6 +223,15 @@ impl Property {
         T: StrictValueRead,
     {
         self.value.get_first()
+    }
+
+    /// Strictly borrows the scalar value or first collection item.
+    #[inline(always)]
+    pub fn get_ref<'a, T: ?Sized>(&'a self) -> ValueResult<&'a T>
+    where
+        &'a T: TryFrom<&'a Value, Error = ValueError> + TryFrom<&'a MultiValues, Error = ValueError>,
+    {
+        self.value.get_first_ref()
     }
 
     /// Gets a mutable reference to the property value
