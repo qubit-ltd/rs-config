@@ -45,6 +45,7 @@ qubit-config = { version = "0.16", features = ["full"] }
 
 The core workflow is a mutable `Config` with typed reads. The same generic API can read primitive values, collections, and types supported by `FromConfig`.
 
+<!-- example: config_quickstart -->
 ```rust
 use qubit_config::Config;
 
@@ -69,6 +70,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 An application can load a checked-in baseline and then apply a higher-priority environment layer. Sources are added in order; a later source overrides an earlier value for the same key unless the existing property is final.
 
+<!-- example: config_sources -->
 ```rust
 use qubit_config::{Config, ConfigReader};
 use qubit_config::source::{
@@ -96,6 +98,7 @@ With `APP_SERVER__HOST` and `APP_SERVER__PORT` set, the environment layer suppli
 
 Use `Config::deserialize` when a subtree maps naturally to a Serde type:
 
+<!-- example: config_structured -->
 ```rust
 use qubit_config::Config;
 use qubit_config::ReadPolicy;

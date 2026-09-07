@@ -353,6 +353,7 @@ assert_eq!(ports, [8080, 8081, 8082]);
 
 普通的 `get` 和 `deserialize` 会原样保留 `${host}` 这样的占位符。只有当插值是配置契约的一部分时，才使用对应的 interpolated 方法：
 
+<!-- example: config_interpolation -->
 ```rust
 use qubit_config::{Config, ConfigReader};
 

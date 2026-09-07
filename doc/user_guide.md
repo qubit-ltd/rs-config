@@ -365,6 +365,7 @@ assert_eq!(ports, [8080, 8081, 8082]);
 
 Ordinary `get` and `deserialize` calls preserve placeholders such as `${host}`. Use the corresponding interpolated method when substitution is part of the configuration contract:
 
+<!-- example: config_interpolation -->
 ```rust
 use qubit_config::{Config, ConfigReader};
 

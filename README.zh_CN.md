@@ -45,6 +45,7 @@ qubit-config = { version = "0.16", features = ["full"] }
 
 核心工作流是使用可变的 `Config` 保存配置，再通过类型化 API 读取。相同的泛型接口可以读取基础类型、集合和实现了 `FromConfig` 的类型。
 
+<!-- example: config_quickstart -->
 ```rust
 use qubit_config::Config;
 
@@ -69,6 +70,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 应用可以先加载提交到仓库的基础配置，再叠加优先级更高的环境变量层。来源按照添加顺序应用；对于同一个 key，后加载的来源会覆盖前一个来源，除非已有 property 被标记为 final。
 
+<!-- example: config_sources -->
 ```rust
 use qubit_config::{Config, ConfigReader};
 use qubit_config::source::{
@@ -96,6 +98,7 @@ fn load_server_config() -> Result<(String, u16), Box<dyn std::error::Error>> {
 
 当一个 subtree 自然对应某个 Serde 类型时，可以使用 `Config::deserialize`：
 
+<!-- example: config_structured -->
 ```rust
 use qubit_config::Config;
 use qubit_config::ReadPolicy;
