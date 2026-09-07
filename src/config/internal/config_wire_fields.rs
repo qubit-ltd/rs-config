@@ -41,6 +41,7 @@ pub(in crate::config) struct ConfigWireFields {
     pub(in crate::config) read_options: Option<IgnoredAny>,
 }
 
+/// Deserializes the property map while rejecting duplicate JSON object keys.
 fn deserialize_unique_properties<'de, D>(deserializer: D) -> Result<BTreeMap<String, Property>, D::Error>
 where
     D: Deserializer<'de>,

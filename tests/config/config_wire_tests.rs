@@ -562,6 +562,18 @@ fn test_config_wire_rejects_duplicate_property_map_keys() {
     );
 }
 
+#[test]
+fn test_ordinary_deserialize_rejects_duplicate_property_map_keys() {
+    let input = br#"{"version":1,"properties":{"server.port":{"name":"server.port","value":{"version":1,"value":{"scalar":{"int32":1}}},"description":null,"is_final":false},"server.port":{"name":"server.port","value":{"version":1,"value":{"scalar":{"int32":2}}},"description":null,"is_final":false}}}"#;
+
+    let error = from_slice::<Config>(input)
+        .expect_err("ordinary Deserialize must not silently overwrite duplicate property keys");
+    assert!(
+        error.to_string().contains("duplicate JSON object key"),
+        "unexpected duplicate-key error: {error}"
+    );
+}
+
 /// Verifies matching map/property names are still rejected when the common
 /// name is not a canonical dotted key.
 #[test]

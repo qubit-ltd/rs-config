@@ -8,8 +8,13 @@
 // qubit-style: allow multiple-public-types
 //! Budget-aware seed for persisted configuration wire values.
 
+use qubit_budget::MeasuredBudgetError;
+use qubit_budget::json::JsonContainerKind;
+use qubit_budget::json::JsonMeasurement;
+use qubit_budget::json::JsonResource;
 use qubit_budget::json::JsonValueBudget;
-use qubit_json::value::AccountingJsonValueSeed;
+use qubit_budget::json::JsonValueTransaction;
+use qubit_json::value::DuplicateKeyRejectingJsonValueSeed;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::de::DeserializeSeed;
@@ -89,6 +94,43 @@ impl AccountingConfigWireSeed {
     }
 }
 
+/// Accounts a duplicate-checked JSON value for ordinary Serde decoding.
+fn account_json_value(
+    value: &Value,
+    transaction: &mut JsonValueTransaction<'_, JsonResource, u64>,
+    depth: usize,
+) -> Result<(), MeasuredBudgetError<JsonResource, u64>> {
+    match value {
+        Value::Null => transaction.try_admit(JsonMeasurement::Null { depth }),
+        Value::Bool(_) => transaction.try_admit(JsonMeasurement::Boolean { depth }),
+        Value::Number(number) => transaction.try_admit(JsonMeasurement::Number {
+            depth,
+            bytes: number.to_string().len(),
+        }),
+        Value::String(string) => transaction.try_admit(JsonMeasurement::String {
+            depth,
+            bytes: string.len(),
+        }),
+        Value::Array(values) => {
+            transaction.try_enter_container(JsonContainerKind::Sequence, depth)?;
+            for (index, value) in values.iter().enumerate() {
+                transaction.check_container_count(JsonContainerKind::Sequence, index + 1)?;
+                account_json_value(value, transaction, depth.saturating_add(1))?;
+            }
+            Ok(())
+        }
+        Value::Object(values) => {
+            transaction.try_enter_container(JsonContainerKind::Map, depth)?;
+            for (index, (key, value)) in values.iter().enumerate() {
+                transaction.check_container_count(JsonContainerKind::Map, index + 1)?;
+                transaction.try_admit(JsonMeasurement::Key { bytes: key.len() })?;
+                account_json_value(value, transaction, depth.saturating_add(1))?;
+            }
+            Ok(())
+        }
+    }
+}
+
 impl JsonAdmittedConfigWireSeed {
     /// Checks property dimensions on directly decoded wire fields.
     fn check_fields(&self, fields: &ConfigWireFields) -> Result<(), ConfigWireDecodeError> {
@@ -124,7 +166,10 @@ impl<'de> DeserializeSeed<'de> for AccountingConfigWireSeed {
     {
         let mut budget = JsonValueBudget::new(*self.limits.json_decode().value_limits());
         let mut transaction = budget.transaction();
-        let value = AccountingJsonValueSeed::new(&mut transaction).deserialize(deserializer)?;
+        let value = DuplicateKeyRejectingJsonValueSeed::new()
+            .deserialize(deserializer)?
+            .into_inner();
+        account_json_value(&value, &mut transaction, 1).map_err(D::Error::custom)?;
         transaction.commit().map_err(D::Error::custom)?;
         if let Err(error) = self.check_value(&value) {
             return Ok(Err(error));
