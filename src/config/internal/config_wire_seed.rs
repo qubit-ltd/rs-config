@@ -305,10 +305,9 @@ impl<'de, 'transaction, 'budget> Visitor<'de>
             .map_err(A::Error::custom)?;
         let mut values = Vec::new();
         loop {
-            let next = values
-                .len()
-                .checked_add(1)
-                .ok_or_else(|| A::Error::custom("JSON sequence item count overflowed usize"))?;
+            let Some(next) = values.len().checked_add(1) else {
+                return Err(A::Error::custom("JSON sequence item count overflowed usize"));
+            };
             let Some(value) = sequence
                 .next_element_seed(self.prospective_child(JsonContainerKind::Sequence, next))?
             else {
@@ -330,9 +329,9 @@ impl<'de, 'transaction, 'budget> Visitor<'de>
         let mut seen = HashSet::new();
         let mut entries = 0_usize;
         while let Some(key) = map.next_key::<String>()? {
-            let next = entries
-                .checked_add(1)
-                .ok_or_else(|| A::Error::custom("JSON map entry count overflowed usize"))?;
+            let Some(next) = entries.checked_add(1) else {
+                return Err(A::Error::custom("JSON map entry count overflowed usize"));
+            };
             self.transaction
                 .check_container_count(JsonContainerKind::Map, next)
                 .map_err(A::Error::custom)?;
