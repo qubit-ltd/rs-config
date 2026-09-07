@@ -23,7 +23,6 @@ use criterion::Criterion;
 use criterion::criterion_group;
 use criterion::criterion_main;
 use qubit_config::Config;
-use qubit_config::ConfigReader;
 use qubit_config::ReadPolicy;
 
 struct InterpolationFixture {
@@ -104,11 +103,28 @@ fn interpolation_fixtures() -> Vec<InterpolationFixture> {
 
 fn benchmark_interpolation(criterion: &mut Criterion) {
     let fixtures = interpolation_fixtures();
+
+    // Validate every prepared interpolation once before registering timed
+    // iterations so errors cannot be treated as benchmark samples.
+    for fixture in &fixtures {
+        fixture
+            .config
+            .get_interpolated::<String>(fixture.key)
+            .unwrap_or_else(|error| panic!("{} fixture should interpolate: {error}", fixture.name));
+    }
+
     let mut group = criterion.benchmark_group("interpolation");
 
     for fixture in &fixtures {
         group.bench_function(fixture.name, |bencher| {
-            bencher.iter(|| black_box(fixture.config.get_interpolated::<String>(fixture.key)));
+            bencher.iter(|| {
+                black_box(
+                    fixture
+                        .config
+                        .get_interpolated::<String>(fixture.key)
+                        .unwrap(),
+                )
+            });
         });
     }
     group.finish();

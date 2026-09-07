@@ -71,6 +71,30 @@ fn collection_fixtures() -> Vec<(usize, Config)> {
 
 fn benchmark_typed_collections(criterion: &mut Criterion) {
     let fixtures = collection_fixtures();
+
+    // Validate every prepared conversion once before registering timed
+    // iterations so errors cannot be treated as benchmark samples.
+    for (size, config) in &fixtures {
+        assert_eq!(config.get::<Vec<i64>>("i64_values").unwrap().len(), *size);
+        assert_eq!(
+            config.get::<Vec<String>>("string_values").unwrap().len(),
+            *size
+        );
+        assert_eq!(
+            config
+                .get::<HashMap<String, String>>("string_map")
+                .unwrap()
+                .len(),
+            *size
+        );
+
+        #[cfg(feature = "rich-types")]
+        assert_eq!(
+            config.get::<Vec<BigInt>>("big_integers").unwrap().len(),
+            *size
+        );
+    }
+
     let mut group = criterion.benchmark_group("typed_collections");
 
     for (size, config) in &fixtures {
@@ -78,21 +102,23 @@ fn benchmark_typed_collections(criterion: &mut Criterion) {
             BenchmarkId::new("vec_i64", size),
             config,
             |bencher, config| {
-                bencher.iter(|| black_box(config.get::<Vec<i64>>("i64_values")));
+                bencher.iter(|| black_box(config.get::<Vec<i64>>("i64_values").unwrap()));
             },
         );
         group.bench_with_input(
             BenchmarkId::new("vec_string", size),
             config,
             |bencher, config| {
-                bencher.iter(|| black_box(config.get::<Vec<String>>("string_values")));
+                bencher.iter(|| black_box(config.get::<Vec<String>>("string_values").unwrap()));
             },
         );
         group.bench_with_input(
             BenchmarkId::new("string_map", size),
             config,
             |bencher, config| {
-                bencher.iter(|| black_box(config.get::<HashMap<String, String>>("string_map")));
+                bencher.iter(|| {
+                    black_box(config.get::<HashMap<String, String>>("string_map").unwrap())
+                });
             },
         );
 
@@ -101,7 +127,7 @@ fn benchmark_typed_collections(criterion: &mut Criterion) {
             BenchmarkId::new("vec_big_int", size),
             config,
             |bencher, config| {
-                bencher.iter(|| black_box(config.get::<Vec<BigInt>>("big_integers")));
+                bencher.iter(|| black_box(config.get::<Vec<BigInt>>("big_integers").unwrap()));
             },
         );
     }

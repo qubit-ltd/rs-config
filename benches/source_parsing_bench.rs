@@ -96,6 +96,17 @@ fn benchmark_source_parsing(criterion: &mut Criterion) {
         .into_iter()
         .map(|count| (count, source_fixtures(count)))
         .collect::<Vec<_>>();
+
+    // Validate every prepared source once before registering timed iterations.
+    for (property_count, sources) in &fixtures {
+        for (format, source) in sources {
+            let config = source
+                .load()
+                .unwrap_or_else(|error| panic!("{format} fixture should load: {error}"));
+            assert_eq!(config.len(), *property_count);
+        }
+    }
+
     let mut group = criterion.benchmark_group("source_parsing");
 
     for (property_count, sources) in &fixtures {
@@ -104,7 +115,7 @@ fn benchmark_source_parsing(criterion: &mut Criterion) {
                 BenchmarkId::new(*format, property_count),
                 source,
                 |bencher, source| {
-                    bencher.iter(|| black_box(source.load()));
+                    bencher.iter(|| black_box(source.load().unwrap()));
                 },
             );
         }
