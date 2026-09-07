@@ -31,7 +31,7 @@ pub enum ConfigWireLimitKind {
 
 /// Limits applied while decoding or encoding a complete configuration wire
 /// document.
-#[must_use]
+#[must_use = "use the returned value"]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ConfigWireLimits {
     json_decode: JsonDecodeLimits<JsonResource, u64>,
@@ -93,14 +93,14 @@ impl ConfigWireLimits {
     }
 
     /// Returns the maximum number of persisted properties.
-    #[must_use]
+    #[must_use = "use the returned value"]
     #[inline(always)]
     pub const fn max_properties(self) -> u64 {
         self.properties.maximum()
     }
 
     /// Returns the maximum UTF-8 bytes in one property key.
-    #[must_use]
+    #[must_use = "use the returned value"]
     #[inline(always)]
     pub const fn max_property_key_bytes(self) -> u64 {
         self.property_key_bytes.maximum()
@@ -118,7 +118,7 @@ impl ConfigWireLimits {
 }
 
 /// Builder for [`ConfigWireLimits`].
-#[must_use]
+#[must_use = "use the returned value"]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ConfigWireLimitsBuilder {
     json_decode: JsonDecodeLimits<JsonResource, u64>,

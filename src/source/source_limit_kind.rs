@@ -17,7 +17,7 @@ use serde::Serialize;
 
 /// Resource dimension enforced during source ingestion.
 #[non_exhaustive]
-#[must_use]
+#[must_use = "use the returned value"]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum SourceLimitKind {
     /// Raw input byte count.

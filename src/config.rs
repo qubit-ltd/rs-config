@@ -113,7 +113,7 @@ mod traversal;
 /// // Read configuration value or use default
 /// let timeout: f64 = config.get_or("timeout", 30.0).unwrap();
 /// ```
-#[must_use]
+#[must_use = "use the returned value"]
 #[derive(Debug, Clone)]
 pub struct Config {
     /// Configuration description
@@ -398,7 +398,7 @@ impl Config {
 }
 
 /// Builder for [`Config`].
-#[must_use]
+#[must_use = "use the returned value"]
 #[derive(Debug, Clone)]
 pub struct ConfigBuilder {
     description: Option<String>,

@@ -9,7 +9,7 @@
 
 /// Machine-readable category of a [`crate::ConfigError`].
 #[non_exhaustive]
-#[must_use]
+#[must_use = "use the returned value"]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ConfigErrorKind {
     /// A property key is not a canonical dotted key.

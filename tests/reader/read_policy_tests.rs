@@ -449,7 +449,7 @@ fn read_policy_defaults_limits_and_borrowed_limits_are_callable_as_functions() {
     let builder_default: fn() -> ReadPolicyBuilder = Default::default;
     let duration_limits = DurationConversionLimits::default();
     let policy = std::hint::black_box(builder_default)()
-        .duration_limits(duration_limits.clone())
+        .duration_limits(duration_limits)
         .build();
     assert_eq!(policy.conversion_limits().duration(), &duration_limits);
 

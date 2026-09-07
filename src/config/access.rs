@@ -32,7 +32,7 @@ impl Config {
     ///
     /// Returns the configuration description as Option
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub fn description(&self) -> Option<&str> {
         self.description.as_deref()
     }
@@ -57,7 +57,7 @@ impl Config {
     ///
     /// The policy used by direct reads such as `get` and `get_any`.
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub fn default_read_policy(&self) -> &ReadPolicy {
         self.default_read_policy.get()
     }
@@ -291,7 +291,7 @@ impl Config {
     ///
     /// Returns the number of configuration items
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub fn len(&self) -> usize {
         self.properties.len()
     }
@@ -302,7 +302,7 @@ impl Config {
     ///
     /// Returns `true` if the configuration contains no items
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub fn is_empty(&self) -> bool {
         self.properties.is_empty()
     }
@@ -328,7 +328,7 @@ impl Config {
     /// assert!(keys.contains(&"host".to_string()));
     /// ```
     #[inline]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub fn keys(&self) -> Vec<String> {
         self.properties.keys().cloned().collect()
     }

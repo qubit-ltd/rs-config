@@ -30,7 +30,7 @@ pub const DEFAULT_MAX_SOURCE_DEPTH: usize = 64;
 /// every local and aggregate scope unchanged. Nesting depth is a stateless
 /// point limit checked independently for each observed path. These limits do
 /// not synchronize access or manage resource lifetimes.
-#[must_use]
+#[must_use = "use the returned value"]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SourceLimits {
@@ -61,42 +61,42 @@ impl SourceLimits {
 
     /// Returns the maximum accepted input byte length.
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub const fn max_input_bytes(self) -> usize {
         self.max_input_bytes
     }
 
     /// Returns the maximum number of emitted properties.
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub const fn max_properties(self) -> usize {
         self.max_properties
     }
 
     /// Returns the maximum number of parsed structural nodes.
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub const fn max_nodes(self) -> usize {
         self.max_nodes
     }
 
     /// Returns the maximum number of child sources in a composite.
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub const fn max_sources(self) -> usize {
         self.max_sources
     }
 
     /// Returns the maximum structured nesting depth.
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub const fn max_nesting_depth(self) -> usize {
         self.max_nesting_depth
     }
 }
 
 /// Builder for [`SourceLimits`].
-#[must_use]
+#[must_use = "use the returned value"]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SourceLimitsBuilder {
     max_input_bytes: usize,

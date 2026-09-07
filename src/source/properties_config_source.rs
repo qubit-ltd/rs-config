@@ -171,7 +171,7 @@ impl PropertiesConfigSource {
 }
 
 /// Builder for [`PropertiesConfigSource`].
-#[must_use]
+#[must_use = "use the returned value"]
 pub struct PropertiesConfigSourceBuilder {
     input: SourceInput,
     limits: SourceLimits,

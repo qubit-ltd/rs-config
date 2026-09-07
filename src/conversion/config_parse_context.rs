@@ -56,7 +56,7 @@ impl<'a> ConfigParseContext<'a> {
     ///
     /// The root-relative configuration key.
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub fn key(&self) -> &str {
         self.key
     }
@@ -67,14 +67,14 @@ impl<'a> ConfigParseContext<'a> {
     ///
     /// Read policy selected by the reader.
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub fn options(&self) -> &ReadPolicy {
         self.options
     }
 
     /// Reports whether string values are interpolated before conversion.
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub const fn interpolates(&self) -> bool {
         self.interpolate
     }

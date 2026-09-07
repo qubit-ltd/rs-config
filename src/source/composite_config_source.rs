@@ -90,7 +90,7 @@ impl CompositeConfigSource {
     ///
     /// The length of the internal source list.
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub fn len(&self) -> usize {
         self.sources.len()
     }
@@ -101,14 +101,14 @@ impl CompositeConfigSource {
     ///
     /// `true` when [`Self::len`] is zero.
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub fn is_empty(&self) -> bool {
         self.sources.is_empty()
     }
 }
 
 /// Builder for [`CompositeConfigSource`].
-#[must_use]
+#[must_use = "use the returned value"]
 pub struct CompositeConfigSourceBuilder {
     sources: Vec<Box<dyn ConfigSource>>,
     limits: SourceLimits,

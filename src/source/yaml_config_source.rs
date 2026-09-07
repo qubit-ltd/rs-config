@@ -279,7 +279,7 @@ impl YamlConfigSource {
 }
 
 /// Builder for [`YamlConfigSource`].
-#[must_use]
+#[must_use = "use the returned value"]
 pub struct YamlConfigSourceBuilder {
     input: SourceInput,
     limits: SourceLimits,

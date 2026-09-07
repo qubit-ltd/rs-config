@@ -23,7 +23,7 @@ use crate::ConfigResult;
 ///
 /// Unlike [`crate::ConfigKey`], the empty string is valid and represents the
 /// root configuration scope.
-#[must_use]
+#[must_use = "use the returned value"]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
 #[serde(transparent)]
 pub struct ConfigPath(String);
@@ -54,7 +54,7 @@ impl ConfigPath {
 
     /// Borrows the canonical path text.
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub fn as_str(&self) -> &str {
         &self.0
     }

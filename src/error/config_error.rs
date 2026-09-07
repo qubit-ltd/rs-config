@@ -264,7 +264,7 @@ impl ConfigError {
     /// # Returns
     ///
     /// The category corresponding to the concrete error variant.
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub const fn kind(&self) -> ConfigErrorKind {
         match self {
             Self::InvalidKey { .. } => ConfigErrorKind::InvalidKey,
@@ -298,7 +298,7 @@ impl ConfigError {
     ///
     /// `Some(path)` for errors tied to one configuration key, otherwise
     /// `None`.
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub fn path(&self) -> Option<&str> {
         match self {
             Self::InvalidKey { key: path, .. }
@@ -338,7 +338,7 @@ impl ConfigError {
     /// resource-limit, and source-originated key-conflict errors; otherwise
     /// `None`.
     #[inline]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub fn source_id(&self) -> Option<&str> {
         match self {
             Self::SourceLimitExceeded { source_id, .. }
@@ -355,7 +355,7 @@ impl ConfigError {
     /// Returns the local or aggregate budget identifier for a source limit
     /// failure.
     #[inline]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub fn source_budget_id(&self) -> Option<&str> {
         match self {
             Self::SourceLimitExceeded { budget_id, .. } => Some(budget_id),
@@ -365,7 +365,7 @@ impl ConfigError {
 
     /// Returns the structured budget failure for a source limit error.
     #[inline]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub const fn budget_error(&self) -> Option<&BudgetError<SourceLimitKind, usize>> {
         match self {
             Self::SourceLimitExceeded { source, .. } => Some(source),
@@ -447,7 +447,7 @@ impl ConfigError {
     /// candidates for [`Self::PropertyCandidatesNotFound`], or `None` for
     /// other error kinds.
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub fn candidate_paths(&self) -> Option<&[String]> {
         match self {
             Self::PropertyNotFound(path) => Some(std::slice::from_ref(path)),
@@ -457,7 +457,7 @@ impl ConfigError {
     }
 
     /// Returns unknown configuration paths found by strict deserialization.
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub fn unknown_property_paths(&self) -> Option<&[String]> {
         match self {
             Self::UnknownProperties { paths } => Some(paths),
@@ -472,7 +472,7 @@ impl ConfigError {
     /// The original zero-based source index for collection conversion errors,
     /// otherwise `None`.
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub const fn source_index(&self) -> Option<usize> {
         match self {
             Self::ConversionError { source_index, .. } | Self::SourceParseError { source_index, .. } => *source_index,

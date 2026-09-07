@@ -21,7 +21,7 @@ use crate::ConfigResult;
 use crate::config_path::validate_config_key;
 
 /// Owned canonical configuration property key.
-#[must_use]
+#[must_use = "use the returned value"]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
 #[serde(transparent)]
 pub struct ConfigKey(String);
@@ -52,7 +52,7 @@ impl ConfigKey {
 
     /// Borrows the canonical key text.
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub fn as_str(&self) -> &str {
         &self.0
     }

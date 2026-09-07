@@ -171,7 +171,7 @@ impl EnvFileConfigSource {
 }
 
 /// Builder for [`EnvFileConfigSource`].
-#[must_use]
+#[must_use = "use the returned value"]
 pub struct EnvFileConfigSourceBuilder {
     input: SourceInput,
     limits: SourceLimits,

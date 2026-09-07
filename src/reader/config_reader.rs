@@ -67,15 +67,15 @@ pub trait ConfigReader: internal::Sealed {
 
     /// Number of configuration entries visible to this reader (all keys for
     /// [`crate::Config`]; relative keys only for a [`ConfigSection`]).
-    #[must_use]
+    #[must_use = "use the returned value"]
     fn len(&self) -> usize;
 
     /// Returns `true` when [`Self::len`] is zero.
-    #[must_use]
+    #[must_use = "use the returned value"]
     fn is_empty(&self) -> bool;
 
     /// All keys visible to this reader (relative keys for a section).
-    #[must_use]
+    #[must_use = "use the returned value"]
     fn keys(&self) -> Vec<String>;
 
     /// Returns whether a property exists for the given key.
@@ -342,7 +342,7 @@ pub trait ConfigReader: internal::Sealed {
     /// # Returns
     ///
     /// The policy inherited by ordinary reads.
-    #[must_use]
+    #[must_use = "use the returned value"]
     fn read_policy(&self) -> &ReadPolicy;
 
     /// Creates a borrowed reader view using `policy` for typed reads.
@@ -367,7 +367,7 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// The root reader returns an empty string.
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     fn scope_path(&self) -> &str {
         ""
     }
@@ -545,7 +545,7 @@ pub trait ConfigReader: internal::Sealed {
     /// # Returns
     ///
     /// `true` if at least one matching key exists.
-    #[must_use]
+    #[must_use = "use the returned value"]
     fn contains_key_prefix(&self, prefix: &str) -> bool;
 
     /// Returns whether a dotted section visible to this reader has children.

@@ -173,16 +173,11 @@ struct TypedCollections {
     named: HashMap<String, Endpoint>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Default)]
 enum Presence {
+    #[default]
     Missing,
     Null,
-}
-
-impl Default for Presence {
-    fn default() -> Self {
-        Self::Missing
-    }
 }
 
 impl<'de> Deserialize<'de> for Presence {

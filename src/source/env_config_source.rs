@@ -41,7 +41,7 @@ use crate::ConfigResult;
 use crate::utils;
 
 /// Options controlling environment-variable key selection and normalization.
-#[must_use]
+#[must_use = "use the returned value"]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EnvConfigOptions {
     /// Optional prefix used to select environment variables.
@@ -63,7 +63,7 @@ impl EnvConfigOptions {
 }
 
 /// Builder for [`EnvConfigOptions`].
-#[must_use]
+#[must_use = "use the returned value"]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EnvConfigOptionsBuilder {
     prefix: Option<String>,
@@ -376,7 +376,7 @@ impl EnvConfigSource {
 }
 
 /// Builder for [`EnvConfigSource`].
-#[must_use]
+#[must_use = "use the returned value"]
 pub struct EnvConfigSourceBuilder {
     options: EnvConfigOptions,
     limits: SourceLimits,

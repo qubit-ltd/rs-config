@@ -139,7 +139,7 @@ impl TomlConfigSource {
 }
 
 /// Builder for [`TomlConfigSource`].
-#[must_use]
+#[must_use = "use the returned value"]
 pub struct TomlConfigSourceBuilder {
     input: SourceInput,
     limits: SourceLimits,

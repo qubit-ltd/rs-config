@@ -17,7 +17,7 @@ use serde::Serialize;
 
 /// Describes why a configuration key or path is not canonical.
 #[non_exhaustive]
-#[must_use]
+#[must_use = "use the returned value"]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ConfigPathViolation {
     /// A property key is empty.

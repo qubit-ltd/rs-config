@@ -42,7 +42,7 @@ use crate::options::ReadPolicy;
 /// assert_eq!(server.get::<u16>("port")?, 8080);
 /// # Ok::<(), qubit_config::ConfigError>(())
 /// ```
-#[must_use]
+#[must_use = "use the returned value"]
 #[derive(Debug, Clone)]
 pub struct ConfigSection<'a> {
     /// Root configuration borrowed by this section.
@@ -145,7 +145,7 @@ impl<'a> ConfigSection<'a> {
 
     /// Returns the root configuration backing this section.
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub(crate) fn root_config(&self) -> &'a Config {
         self.config
     }
@@ -157,7 +157,7 @@ impl<'a> ConfigSection<'a> {
     /// The empty string for the root section, or a path without leading or
     /// trailing `.` separators.
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub fn path(&self) -> &str {
         &self.path
     }
@@ -196,7 +196,7 @@ impl<'a> ConfigSection<'a> {
     ///
     /// `true` when a visible key starts with `prefix`.
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub fn contains_key_prefix(&self, prefix: &str) -> bool {
         <Self as ConfigReader>::contains_key_prefix(self, prefix)
     }

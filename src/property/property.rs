@@ -66,7 +66,7 @@ use crate::ConfigResult;
 /// code.add(1u8).unwrap();
 /// assert_eq!(code.len(), 2);
 /// ```
-#[must_use]
+#[must_use = "use the returned value"]
 #[derive(Clone, PartialEq)]
 pub struct Property {
     /// Property name
@@ -185,7 +185,7 @@ impl Property {
     ///
     /// Returns the property name as a string slice
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -196,7 +196,7 @@ impl Property {
     ///
     /// Returns a reference to the property value
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub fn value(&self) -> &ValueContainer {
         &self.value
     }
@@ -219,7 +219,7 @@ impl Property {
     ///
     /// Returns the strict read error from the underlying value container.
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub fn get<T>(&self) -> ValueResult<T>
     where
         T: StrictValueRead,
@@ -229,7 +229,7 @@ impl Property {
 
     /// Strictly borrows the scalar value or first collection item.
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub fn get_ref<'a, T: ?Sized>(&'a self) -> ValueResult<&'a T>
     where
         &'a T: TryFrom<&'a Value, Error = ValueError> + TryFrom<&'a MultiValues, Error = ValueError>,
@@ -243,7 +243,7 @@ impl Property {
     ///
     /// Returns a mutable reference to the property value
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub fn value_mut(&mut self) -> &mut ValueContainer {
         &mut self.value
     }
@@ -264,7 +264,7 @@ impl Property {
     ///
     /// Returns the property description as Option
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub fn description(&self) -> Option<&str> {
         self.description.as_deref()
     }
@@ -285,7 +285,7 @@ impl Property {
     ///
     /// Returns `true` if the property is final
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub fn is_final(&self) -> bool {
         self.is_final
     }
@@ -306,7 +306,7 @@ impl Property {
     ///
     /// Returns the data type of the property value
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub fn data_type(&self) -> DataType {
         self.value.data_type()
     }
@@ -317,7 +317,7 @@ impl Property {
     ///
     /// The number of values in the property.
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         self.value.len()
@@ -333,7 +333,7 @@ impl Property {
     ///
     /// Returns `true` only when the property stores no concrete value.
     #[inline(always)]
-    #[must_use]
+    #[must_use = "use the returned value"]
     pub fn is_unset(&self) -> bool {
         self.value.is_unset()
     }
