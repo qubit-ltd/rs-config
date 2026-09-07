@@ -89,7 +89,7 @@ impl CompositeConfigSource {
     /// # Returns
     ///
     /// The length of the internal source list.
-    #[inline]
+    #[inline(always)]
     #[must_use]
     pub fn len(&self) -> usize {
         self.sources.len()
@@ -100,7 +100,7 @@ impl CompositeConfigSource {
     /// # Returns
     ///
     /// `true` when [`Self::len`] is zero.
-    #[inline]
+    #[inline(always)]
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.sources.is_empty()
