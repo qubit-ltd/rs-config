@@ -8,6 +8,9 @@
 // Tests for configuration key list argument adapters.
 
 use qubit_config::Config;
+use qubit_config::ConfigError;
+use qubit_config::ConfigErrorKind;
+use qubit_config::ConfigPathViolation;
 
 #[test]
 fn test_config_names_accepts_str_slice_array_and_vec() {
@@ -39,4 +42,46 @@ fn test_config_names_accepts_owned_string_lists() {
     assert_eq!(config.get_any::<String>(array).unwrap(), "localhost");
     assert_eq!(config.get_any::<String>(&vec_names).unwrap(), "localhost");
     assert_eq!(config.get_any::<String>(vec_names).unwrap(), "localhost");
+}
+
+#[test]
+fn config_names_empty_inputs_have_distinct_optional_and_required_results() {
+    let config = Config::new();
+    let empty: &[&str] = &[];
+
+    assert_eq!(config.get_optional_any::<String>(empty).unwrap(), None);
+
+    let error = config.get_any::<String>(empty).unwrap_err();
+    assert_eq!(error.kind(), ConfigErrorKind::PropertyNotFound);
+    assert_eq!(error.candidate_paths(), Some([].as_slice()));
+}
+
+#[test]
+fn config_names_validate_every_candidate_before_searching() {
+    let mut config = Config::new();
+    config.set("present", 7_i32).unwrap();
+
+    let error = config
+        .get_optional_any::<i32>(["present", "bad..candidate"])
+        .unwrap_err();
+    assert!(matches!(
+        error,
+        ConfigError::InvalidKey {
+            violation: ConfigPathViolation::EmptySegment,
+            ..
+        }
+    ));
+}
+
+#[test]
+fn config_names_support_unicode_candidates_and_preserve_priority() {
+    let mut config = Config::new();
+    config.set("服务.备用", "fallback").unwrap();
+
+    assert_eq!(
+        config
+            .get_any::<String>(["服务.主", "服务.备用"])
+            .unwrap(),
+        "fallback"
+    );
 }

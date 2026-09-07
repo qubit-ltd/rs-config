@@ -105,3 +105,66 @@ fn writes_and_removals_share_the_canonical_key_contract() {
     assert!(matches!(config.set(".bad", 1u8), Err(ConfigError::InvalidKey { .. })));
     assert!(matches!(config.remove("bad."), Err(ConfigError::InvalidKey { .. })));
 }
+
+#[test]
+fn config_paths_preserve_unicode_and_accept_deep_valid_paths() {
+    let deep_path = (0..64).map(|index| format!("层{index}")).collect::<Vec<_>>().join(".");
+    let parsed = ConfigPath::parse(&deep_path).unwrap();
+
+    assert_eq!(parsed.as_str(), deep_path);
+    assert_eq!(parsed.into_string(), deep_path);
+    assert_eq!(ConfigPath::parse("设置.网络.端口").unwrap().as_str(), "设置.网络.端口");
+}
+
+#[test]
+fn config_path_rejects_each_separator_boundary_with_the_specific_violation() {
+    for (path, violation) in [
+        (".server", ConfigPathViolation::LeadingSeparator),
+        ("server.", ConfigPathViolation::TrailingSeparator),
+        ("server..port", ConfigPathViolation::EmptySegment),
+    ] {
+        let error = ConfigPath::parse(path).unwrap_err();
+        assert!(matches!(
+            error,
+            ConfigError::InvalidPath { violation: actual, .. } if actual == violation
+        ));
+    }
+}
+
+#[test]
+fn prefix_queries_use_section_boundaries_and_do_not_match_siblings() {
+    let mut config = Config::new();
+    config.set("http.host", "localhost").unwrap();
+    config.set("httpish.host", "not-http").unwrap();
+    config.set("http2.host", "also-not-http").unwrap();
+
+    let keys = config.iter_prefix("http.").map(|(key, _)| key).collect::<Vec<_>>();
+    assert_eq!(keys, vec!["http.host"]);
+    assert!(config.contains_section("http").unwrap());
+    assert!(!config.contains_section("htt").unwrap());
+}
+
+#[test]
+fn root_and_nested_paths_keep_empty_path_semantics_explicit() {
+    let mut config = Config::new();
+    assert!(!config.contains_section("").unwrap());
+    config.set("deep.value", 1_i32).unwrap();
+
+    let root = config.section("").unwrap();
+    assert_eq!(root.path(), "");
+    assert_eq!(ConfigReader::resolve_key(&root, "").unwrap(), "");
+
+    let deep = config.section("deep").unwrap();
+    assert_eq!(ConfigReader::resolve_key(&deep, "").unwrap(), "deep");
+    assert_eq!(deep.get::<i32>("value").unwrap(), 1);
+}
+
+#[test]
+fn path_error_retains_the_rejected_text() {
+    let error = ConfigPath::parse("a..b").unwrap_err();
+    assert!(matches!(
+        error,
+        ConfigError::InvalidPath { path, violation: ConfigPathViolation::EmptySegment }
+            if path == "a..b"
+    ));
+}

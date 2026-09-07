@@ -8,6 +8,8 @@
 // Tests for configuration key argument adapters.
 
 use qubit_config::Config;
+use qubit_config::ConfigError;
+use qubit_config::ConfigKey;
 use qubit_config::ConfigReader;
 
 #[test]
@@ -37,4 +39,38 @@ fn test_config_name_resolves_relative_to_section() {
 
     assert!(ConfigReader::contains(&view, &name).unwrap());
     assert_eq!(view.get::<String>(name).unwrap(), "localhost");
+}
+
+#[test]
+fn config_name_accepts_owned_and_borrowed_config_keys_without_rewriting_unicode() {
+    let key = ConfigKey::parse("服务.端口").unwrap();
+    let mut config = Config::new();
+    config.set(key.as_str(), 8080_i32).unwrap();
+
+    assert_eq!(config.get::<i32>(key.clone()).unwrap(), 8080);
+    assert_eq!(config.get::<i32>(&key).unwrap(), 8080);
+    assert_eq!(ConfigReader::resolve_key(&config, key).unwrap(), "服务.端口");
+}
+
+#[test]
+fn config_name_preserves_leading_and_trailing_spaces_as_literal_key_text() {
+    let key = " server.host ";
+    let parsed = ConfigKey::parse(key).unwrap();
+
+    assert_eq!(parsed.as_str(), key);
+    assert_eq!(parsed.into_string(), key);
+}
+
+#[test]
+fn config_name_rejects_empty_keys_before_lookup() {
+    let config = Config::new();
+    let error = config.contains(String::new()).unwrap_err();
+
+    assert!(matches!(
+        error,
+        ConfigError::InvalidKey {
+            key,
+            violation: qubit_config::ConfigPathViolation::Empty,
+        } if key.is_empty()
+    ));
 }

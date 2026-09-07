@@ -1714,3 +1714,72 @@ fn test_property_partial_eq() {
     prop2.set_value(MultiValues::Int32(vec![44, 45]));
     assert_ne!(prop1, prop2);
 }
+
+#[test]
+fn property_names_cover_empty_separators_unicode_and_spaces() {
+    for (name, violation) in [
+        ("", qubit_config::ConfigPathViolation::Empty),
+        (".name", qubit_config::ConfigPathViolation::LeadingSeparator),
+        ("name.", qubit_config::ConfigPathViolation::TrailingSeparator),
+        ("name..part", qubit_config::ConfigPathViolation::EmptySegment),
+    ] {
+        let error = Property::new(name, "value").unwrap_err();
+        assert!(matches!(
+            error,
+            ConfigError::InvalidKey { violation: actual, .. } if actual == violation
+        ));
+    }
+
+    let property = Property::new(" 服务.端口 ", "value").unwrap();
+    assert_eq!(property.name(), " 服务.端口 ");
+}
+
+#[test]
+fn property_value_conversions_preserve_collections_and_report_type_errors() {
+    let mut property = Property::new("values", vec![1_i32, 2, 3]).unwrap();
+    assert_eq!(property.get_list::<i32>().unwrap(), vec![1, 2, 3]);
+    assert_eq!(property.get::<i32>().unwrap(), 1);
+
+    property.add(vec![4_i32, 5]).unwrap();
+    assert_eq!(property.get_list::<i32>().unwrap(), vec![1, 2, 3, 4, 5]);
+
+    let error = property.get_list::<String>().unwrap_err();
+    assert!(matches!(error, ValueError::TypeMismatch { .. }));
+    let error = property.add(vec!["wrong".to_owned()]).unwrap_err();
+    assert!(matches!(error, ValueError::TypeMismatch { .. }));
+}
+
+#[test]
+fn property_empty_collection_is_concrete_but_unset_value_reports_missing() {
+    let empty = Property::new("empty", Vec::<i32>::new()).unwrap();
+    assert_eq!(empty.len(), 0);
+    assert!(!empty.is_unset());
+    assert!(empty.get_list::<i32>().unwrap().is_empty());
+
+    let unset = new_unset_int32_property("unset");
+    assert!(unset.is_unset());
+    assert!(matches!(unset.get::<i32>(), Err(ValueError::Missing(_))));
+}
+
+#[test]
+fn property_wire_roundtrip_preserves_unicode_metadata_and_values() {
+    let mut property = Property::new("服务.端口", vec![8080_i32, 8081]).unwrap();
+    property.set_description(Some("服务端口".to_owned()));
+    property.set_final(true);
+
+    let encoded = serde_json::to_value(&property).unwrap();
+    let decoded: Property = serde_json::from_value(encoded).unwrap();
+    assert_eq!(decoded.name(), "服务.端口");
+    assert_eq!(decoded.description(), Some("服务端口"));
+    assert!(decoded.is_final());
+    assert_eq!(decoded.get_list::<i32>().unwrap(), vec![8080, 8081]);
+}
+
+#[test]
+fn property_wire_rejects_noncanonical_names() {
+    let mut encoded = serde_json::to_value(Property::new("valid", 1_i32).unwrap()).unwrap();
+    encoded["name"] = serde_json::Value::String("bad..name".to_owned());
+
+    let error = serde_json::from_value::<Property>(encoded).unwrap_err();
+    assert!(error.to_string().contains("bad..name"));
+}
