@@ -66,9 +66,9 @@ impl<'de> VariantAccess<'de> for ConfigVariantAccess<'_, '_> {
     where
         T: DeserializeSeed<'de>,
     {
-        let value = self.value.ok_or_else(|| {
-            de::Error::invalid_type(de::Unexpected::UnitVariant, &"newtype variant payload")
-        })?;
+        let value = self
+            .value
+            .ok_or_else(|| de::Error::invalid_type(de::Unexpected::UnitVariant, &"newtype variant payload"))?;
         seed.deserialize(ConfigValueDeserializer::new(
             value,
             self.key,
@@ -82,9 +82,9 @@ impl<'de> VariantAccess<'de> for ConfigVariantAccess<'_, '_> {
     where
         V: Visitor<'de>,
     {
-        let value = self.value.ok_or_else(|| {
-            de::Error::invalid_type(de::Unexpected::UnitVariant, &"tuple variant payload")
-        })?;
+        let value = self
+            .value
+            .ok_or_else(|| de::Error::invalid_type(de::Unexpected::UnitVariant, &"tuple variant payload"))?;
         de::Deserializer::deserialize_tuple(
             ConfigValueDeserializer::new(value, self.key, self.options, self.session),
             len,
@@ -93,17 +93,13 @@ impl<'de> VariantAccess<'de> for ConfigVariantAccess<'_, '_> {
     }
 
     /// Deserializes a struct variant payload.
-    fn struct_variant<V>(
-        self,
-        fields: &'static [&'static str],
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
+    fn struct_variant<V>(self, fields: &'static [&'static str], visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
-        let value = self.value.ok_or_else(|| {
-            de::Error::invalid_type(de::Unexpected::UnitVariant, &"struct variant payload")
-        })?;
+        let value = self
+            .value
+            .ok_or_else(|| de::Error::invalid_type(de::Unexpected::UnitVariant, &"struct variant payload"))?;
         de::Deserializer::deserialize_struct(
             ConfigValueDeserializer::new(value, self.key, self.options, self.session),
             "",

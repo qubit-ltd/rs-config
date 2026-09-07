@@ -53,10 +53,7 @@ fn test_section_excludes_exact_root_property() {
 
     assert_eq!(section.len(), 1);
     assert_eq!(section.keys(), vec!["host".to_string()]);
-    assert!(matches!(
-        section.contains(""),
-        Err(ConfigError::InvalidKey { .. })
-    ));
+    assert!(matches!(section.contains(""), Err(ConfigError::InvalidKey { .. })));
     assert_eq!(
         config
             .get::<String>("http")

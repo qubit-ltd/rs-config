@@ -185,10 +185,7 @@ impl Config {
     /// existing final property. The returned guard re-checks final state before
     /// each value-changing operation.
     #[inline]
-    pub fn get_property_mut(
-        &mut self,
-        name: impl ConfigName,
-    ) -> ConfigResult<Option<ConfigPropertyMut<'_>>> {
+    pub fn get_property_mut(&mut self, name: impl ConfigName) -> ConfigResult<Option<ConfigPropertyMut<'_>>> {
         name.with_config_name(|name| {
             ensure_config_key(name)?;
             self.ensure_property_not_final(name)?;

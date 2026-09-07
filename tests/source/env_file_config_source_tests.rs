@@ -73,10 +73,7 @@ mod test_env_file_config_source {
         merge_source(&mut config, &source).unwrap();
 
         assert_eq!(config.get::<String>("QUOTED_VALUE").unwrap(), "hello world");
-        assert_eq!(
-            config.get::<String>("SINGLE_QUOTED").unwrap(),
-            "single quoted"
-        );
+        assert_eq!(config.get::<String>("SINGLE_QUOTED").unwrap(), "single quoted");
     }
 
     #[test]
@@ -91,11 +88,7 @@ mod test_env_file_config_source {
     fn test_load_inline_env_content() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join(".env");
-        std::fs::write(
-            &path,
-            "DB_HOST=db.example.com\nDB_PORT=5432\nDB_NAME=mydb\n",
-        )
-        .unwrap();
+        std::fs::write(&path, "DB_HOST=db.example.com\nDB_PORT=5432\nDB_NAME=mydb\n").unwrap();
 
         let source = EnvFileConfigSource::from_file(&path);
         let mut config = Config::new();
@@ -154,10 +147,7 @@ mod test_env_file_config_source {
         let source = EnvFileConfigSource::from_content(format!("VALUE=${{{KEY}}}\n"));
         let config = source.load().expect(".env content should load");
 
-        assert_eq!(
-            config.get::<String>("VALUE").unwrap(),
-            format!("${{{KEY}}}")
-        );
+        assert_eq!(config.get::<String>("VALUE").unwrap(), format!("${{{KEY}}}"));
 
         unsafe {
             std::env::remove_var(KEY);
@@ -172,15 +162,11 @@ mod test_env_file_config_source {
             std::env::set_var(KEY, "process-secret");
         }
 
-        let source =
-            EnvFileConfigSource::from_content(format!("NAME=\"${KEY}\"\nBRACED=\"${{{KEY}}}\"\n"));
+        let source = EnvFileConfigSource::from_content(format!("NAME=\"${KEY}\"\nBRACED=\"${{{KEY}}}\"\n"));
         let config = source.load().expect(".env content should load");
 
         assert_eq!(config.get::<String>("NAME").unwrap(), format!("${KEY}"));
-        assert_eq!(
-            config.get::<String>("BRACED").unwrap(),
-            format!("${{{KEY}}}")
-        );
+        assert_eq!(config.get::<String>("BRACED").unwrap(), format!("${{{KEY}}}"));
 
         unsafe {
             std::env::remove_var(KEY);
@@ -209,13 +195,10 @@ mod test_env_file_edge_cases {
         const SECRET_MARKER: &str = "RS_CONFIG_DOTENV_SECRET_MARKER";
         let dir = tempfile::tempdir().expect("temporary directory should be created");
         let path = dir.path().join("bad.env");
-        std::fs::write(&path, format!("PASSWORD=\"{SECRET_MARKER}\n"))
-            .expect("invalid .env fixture should be written");
+        std::fs::write(&path, format!("PASSWORD=\"{SECRET_MARKER}\n")).expect("invalid .env fixture should be written");
 
         let source = EnvFileConfigSource::from_file(&path);
-        let error = source
-            .load()
-            .expect_err("unterminated .env string should fail");
+        let error = source.load().expect_err("unterminated .env string should fail");
 
         assert!(matches!(&error, ConfigError::SourceParseError { .. }));
         let display = error.to_string();

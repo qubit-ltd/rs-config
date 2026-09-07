@@ -137,9 +137,7 @@ impl Config {
         name.with_config_name(|name| {
             let property = self.get_property_by_name(name)?;
 
-            property
-                .get_first::<T>()
-                .map_err(|e| utils::map_value_error(name, e))
+            property.get_first::<T>().map_err(|e| utils::map_value_error(name, e))
         })
     }
 
@@ -175,11 +173,7 @@ impl Config {
     /// assert_eq!(port, 8080);
     /// assert_eq!(host, "localhost");
     /// ```
-    pub fn get_or<T>(
-        &self,
-        name: impl ConfigName,
-        default: impl IntoConfigDefault<T>,
-    ) -> ConfigResult<T>
+    pub fn get_or<T>(&self, name: impl ConfigName, default: impl IntoConfigDefault<T>) -> ConfigResult<T>
     where
         T: FromConfig,
     {
@@ -206,11 +200,7 @@ impl Config {
     /// Returns interpolation and conversion errors instead of hiding them
     /// behind the default.
     #[inline(always)]
-    pub fn get_interpolated_or<T>(
-        &self,
-        name: impl ConfigName,
-        default: impl IntoConfigDefault<T>,
-    ) -> ConfigResult<T>
+    pub fn get_interpolated_or<T>(&self, name: impl ConfigName, default: impl IntoConfigDefault<T>) -> ConfigResult<T>
     where
         T: FromConfig,
     {
@@ -294,10 +284,7 @@ impl Config {
     ///
     /// Returns interpolation, resource-limit, or conversion errors.
     #[inline(always)]
-    pub fn get_optional_any_interpolated<T>(
-        &self,
-        names: impl ConfigNames,
-    ) -> ConfigResult<Option<T>>
+    pub fn get_optional_any_interpolated<T>(&self, names: impl ConfigNames) -> ConfigResult<Option<T>>
     where
         T: FromConfig,
     {
@@ -315,11 +302,7 @@ impl Config {
     /// # Returns
     ///
     /// Parsed value or `default`; conversion errors are returned.
-    pub fn get_any_or<T>(
-        &self,
-        names: impl ConfigNames,
-        default: impl IntoConfigDefault<T>,
-    ) -> ConfigResult<T>
+    pub fn get_any_or<T>(&self, names: impl ConfigNames, default: impl IntoConfigDefault<T>) -> ConfigResult<T>
     where
         T: FromConfig,
     {
@@ -419,9 +402,7 @@ impl Config {
     {
         name.with_config_name(|name| {
             let property = self.get_property_by_name(name)?;
-            property
-                .get_list::<T>()
-                .map_err(|e| utils::map_value_error(name, e))
+            property.get_list::<T>().map_err(|e| utils::map_value_error(name, e))
         })
     }
 
@@ -644,10 +625,7 @@ impl ConfigReader for Config {
     }
 
     #[inline]
-    fn iter_prefix<'a>(
-        &'a self,
-        prefix: &'a str,
-    ) -> impl Iterator<Item = (&'a str, &'a Property)> + 'a {
+    fn iter_prefix<'a>(&'a self, prefix: &'a str) -> impl Iterator<Item = (&'a str, &'a Property)> + 'a {
         Config::iter_prefix(self, prefix)
     }
 

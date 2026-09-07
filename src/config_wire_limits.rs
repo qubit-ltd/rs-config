@@ -72,10 +72,7 @@ impl ConfigWireLimits {
         Self {
             json_decode,
             json_encode,
-            properties: ResourceLimit::new(
-                ConfigWireLimitKind::Properties,
-                Self::DEFAULT_MAX_PROPERTIES,
-            ),
+            properties: ResourceLimit::new(ConfigWireLimitKind::Properties, Self::DEFAULT_MAX_PROPERTIES),
             property_key_bytes: ResourceLimit::new(
                 ConfigWireLimitKind::PropertyKeyBytes,
                 Self::DEFAULT_MAX_PROPERTY_KEY_BYTES,
@@ -115,9 +112,7 @@ impl ConfigWireLimits {
     }
 
     /// Returns the complete property-key byte point limit.
-    pub(crate) const fn property_key_bytes_limit(
-        &self,
-    ) -> &ResourceLimit<ConfigWireLimitKind, u64> {
+    pub(crate) const fn property_key_bytes_limit(&self) -> &ResourceLimit<ConfigWireLimitKind, u64> {
         &self.property_key_bytes
     }
 }
@@ -137,12 +132,8 @@ impl ConfigWireLimitsBuilder {
     #[inline]
     pub fn new() -> Self {
         Self {
-            json_decode: ConfigWireLimits::default_json_decode_limits(
-                ConfigWireLimits::DEFAULT_MAX_INPUT_BYTES,
-            ),
-            json_encode: ConfigWireLimits::default_json_encode_limits(
-                ConfigWireLimits::DEFAULT_MAX_OUTPUT_BYTES,
-            ),
+            json_decode: ConfigWireLimits::default_json_decode_limits(ConfigWireLimits::DEFAULT_MAX_INPUT_BYTES),
+            json_encode: ConfigWireLimits::default_json_encode_limits(ConfigWireLimits::DEFAULT_MAX_OUTPUT_BYTES),
             max_properties: ConfigWireLimits::DEFAULT_MAX_PROPERTIES,
             max_property_key_bytes: ConfigWireLimits::DEFAULT_MAX_PROPERTY_KEY_BYTES,
         }
@@ -190,10 +181,7 @@ impl ConfigWireLimitsBuilder {
             json_decode: self.json_decode,
             json_encode: self.json_encode,
             properties: ResourceLimit::new(ConfigWireLimitKind::Properties, self.max_properties),
-            property_key_bytes: ResourceLimit::new(
-                ConfigWireLimitKind::PropertyKeyBytes,
-                self.max_property_key_bytes,
-            ),
+            property_key_bytes: ResourceLimit::new(ConfigWireLimitKind::PropertyKeyBytes, self.max_property_key_bytes),
         }
     }
 }
@@ -304,9 +292,7 @@ pub enum ConfigWireDecodeError {
         maximum: u64,
     },
     /// The admitted JSON document violates its Serde representation.
-    #[error(
-        "failed to decode configuration JSON wire input ({category:?}) at line {line}, column {column}"
-    )]
+    #[error("failed to decode configuration JSON wire input ({category:?}) at line {line}, column {column}")]
     Json {
         /// Broad Serde failure category.
         category: Category,

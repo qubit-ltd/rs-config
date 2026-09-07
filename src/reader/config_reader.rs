@@ -94,9 +94,7 @@ pub trait ConfigReader: internal::Sealed {
                 }
             };
             let resolved = property.name();
-            if !property.is_unset()
-                && is_effectively_missing(self, resolved, property, self.read_policy())?
-            {
+            if !property.is_unset() && is_effectively_missing(self, resolved, property, self.read_policy())? {
                 return Err(ConfigError::PropertyHasNoValue(resolved.to_owned()));
             }
             parse_property_from_reader(self, resolved, property, self.read_policy())
@@ -139,12 +137,7 @@ pub trait ConfigReader: internal::Sealed {
             };
             let resolved = property.name();
             if !property.is_unset()
-                && is_effectively_missing_interpolated(
-                    self,
-                    resolved,
-                    property,
-                    self.read_policy(),
-                )?
+                && is_effectively_missing_interpolated(self, resolved, property, self.read_policy())?
             {
                 return Err(ConfigError::PropertyHasNoValue(resolved.to_owned()));
             }
@@ -213,11 +206,7 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// Conversion errors are returned instead of being hidden by the default.
     #[inline]
-    fn get_or<T>(
-        &self,
-        name: impl ConfigName,
-        default: impl IntoConfigDefault<T>,
-    ) -> ConfigResult<T>
+    fn get_or<T>(&self, name: impl ConfigName, default: impl IntoConfigDefault<T>) -> ConfigResult<T>
     where
         T: FromConfig,
     {
@@ -248,11 +237,7 @@ pub trait ConfigReader: internal::Sealed {
     /// Returns interpolation and conversion errors instead of hiding them
     /// behind the default.
     #[inline]
-    fn get_interpolated_or<T>(
-        &self,
-        name: impl ConfigName,
-        default: impl IntoConfigDefault<T>,
-    ) -> ConfigResult<T>
+    fn get_interpolated_or<T>(&self, name: impl ConfigName, default: impl IntoConfigDefault<T>) -> ConfigResult<T>
     where
         T: FromConfig,
     {
@@ -286,8 +271,7 @@ pub trait ConfigReader: internal::Sealed {
                 if is_effectively_missing(self, resolved, property, self.read_policy())? {
                     Ok(None)
                 } else {
-                    parse_property_from_reader(self, resolved, property, self.read_policy())
-                        .map(Some)
+                    parse_property_from_reader(self, resolved, property, self.read_policy()).map(Some)
                 }
             }
         })
@@ -322,21 +306,10 @@ pub trait ConfigReader: internal::Sealed {
             None => Ok(None),
             Some(property) => {
                 let resolved = property.name();
-                if is_effectively_missing_interpolated(
-                    self,
-                    resolved,
-                    property,
-                    self.read_policy(),
-                )? {
+                if is_effectively_missing_interpolated(self, resolved, property, self.read_policy())? {
                     Ok(None)
                 } else {
-                    parse_property_from_reader_interpolated(
-                        self,
-                        resolved,
-                        property,
-                        self.read_policy(),
-                    )
-                    .map(Some)
+                    parse_property_from_reader_interpolated(self, resolved, property, self.read_policy()).map(Some)
                 }
             }
         })
@@ -436,9 +409,7 @@ pub trait ConfigReader: internal::Sealed {
     where
         T: FromConfig,
     {
-        names.with_config_names(|names| {
-            get_optional_any_with_options(self, names, self.read_policy(), false)
-        })
+        names.with_config_names(|names| get_optional_any_with_options(self, names, self.read_policy(), false))
     }
 
     /// Reads an optional interpolated value from the first configured key.
@@ -464,9 +435,7 @@ pub trait ConfigReader: internal::Sealed {
     where
         T: FromConfig,
     {
-        names.with_config_names(|names| {
-            get_optional_any_with_options(self, names, self.read_policy(), true)
-        })
+        names.with_config_names(|names| get_optional_any_with_options(self, names, self.read_policy(), true))
     }
 
     /// Reads a value from any key, using `default` only when every key is
@@ -480,11 +449,7 @@ pub trait ConfigReader: internal::Sealed {
     /// # Returns
     ///
     /// Parsed value or `default`; parsing errors are never swallowed.
-    fn get_any_or<T>(
-        &self,
-        names: impl ConfigNames,
-        default: impl IntoConfigDefault<T>,
-    ) -> ConfigResult<T>
+    fn get_any_or<T>(&self, names: impl ConfigNames, default: impl IntoConfigDefault<T>) -> ConfigResult<T>
     where
         T: FromConfig,
     {
@@ -514,11 +479,7 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// Returns interpolation, resource-limit, or conversion errors from the
     /// selected key.
-    fn get_any_interpolated_or<T>(
-        &self,
-        names: impl ConfigNames,
-        default: impl IntoConfigDefault<T>,
-    ) -> ConfigResult<T>
+    fn get_any_interpolated_or<T>(&self, names: impl ConfigNames, default: impl IntoConfigDefault<T>) -> ConfigResult<T>
     where
         T: FromConfig,
     {
@@ -582,10 +543,7 @@ pub trait ConfigReader: internal::Sealed {
     /// # Returns
     ///
     /// An iterator over matching entries without dynamic dispatch.
-    fn iter_prefix<'a>(
-        &'a self,
-        prefix: &'a str,
-    ) -> impl Iterator<Item = (&'a str, &'a Property)> + 'a;
+    fn iter_prefix<'a>(&'a self, prefix: &'a str) -> impl Iterator<Item = (&'a str, &'a Property)> + 'a;
 
     /// Iterates all `(key, property)` pairs visible to this reader (same scope
     /// as [`Self::keys`]).
@@ -725,8 +683,7 @@ where
                 continue;
             }
             return if interpolate {
-                parse_property_from_reader_interpolated(reader, resolved, property, options)
-                    .map(Some)
+                parse_property_from_reader_interpolated(reader, resolved, property, options).map(Some)
             } else {
                 parse_property_from_reader(reader, resolved, property, options).map(Some)
             };

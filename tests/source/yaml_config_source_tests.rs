@@ -81,11 +81,7 @@ mod test_yaml_config_source {
     fn test_load_yaml_u64_sequence_without_precision_loss() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("u64_sequence.yaml");
-        std::fs::write(
-            &path,
-            "values: [9223372036854775808, 18446744073709551615]\n",
-        )
-        .unwrap();
+        std::fs::write(&path, "values: [9223372036854775808, 18446744073709551615]\n").unwrap();
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
 
@@ -141,9 +137,7 @@ mod test_yaml_config_source {
             .expect("invalid YAML fixture should be written");
 
         let source = YamlConfigSource::from_file(&path);
-        let error = source
-            .load()
-            .expect_err("unterminated YAML string should fail");
+        let error = source.load().expect_err("unterminated YAML string should fail");
 
         assert!(matches!(&error, ConfigError::SourceParseError { .. }));
         let display = error.to_string();
@@ -179,9 +173,7 @@ mod test_yaml_config_source {
     #[test]
     fn test_load_yaml_allows_anchor_indicators_in_literal_block_scalars() {
         let source = YamlConfigSource::from_content("script: |\n  echo *task\n  echo &name\n");
-        let config = source
-            .load()
-            .expect("literal block scalar content should be preserved");
+        let config = source.load().expect("literal block scalar content should be preserved");
 
         let script = config
             .get::<String>("script")
@@ -192,11 +184,8 @@ mod test_yaml_config_source {
 
     #[test]
     fn test_load_yaml_allows_anchor_indicators_in_folded_block_scalars() {
-        let source =
-            YamlConfigSource::from_content("template: >\n  value: *task\n  marker: &name\n");
-        let config = source
-            .load()
-            .expect("folded block scalar content should be preserved");
+        let source = YamlConfigSource::from_content("template: >\n  value: *task\n  marker: &name\n");
+        let config = source.load().expect("folded block scalar content should be preserved");
 
         let template = config
             .get::<String>("template")
@@ -231,10 +220,7 @@ db:
         assert_eq!(config.get::<i64>("value").unwrap(), 42);
         // Boolean values are stored as bool
         assert!(!config.get::<bool>("enabled").unwrap());
-        assert_eq!(
-            config.get::<String>("db.url").unwrap(),
-            "postgres://localhost/mydb"
-        );
+        assert_eq!(config.get::<String>("db.url").unwrap(), "postgres://localhost/mydb");
         // Integer values are stored as i64
         assert_eq!(config.get::<i64>("db.pool").unwrap(), 5);
     }
@@ -284,8 +270,7 @@ db:
 
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
-        let mut property =
-            Property::new("locked", MultiValues::String(vec!["old".to_string()])).unwrap();
+        let mut property = Property::new("locked", MultiValues::String(vec!["old".to_string()])).unwrap();
         property.set_final(true);
         config.insert_property("locked", property).unwrap();
 
@@ -306,10 +291,7 @@ db:
         merge_source(&mut config, &source).unwrap();
 
         assert!(config.contains("empty").unwrap());
-        assert_eq!(
-            config.get::<Vec<String>>("empty").unwrap(),
-            Vec::<String>::new()
-        );
+        assert_eq!(config.get::<Vec<String>>("empty").unwrap(), Vec::<String>::new());
         assert_eq!(config.get_list::<i64>("empty").unwrap(), Vec::<i64>::new());
     }
 
@@ -537,8 +519,7 @@ mod test_yaml_edge_cases {
         std::fs::write(&path, "vals:\n  - 1\n  - ~\n  - 3\n").unwrap();
         let source = YamlConfigSource::from_file(&path);
         let mut config = Config::new();
-        let error = merge_source(&mut config, &source)
-            .expect_err("heterogeneous YAML sequences should be rejected");
+        let error = merge_source(&mut config, &source).expect_err("heterogeneous YAML sequences should be rejected");
         assert!(matches!(
             &error,
             ConfigError::SourceParseError {

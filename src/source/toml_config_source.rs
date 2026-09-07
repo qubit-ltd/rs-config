@@ -87,10 +87,7 @@ fn toml_error_location(content: &str, error: &TomlError) -> Option<(usize, usize
     let offset = error.span()?.start;
     let prefix = content.get(..offset)?;
     let line = prefix.bytes().filter(|byte| *byte == b'\n').count() + 1;
-    let column = prefix
-        .rsplit('\n')
-        .next()
-        .map_or(1, |line| line.chars().count() + 1);
+    let column = prefix.rsplit('\n').next().map_or(1, |line| line.chars().count() + 1);
     Some((line, column))
 }
 
@@ -206,15 +203,7 @@ impl ConfigSource for TomlConfigSource {
             .map_err(|error| toml_parse_error(&label, &content, &error))?;
 
         let mut seen = HashSet::new();
-        flatten_toml_value(
-            &label,
-            "",
-            &TomlValue::Table(table),
-            &mut config,
-            &mut seen,
-            session,
-            0,
-        )?;
+        flatten_toml_value(&label, "", &TomlValue::Table(table), &mut config, &mut seen, session, 0)?;
         context.replace_layer(config);
         Ok(())
     }
@@ -244,15 +233,7 @@ pub(crate) fn flatten_toml_value(
                 } else {
                     format!("{}.{}", prefix, k)
                 };
-                flatten_toml_value(
-                    source_id,
-                    &key,
-                    v,
-                    config,
-                    seen,
-                    budget,
-                    depth.saturating_add(1),
-                )?;
+                flatten_toml_value(source_id, &key, v, config, seen, budget, depth.saturating_add(1))?;
             }
         }
         TomlValue::Array(arr) => {
@@ -265,33 +246,33 @@ pub(crate) fn flatten_toml_value(
         }
         TomlValue::String(s) => {
             ensure_toml_property(source_id, seen, prefix, budget)?;
-            config.set(prefix, s.clone()).map_err(|error| {
-                error.with_source_context(source_id, Some(prefix.to_string()), None)
-            })?;
+            config
+                .set(prefix, s.clone())
+                .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))?;
         }
         TomlValue::Integer(i) => {
             ensure_toml_property(source_id, seen, prefix, budget)?;
-            config.set(prefix, *i).map_err(|error| {
-                error.with_source_context(source_id, Some(prefix.to_string()), None)
-            })?;
+            config
+                .set(prefix, *i)
+                .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))?;
         }
         TomlValue::Float(f) => {
             ensure_toml_property(source_id, seen, prefix, budget)?;
-            config.set(prefix, *f).map_err(|error| {
-                error.with_source_context(source_id, Some(prefix.to_string()), None)
-            })?;
+            config
+                .set(prefix, *f)
+                .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))?;
         }
         TomlValue::Boolean(b) => {
             ensure_toml_property(source_id, seen, prefix, budget)?;
-            config.set(prefix, *b).map_err(|error| {
-                error.with_source_context(source_id, Some(prefix.to_string()), None)
-            })?;
+            config
+                .set(prefix, *b)
+                .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))?;
         }
         TomlValue::Datetime(dt) => {
             ensure_toml_property(source_id, seen, prefix, budget)?;
-            config.set(prefix, dt.to_string()).map_err(|error| {
-                error.with_source_context(source_id, Some(prefix.to_string()), None)
-            })?;
+            config
+                .set(prefix, dt.to_string())
+                .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))?;
         }
     }
     Ok(())
@@ -332,16 +313,11 @@ fn ensure_toml_property(
 ///
 /// Returns an error when the array contains nested structures or when the
 /// configuration rejects the write, for example because the property is final.
-fn flatten_toml_array(
-    source_id: &str,
-    prefix: &str,
-    arr: &[TomlValue],
-    config: &mut Config,
-) -> ConfigResult<()> {
+fn flatten_toml_array(source_id: &str, prefix: &str, arr: &[TomlValue], config: &mut Config) -> ConfigResult<()> {
     if arr.is_empty() {
-        config.set(prefix, Vec::<String>::new()).map_err(|error| {
-            error.with_source_context(source_id, Some(prefix.to_string()), None)
-        })?;
+        config
+            .set(prefix, Vec::<String>::new())
+            .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))?;
         return Ok(());
     }
 
@@ -449,12 +425,7 @@ where
 ///
 /// Returns an error when `arr` contains a nested structure or when the
 /// configuration rejects the write.
-fn set_toml_string_array(
-    source_id: &str,
-    prefix: &str,
-    arr: &[TomlValue],
-    config: &mut Config,
-) -> ConfigResult<()> {
+fn set_toml_string_array(source_id: &str, prefix: &str, arr: &[TomlValue], config: &mut Config) -> ConfigResult<()> {
     let values = arr
         .iter()
         .map(|value| toml_scalar_to_string(value, prefix))

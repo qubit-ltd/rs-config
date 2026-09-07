@@ -75,12 +75,7 @@ fn benchmark_config_lookup(criterion: &mut Criterion) {
             &property_count,
             |bencher, _| {
                 bencher.iter(|| {
-                    black_box(
-                        config
-                            .get_property(black_box(exact_key.as_str()))
-                            .unwrap()
-                            .unwrap(),
-                    );
+                    black_box(config.get_property(black_box(exact_key.as_str())).unwrap().unwrap());
                 });
             },
         );
@@ -141,11 +136,7 @@ fn benchmark_config_lookup(criterion: &mut Criterion) {
             |bencher, _| {
                 let relative_key = format!("endpoint_{exact_index}");
                 bencher.iter(|| {
-                    black_box(
-                        section
-                            .get::<u64>(black_box(relative_key.as_str()))
-                            .unwrap(),
-                    );
+                    black_box(section.get::<u64>(black_box(relative_key.as_str())).unwrap());
                 });
             },
         );
@@ -206,11 +197,7 @@ fn benchmark_config_lookup(criterion: &mut Criterion) {
                 &property_count,
                 |bencher, _| {
                     bencher.iter(|| {
-                        black_box(
-                            config
-                                .deserialize::<serde_json::Value>(black_box(prefix))
-                                .unwrap(),
-                        );
+                        black_box(config.deserialize::<serde_json::Value>(black_box(prefix)).unwrap());
                     });
                 },
             );

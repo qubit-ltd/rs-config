@@ -55,14 +55,8 @@ fn source_context_charges_local_and_aggregate_budgets_atomically() {
         .expect_err("the aggregate budget should reject the second charge");
 
     assert_eq!(error.source_id(), Some("input-accounting"));
-    assert_eq!(
-        error.source_budget_id(),
-        Some("composite configuration source")
-    );
-    assert_eq!(
-        error.budget_error().and_then(|error| error.remaining()),
-        Some(1)
-    );
+    assert_eq!(error.source_budget_id(), Some("composite configuration source"));
+    assert_eq!(error.budget_error().and_then(|error| error.remaining()), Some(1));
 }
 
 #[test]

@@ -107,8 +107,7 @@ fn test_deserialize_interpolated_supports_generic_scoped_reader() {
         .set("retry.enabled", "true")
         .expect("retry enabled value should be set");
 
-    let settings = read_retry(&config.section("retry").unwrap())
-        .expect("scoped retry settings should deserialize");
+    let settings = read_retry(&config.section("retry").unwrap()).expect("scoped retry settings should deserialize");
 
     assert_eq!(
         settings,
@@ -126,15 +125,13 @@ fn test_deserialize_matches_config_inherent_method() {
     config
         .set("server.host", "localhost")
         .expect("server host should be set");
-    config
-        .set("server.port", 8080_u16)
-        .expect("server port should be set");
+    config.set("server.port", 8080_u16).expect("server port should be set");
 
     let inherent: ServerSettings = config
         .deserialize("server")
         .expect("inherent method should deserialize");
-    let extension: ServerSettings = ConfigSerdeExt::deserialize(&config, "server")
-        .expect("extension method should deserialize");
+    let extension: ServerSettings =
+        ConfigSerdeExt::deserialize(&config, "server").expect("extension method should deserialize");
 
     assert_eq!(extension, inherent);
 }
@@ -244,9 +241,7 @@ fn test_deserialize_interpolated_preserves_expansion_limit_error() {
     config
         .set("retry.label", "${first}-${second}")
         .expect("label placeholders should be set");
-    let options = ReadPolicy::builder()
-        .max_interpolation_expansions(1)
-        .build();
+    let options = ReadPolicy::builder().max_interpolation_expansions(1).build();
     let section = config.section("retry").unwrap().read_with(&options);
 
     let error = section
@@ -404,20 +399,14 @@ fn test_deserialize_unknown_properties_are_sorted_and_deduplicated() {
 #[test]
 fn test_serde_materialization_shares_one_conversion_operation_limit() {
     let limits = ConversionLimits::builder()
-        .operation_limits(
-            ConversionOperationLimits::builder()
-                .max_input_bytes(3)
-                .build(),
-        )
+        .operation_limits(ConversionOperationLimits::builder().max_input_bytes(3).build())
         .build();
     let mut config = Config::new();
     config
         .set_default_read_policy(ReadPolicy::builder().conversion_limits(limits).build())
         .set("first", "aa")
         .expect("first value should be stored");
-    config
-        .set("second", "bb")
-        .expect("second value should be stored");
+    config.set("second", "bb").expect("second value should be stored");
 
     let error = config
         .deserialize::<StringPair>("")
@@ -484,12 +473,8 @@ fn test_scalar_boolean_and_number_to_string_charge_output() {
     let policy = ReadPolicy::builder().conversion_limits(limits).build();
     let mut config = Config::new();
     config.set_default_read_policy(policy.clone());
-    config
-        .set("enabled", true)
-        .expect("enabled should be stored");
-    config
-        .set("attempts", 3_u16)
-        .expect("attempts should be stored");
+    config.set("enabled", true).expect("enabled should be stored");
+    config.set("attempts", 3_u16).expect("attempts should be stored");
 
     let error = config
         .read_with(&policy)
@@ -503,11 +488,7 @@ fn test_scalar_boolean_and_number_to_string_charge_output() {
 #[test]
 fn test_intermediate_projection_preserves_final_output_limit() {
     let limits = ConversionLimits::builder()
-        .operation_limits(
-            ConversionOperationLimits::builder()
-                .max_output_bytes(0)
-                .build(),
-        )
+        .operation_limits(ConversionOperationLimits::builder().max_output_bytes(0).build())
         .build();
     let policy = ReadPolicy::builder().conversion_limits(limits).build();
     let mut config = Config::new();

@@ -73,26 +73,17 @@ where
         if !ctx.interpolates() {
             return property
                 .value()
-                .to_first_with::<T>(
-                    ctx.options().conversion_policy(),
-                    ctx.options().conversion_limits(),
-                )
+                .to_first_with::<T>(ctx.options().conversion_policy(), ctx.options().conversion_limits())
                 .map_err(|e| utils::map_value_error(ctx.key(), e));
         }
         let value = ctx.substitute_string(value)?;
         QubitValue::String(value)
-            .to_with::<T>(
-                ctx.options().conversion_policy(),
-                ctx.options().conversion_limits(),
-            )
+            .to_with::<T>(ctx.options().conversion_policy(), ctx.options().conversion_limits())
             .map_err(|e| utils::map_value_error(ctx.key(), e))
     } else {
         property
             .value()
-            .to_first_with::<T>(
-                ctx.options().conversion_policy(),
-                ctx.options().conversion_limits(),
-            )
+            .to_first_with::<T>(ctx.options().conversion_policy(), ctx.options().conversion_limits())
             .map_err(|e| utils::map_value_error(ctx.key(), e))
     }
 }
@@ -208,18 +199,12 @@ impl FromConfig for String {
         if let Some(value) = first_scalar_string(property) {
             let value = ctx.substitute_string(value)?;
             QubitValue::String(value)
-                .to_with::<String>(
-                    ctx.options().conversion_policy(),
-                    ctx.options().conversion_limits(),
-                )
+                .to_with::<String>(ctx.options().conversion_policy(), ctx.options().conversion_limits())
                 .map_err(|e| utils::map_value_error(ctx.key(), e))
         } else {
             property
                 .value()
-                .to_first_with::<String>(
-                    ctx.options().conversion_policy(),
-                    ctx.options().conversion_limits(),
-                )
+                .to_first_with::<String>(ctx.options().conversion_policy(), ctx.options().conversion_limits())
                 .map_err(|e| utils::map_value_error(ctx.key(), e))
         }
     }
@@ -241,10 +226,7 @@ where
     /// Parsed value, or a [`crate::ConfigError`] with key context.
     fn from_config(property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<Self> {
         substituted_values(property, ctx)?
-            .to_list_with::<T>(
-                ctx.options().conversion_policy(),
-                ctx.options().conversion_limits(),
-            )
+            .to_list_with::<T>(ctx.options().conversion_policy(), ctx.options().conversion_limits())
             .map_err(|error| utils::map_value_error(ctx.key(), error))
     }
 }

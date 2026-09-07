@@ -110,10 +110,7 @@ impl PropertiesConfigSource {
     }
 
     /// Parses properties text under explicit source limits.
-    pub fn parse_content_with_limits(
-        content: &str,
-        limits: SourceLimits,
-    ) -> ConfigResult<Vec<(String, String)>> {
+    pub fn parse_content_with_limits(content: &str, limits: SourceLimits) -> ConfigResult<Vec<(String, String)>> {
         Self::parse_content_with_source(content, limits, "properties:<memory>")
     }
 
@@ -160,9 +157,8 @@ impl PropertiesConfigSource {
             if let Some((key, value)) = parse_key_value(&full_line) {
                 let key = unescape_properties(key);
                 let value = unescape_properties(value);
-                let _ = ConfigKey::parse(key.as_str()).map_err(|error| {
-                    error.with_source_context(source_id, Some(key.clone()), None)
-                })?;
+                let _ = ConfigKey::parse(key.as_str())
+                    .map_err(|error| error.with_source_context(source_id, Some(key.clone()), None))?;
                 session.check_depth(key.split('.').count())?;
                 session.consume_nodes(1)?;
                 session.consume_properties(1)?;
@@ -343,11 +339,7 @@ fn has_line_continuation(line: &str) -> bool {
 /// Number of trailing `\` bytes.
 #[inline]
 fn count_trailing_backslashes(line: &str) -> usize {
-    line.as_bytes()
-        .iter()
-        .rev()
-        .take_while(|&&b| b == b'\\')
-        .count()
+    line.as_bytes().iter().rev().take_while(|&&b| b == b'\\').count()
 }
 
 /// Processes Java properties escape sequences in a string.

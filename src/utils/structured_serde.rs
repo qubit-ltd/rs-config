@@ -19,11 +19,7 @@ use crate::Property;
 
 /// Inserts a value into the serde object used by
 /// [`crate::Config::deserialize`].
-pub(crate) fn insert_deserialize_value(
-    root: &mut Map<String, Value>,
-    key: &str,
-    value: Value,
-) -> ConfigResult<()> {
+pub(crate) fn insert_deserialize_value(root: &mut Map<String, Value>, key: &str, value: Value) -> ConfigResult<()> {
     if !key.contains('.') || key.is_empty() {
         root.insert(key.to_string(), value);
         return Ok(());
@@ -33,11 +29,7 @@ pub(crate) fn insert_deserialize_value(
 }
 
 /// Tries to insert a dotted key as a nested JSON object path.
-fn try_insert_nested_json_value(
-    root: &mut Map<String, Value>,
-    key: &str,
-    value: Value,
-) -> ConfigResult<()> {
+fn try_insert_nested_json_value(root: &mut Map<String, Value>, key: &str, value: Value) -> ConfigResult<()> {
     let parts: Vec<&str> = key.split('.').collect();
     if parts.iter().any(|part| part.is_empty()) {
         return Err(ConfigError::KeyConflict {
@@ -154,10 +146,7 @@ pub(crate) fn prepare_deserialize_value<P: ConfigReader + ?Sized, F: ConfigReade
         .build();
     let mut value = prop
         .value()
-        .to_json_value_with(
-            primary.read_policy().conversion_policy(),
-            &projection_limits,
-        )
+        .to_json_value_with(primary.read_policy().conversion_policy(), &projection_limits)
         .map_err(|error| map_value_error(path, error))?;
     if interpolate {
         substitute_json_strings_with_fallback(&mut value, path, primary, fallback)?;

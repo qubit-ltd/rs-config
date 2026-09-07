@@ -60,10 +60,7 @@ fn test_candidate_property_error_exposes_canonical_paths() {
 fn test_single_property_error_exposes_one_candidate_path() {
     let error = ConfigError::PropertyNotFound("service.port".to_string());
 
-    assert_eq!(
-        error.candidate_paths(),
-        Some(["service.port".to_string()].as_slice()),
-    );
+    assert_eq!(error.candidate_paths(), Some(["service.port".to_string()].as_slice()),);
 }
 
 #[test]
@@ -136,8 +133,7 @@ fn test_value_error_requires_key_context() {
 
 #[test]
 fn test_keyed_value_error_keeps_source_index() {
-    let value_error =
-        ValueError::ListConversion(DataListConversionError::new(4, invalid_integer()));
+    let value_error = ValueError::ListConversion(DataListConversionError::new(4, invalid_integer()));
     let error = ConfigError::from(("ports", value_error));
     assert!(matches!(
         error,

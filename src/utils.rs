@@ -58,10 +58,7 @@ pub(crate) fn validate_normalized_config_key(key: &str, origin: &str) -> ConfigR
 
 /// Records a flattened source key and rejects duplicate normalized keys.
 #[cfg(any(feature = "toml", feature = "yaml"))]
-pub(crate) fn ensure_unique_flattened_key(
-    seen: &mut HashSet<String>,
-    key: &str,
-) -> ConfigResult<()> {
+pub(crate) fn ensure_unique_flattened_key(seen: &mut HashSet<String>, key: &str) -> ConfigResult<()> {
     if seen.insert(key.to_string()) {
         return Ok(());
     }

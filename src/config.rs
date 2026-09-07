@@ -148,8 +148,7 @@ impl<'de> Deserialize<'de> for Config {
     where
         D: Deserializer<'de>,
     {
-        ConfigWire::deserialize(deserializer)
-            .and_then(|wire| Self::try_from(wire).map_err(D::Error::custom))
+        ConfigWire::deserialize(deserializer).and_then(|wire| Self::try_from(wire).map_err(D::Error::custom))
     }
 }
 
@@ -190,10 +189,7 @@ impl TryFrom<ConfigWireV1> for Config {
     /// not match its embedded property name.
     fn try_from(value: ConfigWireV1) -> Result<Self, Self::Error> {
         if value.version != 1 {
-            return Err(format!(
-                "unsupported config wire version {}; expected 1",
-                value.version,
-            ));
+            return Err(format!("unsupported config wire version {}; expected 1", value.version,));
         }
         Self::from_wire_parts(value.description, value.properties.into_iter().collect())
     }
@@ -255,10 +251,7 @@ impl Config {
     ///
     /// Returns a value-representation error, a shared budget error, a JSON
     /// serialization error, or a configuration-specific limit error.
-    pub fn encode_json_vec_with_limits(
-        &self,
-        limits: ConfigWireLimits,
-    ) -> Result<Vec<u8>, ConfigWireEncodeError> {
+    pub fn encode_json_vec_with_limits(&self, limits: ConfigWireLimits) -> Result<Vec<u8>, ConfigWireEncodeError> {
         self.check_config_limits_encode(limits)?;
         let mut preflight = ValueWireEncodePreflight::new_u64_limits(limits.json_encode());
         for property in self.properties.values() {
@@ -322,43 +315,31 @@ impl Config {
     }
 
     /// Checks configuration-specific limits for an encoding operation.
-    fn check_config_limits_encode(
-        &self,
-        limits: ConfigWireLimits,
-    ) -> Result<(), ConfigWireEncodeError> {
-        let property_count =
-            u64::try_from(self.properties.len()).expect("property count must fit in u64");
+    fn check_config_limits_encode(&self, limits: ConfigWireLimits) -> Result<(), ConfigWireEncodeError> {
+        let property_count = u64::try_from(self.properties.len()).expect("property count must fit in u64");
         limits
             .properties_limit()
             .check(property_count)
             .map_err(|error| ConfigWireEncodeError::LimitExceeded {
                 kind: ConfigWireLimitKind::Properties,
-                value: error
-                    .exact_observed()
-                    .expect("point failure carries an exact value"),
+                value: error.exact_observed().expect("point failure carries an exact value"),
                 maximum: error.maximum(),
             })?;
         for key in self.properties.keys() {
             let key_bytes = u64::try_from(key.len()).expect("property key length must fit in u64");
-            limits
-                .property_key_bytes_limit()
-                .check(key_bytes)
-                .map_err(|error| ConfigWireEncodeError::LimitExceeded {
+            limits.property_key_bytes_limit().check(key_bytes).map_err(|error| {
+                ConfigWireEncodeError::LimitExceeded {
                     kind: ConfigWireLimitKind::PropertyKeyBytes,
-                    value: error
-                        .exact_observed()
-                        .expect("point failure carries an exact value"),
+                    value: error.exact_observed().expect("point failure carries an exact value"),
                     maximum: error.maximum(),
-                })?;
+                }
+            })?;
         }
         Ok(())
     }
 
     /// Validates shared fields decoded from an accepted persisted wire format.
-    fn from_wire_parts(
-        description: Option<String>,
-        properties: BTreeMap<String, Property>,
-    ) -> Result<Self, String> {
+    fn from_wire_parts(description: Option<String>, properties: BTreeMap<String, Property>) -> Result<Self, String> {
         if let Some((key, violation)) = properties
             .keys()
             .filter_map(|key| {
@@ -486,9 +467,7 @@ fn map_decode_json_error(error: JsonDecodeError<JsonResource, u64>) -> ConfigWir
     match error.into_source() {
         JsonDecodeErrorSource::Budget { source, .. } => match source {
             MeasuredBudgetError::Budget(error) => ConfigWireDecodeError::Budget(error),
-            MeasuredBudgetError::Quantity { resource, source } => {
-                ConfigWireDecodeError::Quantity { resource, source }
-            }
+            MeasuredBudgetError::Quantity { resource, source } => ConfigWireDecodeError::Quantity { resource, source },
         },
         JsonDecodeErrorSource::InvalidJson { syntax, .. } => ConfigWireDecodeError::Syntax(syntax),
         JsonDecodeErrorSource::Deserialize { line, column, .. } => ConfigWireDecodeError::Json {
@@ -498,9 +477,7 @@ fn map_decode_json_error(error: JsonDecodeError<JsonResource, u64>) -> ConfigWir
         },
         JsonDecodeErrorSource::EmptyInput { .. }
         | JsonDecodeErrorSource::InvalidUtf8 { .. }
-        | JsonDecodeErrorSource::UnexpectedTopLevel { .. } => {
-            ConfigWireDecodeError::Adapter(message)
-        }
+        | JsonDecodeErrorSource::UnexpectedTopLevel { .. } => ConfigWireDecodeError::Adapter(message),
     }
 }
 

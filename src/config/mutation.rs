@@ -96,9 +96,7 @@ impl Config {
             self.ensure_property_not_final(name)?;
             let value = values.into();
             if let Some(property) = self.properties.get_mut(name) {
-                property
-                    .add(value)
-                    .map_err(|error| ConfigError::from((name, error)))
+                property.add(value).map_err(|error| ConfigError::from((name, error)))
             } else {
                 let property = Property::new(name, value)?;
                 self.properties.insert(name.to_string(), property);
@@ -204,11 +202,7 @@ impl Config {
     /// - [`ConfigError::MergeError`] when `name` and `property.name()` differ.
     /// - [`ConfigError::PropertyIsFinal`] when trying to override a final
     ///   property.
-    pub fn insert_property(
-        &mut self,
-        name: impl ConfigName,
-        property: Property,
-    ) -> ConfigResult<()> {
+    pub fn insert_property(&mut self, name: impl ConfigName, property: Property) -> ConfigResult<()> {
         name.with_config_name(|name| {
             ensure_config_key(name)?;
             if property.name() != name {

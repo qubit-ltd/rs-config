@@ -58,11 +58,7 @@ impl<'a> ConfigSection<'a> {
         } else if path.is_empty() {
             ConfigSection::new_with_read_policy(self.config, self.path.as_str(), self.read_policy)
         } else {
-            ConfigSection::new_with_read_policy(
-                self.config,
-                &format!("{}.{}", self.path, path),
-                self.read_policy,
-            )
+            ConfigSection::new_with_read_policy(self.config, &format!("{}.{}", self.path, path), self.read_policy)
         }
     }
 
@@ -108,11 +104,7 @@ impl<'a> ConfigSection<'a> {
 
     /// Creates a section with an optional borrowed read-policy override.
     #[inline]
-    fn new_with_read_policy(
-        config: &'a Config,
-        path: &str,
-        read_policy: Option<&'a ReadPolicy>,
-    ) -> ConfigResult<Self> {
+    fn new_with_read_policy(config: &'a Config, path: &str, read_policy: Option<&'a ReadPolicy>) -> ConfigResult<Self> {
         ensure_config_path(path)?;
         let path = path.to_string();
         let child_prefix = if path.is_empty() {
@@ -248,24 +240,21 @@ impl<'a> ConfigSection<'a> {
     /// the section prefix stripped for a non-root section.
     fn visible_entries<'b>(&'b self) -> impl Iterator<Item = (&'b str, &'b Property)> + 'b {
         let child_prefix = self.child_prefix.as_deref().unwrap_or("");
-        self.config
-            .iter_prefix(child_prefix)
-            .map(move |(key, property)| {
-                let key = if child_prefix.is_empty() {
-                    key
-                } else {
-                    &key[child_prefix.len()..]
-                };
-                (key, property)
-            })
+        self.config.iter_prefix(child_prefix).map(move |(key, property)| {
+            let key = if child_prefix.is_empty() {
+                key
+            } else {
+                &key[child_prefix.len()..]
+            };
+            (key, property)
+        })
     }
 }
 
 impl<'a> ConfigReader for ConfigSection<'a> {
     #[inline(always)]
     fn read_policy(&self) -> &ReadPolicy {
-        self.read_policy
-            .unwrap_or_else(|| self.config.default_read_policy())
+        self.read_policy.unwrap_or_else(|| self.config.default_read_policy())
     }
 
     #[inline(always)]
@@ -289,9 +278,7 @@ impl<'a> ConfigReader for ConfigSection<'a> {
     }
 
     fn keys(&self) -> Vec<String> {
-        self.visible_entries()
-            .map(|(key, _)| key.to_string())
-            .collect()
+        self.visible_entries().map(|(key, _)| key.to_string()).collect()
     }
 
     fn contains(&self, name: impl ConfigName) -> ConfigResult<bool> {
@@ -334,10 +321,7 @@ impl<'a> ConfigReader for ConfigSection<'a> {
         Ok(self.contains_key_prefix(&child_prefix))
     }
 
-    fn iter_prefix<'b>(
-        &'b self,
-        prefix: &'b str,
-    ) -> impl Iterator<Item = (&'b str, &'b Property)> + 'b {
+    fn iter_prefix<'b>(&'b self, prefix: &'b str) -> impl Iterator<Item = (&'b str, &'b Property)> + 'b {
         let child_prefix = self.child_prefix.as_deref().unwrap_or("");
         let full_prefix = format!("{child_prefix}{prefix}");
         let lower_bound = full_prefix.clone();
