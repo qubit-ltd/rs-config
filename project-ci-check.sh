@@ -24,6 +24,7 @@ if [[ "${CHECK_DOWNSTREAM_COMPATIBILITY:-0}" == "1" ]]; then
     rs-fs-local
     rs-fs-registry
     rs-fs-testkit
+    rs-value
   )
 
   for repository in "${downstream_repositories[@]}"; do
