@@ -8,6 +8,8 @@
 // qubit-style: allow multiple-public-types
 //! Budget-aware seed for persisted configuration wire values.
 
+use std::collections::HashSet;
+
 use qubit_budget::json::JsonContainerKind;
 use qubit_budget::json::JsonMeasurement;
 use qubit_budget::json::JsonResource;
@@ -16,7 +18,7 @@ use qubit_budget::json::JsonValueTransaction;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::de::DeserializeSeed;
-use serde::de::Error as _;
+use serde::de::Error as DeError;
 use serde::de::MapAccess;
 use serde::de::SeqAccess;
 use serde::de::Visitor;
@@ -24,8 +26,6 @@ use serde_json::Map;
 use serde_json::Number;
 use serde_json::Value;
 use serde_json::from_value;
-
-use std::collections::HashSet;
 
 use super::ConfigWire;
 use super::ConfigWireFields;
@@ -149,7 +149,7 @@ impl<'transaction, 'budget> AccountingUniqueJsonValueSeed<'transaction, 'budget>
     /// Accounts a JSON number while retaining serde_json's representable range.
     fn enter_number<E>(&mut self, number: Number) -> Result<Value, E>
     where
-        E: serde::de::Error,
+        E: DeError,
     {
         self.transaction
             .try_admit(JsonMeasurement::Number {
@@ -190,7 +190,7 @@ impl<'de, 'transaction, 'budget> Visitor<'de>
 
     fn visit_bool<E>(self, value: bool) -> Result<Self::Value, E>
     where
-        E: serde::de::Error,
+        E: DeError,
     {
         self.transaction
             .try_admit(JsonMeasurement::Boolean { depth: self.depth })
@@ -200,21 +200,21 @@ impl<'de, 'transaction, 'budget> Visitor<'de>
 
     fn visit_i64<E>(mut self, value: i64) -> Result<Self::Value, E>
     where
-        E: serde::de::Error,
+        E: DeError,
     {
         self.enter_number(Number::from(value))
     }
 
     fn visit_u64<E>(mut self, value: u64) -> Result<Self::Value, E>
     where
-        E: serde::de::Error,
+        E: DeError,
     {
         self.enter_number(Number::from(value))
     }
 
     fn visit_i128<E>(mut self, value: i128) -> Result<Self::Value, E>
     where
-        E: serde::de::Error,
+        E: DeError,
     {
         let number = Number::from_i128(value)
             .ok_or_else(|| E::custom("JSON integer is outside the supported 64-bit range"))?;
@@ -223,7 +223,7 @@ impl<'de, 'transaction, 'budget> Visitor<'de>
 
     fn visit_u128<E>(mut self, value: u128) -> Result<Self::Value, E>
     where
-        E: serde::de::Error,
+        E: DeError,
     {
         let number = Number::from_u128(value)
             .ok_or_else(|| E::custom("JSON integer is outside the supported 64-bit range"))?;
@@ -232,7 +232,7 @@ impl<'de, 'transaction, 'budget> Visitor<'de>
 
     fn visit_f64<E>(mut self, value: f64) -> Result<Self::Value, E>
     where
-        E: serde::de::Error,
+        E: DeError,
     {
         let number = Number::from_f64(value)
             .ok_or_else(|| E::custom("non-finite float is not representable as JSON"))?;
@@ -241,7 +241,7 @@ impl<'de, 'transaction, 'budget> Visitor<'de>
 
     fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
     where
-        E: serde::de::Error,
+        E: DeError,
     {
         self.transaction
             .try_admit(JsonMeasurement::String {
@@ -254,7 +254,7 @@ impl<'de, 'transaction, 'budget> Visitor<'de>
 
     fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
     where
-        E: serde::de::Error,
+        E: DeError,
     {
         self.transaction
             .try_admit(JsonMeasurement::String {
@@ -267,7 +267,7 @@ impl<'de, 'transaction, 'budget> Visitor<'de>
 
     fn visit_none<E>(self) -> Result<Self::Value, E>
     where
-        E: serde::de::Error,
+        E: DeError,
     {
         self.transaction
             .try_admit(JsonMeasurement::Null { depth: self.depth })
@@ -277,7 +277,7 @@ impl<'de, 'transaction, 'budget> Visitor<'de>
 
     fn visit_unit<E>(self) -> Result<Self::Value, E>
     where
-        E: serde::de::Error,
+        E: DeError,
     {
         self.visit_none()
     }
