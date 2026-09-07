@@ -9,21 +9,13 @@
 use qubit_budget::ResourceBudget;
 use qubit_budget::ResourceLimit;
 
+use super::internal::InterpolationResource;
 use super::map_value_error;
 use crate::ConfigError;
 use crate::ConfigReader;
 use crate::ConfigResult;
 use crate::options::InterpolationSources;
 use crate::options::ReadPolicy;
-
-/// Resource dimensions consumed while one interpolation is evaluated.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum InterpolationResource {
-    /// One resolved placeholder.
-    Expansions,
-    /// UTF-8 bytes present in an intermediate interpolation result.
-    OutputBytes,
-}
 
 /// Replaces variables using a primary reader and a fallback reader.
 ///

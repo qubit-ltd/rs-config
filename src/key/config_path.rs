@@ -54,6 +54,7 @@ impl ConfigPath {
 
     /// Borrows the canonical path text.
     #[inline(always)]
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }

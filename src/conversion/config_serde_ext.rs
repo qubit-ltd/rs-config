@@ -19,6 +19,7 @@ use crate::Property;
 use crate::config_reader::ConfigReader;
 use crate::config_reader::root_config;
 use crate::config_value_deserializer::ConfigValueDeserializer;
+use crate::config_value_deserializer::internal::UnknownPropertyMode;
 use crate::options::ReadPolicy;
 use crate::utils;
 
@@ -115,12 +116,6 @@ pub trait ConfigSerdeExt: ConfigReader {
 }
 
 impl<R> ConfigSerdeExt for R where R: ConfigReader + ?Sized {}
-
-#[derive(Clone, Copy)]
-enum UnknownPropertyMode {
-    Reject,
-    Ignore,
-}
 
 /// Deserializes a reader-selected value with explicit interpolation behavior.
 ///

@@ -20,30 +20,20 @@ use serde_json::Value;
 
 use crate::ConfigError;
 use crate::config_deserialize_error::ConfigDeserializeError;
+use crate::config_value_deserializer::internal::ConfigConversionInput;
 use crate::config_value_deserializer::internal::ConfigEnumAccess;
 use crate::config_value_deserializer::internal::ConfigMapAccess;
 use crate::config_value_deserializer::internal::ConfigScalarSeqAccess;
 use crate::config_value_deserializer::internal::ConfigSeqAccess;
 use crate::options::ReadPolicy;
 
-mod internal;
+pub(crate) mod internal;
 
 /// Deserializer over a single serde value.
 pub(crate) struct ConfigValueDeserializer<'policy, 'session, 'source> {
     input: ConfigConversionInput<'session, 'policy, 'source>,
     key: String,
     options: &'policy ReadPolicy,
-}
-
-/// Owns exactly one conversion source and its associated session capability.
-enum ConfigConversionInput<'session, 'policy, 'source> {
-    /// A normal Serde value that has not been admitted as a scalar item.
-    TopLevel {
-        value: Value,
-        session: &'session mut ConversionSession<'policy>,
-    },
-    /// A scalar value already charged to the bound conversion session.
-    AdmittedScalar(AdmittedScalarItem<'session, 'policy, 'source>),
 }
 
 impl<'policy, 'session> ConfigValueDeserializer<'policy, 'session, 'static> {

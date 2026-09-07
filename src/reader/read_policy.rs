@@ -115,6 +115,7 @@ impl ReadPolicy {
     ///
     /// Policy used by the shared `qubit-datatype` conversion layer.
     #[inline(always)]
+    #[must_use]
     pub const fn conversion_policy(&self) -> &ConversionPolicy {
         &self.conversion_policy
     }
@@ -125,6 +126,7 @@ impl ReadPolicy {
     ///
     /// Limits used by the shared `qubit-datatype` conversion layer.
     #[inline(always)]
+    #[must_use]
     pub const fn conversion_limits(&self) -> &ConversionLimits {
         &self.conversion_limits
     }
@@ -135,6 +137,7 @@ impl ReadPolicy {
     ///
     /// The source order used by interpolated reads.
     #[inline(always)]
+    #[must_use]
     pub const fn interpolation_sources(&self) -> InterpolationSources {
         self.interpolation_sources
     }
@@ -145,6 +148,7 @@ impl ReadPolicy {
     ///
     /// The maximum active placeholder-reference chain length.
     #[inline(always)]
+    #[must_use]
     pub const fn max_interpolation_depth(&self) -> usize {
         self.max_interpolation_depth
     }
@@ -155,6 +159,7 @@ impl ReadPolicy {
     ///
     /// The configured interpolation expansion-count limit.
     #[inline(always)]
+    #[must_use]
     pub const fn max_interpolation_expansions(&self) -> usize {
         self.max_interpolation_expansions
     }
@@ -165,6 +170,7 @@ impl ReadPolicy {
     ///
     /// The configured output-size limit in bytes.
     #[inline(always)]
+    #[must_use]
     pub const fn max_interpolation_output_bytes(&self) -> usize {
         self.max_interpolation_output_bytes
     }

@@ -48,11 +48,17 @@ use crate::ConfigWireLimits;
 use crate::Property;
 use crate::options::ReadPolicy;
 
+// Property metadata and read-only accessors.
 mod access;
+// Mutating operations and final-value enforcement.
 mod mutation;
+// Typed and structured value reads.
 mod read;
+// Loading and merging external configuration sources.
 mod source_loading;
+// Serde-based structured serialization and deserialization.
 mod structured_serde;
+// Iteration and section traversal over visible properties.
 mod traversal;
 
 /// Configuration Manager

@@ -140,6 +140,7 @@ impl<'a> ConfigSection<'a> {
     /// The empty string for the root section, or a path without leading or
     /// trailing `.` separators.
     #[inline(always)]
+    #[must_use]
     pub fn path(&self) -> &str {
         &self.path
     }
@@ -178,6 +179,7 @@ impl<'a> ConfigSection<'a> {
     ///
     /// `true` when a visible key starts with `prefix`.
     #[inline(always)]
+    #[must_use]
     pub fn contains_key_prefix(&self, prefix: &str) -> bool {
         <Self as ConfigReader>::contains_key_prefix(self, prefix)
     }

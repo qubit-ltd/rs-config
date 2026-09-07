@@ -56,6 +56,7 @@ impl<'a> ConfigParseContext<'a> {
     ///
     /// The root-relative configuration key.
     #[inline]
+    #[must_use]
     pub fn key(&self) -> &str {
         self.key
     }
@@ -66,12 +67,14 @@ impl<'a> ConfigParseContext<'a> {
     ///
     /// Read policy selected by the reader.
     #[inline]
+    #[must_use]
     pub fn options(&self) -> &ReadPolicy {
         self.options
     }
 
     /// Reports whether string values are interpolated before conversion.
     #[inline(always)]
+    #[must_use]
     pub const fn interpolates(&self) -> bool {
         self.interpolate
     }

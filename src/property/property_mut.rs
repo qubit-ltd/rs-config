@@ -51,6 +51,7 @@ impl<'a> ConfigPropertyMut<'a> {
     ///
     /// The guarded property.
     #[inline]
+    #[must_use]
     pub fn as_property(&self) -> &Property {
         self.property
     }

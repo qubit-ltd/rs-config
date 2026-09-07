@@ -52,6 +52,7 @@ impl ConfigKey {
 
     /// Borrows the canonical key text.
     #[inline(always)]
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }

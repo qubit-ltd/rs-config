@@ -185,6 +185,7 @@ impl Property {
     ///
     /// Returns the property name as a string slice
     #[inline(always)]
+    #[must_use]
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -195,6 +196,7 @@ impl Property {
     ///
     /// Returns a reference to the property value
     #[inline(always)]
+    #[must_use]
     pub fn value(&self) -> &ValueContainer {
         &self.value
     }
@@ -217,6 +219,7 @@ impl Property {
     ///
     /// Returns the strict read error from the underlying value container.
     #[inline(always)]
+    #[must_use]
     pub fn get<T>(&self) -> ValueResult<T>
     where
         T: StrictValueRead,
@@ -226,6 +229,7 @@ impl Property {
 
     /// Strictly borrows the scalar value or first collection item.
     #[inline(always)]
+    #[must_use]
     pub fn get_ref<'a, T: ?Sized>(&'a self) -> ValueResult<&'a T>
     where
         &'a T: TryFrom<&'a Value, Error = ValueError> + TryFrom<&'a MultiValues, Error = ValueError>,
@@ -259,6 +263,7 @@ impl Property {
     ///
     /// Returns the property description as Option
     #[inline(always)]
+    #[must_use]
     pub fn description(&self) -> Option<&str> {
         self.description.as_deref()
     }
@@ -279,6 +284,7 @@ impl Property {
     ///
     /// Returns `true` if the property is final
     #[inline(always)]
+    #[must_use]
     pub fn is_final(&self) -> bool {
         self.is_final
     }
@@ -299,6 +305,7 @@ impl Property {
     ///
     /// Returns the data type of the property value
     #[inline(always)]
+    #[must_use]
     pub fn data_type(&self) -> DataType {
         self.value.data_type()
     }

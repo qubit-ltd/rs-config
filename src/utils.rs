@@ -22,6 +22,8 @@ use super::ConfigResult;
 mod interpolation;
 #[path = "utils/structured_serde.rs"]
 mod structured_serde;
+#[path = "utils/internal/mod.rs"]
+mod internal;
 
 pub(crate) use interpolation::substitute_variables_with_fallback;
 pub(crate) use structured_serde::insert_deserialize_value;

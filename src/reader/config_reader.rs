@@ -48,12 +48,15 @@ pub trait ConfigReader: internal::Sealed {
 
     /// Number of configuration entries visible to this reader (all keys for
     /// [`crate::Config`]; relative keys only for a [`ConfigSection`]).
+    #[must_use]
     fn len(&self) -> usize;
 
     /// Returns `true` when [`Self::len`] is zero.
+    #[must_use]
     fn is_empty(&self) -> bool;
 
     /// All keys visible to this reader (relative keys for a section).
+    #[must_use]
     fn keys(&self) -> Vec<String>;
 
     /// Returns whether a property exists for the given key.
