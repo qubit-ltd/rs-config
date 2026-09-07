@@ -68,7 +68,8 @@ fn test_config_wire_deserializes_unversioned_payload() {
         .set("server.port", 8080_u16)
         .expect("setting the property should succeed");
 
-    let mut legacy = to_value(&config).expect("serializing the legacy-shaped config should succeed");
+    let mut legacy =
+        to_value(&config).expect("serializing the legacy-shaped config should succeed");
     legacy
         .as_object_mut()
         .expect("config wire should be a JSON object")
@@ -86,14 +87,16 @@ fn test_config_wire_deserializes_unversioned_payload() {
 
 #[test]
 fn test_ordinary_deserialize_enforces_default_property_key_budget() {
-    let key = "k".repeat(usize::try_from(ConfigWireLimits::DEFAULT_MAX_PROPERTY_KEY_BYTES).unwrap() + 1);
+    let key =
+        "k".repeat(usize::try_from(ConfigWireLimits::DEFAULT_MAX_PROPERTY_KEY_BYTES).unwrap() + 1);
     let mut config = Config::new();
     config
         .set(&key, "value")
         .expect("the domain model accepts a long canonical key");
     let input = to_vec(&config).expect("the config should serialize");
 
-    let error = from_slice::<Config>(&input).expect_err("ordinary Deserialize should apply default decoded budgets");
+    let error = from_slice::<Config>(&input)
+        .expect_err("ordinary Deserialize should apply default decoded budgets");
 
     assert!(error.to_string().contains("PropertyKeyBytes"));
 }
@@ -104,8 +107,10 @@ fn test_ordinary_deserialize_does_not_claim_raw_input_accounting() {
     let mut input = vec![b' '; usize::try_from(ConfigWireLimits::DEFAULT_MAX_INPUT_BYTES).unwrap()];
     input.extend_from_slice(&to_vec(&config).expect("the config should serialize"));
 
-    let _ = from_slice::<Config>(&input).expect("ordinary Deserialize should only enforce decoded-value budgets");
-    let error = Config::decode_json_slice(&input).expect_err("the bounded API should reject excessive raw input");
+    let _ = from_slice::<Config>(&input)
+        .expect("ordinary Deserialize should only enforce decoded-value budgets");
+    let error = Config::decode_json_slice(&input)
+        .expect_err("the bounded API should reject excessive raw input");
     assert!(matches!(
         error,
         ConfigWireDecodeError::Budget(BudgetError::LimitExceeded {
@@ -129,7 +134,8 @@ fn test_ordinary_deserialize_enforces_default_decoded_string_budget() {
         .expect("the domain model accepts the long string");
     let input = to_vec(&config).expect("the config should serialize");
 
-    let error = from_slice::<Config>(&input).expect_err("ordinary Deserialize should enforce decoded string limits");
+    let error = from_slice::<Config>(&input)
+        .expect_err("ordinary Deserialize should enforce decoded string limits");
 
     assert!(error.to_string().contains("StringBytes"));
 }
@@ -137,7 +143,9 @@ fn test_ordinary_deserialize_enforces_default_decoded_string_budget() {
 #[test]
 fn test_bounded_decode_uses_custom_config_wire_domain_budget() {
     let mut config = Config::new();
-    config.set("value", "x").expect("the property should be set");
+    config
+        .set("value", "x")
+        .expect("the property should be set");
     let input = to_vec(&config).expect("the config should serialize");
     let limits = ConfigWireLimits::builder().max_properties(0).build();
 
@@ -160,7 +168,9 @@ fn test_config_wire_ignores_unversioned_read_options() {
         .expect("setting the property should succeed");
 
     let mut legacy = to_value(&config).expect("serializing config should succeed");
-    let object = legacy.as_object_mut().expect("config wire should be a JSON object");
+    let object = legacy
+        .as_object_mut()
+        .expect("config wire should be a JSON object");
     object.remove("version");
     object.insert(
         "read_options".to_owned(),
@@ -186,9 +196,14 @@ fn test_config_wire_rejects_unknown_version() {
     let mut wire = to_value(&config).expect("serializing config should succeed");
     wire["version"] = json!(2);
 
-    let error = from_value::<Config>(wire).expect_err("unsupported config wire versions must be rejected");
+    let error =
+        from_value::<Config>(wire).expect_err("unsupported config wire versions must be rejected");
 
-    assert!(error.to_string().contains("unsupported config wire version"));
+    assert!(
+        error
+            .to_string()
+            .contains("unsupported config wire version")
+    );
 }
 
 #[test]
@@ -202,7 +217,9 @@ fn test_config_wire_limits_apply_to_nested_values() {
     let structure = StructureLimits::builder()
         .sequence_items_limit(ResourceLimit::new(JsonResource::SequenceItems, 1))
         .build();
-    let value = JsonValueLimits::builder().structure_limits(structure).build();
+    let value = JsonValueLimits::builder()
+        .structure_limits(structure)
+        .build();
     let decode = JsonDecodeLimits::builder()
         .input_bytes_limit(ResourceLimit::new(
             JsonResource::InputBytes,
@@ -210,7 +227,9 @@ fn test_config_wire_limits_apply_to_nested_values() {
         ))
         .value_limits(value)
         .build();
-    let limits = ConfigWireLimits::builder_from(&limits).json_decode(decode).build();
+    let limits = ConfigWireLimits::builder_from(&limits)
+        .json_decode(decode)
+        .build();
 
     assert!(matches!(
         Config::decode_json_slice_with_limits(&input, limits),
@@ -222,10 +241,99 @@ fn test_config_wire_limits_apply_to_nested_values() {
     ));
 }
 
+fn assert_decode_rejects_resource(
+    input: &[u8],
+    decode: JsonDecodeLimits<JsonResource, u64>,
+    resource: JsonResource,
+) {
+    let limits = ConfigWireLimits::builder_from(&ConfigWireLimits::default())
+        .json_decode(decode)
+        .build();
+    let error = Config::decode_json_slice_with_limits(input, limits)
+        .expect_err("the configured JSON budget must reject this input");
+    let ConfigWireDecodeError::Budget(error) = error else {
+        panic!("expected a budget error, got {error:?}");
+    };
+    assert_eq!(error.resource(), &resource);
+}
+
+#[test]
+fn test_config_wire_decode_enforces_each_json_budget_dimension() {
+    let empty = to_vec(&Config::new()).expect("the empty config should serialize");
+    assert_decode_rejects_resource(
+        &empty,
+        JsonDecodeLimits::builder().max_input_bytes(0).build(),
+        JsonResource::InputBytes,
+    );
+    assert_decode_rejects_resource(
+        &empty,
+        JsonDecodeLimits::builder().max_depth(0).build(),
+        JsonResource::Depth,
+    );
+    assert_decode_rejects_resource(
+        &empty,
+        JsonDecodeLimits::builder().max_nodes(0).build(),
+        JsonResource::Nodes,
+    );
+    assert_decode_rejects_resource(
+        &empty,
+        JsonDecodeLimits::builder().max_map_entries(0).build(),
+        JsonResource::MapEntries,
+    );
+    assert_decode_rejects_resource(
+        &empty,
+        JsonDecodeLimits::builder().max_key_bytes(0).build(),
+        JsonResource::KeyBytes,
+    );
+    assert_decode_rejects_resource(
+        &empty,
+        JsonDecodeLimits::builder().max_number_bytes(0).build(),
+        JsonResource::NumberBytes,
+    );
+    assert_decode_rejects_resource(
+        &empty,
+        JsonDecodeLimits::builder().max_payload_bytes(0).build(),
+        JsonResource::PayloadBytes,
+    );
+
+    let mut config = Config::builder().description("description").build();
+    config
+        .set("values", vec![1_i32, 2])
+        .expect("setting the collection should succeed");
+    let input = to_vec(&config).expect("the config should serialize");
+    assert_decode_rejects_resource(
+        &input,
+        JsonDecodeLimits::builder().max_sequence_items(1).build(),
+        JsonResource::SequenceItems,
+    );
+    assert_decode_rejects_resource(
+        &input,
+        JsonDecodeLimits::builder().max_string_bytes(0).build(),
+        JsonResource::StringBytes,
+    );
+}
+
+#[test]
+fn test_config_wire_decode_rejects_nested_values_over_depth_limit() {
+    let mut config = Config::new();
+    config
+        .set("values", vec![1_i32, 2])
+        .expect("setting the collection should succeed");
+    let input = to_vec(&config).expect("the config should serialize");
+
+    assert_decode_rejects_resource(
+        &input,
+        JsonDecodeLimits::builder().max_depth(3).build(),
+        JsonResource::Depth,
+    );
+}
+
 /// Verifies bounded encoding round-trips with the default limits.
 #[test]
 fn test_config_wire_bounded_encode_round_trips_with_default_limits() {
-    let mut config = Config::builder().description("bounded wire round trip").build();
+    let mut config = Config::builder()
+        .description("bounded wire round trip")
+        .build();
     config
         .set("server.port", 8080_u16)
         .expect("setting the property should succeed");
@@ -264,7 +372,9 @@ fn test_config_wire_bounded_encode_rejects_property_key_bytes() {
     config
         .set("server.port", 8080_u16)
         .expect("setting the property should succeed");
-    let limits = ConfigWireLimits::builder().max_property_key_bytes(5).build();
+    let limits = ConfigWireLimits::builder()
+        .max_property_key_bytes(5)
+        .build();
 
     assert!(matches!(
         config.encode_json_vec_with_limits(limits),
@@ -291,7 +401,9 @@ fn test_config_wire_bounded_encode_rejects_final_output_bytes() {
     let encode = JsonEncodeLimits::builder()
         .output_bytes_limit(ResourceLimit::new(JsonResource::OutputBytes, maximum))
         .build();
-    let limits = ConfigWireLimits::builder_from(&limits).json_encode(encode).build();
+    let limits = ConfigWireLimits::builder_from(&limits)
+        .json_encode(encode)
+        .build();
 
     let result = config.encode_json_vec_with_limits(limits);
     assert!(
@@ -381,7 +493,9 @@ fn test_config_wire_reports_configuration_invariant_after_decoding() {
             u64::try_from(input.len()).expect("input length must fit"),
         ))
         .build();
-    let limits = ConfigWireLimits::builder_from(&limits).json_decode(decode).build();
+    let limits = ConfigWireLimits::builder_from(&limits)
+        .json_decode(decode)
+        .build();
 
     let result = Config::decode_json_slice_with_limits(&input, limits);
     assert!(matches!(
@@ -402,7 +516,8 @@ fn test_config_wire_rejects_unknown_v1_fields() {
     let mut wire = to_value(&config).expect("serializing config should succeed");
     wire["future_field"] = json!(true);
 
-    from_value::<Config>(wire).expect_err("unknown V1 fields must not silently deserialize as legacy");
+    from_value::<Config>(wire)
+        .expect_err("unknown V1 fields must not silently deserialize as legacy");
 }
 
 /// Verifies legacy runtime policy data is not part of the versioned contract.
@@ -416,7 +531,8 @@ fn test_config_wire_rejects_read_options_in_v1_payload() {
     let mut wire = to_value(&config).expect("serializing config should succeed");
     wire["read_options"] = json!({"environment_fallback_enabled": true});
 
-    from_value::<Config>(wire).expect_err("versioned config wire must not contain runtime policies");
+    from_value::<Config>(wire)
+        .expect_err("versioned config wire must not contain runtime policies");
 }
 
 /// Verifies persisted map keys cannot disagree with their embedded property
@@ -434,6 +550,16 @@ fn test_config_wire_rejects_property_name_mismatch() {
     let error = from_value::<Config>(wire).expect_err("property name mismatches must be rejected");
 
     assert!(error.to_string().contains("does not match property name"));
+}
+
+#[test]
+fn test_config_wire_rejects_duplicate_property_map_keys() {
+    let input = br#"{"version":1,"properties":{"server.port":{"name":"server.port","value":{"version":1,"value":{"scalar":{"int32":1}}},"description":null,"is_final":false},"server.port":{"name":"server.port","value":{"version":1,"value":{"scalar":{"int32":2}}},"description":null,"is_final":false}}}"#;
+
+    assert!(
+        Config::decode_json_slice(input).is_err(),
+        "duplicate persisted property keys must not be silently overwritten"
+    );
 }
 
 /// Verifies matching map/property names are still rejected when the common
@@ -458,7 +584,8 @@ fn test_config_wire_rejects_malformed_map_key() {
         .expect("properties should be an object")
         .insert("bad..key".to_string(), property);
 
-    let error = from_value::<Config>(wire).expect_err("malformed config wire keys must be rejected");
+    let error =
+        from_value::<Config>(wire).expect_err("malformed config wire keys must be rejected");
 
     assert!(
         error.to_string().contains("bad..key"),

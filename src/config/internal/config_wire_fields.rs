@@ -8,9 +8,13 @@
 
 use std::collections::BTreeMap;
 
+use qubit_json::value::DuplicateKeyRejectingJsonValueSeed;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::de::IgnoredAny;
+use serde::de::DeserializeSeed;
+use serde::de::Error as _;
+use serde_json::from_value;
 
 use crate::Property;
 
@@ -29,12 +33,20 @@ pub(in crate::config) struct ConfigWireFields {
     #[serde(default)]
     pub(in crate::config) description: Option<String>,
     /// Properties indexed by their persisted names.
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_unique_properties")]
     pub(in crate::config) properties: BTreeMap<String, Property>,
     /// Legacy runtime options accepted for backward input compatibility and
     /// intentionally ignored.
     #[serde(default)]
     pub(in crate::config) read_options: Option<IgnoredAny>,
+}
+
+fn deserialize_unique_properties<'de, D>(deserializer: D) -> Result<BTreeMap<String, Property>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = DuplicateKeyRejectingJsonValueSeed::new().deserialize(deserializer)?;
+    from_value(value.into_inner()).map_err(D::Error::custom)
 }
 
 /// Distinguishes an absent legacy version from every explicitly supplied byte.
