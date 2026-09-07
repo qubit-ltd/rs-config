@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/downstream.yml"
+      - "project-ci-check.sh"
       - "Cargo.toml"
       - "Cargo.lock"
       - "src/**"
