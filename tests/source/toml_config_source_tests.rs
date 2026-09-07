@@ -18,6 +18,7 @@ use qubit_config::source::ConfigSource;
 use qubit_config::source::SourceLimitKind;
 use qubit_config::source::SourceLimits;
 use qubit_config::source::TomlConfigSource;
+use qubit_config::source::TomlConfigSourceBuilder;
 
 fn fixture(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -28,6 +29,16 @@ fn fixture(name: &str) -> PathBuf {
 
 fn merge_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<()> {
     config.merge_properties_from_source(source)
+}
+
+#[test]
+fn toml_builder_default_loads_configured_content() {
+    let builder_default: fn() -> TomlConfigSourceBuilder = Default::default;
+    let source = std::hint::black_box(builder_default)()
+        .content("covered = \"value\"\n")
+        .build();
+
+    assert_eq!(source.load().unwrap().get::<String>("covered").unwrap(), "value");
 }
 
 // ============================================================================

@@ -15,6 +15,7 @@ use qubit_config::Config;
 use qubit_config::ConfigError;
 use qubit_config::ConfigResult;
 use qubit_config::source::CompositeConfigSource;
+use qubit_config::source::CompositeConfigSourceBuilder;
 use qubit_config::source::ConfigSource;
 use qubit_config::source::EnvConfigSource;
 use qubit_config::source::PropertiesConfigSource;
@@ -31,6 +32,19 @@ fn fixture(name: &str) -> PathBuf {
 
 fn load_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<()> {
     config.merge_properties_from_source(source)
+}
+
+#[test]
+fn composite_builder_default_and_consuming_add_source_preserve_order() {
+    let default_builder: fn() -> CompositeConfigSourceBuilder = Default::default;
+    let builder = std::hint::black_box(default_builder)();
+    let composite = std::hint::black_box(
+        CompositeConfigSourceBuilder::add_source::<PropertiesConfigSource>,
+    )(builder, PropertiesConfigSource::from_content("answer=42\n"))
+    .build();
+
+    assert_eq!(composite.len(), 1);
+    assert_eq!(composite.load().unwrap().get::<u8>("answer").unwrap(), 42);
 }
 
 // ============================================================================

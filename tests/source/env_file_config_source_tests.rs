@@ -19,6 +19,7 @@ use qubit_config::ConfigError;
 use qubit_config::ConfigResult;
 use qubit_config::source::ConfigSource;
 use qubit_config::source::EnvFileConfigSource;
+use qubit_config::source::EnvFileConfigSourceBuilder;
 use qubit_config::source::SourceLimitKind;
 use qubit_config::source::SourceLimits;
 
@@ -38,6 +39,16 @@ fn fixture(name: &str) -> PathBuf {
 
 fn merge_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<()> {
     config.merge_properties_from_source(source)
+}
+
+#[test]
+fn env_file_builder_default_loads_configured_content() {
+    let builder_default: fn() -> EnvFileConfigSourceBuilder = Default::default;
+    let source = std::hint::black_box(builder_default)()
+        .content("COVERED=value\n")
+        .build();
+
+    assert_eq!(source.load().unwrap().get::<String>("COVERED").unwrap(), "value");
 }
 
 // ============================================================================

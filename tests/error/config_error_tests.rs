@@ -91,3 +91,23 @@ fn test_config_value_error_fallback_retains_key_and_source() {
         } if key == "server.port"
     ));
 }
+
+#[test]
+fn config_error_optional_context_accessors_are_callable_as_functions() {
+    let candidates = ConfigError::PropertyCandidatesNotFound {
+        paths: vec!["primary".to_string(), "fallback".to_string()],
+    };
+    let candidate_paths: fn(&ConfigError) -> Option<&[String]> = ConfigError::candidate_paths;
+    assert_eq!(
+        std::hint::black_box(candidate_paths)(&candidates),
+        Some(["primary".to_string(), "fallback".to_string()].as_slice()),
+    );
+
+    let conversion = ConfigError::ConversionError {
+        key: "items".to_string(),
+        source_index: Some(2),
+        source: DataConversionError::invalid(DataType::String, DataType::Bool, InvalidValueReason::InvalidBoolean),
+    };
+    let source_index: fn(&ConfigError) -> Option<usize> = ConfigError::source_index;
+    assert_eq!(std::hint::black_box(source_index)(&conversion), Some(2));
+}

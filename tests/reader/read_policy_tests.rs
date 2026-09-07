@@ -12,11 +12,13 @@ use qubit_config::ConfigError;
 use qubit_config::ConfigReader;
 use qubit_config::options::InterpolationSources;
 use qubit_config::options::ReadPolicy;
+use qubit_config::options::ReadPolicyBuilder;
 use qubit_datatype::BlankStringPolicy;
 use qubit_datatype::BooleanConversionPolicy;
 use qubit_datatype::CollectionConversionPolicy;
 use qubit_datatype::ConversionLimits;
 use qubit_datatype::ConversionPolicy;
+use qubit_datatype::DurationConversionLimits;
 use qubit_datatype::DurationConversionPolicy;
 use qubit_datatype::DurationUnit;
 use qubit_datatype::EmptyItemPolicy;
@@ -437,4 +439,23 @@ fn test_read_policy_override_combines_conversion_and_interpolation_limits() {
         config.get_interpolated::<String>("service.value").unwrap(),
         "ok"
     );
+}
+
+#[test]
+fn read_policy_defaults_limits_and_borrowed_limits_are_callable_as_functions() {
+    let interpolation_default: fn() -> InterpolationSources = Default::default;
+    assert_eq!(
+        std::hint::black_box(interpolation_default)(),
+        InterpolationSources::ConfigOnly,
+    );
+
+    let builder_default: fn() -> ReadPolicyBuilder = Default::default;
+    let duration_limits = DurationConversionLimits::default();
+    let policy = std::hint::black_box(builder_default)()
+        .duration_limits(duration_limits.clone())
+        .build();
+    assert_eq!(policy.conversion_limits().duration(), &duration_limits);
+
+    let as_limits: for<'a> fn(&'a ReadPolicy) -> &'a ConversionLimits = <ReadPolicy as AsRef<ConversionLimits>>::as_ref;
+    assert_eq!(std::hint::black_box(as_limits)(&policy), policy.conversion_limits());
 }

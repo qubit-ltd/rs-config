@@ -156,3 +156,16 @@ fn config_wire_limits_builder_covers_every_json_budget_dimension() {
         Some(29)
     );
 }
+
+#[test]
+fn config_wire_scalar_limit_getters_are_callable_as_functions() {
+    let limits = ConfigWireLimits::builder()
+        .max_properties(11)
+        .max_property_key_bytes(12)
+        .build();
+    let max_properties: fn(ConfigWireLimits) -> u64 = ConfigWireLimits::max_properties;
+    let max_property_key_bytes: fn(ConfigWireLimits) -> u64 = ConfigWireLimits::max_property_key_bytes;
+
+    assert_eq!(std::hint::black_box(max_properties)(limits), 11);
+    assert_eq!(std::hint::black_box(max_property_key_bytes)(limits), 12);
+}

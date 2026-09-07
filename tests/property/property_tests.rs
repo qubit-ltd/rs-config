@@ -32,6 +32,7 @@ use qubit_value::MultiValues;
 use qubit_value::Value;
 use qubit_value::ValueContainer;
 use qubit_value::ValueError;
+use qubit_value::ValueResult;
 
 // ============================================================================
 // Property Basic Method Tests
@@ -62,6 +63,28 @@ fn test_property_new() {
     assert_eq!(prop.data_type(), DataType::String);
     assert!(prop.description().is_none());
     assert!(!prop.is_final());
+}
+
+#[test]
+fn property_accessors_remain_callable_through_the_public_api() {
+    let borrowed_property: &'static Property =
+        Box::leak(Box::new(Property::new("coverage.borrowed", "value").unwrap()));
+    let get_ref: fn(&'static Property) -> ValueResult<&'static str> = Property::get_ref::<'static, str>;
+    assert_eq!(std::hint::black_box(get_ref)(borrowed_property).unwrap(), "value");
+
+    let mut property = Property::new("coverage.property", "value").unwrap();
+    let value_mut: fn(&mut Property) -> &mut ValueContainer = Property::value_mut;
+    let description: fn(&Property) -> Option<&str> = Property::description;
+    let set_description: fn(&mut Property, Option<String>) = Property::set_description;
+    let data_type: fn(&Property) -> DataType = Property::data_type;
+    let len: fn(&Property) -> usize = Property::len;
+
+    std::hint::black_box(set_description)(&mut property, Some("covered".to_string()));
+    assert_eq!(std::hint::black_box(description)(&property), Some("covered"));
+    assert_eq!(std::hint::black_box(data_type)(&property), DataType::String);
+    assert_eq!(std::hint::black_box(len)(&property), 1);
+    std::hint::black_box(value_mut)(&mut property).unset();
+    assert!(property.is_unset());
 }
 
 #[test]

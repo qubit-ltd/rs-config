@@ -10,6 +10,7 @@
 use qubit_config::Config;
 use qubit_config::ConfigError;
 use qubit_config::ConfigReader;
+use qubit_config::ConfigSection;
 use qubit_config::options::ReadPolicy;
 
 #[test]
@@ -160,4 +161,17 @@ fn test_section_relative_keys_cannot_escape_or_be_reinterpreted_as_absolute() {
     ));
     assert!(service.contains_section("child").unwrap());
     assert!(!service.contains_section("child.value").unwrap());
+}
+
+#[test]
+fn section_path_and_presence_accessors_are_callable_as_functions() {
+    let mut config = Config::new();
+    config.set("service.child.value", true).unwrap();
+    let section = config.section("service").unwrap();
+
+    assert_eq!(
+        std::hint::black_box(ConfigSection::path)(&section),
+        "service"
+    );
+    assert!(std::hint::black_box(ConfigSection::contains_section)(&section, "child").unwrap());
 }

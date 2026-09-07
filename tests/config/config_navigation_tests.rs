@@ -50,6 +50,25 @@ pub(crate) fn create_test_config() -> Config {
     config
 }
 
+#[test]
+fn inherent_section_accessors_preserve_presence_semantics() {
+    let mut config = Config::new();
+    config.set("service.port", 8080_u16).unwrap();
+
+    let section = std::hint::black_box(Config::section)(&config, "service").unwrap();
+    assert_eq!(section.get::<u16>("port").unwrap(), 8080);
+    assert!(
+        std::hint::black_box(Config::section_if_present)(&config, "service")
+            .unwrap()
+            .is_some()
+    );
+    assert!(
+        std::hint::black_box(Config::section_if_present)(&config, "missing")
+            .unwrap()
+            .is_none()
+    );
+}
+
 /// Creates a test configuration with description
 #[allow(dead_code)]
 pub(crate) fn create_test_config_with_description() -> Config {

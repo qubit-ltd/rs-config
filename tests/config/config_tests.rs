@@ -22,6 +22,7 @@ pub(crate) use chrono::NaiveTime;
 #[cfg(feature = "chrono")]
 pub(crate) use chrono::Utc;
 pub(crate) use qubit_config::Config;
+pub(crate) use qubit_config::ConfigBuilder;
 pub(crate) use qubit_config::ConfigError;
 pub(crate) use qubit_config::ConfigReader;
 pub(crate) use qubit_config::Property;
@@ -73,6 +74,14 @@ fn test_default_read_policy_is_transient_and_preserved_by_mutations() {
     config.remove("other").expect("removing the value should succeed");
     config.clear().expect("clearing the config should succeed");
     assert_eq!(config.default_read_policy(), &policy);
+}
+
+#[test]
+fn config_builder_default_builds_the_same_empty_configuration() {
+    let default_builder: fn() -> ConfigBuilder = Default::default;
+    let config = std::hint::black_box(default_builder)().build();
+
+    assert_eq!(config, Config::new());
 }
 
 #[test]

@@ -168,3 +168,20 @@ fn path_error_retains_the_rejected_text() {
             if path == "a..b"
     ));
 }
+
+#[test]
+fn key_and_path_wrapper_traits_preserve_the_validated_text() {
+    let key: ConfigKey = serde_json::from_str("\"server.port\"").unwrap();
+    let key_as_str: for<'a> fn(&'a ConfigKey) -> &'a str = ConfigKey::as_str;
+    let key_as_ref: for<'a> fn(&'a ConfigKey) -> &'a str = <ConfigKey as AsRef<str>>::as_ref;
+    assert_eq!(std::hint::black_box(key_as_str)(&key), "server.port");
+    assert_eq!(std::hint::black_box(key_as_ref)(&key), "server.port");
+    assert_eq!(key.to_string(), "server.port");
+
+    let path: ConfigPath = serde_json::from_str("\"server.http\"").unwrap();
+    let path_as_str: for<'a> fn(&'a ConfigPath) -> &'a str = ConfigPath::as_str;
+    let path_as_ref: for<'a> fn(&'a ConfigPath) -> &'a str = <ConfigPath as AsRef<str>>::as_ref;
+    assert_eq!(std::hint::black_box(path_as_str)(&path), "server.http");
+    assert_eq!(std::hint::black_box(path_as_ref)(&path), "server.http");
+    assert_eq!(path.to_string(), "server.http");
+}

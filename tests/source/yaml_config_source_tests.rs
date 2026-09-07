@@ -20,6 +20,7 @@ use qubit_config::source::ConfigSource;
 use qubit_config::source::SourceLimitKind;
 use qubit_config::source::SourceLimits;
 use qubit_config::source::YamlConfigSource;
+use qubit_config::source::YamlConfigSourceBuilder;
 use qubit_value::MultiValues;
 
 fn fixture(name: &str) -> PathBuf {
@@ -31,6 +32,16 @@ fn fixture(name: &str) -> PathBuf {
 
 fn merge_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<()> {
     config.merge_properties_from_source(source)
+}
+
+#[test]
+fn yaml_builder_default_loads_configured_content() {
+    let builder_default: fn() -> YamlConfigSourceBuilder = Default::default;
+    let source = std::hint::black_box(builder_default)()
+        .content("covered: value\n")
+        .build();
+
+    assert_eq!(source.load().unwrap().get::<String>("covered").unwrap(), "value");
 }
 
 // ============================================================================

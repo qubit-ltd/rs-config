@@ -16,7 +16,10 @@ use qubit_config::ConfigError;
 use qubit_config::ConfigResult;
 use qubit_config::source::ConfigSource;
 use qubit_config::source::EnvConfigOptions;
+use qubit_config::source::EnvConfigOptionsBuilder;
 use qubit_config::source::EnvConfigSource;
+use qubit_config::source::EnvConfigSourceBuilder;
+use qubit_config::source::SourceLimits;
 use qubit_redact::RedactionCompletion;
 use qubit_redact::Redactor;
 
@@ -30,6 +33,22 @@ fn env_test_lock() -> MutexGuard<'static, ()> {
 
 fn merge_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<()> {
     config.merge_properties_from_source(source)
+}
+
+#[test]
+fn environment_builders_expose_default_and_limit_configuration() {
+    let options_default: fn() -> EnvConfigOptionsBuilder = Default::default;
+    let source_default: fn() -> EnvConfigSourceBuilder = Default::default;
+    let limits: fn(EnvConfigSourceBuilder, SourceLimits) -> EnvConfigSourceBuilder = EnvConfigSourceBuilder::limits;
+
+    let options = std::hint::black_box(options_default)().build();
+    let source = std::hint::black_box(limits)(
+        std::hint::black_box(source_default)(),
+        SourceLimits::builder().max_properties(0).build(),
+    )
+    .options(options)
+    .build();
+    assert_eq!(source.limits().max_properties(), 0);
 }
 
 // ============================================================================

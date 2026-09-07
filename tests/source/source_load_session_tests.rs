@@ -12,6 +12,7 @@ use qubit_config::source::CompositeConfigSource;
 use qubit_config::source::ConfigSource;
 use qubit_config::source::SourceLimits;
 use qubit_config::source::SourceLoadContext;
+use qubit_datatype::DataType;
 
 struct ChildAccountingSource {
     amount: usize,
@@ -52,6 +53,24 @@ impl ConfigSource for RecoveringLocalFailureSource {
 }
 
 struct PartialLayerFailureSource;
+
+struct NodeAndNullSource;
+
+impl ConfigSource for NodeAndNullSource {
+    fn source_id(&self) -> String {
+        "node and null".to_string()
+    }
+
+    fn limits(&self) -> SourceLimits {
+        SourceLimits::default()
+    }
+
+    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
+        let consume_nodes = std::hint::black_box(SourceLoadContext::consume_nodes);
+        consume_nodes(context, 1)?;
+        context.set_null("optional.value", DataType::String)
+    }
+}
 
 impl ConfigSource for PartialLayerFailureSource {
     fn source_id(&self) -> String {
@@ -120,4 +139,15 @@ fn source_load_failure_discards_partial_layer_before_merge() {
     assert_eq!(error.source_budget_id(), Some("partial layer"));
     assert_eq!(config.get::<String>("existing").unwrap(), "kept");
     assert!(!config.contains("partial.key").unwrap());
+}
+
+#[test]
+fn source_load_context_exposes_node_charges_and_typed_nulls() {
+    let config = NodeAndNullSource.load().unwrap();
+
+    assert!(config.is_unset("optional.value").unwrap());
+    assert_eq!(
+        config.get_property("optional.value").unwrap().unwrap().data_type(),
+        DataType::String
+    );
 }
