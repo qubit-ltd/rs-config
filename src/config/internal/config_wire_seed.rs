@@ -68,24 +68,19 @@ impl AccountingConfigWireSeed {
         if let Err(error) = self.limits.properties_limit().check(count) {
             return Err(ConfigWireDecodeError::LimitExceeded {
                 kind: ConfigWireLimitKind::Properties,
-                value: error
-                    .exact_observed()
-                    .expect("point failure carries an exact value"),
+                value: error.exact_observed().expect("point failure carries an exact value"),
                 maximum: error.maximum(),
             });
         }
         for key in keys {
             let bytes = u64::try_from(key.len()).expect("property key length must fit in u64");
-            self.limits
-                .property_key_bytes_limit()
-                .check(bytes)
-                .map_err(|error| ConfigWireDecodeError::LimitExceeded {
+            self.limits.property_key_bytes_limit().check(bytes).map_err(|error| {
+                ConfigWireDecodeError::LimitExceeded {
                     kind: ConfigWireLimitKind::PropertyKeyBytes,
-                    value: error
-                        .exact_observed()
-                        .expect("point failure carries an exact value"),
+                    value: error.exact_observed().expect("point failure carries an exact value"),
                     maximum: error.maximum(),
-                })?;
+                }
+            })?;
         }
         Ok(())
     }
@@ -113,9 +108,7 @@ struct AccountingUniqueJsonValueSeed<'transaction, 'budget> {
 
 impl<'transaction, 'budget> AccountingUniqueJsonValueSeed<'transaction, 'budget> {
     /// Creates a root seed using the supplied accounting transaction.
-    fn new(
-        transaction: &'transaction mut JsonValueTransaction<'budget, JsonResource, u64>,
-    ) -> Self {
+    fn new(transaction: &'transaction mut JsonValueTransaction<'budget, JsonResource, u64>) -> Self {
         Self {
             transaction,
             depth: 1,
@@ -161,9 +154,7 @@ impl<'transaction, 'budget> AccountingUniqueJsonValueSeed<'transaction, 'budget>
     }
 }
 
-impl<'de, 'transaction, 'budget> DeserializeSeed<'de>
-    for AccountingUniqueJsonValueSeed<'transaction, 'budget>
-{
+impl<'de, 'transaction, 'budget> DeserializeSeed<'de> for AccountingUniqueJsonValueSeed<'transaction, 'budget> {
     type Value = Value;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
@@ -179,9 +170,7 @@ impl<'de, 'transaction, 'budget> DeserializeSeed<'de>
     }
 }
 
-impl<'de, 'transaction, 'budget> Visitor<'de>
-    for AccountingUniqueJsonValueSeed<'transaction, 'budget>
-{
+impl<'de, 'transaction, 'budget> Visitor<'de> for AccountingUniqueJsonValueSeed<'transaction, 'budget> {
     type Value = Value;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -216,8 +205,8 @@ impl<'de, 'transaction, 'budget> Visitor<'de>
     where
         E: DeError,
     {
-        let number = Number::from_i128(value)
-            .ok_or_else(|| E::custom("JSON integer is outside the supported 64-bit range"))?;
+        let number =
+            Number::from_i128(value).ok_or_else(|| E::custom("JSON integer is outside the supported 64-bit range"))?;
         self.enter_number(number)
     }
 
@@ -225,8 +214,8 @@ impl<'de, 'transaction, 'budget> Visitor<'de>
     where
         E: DeError,
     {
-        let number = Number::from_u128(value)
-            .ok_or_else(|| E::custom("JSON integer is outside the supported 64-bit range"))?;
+        let number =
+            Number::from_u128(value).ok_or_else(|| E::custom("JSON integer is outside the supported 64-bit range"))?;
         self.enter_number(number)
     }
 
@@ -234,8 +223,8 @@ impl<'de, 'transaction, 'budget> Visitor<'de>
     where
         E: DeError,
     {
-        let number = Number::from_f64(value)
-            .ok_or_else(|| E::custom("non-finite float is not representable as JSON"))?;
+        let number =
+            Number::from_f64(value).ok_or_else(|| E::custom("non-finite float is not representable as JSON"))?;
         self.enter_number(number)
     }
 
@@ -308,8 +297,7 @@ impl<'de, 'transaction, 'budget> Visitor<'de>
             let Some(next) = values.len().checked_add(1) else {
                 return Err(A::Error::custom("JSON sequence item count overflowed usize"));
             };
-            let Some(value) = sequence
-                .next_element_seed(self.prospective_child(JsonContainerKind::Sequence, next))?
+            let Some(value) = sequence.next_element_seed(self.prospective_child(JsonContainerKind::Sequence, next))?
             else {
                 break;
             };
@@ -358,23 +346,18 @@ impl JsonAdmittedConfigWireSeed {
             .check(count)
             .map_err(|error| ConfigWireDecodeError::LimitExceeded {
                 kind: ConfigWireLimitKind::Properties,
-                value: error
-                    .exact_observed()
-                    .expect("point failure carries an exact value"),
+                value: error.exact_observed().expect("point failure carries an exact value"),
                 maximum: error.maximum(),
             })?;
         for key in fields.properties.keys() {
             let bytes = u64::try_from(key.len()).expect("property key length must fit in u64");
-            self.limits
-                .property_key_bytes_limit()
-                .check(bytes)
-                .map_err(|error| ConfigWireDecodeError::LimitExceeded {
+            self.limits.property_key_bytes_limit().check(bytes).map_err(|error| {
+                ConfigWireDecodeError::LimitExceeded {
                     kind: ConfigWireLimitKind::PropertyKeyBytes,
-                    value: error
-                        .exact_observed()
-                        .expect("point failure carries an exact value"),
+                    value: error.exact_observed().expect("point failure carries an exact value"),
                     maximum: error.maximum(),
-                })?;
+                }
+            })?;
         }
         Ok(())
     }
@@ -389,8 +372,7 @@ impl<'de> DeserializeSeed<'de> for AccountingConfigWireSeed {
     {
         let mut budget = JsonValueBudget::new(*self.limits.json_decode().value_limits());
         let mut transaction = budget.transaction();
-        let value =
-            AccountingUniqueJsonValueSeed::new(&mut transaction).deserialize(deserializer)?;
+        let value = AccountingUniqueJsonValueSeed::new(&mut transaction).deserialize(deserializer)?;
         transaction.commit().map_err(D::Error::custom)?;
         if let Err(error) = self.check_value(&value) {
             return Ok(Err(error));
