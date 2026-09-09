@@ -11,9 +11,11 @@ use std::collections::HashMap;
 use std::fmt;
 
 use qubit_config::Config;
+use qubit_config::ConfigDeserializeOptions;
 use qubit_config::ConfigError;
 use qubit_config::ConfigResult;
 use qubit_config::Property;
+use qubit_config::UnknownFieldPolicy;
 use qubit_config::options::ReadPolicy;
 use qubit_datatype::BlankStringPolicy;
 use qubit_datatype::CollectionConversionLimits;
@@ -561,7 +563,13 @@ fn deserialize_derived_shapes() -> ConfigResult<()> {
     config.set("shapes.ignored_source", 42i32)?;
     config.set("shapes.extra", "ignored")?;
 
-    let actual: DerivedShapes = config.deserialize_lenient("shapes")?;
+    let actual: DerivedShapes = config.deserialize_with(
+        "shapes",
+        ConfigDeserializeOptions {
+            interpolate: false,
+            unknown_fields: UnknownFieldPolicy::Ignore,
+        },
+    )?;
 
     assert_eq!(
         actual,
@@ -880,7 +888,13 @@ fn deserialize_typed_vectors_and_maps_preserves_nested_shapes() -> ConfigResult<
         )?,
     )?;
 
-    let actual: TypedCollections = config.deserialize_lenient("collections")?;
+    let actual: TypedCollections = config.deserialize_with(
+        "collections",
+        ConfigDeserializeOptions {
+            interpolate: false,
+            unknown_fields: UnknownFieldPolicy::Ignore,
+        },
+    )?;
 
     assert_eq!(
         actual,
@@ -921,12 +935,24 @@ fn deserialize_distinguishes_null_from_missing_field() -> ConfigResult<()> {
     let mut null_config = Config::new();
     null_config.set_null("null.value", DataType::String)?;
     assert_eq!(
-        null_config.deserialize_lenient::<OptionalValue>("null")?,
+        null_config.deserialize_with::<OptionalValue>(
+            "null",
+            ConfigDeserializeOptions {
+                interpolate: false,
+                unknown_fields: UnknownFieldPolicy::Ignore
+            }
+        )?,
         OptionalValue { value: Presence::Null }
     );
 
     assert_eq!(
-        Config::new().deserialize_lenient::<OptionalValue>("missing")?,
+        Config::new().deserialize_with::<OptionalValue>(
+            "missing",
+            ConfigDeserializeOptions {
+                interpolate: false,
+                unknown_fields: UnknownFieldPolicy::Ignore
+            }
+        )?,
         OptionalValue {
             value: Presence::Missing
         }
@@ -1066,7 +1092,7 @@ fn deserialize_scalar_error_branches() -> ConfigResult<()> {
     assert!(config.deserialize::<OneField<String>>("null_string").is_err());
     assert!(config.deserialize::<OneField<String>>("array_string").is_err());
     assert!(config.deserialize::<OneField<String>>("object_string").is_err());
-    assert!(config.deserialize::<OneField<bool>>("bool_number").is_err());
+    assert!(config.deserialize::<OneField<bool>>("bool_number")?.value);
     assert!(config.deserialize::<OneField<bool>>("bool_string").is_err());
     assert!(config.deserialize::<OneField<u8>>("u8_overflow").is_err());
     assert!(config.deserialize::<OneField<Vec<u8>>>("seq_bool").is_err());
@@ -1082,17 +1108,17 @@ fn deserialize_scalar_error_branches() -> ConfigResult<()> {
     assert!(config.deserialize::<OneField<i8>>("i8_unsigned").is_err());
     assert!(config.deserialize::<OneField<i8>>("i8_overflow").is_err());
     assert!(config.deserialize::<OneField<i8>>("i8_bad_string").is_err());
-    assert!(config.deserialize::<OneField<i8>>("i8_bool").is_err());
+    assert_eq!(config.deserialize::<OneField<i8>>("i8_bool")?.value, 1);
     assert!(config.deserialize::<OneField<i16>>("i16_unsigned").is_err());
     assert!(config.deserialize::<OneField<i16>>("i16_overflow").is_err());
-    assert!(config.deserialize::<OneField<i16>>("i16_bool").is_err());
+    assert_eq!(config.deserialize::<OneField<i16>>("i16_bool")?.value, 1);
     assert!(config.deserialize::<OneField<i16>>("i16_bad_string").is_err());
     assert!(config.deserialize::<OneField<i32>>("i32_unsigned").is_err());
     assert!(config.deserialize::<OneField<i32>>("i32_overflow").is_err());
-    assert!(config.deserialize::<OneField<i32>>("i32_bool").is_err());
+    assert_eq!(config.deserialize::<OneField<i32>>("i32_bool")?.value, 1);
     assert!(config.deserialize::<OneField<i32>>("i32_bad_string").is_err());
     assert!(config.deserialize::<OneField<i64>>("i64_unsigned").is_err());
-    assert!(config.deserialize::<OneField<i64>>("i64_bool").is_err());
+    assert_eq!(config.deserialize::<OneField<i64>>("i64_bool")?.value, 1);
     assert!(config.deserialize::<OneField<i64>>("i64_bad_string").is_err());
     assert!(config.deserialize::<OneField<u8>>("u8_negative").is_err());
     assert!(config.deserialize::<OneField<u8>>("u8_bad_string").is_err());
@@ -1108,9 +1134,9 @@ fn deserialize_scalar_error_branches() -> ConfigResult<()> {
     assert!(config.deserialize::<OneField<u64>>("u64_array").is_err());
     assert!(config.deserialize::<OneField<u64>>("u64_bad_string").is_err());
     assert!(config.deserialize::<OneField<f32>>("f32_bad_string").is_err());
-    assert!(config.deserialize::<OneField<f32>>("f32_bool").is_err());
+    assert_eq!(config.deserialize::<OneField<f32>>("f32_bool")?.value, 1.0);
     assert!(config.deserialize::<OneField<f64>>("f64_bad_string").is_err());
-    assert!(config.deserialize::<OneField<f64>>("f64_bool").is_err());
+    assert_eq!(config.deserialize::<OneField<f64>>("f64_bool")?.value, 1.0);
     assert!(config.deserialize::<OneField<Mode>>("bad_enum").is_err());
     Ok(())
 }

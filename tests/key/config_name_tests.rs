@@ -14,6 +14,27 @@ use qubit_config::ConfigPathViolation;
 use qubit_config::ConfigReader;
 
 #[test]
+fn test_config_name_accepts_standard_borrowed_text_adapters() {
+    struct Key<'a>(&'a str);
+    impl AsRef<str> for Key<'_> {
+        fn as_ref(&self) -> &str {
+            self.0
+        }
+    }
+    let mut config = Config::new();
+    config.set(Key("server.port"), 8080_i32).unwrap();
+    assert_eq!(
+        config.get::<i32>(std::borrow::Cow::Borrowed("server.port")).unwrap(),
+        8080
+    );
+    assert_eq!(ConfigReader::get::<i32>(&config, Key("server.port")).unwrap(), 8080);
+    let section = config.section("server").unwrap();
+    assert_eq!(section.get::<i32>(Key("port")).unwrap(), 8080);
+    let property = config.get_property(String::from("server.port")).unwrap().unwrap();
+    assert_eq!(property.name(), "server.port");
+}
+
+#[test]
 fn test_config_name_accepts_str_string_and_string_ref() {
     let mut config = Config::new();
     config

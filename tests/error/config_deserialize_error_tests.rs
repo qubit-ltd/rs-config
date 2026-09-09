@@ -32,7 +32,7 @@ struct RequiredItems {
 }
 
 #[test]
-fn test_deserialize_message_error_has_path_and_no_source() {
+fn test_unset_deserialize_error_retains_missing_source_and_path() {
     let mut config = Config::new();
     config
         .set_null("app.value", DataType::String)
@@ -42,21 +42,14 @@ fn test_deserialize_message_error_has_path_and_no_source() {
         .deserialize::<RequiredString>("app")
         .expect_err("null string should fail during serde deserialization");
 
-    assert_eq!(error.kind(), ConfigErrorKind::Deserialize);
+    assert_eq!(error.kind(), ConfigErrorKind::Value);
     assert_eq!(error.path(), Some("app.value"));
-    assert!(matches!(
-        &error,
-        ConfigError::DeserializeError {
-            message,
-            source: None,
-            ..
-        } if message == "configuration value does not match the requested type"
-    ));
-    assert!(error.source().is_none());
+    assert!(error.value_missing().unwrap().is_unset());
+    assert!(error.source().is_some());
 }
 
 #[test]
-fn test_nested_sequence_message_error_has_leaf_path() {
+fn test_nested_sequence_missing_error_has_leaf_path_and_index() {
     let mut config = Config::new();
     config
         .insert_property(
@@ -69,8 +62,23 @@ fn test_nested_sequence_message_error_has_leaf_path() {
         .deserialize::<RequiredItems>("app")
         .expect_err("null nested string should fail deserialization");
 
-    assert_eq!(error.kind(), ConfigErrorKind::Deserialize);
+    assert_eq!(error.kind(), ConfigErrorKind::Value);
     assert_eq!(error.path(), Some("app.items[0].value"));
+    assert_eq!(error.source_index(), Some(0));
+    assert!(error.value_missing().is_some());
+}
+
+#[test]
+fn test_serde_shape_error_has_sanitized_message_without_source() {
+    let mut config = Config::new();
+    config.set("app.value", vec![1_i32]).unwrap();
+    let error = config.deserialize::<RequiredString>("app").unwrap_err();
+    assert_eq!(error.path(), Some("app.value"));
+    assert!(
+        matches!(&error, ConfigError::DeserializeError { message, source: None, .. }
+        if message == "configuration value does not match the requested type")
+    );
+    assert!(error.source().is_none());
 }
 
 #[test]

@@ -13,7 +13,6 @@ use qubit_value::ValueContainer;
 
 use super::Config;
 use crate::ConfigError;
-use crate::ConfigName;
 use crate::ConfigResult;
 use crate::Property;
 use crate::config_path::ensure_config_key;
@@ -33,22 +32,21 @@ impl Config {
     /// # Errors
     ///
     /// Returns [`ConfigError::PropertyIsFinal`] when the property is final.
-    pub fn set<S>(&mut self, name: impl ConfigName, values: S) -> ConfigResult<()>
+    pub fn set<S>(&mut self, name: impl AsRef<str>, values: S) -> ConfigResult<()>
     where
         S: Into<ValueContainer>,
     {
-        name.with_config_name(|name| {
-            ensure_config_key(name)?;
-            self.ensure_property_not_final(name)?;
-            let value = values.into();
-            if let Some(property) = self.properties.get_mut(name) {
-                property.set(value);
-            } else {
-                let property = Property::new(name, value)?;
-                self.properties.insert(name.to_string(), property);
-            }
-            Ok(())
-        })
+        let name = name.as_ref();
+        ensure_config_key(name)?;
+        self.ensure_property_not_final(name)?;
+        let value = values.into();
+        if let Some(property) = self.properties.get_mut(name) {
+            property.set(value);
+        } else {
+            let property = Property::new(name, value)?;
+            self.properties.insert(name.to_string(), property);
+        }
+        Ok(())
     }
 
     /// Adds configuration values
@@ -87,22 +85,21 @@ impl Config {
     /// let ports: Vec<i32> = config.get_list("port").unwrap();
     /// assert_eq!(ports, vec![8080, 8081, 8082, 8083, 8084, 8085]);
     /// ```
-    pub fn add<S>(&mut self, name: impl ConfigName, values: S) -> ConfigResult<()>
+    pub fn add<S>(&mut self, name: impl AsRef<str>, values: S) -> ConfigResult<()>
     where
         S: Into<ValueContainer>,
     {
-        name.with_config_name(|name| {
-            ensure_config_key(name)?;
-            self.ensure_property_not_final(name)?;
-            let value = values.into();
-            if let Some(property) = self.properties.get_mut(name) {
-                property.add(value).map_err(|error| ConfigError::from((name, error)))
-            } else {
-                let property = Property::new(name, value)?;
-                self.properties.insert(name.to_string(), property);
-                Ok(())
-            }
-        })
+        let name = name.as_ref();
+        ensure_config_key(name)?;
+        self.ensure_property_not_final(name)?;
+        let value = values.into();
+        if let Some(property) = self.properties.get_mut(name) {
+            property.add(value).map_err(|error| ConfigError::from((name, error)))
+        } else {
+            let property = Property::new(name, value)?;
+            self.properties.insert(name.to_string(), property);
+            Ok(())
+        }
     }
 
     /// Merges only properties loaded from a `ConfigSource`.
@@ -202,19 +199,18 @@ impl Config {
     /// - [`ConfigError::MergeError`] when `name` and `property.name()` differ.
     /// - [`ConfigError::PropertyIsFinal`] when trying to override a final
     ///   property.
-    pub fn insert_property(&mut self, name: impl ConfigName, property: Property) -> ConfigResult<()> {
-        name.with_config_name(|name| {
-            ensure_config_key(name)?;
-            if property.name() != name {
-                return Err(ConfigError::MergeError(format!(
-                    "Property name mismatch: key '{name}' != property '{}'",
-                    property.name()
-                )));
-            }
-            self.ensure_property_not_final(name)?;
-            self.properties.insert(name.to_string(), property);
-            Ok(())
-        })
+    pub fn insert_property(&mut self, name: impl AsRef<str>, property: Property) -> ConfigResult<()> {
+        let name = name.as_ref();
+        ensure_config_key(name)?;
+        if property.name() != name {
+            return Err(ConfigError::MergeError(format!(
+                "Property name mismatch: key '{name}' != property '{}'",
+                property.name()
+            )));
+        }
+        self.ensure_property_not_final(name)?;
+        self.properties.insert(name.to_string(), property);
+        Ok(())
     }
 
     /// Sets a key to a typed null/empty value.
@@ -236,11 +232,10 @@ impl Config {
     /// - [`ConfigError::PropertyIsFinal`] when trying to override a final
     ///   property.
     #[inline]
-    pub fn set_null(&mut self, name: impl ConfigName, data_type: DataType) -> ConfigResult<()> {
-        name.with_config_name(|name| {
-            let property = Property::new(name, ValueContainer::new_unset_scalar(data_type))?;
-            self.insert_property(name, property)
-        })
+    pub fn set_null(&mut self, name: impl AsRef<str>, data_type: DataType) -> ConfigResult<()> {
+        let name = name.as_ref();
+        let property = Property::new(name, ValueContainer::new_unset_scalar(data_type))?;
+        self.insert_property(name, property)
     }
 
     /// Looks up a property by key for internal read paths.

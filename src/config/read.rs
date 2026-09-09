@@ -9,17 +9,16 @@
 //! Typed and structured configuration reads.
 
 use qubit_datatype::DataConversionTarget;
+use qubit_value::IntoValueDefault;
 use qubit_value::StrictValueRead;
 
 use super::Config;
-use crate::ConfigName;
 use crate::ConfigNames;
 use crate::ConfigResult;
 use crate::ConfigSection;
 use crate::Property;
 use crate::config_reader::ConfigReader;
 use crate::conversion::FromConfig;
-use crate::conversion::IntoConfigDefault;
 use crate::options::ReadPolicy;
 use crate::utils;
 
@@ -51,8 +50,10 @@ impl Config {
     /// # Errors
     ///
     /// - [`crate::ConfigError::PropertyNotFound`] if the key does not exist
-    /// - [`crate::ConfigError::PropertyHasNoValue`] if the property has no
-    ///   value
+    /// - [`crate::ConfigError::PropertyHasNoValue`] if configuration policy
+    ///   classifies a scalar string as missing before conversion
+    /// - [`crate::ConfigError::ValueError`] for value-layer missing storage or
+    ///   collection failures, retaining their original context
     /// - [`crate::ConfigError::ConversionError`] if the stored value cannot be
     ///   converted to `T`
     ///
@@ -77,7 +78,7 @@ impl Config {
     /// fn start_server(port: i32, host: String) { }
     /// start_server(config.get("port").unwrap(), config.get("host").unwrap());
     /// ```
-    pub fn get<T>(&self, name: impl ConfigName) -> ConfigResult<T>
+    pub fn get<T>(&self, name: impl AsRef<str>) -> ConfigResult<T>
     where
         T: FromConfig,
     {
@@ -103,7 +104,7 @@ impl Config {
     /// Returns missing-value, interpolation, resource-limit, or conversion
     /// errors with key context.
     #[inline(always)]
-    pub fn get_interpolated<T>(&self, name: impl ConfigName) -> ConfigResult<T>
+    pub fn get_interpolated<T>(&self, name: impl AsRef<str>) -> ConfigResult<T>
     where
         T: FromConfig,
     {
@@ -130,21 +131,21 @@ impl Config {
     ///
     /// The exact typed value on success, or a [`crate::ConfigError`] on
     /// failure.
-    pub fn get_strict<T>(&self, name: impl ConfigName) -> ConfigResult<T>
+    pub fn get_strict<T>(&self, name: impl AsRef<str>) -> ConfigResult<T>
     where
         T: StrictValueRead,
     {
-        name.with_config_name(|name| {
-            let property = self.get_property_by_name(name)?;
+        let name = name.as_ref();
+        let property = self.get_property_by_name(name)?;
 
-            property.get_first::<T>().map_err(|e| utils::map_value_error(name, e))
-        })
+        property.get_first::<T>().map_err(|e| utils::map_value_error(name, e))
     }
 
     /// Gets a configuration value or returns a default value.
     ///
-    /// Returns `default` only if the key is missing or explicitly empty.
-    /// Conversion errors are returned.
+    /// Returns `default` only when the key is absent, storage is unset, or
+    /// scalar conversion classifies the value as policy-missing. Concrete
+    /// empty collections and failed collection items do not use the default.
     ///
     /// # Type Parameters
     ///
@@ -173,7 +174,7 @@ impl Config {
     /// assert_eq!(port, 8080);
     /// assert_eq!(host, "localhost");
     /// ```
-    pub fn get_or<T>(&self, name: impl ConfigName, default: impl IntoConfigDefault<T>) -> ConfigResult<T>
+    pub fn get_or<T>(&self, name: impl AsRef<str>, default: impl IntoValueDefault<T>) -> ConfigResult<T>
     where
         T: FromConfig,
     {
@@ -200,7 +201,7 @@ impl Config {
     /// Returns interpolation and conversion errors instead of hiding them
     /// behind the default.
     #[inline(always)]
-    pub fn get_interpolated_or<T>(&self, name: impl ConfigName, default: impl IntoConfigDefault<T>) -> ConfigResult<T>
+    pub fn get_interpolated_or<T>(&self, name: impl AsRef<str>, default: impl IntoValueDefault<T>) -> ConfigResult<T>
     where
         T: FromConfig,
     {
@@ -302,7 +303,7 @@ impl Config {
     /// # Returns
     ///
     /// Parsed value or `default`; conversion errors are returned.
-    pub fn get_any_or<T>(&self, names: impl ConfigNames, default: impl IntoConfigDefault<T>) -> ConfigResult<T>
+    pub fn get_any_or<T>(&self, names: impl ConfigNames, default: impl IntoValueDefault<T>) -> ConfigResult<T>
     where
         T: FromConfig,
     {
@@ -333,7 +334,7 @@ impl Config {
     pub fn get_any_interpolated_or<T>(
         &self,
         names: impl ConfigNames,
-        default: impl IntoConfigDefault<T>,
+        default: impl IntoValueDefault<T>,
     ) -> ConfigResult<T>
     where
         T: FromConfig,
@@ -369,7 +370,7 @@ impl Config {
     /// let ports: Vec<i32> = config.get_list("ports").unwrap();
     /// assert_eq!(ports, vec![8080, 8081, 8082]);
     /// ```
-    pub fn get_list<T>(&self, name: impl ConfigName) -> ConfigResult<Vec<T>>
+    pub fn get_list<T>(&self, name: impl AsRef<str>) -> ConfigResult<Vec<T>>
     where
         T: DataConversionTarget,
     {
@@ -396,14 +397,13 @@ impl Config {
     ///
     /// A vector of exact typed values on success, or a [`crate::ConfigError`]
     /// on failure.
-    pub fn get_list_strict<T>(&self, name: impl ConfigName) -> ConfigResult<Vec<T>>
+    pub fn get_list_strict<T>(&self, name: impl AsRef<str>) -> ConfigResult<Vec<T>>
     where
         T: StrictValueRead,
     {
-        name.with_config_name(|name| {
-            let property = self.get_property_by_name(name)?;
-            property.get_list::<T>().map_err(|e| utils::map_value_error(name, e))
-        })
+        let name = name.as_ref();
+        let property = self.get_property_by_name(name)?;
+        property.get_list::<T>().map_err(|e| utils::map_value_error(name, e))
     }
 
     // ========================================================================
@@ -439,7 +439,7 @@ impl Config {
     /// assert!(config.is_unset("nullable").unwrap());
     /// assert!(!config.is_unset("missing").unwrap());
     /// ```
-    pub fn is_unset(&self, name: impl ConfigName) -> ConfigResult<bool> {
+    pub fn is_unset(&self, name: impl AsRef<str>) -> ConfigResult<bool> {
         <Self as ConfigReader>::is_unset(self, name)
     }
 
@@ -484,7 +484,7 @@ impl Config {
     /// let missing: Option<i32> = config.get_optional("missing").unwrap();
     /// assert_eq!(missing, None);
     /// ```
-    pub fn get_optional<T>(&self, name: impl ConfigName) -> ConfigResult<Option<T>>
+    pub fn get_optional<T>(&self, name: impl AsRef<str>) -> ConfigResult<Option<T>>
     where
         T: FromConfig,
     {
@@ -511,7 +511,7 @@ impl Config {
     /// Returns interpolation, resource-limit, or conversion errors with key
     /// context.
     #[inline(always)]
-    pub fn get_optional_interpolated<T>(&self, name: impl ConfigName) -> ConfigResult<Option<T>>
+    pub fn get_optional_interpolated<T>(&self, name: impl AsRef<str>) -> ConfigResult<Option<T>>
     where
         T: FromConfig,
     {
@@ -560,7 +560,7 @@ impl Config {
     /// let missing: Option<Vec<i32>> = config.get_optional_list("missing").unwrap();
     /// assert_eq!(missing, None);
     /// ```
-    pub fn get_optional_list<T>(&self, name: impl ConfigName) -> ConfigResult<Option<Vec<T>>>
+    pub fn get_optional_list<T>(&self, name: impl AsRef<str>) -> ConfigResult<Option<Vec<T>>>
     where
         T: DataConversionTarget,
     {
@@ -574,7 +574,7 @@ impl ConfigReader for Config {
     }
 
     #[inline]
-    fn get_property(&self, name: impl ConfigName) -> ConfigResult<Option<&Property>> {
+    fn get_property(&self, name: impl AsRef<str>) -> ConfigResult<Option<&Property>> {
         Config::get_property(self, name)
     }
 
@@ -594,12 +594,12 @@ impl ConfigReader for Config {
     }
 
     #[inline]
-    fn contains(&self, name: impl ConfigName) -> ConfigResult<bool> {
+    fn contains(&self, name: impl AsRef<str>) -> ConfigResult<bool> {
         Config::contains(self, name)
     }
 
     #[inline]
-    fn get_strict<T>(&self, name: impl ConfigName) -> ConfigResult<T>
+    fn get_strict<T>(&self, name: impl AsRef<str>) -> ConfigResult<T>
     where
         T: StrictValueRead,
     {
@@ -607,7 +607,7 @@ impl ConfigReader for Config {
     }
 
     #[inline]
-    fn get_list_strict<T>(&self, name: impl ConfigName) -> ConfigResult<Vec<T>>
+    fn get_list_strict<T>(&self, name: impl AsRef<str>) -> ConfigResult<Vec<T>>
     where
         T: StrictValueRead,
     {

@@ -8,8 +8,10 @@
 // Tests for explicit configuration interpolation.
 
 use qubit_config::Config;
+use qubit_config::ConfigDeserializeOptions;
 use qubit_config::ConfigError;
 use qubit_config::ConfigReader;
+use qubit_config::UnknownFieldPolicy;
 use qubit_config::options::InterpolationSources;
 use qubit_config::options::ReadPolicy;
 use serde::Deserialize;
@@ -175,7 +177,13 @@ fn test_deserialize_is_raw_and_deserialize_interpolated_is_explicit() {
         .deserialize::<RawEndpoint>("raw")
         .expect("deserialize raw endpoint");
     let interpolated = config
-        .deserialize_interpolated::<Endpoint>("endpoint")
+        .deserialize_with::<Endpoint>(
+            "endpoint",
+            ConfigDeserializeOptions {
+                interpolate: true,
+                unknown_fields: UnknownFieldPolicy::Reject,
+            },
+        )
         .expect("deserialize interpolated endpoint");
 
     assert_eq!(raw.url, "http://${host}/api");

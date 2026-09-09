@@ -12,7 +12,6 @@ use qubit_utils::Transient;
 
 use super::Config;
 use crate::ConfigError;
-use crate::ConfigName;
 use crate::ConfigResult;
 use crate::Property;
 use crate::config_path::ensure_config_key;
@@ -150,11 +149,10 @@ impl Config {
     /// assert!(!config.contains("host").unwrap());
     /// ```
     #[inline]
-    pub fn contains(&self, name: impl ConfigName) -> ConfigResult<bool> {
-        name.with_config_name(|name| {
-            ensure_config_key(name)?;
-            Ok(self.properties.contains_key(name))
-        })
+    pub fn contains(&self, name: impl AsRef<str>) -> ConfigResult<bool> {
+        let name = name.as_ref();
+        ensure_config_key(name)?;
+        Ok(self.properties.contains_key(name))
     }
 
     /// Gets a reference to a configuration item
@@ -167,11 +165,10 @@ impl Config {
     ///
     /// Returns Option containing the configuration item
     #[inline]
-    pub fn get_property(&self, name: impl ConfigName) -> ConfigResult<Option<&Property>> {
-        name.with_config_name(|name| {
-            ensure_config_key(name)?;
-            Ok(self.properties.get(name))
-        })
+    pub fn get_property(&self, name: impl AsRef<str>) -> ConfigResult<Option<&Property>> {
+        let name = name.as_ref();
+        ensure_config_key(name)?;
+        Ok(self.properties.get(name))
     }
 
     /// Gets guarded mutable access to a non-final configuration item.
@@ -187,12 +184,11 @@ impl Config {
     /// existing final property. The returned guard re-checks final state before
     /// each value-changing operation.
     #[inline]
-    pub fn get_property_mut(&mut self, name: impl ConfigName) -> ConfigResult<Option<ConfigPropertyMut<'_>>> {
-        name.with_config_name(|name| {
-            ensure_config_key(name)?;
-            self.ensure_property_not_final(name)?;
-            Ok(self.properties.get_mut(name).map(ConfigPropertyMut::new))
-        })
+    pub fn get_property_mut(&mut self, name: impl AsRef<str>) -> ConfigResult<Option<ConfigPropertyMut<'_>>> {
+        let name = name.as_ref();
+        ensure_config_key(name)?;
+        self.ensure_property_not_final(name)?;
+        Ok(self.properties.get_mut(name).map(ConfigPropertyMut::new))
     }
 
     /// Sets the final flag of an existing configuration item.
@@ -214,19 +210,18 @@ impl Config {
     /// - [`ConfigError::PropertyNotFound`] if the key does not exist.
     /// - [`ConfigError::PropertyIsFinal`] when trying to unset a final
     ///   property.
-    pub fn set_final(&mut self, name: impl ConfigName, is_final: bool) -> ConfigResult<()> {
-        name.with_config_name(|name| {
-            ensure_config_key(name)?;
-            let property = self
-                .properties
-                .get_mut(name)
-                .ok_or_else(|| ConfigError::PropertyNotFound(name.to_string()))?;
-            if property.is_final() && !is_final {
-                return Err(ConfigError::PropertyIsFinal(name.to_string()));
-            }
-            property.set_final(is_final);
-            Ok(())
-        })
+    pub fn set_final(&mut self, name: impl AsRef<str>, is_final: bool) -> ConfigResult<()> {
+        let name = name.as_ref();
+        ensure_config_key(name)?;
+        let property = self
+            .properties
+            .get_mut(name)
+            .ok_or_else(|| ConfigError::PropertyNotFound(name.to_string()))?;
+        if property.is_final() && !is_final {
+            return Err(ConfigError::PropertyIsFinal(name.to_string()));
+        }
+        property.set_final(is_final);
+        Ok(())
     }
 
     /// Removes a non-final configuration item.
@@ -252,12 +247,11 @@ impl Config {
     /// assert!(!config.contains("port").unwrap());
     /// ```
     #[inline]
-    pub fn remove(&mut self, name: impl ConfigName) -> ConfigResult<Option<Property>> {
-        name.with_config_name(|name| {
-            ensure_config_key(name)?;
-            self.ensure_property_not_final(name)?;
-            Ok(self.properties.remove(name))
-        })
+    pub fn remove(&mut self, name: impl AsRef<str>) -> ConfigResult<Option<Property>> {
+        let name = name.as_ref();
+        ensure_config_key(name)?;
+        self.ensure_property_not_final(name)?;
+        Ok(self.properties.remove(name))
     }
 
     /// Clears all configuration items if none of them are final.

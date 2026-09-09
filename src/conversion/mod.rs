@@ -7,7 +7,8 @@
 // =============================================================================
 //! Conversion and structured deserialization support.
 
+pub use crate::config_deserialize_options::ConfigDeserializeOptions;
 pub use crate::config_parse_context::ConfigParseContext;
 pub use crate::config_serde_ext::ConfigSerdeExt;
 pub use crate::from_config::FromConfig;
-pub use crate::into_config_default::IntoConfigDefault;
+pub use crate::unknown_field_policy::UnknownFieldPolicy;

@@ -2,13 +2,10 @@
   "threshold_exempt_files": {
     "qubit-config": [
       "src/config/access.rs",
-      "src/conversion/internal/config_scalar_seq_access.rs",
-      "src/config_wire_limits.rs",
       "src/error/config_error.rs",
       "src/key/config_key.rs",
       "src/key/config_path.rs",
       "src/property/property.rs",
-      "src/property/property_mut.rs",
       "src/reader/config_section.rs",
       "src/source/toml_config_source.rs",
       "src/source/yaml_config_source.rs"

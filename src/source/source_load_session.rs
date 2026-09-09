@@ -19,7 +19,6 @@ use super::SourceLimitKind;
 use super::SourceLimits;
 use crate::Config;
 use crate::ConfigError;
-use crate::ConfigName;
 use crate::ConfigResult;
 
 /// Owned resource budgets for one source or composite scope.
@@ -252,26 +251,24 @@ impl<'a> SourceLoadContext<'a> {
     }
 
     /// Sets one output property after validating and charging the assignment.
-    pub fn set<S>(&mut self, name: impl ConfigName, values: S) -> ConfigResult<()>
+    pub fn set<S>(&mut self, name: impl AsRef<str>, values: S) -> ConfigResult<()>
     where
         S: Into<ValueContainer>,
     {
-        name.with_config_name(|name| {
-            self.session.check_depth(name.split('.').count())?;
-            self.session.consume_nodes(1)?;
-            self.session.consume_properties(1)?;
-            self.layer.set(name, values)
-        })
+        let name = name.as_ref();
+        self.session.check_depth(name.split('.').count())?;
+        self.session.consume_nodes(1)?;
+        self.session.consume_properties(1)?;
+        self.layer.set(name, values)
     }
 
     /// Sets an explicitly typed null value after charging the assignment.
-    pub fn set_null(&mut self, name: impl ConfigName, data_type: DataType) -> ConfigResult<()> {
-        name.with_config_name(|name| {
-            self.session.check_depth(name.split('.').count())?;
-            self.session.consume_nodes(1)?;
-            self.session.consume_properties(1)?;
-            self.layer.set_null(name, data_type)
-        })
+    pub fn set_null(&mut self, name: impl AsRef<str>, data_type: DataType) -> ConfigResult<()> {
+        let name = name.as_ref();
+        self.session.check_depth(name.split('.').count())?;
+        self.session.consume_nodes(1)?;
+        self.session.consume_properties(1)?;
+        self.layer.set_null(name, data_type)
     }
 
     /// Sets descriptive metadata on the source-owned layer.

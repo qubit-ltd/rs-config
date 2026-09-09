@@ -37,7 +37,8 @@ fn readmes_use_current_dependency_and_safe_examples() {
     for readme in [README, README_ZH_CN] {
         assert!(readme.contains("qubit-datatype = { version = \"0.12\""));
         assert!(readme.contains(".deserialize::<Database>(\"db\")"));
-        assert!(readme.contains("config.deserialize_lenient::<Database>(\"db\")?"));
+        assert!(readme.contains("config.deserialize_with::<Database>("));
+        assert!(readme.contains("unknown_fields: UnknownFieldPolicy::Ignore"));
         assert!(!readme.contains("std::env::set_var"));
     }
 }

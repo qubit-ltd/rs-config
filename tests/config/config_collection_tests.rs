@@ -56,25 +56,25 @@ pub(crate) fn set_max_interpolation_depth(config: &mut Config, max_depth: usize)
         .build();
     config.set_default_read_policy(options);
 }
-// IntoConfigDefault Tests
+// IntoValueDefault Tests
 // ============================================================================
 
 #[cfg(test)]
 mod test_into_config_default {
-    use qubit_config::conversion::IntoConfigDefault;
+    use qubit_value::IntoValueDefault;
 
     #[test]
     fn test_identity_default_conversion() {
-        let value: i64 = 42_i64.into_config_default();
+        let value: i64 = 42_i64.into_value_default();
 
         assert_eq!(value, 42);
     }
 
     #[test]
     fn test_string_default_conversions() {
-        let borrowed: String = "default".into_config_default();
+        let borrowed: String = "default".into_value_default();
         let owned = "owned".to_string();
-        let cloned: String = (&owned).into_config_default();
+        let cloned: String = (&owned).into_value_default();
 
         assert_eq!(borrowed, "default");
         assert_eq!(cloned, "owned");
@@ -86,10 +86,10 @@ mod test_into_config_default {
         let vec_source = vec![4, 5, 6];
         let array_ref_source = [7, 8, 9];
 
-        let from_slice: Vec<i32> = slice_source.as_slice().into_config_default();
-        let from_vec_ref: Vec<i32> = (&vec_source).into_config_default();
-        let from_array: Vec<i32> = [10, 11, 12].into_config_default();
-        let from_array_ref: Vec<i32> = (&array_ref_source).into_config_default();
+        let from_slice: Vec<i32> = slice_source.as_slice().into_value_default();
+        let from_vec_ref: Vec<i32> = (&vec_source).into_value_default();
+        let from_array: Vec<i32> = [10, 11, 12].into_value_default();
+        let from_array_ref: Vec<i32> = (&array_ref_source).into_value_default();
 
         assert_eq!(from_slice, vec![1, 2, 3]);
         assert_eq!(from_vec_ref, vec![4, 5, 6]);
@@ -103,11 +103,11 @@ mod test_into_config_default {
         let vec_ref_source = vec!["c", "d"];
         let array_ref_source = ["g", "h"];
 
-        let from_slice: Vec<String> = slice_source.into_config_default();
-        let from_vec_ref: Vec<String> = (&vec_ref_source).into_config_default();
-        let from_vec: Vec<String> = vec!["e", "f"].into_config_default();
-        let from_array: Vec<String> = ["i", "j"].into_config_default();
-        let from_array_ref: Vec<String> = (&array_ref_source).into_config_default();
+        let from_slice: Vec<String> = slice_source.into_value_default();
+        let from_vec_ref: Vec<String> = (&vec_ref_source).into_value_default();
+        let from_vec: Vec<String> = vec!["e", "f"].into_value_default();
+        let from_array: Vec<String> = ["i", "j"].into_value_default();
+        let from_array_ref: Vec<String> = (&array_ref_source).into_value_default();
 
         assert_eq!(from_slice, vec!["a".to_string(), "b".to_string()]);
         assert_eq!(from_vec_ref, vec!["c".to_string(), "d".to_string()]);

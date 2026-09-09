@@ -799,14 +799,10 @@ mod test_config_reader_alias_reads {
             .expect_err("all missing aliases should report not found");
 
         assert!(matches!(missing_string, ConfigError::PropertyHasNoValue(key) if key == "empty.string"));
-        assert!(matches!(
-            missing_list,
-            ConfigError::ConversionError {
-                key,
-                source_index: Some(0),
-                source,
-            } if key == "empty.list" && source.is_missing()
-        ));
+        assert_eq!(missing_list.path(), Some("empty.list"));
+        assert_eq!(missing_list.source_index(), Some(0));
+        assert!(missing_list.value_missing().unwrap().is_conversion());
+        assert!(!missing_list.value_missing().unwrap().is_defaultable_for_conversion());
         assert_eq!(first_present, "value");
         assert!(matches!(
             missing_any,
@@ -845,7 +841,7 @@ mod test_config_reader_alias_reads {
 
         assert!(matches!(
             result,
-            Err(ConfigError::PropertyHasNoValue(key)) if key == "empty.list"
+            Err(ConfigError::ValueError { key, source }) if key == "empty.list" && source.missing().unwrap().is_unset()
         ));
     }
 
@@ -967,4 +963,83 @@ fn test_independent_gets_do_not_share_conversion_usage() {
 
     assert_eq!(config.get::<String>("first").unwrap(), "aa");
     assert_eq!(config.get::<String>("second").unwrap(), "bb");
+}
+
+#[test]
+fn refactor_empty_collection_first_never_uses_a_default() {
+    let mut config = Config::new();
+    config.set("ports", Vec::<i32>::new()).unwrap();
+    let error = config.get_or::<i32>("ports", 8080).unwrap_err();
+    assert!(matches!(error, ConfigError::ValueError { .. }));
+    assert!(config.get::<Vec<i32>>("ports").unwrap().is_empty());
+}
+
+#[test]
+fn refactor_unset_conversion_keeps_value_error_source() {
+    let mut config = Config::new();
+    config.set_null("port", DataType::String).unwrap();
+    let error = config.get::<i32>("port").unwrap_err();
+    assert!(matches!(error, ConfigError::ValueError { .. }));
+    let missing = error.value_missing().unwrap();
+    assert_eq!(missing.source_type(), Some(DataType::String));
+    assert_eq!(missing.target_type(), Some(DataType::Int32));
+    assert!(missing.is_unset());
+    assert!(missing.conversion_error().is_some());
+    use std::error::Error;
+    assert!(error.source().unwrap().source().unwrap().source().is_some());
+    assert_eq!(config.get_or::<i32>("port", 8080).unwrap(), 8080);
+}
+
+#[test]
+fn refactor_collection_missing_never_skips_to_default_or_next_candidate() {
+    use qubit_config::options::ReadPolicy;
+    use qubit_datatype::BlankStringPolicy;
+    let mut config = Config::new();
+    config.set_default_read_policy(
+        ReadPolicy::builder()
+            .blank_string_policy(BlankStringPolicy::TreatAsMissing)
+            .build(),
+    );
+    config.set("service.ports", vec![" "]).unwrap();
+    config.set("service.fallback", 8080_i32).unwrap();
+    let section = config.section("service").unwrap();
+    for error in [
+        config.get_or::<i32>("service.ports", 8080).unwrap_err(),
+        section.get_any::<i32>(["ports", "fallback"]).unwrap_err(),
+        section.get_optional::<Vec<i32>>("ports").unwrap_err(),
+    ] {
+        assert_eq!(error.path(), Some("service.ports"));
+        assert_eq!(error.source_index(), Some(0));
+        assert!(!error.value_missing().unwrap().is_defaultable_for_conversion());
+    }
+}
+
+#[test]
+fn refactor_optional_reads_classify_custom_conversion_missing() {
+    use qubit_config::ConfigError;
+    use qubit_config::ConfigResult;
+    use qubit_config::Property;
+    use qubit_config::conversion::ConfigParseContext;
+    use qubit_config::conversion::FromConfig;
+    use qubit_datatype::DataConversionError;
+    use qubit_datatype::DataType;
+    #[derive(Debug)]
+    struct Missing;
+    impl FromConfig for Missing {
+        fn from_config(_: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<Self> {
+            Err(ConfigError::from_data_conversion_error(
+                ctx.key(),
+                DataConversionError::missing(DataType::String, DataType::Int32),
+            ))
+        }
+    }
+    let mut config = Config::new();
+    config.set("custom", "value").unwrap();
+    assert!(config.get_optional::<Missing>("custom").unwrap().is_none());
+    assert!(
+        config
+            .get_optional_any::<Missing>(["custom", "absent"])
+            .unwrap()
+            .is_none()
+    );
 }

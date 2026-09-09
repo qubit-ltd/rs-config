@@ -12,7 +12,6 @@ use std::ops::Bound;
 
 use qubit_value::StrictValueRead;
 
-use crate::ConfigName;
 use crate::ConfigResult;
 use crate::Property;
 use crate::config::Config;
@@ -281,11 +280,10 @@ impl<'a> ConfigReader for ConfigSection<'a> {
         &self.path
     }
 
-    fn get_property(&self, name: impl ConfigName) -> ConfigResult<Option<&Property>> {
-        name.with_config_name(|name| {
-            let key = self.visible_property_key(name)?;
-            self.config.get_property(key.as_ref())
-        })
+    fn get_property(&self, name: impl AsRef<str>) -> ConfigResult<Option<&Property>> {
+        let name = name.as_ref();
+        let key = self.visible_property_key(name)?;
+        self.config.get_property(key.as_ref())
     }
 
     fn len(&self) -> usize {
@@ -300,31 +298,28 @@ impl<'a> ConfigReader for ConfigSection<'a> {
         self.visible_entries().map(|(key, _)| key.to_string()).collect()
     }
 
-    fn contains(&self, name: impl ConfigName) -> ConfigResult<bool> {
-        name.with_config_name(|name| {
-            let key = self.visible_property_key(name)?;
-            self.config.contains(key.as_ref())
-        })
+    fn contains(&self, name: impl AsRef<str>) -> ConfigResult<bool> {
+        let name = name.as_ref();
+        let key = self.visible_property_key(name)?;
+        self.config.contains(key.as_ref())
     }
 
-    fn get_strict<T>(&self, name: impl ConfigName) -> ConfigResult<T>
+    fn get_strict<T>(&self, name: impl AsRef<str>) -> ConfigResult<T>
     where
         T: StrictValueRead,
     {
-        name.with_config_name(|name| {
-            let key = self.visible_property_key(name)?;
-            self.config.get_strict(key.as_ref())
-        })
+        let name = name.as_ref();
+        let key = self.visible_property_key(name)?;
+        self.config.get_strict(key.as_ref())
     }
 
-    fn get_list_strict<T>(&self, name: impl ConfigName) -> ConfigResult<Vec<T>>
+    fn get_list_strict<T>(&self, name: impl AsRef<str>) -> ConfigResult<Vec<T>>
     where
         T: StrictValueRead,
     {
-        name.with_config_name(|name| {
-            let key = self.visible_property_key(name)?;
-            self.config.get_list_strict(key.as_ref())
-        })
+        let name = name.as_ref();
+        let key = self.visible_property_key(name)?;
+        self.config.get_list_strict(key.as_ref())
     }
 
     fn contains_key_prefix(&self, prefix: &str) -> bool {
@@ -361,10 +356,9 @@ impl<'a> ConfigReader for ConfigSection<'a> {
         ConfigSection::section(self, path)
     }
 
-    fn resolve_key(&self, name: impl ConfigName) -> ConfigResult<String> {
-        name.with_config_name(|name| {
-            ensure_config_path(name)?;
-            Ok(self.resolve_key_cow(name).into_owned())
-        })
+    fn resolve_key(&self, name: impl AsRef<str>) -> ConfigResult<String> {
+        let name = name.as_ref();
+        ensure_config_path(name)?;
+        Ok(self.resolve_key_cow(name).into_owned())
     }
 }

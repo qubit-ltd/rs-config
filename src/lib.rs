@@ -13,14 +13,14 @@
 mod config;
 #[path = "error/config_deserialize_error.rs"]
 mod config_deserialize_error;
+#[path = "conversion/config_deserialize_options.rs"]
+mod config_deserialize_options;
 #[path = "error/config_error.rs"]
 mod config_error;
 #[path = "error/config_error_kind.rs"]
 mod config_error_kind;
 #[path = "key/config_key.rs"]
 mod config_key;
-#[path = "key/config_name.rs"]
-mod config_name;
 #[path = "key/config_names.rs"]
 mod config_names;
 #[path = "conversion/config_parse_context.rs"]
@@ -37,8 +37,6 @@ mod config_reader;
 mod config_section;
 #[path = "conversion/config_serde_ext.rs"]
 mod config_serde_ext;
-#[path = "conversion/config_value_deserializer.rs"]
-mod config_value_deserializer;
 mod config_wire_encode_error;
 mod config_wire_limits;
 mod constants;
@@ -48,8 +46,6 @@ pub mod error;
 mod from_config;
 #[path = "conversion/helpers.rs"]
 mod helpers;
-#[path = "conversion/into_config_default.rs"]
-mod into_config_default;
 pub mod key;
 pub mod options;
 pub mod property;
@@ -57,13 +53,17 @@ pub mod property;
 mod read_policy;
 pub mod reader;
 pub mod source;
+#[path = "conversion/structured_read.rs"]
+mod structured_read;
+#[path = "conversion/unknown_field_policy.rs"]
+mod unknown_field_policy;
 mod utils;
 
 pub use config::Config;
 pub use config::ConfigBuilder;
+pub use config_deserialize_options::ConfigDeserializeOptions;
 pub use config_error_kind::ConfigErrorKind;
 pub use config_key::ConfigKey;
-pub use config_name::ConfigName;
 pub use config_names::ConfigNames;
 pub use config_path::ConfigPath;
 pub use config_path_violation::ConfigPathViolation;
@@ -85,3 +85,4 @@ pub use read_policy::ReadPolicyBuilder;
 pub use source::ConfigSource;
 pub use source::SourceLimitKind;
 pub use source::SourceLimits;
+pub use unknown_field_policy::UnknownFieldPolicy;

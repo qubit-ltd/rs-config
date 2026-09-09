@@ -6,6 +6,8 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+use qubit_config::ConfigDeserializeOptions;
+use qubit_config::UnknownFieldPolicy;
 use qubit_datatype::BlankStringPolicy;
 
 use crate::Config;
@@ -207,7 +209,7 @@ fn test_deserialize_conflicting_dotted_key_returns_key_conflict() {
     let result = config.deserialize::<CtxConfig>("ctx");
     assert!(matches!(
         result,
-        Err(ConfigError::KeyConflict { path, .. }) if path == "a"
+        Err(ConfigError::KeyConflict { path, .. }) if path == "ctx.a"
     ));
 }
 
@@ -220,7 +222,7 @@ fn test_deserialize_conflicting_dotted_key_does_not_keep_flat_fallback() {
     let result = config.deserialize::<HashMap<String, serde_json::Value>>("ctx");
     assert!(matches!(
         result,
-        Err(ConfigError::KeyConflict { path, .. }) if path == "a"
+        Err(ConfigError::KeyConflict { path, .. }) if path == "ctx.a"
     ));
 }
 
@@ -267,7 +269,7 @@ fn test_deserialize_dotted_parent_conflict_reports_scalar_kinds() {
             matches!(
                 result,
                 Err(ConfigError::KeyConflict { path, existing, .. })
-                    if path == "a" && existing == expected_kind
+                    if path == "ctx.a" && existing == expected_kind
             ),
             "{message}"
         );
@@ -300,12 +302,12 @@ fn test_deserialize_dotted_child_rejects_object_scalar_shape_change() {
             existing,
             incoming,
             ..
-        }) if path == "a.b" && existing == "object" && incoming == "string"
+        }) if path == "ctx.a.b" && existing == "object" && incoming == "string"
     ));
 }
 
 #[test]
-fn test_deserialize_dotted_child_overrides_same_shape_json_field() {
+fn test_deserialize_dotted_child_rejects_duplicate_same_shape_json_field() {
     let mut config = Config::new();
     config
         .insert_property(
@@ -322,14 +324,12 @@ fn test_deserialize_dotted_child_overrides_same_shape_json_field() {
         .unwrap();
     config.set("ctx.a.b", "from-dotted").unwrap();
 
-    let actual = config.deserialize::<HashMap<String, serde_json::Value>>("ctx").unwrap();
-
-    assert_eq!(
-        actual.get("a"),
-        Some(&serde_json::json!({
-            "b": "from-dotted",
-            "other": true,
-        }))
+    let error = config
+        .deserialize::<HashMap<String, serde_json::Value>>("ctx")
+        .unwrap_err();
+    assert!(
+        matches!(error, ConfigError::KeyConflict { path, existing, incoming, .. }
+        if path == "ctx.a.b" && existing == "string" && incoming == "string")
     );
 }
 
@@ -415,7 +415,15 @@ fn test_deserialize_substitutes_string_fields_and_lists() {
         .set("svc.endpoints", vec!["${base_url}/users", "${base_url}/health"])
         .unwrap();
 
-    let svc: ServiceConfig = config.deserialize_interpolated_lenient("svc").unwrap();
+    let svc: ServiceConfig = config
+        .deserialize_with(
+            "svc",
+            ConfigDeserializeOptions {
+                interpolate: true,
+                unknown_fields: UnknownFieldPolicy::Ignore,
+            },
+        )
+        .unwrap();
     assert_eq!(svc.base_url, "http://localhost:8080");
     assert_eq!(
         svc.endpoints,
@@ -437,7 +445,15 @@ fn test_deserialize_substitutes_root_scope_fallback() {
     config.set("base_url", "http://example.test").unwrap();
     config.set("svc.url", "${base_url}/v1").unwrap();
 
-    let svc: ServiceConfig = config.deserialize_interpolated("svc").unwrap();
+    let svc: ServiceConfig = config
+        .deserialize_with(
+            "svc",
+            ConfigDeserializeOptions {
+                interpolate: true,
+                unknown_fields: UnknownFieldPolicy::Reject,
+            },
+        )
+        .unwrap();
 
     assert_eq!(svc.url, "http://example.test/v1");
 }
@@ -454,7 +470,15 @@ fn test_deserialize_substitution_local_conversion_has_priority_over_root() {
     config.set("svc.base_url", 123i32).unwrap();
     config.set("svc.url", "${base_url}/v1").unwrap();
 
-    let svc = config.deserialize_interpolated_lenient::<ServiceConfig>("svc").unwrap();
+    let svc = config
+        .deserialize_with::<ServiceConfig>(
+            "svc",
+            ConfigDeserializeOptions {
+                interpolate: true,
+                unknown_fields: UnknownFieldPolicy::Ignore,
+            },
+        )
+        .unwrap();
 
     assert_eq!(svc.url, "123/v1");
 }
@@ -546,7 +570,15 @@ fn test_deserialize_substitutes_nested_json_strings() {
         )
         .unwrap();
 
-    let svc: ServiceConfig = config.deserialize_interpolated_lenient("svc").unwrap();
+    let svc: ServiceConfig = config
+        .deserialize_with(
+            "svc",
+            ConfigDeserializeOptions {
+                interpolate: true,
+                unknown_fields: UnknownFieldPolicy::Ignore,
+            },
+        )
+        .unwrap();
     assert_eq!(
         svc.meta,
         serde_json::json!({
@@ -568,7 +600,15 @@ fn test_deserialize_preserves_placeholders_by_default() {
     config.set("svc.host", "localhost").unwrap();
     config.set("svc.url", "http://${host}").unwrap();
 
-    let svc: ServiceConfig = config.deserialize_lenient("svc").unwrap();
+    let svc: ServiceConfig = config
+        .deserialize_with(
+            "svc",
+            ConfigDeserializeOptions {
+                interpolate: false,
+                unknown_fields: UnknownFieldPolicy::Ignore,
+            },
+        )
+        .unwrap();
     assert_eq!(svc.url, "http://${host}");
 }
 
@@ -585,7 +625,13 @@ fn test_deserialize_unresolved_variable_returns_substitution_error() {
         .unwrap();
 
     let err = config
-        .deserialize_interpolated::<ServiceConfig>("svc")
+        .deserialize_with::<ServiceConfig>(
+            "svc",
+            ConfigDeserializeOptions {
+                interpolate: true,
+                unknown_fields: UnknownFieldPolicy::Reject,
+            },
+        )
         .expect_err("unresolved variable should fail before serde deserialization");
     match err {
         ConfigError::SubstitutionError { path, message } => {
@@ -618,12 +664,18 @@ fn test_deserialize_unresolved_variable_in_json_leaf_returns_substitution_error(
         .unwrap();
 
     let err = config
-        .deserialize_interpolated::<ServiceConfig>("svc")
+        .deserialize_with::<ServiceConfig>(
+            "svc",
+            ConfigDeserializeOptions {
+                interpolate: true,
+                unknown_fields: UnknownFieldPolicy::Reject,
+            },
+        )
         .expect_err("unresolved JSON leaf variable should fail before serde deserialization");
 
     match err {
         ConfigError::SubstitutionError { path, message } => {
-            assert_eq!(path, "svc.meta");
+            assert_eq!(path, "svc.meta[0].url");
             assert!(message.contains("QUBIT_CONFIG_UNSET_JSON_LEAF_VAR_12345"));
         }
         other => panic!("Expected SubstitutionError, got {:?}", other),

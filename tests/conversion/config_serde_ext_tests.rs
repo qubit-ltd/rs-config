@@ -9,9 +9,11 @@
 use std::collections::HashMap;
 
 use qubit_config::Config;
+use qubit_config::ConfigDeserializeOptions;
 use qubit_config::ConfigError;
 use qubit_config::ConfigReader;
 use qubit_config::ConfigResult;
+use qubit_config::UnknownFieldPolicy;
 use qubit_config::conversion::ConfigSerdeExt;
 use qubit_config::options::ReadPolicy;
 use qubit_datatype::BlankStringPolicy;
@@ -20,10 +22,96 @@ use qubit_datatype::ConversionOperationLimits;
 use qubit_value::ValueError;
 use serde::Deserialize;
 
+#[test]
+fn deserialize_with_accepts_borrowed_prefix_and_explicit_options() {
+    use qubit_config::ConfigDeserializeOptions;
+    use qubit_config::UnknownFieldPolicy;
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct One {
+        port: u16,
+    }
+    let mut config = Config::new();
+    config.set("server.port", "${default_port}").unwrap();
+    config.set("server.extra", true).unwrap();
+    config.set("default_port", 8080_u16).unwrap();
+    let value: One = config
+        .deserialize_with(
+            std::borrow::Cow::Borrowed("server"),
+            ConfigDeserializeOptions {
+                interpolate: true,
+                unknown_fields: UnknownFieldPolicy::Ignore,
+            },
+        )
+        .unwrap();
+    assert_eq!(value, One { port: 8080 });
+    assert_eq!(
+        ConfigDeserializeOptions::default().unknown_fields,
+        UnknownFieldPolicy::Reject
+    );
+    assert!(!ConfigDeserializeOptions::default().interpolate);
+}
+
 #[derive(Debug, Deserialize, PartialEq)]
 struct RetrySettings {
     max_attempts: u32,
     enabled: bool,
+}
+
+/// Both public entry points preserve the same default value and unknown path.
+#[test]
+fn deserialize_default_options_match_values_and_unknown_errors() {
+    let mut config = Config::new();
+    config.set("app.label", "${other}").unwrap();
+    let plain: LabelSettings = config.deserialize("app").unwrap();
+    let explicit: LabelSettings = config
+        .deserialize_with("app", ConfigDeserializeOptions::default())
+        .unwrap();
+    assert_eq!(plain, explicit);
+    assert_eq!(plain.label, "${other}");
+
+    config.set("app.extra", true).unwrap();
+    for error in [
+        config.deserialize::<LabelSettings>("app").unwrap_err(),
+        config
+            .deserialize_with::<LabelSettings>("app", ConfigDeserializeOptions::default())
+            .unwrap_err(),
+    ] {
+        assert!(matches!(error, ConfigError::UnknownProperties { paths } if paths == ["app.extra"]));
+    }
+}
+
+/// Interpolation and unknown-field choices remain independent in scoped reads.
+#[test]
+fn deserialize_options_cover_all_combinations_and_empty_section_prefix() {
+    for interpolate in [false, true] {
+        for unknown_fields in [UnknownFieldPolicy::Reject, UnknownFieldPolicy::Ignore] {
+            let options = ConfigDeserializeOptions {
+                interpolate,
+                unknown_fields,
+            };
+            let mut config = Config::new();
+            config.set("app.label", "${label_source}").unwrap();
+            config.set("label_source", "ready").unwrap();
+            let expected = if interpolate { "ready" } else { "${label_source}" };
+            let root: LabelSettings = config.deserialize_with("app", options).unwrap();
+            let scoped: LabelSettings = config.section("app").unwrap().deserialize_with("", options).unwrap();
+            assert_eq!(root.label, expected);
+            assert_eq!(root, scoped);
+
+            config.set("app.extra", true).unwrap();
+            let result = config
+                .section("app")
+                .unwrap()
+                .deserialize_with::<LabelSettings>("", options);
+            match unknown_fields {
+                UnknownFieldPolicy::Ignore => assert_eq!(result.unwrap().label, expected),
+                UnknownFieldPolicy::Reject => assert!(matches!(
+                    result.unwrap_err(),
+                    ConfigError::UnknownProperties { paths } if paths == ["app.extra"]
+                )),
+            }
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -91,7 +179,13 @@ fn read_retry<R>(reader: &R) -> ConfigResult<RetrySettings>
 where
     R: ConfigReader + ?Sized,
 {
-    reader.deserialize_interpolated("")
+    reader.deserialize_with(
+        "",
+        ConfigDeserializeOptions {
+            interpolate: true,
+            unknown_fields: UnknownFieldPolicy::Reject,
+        },
+    )
 }
 
 #[test]
@@ -199,7 +293,13 @@ fn test_deserialize_interpolated_prefers_selected_subtree() {
     let settings: RetrySettings = config
         .section("retry")
         .unwrap()
-        .deserialize_interpolated_lenient("settings")
+        .deserialize_with(
+            "settings",
+            ConfigDeserializeOptions {
+                interpolate: true,
+                unknown_fields: UnknownFieldPolicy::Ignore,
+            },
+        )
         .expect("nested settings should deserialize");
 
     assert_eq!(settings.max_attempts, 5);
@@ -245,7 +345,13 @@ fn test_deserialize_interpolated_preserves_expansion_limit_error() {
     let section = config.section("retry").unwrap().read_with(&options);
 
     let error = section
-        .deserialize_interpolated::<LabelSettings>("")
+        .deserialize_with::<LabelSettings>(
+            "",
+            ConfigDeserializeOptions {
+                interpolate: true,
+                unknown_fields: UnknownFieldPolicy::Reject,
+            },
+        )
         .expect_err("two placeholders should exceed the expansion limit");
 
     assert!(matches!(
@@ -265,7 +371,13 @@ fn test_deserialize_interpolated_strict_prepares_string_once() {
     config.set("settings.label", "${name}-api").unwrap();
 
     let settings: LabelSettings = config
-        .deserialize_interpolated("settings")
+        .deserialize_with(
+            "settings",
+            ConfigDeserializeOptions {
+                interpolate: true,
+                unknown_fields: UnknownFieldPolicy::Reject,
+            },
+        )
         .expect("strict interpolation should deserialize the declared field");
 
     assert_eq!(settings.label, "service-api");
@@ -280,7 +392,13 @@ fn test_deserialize_interpolated_lenient_prepares_string_once() {
     config.set("settings.extra", "ignored").unwrap();
 
     let settings: LabelSettings = config
-        .deserialize_interpolated_lenient("settings")
+        .deserialize_with(
+            "settings",
+            ConfigDeserializeOptions {
+                interpolate: true,
+                unknown_fields: UnknownFieldPolicy::Ignore,
+            },
+        )
         .expect("lenient interpolation should ignore the extra field");
 
     assert_eq!(settings.label, "service-api");
@@ -296,7 +414,13 @@ fn test_deserialize_interpolated_uses_root_fallback_once() {
     let settings: LabelSettings = config
         .section("settings")
         .unwrap()
-        .deserialize_interpolated("")
+        .deserialize_with(
+            "",
+            ConfigDeserializeOptions {
+                interpolate: true,
+                unknown_fields: UnknownFieldPolicy::Reject,
+            },
+        )
         .expect("the section should use the root fallback");
 
     assert_eq!(settings.label, "service-api");
@@ -314,7 +438,13 @@ fn test_deserialize_interpolated_missing_string_stays_absent() {
 
     let settings: OptionalLabelSettings = config
         .read_with(&policy)
-        .deserialize_interpolated_lenient("settings")
+        .deserialize_with(
+            "settings",
+            ConfigDeserializeOptions {
+                interpolate: true,
+                unknown_fields: UnknownFieldPolicy::Ignore,
+            },
+        )
         .expect("a prepared missing string should be omitted");
 
     assert_eq!(settings.label, None);
@@ -344,7 +474,13 @@ fn test_deserialize_lenient_explicitly_ignores_unknown_properties() {
     config.set("retry.extra", "ignored").unwrap();
 
     let settings = config
-        .deserialize_lenient::<StrictRetrySettings>("retry")
+        .deserialize_with::<StrictRetrySettings>(
+            "retry",
+            ConfigDeserializeOptions {
+                interpolate: false,
+                unknown_fields: UnknownFieldPolicy::Ignore,
+            },
+        )
         .expect("lenient deserialization should ignore extra fields");
     assert_eq!(
         settings,

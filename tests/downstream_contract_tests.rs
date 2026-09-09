@@ -309,6 +309,7 @@ fn rs_http_config_error_mappings_receive_stable_source_kinds() {
     let no_value = config
         .get::<String>("http.base_url")
         .expect_err("unset HTTP options should preserve missing-value errors");
-    assert_eq!(no_value.kind(), ConfigErrorKind::PropertyHasNoValue);
+    assert_eq!(no_value.kind(), ConfigErrorKind::Value);
+    assert!(no_value.value_missing().unwrap().is_unset());
     assert_eq!(no_value.path(), Some("http.base_url"));
 }

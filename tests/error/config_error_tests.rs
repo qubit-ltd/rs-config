@@ -43,7 +43,7 @@ fn test_config_error_maps_data_conversion_missing_with_key() {
 
     assert!(matches!(
         &error,
-        ConfigError::PropertyHasNoValue(key) if key == "server.host"
+        ConfigError::ValueError { key, source } if key == "server.host" && source.missing().unwrap().is_conversion()
     ));
 }
 

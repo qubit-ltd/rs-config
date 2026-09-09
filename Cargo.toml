@@ -1,6 +1,6 @@
 [package]
 name = "qubit-config"
-version = "0.16.0"
+version = "0.17.0"
 edition = "2024"
 rust-version = "1.94"
 authors = ["Haixing Hu <starfish.hu@gmail.com>"]
@@ -65,11 +65,15 @@ dotenvy = { version = "0.15", optional = true }
 
 qubit-datatype = { version = "0.12", default-features = false, features = ["converter"] }
 qubit-redact = { version = "0.8", default-features = false }
-qubit-value = { version = "0.11", path = "../rs-value", default-features = false, features = ["converter", "json"] }
+qubit-value = { version = "0.12", path = "../rs-value", default-features = false, features = ["converter", "json"] }
 
 [dev-dependencies]
 criterion = { version = "0.8", default-features = false }
 tempfile = "3.27"
+
+[[bench]]
+name = "structured_read_bench"
+harness = false
 
 [[bench]]
 name = "config_lookup_bench"

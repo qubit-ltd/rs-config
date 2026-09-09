@@ -476,6 +476,21 @@ impl ConfigError {
     pub const fn source_index(&self) -> Option<usize> {
         match self {
             Self::ConversionError { source_index, .. } | Self::SourceParseError { source_index, .. } => *source_index,
+            Self::ValueError { source, .. } => match source {
+                ValueError::Missing(missing) => missing.source_index(),
+                ValueError::JsonProjectionLimit { source_index, .. } => *source_index,
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    /// Returns the original value-layer missing context, when available.
+    #[inline]
+    #[must_use]
+    pub const fn value_missing(&self) -> Option<&ValueMissing> {
+        match self {
+            Self::ValueError { source, .. } => source.missing(),
             _ => None,
         }
     }
@@ -493,7 +508,10 @@ impl ConfigError {
     #[inline]
     pub fn from_data_conversion_error(key: &str, error: DataConversionError) -> Self {
         if error.is_missing() {
-            Self::PropertyHasNoValue(key.to_string())
+            Self::ValueError {
+                key: key.to_string(),
+                source: ValueError::from(error),
+            }
         } else {
             Self::ConversionError {
                 key: key.to_string(),
@@ -515,14 +533,6 @@ impl ConfigError {
     /// A configuration error retaining `key` and structured source context.
     fn from_value_error(key: &str, error: ValueError) -> Self {
         match error {
-            ValueError::Missing(missing) => match missing {
-                ValueMissing::CollectionItem { source_index, from, to } => Self::ConversionError {
-                    key: key.to_string(),
-                    source_index: Some(source_index),
-                    source: DataConversionError::missing(from, to),
-                },
-                _ => Self::PropertyHasNoValue(key.to_string()),
-            },
             ValueError::TypeMismatch { expected, actual } => Self::TypeMismatch {
                 key: key.to_string(),
                 expected,

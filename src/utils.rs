@@ -8,7 +8,7 @@
 //! # Configuration Utility Functions
 //!
 //! Provides configuration-related utility functions through focused modules
-//! for interpolation and structured serde conversion.
+//! for interpolation and configuration source validation.
 
 #[cfg(any(feature = "toml", feature = "yaml"))]
 use std::collections::HashSet;
@@ -22,12 +22,8 @@ use super::ConfigResult;
 mod internal;
 #[path = "utils/interpolation.rs"]
 mod interpolation;
-#[path = "utils/structured_serde.rs"]
-mod structured_serde;
 
 pub(crate) use interpolation::substitute_variables_with_fallback;
-pub(crate) use structured_serde::insert_deserialize_value;
-pub(crate) use structured_serde::prepare_deserialize_value;
 
 /// Maps a [`ValueError`] from typed property access to [`ConfigError`], using
 /// `key` as the configuration path for type and conversion errors.

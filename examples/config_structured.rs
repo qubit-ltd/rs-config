@@ -7,8 +7,10 @@
 // =============================================================================
 
 use qubit_config::Config;
+use qubit_config::ConfigDeserializeOptions;
 use qubit_config::ConfigError;
 use qubit_config::ReadPolicy;
+use qubit_config::UnknownFieldPolicy;
 use qubit_datatype::ConversionLimits;
 use qubit_datatype::ConversionOperationLimits;
 use serde::Deserialize;
@@ -33,7 +35,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect_err("strict reads reject unknown fields");
     assert!(matches!(error, ConfigError::UnknownProperties { .. }));
 
-    let database = config.deserialize_lenient::<Database>("db")?;
+    let database = config.deserialize_with::<Database>(
+        "db",
+        ConfigDeserializeOptions {
+            unknown_fields: UnknownFieldPolicy::Ignore,
+            ..Default::default()
+        },
+    )?;
     assert_eq!(
         database,
         Database {

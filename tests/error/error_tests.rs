@@ -85,7 +85,7 @@ fn test_data_conversion_missing_maps_to_no_value() {
     );
     assert!(matches!(
         error,
-        ConfigError::PropertyHasNoValue(key) if key == "server.port"
+        ConfigError::ValueError { key, source } if key == "server.port" && source.missing().unwrap().is_conversion()
     ));
 }
 
@@ -149,22 +149,22 @@ fn test_keyed_value_error_keeps_source_index() {
 
 #[test]
 fn test_missing_collection_item_keeps_source_index() {
-    let value_error = ValueError::Missing(ValueMissing::CollectionItem {
-        source_index: 4,
-        from: DataType::String,
-        to: DataType::Int32,
-    });
+    let value_error = ValueError::from(DataListConversionError::new(
+        4,
+        DataConversionError::missing(DataType::String, DataType::Int32),
+    ));
     let error = ConfigError::from(("ports", value_error));
 
-    assert!(matches!(
-        error,
-        ConfigError::ConversionError {
-            key,
-            source_index: Some(4),
-            source,
-        } if key == "ports"
-            && source.kind() == DataConversionErrorKind::Missing
-    ));
+    assert_eq!(error.path(), Some("ports"));
+    assert_eq!(error.source_index(), Some(4));
+    let missing = error.value_missing().unwrap();
+    assert_eq!(missing.source_type(), Some(DataType::String));
+    assert_eq!(missing.target_type(), Some(DataType::Int32));
+    assert_eq!(
+        missing.conversion_error().unwrap().kind(),
+        DataConversionErrorKind::Missing
+    );
+    assert!(!missing.is_defaultable_for_conversion());
 }
 
 #[test]
@@ -172,11 +172,9 @@ fn test_keyed_value_error_variants() {
     assert!(matches!(
         ConfigError::from((
             "empty",
-            ValueError::Missing(ValueMissing::UnsetScalar {
-                data_type: DataType::String,
-            }),
+            ValueError::Missing(ValueMissing::unset_scalar(DataType::String, DataType::String)),
         )),
-        ConfigError::PropertyHasNoValue(key) if key == "empty"
+        ConfigError::ValueError { key, source } if key == "empty" && source.missing().unwrap().is_unset()
     ));
     assert!(matches!(
         ConfigError::from((

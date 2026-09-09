@@ -131,10 +131,11 @@ mod test_enhanced_errors {
         let result: Result<String, _> = config.get("empty.key");
         assert!(result.is_err());
         match result.unwrap_err() {
-            ConfigError::PropertyHasNoValue(key) => {
+            ConfigError::ValueError { key, source } => {
                 assert_eq!(key, "empty.key");
+                assert!(source.missing().unwrap().is_unset());
             }
-            e => panic!("Expected PropertyHasNoValue, got {:?}", e),
+            e => panic!("Expected a preserved missing value, got {:?}", e),
         }
     }
 
@@ -628,7 +629,7 @@ mod test_config_error_branches {
 
         assert!(matches!(
             result,
-            Err(ConfigError::PropertyHasNoValue(key)) if key == "empty"
+            Err(ConfigError::ValueError { key, source }) if key == "empty" && source.missing().unwrap().is_unset()
         ));
     }
 
@@ -662,17 +663,18 @@ mod test_config_error_branches {
         }
     }
 
-    // Test that get on empty property returns PropertyHasNoValue
+    // Unset properties retain their value-layer missing context.
     #[test]
     fn test_get_on_empty_property_returns_has_no_value() {
         let mut config = Config::new();
         config.set_null("empty_str", DataType::String).unwrap();
         let err = config.get::<String>("empty_str").unwrap_err();
         match err {
-            ConfigError::PropertyHasNoValue(key) => {
+            ConfigError::ValueError { key, source } => {
                 assert_eq!(key, "empty_str");
+                assert!(source.missing().unwrap().is_unset());
             }
-            _ => panic!("Expected PropertyHasNoValue, got {:?}", err),
+            _ => panic!("Expected a preserved missing value, got {:?}", err),
         }
     }
 }

@@ -161,7 +161,7 @@ fn test_deserialize_float32_nan_is_rejected() {
     else {
         panic!("expected a conversion error");
     };
-    assert_eq!(key, "x.val");
+    assert_eq!(key, "x.val[0]");
     assert_eq!(source_index, Some(0));
     assert_eq!(
         source,
@@ -182,7 +182,7 @@ fn test_deserialize_float64_infinity_is_rejected_with_source_index() {
     else {
         panic!("expected a conversion error");
     };
-    assert_eq!(key, "x.val");
+    assert_eq!(key, "x.val[1]");
     assert_eq!(source_index, Some(1));
     assert_eq!(
         source,

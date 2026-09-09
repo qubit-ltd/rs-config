@@ -15,6 +15,8 @@ use std::time::Duration;
 
 use libfuzzer_sys::fuzz_target;
 use qubit_config::Config;
+use qubit_config::ConfigDeserializeOptions;
+use qubit_config::UnknownFieldPolicy;
 use serde::Deserialize;
 
 const MAX_INPUT_BYTES: usize = 64 * 1024;
@@ -71,11 +73,15 @@ fuzz_target!(|data: &[u8]| {
         return;
     };
 
-    if let Ok(value) = config.deserialize_lenient::<TypedConfig>("") {
+    let options = ConfigDeserializeOptions {
+        unknown_fields: UnknownFieldPolicy::Ignore,
+        ..Default::default()
+    };
+    if let Ok(value) = config.deserialize_with::<TypedConfig>("", options) {
         consume_typed_config(value);
     }
     for key in config.keys().into_iter().take(8) {
-        if let Ok(value) = config.deserialize_lenient::<TypedConfig>(&key) {
+        if let Ok(value) = config.deserialize_with::<TypedConfig>(&key, options) {
             consume_typed_config(value);
         }
     }

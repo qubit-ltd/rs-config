@@ -294,7 +294,7 @@ mod test_get_and_get_list_error_mapping_additional_paths {
         config.set_null("empty_list", DataType::String).unwrap();
         assert!(matches!(
             config.get_list::<String>("empty_list"),
-            Err(ConfigError::PropertyHasNoValue(key)) if key == "empty_list"
+            Err(ConfigError::ValueError { key, source }) if key == "empty_list" && source.missing().unwrap().is_unset()
         ));
 
         let error = config
