@@ -38,7 +38,7 @@ fresh JSON until the shared runner finishes, invokes the per-file checker, and
 only then applies the requested artifact cleanup policy. This ordering makes a
 clean checkout enforce the same gate as the authoritative coverage command.
 
-The evidence below was captured on 2026-09-07 with `cargo-llvm-cov 0.8.6` from
+The evidence below was captured on 2026-09-10 with `cargo-llvm-cov 0.8.6` from
 `target/llvm-cov/coverage.json`, after running the command above. The JSON
 contains no usable source branch counters (`branches.count` is zero), so region
 counters are the branch-sensitive evidence used by the gate. The annotated
@@ -50,22 +50,22 @@ cargo llvm-cov report --text --show-missing-lines
 
 ## Current Instrumentation Exceptions
 
-The table is an exact, ordered copy of the eleven paths currently configured in
+The table is an exact, ordered copy of the eight paths currently configured in
 `.rs-ci-coverage.json`. Percentages and counts come from the evidence report.
 
 | File | Functions | Lines | Regions | Counter shape and behavioral evidence |
 | --- | ---: | ---: | ---: | --- |
-| `src/config/access.rs` | 90.91% (20/22) | 92.68% (76/82) | 89.47% (119/133) | The two missed function records are the always-inlined `Config::section` and `Config::section_if_present` forwarding accessors. `inherent_section_accessors_preserve_presence_semantics` invokes both through black-boxed function pointers and asserts present and missing section behavior, but their out-of-line definitions remain at zero. |
-| `src/conversion/internal/config_scalar_seq_access.rs` | 80.00% (4/5) | 84.38% (27/32) | 83.93% (47/56) | Generic `SeqAccess::next_element_seed` monomorphizations and its error closures produce zero-count copies in separate integration-test binaries. `test_scalar_list_error_preserves_original_index`, `test_scalar_list_visitor_can_stop_before_tail_limit`, `test_scalar_string_sequence_charges_source_and_items_once`, and `test_scalar_string_sequence_preserves_admitted_item_errors` exercise successful, early-stop, indexed-error, and budgeted sequence reads. |
-| `src/config_wire_limits.rs` | 90.48% (19/21) | 94.50% (103/109) | 92.31% (96/104) | The two missed records are the always-inlined scalar limit getters `max_properties` and `max_property_key_bytes`. `config_wire_scalar_limit_getters_are_callable_as_functions` calls both through black-boxed function pointers and checks non-default values; bounded wire tests separately prove both limits reject oversized inputs. |
-| `src/error/config_error.rs` | 86.67% (13/15) | 83.62% (148/177) | 80.00% (156/195) | Small `#[inline]`/`#[inline(always)]` context accessors and match arms are attributed inconsistently across test binaries. `test_config_error_kind_covers_every_public_variant`, `test_source_errors_expose_source_id`, `config_error_optional_context_accessors_are_callable_as_functions`, the candidate-path tests, and source-limit tests call the public classifications and context accessors directly, including through black-boxed function pointers. |
-| `src/key/config_key.rs` | 71.43% (5/7) | 77.78% (21/27) | 75.68% (28/37) | The missed function records are the always-inlined text and formatting accessors, not key validation. `key_and_path_wrapper_traits_preserve_the_validated_text` calls `ConfigKey::as_str`, `AsRef<str>`, Serde deserialization, and `Display` directly; the key boundary tests exercise empty, separator, Unicode, and whitespace cases. |
-| `src/key/config_path.rs` | 92.86% (13/14) | 94.83% (55/58) | 95.06% (77/81) | The remaining zero-count record maps to the always-inlined `ConfigPath::as_str` body. `key_and_path_wrapper_traits_preserve_the_validated_text` invokes it through a black-boxed function pointer and also verifies `AsRef`, `Display`, and Serde; path tests cover root and every validation violation. |
+| `src/config/access.rs` | 94.12% (16/17) | 95.83% (69/72) | 92.97% (119/128) | Forwarding accessors retain an inline-attribution gap; section tests cover presence, absence and relative paths. |
+| `src/error/config_error.rs` | 100.00% (16/16) | 87.91% (160/182) | 86.07% (173/201) | Error classification and source adapters include generic and defensive branches; error tests cover types, paths, missing facts and source chains. |
+| `src/key/config_key.rs` | 85.71% (6/7) | 88.89% (24/27) | 89.19% (33/37) | Key accessors retain an inline-attribution gap; key tests cover AsRef, Unicode, whitespace, invalid keys and Serde validation. |
+| `src/key/config_path.rs` | 85.71% (12/14) | 89.66% (52/58) | 88.89% (72/81) | Path accessors retain inline-attribution gaps; path tests cover root and relative paths, validation and Serde. |
 | `src/property/property.rs` | 75.00% (15/20) | 85.85% (91/106) | 82.20% (97/118) | Five always-inlined accessors/mutators (`value_mut`, `description`, `set_description`, `data_type`, and `len`) retain zero-count bodies even though direct tests execute them. `property_tests` covers scalar and collection mutation, metadata, final flags, unset state, type and length, cloning, and wire round trips; `config_property_mut_tests` covers mutation through the configuration facade. |
-| `src/property/property_mut.rs` | 90.91% (10/11) | 94.34% (50/53) | 94.44% (68/72) | The remaining missed record is the always-inlined `ConfigPropertyMut::as_property` accessor. `test_property_mut_guard_allows_mutation_before_final` calls it directly and asserts the guarded property name; the focused guard tests also cover successful mutation, final-state rejection, and error-path retention. |
-| `src/reader/config_section.rs` | 89.47% (34/38) | 91.88% (147/160) | 91.12% (236/259) | Thin inherent-to-trait forwarding methods, always-inlined accessors, iterator closures, and generic `ConfigName` call sites create duplicate or zero-attributed instances. `config_section_tests` exercises root and nested paths, strict relative resolution, visibility, iteration boundaries, inherited policies, empty sections, and both `path` and `contains_section` through black-boxed function pointers. |
+| `src/reader/config_section.rs` | 90.91% (30/33) | 92.67% (139/150) | 91.34% (232/254) | Thin forwarding methods and generic AsRef calls retain attribution gaps; section tests cover nested paths, visibility, iteration, policies and empty sections. |
 | `src/source/toml_config_source.rs` | 78.95% (30/38) | 92.48% (209/226) | 83.53% (350/419) | Feature-gated builds duplicate generic builder/conversion functions and iterator/error closures across test binaries. The scalar-string fallback arms for integer, float, boolean, and nested values are defensive: homogeneous arrays are dispatched before that converter and nested arrays/tables are rejected earlier. `toml_config_source_tests` exercises every accepted scalar/array kind, mixed and nested rejection, parse/I/O errors, collisions, limits, final values, and transactionality. |
 | `src/source/yaml_config_source.rs` | 81.25% (39/48) | 87.33% (317/363) | 83.31% (549/659) | Feature-gated generic sequence converters, scanner closures, and error adapters have duplicated zero-attributed instances. The `unreachable!` nested-sequence arm and nested values in the scalar-to-string converter are defensive because the pre-scan rejects mapping, sequence, and tagged items first; a parser error without a public location is backend-dependent and cannot be constructed through the public load path. `yaml_config_source_tests` covers accepted scalar/sequence/tagged forms, alias rejection and quoted/block-scalar exceptions, non-string keys, mixed and nested rejection, collisions, limits, final values, and transactionality. |
+
+
+The refactor removes the old scalar sequence implementation and its exemption. `config_wire_limits.rs` and `property_mut.rs` now satisfy all thresholds and are also removed from the exemption list. No new structured_read module is exempt.
 
 ## Maintaining the List
 

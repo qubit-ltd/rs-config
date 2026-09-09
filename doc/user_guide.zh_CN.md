@@ -2,7 +2,7 @@
 
 [English](user_guide.md) | 简体中文
 
-本手册针对 `qubit-config` `0.16.0`。读者是需要从多个来源加载配置、以类型化方式读取配置，并在输入无效时获得可诊断错误的 Rust 应用开发者。本手册不要求业务代码绑定到某一种文件格式。
+本手册针对 `qubit-config` `0.17.0`。读者是需要从多个来源加载配置、以类型化方式读取配置，并在输入无效时获得可诊断错误的 Rust 应用开发者。本手册不要求业务代码绑定到某一种文件格式。
 
 ## 手册目标与读者
 
@@ -101,24 +101,24 @@ crate 要求 Rust `1.94` 或更高版本，并使用 edition `2024`。
 
 ```toml
 [dependencies]
-qubit-config = "0.16"
+qubit-config = "0.17"
 ```
 
 默认 feature 集为空。按需显式添加可选能力：
 
 ```toml
 # TOML 与 .env 配置源
-qubit-config = { version = "0.16", features = ["toml", "env-file"] }
+qubit-config = { version = "0.17", features = ["toml", "env-file"] }
 ```
 
 ```toml
 # Chrono 与 URL 值
-qubit-config = { version = "0.16", features = ["chrono", "url"] }
+qubit-config = { version = "0.17", features = ["chrono", "url"] }
 ```
 
 ```toml
 # 所有可选值类型与格式配置源
-qubit-config = { version = "0.16", features = ["full"] }
+qubit-config = { version = "0.17", features = ["full"] }
 ```
 
 原子可选 feature 为 `bigdecimal`、`chrono`、`num-bigint`、`url`、`env-file`、`toml` 和 `yaml`。`rich-types` 组合前四个富类型 feature；`formats` 组合三个格式 feature；`full` 同时启用两组 feature。
@@ -295,7 +295,24 @@ assert_eq!(server.port, 8080);
 # Ok::<(), qubit_config::ConfigError>(())
 ```
 
-如果通过泛型 `ConfigReader` 或 section 调用 `deserialize`、`deserialize_interpolated`、`deserialize_lenient` 或 `deserialize_interpolated_lenient`，请导入 `ConfigSerdeExt`。结构化读取默认严格，目标 `Deserialize` 类型未消费的字段会返回 `UnknownProperties`；只有明确允许额外字段时才使用 lenient 版本。struct 字段、`serde(rename)`、`serde(alias)`、`serde(default)`、嵌套 struct、map 和 `serde(flatten)` 共同声明可接受的配置形状。结构化读取会保留配置查找和转换上下文；仅由 Serde 报告的结构不匹配会变成已脱敏的 `DeserializeError`。
+通过泛型 `ConfigReader` 或 section 调用 `deserialize` 或 `deserialize_with` 时，导入
+`ConfigSerdeExt`。`deserialize(prefix)` 等价于
+`deserialize_with(prefix, ConfigDeserializeOptions::default())`：不插值、拒绝未知字段。
+允许额外字段时设置 `unknown_fields: UnknownFieldPolicy::Ignore`；展开占位符时设置
+`interpolate: true`。struct 字段、`serde(rename)`、`serde(alias)`、`serde(default)`、
+嵌套 struct、map 和 `serde(flatten)` 共同声明可接受的形状。仅由 Serde 报告的结构不匹配
+会变成已脱敏的 `DeserializeError`。
+
+即使目标忽略部分字段，也会对选中的完整输入执行准入。插值前后的输入分别检查，然后所有叶子
+转换共享另一个独立的 `ConversionSession`。这些资源域都取 reader 的转换限制，被忽略字段
+不能绕过输入限额。只有真正的字符串叶子参与插值，富类型格式化的文本不参与。
+内部未变化的值保持借用，返回结果仍拥有所有权。
+
+明确的数值字段从原始运行时类型转换。`serde_json::Value` 等使用 `deserialize_any` 的目标
+遵循自然 JSON 类别：宽整数是十进制字符串，富类型使用自然表示。并非所有富类型都接受该
+Serde 形状，例如 `std::time::Duration` 需要 `secs` 和 `nanos` 字段，不接受存储的标量 Duration。
+不同的对象叶子可与点分属性合并；重复叶子、精确属性与其子项冲突会返回 `KeyConflict`。
+子树中被策略判定缺失的标量字符串会被省略，集合某项缺失仍然报错。
 
 ### 持久化和解码配置
 
@@ -451,7 +468,9 @@ assert_eq!(error.path(), Some("server.port"));
 
 ### `${...}` 没有被替换
 
-使用 `get_interpolated`、`get_interpolated_or`、`get_any_interpolated` 或 `deserialize_interpolated`。普通读取会有意保留占位符字面量。如果占位符应来自进程环境变量，请确认当前 policy 使用了 `ConfigThenEnv`。
+使用 `get_interpolated`、`get_interpolated_or`、`get_any_interpolated`，或为
+`deserialize_with` 设置 `interpolate: true`。普通读取会有意保留占位符字面量。
+如果占位符应来自进程环境变量，请确认当前 policy 使用了 `ConfigThenEnv`。
 
 ### section 无法读取配置键
 
@@ -476,6 +495,24 @@ assert_eq!(error.path(), Some("server.port"));
 先使用 `source.load()` 独立检查配置源结果，再查看其配置键。配置源加载失败或事务式合并失败时，目标配置保持不变。目标中的 final 配置项也会拒绝后续覆盖。
 
 ## 限制与最佳实践
+
+### 从 0.16 迁移
+
+| 原 API 或处理方式 | 新用法 | 行为 |
+| --- | --- | --- |
+| `ConfigName` 约束或实现 | `AsRef<str>` | 借用文本，保留键校验，支持 `Cow<str>` |
+| `IntoConfigDefault<T>` | `qubit_value::IntoValueDefault<T>` | 保留默认值适配，仅回退时执行 |
+| `deserialize_interpolated(prefix)` | `deserialize_with(prefix, options)` 设置 `interpolate: true` | 默认拒绝未知字段 |
+| `deserialize_lenient(prefix)` | `deserialize_with(prefix, options)` 设置 `unknown_fields: Ignore` | 默认不插值 |
+| `deserialize_interpolated_lenient(prefix)` | `deserialize_with(prefix, options)` 同时设置两项 | 显式选择两种行为 |
+| 认为值缺失都映射为 `PropertyHasNoValue` | 检查 `value_missing()` 与 `Error::source` | 保留源/目标类型、原因和元素索引 |
+
+表中 `Ignore` 指 `UnknownFieldPolicy::Ignore`，未覆盖的选项可用 `..Default::default()`。
+已有字符串和 `ConfigKey` 参数通常无需修改调用；多候选键列表继续使用 `ConfigNames`。
+集合某项非法或缺失会停止默认值回退和候选搜索，具体空集合的首项不能使用默认值。
+`Config::get` 仍执行转换，对应新版 `Metadata::get` 则严格读取。
+配置的 `serde::Serialize` 与 `encode_json_vec()` 继续可用且保持 Wire V1；它们负责配置持久化，
+不把任意业务结构体反向写成配置属性。
 
 - 默认 feature 集为空；格式和富类型支持必须有意识地启用。
 - 配置键和 section 路径会被校验；不要依赖普通配置键的隐式去空白或规范化。

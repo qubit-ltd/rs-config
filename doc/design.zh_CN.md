@@ -2,7 +2,7 @@
 
 [English](design.md) | 简体中文
 
-本文描述 `qubit-config` `0.16.0` 已实现的架构。单个调用及其边界行为仍以公共
+本文描述 `qubit-config` `0.17.0` 已实现的架构。单个调用及其边界行为仍以公共
 API 文档和测试为准。
 
 ## 稳定核心
@@ -22,6 +22,11 @@ API 文档和测试为准。
 不变量。它包含泛型方法，因此也不满足对象安全要求。下游应使用
 `R: ConfigReader + ?Sized` 或 `&impl ConfigReader` 等泛型约束，不应实现第三方
 `ConfigReader`，也不应使用 `dyn ConfigReader`。
+
+单键参数使用 `AsRef<str>`，支持借用/owned 字符串和 `ConfigKey`。键校验仍在配置边界执行，
+参数 trait 不证明键有效。多候选键的 `ConfigNames` 独立保留。默认值直接使用
+`qubit_value::IntoValueDefault`，仅在需要回退时执行转换；不保留 `ConfigName` 或
+`IntoConfigDefault` 的公共兼容别名。
 
 ## 配置源管线
 
@@ -47,6 +52,11 @@ V1 wire 表示。
 失败不会被默认值掩盖。显式空集合仍被视为已存在。多候选键读取按照调用方提供的
 顺序查找，section 则只解析其路径下的相对配置键。
 
+`Config::get` 仍是按策略转换的读取。来自值层的缺失错误保留 `ValueMissing`、原始转换来源
+和集合索引。集合某项非法或被策略判定为缺失时，默认值和候选键搜索都必须停止。
+具体空集合的首项也不能回退。`PropertyHasNoValue` 仅用于配置 reader 的策略预检查，
+不再替代值错误而丢失上下文。
+
 普通类型化读取各自使用独立的转换操作。一次结构化 Serde 物化会让所有字段、映射、
 序列、枚举变体和嵌套值共享一个 `ConversionSession`，因此操作限制会在整个结果内
 累计。
@@ -54,7 +64,8 @@ V1 wire 表示。
 ## 插值
 
 普通 `get` 和 `deserialize` 调用会保留 `${name}` 字面量，只有
-`*_interpolated` API 才会执行插值。带作用域的读取会先查当前 reader，再查根配置。
+普通读取的 `*_interpolated` API 或 `deserialize_with` 的 `interpolate` 选项才会执行插值。
+带作用域的读取会先查当前 reader，再查根配置。
 仅当策略显式选择 `InterpolationSources::ConfigThenEnv` 时才会继续查询进程环境变量；
 `ReadPolicy::env_friendly()` 只改变转换行为，不会开启该回退。
 
@@ -71,9 +82,24 @@ reader 当前可见的全部配置项。
 
 结构化读取默认拒绝目标类型未消费的配置项，并通过
 `ConfigError::UnknownProperties` 报告经过排序的根相对路径。对于明确开放的配置区域，
-应显式选择 `*_lenient` 变体。查找、插值和转换错误会保留配置上下文；只有 Serde
+应选择 `UnknownFieldPolicy::Ignore`。`deserialize(prefix)` 默认不插值并拒绝未知字段；
+`deserialize_with(prefix, ConfigDeserializeOptions)` 可设置 `interpolate` 和
+`unknown_fields: UnknownFieldPolicy::{Reject, Ignore}`，结构化读取只保留这两个入口。
+查找、插值和转换错误会保留配置上下文；只有 Serde
 报告的结构不匹配才会转换为已脱敏的 `DeserializeError`。投影遵循 Serde 的 JSON
 风格数据模型，不承诺覆盖 `ConfigReader::get` 为富类型提供的所有原生转换形态。
+
+准备树保存借用值、集合 slice、JSON 节点和合成对象索引，不克隆完整 JSON 中间载荷。
+两个对象贡献不同叶子时可以合并；重复叶子和标量/对象冲突会失败。插值覆盖使用带类型的源位置，
+JSON 键中的字面点号不会与嵌套路径混淆。只展开真正的字符串叶子，每个叶子处理一次；
+URL 等富类型格式化后的文本不作为插值输入，未变化文本保持借用。
+
+执行 visitor 前，对完整选中输入准入，包括目标忽略的字段。插值读取分别检查原始输入和展开后
+输入。这些检查取 reader 的转换限制，但计数器与叶子共享的 `ConversionSession` 独立。
+明确的数值目标从原始运行时类型转换；`deserialize_any` 遵循自然 JSON 类别，包括宽整数的
+十进制文本表示。标量列表拆分复用已准入元素，真实集合内的字符串不再拆分。
+精确标量被策略判定缺失时可读取为 `None`，子树中的缺失标量字符串会被省略，集合某项缺失
+仍然报错。公共返回值仍要求 `DeserializeOwned`。
 
 ## Wire 持久化
 
@@ -87,6 +113,9 @@ Serde 序列化会输出确定性的 V1 JSON 封装，其中包含显式 `versio
 `Deserialize` 可以限制已解码值，却无法对原始输入字节或 JSON 词法 token 做准入；
 完整的不可信 JSON 输入必须使用 `decode_json_slice`。
 
+持久化序列化与 `ConfigSerdeExt` 读取业务结构体是不同能力。本次不增加业务结构体反向展平
+写入配置的 serializer，现有 Wire V1 表示保持不变。
+
 ## 资源预算
 
 crate 为不同操作使用相互独立的资源域，而不是共享一个计数器：
@@ -94,6 +123,7 @@ crate 为不同操作使用相互独立的资源域，而不是共享一个计�
 | 资源域 | 默认限制 | 作用边界 |
 | --- | --- | --- |
 | 类型转换 | `qubit-datatype` 的 `ConversionLimits::default()` | 单次普通读取，或一次完整的结构化物化 |
+| 结构化输入准入 | reader 的转换操作与结构值限制 | 完整选中输入；插值前后分别检查，计数独立 |
 | 插值 | 深度 64；展开 4,096 次；输出 1 MiB | 单次插值读取 |
 | 配置源加载 | 输入 8 MiB；赋值 65,536 个；节点 262,144 个；组合子配置源 256 个；深度 64 | 单个配置源及其所有外层组合配置源作用域 |
 | JSON wire | 输入/输出 1 MiB；深度 64；节点 100,000 个；序列项、映射项和配置项各 4,096 个；字符串和对象键 256 KiB；数字 4 KiB；载荷 1 MiB；配置项键 256 字节 | 单次编码或解码 |

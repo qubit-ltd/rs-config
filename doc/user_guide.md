@@ -2,7 +2,7 @@
 
 [简体中文](user_guide.zh_CN.md) | English
 
-This guide describes `qubit-config` `0.16.0`. It is for Rust application developers who need to load configuration from more than one place, read it as typed values, and diagnose invalid input without coupling application code to a particular file format.
+This guide describes `qubit-config` `0.17.0`. It is for Rust application developers who need to load configuration from more than one place, read it as typed values, and diagnose invalid input without coupling application code to a particular file format.
 
 ## Purpose and Audience
 
@@ -103,24 +103,24 @@ The crate requires Rust `1.94` or newer and uses edition `2024`.
 
 ```toml
 [dependencies]
-qubit-config = "0.16"
+qubit-config = "0.17"
 ```
 
 The default feature set is empty. Add optional capabilities explicitly:
 
 ```toml
 # TOML and .env sources
-qubit-config = { version = "0.16", features = ["toml", "env-file"] }
+qubit-config = { version = "0.17", features = ["toml", "env-file"] }
 ```
 
 ```toml
 # Chrono and URL values
-qubit-config = { version = "0.16", features = ["chrono", "url"] }
+qubit-config = { version = "0.17", features = ["chrono", "url"] }
 ```
 
 ```toml
 # All optional value types and format sources
-qubit-config = { version = "0.16", features = ["full"] }
+qubit-config = { version = "0.17", features = ["full"] }
 ```
 
 The atomic optional features are `bigdecimal`, `chrono`, `num-bigint`, `url`, `env-file`, `toml`, and `yaml`. `rich-types` groups the four rich-value features; `formats` groups the three format features; `full` enables both groups.
@@ -304,7 +304,30 @@ assert_eq!(server.port, 8080);
 # Ok::<(), qubit_config::ConfigError>(())
 ```
 
-Import `ConfigSerdeExt` when calling `deserialize`, `deserialize_interpolated`, `deserialize_lenient`, or `deserialize_interpolated_lenient` through a generic `ConfigReader`. Structured reads are strict by default: fields not consumed by the target `Deserialize` type return `UnknownProperties`. Use the lenient variants only when extra fields are intentionally allowed. Struct fields, `serde(rename)`, `serde(alias)`, `serde(default)`, nested structs, maps, and `serde(flatten)` declare the accepted configuration shape. Structured reads preserve configuration lookup/conversion context; a mismatch raised only by Serde becomes a sanitized `DeserializeError`.
+Import `ConfigSerdeExt` when calling `deserialize` or `deserialize_with` through
+a generic `ConfigReader` or section. `deserialize(prefix)` is equivalent to
+`deserialize_with(prefix, ConfigDeserializeOptions::default())`: interpolation
+is off and unknown fields are rejected. To allow extra fields, set
+`unknown_fields: UnknownFieldPolicy::Ignore`; to expand placeholders, set
+`interpolate: true`. Struct fields, `serde(rename)`, `serde(alias)`,
+`serde(default)`, nested structs, maps, and `serde(flatten)` declare the accepted
+shape. A mismatch raised only by Serde becomes a sanitized `DeserializeError`.
+
+Complete selected input is admitted even when the target ignores some fields.
+Interpolation admits original and expanded input separately, then all leaf
+conversions share one independent `ConversionSession`. These resource domains
+use the reader's conversion limits; ignored fields cannot bypass input limits.
+Only actual string leaves are interpolated, not text formatted from rich values.
+Unchanged values remain borrowed internally, while the result is owned.
+
+Typed numeric fields convert from their original runtime type. Targets using
+`deserialize_any`, such as `serde_json::Value`, receive Natural JSON categories:
+wide integers become decimal strings, and rich values use their natural form.
+Not every rich type accepts that Serde shape: `std::time::Duration` expects
+`secs` and `nanos` fields rather than a stored scalar Duration. Distinct object
+leaves can merge with dotted properties; duplicate leaves and exact-property /
+descendant conflicts return `KeyConflict`. Policy-missing subtree scalar strings
+are omitted, but missing collection items remain errors.
 
 ### Persist and decode configuration
 
@@ -466,7 +489,10 @@ Check whether the key exists and contains a value. Defaults apply only to a miss
 
 ### `${...}` remained unchanged
 
-Use `get_interpolated`, `get_interpolated_or`, `get_any_interpolated`, or `deserialize_interpolated`. Ordinary reads intentionally preserve the literal placeholder. If the placeholder should come from the process environment, confirm that the active policy uses `ConfigThenEnv`.
+Use `get_interpolated`, `get_interpolated_or`, `get_any_interpolated`, or
+`deserialize_with` with `interpolate: true`. Ordinary reads intentionally
+preserve the literal placeholder. If the placeholder should come from the
+process environment, confirm that the active policy uses `ConfigThenEnv`.
 
 ### A section cannot read a key
 
@@ -492,6 +518,27 @@ input boundary is understood, or split the input into smaller source layers.
 Check the source result independently with `source.load()`, then inspect its keys. A failed source load or failed transactional merge leaves the target unchanged. A final target property also rejects a later override.
 
 ## Limitations and Best Practices
+
+### Migration from 0.16
+
+| Old API or handling | Replacement | Behavior |
+| --- | --- | --- |
+| `ConfigName` bound or implementation | `AsRef<str>` | Borrows text; existing key validation remains; supports `Cow<str>` |
+| `IntoConfigDefault<T>` | `qubit_value::IntoValueDefault<T>` | Same useful default adapters, evaluated only on fallback |
+| `deserialize_interpolated(prefix)` | `deserialize_with(prefix, options)` with `interpolate: true` | Rejects unknown fields by default |
+| `deserialize_lenient(prefix)` | `deserialize_with(prefix, options)` with `unknown_fields: Ignore` | Does not interpolate by default |
+| `deserialize_interpolated_lenient(prefix)` | `deserialize_with(prefix, options)` with both settings | Explicitly selects both behaviors |
+| Assume every value missing maps to `PropertyHasNoValue` | Inspect `value_missing()` and `Error::source` | Preserves source/target types, reason, and item index |
+
+`Ignore` above means `UnknownFieldPolicy::Ignore`. Use `..Default::default()`
+for option fields that are not overridden. Existing string and `ConfigKey`
+arguments usually need no call-site changes. Retain `ConfigNames` for candidate
+lists. Invalid or missing collection items stop fallback and candidate search;
+a concrete empty collection cannot provide a default first item. `Config::get`
+still converts, whereas `Metadata::get` in the corresponding metadata release
+is strict. Configuration `serde::Serialize` and `encode_json_vec()` remain
+available and keep Wire V1; they serialize configuration, not arbitrary business
+structs into configuration properties.
 
 - The default feature set is empty. Format and rich-value support must be enabled deliberately.
 - Configuration keys and section paths are validated; callers should not rely on implicit trimming or normalization of ordinary keys.

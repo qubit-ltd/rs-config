@@ -13,19 +13,19 @@
 
 ```toml
 [dependencies]
-qubit-config = "0.16"
+qubit-config = "0.17"
 ```
 
 默认 feature 集为空，因此核心 API 不会启用可选文件格式或富类型。应用可以按需启用 feature，也可以使用 `full` 开启完整的可选能力：
 
 ```toml
-qubit-config = { version = "0.16", features = ["toml", "env-file"] }
+qubit-config = { version = "0.17", features = ["toml", "env-file"] }
 ```
 
 或者启用完整的可选能力：
 
 ```toml
-qubit-config = { version = "0.16", features = ["full"] }
+qubit-config = { version = "0.17", features = ["full"] }
 ```
 
 | Feature | 提供能力 |
@@ -110,8 +110,10 @@ fn load_server_config() -> Result<(String, u16), Box<dyn std::error::Error>> {
 <!-- example: config_structured -->
 ```rust
 use qubit_config::Config;
+use qubit_config::ConfigDeserializeOptions;
 use qubit_config::ConfigError;
 use qubit_config::ReadPolicy;
+use qubit_config::UnknownFieldPolicy;
 use qubit_datatype::ConversionLimits;
 use qubit_datatype::ConversionOperationLimits;
 use serde::Deserialize;
@@ -136,7 +138,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect_err("strict reads reject unknown fields");
     assert!(matches!(error, ConfigError::UnknownProperties { .. }));
 
-    let database = config.deserialize_lenient::<Database>("db")?;
+    let database = config.deserialize_with::<Database>(
+        "db",
+        ConfigDeserializeOptions {
+            unknown_fields: UnknownFieldPolicy::Ignore,
+            ..Default::default()
+        },
+    )?;
     assert_eq!(
         database,
         Database {
@@ -157,8 +165,14 @@ charge 本身仍保持原子性。
 结构化读取默认拒绝目标类型未声明的配置字段，并通过
 `ConfigError::UnknownProperties` 返回 root-relative 路径。请使用目标类型的
 Serde 结构（`rename`、`alias`、`default`、嵌套类型、map 或 `flatten`）声明可接受
-字段；只有明确允许开放字段时，才使用 `deserialize_lenient` 或
-`deserialize_interpolated_lenient`。
+字段；只有明确允许开放字段时，才选择 `UnknownFieldPolicy::Ignore`。
+`deserialize(prefix)` 使用默认选项：不插值、拒绝未知字段；
+`deserialize_with(prefix, options)` 还可以设置 `interpolate: true`。
+结构化读取只保留这两个入口，空 prefix 表示整个可见范围。
+
+目标 visitor 执行前，会对选中的完整输入执行准入，包括被忽略的字段。开启插值时，原始输入与
+展开后的输入分别使用独立预算检查；随后所有叶子转换共享另一个 `ConversionSession`。
+内部借用原生值和集合，返回值仍要求 `DeserializeOwned`。
 
 使用结构化或 JSON 示例时，请直接添加 Serde 依赖：
 
@@ -180,7 +194,7 @@ qubit-datatype = { version = "0.12", default-features = false, features = ["conv
 - 来源会生成独立的配置 layer，可以先检查，也可以事务式合并。
 - `ConfigReader` 为 `Config` 和 `ConfigSection` 提供类型化、可选、带默认值、多 key、列表和严格读取。
 - 通过 `ReadPolicy` 明确控制转换规则；`read_with` 可以临时使用借用的 policy。
-- 插值通过 `*_interpolated` 方法显式开启；回退到环境变量必须显式配置 `InterpolationSources::ConfigThenEnv`。
+- 插值通过普通读取的 `*_interpolated` 方法或结构化读取选项显式开启；回退到环境变量必须显式配置 `InterpolationSources::ConfigThenEnv`。
 - `ConfigError::kind()`、`path()`、`source_id()` 和 `candidate_paths()` 提供稳定的诊断上下文，无需穷举错误变体。
 
 ## 提供什么，以及不提供什么
@@ -210,6 +224,16 @@ TOML 和 YAML 在 parser 边界存在明确例外：第三方 parser
 本库不会在普通读取时静默执行插值，不会在加载 `.env` 文件时展开进程环境占位符，也不会用默认值掩盖已存在但无效的值。`ConfigReader` 是封闭（sealed）trait，不能由第三方实现；它包含泛型方法，因此不支持 `dyn ConfigReader`。路径规则、配置源失败行为、结构化反序列化、自定义转换和排障细节请参阅用户手册；当前组件边界与兼容承诺记录在设计说明中。
 
 ## 延伸阅读
+
+0.17 的单键参数使用 `AsRef<str>`，删除 `ConfigName`；保留 `ConfigKey` 校验和多候选键
+`ConfigNames`。默认值参数复用 `qubit_value::IntoValueDefault`，删除 `IntoConfigDefault`，
+只在需要回退时执行适配。`Config::get` 仍按 reader 策略转换。值缺失错误通过
+`ConfigError::value_missing()` 保留原始来源和元素索引；非法集合元素不会触发默认值或继续
+查找下一个候选键。
+
+`Config` 仍实现 `serde::Serialize`，并提供 `encode_json_vec()` 持久化配置 envelope；
+`deserialize` 则从配置读取业务类型。本次不增加业务结构体反向写入配置的 serializer，
+Wire V1 保持不变。
 
 - [English user guide](doc/user_guide.md)
 - [中文用户手册](doc/user_guide.zh_CN.md)

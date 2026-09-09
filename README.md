@@ -13,19 +13,19 @@
 
 ```toml
 [dependencies]
-qubit-config = "0.16"
+qubit-config = "0.17"
 ```
 
 The default feature set is empty, so the core API does not enable optional file formats or rich value types. Enable only what the application needs, or use `full` for the complete optional surface:
 
 ```toml
-qubit-config = { version = "0.16", features = ["toml", "env-file"] }
+qubit-config = { version = "0.17", features = ["toml", "env-file"] }
 ```
 
 Or use the complete optional surface:
 
 ```toml
-qubit-config = { version = "0.16", features = ["full"] }
+qubit-config = { version = "0.17", features = ["full"] }
 ```
 
 | Feature | Adds |
@@ -110,8 +110,10 @@ Use `Config::deserialize` when a subtree maps naturally to a Serde type:
 <!-- example: config_structured -->
 ```rust
 use qubit_config::Config;
+use qubit_config::ConfigDeserializeOptions;
 use qubit_config::ConfigError;
 use qubit_config::ReadPolicy;
+use qubit_config::UnknownFieldPolicy;
 use qubit_datatype::ConversionLimits;
 use qubit_datatype::ConversionOperationLimits;
 use serde::Deserialize;
@@ -136,7 +138,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect_err("strict reads reject unknown fields");
     assert!(matches!(error, ConfigError::UnknownProperties { .. }));
 
-    let database = config.deserialize_lenient::<Database>("db")?;
+    let database = config.deserialize_with::<Database>(
+        "db",
+        ConfigDeserializeOptions {
+            unknown_fields: UnknownFieldPolicy::Ignore,
+            ..Default::default()
+        },
+    )?;
     assert_eq!(
         database,
         Database {
@@ -159,8 +167,17 @@ atomic.
 Structured reads reject undeclared properties by default and report their
 root-relative paths through `ConfigError::UnknownProperties`. Declare accepted
 fields with the target's Serde shape (`rename`, `alias`, `default`, nested
-types, maps, or `flatten`); use `deserialize_lenient` or
-`deserialize_interpolated_lenient` only for intentionally open sections.
+types, maps, or `flatten`); choose `UnknownFieldPolicy::Ignore` only for
+intentionally open sections. `deserialize(prefix)` uses default options: no
+interpolation and unknown fields rejected. `deserialize_with(prefix, options)`
+also accepts `interpolate: true`; these are the only two structured-read methods.
+An empty prefix selects the complete visible scope.
+
+Complete selected input, including ignored fields, is admitted before the
+target visitor runs. Interpolation checks both the original and expanded input
+with independent admission budgets. Leaf conversions then share one separate
+`ConversionSession`. Native values and collections stay borrowed internally;
+the result is still `DeserializeOwned`.
 
 Add the direct Serde dependencies when using structured or JSON examples:
 
@@ -182,7 +199,7 @@ Configuration often arrives as strings, but application code needs typed values,
 - Sources produce independent configuration layers that can be inspected or merged transactionally.
 - `ConfigReader` provides typed, optional, defaulted, multi-key, list, and strict reads for both `Config` and `ConfigSection`.
 - Conversion rules are explicit through `ReadPolicy`; `read_with` applies a temporary borrowed policy.
-- Interpolation is opt-in through `*_interpolated` methods. Environment fallback requires `InterpolationSources::ConfigThenEnv` explicitly.
+- Interpolation is opt-in through ordinary `*_interpolated` reads or structured-read options. Environment fallback requires `InterpolationSources::ConfigThenEnv` explicitly.
 - `ConfigError::kind()`, `path()`, `source_id()`, and `candidate_paths()` expose stable diagnostic context without requiring exhaustive matching on error variants.
 
 ## What It Provides—and What It Does Not
@@ -217,6 +234,19 @@ input boundary is understood.
 It does not silently interpolate values during ordinary reads, expand process-environment placeholders while loading `.env` files, use defaults to hide a present but invalid value, permit third-party `ConfigReader` implementations, or support `dyn ConfigReader`: the trait is sealed and its generic methods make it non-object-safe. Detailed path rules, source failure behavior, structured deserialization, custom conversion, and troubleshooting are covered in the user guide; current component boundaries and compatibility commitments are recorded in the design document.
 
 ## Learn More
+
+In 0.17, single-key parameters use `AsRef<str>` instead of `ConfigName`;
+`ConfigKey` validation and multi-candidate `ConfigNames` remain. Default
+parameters reuse `qubit_value::IntoValueDefault` instead of `IntoConfigDefault`,
+with adaptation deferred until fallback. `Config::get` still converts according
+to the reader policy. Value missing errors retain their original source and
+item index through `ConfigError::value_missing()`; invalid collection items do
+not trigger a default or a search for another candidate key.
+
+`Config` still implements `serde::Serialize` and provides `encode_json_vec()`
+for configuration persistence. Those encode the configuration envelope;
+`deserialize` reads a business type from configuration. This release does not
+add a reverse business-struct-to-configuration serializer. Wire V1 is unchanged.
 
 - [English user guide](doc/user_guide.md)
 - [中文用户手册](doc/user_guide.zh_CN.md)

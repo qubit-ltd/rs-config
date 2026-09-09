@@ -2,7 +2,7 @@
 
 [Simplified Chinese](design.zh_CN.md) | English
 
-This document describes the implemented architecture of `qubit-config` `0.16.0`.
+This document describes the implemented architecture of `qubit-config` `0.17.0`.
 Public API documentation and tests remain authoritative for individual calls and
 edge cases.
 
@@ -25,6 +25,13 @@ The compatibility center is `Config`, `ConfigReader`, `ConfigSection`,
 invariants. Its generic methods also make it non-object-safe. Downstream code
 should use bounds such as `R: ConfigReader + ?Sized` or `&impl ConfigReader`, not
 third-party implementations or `dyn ConfigReader`.
+
+Single-key arguments use `AsRef<str>`, including borrowed/owned strings and
+`ConfigKey`. Key validation stays in the configuration boundary; the argument
+trait does not certify validity. Multi-candidate `ConfigNames` remains separate.
+Default arguments use `qubit_value::IntoValueDefault` directly, converting the
+default only when fallback is needed. Neither `ConfigName` nor
+`IntoConfigDefault` remains a public compatibility alias.
 
 ## Source Pipeline
 
@@ -53,6 +60,13 @@ active string policy. They do not hide conversion failures. An explicit empty
 collection remains present. Candidate-key reads inspect names in caller-supplied
 order, while section reads resolve only relative keys beneath the section path.
 
+`Config::get` remains a policy-controlled converting read. Missing errors from
+the value layer preserve `ValueMissing`, the original conversion source, and
+the collection index. An invalid or policy-missing collection item stops both
+fallback and candidate-key search. A concrete empty collection has no defaultable
+first item. `PropertyHasNoValue` remains only for configuration reader policy
+prechecks, not as a lossy replacement for value errors.
+
 Each ordinary typed read has its own conversion operation. One structured Serde
 materialization instead shares one `ConversionSession` across all fields, maps,
 sequences, enum variants, and nested values, so its operation limits accumulate
@@ -61,7 +75,8 @@ across the complete result.
 ## Interpolation
 
 Ordinary `get` and `deserialize` calls preserve `${name}` literally.
-Interpolation occurs only through `*_interpolated` APIs. A scoped read resolves
+Interpolation occurs only through ordinary `*_interpolated` APIs or the
+`interpolate` option of `deserialize_with`. A scoped read resolves
 the current reader first, then the root configuration. The process environment
 is consulted only when the policy explicitly selects
 `InterpolationSources::ConfigThenEnv`; `ReadPolicy::env_friendly()` changes
@@ -81,12 +96,34 @@ and descendants at the same prefix are a `KeyConflict`. The empty prefix selects
 all properties visible to the reader.
 
 Structured reads reject unconsumed properties by default and report sorted,
-root-relative paths through `ConfigError::UnknownProperties`. The `*_lenient`
-variants are the explicit escape hatch for open configuration sections. Lookup,
+root-relative paths through `ConfigError::UnknownProperties`.
+`deserialize(prefix)` defaults to no interpolation and rejected unknown fields;
+`deserialize_with(prefix, ConfigDeserializeOptions)` allows `interpolate` and
+`unknown_fields: UnknownFieldPolicy::{Reject, Ignore}`. These are the only two
+structured-read entry points. Lookup,
 interpolation, and conversion errors preserve configuration context, while
 shape mismatches raised only by Serde become sanitized `DeserializeError` values.
 The projection follows Serde's JSON-like data model and does not promise every
 native rich-value conversion shape supported by `ConfigReader::get`.
+
+The prepared tree stores borrowed values, collection slices, JSON nodes, and
+synthetic object indices. It never clones a complete intermediate JSON payload.
+Object/object contributions with distinct leaves merge; duplicate leaves and
+scalar/object conflicts fail. Interpolation overlays use typed source locations,
+so literal dots in JSON keys cannot collide with nested paths. Only actual string
+leaves are expanded, once per leaf; formatted URLs and other rich values do not
+become interpolation input. Unchanged text stays borrowed.
+
+Before visitors run, the complete selected input is admitted, including fields
+the target ignores. Interpolated reads admit original and expanded input
+independently. These passes use the reader's conversion limits but independent
+counters from the shared leaf `ConversionSession`. Known numeric targets convert
+from the original runtime type; `deserialize_any` uses Natural JSON categories,
+including decimal text for wide integers. Scalar list splitting uses already
+admitted items, and strings inside actual collections are not split again.
+Policy-missing exact scalars can deserialize as `None`; missing subtree scalar
+strings are omitted, while missing collection items remain errors. The public
+result still requires `DeserializeOwned`.
 
 ## Wire Persistence
 
@@ -103,6 +140,10 @@ bounded wire profile. Their `*_with_limits` variants accept a custom
 cannot admit the original raw byte stream or lexical JSON tokens; callers must
 use `decode_json_slice` for complete untrusted JSON input.
 
+This persistence serialization is distinct from reading a business struct with
+`ConfigSerdeExt`. No inverse business-struct flattening serializer is introduced,
+and the existing Wire V1 representation is unchanged.
+
 ## Resource Budgets
 
 The crate has separate resource domains rather than one shared counter:
@@ -110,6 +151,7 @@ The crate has separate resource domains rather than one shared counter:
 | Domain | Default limits | Boundary |
 | --- | --- | --- |
 | Typed conversion | `qubit-datatype` `ConversionLimits::default()` | One ordinary read, or one complete structured materialization |
+| Structured input admission | Reader conversion operation and structured-value limits | Complete selected input; independent original/expanded passes for interpolation |
 | Interpolation | depth 64; 4,096 expansions; 1 MiB output | One interpolated read |
 | Source loading | 8 MiB input; 65,536 assignments; 262,144 nodes; 256 composite children; depth 64 | One local source and every enclosing composite scope |
 | JSON wire | 1 MiB input/output; depth 64; 100,000 nodes; 4,096 sequence items/map entries/properties; 256 KiB strings/object keys; 4 KiB numbers; 1 MiB payload; 256-byte property keys | One encode or decode operation |
