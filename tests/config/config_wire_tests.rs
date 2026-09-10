@@ -695,6 +695,50 @@ fn test_config_wire_bounded_encode_preflights_value_representation() {
     ));
 }
 
+/// Verifies the UInt128 wire string is not charged as a JSON number.
+#[test]
+fn test_config_wire_bounded_encode_accepts_uint128_string_with_small_number_budget() {
+    let mut config = Config::new();
+    config
+        .set("value", 123_u128)
+        .expect("setting the UInt128 value should succeed");
+    let limits = ConfigWireLimits::builder_from(&ConfigWireLimits::default())
+        .json_encode(JsonEncodeLimits::builder().max_number_bytes(2).build())
+        .build();
+
+    let encoded = config
+        .encode_json_vec_with_limits(limits)
+        .expect("the UInt128 wire string should fit a two-byte number budget");
+    let wire: Value = from_slice(&encoded).expect("encoded config should be valid JSON");
+    assert_eq!(wire["version"], json!(1));
+    assert_eq!(
+        wire["properties"]["value"]["value"]["value"]["scalar"]["uint128"],
+        json!("123")
+    );
+}
+
+/// Verifies compact float formatting is measured at its actual wire length.
+#[test]
+fn test_config_wire_bounded_encode_accepts_compact_float_with_ten_byte_number_budget() {
+    let mut config = Config::new();
+    config
+        .set("value", 1e100_f64)
+        .expect("setting the Float64 value should succeed");
+    let limits = ConfigWireLimits::builder_from(&ConfigWireLimits::default())
+        .json_encode(JsonEncodeLimits::builder().max_number_bytes(10).build())
+        .build();
+
+    let encoded = config
+        .encode_json_vec_with_limits(limits)
+        .expect("the compact Float64 wire number should fit a ten-byte budget");
+    let wire: Value = from_slice(&encoded).expect("encoded config should be valid JSON");
+    assert_eq!(wire["version"], json!(1));
+    assert_eq!(
+        wire["properties"]["value"]["value"]["value"]["scalar"]["float64"],
+        json!(1e100)
+    );
+}
+
 /// Verifies bounded decoding rejects malformed JSON during preflight.
 #[test]
 fn test_config_wire_bounded_decode_preflights_json_syntax() {
