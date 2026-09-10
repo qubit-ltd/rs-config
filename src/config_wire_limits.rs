@@ -252,6 +252,38 @@ impl ConfigWireLimits {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use qubit_budget::json::JsonDecodeLimits;
+    use qubit_budget::json::JsonEncodeLimits;
+
+    use super::ConfigWireLimits;
+
+    #[test]
+    fn private_limit_accessors_are_exercised() {
+        let original = ConfigWireLimits::builder()
+            .max_properties(17)
+            .max_property_key_bytes(23)
+            .build();
+        let rebuilt = ConfigWireLimits::builder_from(&original).build();
+        assert_eq!(rebuilt.properties_limit().maximum(), 17);
+        assert_eq!(rebuilt.property_key_bytes_limit().maximum(), 23);
+    }
+
+    #[test]
+    fn public_limit_accessors_are_exercised() {
+        let limits =
+            ConfigWireLimits::from_json(JsonDecodeLimits::builder().build(), JsonEncodeLimits::builder().build());
+        assert_eq!(limits.json_decode().max_input_bytes(), None);
+        assert_eq!(limits.json_encode().max_output_bytes(), None);
+        assert_eq!(limits.max_properties(), ConfigWireLimits::DEFAULT_MAX_PROPERTIES);
+        assert_eq!(
+            limits.max_property_key_bytes(),
+            ConfigWireLimits::DEFAULT_MAX_PROPERTY_KEY_BYTES
+        );
+    }
+}
+
 /// Error returned by bounded configuration wire decoding.
 #[derive(Debug, Error)]
 #[non_exhaustive]

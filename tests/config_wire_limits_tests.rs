@@ -128,3 +128,18 @@ fn config_wire_scalar_limit_getters_are_callable_as_functions() {
     assert_eq!(std::hint::black_box(max_properties)(limits), 11);
     assert_eq!(std::hint::black_box(max_property_key_bytes)(limits), 12);
 }
+
+#[test]
+fn config_wire_limit_constructors_are_callable_as_functions() {
+    let builder: fn() -> ConfigWireLimitsBuilder = ConfigWireLimits::builder;
+    let builder_from: fn(&ConfigWireLimits) -> ConfigWireLimitsBuilder = ConfigWireLimits::builder_from;
+    let from_json: fn(JsonDecodeLimits<JsonResource, u64>, JsonEncodeLimits<JsonResource, u64>) -> ConfigWireLimits =
+        ConfigWireLimits::from_json;
+
+    let defaults = std::hint::black_box(builder)().build();
+    let cloned = std::hint::black_box(builder_from)(&defaults).build();
+    let reconstructed = std::hint::black_box(from_json)(defaults.json_decode(), defaults.json_encode());
+
+    assert_eq!(cloned, defaults);
+    assert_eq!(reconstructed.max_properties(), ConfigWireLimits::DEFAULT_MAX_PROPERTIES);
+}
