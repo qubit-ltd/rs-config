@@ -510,7 +510,7 @@ assert_eq!(error.path(), Some("server.port"));
 表中 `Ignore` 指 `UnknownFieldPolicy::Ignore`，未覆盖的选项可用 `..Default::default()`。
 已有字符串和 `ConfigKey` 参数通常无需修改调用；多候选键列表继续使用 `ConfigNames`。
 集合某项非法或缺失会停止默认值回退和候选搜索，具体空集合的首项不能使用默认值。
-`Config::get` 仍执行转换，对应新版 `Metadata::get` 则严格读取。
+`Config::get` 仍然执行类型转换。
 配置的 `serde::Serialize` 与 `encode_json_vec()` 继续可用且保持 Wire V1；它们负责配置持久化，
 不把任意业务结构体反向写成配置属性。
 

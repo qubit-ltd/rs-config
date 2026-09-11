@@ -535,8 +535,7 @@ for option fields that are not overridden. Existing string and `ConfigKey`
 arguments usually need no call-site changes. Retain `ConfigNames` for candidate
 lists. Invalid or missing collection items stop fallback and candidate search;
 a concrete empty collection cannot provide a default first item. `Config::get`
-still converts, whereas `Metadata::get` in the corresponding metadata release
-is strict. Configuration `serde::Serialize` and `encode_json_vec()` remain
+still converts. Configuration `serde::Serialize` and `encode_json_vec()` remain
 available and keep Wire V1; they serialize configuration, not arbitrary business
 structs into configuration properties.
 
