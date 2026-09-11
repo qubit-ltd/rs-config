@@ -1,6 +1,6 @@
 [package]
 name = "qubit-config"
-version = "0.17.0"
+version = "0.14.0"
 edition = "2024"
 rust-version = "1.94"
 authors = ["Haixing Hu <starfish.hu@gmail.com>"]
@@ -21,6 +21,7 @@ include = [
     "/doc/**/design*.md",
     "/doc/**/coverage_policy*.md",
     "/benches/**",
+    "/examples/**",
     "/src/**",
     "/tests/**",
 ]
