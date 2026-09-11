@@ -574,7 +574,7 @@ pub trait ConfigReader: internal::Sealed {
 
     /// Iterates all `(key, property)` pairs visible to this reader (same scope
     /// as [`Self::keys`]).
-    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a str, &'a Property)> + 'a>;
+    fn iter<'a>(&'a self) -> impl Iterator<Item = (&'a str, &'a Property)> + 'a;
 
     /// Returns whether `name` exists as an unset property.
     ///

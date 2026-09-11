@@ -1,10 +1,14 @@
 // =============================================================================
 //    Copyright (c) 2026 Haixing Hu.
+//
 //    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 //! Selection and bounded construction of the logical configuration path tree.
 
 use std::collections::BTreeMap;
+use std::collections::hash_map;
 
 use qubit_budget::MeasuredBudgetError;
 use qubit_budget::ResourceBudget;
@@ -34,6 +38,24 @@ pub(super) struct PreparedConfigRead<'a> {
     pub(super) sources: SourceIndex<'a>,
     pub(super) root: NodeId,
     pub(super) root_path: String,
+}
+
+enum MergeEntries<'a> {
+    Json(serde_json::map::Iter<'a>),
+    StringMap(hash_map::Iter<'a, String, String>),
+}
+
+impl<'a> Iterator for MergeEntries<'a> {
+    type Item = (&'a str, ReadNode<'a>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Json(values) => values.next().map(|(key, value)| (key.as_str(), ReadNode::Json(value))),
+            Self::StringMap(values) => values
+                .next()
+                .map(|(key, value)| (key.as_str(), ReadNode::Text(std::borrow::Cow::Borrowed(value)))),
+        }
+    }
 }
 
 /// Bounds the path index before allocating nodes or copying keys. Full input
@@ -274,18 +296,12 @@ impl<'a> PreparedConfigRead<'a> {
                 return Err(conflict(&path, self.nodes[id].kind(), incoming.kind()));
             }
             self.expand_object(id, depth, capacity, &path)?;
-            let entries: Box<dyn Iterator<Item = (&'a str, ReadNode<'a>)> + 'a> = match incoming {
-                ReadNode::Json(serde_json::Value::Object(values)) => {
-                    Box::new(values.iter().map(|(key, value)| (key.as_str(), ReadNode::Json(value))))
-                }
-                ReadNode::StringMap(values) => Box::new(
-                    values
-                        .iter()
-                        .map(|(key, value)| (key.as_str(), ReadNode::Text(std::borrow::Cow::Borrowed(value)))),
-                ),
+            let mut entries = match incoming {
+                ReadNode::Json(serde_json::Value::Object(values)) => MergeEntries::Json(values.iter()),
+                ReadNode::StringMap(values) => MergeEntries::StringMap(values.iter()),
                 value => return Err(conflict(&path, "object", value.kind())),
             };
-            for (key, node) in entries {
+            for (key, node) in &mut entries {
                 let ReadNode::Object(children) = &self.nodes[id] else {
                     unreachable!()
                 };

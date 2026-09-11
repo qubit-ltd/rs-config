@@ -630,8 +630,8 @@ impl ConfigReader for Config {
     }
 
     #[inline]
-    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a str, &'a Property)> + 'a> {
-        Box::new(Config::iter(self))
+    fn iter<'a>(&'a self) -> impl Iterator<Item = (&'a str, &'a Property)> + 'a {
+        Config::iter(self)
     }
 
     #[inline]

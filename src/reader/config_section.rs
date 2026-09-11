@@ -347,8 +347,8 @@ impl<'a> ConfigReader for ConfigSection<'a> {
             .map(move |(key, property)| (&key[child_prefix_len..], property))
     }
 
-    fn iter<'b>(&'b self) -> Box<dyn Iterator<Item = (&'b str, &'b Property)> + 'b> {
-        Box::new(self.visible_entries())
+    fn iter<'b>(&'b self) -> impl Iterator<Item = (&'b str, &'b Property)> + 'b {
+        self.visible_entries()
     }
 
     #[inline(always)]
