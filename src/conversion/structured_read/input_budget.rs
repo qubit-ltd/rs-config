@@ -7,7 +7,6 @@
 // =============================================================================
 //! Complete logical-input admission, independent of target conversion usage.
 
-use std::fmt;
 use std::fmt::Display;
 use std::fmt::Write;
 
@@ -26,6 +25,7 @@ use qubit_datatype::InvalidValueReason;
 use qubit_value::ValueError;
 use qubit_value::ValueRef;
 
+use super::internal::counting_writer::CountingWriter;
 use super::prepared_read::PreparedConfigRead;
 use super::traversal;
 use super::traversal::ReadView;
@@ -225,20 +225,6 @@ impl<'a> PreparedInputBudget<'a> {
                 DataConversionError::unsupported(DataConverter::from(value).data_type(), DataType::Json),
             )),
         }
-    }
-}
-
-struct CountingWriter {
-    budget: ResourceBudget<ConversionResource, u64>,
-    error: Option<MeasuredBudgetError<ConversionResource, u64>>,
-}
-
-impl fmt::Write for CountingWriter {
-    fn write_str(&mut self, text: &str) -> fmt::Result {
-        self.budget.try_consume_usize(text.len()).map_err(|error| {
-            self.error = Some(error);
-            fmt::Error
-        })
     }
 }
 

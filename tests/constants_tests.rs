@@ -31,3 +31,34 @@ mod test_max_interpolation_depth {
         assert_eq!(options.max_interpolation_depth(), 0);
     }
 }
+
+#[test]
+fn read_policy_builder_round_trips_runtime_options() {
+    use qubit_config::options::InterpolationSources;
+    use qubit_datatype::ConversionLimits;
+    use qubit_datatype::ConversionPolicy;
+
+    let policy = ReadPolicy::builder()
+        .conversion_policy(ConversionPolicy::env_friendly())
+        .interpolation_sources(InterpolationSources::ConfigThenEnv)
+        .max_interpolation_depth(3)
+        .max_interpolation_expansions(5)
+        .max_interpolation_output_bytes(7)
+        .build();
+    assert_eq!(policy.interpolation_sources(), InterpolationSources::ConfigThenEnv);
+    assert_eq!(policy.max_interpolation_depth(), 3);
+    assert_eq!(policy.max_interpolation_expansions(), 5);
+    assert_eq!(policy.max_interpolation_output_bytes(), 7);
+    assert_eq!(ReadPolicy::builder_from(&policy).build(), policy);
+    assert_eq!(ReadPolicy::config_only(), ReadPolicy::default());
+    assert_eq!(
+        ReadPolicy::env_friendly().conversion_policy(),
+        &ConversionPolicy::env_friendly()
+    );
+    assert_eq!(
+        ReadPolicy::from(ConversionPolicy::default()).conversion_policy(),
+        &ConversionPolicy::default()
+    );
+    let _: &ConversionPolicy = <ReadPolicy as AsRef<ConversionPolicy>>::as_ref(&policy);
+    let _: &ConversionLimits = <ReadPolicy as AsRef<ConversionLimits>>::as_ref(&policy);
+}

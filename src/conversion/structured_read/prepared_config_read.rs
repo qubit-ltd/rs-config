@@ -8,19 +8,11 @@
 //! Selection and bounded construction of the logical configuration path tree.
 
 use std::collections::BTreeMap;
-use std::collections::hash_map;
 
-use qubit_budget::MeasuredBudgetError;
-use qubit_budget::ResourceBudget;
-use qubit_budget::ResourceQuantity;
 use qubit_budget::json::JsonMeasurement;
-use qubit_budget::json::JsonValueBudget;
-use qubit_budget::json::JsonValueLimits;
-use qubit_datatype::ConversionLimits;
-use qubit_datatype::ConversionResource;
-use qubit_datatype::DataType;
-use qubit_value::ValueError;
 
+use super::internal::index_capacity::IndexCapacity;
+use super::internal::merge_entries::MergeEntries;
 use super::node::NodeId;
 use super::node::ReadNode;
 use super::node::SourceLocation;
@@ -38,108 +30,6 @@ pub(super) struct PreparedConfigRead<'a> {
     pub(super) sources: SourceIndex<'a>,
     pub(super) root: NodeId,
     pub(super) root_path: String,
-}
-
-enum MergeEntries<'a> {
-    Json(serde_json::map::Iter<'a>),
-    StringMap(hash_map::Iter<'a, String, String>),
-}
-
-impl<'a> Iterator for MergeEntries<'a> {
-    type Item = (&'a str, ReadNode<'a>);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            Self::Json(values) => values.next().map(|(key, value)| (key.as_str(), ReadNode::Json(value))),
-            Self::StringMap(values) => values
-                .next()
-                .map(|(key, value)| (key.as_str(), ReadNode::Text(std::borrow::Cow::Borrowed(value)))),
-        }
-    }
-}
-
-/// Bounds the path index before allocating nodes or copying keys. Full input
-/// accounting is a separate traversal of the completed logical tree.
-struct IndexCapacity {
-    budget: JsonValueBudget<ConversionResource, u64>,
-    input_keys: ResourceBudget<ConversionResource, u64>,
-    payload_keys: ResourceBudget<ConversionResource, u64>,
-    limits: ConversionLimits,
-}
-
-impl IndexCapacity {
-    fn new(limits: &ConversionLimits) -> Self {
-        Self {
-            budget: JsonValueBudget::new(
-                JsonValueLimits::builder()
-                    .structure_limits(
-                        limits
-                            .structured()
-                            .value()
-                            .structure_limits()
-                            .to_builder()
-                            .nodes_limit(*limits.operation().structured_nodes_limit())
-                            .build(),
-                    )
-                    .build(),
-            ),
-            input_keys: ResourceBudget::from_limit(*limits.operation().input_bytes_limit()),
-            payload_keys: ResourceBudget::from_limit(*limits.operation().structured_payload_bytes_limit()),
-            limits: limits.clone(),
-        }
-    }
-
-    fn admit(&mut self, measurement: JsonMeasurement, path: &str) -> ConfigResult<()> {
-        let mut transaction = self.budget.transaction();
-        transaction
-            .try_admit(measurement)
-            .and_then(|()| transaction.commit())
-            .map_err(|source| {
-                ConfigError::from((
-                    path,
-                    ValueError::JsonProjectionLimit {
-                        data_type: DataType::Json,
-                        source_index: None,
-                        source,
-                    },
-                ))
-            })
-    }
-
-    fn key(&mut self, bytes: usize, path: &str) -> ConfigResult<()> {
-        self.input_keys
-            .try_consume_usize(bytes)
-            .map_err(|error| index_error(path, error))?;
-        self.payload_keys
-            .try_consume_usize(bytes)
-            .map_err(|error| index_error(path, error))?;
-        self.admit(JsonMeasurement::Key { bytes }, path)
-    }
-
-    fn entries(&self, count: usize, path: &str) -> ConfigResult<()> {
-        let count = u64::try_from_usize(count).map_err(|error| {
-            index_error(
-                path,
-                MeasuredBudgetError::quantity(ConversionResource::MapEntries, error),
-            )
-        })?;
-        self.limits
-            .structured()
-            .max_map_entries_limit()
-            .check(count)
-            .map_err(|error| index_error(path, error.into()))
-    }
-}
-
-fn index_error(path: &str, source: MeasuredBudgetError<ConversionResource, u64>) -> ConfigError {
-    ConfigError::from((
-        path,
-        ValueError::JsonProjectionLimit {
-            data_type: DataType::Json,
-            source_index: None,
-            source,
-        },
-    ))
 }
 
 impl<'a> PreparedConfigRead<'a> {

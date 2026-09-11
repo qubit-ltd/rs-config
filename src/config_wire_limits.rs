@@ -290,6 +290,24 @@ mod tests {
             ConfigWireLimits::DEFAULT_MAX_PROPERTY_KEY_BYTES
         );
     }
+
+    #[test]
+    fn read_policy_as_ref_implementations_are_exercised() {
+        use qubit_datatype::ConversionLimits;
+        use qubit_datatype::ConversionPolicy;
+
+        use crate::ReadPolicy;
+
+        let policy = ReadPolicy::default();
+        assert_eq!(
+            <ReadPolicy as AsRef<ConversionPolicy>>::as_ref(&policy),
+            policy.conversion_policy()
+        );
+        assert_eq!(
+            <ReadPolicy as AsRef<ConversionLimits>>::as_ref(&policy),
+            policy.conversion_limits()
+        );
+    }
 }
 
 /// Error returned by bounded configuration wire decoding.

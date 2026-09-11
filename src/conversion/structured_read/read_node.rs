@@ -24,7 +24,7 @@ pub(super) use super::source_segment::SourceSegment;
 pub(super) type NodeId = usize;
 
 #[derive(Debug)]
-pub(super) enum ReadNode<'a> {
+pub(crate) enum ReadNode<'a> {
     /// Native scalar value.
     Scalar(ValueRef<'a>),
     /// Native homogeneous collection.

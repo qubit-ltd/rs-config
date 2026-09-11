@@ -17,6 +17,8 @@ mod deserializer;
 mod enum_access;
 #[path = "structured_read/input_budget.rs"]
 mod input_budget;
+#[path = "structured_read/internal/mod.rs"]
+mod internal;
 #[path = "structured_read/interpolation_overlay.rs"]
 mod interpolation_overlay;
 #[path = "structured_read/source_map_access.rs"]

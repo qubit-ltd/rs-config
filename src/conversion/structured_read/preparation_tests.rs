@@ -279,6 +279,19 @@ fn long_keys_and_cumulative_keys_are_bounded_before_index_copying() {
 }
 
 #[test]
+fn index_key_budget_rejects_input_bytes_before_admission() {
+    let mut config = Config::new();
+    config.set("tree.key", true).unwrap();
+    with_limits(
+        &mut config,
+        ConversionLimits::builder()
+            .operation_limits(ConversionOperationLimits::builder().max_input_bytes(0).build())
+            .build(),
+    );
+    assert!(prepare_read(&config, "tree", false).is_err());
+}
+
+#[test]
 fn deep_json_is_rejected_by_iterative_admission() {
     let mut value = serde_json::json!(true);
     for _ in 0..512 {
@@ -361,6 +374,17 @@ fn exact_property_and_descendants_conflict_in_either_insertion_order() {
             Err(ConfigError::KeyConflict { .. })
         ));
     }
+}
+
+#[test]
+fn scalar_parent_rejects_nested_properties() {
+    let mut config = Config::new();
+    config.set("server", 8080_i32).unwrap();
+    config.set("server.port", 8081_i32).unwrap();
+    assert!(matches!(
+        prepare_read(&config, "", false),
+        Err(ConfigError::KeyConflict { .. })
+    ));
 }
 
 #[test]
