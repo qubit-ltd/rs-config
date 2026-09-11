@@ -13,19 +13,19 @@
 
 ```toml
 [dependencies]
-qubit-config = "0.17"
+qubit-config = "0.14"
 ```
 
 The default feature set is empty, so the core API does not enable optional file formats or rich value types. Enable only what the application needs, or use `full` for the complete optional surface:
 
 ```toml
-qubit-config = { version = "0.17", features = ["toml", "env-file"] }
+qubit-config = { version = "0.14", features = ["toml", "env-file"] }
 ```
 
 Or use the complete optional surface:
 
 ```toml
-qubit-config = { version = "0.17", features = ["full"] }
+qubit-config = { version = "0.14", features = ["full"] }
 ```
 
 | Feature | Adds |
@@ -234,14 +234,6 @@ input boundary is understood.
 It does not silently interpolate values during ordinary reads, expand process-environment placeholders while loading `.env` files, use defaults to hide a present but invalid value, permit third-party `ConfigReader` implementations, or support `dyn ConfigReader`: the trait is sealed and its generic methods make it non-object-safe. Detailed path rules, source failure behavior, structured deserialization, custom conversion, and troubleshooting are covered in the user guide; current component boundaries and compatibility commitments are recorded in the design document.
 
 ## Learn More
-
-In 0.17, single-key parameters use `AsRef<str>` instead of `ConfigName`;
-`ConfigKey` validation and multi-candidate `ConfigNames` remain. Default
-parameters reuse `qubit_value::IntoValueDefault` instead of `IntoConfigDefault`,
-with adaptation deferred until fallback. `Config::get` still converts according
-to the reader policy. Value missing errors retain their original source and
-item index through `ConfigError::value_missing()`; invalid collection items do
-not trigger a default or a search for another candidate key.
 
 `Config` still implements `serde::Serialize` and provides `encode_json_vec()`
 for configuration persistence. Those encode the configuration envelope;

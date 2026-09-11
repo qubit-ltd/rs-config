@@ -13,19 +13,19 @@
 
 ```toml
 [dependencies]
-qubit-config = "0.17"
+qubit-config = "0.14"
 ```
 
 默认 feature 集为空，因此核心 API 不会启用可选文件格式或富类型。应用可以按需启用 feature，也可以使用 `full` 开启完整的可选能力：
 
 ```toml
-qubit-config = { version = "0.17", features = ["toml", "env-file"] }
+qubit-config = { version = "0.14", features = ["toml", "env-file"] }
 ```
 
 或者启用完整的可选能力：
 
 ```toml
-qubit-config = { version = "0.17", features = ["full"] }
+qubit-config = { version = "0.14", features = ["full"] }
 ```
 
 | Feature | 提供能力 |
@@ -224,12 +224,6 @@ TOML 和 YAML 在 parser 边界存在明确例外：第三方 parser
 本库不会在普通读取时静默执行插值，不会在加载 `.env` 文件时展开进程环境占位符，也不会用默认值掩盖已存在但无效的值。`ConfigReader` 是封闭（sealed）trait，不能由第三方实现；它包含泛型方法，因此不支持 `dyn ConfigReader`。路径规则、配置源失败行为、结构化反序列化、自定义转换和排障细节请参阅用户手册；当前组件边界与兼容承诺记录在设计说明中。
 
 ## 延伸阅读
-
-0.17 的单键参数使用 `AsRef<str>`，删除 `ConfigName`；保留 `ConfigKey` 校验和多候选键
-`ConfigNames`。默认值参数复用 `qubit_value::IntoValueDefault`，删除 `IntoConfigDefault`，
-只在需要回退时执行适配。`Config::get` 仍按 reader 策略转换。值缺失错误通过
-`ConfigError::value_missing()` 保留原始来源和元素索引；非法集合元素不会触发默认值或继续
-查找下一个候选键。
 
 `Config` 仍实现 `serde::Serialize`，并提供 `encode_json_vec()` 持久化配置 envelope；
 `deserialize` 则从配置读取业务类型。本次不增加业务结构体反向写入配置的 serializer，

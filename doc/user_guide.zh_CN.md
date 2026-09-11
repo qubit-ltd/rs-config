@@ -2,7 +2,7 @@
 
 [English](user_guide.md) | 简体中文
 
-本手册针对 `qubit-config` `0.17.0`。读者是需要从多个来源加载配置、以类型化方式读取配置，并在输入无效时获得可诊断错误的 Rust 应用开发者。本手册不要求业务代码绑定到某一种文件格式。
+本手册针对 `qubit-config` `0.14`。读者是需要从多个来源加载配置、以类型化方式读取配置，并在输入无效时获得可诊断错误的 Rust 应用开发者。本手册不要求业务代码绑定到某一种文件格式。
 
 ## 手册目标与读者
 
@@ -101,24 +101,24 @@ crate 要求 Rust `1.94` 或更高版本，并使用 edition `2024`。
 
 ```toml
 [dependencies]
-qubit-config = "0.17"
+qubit-config = "0.14"
 ```
 
 默认 feature 集为空。按需显式添加可选能力：
 
 ```toml
 # TOML 与 .env 配置源
-qubit-config = { version = "0.17", features = ["toml", "env-file"] }
+qubit-config = { version = "0.14", features = ["toml", "env-file"] }
 ```
 
 ```toml
 # Chrono 与 URL 值
-qubit-config = { version = "0.17", features = ["chrono", "url"] }
+qubit-config = { version = "0.14", features = ["chrono", "url"] }
 ```
 
 ```toml
 # 所有可选值类型与格式配置源
-qubit-config = { version = "0.17", features = ["full"] }
+qubit-config = { version = "0.14", features = ["full"] }
 ```
 
 原子可选 feature 为 `bigdecimal`、`chrono`、`num-bigint`、`url`、`env-file`、`toml` 和 `yaml`。`rich-types` 组合前四个富类型 feature；`formats` 组合三个格式 feature；`full` 同时启用两组 feature。
@@ -495,24 +495,6 @@ assert_eq!(error.path(), Some("server.port"));
 先使用 `source.load()` 独立检查配置源结果，再查看其配置键。配置源加载失败或事务式合并失败时，目标配置保持不变。目标中的 final 配置项也会拒绝后续覆盖。
 
 ## 限制与最佳实践
-
-### 从 0.16 迁移
-
-| 原 API 或处理方式 | 新用法 | 行为 |
-| --- | --- | --- |
-| `ConfigName` 约束或实现 | `AsRef<str>` | 借用文本，保留键校验，支持 `Cow<str>` |
-| `IntoConfigDefault<T>` | `qubit_value::IntoValueDefault<T>` | 保留默认值适配，仅回退时执行 |
-| `deserialize_interpolated(prefix)` | `deserialize_with(prefix, options)` 设置 `interpolate: true` | 默认拒绝未知字段 |
-| `deserialize_lenient(prefix)` | `deserialize_with(prefix, options)` 设置 `unknown_fields: Ignore` | 默认不插值 |
-| `deserialize_interpolated_lenient(prefix)` | `deserialize_with(prefix, options)` 同时设置两项 | 显式选择两种行为 |
-| 认为值缺失都映射为 `PropertyHasNoValue` | 检查 `value_missing()` 与 `Error::source` | 保留源/目标类型、原因和元素索引 |
-
-表中 `Ignore` 指 `UnknownFieldPolicy::Ignore`，未覆盖的选项可用 `..Default::default()`。
-已有字符串和 `ConfigKey` 参数通常无需修改调用；多候选键列表继续使用 `ConfigNames`。
-集合某项非法或缺失会停止默认值回退和候选搜索，具体空集合的首项不能使用默认值。
-`Config::get` 仍然执行类型转换。
-配置的 `serde::Serialize` 与 `encode_json_vec()` 继续可用且保持 Wire V1；它们负责配置持久化，
-不把任意业务结构体反向写成配置属性。
 
 - 默认 feature 集为空；格式和富类型支持必须有意识地启用。
 - 配置键和 section 路径会被校验；不要依赖普通配置键的隐式去空白或规范化。

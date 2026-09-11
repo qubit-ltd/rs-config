@@ -2,7 +2,7 @@
 
 [Simplified Chinese](design.zh_CN.md) | English
 
-This document describes the implemented architecture of `qubit-config` `0.17.0`.
+This document describes the implemented architecture of `qubit-config` `0.14`.
 Public API documentation and tests remain authoritative for individual calls and
 edge cases.
 

@@ -2,7 +2,7 @@
 
 [简体中文](user_guide.zh_CN.md) | English
 
-This guide describes `qubit-config` `0.17.0`. It is for Rust application developers who need to load configuration from more than one place, read it as typed values, and diagnose invalid input without coupling application code to a particular file format.
+This guide describes `qubit-config` `0.14`. It is for Rust application developers who need to load configuration from more than one place, read it as typed values, and diagnose invalid input without coupling application code to a particular file format.
 
 ## Purpose and Audience
 
@@ -103,24 +103,24 @@ The crate requires Rust `1.94` or newer and uses edition `2024`.
 
 ```toml
 [dependencies]
-qubit-config = "0.17"
+qubit-config = "0.14"
 ```
 
 The default feature set is empty. Add optional capabilities explicitly:
 
 ```toml
 # TOML and .env sources
-qubit-config = { version = "0.17", features = ["toml", "env-file"] }
+qubit-config = { version = "0.14", features = ["toml", "env-file"] }
 ```
 
 ```toml
 # Chrono and URL values
-qubit-config = { version = "0.17", features = ["chrono", "url"] }
+qubit-config = { version = "0.14", features = ["chrono", "url"] }
 ```
 
 ```toml
 # All optional value types and format sources
-qubit-config = { version = "0.17", features = ["full"] }
+qubit-config = { version = "0.14", features = ["full"] }
 ```
 
 The atomic optional features are `bigdecimal`, `chrono`, `num-bigint`, `url`, `env-file`, `toml`, and `yaml`. `rich-types` groups the four rich-value features; `formats` groups the three format features; `full` enables both groups.
@@ -518,26 +518,6 @@ input boundary is understood, or split the input into smaller source layers.
 Check the source result independently with `source.load()`, then inspect its keys. A failed source load or failed transactional merge leaves the target unchanged. A final target property also rejects a later override.
 
 ## Limitations and Best Practices
-
-### Migration from 0.16
-
-| Old API or handling | Replacement | Behavior |
-| --- | --- | --- |
-| `ConfigName` bound or implementation | `AsRef<str>` | Borrows text; existing key validation remains; supports `Cow<str>` |
-| `IntoConfigDefault<T>` | `qubit_value::IntoValueDefault<T>` | Same useful default adapters, evaluated only on fallback |
-| `deserialize_interpolated(prefix)` | `deserialize_with(prefix, options)` with `interpolate: true` | Rejects unknown fields by default |
-| `deserialize_lenient(prefix)` | `deserialize_with(prefix, options)` with `unknown_fields: Ignore` | Does not interpolate by default |
-| `deserialize_interpolated_lenient(prefix)` | `deserialize_with(prefix, options)` with both settings | Explicitly selects both behaviors |
-| Assume every value missing maps to `PropertyHasNoValue` | Inspect `value_missing()` and `Error::source` | Preserves source/target types, reason, and item index |
-
-`Ignore` above means `UnknownFieldPolicy::Ignore`. Use `..Default::default()`
-for option fields that are not overridden. Existing string and `ConfigKey`
-arguments usually need no call-site changes. Retain `ConfigNames` for candidate
-lists. Invalid or missing collection items stop fallback and candidate search;
-a concrete empty collection cannot provide a default first item. `Config::get`
-still converts. Configuration `serde::Serialize` and `encode_json_vec()` remain
-available and keep Wire V1; they serialize configuration, not arbitrary business
-structs into configuration properties.
 
 - The default feature set is empty. Format and rich-value support must be enabled deliberately.
 - Configuration keys and section paths are validated; callers should not rely on implicit trimming or normalization of ordinary keys.
