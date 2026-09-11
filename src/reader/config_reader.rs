@@ -8,6 +8,7 @@
 
 #![allow(private_bounds)]
 
+/// Private sealing implementation for supported reader types.
 mod internal;
 
 use qubit_datatype::DataConversionTarget;

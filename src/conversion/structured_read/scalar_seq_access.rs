@@ -18,12 +18,16 @@ use super::deserializer::conversion_error;
 use crate::config_deserialize_error::ConfigDeserializeError;
 
 pub(super) struct ScalarSeqAccess<'tree, 'policy, 'session> {
+    /// Shared prepared-read context.
     context: ReadContext<'tree>,
+    /// Admitted scalar sequence source.
     source: AdmittedScalarSource<'session, 'policy, 'tree>,
+    /// Diagnostic path of the sequence.
     path: String,
 }
 
 impl<'tree, 'policy: 'tree, 'session> ScalarSeqAccess<'tree, 'policy, 'session> {
+    /// Creates sequence access after admitting the scalar source.
     pub(super) fn new(
         context: ReadContext<'tree>,
         text: &'tree str,
@@ -36,6 +40,7 @@ impl<'tree, 'policy: 'tree, 'session> ScalarSeqAccess<'tree, 'policy, 'session> 
         Ok(Self { context, source, path })
     }
 
+    /// Reports whether another item can be consumed.
     pub(super) fn has_remaining(&mut self) -> Result<bool, ConfigDeserializeError> {
         match self.source.next_item() {
             None => Ok(false),

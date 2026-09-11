@@ -7,6 +7,7 @@
 // =============================================================================
 //! Private utility implementation types.
 
+/// Resource dimensions charged while resolving interpolation.
 mod interpolation_resource;
 
 pub(super) use interpolation_resource::InterpolationResource;

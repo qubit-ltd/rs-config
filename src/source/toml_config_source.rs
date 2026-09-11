@@ -68,7 +68,9 @@ use crate::utils;
 /// ```
 #[derive(Debug, Clone)]
 pub struct TomlConfigSource {
+    /// File or in-memory content to load.
     input: SourceInput,
+    /// Resource limits applied while loading.
     limits: SourceLimits,
 }
 
@@ -141,7 +143,9 @@ impl TomlConfigSource {
 /// Builder for [`TomlConfigSource`].
 #[must_use = "use the returned value"]
 pub struct TomlConfigSourceBuilder {
+    /// Selected file or in-memory content.
     input: SourceInput,
+    /// Resource limits for the source load.
     limits: SourceLimits,
 }
 

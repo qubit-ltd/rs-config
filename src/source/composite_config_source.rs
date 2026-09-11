@@ -45,7 +45,9 @@ use crate::ConfigResult;
 
 /// Configuration source that merges multiple sources in order
 pub struct CompositeConfigSource {
+    /// Sources applied in insertion order.
     sources: Vec<Box<dyn ConfigSource>>,
+    /// Aggregate limits applied to the composite load.
     limits: SourceLimits,
 }
 
@@ -110,7 +112,9 @@ impl CompositeConfigSource {
 /// Builder for [`CompositeConfigSource`].
 #[must_use = "use the returned value"]
 pub struct CompositeConfigSourceBuilder {
+    /// Sources to apply in insertion order.
     sources: Vec<Box<dyn ConfigSource>>,
+    /// Aggregate limits for the completed composite.
     limits: SourceLimits,
 }
 

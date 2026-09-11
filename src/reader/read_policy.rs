@@ -201,11 +201,17 @@ impl ReadPolicy {
 #[must_use = "use the returned value"]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReadPolicyBuilder {
+    /// Semantic conversion rules used by the completed policy.
     conversion_policy: ConversionPolicy,
+    /// Resource limits used by the completed policy.
     conversion_limits: ConversionLimits,
+    /// Interpolation sources used by the completed policy.
     interpolation_sources: InterpolationSources,
+    /// Maximum active placeholder-reference chain length.
     max_interpolation_depth: usize,
+    /// Maximum placeholder resolutions per read.
     max_interpolation_expansions: usize,
+    /// Maximum bytes produced by one interpolation.
     max_interpolation_output_bytes: usize,
 }
 

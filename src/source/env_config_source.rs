@@ -66,9 +66,13 @@ impl EnvConfigOptions {
 #[must_use = "use the returned value"]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EnvConfigOptionsBuilder {
+    /// Optional environment-variable prefix filter.
     prefix: Option<String>,
+    /// Whether to remove the prefix from loaded keys.
     strip_prefix: bool,
+    /// Whether to map double underscores to dots.
     double_underscores_to_dots: bool,
+    /// Whether to lowercase loaded keys.
     lowercase_keys: bool,
 }
 
@@ -378,7 +382,9 @@ impl EnvConfigSource {
 /// Builder for [`EnvConfigSource`].
 #[must_use = "use the returned value"]
 pub struct EnvConfigSourceBuilder {
+    /// Key selection and normalization options.
     options: EnvConfigOptions,
+    /// Resource limits for one environment scan.
     limits: SourceLimits,
 }
 

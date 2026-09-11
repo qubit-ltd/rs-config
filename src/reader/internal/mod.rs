@@ -6,6 +6,7 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+/// Sealing trait that exposes the root configuration internally.
 mod sealed;
 
 pub(crate) use sealed::Sealed;

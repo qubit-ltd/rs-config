@@ -12,6 +12,7 @@
 
 #![allow(private_bounds)]
 
+/// Private persistence representations and bounded wire decoding helpers.
 mod internal;
 
 use std::collections::BTreeMap;
@@ -401,7 +402,9 @@ impl Config {
 #[must_use = "use the returned value"]
 #[derive(Debug, Clone)]
 pub struct ConfigBuilder {
+    /// Optional description copied into the built configuration.
     description: Option<String>,
+    /// Read policy installed as the configuration's default.
     default_read_policy: ReadPolicy,
 }
 

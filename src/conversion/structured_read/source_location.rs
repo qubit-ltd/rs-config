@@ -11,7 +11,9 @@ use super::source_segment::SourceSegment;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct SourceLocation {
+    /// Index of the originating property.
     pub(super) property_index: usize,
+    /// Path segments within that property's structured value.
     pub(super) segments: Vec<SourceSegment>,
 }
 

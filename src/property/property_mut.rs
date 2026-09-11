@@ -27,6 +27,7 @@ use crate::Property;
 /// every call, so setting a property final through the guard immediately blocks
 /// subsequent mutation through the same guard.
 pub struct ConfigPropertyMut<'a> {
+    /// Mutable property guarded by this wrapper.
     property: &'a mut Property,
 }
 

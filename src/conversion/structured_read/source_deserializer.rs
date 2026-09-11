@@ -32,15 +32,22 @@ use crate::ConfigError;
 use crate::config_deserialize_error::ConfigDeserializeError;
 
 pub(super) struct SourceDeserializer<'tree, 'policy, 'session> {
+    /// Prepared-read context.
     pub(super) context: ReadContext<'tree>,
+    /// Borrowed or already admitted conversion input.
     pub(super) input: ConversionInput<'tree, 'policy, 'session>,
+    /// Optional source location for diagnostics.
     pub(super) location: Option<SourceLocation>,
+    /// Root-relative diagnostic path.
     pub(super) path: String,
+    /// Whether scalar text may be split into sequence items.
     pub(super) allow_split: bool,
+    /// Original source item index, when known.
     pub(super) original_index: Option<usize>,
 }
 
 impl<'tree, 'policy: 'tree, 'session> SourceDeserializer<'tree, 'policy, 'session> {
+    /// Creates a deserializer for a prepared value.
     pub(super) fn new(
         context: ReadContext<'tree>,
         value: ReadView<'tree>,

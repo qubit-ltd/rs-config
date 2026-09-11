@@ -20,16 +20,24 @@ use qubit_value::ValueRef;
 pub(super) use super::source_location::SourceLocation;
 pub(super) use super::source_segment::SourceSegment;
 
+/// Index of a node in the prepared read arena.
 pub(super) type NodeId = usize;
 
 #[derive(Debug)]
 pub(super) enum ReadNode<'a> {
+    /// Native scalar value.
     Scalar(ValueRef<'a>),
+    /// Native homogeneous collection.
     Collection(MultiValuesRef<'a>),
+    /// Borrowed JSON value.
     Json(&'a serde_json::Value),
+    /// Borrowed string-keyed map.
     StringMap(&'a HashMap<String, String>),
+    /// Indexed object children.
     Object(BTreeMap<String, NodeId>),
+    /// Borrowed or owned text leaf.
     Text(Cow<'a, str>),
+    /// Missing value with its original type information.
     Missing(ValueMissing),
 }
 
@@ -71,6 +79,7 @@ impl<'a> ReadNode<'a> {
         }
     }
 
+    /// Converts a scalar reference into the corresponding arena node.
     pub(super) fn from_scalar(value: ValueRef<'a>) -> Self {
         match value {
             ValueRef::Json(value) => Self::Json(value),

@@ -34,10 +34,15 @@ pub const DEFAULT_MAX_SOURCE_DEPTH: usize = 64;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SourceLimits {
+    /// Maximum input bytes accepted from one source.
     max_input_bytes: usize,
+    /// Maximum properties emitted by one source.
     max_properties: usize,
+    /// Maximum structural nodes parsed by one source.
     max_nodes: usize,
+    /// Maximum child sources in one composite.
     max_sources: usize,
+    /// Maximum nesting depth of structured input.
     max_nesting_depth: usize,
 }
 
@@ -99,10 +104,15 @@ impl SourceLimits {
 #[must_use = "use the returned value"]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SourceLimitsBuilder {
+    /// Maximum input bytes accepted from one source.
     max_input_bytes: usize,
+    /// Maximum properties emitted by one source.
     max_properties: usize,
+    /// Maximum structural nodes parsed by one source.
     max_nodes: usize,
+    /// Maximum child sources in one composite.
     max_sources: usize,
+    /// Maximum nesting depth of structured input.
     max_nesting_depth: usize,
 }
 

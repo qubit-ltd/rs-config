@@ -11,6 +11,7 @@
 //! value, description, and other information.
 
 #[path = "property/internal/mod.rs"]
+/// Private wire representations for property persistence.
 mod internal;
 
 use std::fmt;

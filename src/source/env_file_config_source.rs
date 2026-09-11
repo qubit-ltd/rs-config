@@ -47,7 +47,9 @@ use crate::ConfigResult;
 /// ```
 #[derive(Debug, Clone)]
 pub struct EnvFileConfigSource {
+    /// File or in-memory content to load.
     input: SourceInput,
+    /// Resource limits applied while loading.
     limits: SourceLimits,
 }
 
@@ -173,7 +175,9 @@ impl EnvFileConfigSource {
 /// Builder for [`EnvFileConfigSource`].
 #[must_use = "use the returned value"]
 pub struct EnvFileConfigSourceBuilder {
+    /// Selected file or in-memory content.
     input: SourceInput,
+    /// Resource limits for the source load.
     limits: SourceLimits,
 }
 

@@ -13,17 +13,24 @@ use crate::Property;
 
 #[derive(Debug)]
 pub(super) enum SourceIndex<'a> {
+    /// One exact property is the complete input.
     Exact {
+        /// Exact property source.
         property: &'a Property,
+        /// Location of the exact property.
         origin: SourceLocation,
     },
+    /// Indexed subtree with property and origin tables.
     Tree {
+        /// Properties contributing to indexed nodes.
         properties: Vec<&'a Property>,
+        /// Optional source locations for indexed nodes.
         origins: Vec<Option<SourceLocation>>,
     },
 }
 
 impl<'a> SourceIndex<'a> {
+    /// Creates an empty subtree index.
     pub(super) fn tree() -> Self {
         Self::Tree {
             properties: Vec::new(),
@@ -31,6 +38,7 @@ impl<'a> SourceIndex<'a> {
         }
     }
 
+    /// Creates an index for one exact property.
     pub(super) fn exact(property: &'a Property) -> Self {
         Self::Exact {
             property,

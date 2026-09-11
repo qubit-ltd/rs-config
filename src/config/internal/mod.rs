@@ -6,11 +6,16 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+/// Legacy and current Serde persistence representations.
 mod config_serde_repr;
+/// Accepted versioned and legacy wire representations.
 mod config_wire;
+/// Shared wire fields and version marker.
 mod config_wire_fields;
 mod config_wire_seed;
+/// Owned version-one wire representation.
 mod config_wire_v1;
+/// Borrowed version-one wire representation.
 mod config_wire_v1_ref;
 
 pub(super) use config_serde_repr::ConfigSerdeRepr;

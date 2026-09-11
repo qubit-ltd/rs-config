@@ -71,7 +71,9 @@ use crate::ConfigResult;
 /// ```
 #[derive(Debug, Clone)]
 pub struct PropertiesConfigSource {
+    /// File or in-memory content to load.
     input: SourceInput,
+    /// Resource limits applied while loading.
     limits: SourceLimits,
 }
 
@@ -173,7 +175,9 @@ impl PropertiesConfigSource {
 /// Builder for [`PropertiesConfigSource`].
 #[must_use = "use the returned value"]
 pub struct PropertiesConfigSourceBuilder {
+    /// Selected file or in-memory content.
     input: SourceInput,
+    /// Resource limits for the source load.
     limits: SourceLimits,
 }
 

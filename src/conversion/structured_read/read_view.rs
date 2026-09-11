@@ -19,16 +19,24 @@ use super::node::ReadNode;
 
 #[derive(Clone, Copy)]
 pub(super) enum ReadView<'a> {
+    /// Native scalar value.
     Scalar(ValueRef<'a>),
+    /// Native homogeneous collection.
     Collection(MultiValuesRef<'a>),
+    /// Borrowed JSON value.
     Json(&'a serde_json::Value),
+    /// Borrowed string-keyed map.
     StringMap(&'a HashMap<String, String>),
+    /// Indexed object children.
     Object(&'a BTreeMap<String, NodeId>),
+    /// Text leaf.
     Text(&'a str),
+    /// Missing value metadata.
     Missing(&'a ValueMissing),
 }
 
 impl<'a> ReadView<'a> {
+    /// Creates a borrowed view over one prepared node.
     pub(super) fn from_node(node: &'a ReadNode<'_>) -> Self {
         match node {
             ReadNode::Scalar(value) => Self::from_scalar(*value),
@@ -41,6 +49,7 @@ impl<'a> ReadView<'a> {
         }
     }
 
+    /// Creates a view over one native scalar.
     pub(super) fn from_scalar(value: ValueRef<'a>) -> Self {
         match value {
             ValueRef::Json(value) => Self::Json(value),

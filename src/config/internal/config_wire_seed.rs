@@ -35,6 +35,7 @@ use crate::ConfigWireLimits;
 
 /// Decodes one Config wire value under explicit domain limits.
 pub(in crate::config) struct AccountingConfigWireSeed {
+    /// Configuration-specific limits applied during decoding.
     limits: ConfigWireLimits,
 }
 
@@ -47,6 +48,7 @@ impl AccountingConfigWireSeed {
 
 /// Decodes a wire value whose JSON tree was admitted by a decode session.
 pub(in crate::config) struct JsonAdmittedConfigWireSeed {
+    /// Configuration-specific limits applied after JSON admission.
     limits: ConfigWireLimits,
 }
 
@@ -101,8 +103,11 @@ impl AccountingConfigWireSeed {
 /// Seed that builds a JSON value while accounting events incrementally and
 /// rejecting duplicate object keys.
 struct AccountingUniqueJsonValueSeed<'transaction, 'budget> {
+    /// Transaction receiving incremental JSON resource charges.
     transaction: &'transaction mut JsonValueTransaction<'budget, JsonResource, u64>,
+    /// Root-inclusive nesting depth of the value being decoded.
     depth: usize,
+    /// Container count to check before decoding the next child.
     prospective_container: Option<(JsonContainerKind, usize)>,
 }
 
