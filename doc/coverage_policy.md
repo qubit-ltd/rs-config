@@ -65,7 +65,7 @@ The table is an exact, ordered copy of the eight paths currently configured in
 | `src/source/yaml_config_source.rs` | 81.25% (39/48) | 87.33% (317/363) | 83.31% (549/659) | Feature-gated generic sequence converters, scanner closures, and error adapters have duplicated zero-attributed instances. The `unreachable!` nested-sequence arm and nested values in the scalar-to-string converter are defensive because the pre-scan rejects mapping, sequence, and tagged items first; a parser error without a public location is backend-dependent and cannot be constructed through the public load path. `yaml_config_source_tests` covers accepted scalar/sequence/tagged forms, alias rejection and quoted/block-scalar exceptions, non-string keys, mixed and nested rejection, collisions, limits, final values, and transactionality. |
 
 
-The refactor removes the old scalar sequence implementation and its exemption. `config_wire_limits.rs` and `property_mut.rs` now satisfy all thresholds and are also removed from the exemption list. No new structured_read module is exempt.
+The refactor removes the old scalar sequence implementation and its exemption. `property_mut.rs` is retained as an instrumentation exception because its inline guard and deref methods remain under-counted after direct behavioral tests; the current report is 90.91% functions, 94.34% lines, and 94.44% regions. `config_wire_limits.rs` remains covered without an exemption. No structured_read module is exempt.
 
 ## Maintaining the List
 

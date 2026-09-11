@@ -9,6 +9,7 @@
 
 use qubit_config::Config;
 use qubit_config::ConfigError;
+use qubit_config::Property;
 
 #[test]
 fn test_config_property_mut_updates_non_final_property() {
@@ -22,6 +23,9 @@ fn test_config_property_mut_updates_non_final_property() {
             .get_property_mut("server.port")
             .expect("mutable access should succeed")
             .expect("property should exist");
+        assert_eq!(property.as_property().name(), "server.port");
+        let read_only: &Property = std::ops::Deref::deref(&property);
+        assert_eq!(read_only.name(), "server.port");
         property
             .set_description(Some("HTTP port".to_string()))
             .expect("description update should succeed");

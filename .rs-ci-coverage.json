@@ -6,6 +6,7 @@
       "src/key/config_key.rs",
       "src/key/config_path.rs",
       "src/property/property.rs",
+      "src/property/property_mut.rs",
       "src/reader/config_section.rs",
       "src/source/toml_config_source.rs",
       "src/source/yaml_config_source.rs"

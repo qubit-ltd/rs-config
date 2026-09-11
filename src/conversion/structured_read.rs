@@ -1,6 +1,9 @@
 // =============================================================================
 //    Copyright (c) 2026 Haixing Hu.
+//
 //    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 //! Borrowed input preparation and direct structured configuration reads.
 
@@ -100,9 +103,9 @@ where
 }
 
 #[cfg(test)]
-#[path = "../../tests/conversion/structured_read_preparation_tests.rs"]
+#[path = "structured_read/preparation_tests.rs"]
 mod preparation_tests;
 
 #[cfg(test)]
-#[path = "../../tests/conversion/structured_read_visitor_tests.rs"]
+#[path = "structured_read/visitor_tests.rs"]
 mod visitor_tests;

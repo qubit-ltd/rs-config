@@ -59,7 +59,7 @@ cargo llvm-cov report --text --show-missing-lines
 | `src/source/yaml_config_source.rs` | 81.25% (39/48) | 87.33% (317/363) | 83.31% (549/659) | feature 控制的泛型序列转换器、扫描闭包和错误适配器存在重复的零归属实例。嵌套序列的 `unreachable!` 分支以及标量转字符串函数中的嵌套值分支属于防御逻辑，因为前置扫描会先拒绝 mapping、sequence 和 tagged 项；无法通过公共加载路径构造没有公开位置的解析器错误。`yaml_config_source_tests` 覆盖可接受的标量/序列/tagged 形式、alias 拒绝和引号/块标量例外、非字符串键、混合与嵌套拒绝、冲突、限制、final 值和事务语义。 |
 
 
-本次重构删除了旧 scalar sequence 实现及其豁免；`config_wire_limits.rs` 和 `property_mut.rs` 在新报告中已满足全部门槛，故也移除豁免。新 structured_read 模块不设豁免。
+本次重构删除了旧 scalar sequence 实现及其豁免；`property_mut.rs` 因 inline guard 和 deref 方法即使有直接行为测试仍被低计数，保留为插桩例外；当前报告为 Functions 90.91%、Lines 94.34%、Regions 94.44%。`config_wire_limits.rs` 无需豁免。新 structured_read 模块不设豁免。
 
 ## 维护例外列表
 
