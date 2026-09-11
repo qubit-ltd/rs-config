@@ -613,8 +613,6 @@ dependencies = [
 [[package]]
 name = "qubit-budget"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f93253bc135140ca58d3d4f7dffcc330394cf94fec873c5f86ec3bb41dbfa18e"
 dependencies = [
  "bigdecimal",
  "num-bigint",
@@ -648,9 +646,7 @@ dependencies = [
 
 [[package]]
 name = "qubit-datatype"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34053b226e9502874d804c156a54b0e44977aa3fdc4e79c71646b3ae221b72e3"
+version = "0.13.0"
 dependencies = [
  "bigdecimal",
  "chrono",
@@ -668,8 +664,6 @@ dependencies = [
 [[package]]
 name = "qubit-json"
 version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c34de3f5710b2cfd4d89099ffb53359b66e8bf69514590a3ef49f9378e47455"
 dependencies = [
  "qubit-budget",
  "serde",
@@ -680,8 +674,6 @@ dependencies = [
 [[package]]
 name = "qubit-redact"
 version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4bc84cd4d94ab169a9c65af5254830ba969e680840638af18eddbbcd62c4c38"
 dependencies = [
  "qubit-budget",
  "qubit-json",
@@ -692,8 +684,6 @@ dependencies = [
 [[package]]
 name = "qubit-utils"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f9bf5cd2e783a8a6edd6536826084ef0a82d1924b14f82e79fe0088b7b33748"
 
 [[package]]
 name = "qubit-value"
