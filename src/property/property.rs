@@ -10,8 +10,8 @@
 //! Defines the property structure for configuration items, including name,
 //! value, description, and other information.
 
-#[path = "property/internal/mod.rs"]
 /// Private wire representations for property persistence.
+#[path = "property/internal/mod.rs"]
 mod internal;
 
 use std::fmt;

@@ -23,8 +23,8 @@ mod config_error_kind;
 mod config_key;
 #[path = "key/config_names.rs"]
 mod config_names;
-#[path = "conversion/config_parse_context.rs"]
 /// Parsing context shared by typed configuration conversions.
+#[path = "conversion/config_parse_context.rs"]
 mod config_parse_context;
 #[path = "key/config_path.rs"]
 mod config_path;
@@ -32,11 +32,11 @@ mod config_path;
 mod config_path_violation;
 #[path = "property/property_mut.rs"]
 mod config_property_mut;
-#[path = "reader/config_reader.rs"]
 /// Common read operations implemented by configurations and sections.
+#[path = "reader/config_reader.rs"]
 mod config_reader;
-#[path = "reader/config_section.rs"]
 /// Strict relative view over a configuration subtree.
+#[path = "reader/config_section.rs"]
 mod config_section;
 #[path = "conversion/config_serde_ext.rs"]
 mod config_serde_ext;
@@ -46,17 +46,17 @@ mod config_wire_limits;
 mod constants;
 pub mod conversion;
 pub mod error;
-#[path = "conversion/from_config.rs"]
 /// Conversion trait and built-in configuration conversions.
+#[path = "conversion/from_config.rs"]
 mod from_config;
-#[path = "conversion/helpers.rs"]
 /// Shared conversion and missing-value helpers.
+#[path = "conversion/helpers.rs"]
 mod helpers;
 pub mod key;
 pub mod options;
 pub mod property;
-#[path = "reader/read_policy.rs"]
 /// Read-time conversion and interpolation policy.
+#[path = "reader/read_policy.rs"]
 mod read_policy;
 pub mod reader;
 pub mod source;
