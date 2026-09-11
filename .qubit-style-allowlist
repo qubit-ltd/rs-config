@@ -11,3 +11,6 @@ multiple-public-types | src/source/env_file_config_source.rs | The dotenv source
 multiple-public-types | src/source/properties_config_source.rs | The properties source and its builder form one cohesive source-loading API.
 multiple-public-types | src/source/source_limits.rs | Source limits and their builder form one cohesive resource-budget API.
 multiple-public-types | src/source/toml_config_source.rs | The TOML source and its builder form one cohesive source-loading API.
+multiple-public-types | src/conversion/structured_read/input_budget.rs | Input budgeting and its counting writer share one admission boundary.
+multiple-public-types | src/conversion/structured_read/prepared_config_read.rs | Prepared nodes and their index capacity share one bounded preparation boundary.
+multiple-public-types | src/conversion/structured_read/traversal.rs | Traversal segments, children, and frames form one private iterative walker.
