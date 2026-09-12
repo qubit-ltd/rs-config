@@ -17,13 +17,11 @@ include = [
     "/LICENSE",
     "/README.md",
     "/README.zh_CN.md",
-    "/doc/**/user_guide*.md",
-    "/doc/**/design*.md",
-    "/doc/**/coverage_policy*.md",
-    "/benches/**",
-    "/examples/**",
     "/src/**",
+    "/doc/**",
+    "/examples/**",
     "/tests/**",
+    "/benches/**",
 ]
 
 [package.metadata.docs.rs]
