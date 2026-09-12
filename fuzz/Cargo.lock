@@ -536,9 +536,9 @@ checksum = "7f9bf5cd2e783a8a6edd6536826084ef0a82d1924b14f82e79fe0088b7b33748"
 
 [[package]]
 name = "qubit-value"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "678fc53931036e5c82c90d4d372428e9e45bc482998ad2d690c895bcdd0a135e"
+checksum = "5d863af746305fb774d20be76c2e6a6d86067ff704b6738e284177f24fb1e59b"
 dependencies = [
  "bigdecimal",
  "chrono",
