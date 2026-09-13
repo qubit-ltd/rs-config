@@ -14,7 +14,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_COVERAGE = ROOT / "target/llvm-cov/coverage.json"
-DEFAULT_CONFIG = ROOT / ".rs-ci-coverage.json"
+DEFAULT_CONFIG = ROOT / ".infra/ci/coverage.json"
 THRESHOLDS = {
     "functions": (95.0, ">="),
     "lines": (90.0, ">"),
@@ -162,7 +162,7 @@ def parse_args() -> argparse.Namespace:
         "--config",
         type=Path,
         default=DEFAULT_CONFIG,
-        help="coverage exception policy (default: .rs-ci-coverage.json)",
+        help="coverage exception policy (default: .infra/ci/coverage.json)",
     )
     return parser.parse_args()
 

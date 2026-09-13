@@ -40,6 +40,7 @@ class CoverageFileCheckerTests(unittest.TestCase):
         self.addCleanup(self.temporary_directory.cleanup)
         self.root = Path(self.temporary_directory.name)
         (self.root / "src").mkdir()
+        (self.root / ".infra/ci").mkdir(parents=True)
 
     def write_inputs(
         self,
@@ -47,7 +48,7 @@ class CoverageFileCheckerTests(unittest.TestCase):
         exemptions: list[str],
     ) -> tuple[Path, Path]:
         coverage_path = self.root / "coverage.json"
-        config_path = self.root / ".rs-ci-coverage.json"
+        config_path = self.root / ".infra/ci/coverage.json"
         coverage_path.write_text(
             json.dumps(
                 {

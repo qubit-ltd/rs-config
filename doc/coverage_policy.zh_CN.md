@@ -2,7 +2,7 @@
 
 [English](coverage_policy.md) | 简体中文
 
-本文记录 `.rs-ci-coverage.json` 中各文件暂时不参与逐文件门槛检查的原因。只有
+本文记录 `.infra/ci/coverage.json` 中各文件暂时不参与逐文件门槛检查的原因。只有
 LLVM 插桩或计数归属限制，或者因前置不变量检查而无法到达的防御分支，才能成为
 例外；例外不能用来放任生产行为缺少测试。
 
@@ -17,7 +17,7 @@ COVERAGE_ENFORCE_THRESHOLDS=1 ./coverage.sh json
 该命令启用所有 Cargo feature，并把机器可读报告写入
 `target/llvm-cov/coverage.json`。共享覆盖率生成器成功后，项目的 `coverage.sh`
 wrapper 会立即运行 `scripts/check-coverage-files.py`。检查器读取这份新生成的报告和
-`.rs-ci-coverage.json`，只排除已配置的插桩例外，然后检查报告中 `src/` 下的每个
+`.infra/ci/coverage.json`，只排除已配置的插桩例外，然后检查报告中 `src/` 下的每个
 剩余生产文件：
 
 - functions 不低于 95%；
@@ -44,7 +44,7 @@ cargo llvm-cov report --text --show-missing-lines
 
 ## 当前插桩例外
 
-下表是 `.rs-ci-coverage.json` 当前八个路径的精确有序副本。百分比和计数均来自上述
+下表是 `.infra/ci/coverage.json` 当前八个路径的精确有序副本。百分比和计数均来自上述
 证据报告。
 
 | 文件 | Functions | Lines | Regions | 计数形态与行为证据 |

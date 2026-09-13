@@ -21,7 +21,7 @@ class CoveragePipelineTests(unittest.TestCase):
         self.temporary_directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary_directory.cleanup)
         self.root = Path(self.temporary_directory.name)
-        (self.root / ".rs-ci").mkdir()
+        (self.root / ".infra/tools/rs-ci").mkdir(parents=True)
         (self.root / "scripts").mkdir()
         shutil.copy(ROOT / "coverage.sh", self.root / "coverage.sh")
         shutil.copy(ROOT / "ci-check.sh", self.root / "ci-check.sh")
@@ -66,7 +66,7 @@ class CoveragePipelineTests(unittest.TestCase):
 
     def test_coverage_wrapper_checks_a_fresh_report_after_generation(self) -> None:
         self.write_script(
-            ".rs-ci/coverage.sh",
+            ".infra/tools/rs-ci/coverage.sh",
             """
             #!/bin/bash
             set -euo pipefail
@@ -84,7 +84,7 @@ class CoveragePipelineTests(unittest.TestCase):
 
     def test_coverage_wrapper_does_not_check_after_generation_failure(self) -> None:
         self.write_script(
-            ".rs-ci/coverage.sh",
+            ".infra/tools/rs-ci/coverage.sh",
             """
             #!/bin/bash
             echo coverage-failed >> "$TEST_LOG"
@@ -99,7 +99,7 @@ class CoveragePipelineTests(unittest.TestCase):
 
     def test_coverage_help_does_not_require_a_report(self) -> None:
         self.write_script(
-            ".rs-ci/coverage.sh",
+            ".infra/tools/rs-ci/coverage.sh",
             """
             #!/bin/bash
             echo help >> "$TEST_LOG"
@@ -113,7 +113,7 @@ class CoveragePipelineTests(unittest.TestCase):
 
     def test_success_without_a_report_fails_instead_of_skipping_gate(self) -> None:
         self.write_script(
-            ".rs-ci/coverage.sh",
+            ".infra/tools/rs-ci/coverage.sh",
             """
             #!/bin/bash
             echo coverage-finish >> "$TEST_LOG"
@@ -127,7 +127,7 @@ class CoveragePipelineTests(unittest.TestCase):
 
     def test_ci_wrapper_preserves_report_until_checker_then_cleans(self) -> None:
         self.write_script(
-            ".rs-ci/ci-check.sh",
+            ".infra/tools/rs-ci/ci-check.sh",
             """
             #!/bin/bash
             set -euo pipefail
@@ -147,7 +147,7 @@ class CoveragePipelineTests(unittest.TestCase):
 
     def test_ci_wrapper_preserves_artifacts_when_requested(self) -> None:
         self.write_script(
-            ".rs-ci/ci-check.sh",
+            ".infra/tools/rs-ci/ci-check.sh",
             """
             #!/bin/bash
             set -euo pipefail
