@@ -2,7 +2,7 @@
 
 [Simplified Chinese](coverage_policy.zh_CN.md) | English
 
-This document records why the files in `.rs-ci-coverage.json` are temporarily
+This document records why the files in `.infra/ci/coverage.json` are temporarily
 excluded from per-source thresholds. An exception is allowed only for an LLVM
 instrumentation or attribution limitation, or for a defensive branch that
 cannot be reached after an earlier invariant check. It is not permission to
@@ -20,7 +20,7 @@ The run uses all Cargo features and writes the machine-readable report to
 `target/llvm-cov/coverage.json`. After the shared coverage generator succeeds,
 the project `coverage.sh` wrapper immediately runs
 `scripts/check-coverage-files.py`. The checker reads that fresh report and
-`.rs-ci-coverage.json`, excludes only the configured instrumentation exceptions,
+`.infra/ci/coverage.json`, excludes only the configured instrumentation exceptions,
 and checks every remaining reported production file under `src/`:
 
 - functions must be at least 95%;
@@ -51,7 +51,7 @@ cargo llvm-cov report --text --show-missing-lines
 ## Current Instrumentation Exceptions
 
 The table is an exact, ordered copy of the eight paths currently configured in
-`.rs-ci-coverage.json`. Percentages and counts come from the evidence report.
+`.infra/ci/coverage.json`. Percentages and counts come from the evidence report.
 
 | File | Functions | Lines | Regions | Counter shape and behavioral evidence |
 | --- | ---: | ---: | ---: | --- |
