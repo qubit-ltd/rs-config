@@ -1,6 +1,6 @@
 [package]
 name = "qubit-config"
-version = "0.14.1"
+version = "0.14.2"
 edition = "2024"
 rust-version = "1.94"
 authors = ["Haixing Hu <starfish.hu@gmail.com>"]
@@ -37,7 +37,7 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
 default = []
 bigdecimal = ["dep:bigdecimal", "qubit-value/big-decimal"]
 chrono = ["dep:chrono", "qubit-value/chrono"]
-num-bigint = ["dep:num-bigint", "dep:num-bigint-budget", "qubit-value/big-integer"]
+num-bigint = ["dep:num-bigint", "qubit-value/big-integer"]
 url = ["dep:url", "qubit-value/url"]
 env-file = ["dep:dotenvy"]
 toml = ["dep:toml"]
@@ -47,7 +47,7 @@ formats = ["env-file", "toml", "yaml"]
 full = ["rich-types", "formats"]
 
 [dependencies]
-qubit-budget = { version = "0.7", features = ["json"] }
+qubit-budget = { version = "0.7.1", features = ["json"] }
 qubit-json = "0.10"
 qubit-utils = "0.3"
 serde = { version = "1.0", features = ["derive"] }
@@ -57,7 +57,6 @@ thiserror = "2.0"
 chrono = { version = "0.4", features = ["serde"], optional = true }
 url = { version = "2.5", optional = true }
 num-bigint = { version = "0.4", features = ["serde"], optional = true }
-num-bigint-budget = { package = "num-bigint", version = "0.5", optional = true }
 bigdecimal = { version = "0.4", features = ["serde"], optional = true }
 toml = { version = "0.9", features = ["parse"], optional = true }
 serde_norway = { version = "0.9", optional = true }
@@ -65,7 +64,7 @@ dotenvy = { version = "0.15", optional = true }
 
 qubit-datatype = { version = "0.14", default-features = false, features = ["converter"] }
 qubit-redact = { version = "0.9", default-features = false }
-qubit-value = { version = "0.12.1", path = "../rs-value", default-features = false, features = ["converter", "json"] }
+qubit-value = { version = "0.12.2", path = "../rs-value", default-features = false, features = ["converter", "json"] }
 
 [dev-dependencies]
 criterion = { version = "0.8", default-features = false }

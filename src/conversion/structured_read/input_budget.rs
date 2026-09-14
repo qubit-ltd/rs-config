@@ -34,18 +34,6 @@ use crate::ConfigError;
 use crate::ConfigResult;
 use crate::ReadPolicy;
 
-/// Converts the public big-integer type to the version used by budget limits.
-#[cfg(feature = "num-bigint")]
-fn big_integer_for_budget(value: &num_bigint::BigInt) -> num_bigint_budget::BigInt {
-    let (sign, digits) = value.to_u32_digits();
-    let sign = match sign {
-        num_bigint::Sign::Minus => num_bigint_budget::Sign::Minus,
-        num_bigint::Sign::NoSign => num_bigint_budget::Sign::NoSign,
-        num_bigint::Sign::Plus => num_bigint_budget::Sign::Plus,
-    };
-    num_bigint_budget::BigInt::new(sign, digits)
-}
-
 struct PreparedInputBudget<'a> {
     options: &'a ReadPolicy,
     structure: JsonValueBudget<ConversionResource, u64>,
@@ -195,7 +183,7 @@ impl<'a> PreparedInputBudget<'a> {
                     .conversion_limits()
                     .numeric()
                     .big_integer()
-                    .check(&big_integer_for_budget(value))
+                    .check(value)
                     .map_err(|error| budget_error(visit, error))?;
                 self.display(&value, false, visit)
             }
