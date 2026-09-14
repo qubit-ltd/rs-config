@@ -189,7 +189,7 @@ serde_json = "1.0"
 For direct customization of conversion options, depend on the owning `qubit-datatype` crate:
 
 ```toml
-qubit-datatype = { version = "0.13", default-features = false, features = ["converter"] }
+qubit-datatype = { version = "0.14", default-features = false, features = ["converter"] }
 ```
 
 ## Why This Project Exists
