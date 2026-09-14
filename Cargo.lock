@@ -55,7 +55,7 @@ checksum = "4d6867f1565b3aad85681f1015055b087fcfd840d6aeee6eee7f2da317603695"
 dependencies = [
  "autocfg",
  "libm",
- "num-bigint 0.4.8",
+ "num-bigint",
  "num-integer",
  "num-traits",
  "serde",
@@ -81,9 +81,9 @@ checksum = "37b2a672a2cb129a2e41c10b1224bb368f9f37a2b16b612598138befd7b37eb5"
 
 [[package]]
 name = "cc"
-version = "1.4.5"
+version = "1.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "005ec2760ca554fae18df7a11195552ec576cd665632a881bc011d5bb2fd4d80"
+checksum = "a3eb0f42d6c360dc3f8a821f6bf2fdea7f72bfd36b3076eb0e6d1e9e0752fff4"
 dependencies = [
  "find-msvc-tools",
  "shlex",
@@ -530,16 +530,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "num-bigint"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93e7820bc0a80a0238e650327316f929ba18d5be054b647490a3a6a339f3e7c0"
-dependencies = [
- "num-integer",
- "num-traits",
-]
-
-[[package]]
 name = "num-integer"
 version = "0.1.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -554,7 +544,7 @@ version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f83d14da390562dca69fc84082e73e548e1ad308d24accdedd2720017cb37824"
 dependencies = [
- "num-bigint 0.4.8",
+ "num-bigint",
  "num-integer",
  "num-traits",
 ]
@@ -622,25 +612,24 @@ dependencies = [
 
 [[package]]
 name = "qubit-budget"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "353cf62af65868c70d5af6468b101a8099bd6de980d84678eeb99f99eb679161"
+checksum = "614655867269f860eb2f239bdc525d902c2633edbc0959a80f7b5269d682d71e"
 dependencies = [
  "bigdecimal",
- "num-bigint 0.5.1",
+ "num-bigint",
  "thiserror",
 ]
 
 [[package]]
 name = "qubit-config"
-version = "0.14.1"
+version = "0.14.2"
 dependencies = [
  "bigdecimal",
  "chrono",
  "criterion",
  "dotenvy",
- "num-bigint 0.4.8",
- "num-bigint 0.5.1",
+ "num-bigint",
  "qubit-budget",
  "qubit-datatype",
  "qubit-json",
@@ -665,7 +654,7 @@ checksum = "59a0114b3533945eec8dd267e02f1d9934909c1c03172aa9e826d7f530a04dfa"
 dependencies = [
  "bigdecimal",
  "chrono",
- "num-bigint 0.4.8",
+ "num-bigint",
  "num-rational",
  "num-traits",
  "qubit-budget",
@@ -708,12 +697,11 @@ checksum = "7f9bf5cd2e783a8a6edd6536826084ef0a82d1924b14f82e79fe0088b7b33748"
 
 [[package]]
 name = "qubit-value"
-version = "0.12.1"
+version = "0.12.2"
 dependencies = [
  "bigdecimal",
  "chrono",
- "num-bigint 0.4.8",
- "num-bigint 0.5.1",
+ "num-bigint",
  "qubit-budget",
  "qubit-datatype",
  "qubit-json",
