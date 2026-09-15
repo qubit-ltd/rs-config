@@ -7,7 +7,6 @@
 // =============================================================================
 
 //! Configuration-specific profiles layered on rs-budget JSON limits.
-// qubit-style: allow multiple-public-types
 
 use qubit_budget::BudgetError;
 use qubit_budget::QuantityConversionError;

@@ -8,7 +8,6 @@
 //! # Configuration Manager
 //!
 //! Provides storage, retrieval, and management of configurations.
-// qubit-style: allow multiple-public-types
 
 #![allow(private_bounds)]
 

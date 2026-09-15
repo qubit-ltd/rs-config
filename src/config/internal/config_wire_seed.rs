@@ -5,7 +5,6 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-// qubit-style: allow multiple-public-types
 //! Budget-aware seed for persisted configuration wire values.
 
 use std::collections::HashSet;

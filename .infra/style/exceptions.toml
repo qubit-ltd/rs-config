@@ -1,0 +1,101 @@
+format = 1
+
+[[exceptions]]
+rule = "public-type-layout"
+path = "src/config.rs"
+reason = "Config and its consuming builder form one cohesive configuration API."
+
+[[exceptions]]
+rule = "public-type-layout"
+path = "src/config/internal/config_wire_fields.rs"
+reason = "Wire fields and their version marker are private to the config wire decoder and must be deserialized together."
+
+[[exceptions]]
+rule = "public-type-layout"
+path = "src/config/internal/config_wire_seed.rs"
+reason = "Wire seed variants share one private decoding boundary and must be constructed together."
+
+[[exceptions]]
+rule = "public-type-layout"
+path = "src/config_wire_limits.rs"
+reason = "Wire limit dimensions, limits, and decode errors form one bounded wire-format API."
+
+[[exceptions]]
+rule = "public-type-layout"
+path = "src/conversion/structured_read/input_budget.rs"
+reason = "Input budgeting and its counting writer share one admission boundary."
+
+[[exceptions]]
+rule = "public-type-layout"
+path = "src/conversion/structured_read/prepared_config_read.rs"
+reason = "Prepared nodes and their index capacity share one bounded preparation boundary."
+
+[[exceptions]]
+rule = "public-type-layout"
+path = "src/conversion/structured_read/traversal.rs"
+reason = "Traversal segments, children, and frames form one private iterative walker."
+
+[[exceptions]]
+rule = "public-type-layout"
+path = "src/reader/read_policy.rs"
+reason = "Interpolation sources and the read policy are one cohesive reader-policy API."
+
+[[exceptions]]
+rule = "public-type-layout"
+path = "src/source/composite_config_source.rs"
+reason = "The composite source and its builder form one cohesive source composition API."
+
+[[exceptions]]
+rule = "public-type-layout"
+path = "src/source/config_source.rs"
+reason = "The source contract and its extension trait form one cohesive public loading API."
+
+[[exceptions]]
+rule = "public-type-layout"
+path = "src/source/env_config_source.rs"
+reason = "Environment source options and the source implementation are intentionally co-located."
+
+[[exceptions]]
+rule = "public-type-layout"
+path = "src/source/env_file_config_source.rs"
+reason = "The dotenv source and its builder form one cohesive source-loading API."
+
+[[exceptions]]
+rule = "public-type-layout"
+path = "src/source/properties_config_source.rs"
+reason = "The properties source and its builder form one cohesive source-loading API."
+
+[[exceptions]]
+rule = "public-type-layout"
+path = "src/source/source_limits.rs"
+reason = "Source limits and their builder form one cohesive resource-budget API."
+
+[[exceptions]]
+rule = "public-type-layout"
+path = "src/source/source_load_session.rs"
+reason = "The public source context and its private accounting session share one transactional loading boundary."
+
+[[exceptions]]
+rule = "public-type-layout"
+path = "src/source/toml_config_source.rs"
+reason = "The TOML source and its builder form one cohesive source-loading API."
+
+[[exceptions]]
+rule = "type-file-name"
+path = "src/property/property_mut.rs"
+reason = "Preserve the existing ConfigPropertyMut module and its former type-file-name exception."
+
+[[exceptions]]
+rule = "type-file-name"
+path = "src/source/source_load_session.rs"
+reason = "SourceLoadContext and its private accounting session retain their existing shared module."
+
+[[exceptions]]
+rule = "public-type-layout"
+path = "src/source/yaml_config_source.rs"
+reason = "The YAML source and its builder form the same cohesive loading API as the other source builders."
+
+[[exceptions]]
+rule = "test-redirect"
+path = "tests/utils_tests.rs"
+reason = "Existing utility test modules share imports and policy helpers in this integration-test entry point; preserve every registered test."

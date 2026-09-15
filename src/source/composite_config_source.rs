@@ -8,7 +8,6 @@
 //! # Composite Configuration Source
 //!
 //! Merges configuration from multiple sources in order.
-// qubit-style: allow multiple-public-types
 //!
 //! Sources are applied in the order they are added. Later sources override
 //! earlier sources for the same key (unless the property is marked as final).

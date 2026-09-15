@@ -6,7 +6,6 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 //! Resource limits applied while ingesting configuration sources.
-// qubit-style: allow multiple-public-types
 
 use serde::Deserialize;
 use serde::Serialize;

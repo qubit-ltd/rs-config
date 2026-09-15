@@ -6,7 +6,6 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 //! Structured configuration deserialization façade.
-// qubit-style: allow source-test-pair
 
 use serde::de::DeserializeOwned;
 
