@@ -5,8 +5,6 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-// qubit-style: allow source-test-pair
-// qubit-style: allow type-file-name
 //! # Mutable Configuration Property Guard
 //!
 //! Provides guarded mutable access to non-final configuration properties.

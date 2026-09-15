@@ -18,7 +18,6 @@ use serde_json::from_value;
 
 use crate::Property;
 
-// qubit-style: allow multiple-public-types
 /// Common fields decoded before selecting the versioned or legacy contract.
 ///
 /// Avoiding Serde's untagged-enum fallback here preserves detailed nested

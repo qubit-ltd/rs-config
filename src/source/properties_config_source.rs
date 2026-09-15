@@ -8,7 +8,6 @@
 //! # Properties File Configuration Source
 //!
 //! Loads configuration from Java `.properties` format files.
-// qubit-style: allow multiple-public-types
 //!
 //! # Format
 //!

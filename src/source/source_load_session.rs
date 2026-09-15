@@ -6,7 +6,6 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 //! Shared local and aggregate accounting for configuration source loading.
-// qubit-style: allow multiple-public-types
 
 use qubit_budget::BudgetError;
 use qubit_budget::InsufficientBudgetError;

@@ -79,3 +79,15 @@ external/
 *.tar.gz
 *.rar
 *.7z
+
+# Locally installed pinned rs-infra tools
+.infra/tools/bin/
+
+# Generated infrastructure reports
+/ci-summary.json
+/coverage.json
+/coverage.txt
+/coverage-summary.md
+/coverage-badge.json
+/lcov.info
+/scripts/__pycache__/

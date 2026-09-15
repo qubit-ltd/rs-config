@@ -8,7 +8,6 @@
 //! # TOML File Configuration Source
 //!
 //! Loads configuration from TOML format files.
-// qubit-style: allow multiple-public-types
 //!
 //! # Flattening Strategy
 //!

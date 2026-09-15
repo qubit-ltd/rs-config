@@ -8,7 +8,6 @@
 //! # `.env` File Configuration Source
 //!
 //! Loads configuration from `.env` format files (as used by dotenv tools).
-// qubit-style: allow multiple-public-types
 //!
 //! # Format
 //!
