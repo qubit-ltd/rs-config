@@ -81,16 +81,6 @@ path = "src/source/toml_config_source.rs"
 reason = "The TOML source and its builder form one cohesive source-loading API."
 
 [[exceptions]]
-rule = "type-file-name"
-path = "src/property/property_mut.rs"
-reason = "Preserve the existing ConfigPropertyMut module and its former type-file-name exception."
-
-[[exceptions]]
-rule = "type-file-name"
-path = "src/source/source_load_session.rs"
-reason = "SourceLoadContext and its private accounting session retain their existing shared module."
-
-[[exceptions]]
 rule = "public-type-layout"
 path = "src/source/yaml_config_source.rs"
 reason = "The YAML source and its builder form the same cohesive loading API as the other source builders."
@@ -99,3 +89,13 @@ reason = "The YAML source and its builder form the same cohesive loading API as 
 rule = "test-redirect"
 path = "tests/utils_tests.rs"
 reason = "Existing utility test modules share imports and policy helpers in this integration-test entry point; preserve every registered test."
+
+[[exceptions]]
+rule = "type-file-name"
+path = "src/property/property_mut.rs"
+reason = "Preserve the existing ConfigPropertyMut module and its former type-file-name exception."
+
+[[exceptions]]
+rule = "type-file-name"
+path = "src/source/source_load_session.rs"
+reason = "SourceLoadContext and its private accounting session retain their existing shared module."
