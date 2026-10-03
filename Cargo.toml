@@ -27,6 +27,12 @@ include = [
 [package.metadata.docs.rs]
 all-features = true
 
+[profile.test]
+debug = 0
+
+[workspace]
+exclude = ["fuzz"]
+
 [lib]
 name = "qubit_config"
 
