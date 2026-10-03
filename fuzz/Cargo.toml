@@ -69,3 +69,5 @@ path = "fuzz_targets/structured_deserialize_typed.rs"
 test = false
 doc = false
 bench = false
+
+[workspace]
