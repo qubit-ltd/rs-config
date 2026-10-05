@@ -13,12 +13,12 @@ leave production behavior untested.
 The authoritative coverage run is:
 
 ```text
-COVERAGE_ENFORCE_THRESHOLDS=1 ./coverage.sh json
+COVERAGE_ENFORCE_THRESHOLDS=1 ./.infra/bin/coverage.sh json
 ```
 
 The run uses all Cargo features and writes the machine-readable report to
 `target/llvm-cov/coverage.json`. After the shared coverage generator succeeds,
-the project `coverage.sh` wrapper immediately runs
+the project `.infra/bin/coverage.sh` wrapper immediately runs
 `scripts/check-coverage-files.py`. The checker reads that fresh report and
 `.infra/ci/coverage.json`, excludes only the configured instrumentation exceptions,
 and checks every remaining reported production file under `src/`:
@@ -27,13 +27,13 @@ and checks every remaining reported production file under `src/`:
 - lines must be greater than 90%; and
 - regions must be greater than 85%.
 
-The aggregate summary printed by `coverage.sh` cannot replace this per-file
+The aggregate summary printed by `.infra/bin/coverage.sh` cannot replace this per-file
 gate. A high crate-wide percentage can otherwise hide a low-coverage file.
 Missing or invalid JSON fails the wrapper; it is never treated as a skipped
 check.
 
 The project-specific hook runs before the shared CI runner's coverage step and
-therefore does not own this gate. The root `ci-check.sh` wrapper preserves the
+therefore does not own this gate. The root `.infra/bin/ci-check.sh` wrapper preserves the
 fresh JSON until the shared runner finishes, invokes the per-file checker, and
 only then applies the requested artifact cleanup policy. This ordering makes a
 clean checkout enforce the same gate as the authoritative coverage command.
@@ -80,6 +80,6 @@ authoritative coverage wrapper and the package listing after every policy
 change:
 
 ```text
-COVERAGE_ENFORCE_THRESHOLDS=1 ./coverage.sh json
+COVERAGE_ENFORCE_THRESHOLDS=1 ./.infra/bin/coverage.sh json
 cargo package --list --allow-dirty
 ```

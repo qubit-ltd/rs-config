@@ -11,11 +11,11 @@ LLVM 插桩或计数归属限制，或者因前置不变量检查而无法到达
 权威覆盖率命令为：
 
 ```text
-COVERAGE_ENFORCE_THRESHOLDS=1 ./coverage.sh json
+COVERAGE_ENFORCE_THRESHOLDS=1 ./.infra/bin/coverage.sh json
 ```
 
 该命令启用所有 Cargo feature，并把机器可读报告写入
-`target/llvm-cov/coverage.json`。共享覆盖率生成器成功后，项目的 `coverage.sh`
+`target/llvm-cov/coverage.json`。共享覆盖率生成器成功后，项目的 `.infra/bin/coverage.sh`
 wrapper 会立即运行 `scripts/check-coverage-files.py`。检查器读取这份新生成的报告和
 `.infra/ci/coverage.json`，只排除已配置的插桩例外，然后检查报告中 `src/` 下的每个
 剩余生产文件：
@@ -24,12 +24,12 @@ wrapper 会立即运行 `scripts/check-coverage-files.py`。检查器读取这�
 - lines 必须高于 90%；
 - regions 必须高于 85%。
 
-`coverage.sh` 输出的汇总结果不能替代逐文件门槛。否则，crate 整体的高覆盖率可能
+`.infra/bin/coverage.sh` 输出的汇总结果不能替代逐文件门槛。否则，crate 整体的高覆盖率可能
 掩盖单个低覆盖率文件。
 JSON 缺失或无效时 wrapper 会失败，绝不会把检查当作已跳过。
 
 项目专用 hook 的执行时间早于共享 CI runner 的覆盖率步骤，因此不负责该 gate。
-根目录的 `ci-check.sh` wrapper 会保留新生成的 JSON，待共享 runner 完成后调用逐文件
+根目录的 `.infra/bin/ci-check.sh` wrapper 会保留新生成的 JSON，待共享 runner 完成后调用逐文件
 检查器，之后才按请求的策略清理构建产物。该顺序保证 clean checkout 与权威覆盖率
 命令执行同一个 gate。
 
@@ -71,6 +71,6 @@ Rust/LLVM 或 `cargo-llvm-cov` 更新修复计数归属后，应先删除对应�
 改变门槛。每次修改策略后都要运行权威覆盖率 wrapper 和 package 清单：
 
 ```text
-COVERAGE_ENFORCE_THRESHOLDS=1 ./coverage.sh json
+COVERAGE_ENFORCE_THRESHOLDS=1 ./.infra/bin/coverage.sh json
 cargo package --list --allow-dirty
 ```
