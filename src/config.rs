@@ -485,6 +485,7 @@ fn map_decode_json_error(error: JsonDecodeError<JsonResource, u64>) -> ConfigWir
         },
         JsonDecodeErrorSource::EmptyInput { .. }
         | JsonDecodeErrorSource::InvalidUtf8 { .. }
+        | JsonDecodeErrorSource::Read { .. }
         | JsonDecodeErrorSource::UnexpectedTopLevel { .. } => ConfigWireDecodeError::Adapter(message),
     }
 }
