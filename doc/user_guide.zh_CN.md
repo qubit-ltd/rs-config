@@ -2,7 +2,7 @@
 
 [English](user_guide.md) | 简体中文
 
-本手册针对 `qubit-config` `0.14`。读者是需要从多个来源加载配置、以类型化方式读取配置，并在输入无效时获得可诊断错误的 Rust 应用开发者。本手册不要求业务代码绑定到某一种文件格式。
+本手册针对 `qubit-config` `0.15`。读者是需要从多个来源加载配置、以类型化方式读取配置，并在输入无效时获得可诊断错误的 Rust 应用开发者。本手册不要求业务代码绑定到某一种文件格式。
 
 ## 手册目标与读者
 
@@ -101,24 +101,24 @@ crate 要求 Rust `1.94` 或更高版本，并使用 edition `2024`。
 
 ```toml
 [dependencies]
-qubit-config = "0.14"
+qubit-config = "0.15"
 ```
 
 默认 feature 集为空。按需显式添加可选能力：
 
 ```toml
 # TOML 与 .env 配置源
-qubit-config = { version = "0.14", features = ["toml", "env-file"] }
+qubit-config = { version = "0.15", features = ["toml", "env-file"] }
 ```
 
 ```toml
 # Chrono 与 URL 值
-qubit-config = { version = "0.14", features = ["chrono", "url"] }
+qubit-config = { version = "0.15", features = ["chrono", "url"] }
 ```
 
 ```toml
 # 所有可选值类型与格式配置源
-qubit-config = { version = "0.14", features = ["full"] }
+qubit-config = { version = "0.15", features = ["full"] }
 ```
 
 原子可选 feature 为 `bigdecimal`、`chrono`、`num-bigint`、`url`、`env-file`、`toml` 和 `yaml`。`rich-types` 组合前四个富类型 feature；`formats` 组合三个格式 feature；`full` 同时启用两组 feature。

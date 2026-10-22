@@ -13,19 +13,19 @@
 
 ```toml
 [dependencies]
-qubit-config = "0.14"
+qubit-config = "0.15"
 ```
 
 The default feature set is empty, so the core API does not enable optional file formats or rich value types. Enable only what the application needs, or use `full` for the complete optional surface:
 
 ```toml
-qubit-config = { version = "0.14", features = ["toml", "env-file"] }
+qubit-config = { version = "0.15", features = ["toml", "env-file"] }
 ```
 
 Or use the complete optional surface:
 
 ```toml
-qubit-config = { version = "0.14", features = ["full"] }
+qubit-config = { version = "0.15", features = ["full"] }
 ```
 
 | Feature | Adds |
@@ -189,7 +189,7 @@ serde_json = "1.0"
 For direct customization of conversion options, depend on the owning `qubit-datatype` crate:
 
 ```toml
-qubit-datatype = { version = "0.14", default-features = false, features = ["converter"] }
+qubit-datatype = { version = "0.15", default-features = false, features = ["converter"] }
 ```
 
 ## Why This Project Exists

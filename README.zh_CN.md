@@ -13,19 +13,19 @@
 
 ```toml
 [dependencies]
-qubit-config = "0.14"
+qubit-config = "0.15"
 ```
 
 默认 feature 集为空，因此核心 API 不会启用可选文件格式或富类型。应用可以按需启用 feature，也可以使用 `full` 开启完整的可选能力：
 
 ```toml
-qubit-config = { version = "0.14", features = ["toml", "env-file"] }
+qubit-config = { version = "0.15", features = ["toml", "env-file"] }
 ```
 
 或者启用完整的可选能力：
 
 ```toml
-qubit-config = { version = "0.14", features = ["full"] }
+qubit-config = { version = "0.15", features = ["full"] }
 ```
 
 | Feature | 提供能力 |
@@ -184,7 +184,7 @@ serde_json = "1.0"
 如果需要直接定制转换选项，请依赖其所属的 `qubit-datatype` crate：
 
 ```toml
-qubit-datatype = { version = "0.14", default-features = false, features = ["converter"] }
+qubit-datatype = { version = "0.15", default-features = false, features = ["converter"] }
 ```
 
 ## 为什么需要这个项目

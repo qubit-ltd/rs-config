@@ -1,6 +1,6 @@
 [package]
 name = "qubit-config"
-version = "0.14.3"
+version = "0.15.0"
 edition = "2024"
 rust-version = "1.94"
 authors = ["Haixing Hu <starfish.hu@gmail.com>"]
@@ -53,7 +53,7 @@ formats = ["env-file", "toml", "yaml"]
 full = ["rich-types", "formats"]
 
 [dependencies]
-qubit-budget = { path = "../rs-budget", version = "0.9", features = ["json"] }
+qubit-budget = { path = "../rs-budget", version = "0.9.1", features = ["json"] }
 
 qubit-json = { path = "../rs-json", version = "0.12" }
 
@@ -70,11 +70,11 @@ toml = { version = "^0.9", features = ["parse"], optional = true }
 serde_norway = { version = "^0.9", optional = true }
 dotenvy = { version = "^0.15", optional = true }
 
-qubit-datatype = { path = "../rs-datatype", version = "0.14", default-features = false, features = ["converter"] }
+qubit-datatype = { path = "../rs-datatype", version = "0.15", default-features = false, features = ["converter"] }
 
-qubit-redact = { path = "../rs-redact", version = "0.9", default-features = false }
+qubit-redact = { path = "../rs-redact", version = "0.10", default-features = false }
 
-qubit-value = { path = "../rs-value", version = "0.12", default-features = false, features = ["converter", "json"] }
+qubit-value = { path = "../rs-value", version = "0.13", default-features = false, features = ["converter", "json"] }
 
 
 [dev-dependencies]

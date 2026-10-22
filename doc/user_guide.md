@@ -2,7 +2,7 @@
 
 [简体中文](user_guide.zh_CN.md) | English
 
-This guide describes `qubit-config` `0.14`. It is for Rust application developers who need to load configuration from more than one place, read it as typed values, and diagnose invalid input without coupling application code to a particular file format.
+This guide describes `qubit-config` `0.15`. It is for Rust application developers who need to load configuration from more than one place, read it as typed values, and diagnose invalid input without coupling application code to a particular file format.
 
 ## Purpose and Audience
 
@@ -103,24 +103,24 @@ The crate requires Rust `1.94` or newer and uses edition `2024`.
 
 ```toml
 [dependencies]
-qubit-config = "0.14"
+qubit-config = "0.15"
 ```
 
 The default feature set is empty. Add optional capabilities explicitly:
 
 ```toml
 # TOML and .env sources
-qubit-config = { version = "0.14", features = ["toml", "env-file"] }
+qubit-config = { version = "0.15", features = ["toml", "env-file"] }
 ```
 
 ```toml
 # Chrono and URL values
-qubit-config = { version = "0.14", features = ["chrono", "url"] }
+qubit-config = { version = "0.15", features = ["chrono", "url"] }
 ```
 
 ```toml
 # All optional value types and format sources
-qubit-config = { version = "0.14", features = ["full"] }
+qubit-config = { version = "0.15", features = ["full"] }
 ```
 
 The atomic optional features are `bigdecimal`, `chrono`, `num-bigint`, `url`, `env-file`, `toml`, and `yaml`. `rich-types` groups the four rich-value features; `formats` groups the three format features; `full` enables both groups.
