@@ -57,7 +57,7 @@ qubit-budget = { path = "../rs-budget", version = "0.9.1", features = ["json"] }
 
 qubit-json = { path = "../rs-json", version = "0.12" }
 
-qubit-utils = "0.3"
+qubit-utils = "^0.3"
 serde = { version = "^1.0", features = ["derive"] }
 serde_ignored = "^0.1"
 serde_json = "^1.0"
