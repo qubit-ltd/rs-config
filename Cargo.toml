@@ -53,7 +53,7 @@ formats = ["env-file", "toml", "yaml"]
 full = ["rich-types", "formats"]
 
 [dependencies]
-qubit-budget = { version = "0.9.1", features = ["json"] }
+qubit-budget = { version = "0.10", features = ["json"] }
 
 qubit-json = { path = "../rs-json", version = "0.12" }
 
