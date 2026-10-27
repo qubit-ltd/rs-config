@@ -1,13 +1,16 @@
 {
+  "scope": "package",
+  "source_dirs": {
+    "qubit-config": ["src"]
+  },
+  "thresholds": {
+    "functions": 95,
+    "lines": 90,
+    "regions": 85
+  },
   "threshold_exempt_files": {
     "qubit-config": [
-      "src/config/access.rs",
       "src/error/config_error.rs",
-      "src/key/config_key.rs",
-      "src/key/config_path.rs",
-      "src/property/property.rs",
-      "src/property/property_mut.rs",
-      "src/reader/config_section.rs",
       "src/source/toml_config_source.rs",
       "src/source/yaml_config_source.rs"
     ]

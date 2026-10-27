@@ -26,11 +26,14 @@ def load_checker():
 
 
 def summary(functions: float, lines: float, regions: float) -> dict[str, dict[str, float | int]]:
-    return {
-        "functions": {"count": 100, "covered": int(functions), "percent": functions},
-        "lines": {"count": 100, "covered": int(lines), "percent": lines},
-        "regions": {"count": 100, "covered": int(regions), "percent": regions},
-    }
+    def counter(percent: float) -> dict[str, float | int]:
+        return {"count": 100, "covered": int(percent), "percent": percent}
+
+    return {name: counter(value) for name, value in {
+        "functions": functions,
+        "lines": lines,
+        "regions": regions,
+    }.items()}
 
 
 class CoverageFileCheckerTests(unittest.TestCase):
@@ -40,77 +43,86 @@ class CoverageFileCheckerTests(unittest.TestCase):
         self.addCleanup(self.temporary_directory.cleanup)
         self.root = Path(self.temporary_directory.name)
         (self.root / "src").mkdir()
-        (self.root / ".infra/ci").mkdir(parents=True)
+        (self.root / ".infra/coverage").mkdir(parents=True)
+        (self.root / "src/checked.rs").write_text("fn checked() {}\n", encoding="utf-8")
+        (self.root / "src/low.rs").write_text("fn low() {}\n", encoding="utf-8")
+        (self.root / "src/lib.rs").write_text("mod checked;\nmod low;\n", encoding="utf-8")
 
     def write_inputs(
         self,
         files: list[tuple[str, dict[str, dict[str, float | int]]]],
-        exemptions: list[str],
+        exemptions: list[str] | None = None,
     ) -> tuple[Path, Path]:
         coverage_path = self.root / "coverage.json"
-        config_path = self.root / ".infra/ci/coverage.json"
+        config_path = self.root / ".infra/coverage/coverage.json"
+        non_executable_path = self.root / ".infra/coverage/non-executable-files.json"
         coverage_path.write_text(
-            json.dumps(
-                {
-                    "data": [
-                        {
-                            "files": [
-                                {"filename": str(self.root / path), "summary": file_summary}
-                                for path, file_summary in files
-                            ]
-                        }
-                    ]
-                }
-            ),
+            json.dumps({"data": [{"files": [
+                {"filename": str(self.root / path), "summary": file_summary}
+                for path, file_summary in files
+            ]}]}),
             encoding="utf-8",
         )
-        config_path.write_text(
-            json.dumps({"threshold_exempt_files": {"qubit-config": exemptions}}),
-            encoding="utf-8",
-        )
+        config_path.write_text(json.dumps({
+            "scope": "package",
+            "source_dirs": {"qubit-config": ["src"]},
+            "thresholds": {"functions": 95, "lines": 90, "regions": 85},
+            "threshold_exempt_files": {"qubit-config": exemptions or []},
+        }), encoding="utf-8")
+        non_executable_path.write_text(json.dumps({"qubit-config": [{
+                "path": "src/lib.rs",
+                "reason": "module declarations only",
+            }]}), encoding="utf-8")
         return coverage_path, config_path
 
-    def test_excludes_configured_files_and_accepts_boundary_metrics(self) -> None:
-        coverage_path, config_path = self.write_inputs(
-            [
-                ("src/checked.rs", summary(95.0, 91.0, 86.0)),
-                ("src/exempt.rs", summary(0.0, 0.0, 0.0)),
-            ],
-            ["src/exempt.rs"],
-        )
-
+    def test_accepts_thresholds_and_explicit_aggregation_classification(self) -> None:
+        coverage_path, config_path = self.write_inputs([
+            ("src/checked.rs", summary(95.0, 91.0, 86.0)),
+            ("src/low.rs", summary(100.0, 100.0, 100.0)),
+        ])
         result = self.checker.check_coverage_files(self.root, coverage_path, config_path)
+        self.assertEqual(result, self.checker.CheckResult(2, 0, ()))
 
-        self.assertEqual(result.checked_files, 1)
-        self.assertEqual(result.exempt_files, 1)
-        self.assertEqual(result.errors, ())
-
-    def test_reports_each_failed_metric_with_the_source_file(self) -> None:
-        coverage_path, config_path = self.write_inputs(
-            [("src/bad.rs", summary(94.0, 90.0, 85.0))],
-            [],
-        )
-
+    def test_low_file_fails_even_when_another_file_is_fully_covered(self) -> None:
+        coverage_path, config_path = self.write_inputs([
+            ("src/checked.rs", summary(100.0, 100.0, 100.0)),
+            ("src/low.rs", summary(20.0, 20.0, 20.0)),
+        ])
         result = self.checker.check_coverage_files(self.root, coverage_path, config_path)
+        self.assertEqual(len(result.errors), 1)
+        self.assertTrue(result.errors[0].startswith("src/low.rs:"))
+        self.assertIn("functions=20.00%", result.errors[0])
 
+    def test_missing_production_file_fails_even_when_report_has_a_high_summary(self) -> None:
+        coverage_path, config_path = self.write_inputs([
+            ("src/checked.rs", summary(100.0, 100.0, 100.0)),
+        ])
+        result = self.checker.check_coverage_files(self.root, coverage_path, config_path)
         self.assertEqual(
             result.errors,
-            (
-                "src/bad.rs: functions=94.00% (94/100; requires >=95.00%), "
-                "lines=90.00% (90/100; requires >90.00%), "
-                "regions=85.00% (85/100; requires >85.00%)",
-            ),
+            ("src/low.rs: production source file is missing from the coverage report",),
         )
 
     def test_rejects_an_exemption_missing_from_the_report(self) -> None:
         coverage_path, config_path = self.write_inputs(
             [("src/checked.rs", summary(100.0, 100.0, 100.0))],
-            ["src/missing.rs"],
+            ["src/low.rs"],
+        )
+        result = self.checker.check_coverage_files(self.root, coverage_path, config_path)
+        self.assertEqual(
+            result.errors,
+            ("src/low.rs: configured exemption is absent from the coverage report",),
         )
 
-        result = self.checker.check_coverage_files(self.root, coverage_path, config_path)
-
-        self.assertEqual(result.errors, ("src/missing.rs: configured exemption is absent from the coverage report",))
+    def test_rejects_malformed_metric_counters(self) -> None:
+        malformed = summary(100.0, 100.0, 100.0)
+        malformed["lines"]["covered"] = 101
+        coverage_path, config_path = self.write_inputs([
+            ("src/checked.rs", malformed),
+            ("src/low.rs", summary(100.0, 100.0, 100.0)),
+        ])
+        with self.assertRaisesRegex(self.checker.CheckerInputError, "invalid lines coverage counters"):
+            self.checker.check_coverage_files(self.root, coverage_path, config_path)
 
 
 if __name__ == "__main__":

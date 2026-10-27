@@ -1,0 +1,60 @@
+{
+  "qubit-config": [
+    {
+      "path": "src/lib.rs",
+      "reason": "crate root containing module declarations and public re-exports"
+    },
+    {
+      "path": "src/config/internal/mod.rs",
+      "reason": "private module declarations and re-exports only"
+    },
+    {
+      "path": "src/conversion/mod.rs",
+      "reason": "conversion module re-exports only"
+    },
+    {
+      "path": "src/conversion/structured_read/internal/mod.rs",
+      "reason": "private module declarations and re-exports only"
+    },
+    {
+      "path": "src/error/mod.rs",
+      "reason": "error module re-exports only"
+    },
+    {
+      "path": "src/key/mod.rs",
+      "reason": "key module re-exports only"
+    },
+    {
+      "path": "src/options/mod.rs",
+      "reason": "options module re-exports only"
+    },
+    {
+      "path": "src/property/mod.rs",
+      "reason": "property module declarations and re-exports only"
+    },
+    {
+      "path": "src/property/property/internal/mod.rs",
+      "reason": "private module declarations only"
+    },
+    {
+      "path": "src/reader/mod.rs",
+      "reason": "reader module re-exports only"
+    },
+    {
+      "path": "src/reader/internal/mod.rs",
+      "reason": "private module declarations only"
+    },
+    {
+      "path": "src/source/mod.rs",
+      "reason": "source module declarations and re-exports only"
+    },
+    {
+      "path": "src/source/internal/mod.rs",
+      "reason": "private module declarations only"
+    },
+    {
+      "path": "src/utils/internal/mod.rs",
+      "reason": "private module declarations only"
+    }
+  ]
+}

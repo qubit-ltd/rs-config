@@ -25,3 +25,22 @@ jobs:
       pages: write
       id-token: write
     uses: qubit-ltd/rs-infra-ci/.github/workflows/github-ci.yml@main
+
+  coverage-files:
+    name: Per-file coverage
+    needs: rust-ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Download coverage report from this run
+        uses: actions/download-artifact@6348f75f4b3a7c51c7f7eb2af9e90a3d729567c # v4.3.0
+        with:
+          name: coverage-reports
+          path: artifacts/coverage
+
+      - name: Check per-file coverage
+        run: python3 -B scripts/check-coverage-files.py artifacts/coverage/coverage.json --config .infra/coverage/coverage.json

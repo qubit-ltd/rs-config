@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""Integration tests for the project coverage gate wrappers."""
+"""Integration tests for the project coverage gate wrapper."""
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -21,91 +22,126 @@ class CoveragePipelineTests(unittest.TestCase):
         self.temporary_directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary_directory.cleanup)
         self.root = Path(self.temporary_directory.name)
-        (self.root / ".infra/tools").mkdir(parents=True)
-        for name in ("coverage.sh", "ci-check.sh"):
-            shutil.copy(ROOT / name, self.root / name)
+        (self.root / ".infra/bin").mkdir(parents=True)
+        (self.root / ".infra/coverage").mkdir(parents=True)
+        (self.root / "scripts").mkdir()
+        (self.root / "src").mkdir()
+        (self.root / "src/app.rs").write_text("fn app() {}\n", encoding="utf-8")
+        (self.root / "src/lib.rs").write_text("mod app;\n", encoding="utf-8")
+        shutil.copy(ROOT / "scripts/check-project-coverage.sh", self.root / "scripts/check-project-coverage.sh")
+        shutil.copy(ROOT / "scripts/check-coverage-files.py", self.root / "scripts/check-coverage-files.py")
+        (self.root / "scripts/check-project-coverage.sh").chmod(0o755)
         self.log = self.root / "pipeline.log"
-        self.write_script(".infra/tools/prepare-local-path-dependencies.sh", "#!/bin/bash\nexit 0\n")
-        self.write_script(
-            ".infra/tools/coverage-report.sh",
-            """
-            #!/bin/bash
+        self.write_config()
+        self.write_script(".infra/bin/coverage.sh", """
+            #!/usr/bin/env bash
             set -euo pipefail
-            test -f collected.json
-            echo report >> "$TEST_LOG"
-            """,
-        )
+            printf '%s\\n' "$TEST_COVERAGE_MODE" >> "$TEST_LOG"
+            case "$TEST_COVERAGE_MODE" in
+                failure) exit 23 ;;
+                missing) exit 0 ;;
+                malformed) printf '{malformed' > "$TEST_REPORT" ;;
+                low) python3 "$TEST_REPORT_WRITER" low "$TEST_REPORT" "$TEST_SOURCE" ;;
+                success) python3 "$TEST_REPORT_WRITER" success "$TEST_REPORT" "$TEST_SOURCE" ;;
+                *) exit 24 ;;
+            esac
+        """)
+        self.write_script("write_report.py", """
+            import json
+            import sys
+            mode, report_path, source_path = sys.argv[1:]
+            value = 100 if mode == "success" else 20
+            def metric(percent):
+                return {"count": 100, "covered": percent, "percent": percent}
+            summary = {name: metric(value) for name in ("functions", "lines", "regions")}
+            with open(report_path, "w", encoding="utf-8") as report:
+                json.dump({"data": [{"files": [
+                    {"filename": source_path, "summary": summary},
+                ]}]}, report)
+        """)
+
+    def write_config(self) -> None:
+        (self.root / ".infra/coverage/coverage.json").write_text(json.dumps({
+            "scope": "package",
+            "source_dirs": {"qubit-config": ["src"]},
+            "thresholds": {"functions": 95, "lines": 90, "regions": 85},
+            "threshold_exempt_files": {"qubit-config": []},
+        }), encoding="utf-8")
+        (self.root / ".infra/coverage/non-executable-files.json").write_text(json.dumps({"qubit-config": [{
+                "path": "src/lib.rs", "reason": "module declarations only",
+            }]}), encoding="utf-8")
 
     def write_script(self, relative_path: str, body: str) -> None:
         path = self.root / relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(textwrap.dedent(body).lstrip(), encoding="utf-8")
         path.chmod(0o755)
 
-    def run_wrapper(self, name: str, *arguments: str) -> subprocess.CompletedProcess[str]:
+    def run_wrapper(self, mode: str) -> subprocess.CompletedProcess[str]:
         environment = os.environ.copy()
-        environment["TEST_LOG"] = str(self.log)
+        environment.update({
+            "TEST_COVERAGE_MODE": mode,
+            "TEST_LOG": str(self.log),
+            "TEST_REPORT": str(self.root / "coverage.json"),
+            "TEST_REPORT_WRITER": str(self.root / "write_report.py"),
+            "TEST_SOURCE": str(self.root / "src/app.rs"),
+        })
         return subprocess.run(
-            ["bash", str(self.root / name), *arguments],
-            cwd=self.root, env=environment, capture_output=True, text=True, check=False,
+            ["bash", str(self.root / "scripts/check-project-coverage.sh")],
+            cwd=self.root,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
         )
 
-    def read_log(self) -> list[str]:
-        return self.log.read_text().splitlines() if self.log.exists() else []
-
-    def test_report_runs_after_successful_collection(self) -> None:
-        self.write_script(".infra/tools/infra-tool.sh", """
-            #!/bin/bash
-            set -euo pipefail
-            test "$1" = rs-infra-coverage
-            test "$4" = collect
-            echo collect >> "$TEST_LOG"
-            touch collected.json
-        """)
-        result = self.run_wrapper("coverage.sh")
+    def test_success_checks_the_fresh_report_after_collection(self) -> None:
+        (self.root / "coverage.json").write_text("stale report", encoding="utf-8")
+        result = self.run_wrapper("success")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.read_log(), ["collect", "report"])
+        report = json.loads((self.root / "coverage.json").read_text(encoding="utf-8"))
+        self.assertEqual(report["data"][0]["files"][0]["summary"]["functions"]["percent"], 100)
+        self.assertEqual(self.log.read_text(encoding="utf-8").splitlines(), ["success"])
+        self.assertIn("checked 1 production coverage files", result.stdout)
 
-    def test_collection_failure_prevents_report_even_with_stale_output(self) -> None:
-        (self.root / "collected.json").write_text("{}")
-        self.write_script(".infra/tools/infra-tool.sh", "#!/bin/bash\nexit 23\n")
-        result = self.run_wrapper("coverage.sh")
+    def test_collection_failure_does_not_pass_from_stale_report(self) -> None:
+        stale = json.dumps({"stale": True})
+        (self.root / "coverage.json").write_text(stale, encoding="utf-8")
+        result = self.run_wrapper("failure")
         self.assertEqual(result.returncode, 23, result.stderr)
-        self.assertEqual(self.read_log(), [])
+        self.assertEqual((self.root / "coverage.json").read_text(encoding="utf-8"), stale)
+        self.assertEqual(self.log.read_text(encoding="utf-8").splitlines(), ["failure"])
 
-    def test_missing_report_input_fails(self) -> None:
-        self.write_script(".infra/tools/infra-tool.sh", "#!/bin/bash\nexit 0\n")
-        self.assertNotEqual(self.run_wrapper("coverage.sh").returncode, 0)
+    def test_missing_report_fails_even_when_old_report_is_restored(self) -> None:
+        (self.root / "coverage.json").write_text("stale report", encoding="utf-8")
+        result = self.run_wrapper("missing")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("did not create", result.stderr)
+        self.assertEqual((self.root / "coverage.json").read_text(encoding="utf-8"), "stale report")
 
-    def test_report_failure_propagates(self) -> None:
-        self.write_script(".infra/tools/infra-tool.sh", "#!/bin/bash\nexit 0\n")
-        self.write_script(".infra/tools/coverage-report.sh", "#!/bin/bash\nexit 29\n")
-        self.assertEqual(self.run_wrapper("coverage.sh").returncode, 29)
+    def test_malformed_report_fails(self) -> None:
+        result = self.run_wrapper("malformed")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("invalid JSON", result.stderr)
 
-    def test_ci_delegates_selected_tasks_and_preserves_artifacts(self) -> None:
-        artifact = self.root / "target/llvm-cov/report.json"
-        artifact.parent.mkdir(parents=True)
-        artifact.write_text("{}")
-        self.write_script(".infra/tools/infra-tool.sh", """
-            #!/bin/bash
-            set -euo pipefail
-            test "$1" = rs-infra-ci
-            test "$4" = --only=coverage
-            test "$5" = check
-            test -n "$RS_INFRA_STYLE_TOOLCHAIN"
-            echo ci >> "$TEST_LOG"
-        """)
-        result = self.run_wrapper("ci-check.sh", "--only=coverage")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.read_log(), ["ci"])
-        self.assertTrue(artifact.is_file())
+    def test_low_file_coverage_fails(self) -> None:
+        result = self.run_wrapper("low")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("src/app.rs", result.stderr)
+        self.assertIn("functions=20.00%", result.stderr)
 
-    def test_ci_failure_propagates(self) -> None:
-        self.write_script(".infra/tools/infra-tool.sh", "#!/bin/bash\nexit 31\n")
-        self.assertEqual(self.run_wrapper("ci-check.sh").returncode, 31)
+    def test_missing_configuration_fails(self) -> None:
+        (self.root / ".infra/coverage/coverage.json").unlink()
+        result = self.run_wrapper("success")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("cannot read coverage policy", result.stderr)
 
-    def test_early_project_hook_does_not_own_the_coverage_gate(self) -> None:
-        hook = (ROOT / "project-ci-check.sh").read_text(encoding="utf-8")
+    def test_project_ci_hook_does_not_consume_a_coverage_report(self) -> None:
+        hook = (ROOT / ".infra/project-ci-check.local.sh").read_text(encoding="utf-8")
         self.assertNotIn("check-coverage-files.py", hook)
+        self.assertIn("check_coverage_files_tests.py", hook)
+        self.assertIn("coverage_pipeline_tests.py", hook)
+        self.assertIn("check-doc-examples.py", hook)
 
 
 if __name__ == "__main__":
