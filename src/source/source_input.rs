@@ -17,12 +17,25 @@ use crate::ConfigError;
 use crate::ConfigResult;
 
 /// Input backing one built-in text configuration source.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub(crate) enum SourceInput {
     /// File-backed source.
     File(PathBuf),
     /// In-memory source.
     Content(String),
+}
+
+impl std::fmt::Debug for SourceInput {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::File(path) => formatter.debug_tuple("File").field(path).finish(),
+            Self::Content(content) => formatter
+                .debug_struct("Content")
+                .field("bytes", &content.len())
+                .field("value", &"<redacted>")
+                .finish(),
+        }
+    }
 }
 
 impl SourceInput {
@@ -74,7 +87,10 @@ impl SourceInput {
     }
 }
 
-/// Reads at most one byte beyond a finite file limit.
+/// Reads in chunks of at most 8 KiB, appending each chunk only after its byte
+/// budget charge succeeds. A read may therefore consume one chunk beyond the
+/// remaining budget before that charge is rejected; the result vector is not
+/// extended with the rejected chunk.
 fn read_file_bytes(
     file: File,
     session: &mut SourceLoadSession<'_>,
