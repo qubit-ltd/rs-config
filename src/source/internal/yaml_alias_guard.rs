@@ -17,7 +17,7 @@ use crate::ConfigResult;
 /// Scanner errors and unsupported tokens produce fixed, source-aware
 /// diagnostics. Parser-owned text and token payloads are never included in an
 /// error.
-pub(super) fn reject_yaml_aliases(label: &str, content: &str) -> ConfigResult<()> {
+pub(in crate::source) fn reject_yaml_aliases(label: &str, content: &str) -> ConfigResult<()> {
     let mut scanner = Scanner::new(content.chars());
 
     while let Some(token) = scanner.next_token().map_err(|error| {

@@ -220,7 +220,7 @@ impl<'a> SourceLoadSession<'a> {
 /// Controlled output and accounting context supplied to a configuration source.
 ///
 /// The executor creates this context and passes it to
-/// [`ConfigSource::load_into`]
+/// [`ConfigSource::load_into`](super::ConfigSource::load_into)
 /// during [`ConfigSource::load`](super::ConfigSource::load). It owns an
 /// independent layer that is returned only after the source succeeds. If a
 /// source returns an error, propagate it; the partial layer is discarded.

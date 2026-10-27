@@ -107,8 +107,9 @@ fn config_wire_encode_error_maps_syntax_and_writer_sources() {
     ));
 
     let mut writer_encoder = JsonEncoder::with_limits(JsonEncodeLimits::<JsonResource, u64>::default());
+    let mut rejecting_writer = RejectingWriter;
     let writer = writer_encoder
-        .write_buffered(RejectingWriter, &true)
+        .write_buffered(&mut rejecting_writer, &true)
         .expect_err("rejecting writer must fail");
     assert!(matches!(
         ConfigWireEncodeError::from(writer),
