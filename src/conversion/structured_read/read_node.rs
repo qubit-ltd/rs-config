@@ -20,9 +20,16 @@ use qubit_value::ValueRef;
 pub(super) use super::source_location::SourceLocation;
 pub(super) use super::source_segment::SourceSegment;
 
-/// Index of a node in the prepared read arena.
+/// Index of a node in the prepared read arena; valid only while it indexes
+/// the corresponding `PreparedConfigRead::nodes` vector.
 pub(super) type NodeId = usize;
 
+/// Borrowed input value or owned synthetic object index in a prepared read.
+///
+/// JSON values and maps borrow their original payloads. `Object` owns only a
+/// sorted key-to-node index, and text is borrowed unless interpolation
+/// requires an owned overlay. Object/object merges with disjoint keys are
+/// allowed; duplicate leaves and object/scalar shape conflicts are errors.
 #[derive(Debug)]
 pub(crate) enum ReadNode<'a> {
     /// Native scalar value.

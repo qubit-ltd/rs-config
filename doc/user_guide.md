@@ -224,6 +224,12 @@ The default `ConfigSource::load` method executes the source through the standard
 and transactional layer executor. Call `context.set(...)` for assignments and report
 external input/parser work with the corresponding accounting methods before doing it.
 The framework cannot infer omitted external I/O or parser work from the finished layer.
+`set` and `set_null` already charge one node and one property assignment; call
+`consume_nodes` only for additional parser work. Each charge is atomic across
+local and aggregate budgets, but charges accepted earlier in a failed load are
+not rolled back. The failing layer is discarded and the error should be
+propagated. The `ConfigSource` API documentation includes a complete in-memory
+source example.
 Built-in sources include:
 
 - `PropertiesConfigSource`, always available, from `.properties` files or in-memory content;
@@ -240,11 +246,13 @@ such as `\u12G4` are preserved verbatim; unknown non-Unicode escapes drop the
 leading backslash, matching Java properties behavior.
 
 `EnvFileConfigSource` preserves `$NAME` and `${NAME}` placeholders as literal
-values. Resolve them later through an explicit `*_interpolated` read policy;
-loading a `.env` file never reads process-environment values implicitly. YAML
-anchors and aliases are rejected by a pre-scan that skips quoted, commented,
-and block-scalar content, so alias expansion cannot multiply the materialized
-configuration. Every built-in source loads through `SourceLoadContext`; a
+values, including values following comments; it never reads process-environment
+values implicitly. Resolve placeholders later through an explicit
+`*_interpolated` read policy. YAML anchors and aliases are rejected by a token
+scanner before the YAML backend builds its AST. Quoted strings, comments, and
+block scalar text remain ordinary scalar content; malformed YAML scanner input
+also fails closed rather than bypassing the guard. Every built-in source loads
+through `SourceLoadContext`; a
 composite checks each charge against both the child's local policy and its
 shared aggregate policy before committing either budget. For TOML and YAML,
 node, property-count, and nesting-depth accounting begins only while flattening
@@ -307,8 +315,17 @@ assert_eq!(server.port, 8080);
 Import `ConfigSerdeExt` when calling `deserialize` or `deserialize_with` through
 a generic `ConfigReader` or section. `deserialize(prefix)` is equivalent to
 `deserialize_with(prefix, ConfigDeserializeOptions::default())`: interpolation
-is off and unknown fields are rejected. To allow extra fields, set
-`unknown_fields: UnknownFieldPolicy::Ignore`; to expand placeholders, set
+is off and fields exposed through Serde's ignored-field callback are rejected
+with sorted root-relative paths in `ConfigError::UnknownProperties`. This is
+not complete schema validation: flatten structs, untagged enums, and custom
+deserializers can buffer keys that `serde_ignored` cannot observe, while
+flatten maps may consume arbitrary keys. For closed ordinary structs, add
+`#[serde(deny_unknown_fields)]` to the target and to every struct payload in an
+untagged enum. Serde then returns a sanitized deserialization error, not
+necessarily `UnknownProperties`. Since Serde forbids combining that attribute
+with `flatten`, replace that shape with a closed nested struct or validate keys
+against the application's schema before deserializing. To allow extra fields,
+set `unknown_fields: UnknownFieldPolicy::Ignore`; to expand placeholders, set
 `interpolate: true`. Struct fields, `serde(rename)`, `serde(alias)`,
 `serde(default)`, nested structs, maps, and `serde(flatten)` declare the accepted
 shape. A mismatch raised only by Serde becomes a sanitized `DeserializeError`.

@@ -23,12 +23,27 @@ use crate::ConfigReader;
 use crate::ConfigResult;
 use crate::Property;
 
+/// Bounded, read-only projection of the selected configuration input.
+///
+/// `nodes` is an arena: every child `NodeId` in an object and `root` index a
+/// live entry in that vector. `sources` is built in lockstep with the arena;
+/// each node has a corresponding optional origin, while property references
+/// are indexed separately for source properties. `root_path` is the requested
+/// reader-relative prefix used for diagnostics. Payloads remain borrowed from
+/// the input where possible; only object indexes and necessary text overlays
+/// are owned. Conflicting scalar/object shapes and duplicate leaves are
+/// rejected while constructing the projection.
 #[derive(Debug)]
 pub(super) struct PreparedConfigRead<'a> {
+    /// Interpolated text, keyed by the original property's typed source path.
     pub(super) overlays: BTreeMap<SourceLocation, String>,
+    /// Arena of borrowed payloads and owned synthetic object indexes.
     pub(super) nodes: Vec<ReadNode<'a>>,
+    /// Property references and optional origins parallel to the node arena.
     pub(super) sources: SourceIndex<'a>,
+    /// Arena index of the selected input root.
     pub(super) root: NodeId,
+    /// Reader-relative prefix retained for diagnostics.
     pub(super) root_path: String,
 }
 
@@ -100,6 +115,8 @@ impl<'a> PreparedConfigRead<'a> {
         Ok(())
     }
 
+    /// Inserts one flattened property, merging object leaves and rejecting
+    /// duplicate leaves or scalar/object conflicts.
     fn insert_property(&mut self, key: &str, property: &'a Property, capacity: &mut IndexCapacity) -> ConfigResult<()> {
         let mut current = self.root;
         let mut depth = 1usize;

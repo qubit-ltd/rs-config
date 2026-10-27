@@ -233,12 +233,16 @@ UTF-16 code unit 以及合法的 surrogate pair。像 `\u12G4` 这样错误或
 不完整的 Unicode 转义会原样保留；未知的非 Unicode 转义会按
 Java properties 行为去掉前导反斜杠。
 
-`EnvFileConfigSource` 会把 `$NAME` 和 `${NAME}` 占位符作为字面值保留。应
-通过显式的 `*_interpolated` 读取策略在后续读取时解析；加载 `.env` 文件不会
-隐式读取进程环境变量。YAML anchor 和 alias 会由预扫描拒绝；预扫描会跳过引号、
-注释和块标量内容，因此 alias 展开不会放大物化后的配置。所有内置配置源都通过
+`EnvFileConfigSource` 会把 `$NAME` 和 `${NAME}` 占位符作为字面值保留，注释后的值也不会
+触发进程环境变量展开。加载 `.env` 文件不会隐式读取进程环境变量；应通过显式的
+`*_interpolated` 读取策略在后续读取时解析。YAML anchor 和 alias 会在 YAML backend
+构建 AST 前由 token scanner 拒绝。引号字符串、注释和块标量文本仍是普通标量内容；错误的
+YAML scanner 输入也会直接失败，不会绕过 guard。所有内置配置源都通过
 `SourceLoadContext` 加载；组合配置源会同时检查子配置源的局部策略与共享聚合策略，
-全部通过后才扣减。TOML 和 YAML 的节点、配置项数量与嵌套深度只能在解析器已经物化
+全部通过后才扣减。`set` 和 `set_null` 已分别记入一个 node 和一个 property assignment；
+只有额外解析工作才调用 `consume_nodes`。每次 charge 会先同时检查局部和聚合预算，但失败前已
+接受的 charge 不会回滚。失败的配置层会被丢弃，调用方应传播错误。`ConfigSource` API 文档
+提供了完整的内存配置源示例。TOML 和 YAML 的节点、配置项数量与嵌套深度只能在解析器已经物化
 AST 后的展平阶段记账，因此它们约束可接受的配置结果，不限制解析器中间阶段的内存
 分配或递归深度。
 
@@ -297,11 +301,18 @@ assert_eq!(server.port, 8080);
 
 通过泛型 `ConfigReader` 或 section 调用 `deserialize` 或 `deserialize_with` 时，导入
 `ConfigSerdeExt`。`deserialize(prefix)` 等价于
-`deserialize_with(prefix, ConfigDeserializeOptions::default())`：不插值、拒绝未知字段。
-允许额外字段时设置 `unknown_fields: UnknownFieldPolicy::Ignore`；展开占位符时设置
-`interpolate: true`。struct 字段、`serde(rename)`、`serde(alias)`、`serde(default)`、
-嵌套 struct、map 和 `serde(flatten)` 共同声明可接受的形状。仅由 Serde 报告的结构不匹配
-会变成已脱敏的 `DeserializeError`。
+`deserialize_with(prefix, ConfigDeserializeOptions::default())`：不插值；Serde 的
+ignored-field 回调可观察到的字段会以排序后的 root-relative 路径返回为
+`ConfigError::UnknownProperties`。这不等于完整 schema 校验：flatten struct、untagged enum
+和自定义反序列化器可能缓冲 `serde_ignored` 无法观察的 key；flatten map 也可能消费任意 key。
+闭合的普通 struct 可在目标上添加 `#[serde(deny_unknown_fields)]`；untagged enum 的每个
+struct payload 也应添加。Serde 随后返回经过脱敏的反序列化错误，不保证是
+`UnknownProperties`。Serde 禁止该属性与 `flatten` 组合；要求闭合 schema 时，应改用闭合的
+嵌套 struct，或在反序列化前按应用 schema 校验 key。允许额外字段时设置
+`unknown_fields: UnknownFieldPolicy::Ignore`；展开占位符时设置 `interpolate: true`。
+struct 字段、`serde(rename)`、`serde(alias)`、`serde(default)`、嵌套 struct、map 和
+`serde(flatten)` 共同声明可接受的形状。仅由 Serde 报告的结构不匹配会变成已脱敏的
+`DeserializeError`。
 
 即使目标忽略部分字段，也会对选中的完整输入执行准入。插值前后的输入分别检查，然后所有叶子
 转换共享另一个独立的 `ConversionSession`。这些资源域都取 reader 的转换限制，被忽略字段

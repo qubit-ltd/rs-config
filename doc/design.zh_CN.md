@@ -2,7 +2,7 @@
 
 [English](design.md) | 简体中文
 
-本文描述 `qubit-config` `0.14` 已实现的架构。单个调用及其边界行为仍以公共
+本文描述 `qubit-config` `0.15` 已实现的架构。单个调用及其边界行为仍以公共
 API 文档和测试为准。
 
 ## 稳定核心
@@ -72,7 +72,9 @@ V1 wire 表示。
 默认限制为 64 层引用链深度、每次读取 4,096 次占位符展开，以及 1 MiB UTF-8 输出。
 循环引用和各类资源耗尽都有结构化 `ConfigError` 类别。允许配置内容选择环境变量名称
 会形成信任边界。加载 `.env` 时会保留 `$NAME` 和 `${NAME}` 字面量，不会隐式读取
-进程环境变量。
+进程环境变量，注释中的引号也不会改变这一点。YAML 在 AST 构建前依据 scanner token
+拒绝 anchor 和 alias；scanner 错误直接失败，而引号、注释和块标量文本不会被当作 anchor 或
+alias token。
 
 ## 结构化 Serde
 
@@ -80,9 +82,15 @@ V1 wire 表示。
 JSON 风格对象。同一前缀同时存在精确配置项和子项时返回 `KeyConflict`。空前缀表示
 reader 当前可见的全部配置项。
 
-结构化读取默认拒绝目标类型未消费的配置项，并通过
-`ConfigError::UnknownProperties` 报告经过排序的根相对路径。对于明确开放的配置区域，
-应选择 `UnknownFieldPolicy::Ignore`。`deserialize(prefix)` 默认不插值并拒绝未知字段；
+`UnknownFieldPolicy::Reject` 会把 Serde ignored-field 回调暴露的字段作为
+`ConfigError::UnknownProperties`，并报告排序后的根相对路径。这不等于完整 schema 校验：
+flatten struct、untagged enum 和自定义反序列化器可能缓冲 `serde_ignored` 无法观察的字段，
+flatten map 也可能消费任意 key。闭合的普通 struct 可使用
+`#[serde(deny_unknown_fields)]`（untagged enum 的每个 struct payload 也应使用）；Serde 返回
+经过脱敏的反序列化错误，不保证是 `UnknownProperties`。该属性不能与 `flatten` 组合；要求闭合
+schema 时，应使用闭合的嵌套 struct，或在反序列化前按应用 schema 校验 key。对于明确开放的
+配置区域，应选择 `UnknownFieldPolicy::Ignore`。`deserialize(prefix)` 默认不插值并拒绝可观测的
+未知字段；
 `deserialize_with(prefix, ConfigDeserializeOptions)` 可设置 `interpolate` 和
 `unknown_fields: UnknownFieldPolicy::{Reject, Ignore}`，结构化读取只保留这两个入口。
 查找、插值和转换错误会保留配置上下文；只有 Serde
@@ -90,6 +98,9 @@ reader 当前可见的全部配置项。
 风格数据模型，不承诺覆盖 `ConfigReader::get` 为富类型提供的所有原生转换形态。
 
 准备树保存借用值、集合 slice、JSON 节点和合成对象索引，不克隆完整 JSON 中间载荷。
+NodeId 索引 arena 节点及对应的来源表；property index 则索引单独的借用配置项表。来源位置由
+原始配置项和有类型的嵌套 key segment 组成，因此 JSON key 中的字面点号不会与点分配置路径混淆。
+请求前缀保存在 `root_path` 中用于诊断。
 两个对象贡献不同叶子时可以合并；重复叶子和标量/对象冲突会失败。插值覆盖使用带类型的源位置，
 JSON 键中的字面点号不会与嵌套路径混淆。只展开真正的字符串叶子，每个叶子处理一次；
 URL 等富类型格式化后的文本不作为插值输入，未变化文本保持借用。

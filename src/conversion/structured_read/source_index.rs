@@ -11,6 +11,14 @@ use super::node::NodeId;
 use super::node::SourceLocation;
 use crate::Property;
 
+/// Borrowed property table and per-node source origins for a prepared read.
+///
+/// In the exact-property form, only node and property index zero are valid.
+/// In the tree form, `origins` has one slot for each arena node, and
+/// `properties` maps property indexes to the source properties that contributed
+/// leaves. Synthetic path nodes can have no origin. Returned property
+/// references borrow the original configuration for the prepared read's
+/// lifetime.
 #[derive(Debug)]
 pub(super) enum SourceIndex<'a> {
     /// One exact property is the complete input.
@@ -53,6 +61,7 @@ impl<'a> SourceIndex<'a> {
         matches!(self, Self::Exact { .. })
     }
 
+    /// Returns the node's origin, or `None` for synthetic/out-of-range nodes.
     pub(super) fn origin(&self, id: NodeId) -> Option<&SourceLocation> {
         match self {
             Self::Exact { origin, .. } => (id == 0).then_some(origin),
@@ -60,6 +69,7 @@ impl<'a> SourceIndex<'a> {
         }
     }
 
+    /// Returns the source property at `index`, or `None` when out of range.
     pub(super) fn property(&self, index: usize) -> Option<&'a Property> {
         match self {
             Self::Exact { property, .. } => (index == 0).then_some(*property),

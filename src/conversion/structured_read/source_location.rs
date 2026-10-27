@@ -9,6 +9,13 @@
 
 use super::source_segment::SourceSegment;
 
+/// Location of a value within one original configuration property.
+///
+/// `property_index` indexes the property table in `SourceIndex`.
+/// `segments` identify nested object keys within that property's structured
+/// value. Keeping segments typed prevents a literal dot inside a key from
+/// being confused with a separator in a dotted configuration path. Locations
+/// are used to associate interpolation overlays with actual string leaves.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct SourceLocation {
     /// Index of the originating property.

@@ -164,10 +164,15 @@ sessions and do not share consumption. A failed field conversion keeps charges
 accepted earlier in the same materialization; the rejected charge itself is
 atomic.
 
-Structured reads reject undeclared properties by default and report their
-root-relative paths through `ConfigError::UnknownProperties`. Declare accepted
-fields with the target's Serde shape (`rename`, `alias`, `default`, nested
-types, maps, or `flatten`); choose `UnknownFieldPolicy::Ignore` only for
+Structured reads reject fields Serde exposes as ignored and report their
+root-relative paths through `ConfigError::UnknownProperties`. Some `flatten`,
+untagged-enum, and custom `Deserialize` implementations buffer or consume keys,
+so `serde_ignored` cannot observe every discarded field. For a closed schema,
+use `#[serde(deny_unknown_fields)]` on ordinary struct targets (including each
+untagged payload struct); this produces a sanitized Serde deserialization error.
+Serde does not allow combining `deny_unknown_fields` with `flatten`, so replace
+that shape with a closed nested struct or validate keys against the application
+schema before deserializing. Choose `UnknownFieldPolicy::Ignore` only for
 intentionally open sections. `deserialize(prefix)` uses default options: no
 interpolation and unknown fields rejected. `deserialize_with(prefix, options)`
 also accepts `interpolate: true`; these are the only two structured-read methods.
@@ -228,8 +233,12 @@ work cannot be inferred from the final layer. TOML and YAML are an explicit
 exception at the parser boundary: their third-party parsers materialize an AST
 before node, assignment, and depth accounting during flattening. Those limits
 do not bound parser allocation or recursion; a future streaming parser is
-required to provide that guarantee. Customize `SourceLimits` only when the
-input boundary is understood.
+required to provide that guarantee. The YAML source separately rejects anchor
+and alias tokens before AST construction; scanner errors fail closed, while
+quoted, commented, and block-scalar text is not treated as such a token. `.env`
+loading preserves `$NAME` and `${NAME}` literally instead of expanding process
+environment variables; use explicit interpolated reads when substitution is
+intended. Customize `SourceLimits` only when the input boundary is understood.
 
 It does not silently interpolate values during ordinary reads, expand process-environment placeholders while loading `.env` files, use defaults to hide a present but invalid value, permit third-party `ConfigReader` implementations, or support `dyn ConfigReader`: the trait is sealed and its generic methods make it non-object-safe. Detailed path rules, source failure behavior, structured deserialization, custom conversion, and troubleshooting are covered in the user guide; current component boundaries and compatibility commitments are recorded in the design document.
 
@@ -260,8 +269,8 @@ cargo test --all-features
 # Project CI checks
 ./.infra/bin/ci-check.sh
 
-# Check code coverage
-./.infra/bin/coverage.sh
+# Generate shared coverage output and enforce this crate's per-file thresholds
+./scripts/check-project-coverage.sh
 ```
 
 ## License

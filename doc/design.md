@@ -2,7 +2,7 @@
 
 [Simplified Chinese](design.zh_CN.md) | English
 
-This document describes the implemented architecture of `qubit-config` `0.14`.
+This document describes the implemented architecture of `qubit-config` `0.15`.
 Public API documentation and tests remain authoritative for individual calls and
 edge cases.
 
@@ -86,7 +86,11 @@ The default limits are a reference-chain depth of 64, 4,096 placeholder
 expansions per read, and 1 MiB of UTF-8 output. Cycles and each exhausted resource
 have structured `ConfigError` categories. Configuration allowed to choose
 environment-variable names is a trust boundary. `.env` loading preserves `$NAME`
-and `${NAME}` literals rather than reading the process environment implicitly.
+and `${NAME}` literals rather than reading the process environment implicitly,
+including when comments contain quote characters. YAML anchors and aliases are
+rejected from the scanner token stream before AST construction; scanner errors
+fail closed, while quoted, commented, and block-scalar text is not treated as
+anchor or alias tokens.
 
 ## Structured Serde
 
@@ -95,9 +99,7 @@ JSON-like object from descendants below the requested prefix. An exact property
 and descendants at the same prefix are a `KeyConflict`. The empty prefix selects
 all properties visible to the reader.
 
-Structured reads reject unconsumed properties by default and report sorted,
-root-relative paths through `ConfigError::UnknownProperties`.
-`deserialize(prefix)` defaults to no interpolation and rejected unknown fields;
+`UnknownFieldPolicy::Reject` reports sorted, root-relative paths for fields exposed through Serde's ignored-field callback as `ConfigError::UnknownProperties`. This is not complete schema validation: flatten structs, untagged enums, and custom deserializers can buffer fields that `serde_ignored` cannot observe, while flatten maps can consume arbitrary keys. Closed ordinary structs can use `#[serde(deny_unknown_fields)]` (including each struct payload of an untagged enum); Serde returns a sanitized deserialization error, not necessarily `UnknownProperties`. Since the attribute cannot be combined with `flatten`, applications needing a closed schema should use a closed nested struct or validate keys against their schema before deserializing. `deserialize(prefix)` defaults to no interpolation and rejected observable unknown fields;
 `deserialize_with(prefix, ConfigDeserializeOptions)` allows `interpolate` and
 `unknown_fields: UnknownFieldPolicy::{Reject, Ignore}`. These are the only two
 structured-read entry points. Lookup,
@@ -107,7 +109,12 @@ The projection follows Serde's JSON-like data model and does not promise every
 native rich-value conversion shape supported by `ConfigReader::get`.
 
 The prepared tree stores borrowed values, collection slices, JSON nodes, and
-synthetic object indices. It never clones a complete intermediate JSON payload.
+synthetic object indices. Node IDs index the arena and its per-node origin table;
+property indexes address a separate table of borrowed source properties. A source
+location identifies one original property plus typed nested key segments, so
+literal dots in JSON keys remain distinct from dotted configuration paths. The
+requested prefix is retained as `root_path` for diagnostics. The tree never
+clones a complete intermediate JSON payload.
 Object/object contributions with distinct leaves merge; duplicate leaves and
 scalar/object conflicts fail. Interpolation overlays use typed source locations,
 so literal dots in JSON keys cannot collide with nested paths. Only actual string

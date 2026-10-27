@@ -218,6 +218,20 @@ impl<'a> SourceLoadSession<'a> {
 }
 
 /// Controlled output and accounting context supplied to a configuration source.
+///
+/// The executor creates this context and passes it to
+/// [`ConfigSource::load_into`]
+/// during [`ConfigSource::load`](super::ConfigSource::load). It owns an
+/// independent layer that is returned only after the source succeeds. If a
+/// source returns an error, propagate it; the partial layer is discarded.
+///
+/// `set` and `set_null` each charge one node and one property assignment
+/// themselves. Call [`consume_nodes`](Self::consume_nodes) only for additional
+/// parser or structural work, not for properties written with those methods.
+/// Each charge is checked atomically against this source and all aggregate
+/// ancestors before being committed. Earlier accepted charges are not rolled
+/// back if a later operation fails, so this is not an all-or-nothing budget
+/// transaction for the complete source load.
 pub struct SourceLoadContext<'a> {
     session: SourceLoadSession<'a>,
     layer: Config,

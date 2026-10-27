@@ -13,6 +13,40 @@ use crate::Config;
 use crate::ConfigResult;
 
 /// A source that writes configuration through a controlled load context.
+///
+/// `load` creates the context and an independent output layer, then calls
+/// [`load_into`](Self::load_into). The context is supplied by the executor;
+/// source implementations must report input bytes and any extra parser nodes
+/// before doing that work. `set` and `set_null` account for their own output
+/// node and property assignment.
+///
+/// A failed `load_into` result is propagated and its layer is not returned.
+/// Each resource charge is atomic across the local and aggregate budgets, but
+/// charges accepted earlier in the same failed load are not rolled back.
+///
+/// # Example
+///
+/// ```rust
+/// use qubit_config::ConfigReader;
+/// use qubit_config::source::ConfigSource;
+/// use qubit_config::source::SourceLimits;
+/// use qubit_config::source::SourceLoadContext;
+/// use qubit_config::ConfigResult;
+///
+/// struct MemorySource;
+/// impl ConfigSource for MemorySource {
+///     fn source_id(&self) -> String { "example:<memory>".to_owned() }
+///     fn limits(&self) -> SourceLimits { SourceLimits::default() }
+///     fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
+///         context.consume_input_bytes("port=8080".len())?;
+///         context.set("server.port", 8080_u16)
+///     }
+/// }
+///
+/// let config = MemorySource.load()?;
+/// assert_eq!(config.get::<u16>("server.port")?, 8080);
+/// # Ok::<(), qubit_config::ConfigError>(())
+/// ```
 pub trait ConfigSource {
     /// Returns the stable identifier used for loading diagnostics.
     fn source_id(&self) -> String;

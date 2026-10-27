@@ -162,10 +162,13 @@ operation limits 会在两个字段之间累计。彼此独立的普通 `get` �
 不会共享消耗。某个字段转换失败时，本次物化此前已接受的消耗不会回滚；被拒绝的
 charge 本身仍保持原子性。
 
-结构化读取默认拒绝目标类型未声明的配置字段，并通过
-`ConfigError::UnknownProperties` 返回 root-relative 路径。请使用目标类型的
-Serde 结构（`rename`、`alias`、`default`、嵌套类型、map 或 `flatten`）声明可接受
-字段；只有明确允许开放字段时，才选择 `UnknownFieldPolicy::Ignore`。
+结构化读取会拒绝 Serde 通过 ignored-field 回调暴露的字段，并通过
+`ConfigError::UnknownProperties` 返回 root-relative 路径。部分 `flatten`、untagged enum
+和自定义 `Deserialize` 实现会缓冲或消费 key，因此 `serde_ignored` 无法观察每个被丢弃字段。
+若要求闭合 schema，可在普通 struct 目标（以及 untagged enum 的每个 payload struct）上使用
+`#[serde(deny_unknown_fields)]`；这会返回经过脱敏的 Serde 反序列化错误。Serde 不允许
+`deny_unknown_fields` 与 `flatten` 组合，因此应改用闭合的嵌套 struct，或在反序列化前按应用
+schema 校验 key。只有明确允许开放字段时，才选择 `UnknownFieldPolicy::Ignore`。
 `deserialize(prefix)` 使用默认选项：不插值、拒绝未知字段；
 `deserialize_with(prefix, options)` 还可以设置 `interpolate: true`。
 结构化读取只保留这两个入口，空 prefix 表示整个可见范围。
@@ -218,8 +221,10 @@ I/O 或 parser 工作前主动报告输入字节和解析节点；最终 layer �
 会同时检查 source 局部预算与 composite 聚合预算，任一预算拒绝时不会只扣减其中一层。
 TOML 和 YAML 在 parser 边界存在明确例外：第三方 parser
 会先物化完整 AST，节点、assignment 和深度只能在 flatten 阶段记账，所以这些限制
-不能约束 parser 自身的内存分配或递归。要获得该保证，未来需要流式 parser。只有明确
-了解输入边界时才应放宽 `SourceLimits`。
+不能约束 parser 自身的内存分配或递归。要获得该保证，未来需要流式 parser。YAML source
+会在 AST 构建前单独拒绝 anchor 和 alias token；scanner 错误直接失败，引号、注释和块标量
+文本不会被视为这类 token。`.env` 加载会保留 `$NAME` 和 `${NAME}` 字面量，不展开进程环境变量；
+需要替换时应显式使用 interpolated 读取。只有明确了解输入边界时才应放宽 `SourceLimits`。
 
 本库不会在普通读取时静默执行插值，不会在加载 `.env` 文件时展开进程环境占位符，也不会用默认值掩盖已存在但无效的值。`ConfigReader` 是封闭（sealed）trait，不能由第三方实现；它包含泛型方法，因此不支持 `dyn ConfigReader`。路径规则、配置源失败行为、结构化反序列化、自定义转换和排障细节请参阅用户手册；当前组件边界与兼容承诺记录在设计说明中。
 
@@ -249,8 +254,8 @@ cargo test --all-features
 # 运行项目 CI 检查
 ./.infra/bin/ci-check.sh
 
-# 检查代码覆盖率
-./.infra/bin/coverage.sh
+# 生成共享覆盖率报告并检查本 crate 的逐文件门槛
+./scripts/check-project-coverage.sh
 ```
 
 ## 许可证
