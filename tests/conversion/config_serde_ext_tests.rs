@@ -163,6 +163,35 @@ struct OpenSettings {
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+struct ServerPayload {
+    port: u16,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+struct FlattenedSettings {
+    #[serde(flatten)]
+    server: ServerPayload,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(untagged)]
+enum ServerChoice {
+    Server { port: u16 },
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+struct ClosedServer {
+    port: u16,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(untagged)]
+enum ClosedServerChoice {
+    Server(ClosedServer),
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
 struct StringPair {
     first: String,
     second: String,
@@ -514,6 +543,75 @@ fn test_deserialize_strict_supports_serde_alias_default_nested_map_and_flatten()
         .deserialize("open")
         .expect("flatten should explicitly consume extra fields");
     assert_eq!(open.extra.get("extra"), Some(&serde_json::json!(true)));
+}
+
+#[test]
+fn test_reject_only_reports_unknown_fields_observable_to_serde_ignored() {
+    let mut config = Config::new();
+    config.set("server.port", 8080_u16).unwrap();
+    config.set("server.typo", true).unwrap();
+
+    let error = config
+        .deserialize::<ServerPayload>("server")
+        .expect_err("an ordinary struct exposes the unknown field");
+    assert!(matches!(error, ConfigError::UnknownProperties { paths } if paths == ["server.typo"]));
+
+    let flattened: FlattenedSettings = config
+        .deserialize("server")
+        .expect("flatten buffering can hide an ignored field from serde_ignored");
+    assert_eq!(flattened.server.port, 8080);
+
+    let choice: ServerChoice = config
+        .deserialize("server")
+        .expect("untagged buffering can hide an ignored field from serde_ignored");
+    assert!(matches!(choice, ServerChoice::Server { port: 8080 }));
+}
+
+#[test]
+fn test_closed_struct_targets_reject_unknown_fields() {
+    let mut config = Config::new();
+    config.set("server.port", 8080_u16).unwrap();
+    config.set("server.typo", "SYNTHETIC_REVIEW_SECRET").unwrap();
+
+    for error in [
+        config.deserialize::<ClosedServer>("server").unwrap_err(),
+        config.deserialize::<ClosedServerChoice>("server").unwrap_err(),
+    ] {
+        assert!(matches!(&error, ConfigError::DeserializeError { .. }));
+        assert!(!error.to_string().contains("SYNTHETIC_REVIEW_SECRET"));
+    }
+}
+
+#[test]
+fn test_ignore_still_rejects_unadmitted_input() {
+    let mut config = Config::new();
+    config.set("server.port", 8080_u16).unwrap();
+    config.set("server.extra", "x".repeat(128)).unwrap();
+    config.set_default_read_policy(
+        ReadPolicy::builder()
+            .conversion_limits(
+                ConversionLimits::builder()
+                    .operation_limits(
+                        ConversionOperationLimits::builder()
+                            .max_structured_payload_bytes(10)
+                            .build(),
+                    )
+                    .build(),
+            )
+            .build(),
+    );
+
+    let error = config
+        .deserialize_with::<ServerSettings>(
+            "server",
+            ConfigDeserializeOptions {
+                interpolate: false,
+                unknown_fields: UnknownFieldPolicy::Ignore,
+            },
+        )
+        .unwrap_err();
+    assert!(!matches!(&error, ConfigError::UnknownProperties { .. }));
+    assert!(error.to_string().contains("StructuredPayloadBytes"));
 }
 
 #[test]

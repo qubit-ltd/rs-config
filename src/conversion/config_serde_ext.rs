@@ -20,6 +20,42 @@ use crate::UnknownFieldPolicy;
 /// Empty prefixes select the entire visible scope. All selected input is
 /// admitted before the target is visited, including ignored fields.
 ///
+/// `UnknownFieldPolicy::Reject` only rejects fields observable through Serde's
+/// `deserialize_ignored_any` path. Ordinary derived structs report those
+/// fields, while flatten structs, untagged enums, and custom `Deserialize`
+/// implementations that buffer fields can make discarded keys invisible to
+/// `serde_ignored`. Flatten maps may explicitly consume arbitrary keys.
+///
+/// Applications that require a closed schema can put
+/// `#[serde(deny_unknown_fields)]` on ordinary struct targets, and on each
+/// struct payload used by an untagged enum. For example:
+///
+/// ```rust
+/// use qubit_config::Config;
+/// #[derive(serde::Deserialize)]
+/// #[serde(deny_unknown_fields)]
+/// struct ClosedServer { port: u16 }
+///
+/// #[derive(serde::Deserialize)]
+/// #[serde(untagged)]
+/// enum ClosedChoice { Server(ClosedServer) }
+///
+/// let mut config = Config::new();
+/// config.set("server.port", 8080_u16)?;
+/// config.set("server.typo", true)?;
+/// assert!(config.deserialize::<ClosedServer>("server").is_err());
+/// assert!(config.deserialize::<ClosedChoice>("server").is_err());
+/// # Ok::<(), qubit_config::ConfigError>(())
+/// ```
+///
+/// Serde rejects unknown keys for these targets as a sanitized
+/// deserialization error, not necessarily as `UnknownProperties` with a path
+/// list. `deny_unknown_fields` cannot be combined with `flatten`; replace a
+/// flatten struct with a closed nested struct, or validate its keys against
+/// the application's schema before deserializing. `Ignore` changes only
+/// unknown-field reporting and does not bypass input admission, conversion,
+/// or resource limits.
+///
 /// # Examples
 ///
 /// ```rust
@@ -37,7 +73,16 @@ use crate::UnknownFieldPolicy;
 /// # Ok::<(), qubit_config::ConfigError>(())
 /// ```
 pub trait ConfigSerdeExt: ConfigReader {
-    /// Deserializes without interpolation and rejects unknown fields.
+    /// Deserializes without interpolation and rejects observable unknown
+    /// fields.
+    ///
+    /// Unknown-field rejection follows Serde's `deserialize_ignored_any`
+    /// callbacks and cannot see fields buffered by some flatten structs,
+    /// untagged enums, or custom `Deserialize` implementations. Use
+    /// `#[serde(deny_unknown_fields)]` for closed struct targets when the
+    /// application must reject those keys; that produces a sanitized Serde
+    /// deserialization error rather than a guaranteed `UnknownProperties`
+    /// error with sorted paths.
     ///
     /// # Parameters
     ///
@@ -53,6 +98,11 @@ pub trait ConfigSerdeExt: ConfigReader {
     }
 
     /// Deserializes with explicit interpolation and unknown-field behavior.
+    ///
+    /// `UnknownFieldPolicy::Reject` rejects fields observable through Serde's
+    /// ignored-field callback; it is not universal schema validation. The
+    /// `Ignore` choice still performs complete input admission and honors this
+    /// reader's conversion policies and resource limits.
     ///
     /// Conversion policy and resource limits come from this reader's
     /// ReadPolicy. Only actual String leaves interpolate; rich values keep
