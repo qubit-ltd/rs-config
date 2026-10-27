@@ -14,6 +14,7 @@ use qubit_config::source::ConfigSource;
 use qubit_config::source::EnvFileConfigSource;
 
 const MAX_INPUT_BYTES: usize = 64 * 1024;
+const COMMENT_BYPASS_SENTINEL: &str = "RS_CONFIG_ENV_FILE_FUZZ_SENTINEL_7D3C91";
 
 fuzz_target!(|data: &[u8]| {
     if data.len() > MAX_INPUT_BYTES {
@@ -24,4 +25,15 @@ fuzz_target!(|data: &[u8]| {
     };
     let source = EnvFileConfigSource::from_content(content);
     let _ = source.load();
+
+    if std::env::var_os(COMMENT_BYPASS_SENTINEL).is_none() {
+        let guarded = format!("# don't expand ${{{COMMENT_BYPASS_SENTINEL}}}\nVALUE=${{{COMMENT_BYPASS_SENTINEL}}}\n");
+        let result = EnvFileConfigSource::from_content(guarded)
+            .load()
+            .expect("fixed dotenv comment sample should load");
+        assert_eq!(
+            result.get::<String>("VALUE").unwrap(),
+            format!("${{{COMMENT_BYPASS_SENTINEL}}}")
+        );
+    }
 });

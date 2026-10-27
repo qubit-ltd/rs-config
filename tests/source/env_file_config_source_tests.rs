@@ -10,6 +10,7 @@
 // # `EnvFileConfigSource` tests
 
 use std::path::PathBuf;
+use std::process::Command;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
 use std::sync::OnceLock;
@@ -22,6 +23,66 @@ use qubit_config::source::EnvFileConfigSource;
 use qubit_config::source::EnvFileConfigSourceBuilder;
 use qubit_config::source::SourceLimitKind;
 use qubit_config::source::SourceLimits;
+
+#[test]
+fn test_env_file_comment_does_not_change_substitution_state() {
+    const CHILD_MODE: &str = "RS_CONFIG_ENV_FILE_COMMENT_TEST_CHILD";
+    const SENTINEL: &str = "RS_CONFIG_ENV_FILE_COMMENT_TEST_SENTINEL";
+
+    if std::env::var_os(CHILD_MODE).is_some() {
+        let placeholder = format!("${{{SENTINEL}}}");
+        let short_placeholder = format!("${SENTINEL}");
+        let cases = [
+            (
+                format!("# don't expand {placeholder}\nVALUE={placeholder}\n"),
+                placeholder.clone(),
+            ),
+            (
+                format!("  # \" don't expand {placeholder}\r\nVALUE={placeholder}\r\n"),
+                placeholder.clone(),
+            ),
+            (
+                format!("VALUE={placeholder} # don't \" expand {placeholder}\n"),
+                placeholder.clone(),
+            ),
+            (format!("VALUE=abc#def{placeholder}\n"), format!("abc#def{placeholder}")),
+            (format!("VALUE={short_placeholder}\n"), short_placeholder.clone()),
+            (format!("VALUE=\"left#{placeholder}\"\n"), format!("left#{placeholder}")),
+            (format!("VALUE='{placeholder}'\n"), placeholder.clone()),
+            (
+                format!("VALUE=\"first line\n{placeholder}\"\n"),
+                format!("first line\n{placeholder}"),
+            ),
+            (format!("VALUE=\\{placeholder}\n"), placeholder.clone()),
+            (format!("export VALUE={placeholder}\n"), placeholder.clone()),
+            (format!("{SENTINEL}=source-value\nVALUE={placeholder}\n"), placeholder),
+        ];
+
+        for (input, expected) in cases {
+            let config = EnvFileConfigSource::from_content(input.clone())
+                .load()
+                .expect("dotenv sample should load");
+            assert_eq!(
+                config.get::<String>("VALUE").unwrap(),
+                expected,
+                "unexpected value for input {input:?}"
+            );
+        }
+        return;
+    }
+
+    for environment_value in ["first-process-value", "second-process-value"] {
+        let status = Command::new(std::env::current_exe().expect("test executable path should be available"))
+            .arg("--exact")
+            .arg("test_env_file_comment_does_not_change_substitution_state")
+            .env(CHILD_MODE, "1")
+            .env(SENTINEL, environment_value)
+            .status()
+            .expect("child test process should start");
+
+        assert!(status.success(), "child process failed with {environment_value}");
+    }
+}
 
 fn env_test_lock() -> MutexGuard<'static, ()> {
     static LOCK: OnceLock<Mutex<()>> = OnceLock::new();

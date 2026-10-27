@@ -96,11 +96,46 @@ fn escape_dotenv_substitutions(content: &str) -> String {
     let mut strong_quote = false;
     let mut weak_quote = false;
     let mut escaped = false;
+    let mut comment = false;
+    let mut in_value = false;
+    let mut line_has_non_whitespace = false;
+    let mut previous_was_whitespace = false;
 
     for character in content.chars() {
+        if character == '\n' {
+            escaped_content.push(character);
+            comment = false;
+            in_value = strong_quote || weak_quote;
+            line_has_non_whitespace = false;
+            previous_was_whitespace = false;
+            escaped = false;
+            continue;
+        }
+
+        if comment {
+            escaped_content.push(character);
+            continue;
+        }
+
+        if !in_value {
+            escaped_content.push(character);
+            if character == '=' {
+                in_value = true;
+            } else if character == '#' && !line_has_non_whitespace {
+                comment = true;
+            }
+            if !character.is_whitespace() {
+                line_has_non_whitespace = true;
+            }
+            previous_was_whitespace = character.is_whitespace();
+            continue;
+        }
+
         if escaped {
             escaped_content.push(character);
             escaped = false;
+            line_has_non_whitespace |= !character.is_whitespace();
+            previous_was_whitespace = character.is_whitespace();
             continue;
         }
 
@@ -109,6 +144,8 @@ fn escape_dotenv_substitutions(content: &str) -> String {
             if character == '\'' {
                 strong_quote = false;
             }
+            line_has_non_whitespace |= !character.is_whitespace();
+            previous_was_whitespace = character.is_whitespace();
             continue;
         }
 
@@ -125,6 +162,8 @@ fn escape_dotenv_substitutions(content: &str) -> String {
                 '$' => escaped_content.push_str("\\$"),
                 _ => escaped_content.push(character),
             }
+            line_has_non_whitespace |= !character.is_whitespace();
+            previous_was_whitespace = character.is_whitespace();
             continue;
         }
 
@@ -141,9 +180,15 @@ fn escape_dotenv_substitutions(content: &str) -> String {
                 escaped = true;
                 escaped_content.push(character);
             }
+            '#' if previous_was_whitespace => {
+                comment = true;
+                escaped_content.push(character);
+            }
             '$' => escaped_content.push_str("\\$"),
             _ => escaped_content.push(character),
         }
+        line_has_non_whitespace |= !character.is_whitespace();
+        previous_was_whitespace = character.is_whitespace();
     }
 
     escaped_content
