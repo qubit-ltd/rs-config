@@ -47,7 +47,7 @@ num-bigint = ["dep:num-bigint", "qubit-value/big-integer"]
 url = ["dep:url", "qubit-value/url"]
 env-file = ["dep:dotenvy"]
 toml = ["dep:toml"]
-yaml = ["dep:serde_norway"]
+yaml = ["dep:serde_norway", "dep:yaml-rust2"]
 rich-types = ["bigdecimal", "chrono", "num-bigint", "url"]
 formats = ["env-file", "toml", "yaml"]
 full = ["rich-types", "formats"]
@@ -68,6 +68,7 @@ num-bigint = { version = "^0.4", features = ["serde"], optional = true }
 bigdecimal = { version = "^0.4", features = ["serde"], optional = true }
 toml = { version = "^0.9", features = ["parse"], optional = true }
 serde_norway = { version = "^0.9", optional = true }
+yaml-rust2 = { version = "0.13", default-features = false, optional = true }
 dotenvy = { version = "^0.15", optional = true }
 
 qubit-datatype = { path = "../rs-datatype", version = "0.15", default-features = false, features = ["converter"] }

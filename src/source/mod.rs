@@ -52,6 +52,8 @@ mod config_source;
 mod env_config_source;
 #[cfg(feature = "env-file")]
 mod env_file_config_source;
+#[cfg(feature = "yaml")]
+mod internal;
 mod properties_config_source;
 mod source_input;
 mod source_limit_kind;

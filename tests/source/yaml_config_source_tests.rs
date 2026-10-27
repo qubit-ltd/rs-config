@@ -184,6 +184,78 @@ mod test_yaml_config_source {
     }
 
     #[test]
+    fn test_load_yaml_rejects_aliases_after_scalar_text_and_with_dash_names() {
+        for input in [
+            "note: don't expand\nfirst: &a hello\nsecond: *a\n",
+            "first: &-a hello\nsecond: *-a\n",
+        ] {
+            let error = YamlConfigSource::from_content(input)
+                .load()
+                .expect_err("YAML anchors and aliases should be rejected");
+
+            assert!(matches!(error, ConfigError::SourceParseError { .. }));
+        }
+    }
+
+    #[test]
+    fn test_load_yaml_scans_tokens_without_rejecting_scalar_text() {
+        let input = concat!(
+            "note: don't expand # ordinary comment\n",
+            "quoted: \"a # *marker &anchor\"\n",
+            "single: 'a # *marker &anchor'\n",
+            "flow: {one: two, nested: {three: four}}\n",
+            "crlf: value\r\n",
+            "literal: |2-\n",
+            "    keep *marker &anchor\n",
+            "folded: >+\n",
+            "  keep *marker &anchor\n",
+        );
+        let config = YamlConfigSource::from_content(input)
+            .load()
+            .expect("scalar text and YAML containers should not be rejected");
+
+        assert_eq!(config.get::<String>("note").unwrap(), "don't expand");
+        assert_eq!(config.get::<String>("quoted").unwrap(), "a # *marker &anchor");
+        assert_eq!(config.get::<String>("single").unwrap(), "a # *marker &anchor");
+        assert_eq!(config.get::<String>("flow.nested.three").unwrap(), "four");
+        assert_eq!(config.get::<String>("crlf").unwrap(), "value");
+        assert!(config.get::<String>("literal").unwrap().contains("*marker &anchor"));
+        assert!(config.get::<String>("folded").unwrap().contains("*marker &anchor"));
+    }
+
+    #[test]
+    fn test_load_yaml_rejects_unicode_anchor_name_without_exposing_name() {
+        let error = YamlConfigSource::from_content("first: &étoile hello\nsecond: *étoile\n")
+            .load()
+            .expect_err("YAML anchors should be rejected regardless of their names");
+        let display = error.to_string();
+        let debug = format!("{error:?}");
+
+        assert!(matches!(error, ConfigError::SourceParseError { .. }));
+        assert!(display.contains("anchors and aliases"));
+        assert!(!display.contains("étoile"));
+        assert!(!debug.contains("étoile"));
+    }
+
+    #[test]
+    fn test_load_yaml_scanner_error_is_redacted_and_merge_is_transactional() {
+        const SECRET: &str = "RS_CONFIG_YAML_SCAN_SECRET";
+        let source = YamlConfigSource::from_content(format!("password: \"{SECRET}\n"));
+        let mut config = Config::new();
+        config.set("kept", "original").unwrap();
+
+        let error = config
+            .merge_properties_from_source(&source)
+            .expect_err("malformed YAML should fail during scanning");
+
+        assert!(matches!(error, ConfigError::SourceParseError { .. }));
+        assert!(!error.to_string().contains(SECRET));
+        assert!(!format!("{error:?}").contains(SECRET));
+        assert_eq!(config.get::<String>("kept").unwrap(), "original");
+        assert!(!config.contains("password").unwrap());
+    }
+
+    #[test]
     fn test_load_yaml_allows_anchor_indicators_in_literal_block_scalars() {
         let source = YamlConfigSource::from_content("script: |\n  echo *task\n  echo &name\n");
         let config = source.load().expect("literal block scalar content should be preserved");
