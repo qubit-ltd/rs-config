@@ -329,12 +329,10 @@ fn ensure_toml_property(
 
 /// Flattens a TOML array into multi-value config entries.
 ///
-/// Homogeneous scalar arrays are stored with their native types. Empty arrays
+/// Homogeneous scalar arrays preserve their native scalar types. Empty arrays
 /// are stored as explicit empty string lists because TOML carries no element
-/// type for them. Heterogeneous scalar arrays are rejected with source
-/// location context rather than being coerced to strings.
-/// Nested arrays and tables are rejected because flattening them would lose
-/// structure information.
+/// type for them. Mixed or nested arrays are rejected with source location
+/// context rather than being coerced to strings or flattened.
 ///
 /// # Parameters
 ///

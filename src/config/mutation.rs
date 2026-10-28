@@ -30,7 +30,8 @@ impl Config {
     ///
     /// # Errors
     ///
-    /// Returns [`ConfigError::PropertyIsFinal`] when the property is final.
+    /// Returns [`ConfigError::InvalidKey`] when `name` is invalid, or
+    /// [`ConfigError::PropertyIsFinal`] when the property is final.
     pub fn set<S>(&mut self, name: impl AsRef<str>, values: S) -> ConfigResult<()>
     where
         S: Into<ValueContainer>,
@@ -67,8 +68,9 @@ impl Config {
     ///
     /// # Errors
     ///
-    /// Returns [`ConfigError::PropertyIsFinal`] for a final property, or a
-    /// value error when appended values are incompatible with existing ones.
+    /// Returns [`ConfigError::InvalidKey`] when `name` is invalid,
+    /// [`ConfigError::PropertyIsFinal`] for a final property, or a value error
+    /// when appended values are incompatible with existing ones.
     ///
     /// # Examples
     ///
@@ -149,15 +151,28 @@ impl Config {
         self.merge_properties(layer)
     }
 
-    /// Merges only the properties from a source-produced configuration.
+    /// Merges only the properties from `source_config`.
+    ///
+    /// The source configuration's description and default read policy are
+    /// ignored; the target keeps its metadata and policy. Existing non-final
+    /// properties are overwritten. Every incoming key and final-property
+    /// conflict is checked before mutation, so a failed merge does not
+    /// partially modify the target.
     ///
     /// # Parameters
     ///
-    /// * `layer` - Config layer produced by a source load.
+    /// * `source_config` - Configuration whose properties are merged.
     ///
     /// # Returns
     ///
     /// `Ok(())` when all properties are merged successfully.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::InvalidKey`] for an invalid incoming key,
+    /// [`ConfigError::MergeError`] for a property/key mismatch, or
+    /// [`ConfigError::PropertyIsFinal`] when an incoming property would replace
+    /// a final target property. The target is unchanged on error.
     #[inline]
     pub fn merge_properties(&mut self, source_config: Config) -> ConfigResult<()> {
         // Validate every incoming property before mutating `self`. This keeps
@@ -195,6 +210,8 @@ impl Config {
     ///
     /// # Errors
     ///
+    /// - [`ConfigError::InvalidKey`] when `name` is not a valid configuration
+    ///   key.
     /// - [`ConfigError::MergeError`] when `name` and `property.name()` differ.
     /// - [`ConfigError::PropertyIsFinal`] when trying to override a final
     ///   property.
@@ -212,10 +229,10 @@ impl Config {
         Ok(())
     }
 
-    /// Sets a key to a typed null/empty value.
+    /// Sets a key to a typed unset scalar value.
     ///
-    /// This is the preferred public API for representing null/empty values
-    /// without exposing raw mutable access to the internal map.
+    /// Use [`Self::set`] with an empty collection to store a present empty
+    /// collection.
     ///
     /// # Parameters
     ///
@@ -228,6 +245,8 @@ impl Config {
     ///
     /// # Errors
     ///
+    /// - [`ConfigError::InvalidKey`] when `name` is not a valid configuration
+    ///   key.
     /// - [`ConfigError::PropertyIsFinal`] when trying to override a final
     ///   property.
     #[inline]

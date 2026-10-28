@@ -35,12 +35,20 @@ use crate::ConfigResult;
 use crate::ReadPolicy;
 
 pub(super) struct PreparedInputBudget<'a> {
+    /// Read policy supplying conversion and operation-level limits.
     options: &'a ReadPolicy,
+    /// Cumulative JSON structure budget for the prepared logical input.
     structure: JsonValueBudget<ConversionResource, u64>,
+    /// Cumulative UTF-8 input-byte budget, charged independently of structure.
     input: ResourceBudget<ConversionResource, u64>,
 }
 
 impl<'a> PreparedInputBudget<'a> {
+    /// Creates independent input and structure budgets from one read policy.
+    ///
+    /// These budgets admit the complete prepared input before target
+    /// conversion; they are separate from the leaf `ConversionSession` used
+    /// while parsing individual values.
     pub(super) fn new(options: &'a ReadPolicy) -> Self {
         let limits = options.conversion_limits();
         let value_limits = (*limits.structured().value())
@@ -63,6 +71,10 @@ impl<'a> PreparedInputBudget<'a> {
         }
     }
 
+    /// Admits one JSON shape measurement as a structure-budget transaction.
+    ///
+    /// A failed measurement does not commit its structural charge. Previously
+    /// committed input-byte charges remain consumed.
     fn admit(&mut self, measurement: JsonMeasurement, visit: &Visit<'_>) -> ConfigResult<()> {
         let mut transaction = self.structure.transaction();
         transaction
@@ -71,12 +83,15 @@ impl<'a> PreparedInputBudget<'a> {
             .map_err(|error| budget_error(visit, error))
     }
 
+    /// Charges the UTF-8 byte length of source text to the independent input
+    /// budget.
     fn input(&mut self, text: &str, visit: &Visit<'_>) -> ConfigResult<()> {
         self.input
             .try_consume_usize(text.len())
             .map_err(|error| budget_error(visit, error))
     }
 
+    /// Charges text bytes and admits the text's JSON string shape.
     fn text(&mut self, text: &str, visit: &Visit<'_>) -> ConfigResult<()> {
         self.input(text, visit)?;
         self.admit(
@@ -149,6 +164,8 @@ impl<'a> PreparedInputBudget<'a> {
         )
     }
 
+    /// Converts a stored scalar shape into its corresponding JSON budget
+    /// measurement.
     fn scalar(&mut self, value: ValueRef<'_>, visit: &Visit<'_>) -> ConfigResult<()> {
         match value {
             ValueRef::Unset(_) => self.admit(JsonMeasurement::Null { depth: visit.depth }, visit),
@@ -229,6 +246,11 @@ impl<'a> PreparedInputBudget<'a> {
 
     /// Admits one complete logical visit, optionally counting owned overlay
     /// text.
+    /// Admits the input, key, and value represented by one traversal visit.
+    ///
+    /// The optional text override is owned overlay content and is charged as
+    /// input text. This admission is independent from conversion work later
+    /// performed by a target parser.
     pub(super) fn admit_visit(&mut self, visit: &Visit<'_>, text_override: Option<&str>) -> ConfigResult<()> {
         if let Some(key) = visit.key {
             self.input(key, visit)?;
@@ -287,6 +309,7 @@ impl<'a> PreparedInputBudget<'a> {
     }
 }
 
+/// Determines the source value type used to describe a projection error.
 fn data_type(visit: &Visit<'_>) -> DataType {
     match visit.value {
         ReadView::Scalar(value) => DataConverter::from(value).data_type(),
@@ -298,6 +321,7 @@ fn data_type(visit: &Visit<'_>) -> DataType {
     }
 }
 
+/// Adds the visited key and source index to a measured budget error.
 fn budget_error(visit: &Visit<'_>, source: MeasuredBudgetError<ConversionResource, u64>) -> ConfigError {
     ConfigError::from((
         visit.path.as_ref(),
@@ -309,6 +333,7 @@ fn budget_error(visit: &Visit<'_>, source: MeasuredBudgetError<ConversionResourc
     ))
 }
 
+/// Builds a value-conversion error with the visited key and source index.
 fn conversion_error(visit: &Visit<'_>, reason: InvalidValueReason) -> ConfigError {
     source_error(
         visit,
@@ -316,6 +341,7 @@ fn conversion_error(visit: &Visit<'_>, reason: InvalidValueReason) -> ConfigErro
     )
 }
 
+/// Wraps a conversion failure with its key and optional collection index.
 fn source_error(visit: &Visit<'_>, source: DataConversionError) -> ConfigError {
     match visit.source_index() {
         Some(source_index) => ConfigError::from((

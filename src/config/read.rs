@@ -277,8 +277,10 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// `Some` for the first configured value or `None` when every candidate is
-    /// absent or effectively missing.
+    /// `Some` for the first present value or `None` when every candidate is
+    /// absent or effectively missing under the active read policy. A concrete
+    /// empty collection is present; conversion and collection-item errors stop
+    /// the search. Blank strings are missing only when the policy says so.
     ///
     /// # Errors
     ///
@@ -342,7 +344,8 @@ impl Config {
     }
 
     /// Gets a list of configuration values, converting each stored element to
-    /// `T`.
+    /// `T`. An unset or policy-missing property returns an error, while a
+    /// concrete empty collection returns an empty vector.
     ///
     /// Gets all values of a configuration item (multi-value configuration).
     ///
@@ -395,7 +398,22 @@ impl Config {
     /// # Returns
     ///
     /// A vector of exact typed values on success, or a [`crate::ConfigError`]
-    /// on failure.
+    /// when the property is absent, unset, or has a different stored type. A
+    /// concrete empty collection returns an empty vector.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use qubit_config::Config;
+    /// use qubit_datatype::DataType;
+    ///
+    /// let mut config = Config::new();
+    /// config.set_null("unset", DataType::String)?;
+    /// config.set("empty", Vec::<String>::new())?;
+    /// assert!(config.get_list_strict::<String>("unset").is_err());
+    /// assert_eq!(config.get_list_strict::<String>("empty")?, Vec::<String>::new());
+    /// # Ok::<(), qubit_config::ConfigError>(())
+    /// ```
     pub fn get_list_strict<T>(&self, name: impl AsRef<str>) -> ConfigResult<Vec<T>>
     where
         T: StrictValueRead,

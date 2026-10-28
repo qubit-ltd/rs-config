@@ -52,6 +52,12 @@ TOML and YAML depth limits cover both AST nesting and the final dotted property
 path after flattening; parser allocation and recursion remain outside this limit.
 TOML and YAML reject empty or otherwise invalid mapping member keys before
 recursing into their values; valid empty tables and mappings remain accepted.
+Properties physical lines use LF, CRLF, or CR terminators. Only ASCII space,
+tab, and form feed are formatting whitespace; Unicode whitespace in keys and
+values is preserved. Comment-only and otherwise value-free single YAML
+documents load as empty layers, while explicit root null values remain invalid.
+Built-in text-source file reads retry `Interrupted` without charging bytes;
+other I/O failures retain their source path and error kind.
 Environment normalization conflicts are checked in sorted order, selecting the
 group with the smallest normalized key and then its two smallest original names.
 That diagnostic is deterministic for valid inputs that fit the source budget.

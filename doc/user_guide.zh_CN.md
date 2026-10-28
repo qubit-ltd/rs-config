@@ -247,6 +247,9 @@ UTF-16 code unit 以及合法的 surrogate pair。像 `\u12G4` 这样错误或
 不完整的 Unicode 转义会原样保留；未知的非 Unicode 转义会按
 Java properties 行为去掉前导反斜杠。
 
+properties 物理行支持 LF、CRLF 和 CR 作为行结束符。格式空白仅包括 ASCII 空格、TAB 和
+换页符；键和值中的其他 Unicode 空白会原样保留。若值中需要真正的回车符，可写成 `\r`。
+
 `EnvFileConfigSource` 会把 `$NAME` 和 `${NAME}` 占位符作为字面值保留，注释后的值也不会
 触发进程环境变量展开。加载 `.env` 文件不会隐式读取进程环境变量；应通过显式的
 `*_interpolated` 读取策略在后续读取时解析。YAML anchor 和 alias 会在 YAML backend
@@ -259,6 +262,7 @@ YAML scanner 输入也会直接失败，不会绕过 guard。所有内置配置�
 提供了完整的内存配置源示例。TOML 和 YAML 的节点、配置项数量与嵌套深度只能在解析器已经物化
 AST 后的展平阶段记账，因此它们约束可接受的配置结果，不限制解析器中间阶段的内存
 分配或递归深度。
+仅含注释或其他无值 token 的单个 YAML 文档会加载为空配置层；显式根 `null` 和 `~` 仍不是有效配置根。
 TOML 和 YAML 也会在递归处理值之前拒绝空的或无效的点分 mapping 成员键；合法的空 table
 和 mapping 仍然可用。环境变量名称规范化后发生冲突时，只要输入有效且符合配置源预算，
 诊断会稳定选择规范化键最小的冲突组及其中原始名称最小的两项。

@@ -259,6 +259,11 @@ code units, and valid surrogate pairs. Malformed or incomplete Unicode escapes
 such as `\u12G4` are preserved verbatim; unknown non-Unicode escapes drop the
 leading backslash, matching Java properties behavior.
 
+Physical properties lines may end with LF, CRLF, or CR. Formatting whitespace
+is limited to ASCII space, tab, and form feed; other Unicode whitespace in keys
+and values is preserved. A literal carriage return in a value can be written
+with the `\r` escape.
+
 `EnvFileConfigSource` preserves `$NAME` and `${NAME}` placeholders as literal
 values, including values following comments; it never reads process-environment
 values implicitly. Resolve placeholders later through an explicit
@@ -272,6 +277,8 @@ shared aggregate policy before committing either budget. For TOML and YAML,
 node, property-count, and nesting-depth accounting begins only while flattening
 the parser's already materialized AST. These dimensions constrain accepted
 configuration output but do not bound parser allocation or recursion.
+Comment-only and otherwise value-free single YAML documents load as empty
+layers. Explicit root `null` and `~` remain invalid configuration roots.
 TOML and YAML also reject empty or invalid dotted mapping member keys before
 recursing; valid empty tables and mappings remain supported. When environment
 normalization produces conflicts, diagnostics select the group with the

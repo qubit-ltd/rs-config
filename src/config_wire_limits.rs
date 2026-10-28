@@ -20,6 +20,26 @@ use serde_json::error::Category;
 use thiserror::Error;
 
 /// Resource categories specific to configuration wire envelopes.
+///
+/// # Examples
+///
+/// ```rust
+/// use qubit_config::{Config, ConfigWireDecodeError, ConfigWireLimitKind, ConfigWireLimits};
+///
+/// let mut config = Config::new();
+/// config.set("port", 8080_u16)?;
+/// let bytes = config.encode_json_vec()?;
+/// let limits = ConfigWireLimits::builder().max_properties(0).build();
+/// let result = Config::decode_json_slice_with_limits(&bytes, limits);
+/// assert!(matches!(
+///     result,
+///     Err(ConfigWireDecodeError::LimitExceeded {
+///         kind: ConfigWireLimitKind::Properties,
+///         ..
+///     })
+/// ));
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ConfigWireLimitKind {
     /// Number of persisted properties.
@@ -30,6 +50,32 @@ pub enum ConfigWireLimitKind {
 
 /// Limits applied while decoding or encoding a complete configuration wire
 /// document.
+///
+/// [`Default`] builds the standard bounded wire profile. [`Self::from_json`]
+/// retains the caller-provided JSON decoding and encoding profiles and applies
+/// the default configuration property limits. Use
+/// [`Config::decode_json_slice`](crate::Config::decode_json_slice) for
+/// raw-input admission: ordinary Serde `Deserialize` does not expose the
+/// original input bytes needed for that check.
+///
+/// # Examples
+///
+/// ```rust
+/// use qubit_config::{Config, ConfigWireDecodeError, ConfigWireLimitKind, ConfigWireLimits};
+///
+/// let mut config = Config::new();
+/// config.set("port", 8080_u16)?;
+/// let bytes = config.encode_json_vec()?;
+/// let limits = ConfigWireLimits::builder().max_properties(0).build();
+/// match Config::decode_json_slice_with_limits(&bytes, limits) {
+///     Err(ConfigWireDecodeError::LimitExceeded {
+///         kind: ConfigWireLimitKind::Properties,
+///         ..
+///     }) => {}
+///     other => panic!("expected property limit, got {other:?}"),
+/// }
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 #[must_use = "use the returned value"]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ConfigWireLimits {
@@ -121,6 +167,15 @@ impl ConfigWireLimits {
 }
 
 /// Builder for [`ConfigWireLimits`].
+///
+/// # Examples
+///
+/// ```rust
+/// use qubit_config::ConfigWireLimits;
+///
+/// let limits = ConfigWireLimits::builder().max_properties(10).build();
+/// assert_eq!(limits.max_properties(), 10);
+/// ```
 #[must_use = "use the returned value"]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ConfigWireLimitsBuilder {
@@ -311,6 +366,25 @@ mod tests {
 }
 
 /// Error returned by bounded configuration wire decoding.
+///
+/// # Examples
+///
+/// ```rust
+/// use qubit_config::{Config, ConfigWireDecodeError, ConfigWireLimitKind, ConfigWireLimits};
+///
+/// let mut config = Config::new();
+/// config.set("port", 8080_u16)?;
+/// let bytes = config.encode_json_vec()?;
+/// let limits = ConfigWireLimits::builder().max_properties(0).build();
+/// match Config::decode_json_slice_with_limits(&bytes, limits) {
+///     Err(ConfigWireDecodeError::LimitExceeded {
+///         kind: ConfigWireLimitKind::Properties,
+///         ..
+///     }) => {}
+///     other => panic!("expected property limit, got {other:?}"),
+/// }
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum ConfigWireDecodeError {

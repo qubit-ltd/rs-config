@@ -290,8 +290,10 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// # Returns
     ///
-    /// `Ok(Some(v))`, `Ok(None)` when absent or effectively missing, or `Err`
-    /// on conversion failure. Concrete empty collections are present values.
+    /// `Ok(Some(v))`, `Ok(None)` when absent or effectively missing under the
+    /// active read policy, or `Err` on conversion failure. Concrete empty
+    /// collections are present values; blank strings are missing only when
+    /// the policy says so.
     fn get_optional<T>(&self, name: impl AsRef<str>) -> ConfigResult<Option<T>>
     where
         T: FromConfig,
@@ -395,7 +397,12 @@ pub trait ConfigReader: internal::Sealed {
         ""
     }
 
-    /// Reads a value from the first present and non-empty key in `names`.
+    /// Reads a value from the first present key in `names`.
+    ///
+    /// Absent, unset, and policy-missing candidates are skipped. Concrete
+    /// empty collections remain present, while conversion and collection-item
+    /// errors stop the search. Blank strings are missing only when the active
+    /// read policy says so.
     ///
     /// # Parameters
     ///
@@ -403,7 +410,7 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// # Returns
     ///
-    /// Parsed value from the first configured key. Conversion errors stop the
+    /// Parsed value from the first present value. Conversion errors stop the
     /// search and are returned directly.
     fn get_any<T>(&self, names: impl ConfigNames) -> ConfigResult<T>
     where
@@ -443,7 +450,12 @@ pub trait ConfigReader: internal::Sealed {
         })
     }
 
-    /// Reads an optional value from the first present and non-empty key.
+    /// Reads an optional value from the first present key.
+    ///
+    /// Absent, unset, and policy-missing candidates are skipped. Concrete
+    /// empty collections are present; conversion and collection-item errors
+    /// stop the search. Blank strings are missing only when the active read
+    /// policy says so.
     ///
     /// # Parameters
     ///
@@ -451,7 +463,8 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// # Returns
     ///
-    /// `Ok(None)` only when every key is absent or effectively missing.
+    /// `Ok(None)` only when every key is absent, unset, or effectively missing
+    /// under the active read policy.
     fn get_optional_any<T>(&self, names: impl ConfigNames) -> ConfigResult<Option<T>>
     where
         T: FromConfig,
@@ -471,8 +484,9 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// # Returns
     ///
-    /// `Ok(Some(value))` for the first present, non-empty key or `Ok(None)`
-    /// when every candidate is absent or effectively missing.
+    /// `Ok(Some(value))` for the first present key or `Ok(None)` when every
+    /// candidate is absent, unset, or effectively missing under the active
+    /// read policy. Empty collections remain present.
     ///
     /// # Errors
     ///
@@ -486,7 +500,8 @@ pub trait ConfigReader: internal::Sealed {
     }
 
     /// Reads a value from any key, using `default` only when every key is
-    /// absent or effectively missing.
+    /// absent, unset, or effectively missing under the active read policy.
+    /// Empty collections remain present, and conversion errors are not hidden.
     ///
     /// # Parameters
     ///
@@ -507,7 +522,9 @@ pub trait ConfigReader: internal::Sealed {
     }
 
     /// Reads an interpolated value from any key, using `default` only when all
-    /// candidates are absent or effectively missing.
+    /// candidates are absent, unset, or effectively missing under the active
+    /// read policy. Empty collections remain present, and errors are not
+    /// hidden.
     ///
     /// # Type Parameters
     ///

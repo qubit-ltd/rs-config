@@ -232,6 +232,44 @@ impl<'a> SourceLoadSession<'a> {
 /// ancestors before being committed. Earlier accepted charges are not rolled
 /// back if a later operation fails, so this is not an all-or-nothing budget
 /// transaction for the complete source load.
+///
+/// # Examples
+///
+/// A source receives this context from the executor. Charge its input before
+/// writing properties; `set` already charges one node and property assignment,
+/// so do not call `consume_nodes` again for that property.
+///
+/// ```rust
+/// use qubit_config::ConfigResult;
+/// use qubit_config::source::ConfigSource;
+/// use qubit_config::source::SourceLimits;
+/// use qubit_config::source::SourceLoadContext;
+///
+/// struct MemorySource;
+///
+/// impl ConfigSource for MemorySource {
+///     fn source_id(&self) -> String {
+///         "example:<memory>".to_owned()
+///     }
+///
+///     fn limits(&self) -> SourceLimits {
+///         SourceLimits::default()
+///     }
+///
+///     fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
+///         context.consume_input_bytes("port=8080".len())?;
+///         context.set("server.port", 8080_u16)
+///     }
+/// }
+///
+/// let config = MemorySource.load()?;
+/// assert_eq!(config.get::<u16>("server.port")?, 8080);
+/// # Ok::<(), qubit_config::ConfigError>(())
+/// ```
+///
+/// Input, node, property, source-count, and nesting-depth limit failures are
+/// reported as [`crate::ConfigError`]. A failed operation does not undo charges
+/// accepted by earlier operations.
 pub struct SourceLoadContext<'a> {
     session: SourceLoadSession<'a>,
     layer: Config,

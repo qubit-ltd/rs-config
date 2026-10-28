@@ -11,6 +11,35 @@ use crate::conversion::internal::PreparedScalar;
 use crate::options::ReadPolicy;
 
 /// Context passed to [`crate::conversion::FromConfig`] implementations.
+///
+/// The reader creates this context for each parse and supplies the key and
+/// policy active for that read. Custom converters can inspect the key and use
+/// the same conversion context when delegating to another converter.
+///
+/// # Examples
+///
+/// ```rust
+/// use qubit_config::Config;
+/// use qubit_config::ConfigResult;
+/// use qubit_config::Property;
+/// use qubit_config::conversion::ConfigParseContext;
+/// use qubit_config::conversion::FromConfig;
+///
+/// #[derive(Debug, PartialEq)]
+/// struct Port(u16);
+///
+/// impl FromConfig for Port {
+///     fn from_config(property: &Property, context: &ConfigParseContext<'_>) -> ConfigResult<Self> {
+///         assert_eq!(context.key(), "server.port");
+///         u16::from_config(property, context).map(Self)
+///     }
+/// }
+///
+/// let mut config = Config::new();
+/// config.set("server.port", "8080")?;
+/// assert_eq!(config.get::<Port>("server.port")?, Port(8080));
+/// # Ok::<(), qubit_config::ConfigError>(())
+/// ```
 pub struct ConfigParseContext<'a> {
     /// The root-relative configuration key.
     key: &'a str,

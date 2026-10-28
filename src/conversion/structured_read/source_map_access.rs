@@ -21,17 +21,33 @@ use super::node::SourceSegment;
 use super::traversal::ReadView;
 use crate::config_deserialize_error::ConfigDeserializeError;
 
+/// Serde map access over prepared configuration entries without materializing
+/// an intermediate map.
+///
+/// Serde requires each key to be followed by its value before another key is
+/// requested. The pending entry enforces that ordering while all values share
+/// one conversion session.
 pub(super) struct SourceMapAccess<'tree, 'policy, 'session> {
+    /// Prepared read view used to resolve source values.
     context: ReadContext<'tree>,
+    /// Borrowed ordered map entries exposed to Serde.
     entries: MapEntries<'tree>,
+    /// Source location of the containing map, when available.
     location: Option<SourceLocation>,
+    /// Current configuration path used to attach deserialization errors.
     path: String,
+    /// Original collection item index, distinct from any map key/path location.
     original_index: Option<usize>,
+    /// Shared leaf conversion session for all values in this map.
     session: &'session mut ConversionSession<'policy>,
+    /// Key/value pair returned by `next_key_seed` and consumed by
+    /// `next_value_seed`.
     pending: Option<(&'tree str, ReadView<'tree>, Option<SourceLocation>)>,
 }
 
 impl<'tree, 'policy, 'session> SourceMapAccess<'tree, 'policy, 'session> {
+    /// Creates map access with the source, path, index, and shared session
+    /// needed to deserialize each key/value entry.
     pub(super) fn new(
         context: ReadContext<'tree>,
         entries: MapEntries<'tree>,
