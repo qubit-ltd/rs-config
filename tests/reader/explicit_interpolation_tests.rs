@@ -89,11 +89,7 @@ fn test_get_interpolated_resolves_string_and_numeric_values() {
 #[test]
 fn test_interpolation_expansions_accumulate_across_list_elements() {
     let mut config = Config::builder()
-        .default_read_policy(
-            ReadPolicy::builder()
-                .max_interpolation_expansions(1)
-                .build(),
-        )
+        .default_read_policy(ReadPolicy::builder().max_interpolation_expansions(1).build())
         .build();
     config.set("x", "ok").unwrap();
     config.set("items", ["${x}", "${x}"]).unwrap();
@@ -106,11 +102,7 @@ fn test_interpolation_expansions_accumulate_across_list_elements() {
 #[test]
 fn test_interpolation_precheck_and_conversion_share_scalar_expansion() {
     let mut config = Config::builder()
-        .default_read_policy(
-            ReadPolicy::builder()
-                .max_interpolation_expansions(1)
-                .build(),
-        )
+        .default_read_policy(ReadPolicy::builder().max_interpolation_expansions(1).build())
         .build();
     config.set("x", "ok").unwrap();
     config.set("value", "${x}").unwrap();
@@ -121,11 +113,7 @@ fn test_interpolation_precheck_and_conversion_share_scalar_expansion() {
 #[test]
 fn test_interpolation_budget_is_fresh_for_independent_reads() {
     let mut config = Config::builder()
-        .default_read_policy(
-            ReadPolicy::builder()
-                .max_interpolation_expansions(1)
-                .build(),
-        )
+        .default_read_policy(ReadPolicy::builder().max_interpolation_expansions(1).build())
         .build();
     config.set("x", "ok").unwrap();
     config.set("value", "${x}").unwrap();

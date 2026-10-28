@@ -721,20 +721,13 @@ where
                 continue;
             };
             let resolved = property.name();
-            let parsed = with_property_read_context(
-                reader,
-                resolved,
-                property,
-                options,
-                interpolate,
-                &session,
-                |context| {
+            let parsed =
+                with_property_read_context(reader, resolved, property, options, interpolate, &session, |context| {
                     if is_effectively_missing_with_context(property, context)? {
                         return Ok(None);
                     }
                     optional_converted_value(T::from_config(property, context))
-                },
-            )?;
+                })?;
             if let Some(value) = parsed {
                 return Ok(Some(value));
             }

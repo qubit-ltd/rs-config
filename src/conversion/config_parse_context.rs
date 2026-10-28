@@ -96,17 +96,16 @@ impl<'a> ConfigParseContext<'a> {
     ///
     /// The substituted string value.
     pub fn substitute_string(&self, value: &str) -> ConfigResult<String> {
-        if let Some(prepared) = self.prepared_scalar.as_ref() {
-            if prepared.is_raw(value) {
-                return prepared
-                    .text(self.interpolate, self.substitute)
-                    .map(str::to_owned);
-            }
+        if let Some(prepared) = self.prepared_scalar.as_ref()
+            && prepared.is_raw(value)
+        {
+            return prepared.text(self.interpolate, self.substitute).map(str::to_owned);
         }
         (self.substitute)(value)
     }
 
-    /// Borrows the current scalar's original or prepared text when it is a string.
+    /// Borrows the current scalar's original or prepared text when it is a
+    /// string.
     pub(crate) fn prepared_scalar_text(&self) -> ConfigResult<Option<&str>> {
         self.prepared_scalar
             .as_ref()

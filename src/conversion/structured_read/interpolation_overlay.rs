@@ -87,26 +87,16 @@ pub(super) fn classify_missing(
         if !origin.segments.is_empty() {
             continue;
         }
-        let text = prepared
-            .overlays
-            .get(origin)
-            .map_or(*original, String::as_str);
+        let text = prepared.overlays.get(origin).map_or(*original, String::as_str);
         let path = prepared
             .sources
             .property(origin.property_index)
             .expect("registered property")
             .name();
-        match options
-            .conversion_policy()
-            .string()
-            .normalize_optional(text)
-        {
+        match options.conversion_policy().string().normalize_optional(text) {
             Ok(Some(_)) => {}
             Ok(None) => {
-                let error = ValueError::from(DataConversionError::missing(
-                    DataType::String,
-                    DataType::String,
-                ));
+                let error = ValueError::from(DataConversionError::missing(DataType::String, DataType::String));
                 *node = ReadNode::Missing(error.missing().expect("missing conversion").clone());
                 if !exact {
                     omitted.get_or_insert_with(|| vec![false; node_count])[id] = true;

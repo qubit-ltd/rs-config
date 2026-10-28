@@ -20,10 +20,7 @@ use crate::options::ReadPolicy;
 /// the fallback reader, then to environment variables only when the active
 /// read policy permits environment fallback. Type and conversion errors in the
 /// primary reader are returned directly.
-pub(crate) fn substitute_variables_with_fallback<
-    P: ConfigReader + ?Sized,
-    F: ConfigReader + ?Sized,
->(
+pub(crate) fn substitute_variables_with_fallback<P: ConfigReader + ?Sized, F: ConfigReader + ?Sized>(
     value: &str,
     primary: &P,
     fallback: &F,
@@ -89,8 +86,7 @@ fn substitute_variables_recursive(
 
         stack.push(var_name.to_string());
         let raw_value = resolve(var_name)?;
-        let expanded =
-            substitute_variables_recursive(&raw_value, options, path, stack, session, resolve)?;
+        let expanded = substitute_variables_recursive(&raw_value, options, path, stack, session, resolve)?;
         stack.pop();
         push_substitution_fragment(&mut result, &expanded, session, path)?;
         last_end = match_end;
@@ -148,9 +144,7 @@ fn find_variable_value<R: ConfigReader + ?Sized>(
                 Err(map_value_error(&resolved, error))
             }
         },
-        Some(_) | None
-            if options.interpolation_sources() == InterpolationSources::ConfigThenEnv =>
-        {
+        Some(_) | None if options.interpolation_sources() == InterpolationSources::ConfigThenEnv => {
             std::env::var(var_name).map_err(|_| ConfigError::SubstitutionError {
                 path: path.to_string(),
                 message: format!("Cannot resolve variable: {var_name}"),

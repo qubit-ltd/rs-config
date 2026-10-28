@@ -22,27 +22,17 @@ use crate::utils::InterpolationSession;
 
 /// Returns the property's scalar string when it has string scalar shape.
 pub(crate) fn first_scalar_string(property: &Property) -> Option<&str> {
-    property
-        .value()
-        .as_scalar()
-        .and_then(|value| match value.view() {
-            ValueRef::String(value) => Some(value),
-            _ => None,
-        })
+    property.value().as_scalar().and_then(|value| match value.view() {
+        ValueRef::String(value) => Some(value),
+        _ => None,
+    })
 }
 
 /// Checks missingness for a non-interpolated property.
 pub(crate) fn is_effectively_missing(property: &Property, options: &ReadPolicy) -> bool {
     property.is_unset()
-        || first_scalar_string(property).is_some_and(|value| {
-            matches!(
-                options
-                    .conversion_policy()
-                    .string()
-                    .normalize_optional(value),
-                Ok(None)
-            )
-        })
+        || first_scalar_string(property)
+            .is_some_and(|value| matches!(options.conversion_policy().string().normalize_optional(value), Ok(None)))
 }
 
 /// Parses a property through a context created for the selected reader.
@@ -57,18 +47,13 @@ where
     T: FromConfig,
 {
     let session = RefCell::new(InterpolationSession::new(options));
-    with_property_read_context(
-        reader,
-        name,
-        property,
-        options,
-        false,
-        &session,
-        |context| T::from_config(property, context),
-    )
+    with_property_read_context(reader, name, property, options, false, &session, |context| {
+        T::from_config(property, context)
+    })
 }
 
-/// Runs one read using a shared interpolation session and a property-local scalar cache.
+/// Runs one read using a shared interpolation session and a property-local
+/// scalar cache.
 pub(crate) fn with_property_read_context<R, T>(
     reader: &R,
     name: &str,
@@ -95,13 +80,7 @@ where
             Ok(value.to_string())
         }
     };
-    let context = ConfigParseContext::new(
-        name,
-        options,
-        &substitute,
-        interpolate,
-        first_scalar_string(property),
-    );
+    let context = ConfigParseContext::new(name, options, &substitute, interpolate, first_scalar_string(property));
     read(&context)
 }
 
@@ -117,11 +96,7 @@ pub(crate) fn is_effectively_missing_with_context(
         return Ok(false);
     };
     Ok(matches!(
-        context
-            .options()
-            .conversion_policy()
-            .string()
-            .normalize_optional(value),
+        context.options().conversion_policy().string().normalize_optional(value),
         Ok(None)
     ))
 }

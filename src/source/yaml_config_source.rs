@@ -238,25 +238,21 @@ pub(crate) fn flatten_yaml_value(
         YamlValue::Mapping(map) => {
             for (k, v) in map {
                 let key_str = yaml_key_to_string(k)
-                    .map_err(|error| {
-                        error.with_source_context(source_id, Some(prefix.to_string()), None)
-                    })?;
+                    .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))?;
                 let failed_member_path = if prefix.is_empty() {
                     key_str.clone()
                 } else {
                     format!("{prefix}.{key_str}")
                 };
-                ensure_config_key(&key_str).map_err(|error| {
-                    error.with_source_context(source_id, Some(failed_member_path.clone()), None)
-                })?;
+                ensure_config_key(&key_str)
+                    .map_err(|error| error.with_source_context(source_id, Some(failed_member_path.clone()), None))?;
                 let key = if prefix.is_empty() {
                     key_str
                 } else {
                     format!("{}.{}", prefix, key_str)
                 };
-                ensure_config_key(&key).map_err(|error| {
-                    error.with_source_context(source_id, Some(failed_member_path), None)
-                })?;
+                ensure_config_key(&key)
+                    .map_err(|error| error.with_source_context(source_id, Some(failed_member_path), None))?;
                 flatten_yaml_value(source_id, &key, v, config, seen, budget, depth.saturating_add(1))?;
             }
         }

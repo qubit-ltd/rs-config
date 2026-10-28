@@ -2,6 +2,8 @@
 //    Copyright (c) 2025 - 2026 Haixing Hu.
 //
 //    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
 use std::cell::OnceCell;
@@ -35,10 +37,7 @@ impl<'a> PreparedScalar<'a> {
         }
         let value = substitute(self.raw)?;
         let _ = self.expanded.set(value);
-        Ok(self
-            .expanded
-            .get()
-            .expect("the expanded scalar was just set"))
+        Ok(self.expanded.get().expect("the expanded scalar was just set"))
     }
 
     pub(crate) fn is_raw(&self, value: &str) -> bool {

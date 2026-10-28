@@ -1,3 +1,11 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+
 use std::ffi::OsString;
 
 use super::EnvConfigSource;
@@ -13,26 +21,14 @@ fn entries(names: &[&str]) -> Vec<(OsString, OsString)> {
     names
         .iter()
         .enumerate()
-        .map(|(index, name)| {
-            (
-                OsString::from(*name),
-                OsString::from(format!("SECRET_VALUE_{index}")),
-            )
-        })
+        .map(|(index, name)| (OsString::from(*name), OsString::from(format!("SECRET_VALUE_{index}"))))
         .collect()
 }
 
 #[test]
 fn three_colliding_names_choose_same_pair_for_every_permutation() {
     let names = ["REVIEW_FOO__BAR", "REVIEW_foo__bar", "REVIEW_foo.bar"];
-    let permutations = [
-        [0, 1, 2],
-        [0, 2, 1],
-        [1, 0, 2],
-        [1, 2, 0],
-        [2, 0, 1],
-        [2, 1, 0],
-    ];
+    let permutations = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
 
     for permutation in permutations {
         let ordered_names = permutation.map(|index| names[index]);
@@ -59,12 +55,7 @@ fn three_colliding_names_choose_same_pair_for_every_permutation() {
 
 #[test]
 fn conflict_selection_uses_smallest_normalized_key_and_redacts_values() {
-    let names = [
-        "REVIEW_ZED__KEY",
-        "REVIEW_zed.key",
-        "REVIEW_FOO__BAR",
-        "REVIEW_foo.bar",
-    ];
+    let names = ["REVIEW_ZED__KEY", "REVIEW_zed.key", "REVIEW_FOO__BAR", "REVIEW_foo.bar"];
     let source = EnvConfigSource::from_prefix("REVIEW_");
 
     for first in 0..names.len() {
@@ -97,12 +88,7 @@ fn conflict_selection_uses_smallest_normalized_key_and_redacts_values() {
                             && incoming == "environment variable 'REVIEW_foo.bar'"
                     ));
                     let rendered = format!("{error:?} {error}");
-                    for marker in [
-                        "SECRET_VALUE_0",
-                        "SECRET_VALUE_1",
-                        "SECRET_VALUE_2",
-                        "SECRET_VALUE_3",
-                    ] {
+                    for marker in ["SECRET_VALUE_0", "SECRET_VALUE_1", "SECRET_VALUE_2", "SECRET_VALUE_3"] {
                         assert!(!rendered.contains(marker));
                     }
                 }

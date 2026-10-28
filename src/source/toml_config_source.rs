@@ -256,17 +256,15 @@ pub(crate) fn flatten_toml_value(
                 } else {
                     format!("{prefix}.{k}")
                 };
-                ensure_config_key(k).map_err(|error| {
-                    error.with_source_context(source_id, Some(failed_member_path.clone()), None)
-                })?;
+                ensure_config_key(k)
+                    .map_err(|error| error.with_source_context(source_id, Some(failed_member_path.clone()), None))?;
                 let key = if prefix.is_empty() {
                     k.clone()
                 } else {
                     format!("{}.{}", prefix, k)
                 };
-                ensure_config_key(&key).map_err(|error| {
-                    error.with_source_context(source_id, Some(failed_member_path), None)
-                })?;
+                ensure_config_key(&key)
+                    .map_err(|error| error.with_source_context(source_id, Some(failed_member_path), None))?;
                 flatten_toml_value(source_id, &key, v, config, seen, budget, depth.saturating_add(1))?;
             }
         }

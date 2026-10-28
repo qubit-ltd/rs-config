@@ -78,7 +78,6 @@ use crate::utils;
 ///     assert_eq!(error.path(), Some("server.port"));
 ///     Ok(())
 /// }
-///
 /// ```
 ///
 /// `ServicePort` is an application-level example. Whether port zero is
@@ -115,26 +114,17 @@ where
         if !ctx.interpolates() {
             return property
                 .value()
-                .to_first_with::<T>(
-                    ctx.options().conversion_policy(),
-                    ctx.options().conversion_limits(),
-                )
+                .to_first_with::<T>(ctx.options().conversion_policy(), ctx.options().conversion_limits())
                 .map_err(|e| utils::map_value_error(ctx.key(), e));
         }
         let value = ctx.prepared_scalar_text()?.expect("selected scalar string");
         DataConverter::from(value)
-            .to_with::<T>(
-                ctx.options().conversion_policy(),
-                ctx.options().conversion_limits(),
-            )
+            .to_with::<T>(ctx.options().conversion_policy(), ctx.options().conversion_limits())
             .map_err(|error| utils::map_value_error(ctx.key(), error.into()))
     } else {
         property
             .value()
-            .to_first_with::<T>(
-                ctx.options().conversion_policy(),
-                ctx.options().conversion_limits(),
-            )
+            .to_first_with::<T>(ctx.options().conversion_policy(), ctx.options().conversion_limits())
             .map_err(|e| utils::map_value_error(ctx.key(), e))
     }
 }
@@ -251,26 +241,17 @@ impl FromConfig for String {
             if !ctx.interpolates() {
                 return property
                     .value()
-                    .to_first_with::<String>(
-                        ctx.options().conversion_policy(),
-                        ctx.options().conversion_limits(),
-                    )
+                    .to_first_with::<String>(ctx.options().conversion_policy(), ctx.options().conversion_limits())
                     .map_err(|error| utils::map_value_error(ctx.key(), error));
             }
             let value = ctx.prepared_scalar_text()?.expect("selected scalar string");
             return DataConverter::from(value)
-                .to_with::<String>(
-                    ctx.options().conversion_policy(),
-                    ctx.options().conversion_limits(),
-                )
+                .to_with::<String>(ctx.options().conversion_policy(), ctx.options().conversion_limits())
                 .map_err(|error| utils::map_value_error(ctx.key(), error.into()));
         }
         property
             .value()
-            .to_first_with::<String>(
-                ctx.options().conversion_policy(),
-                ctx.options().conversion_limits(),
-            )
+            .to_first_with::<String>(ctx.options().conversion_policy(), ctx.options().conversion_limits())
             .map_err(|e| utils::map_value_error(ctx.key(), e))
     }
 }

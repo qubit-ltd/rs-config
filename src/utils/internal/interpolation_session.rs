@@ -2,6 +2,8 @@
 //    Copyright (c) 2025 - 2026 Haixing Hu.
 //
 //    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
 use qubit_budget::ResourceBudget;
@@ -39,12 +41,12 @@ impl InterpolationSession {
 
     /// Charges one parsed placeholder to this read.
     pub(crate) fn consume_expansion(&mut self, path: &str) -> ConfigResult<()> {
-        self.expansions.try_consume(1).map_err(|_| {
-            ConfigError::SubstitutionExpansionLimitExceeded {
+        self.expansions
+            .try_consume(1)
+            .map_err(|_| ConfigError::SubstitutionExpansionLimitExceeded {
                 path: path.to_string(),
                 max_expansions: self.max_expansions,
-            }
-        })
+            })
     }
 
     /// Checks an intermediate or final expanded value against its byte limit.

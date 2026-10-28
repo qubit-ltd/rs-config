@@ -54,11 +54,7 @@ fn deserialize_with_accepts_borrowed_prefix_and_explicit_options() {
 #[test]
 fn test_interpolation_expansions_accumulate_across_structured_fields() {
     let mut config = Config::builder()
-        .default_read_policy(
-            ReadPolicy::builder()
-                .max_interpolation_expansions(1)
-                .build(),
-        )
+        .default_read_policy(ReadPolicy::builder().max_interpolation_expansions(1).build())
         .build();
     config.set("x", "ok").unwrap();
     config.set("object.a", "${x}").unwrap();
@@ -81,11 +77,7 @@ fn test_interpolation_expansions_accumulate_across_structured_fields() {
 #[test]
 fn test_interpolation_budget_counts_fields_ignored_by_serde() {
     let mut config = Config::builder()
-        .default_read_policy(
-            ReadPolicy::builder()
-                .max_interpolation_expansions(1)
-                .build(),
-        )
+        .default_read_policy(ReadPolicy::builder().max_interpolation_expansions(1).build())
         .build();
     config.set("x", "ok").unwrap();
     config.set("object.label", "${x}").unwrap();

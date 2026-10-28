@@ -445,11 +445,7 @@ impl ConfigSource for EnvConfigSource {
 }
 
 impl EnvConfigSource {
-    fn load_environment_entries<I>(
-        &self,
-        entries: I,
-        context: &mut SourceLoadContext<'_>,
-    ) -> ConfigResult<()>
+    fn load_environment_entries<I>(&self, entries: I, context: &mut SourceLoadContext<'_>) -> ConfigResult<()>
     where
         I: IntoIterator<Item = (OsString, OsString)>,
     {
