@@ -4,6 +4,20 @@
 
 This guide describes `qubit-config` `0.15`. It is for Rust application developers who need to load configuration from more than one place, read it as typed values, and diagnose invalid input without coupling application code to a particular file format.
 
+## Migrating from qubit-config 0.14
+
+Update single-key arguments to values implementing `AsRef<str>` (usually `&str` or `String`). Replace the removed `ConfigName` type with the string key itself; keep `ConfigNames` for APIs that search multiple candidate keys. Replace `IntoConfigDefault` with `qubit_value::IntoValueDefault`. The old trait is no longer re-exported by this crate. If application code names the replacement trait explicitly, add a direct `qubit-value` dependency aligned with this crate's `0.13` requirement.
+
+Check the dependency graph before passing config types across crate boundaries:
+
+```sh
+cargo tree -d
+cargo tree -i qubit-config@0.14.0
+cargo tree -i qubit-config@0.15.0
+```
+
+Replace the selectors with the exact versions shown by the lockfile. A selector for a version absent from the graph reports that no matching package was found; that does not itself indicate a dependency conflict. In the local workspace, `rs-ioc` and `rs-websocket` require `qubit-config` `^0.14`; `rs-http`, `rs-web`, `rs-mime`, and the `rs-magika` dev-dependency require `0.15`. The root crate uses `qubit-value` `0.13`. A `^0.14` constraint does not automatically admit `0.15`, and public `Config` or `ConfigReader` types from the two versions are distinct and cannot be passed across those version boundaries. Prefer downstream crates already aligned to `0.15`. If no usable version is available, retain a compatible dependency combination or handle downstream migration as a separately authorized task; do not use a `patch` that violates dependency constraints to force version unification.
+
 ## Purpose and Audience
 
 Use this guide when an application has a configuration lifecycle such as:
@@ -335,6 +349,32 @@ set `unknown_fields: UnknownFieldPolicy::Ignore`; to expand placeholders, set
 `serde(default)`, nested structs, maps, and `serde(flatten)` declare the accepted
 shape. A mismatch raised only by Serde becomes a sanitized `DeserializeError`.
 
+Object member names enter Serde as strings. If the application wants numeric
+keys, deserialize string keys first and parse them explicitly. Parse errors
+propagate through `?`; `collect()` into a map silently keeps the later value
+when distinct strings parse to the same number, so check duplicates when that
+would be invalid:
+
+```rust
+use std::collections::HashMap;
+use qubit_config::Config;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut config = Config::new();
+    config.set("ports.080", 8080_u16)?;
+    config.set("ports.80", 8081_u16)?;
+    let named: HashMap<String, u16> = config.deserialize("ports")?;
+    let mut ports = HashMap::new();
+    for (name, value) in named {
+        let number = name.parse::<u16>()?;
+        if ports.insert(number, value).is_some() {
+            return Err(format!("duplicate numeric port key: {number}").into());
+        }
+    }
+    Ok(())
+}
+```
+
 Complete selected input is admitted even when the target ignores some fields.
 Interpolation admits original and expanded input separately, then all leaf
 conversions share one independent `ConversionSession`. These resource domains
@@ -443,6 +483,7 @@ let config = Config::builder().default_read_policy(policy).build();
 ```
 
 Treat configuration that can select environment-variable names as trusted input. The default interpolation limits are a reference-chain depth of 64, 4,096 placeholder expansions per read, and 1 MiB of UTF-8 output. `ReadPolicy::builder()` can change each dimension; failures are reported as structured `ConfigError` categories.
+Saved overlays can also be admitted against cumulative aggregate budgets. A single parsed text input still has its own single-value limit; when cumulative admission is enabled, a budget error may take precedence over a later parse error.
 Expansion count is shared across a logical read, including candidate-key
 search and fields a structured visitor later ignores. Depth applies to the
 current reference chain; the output-byte limit applies to each expanded value.

@@ -106,6 +106,9 @@ value. These limits are not reset for each candidate or field.
 Each referenced value is converted to text with the active `ReadPolicy` and its
 conversion limits. Each reference conversion is an independent conversion
 operation; interpolation expansion counters remain shared by the logical read.
+Saved overlays are admitted against cumulative aggregate budgets, while one
+parsed text input still has its own single-value limit. With cumulative
+admission, a budget error may take precedence over a later parse error.
 
 ## Structured Serde
 
@@ -122,6 +125,8 @@ interpolation, and conversion errors preserve configuration context, while
 shape mismatches raised only by Serde become sanitized `DeserializeError` values.
 The projection follows Serde's JSON-like data model and does not promise every
 native rich-value conversion shape supported by `ConfigReader::get`.
+Object member names are exposed to Serde's key deserializer as strings; numeric
+map keys require explicit parsing by the application.
 
 The prepared tree stores borrowed values, collection slices, JSON nodes, and
 synthetic object indices. Node IDs index the arena and its per-node origin table;
@@ -223,6 +228,11 @@ schema DSL. Error enums are non-exhaustive; downstream logic should branch on
 `source_id()`, `source_budget_id()`, and `budget_error()`.
 
 ### Migration Notes
+
+See the user guide's [qubit-config 0.14 migration steps](user_guide.md#migrating-from-qubit-config-014)
+before upgrading downstream crates. The current workspace has downstream
+version constraints on both sides of this release; cross-version public
+`Config` and `ConfigReader` types cannot be passed between them.
 
 Check TOML/YAML mapping member names for empty or invalid dotted keys during
 upgrade. Such input is now rejected as a source parse error before recursion;

@@ -857,10 +857,53 @@ fn deserialize_sequence_and_root_map_entry_points() -> ConfigResult<()> {
         root_config.deserialize::<HashMap<String, u8>>("")?,
         HashMap::from([("a".to_string(), 1), ("b".to_string(), 2)])
     );
+    assert!(root_config.deserialize::<HashMap<u32, u8>>("").is_err());
 
     let mut bad_map_config = Config::new();
     bad_map_config.set("value", true)?;
     assert!(bad_map_config.deserialize::<HashMap<String, u8>>("value").is_err());
+    Ok(())
+}
+
+#[test]
+fn map_key_boundary_preserves_numeric_names_as_strings() -> ConfigResult<()> {
+    let mut config = Config::new();
+    config.set("80", 8080_u16)?;
+    let values: HashMap<String, u16> = config.deserialize("")?;
+    assert_eq!(values.get("80"), Some(&8080));
+    Ok(())
+}
+
+#[test]
+fn map_key_boundary_rejects_numeric_target_at_root_path() -> ConfigResult<()> {
+    let mut config = Config::new();
+    config.set("80", 8080_u16)?;
+    let error = config
+        .deserialize::<HashMap<u32, u16>>("")
+        .expect_err("source member names are offered to the key deserializer as strings");
+    assert_eq!(error.path(), Some(""));
+    Ok(())
+}
+
+#[test]
+fn map_key_boundary_allows_explicit_parse_and_propagates_parse_errors() -> ConfigResult<()> {
+    let mut config = Config::new();
+    config.set("80", 8080_u16)?;
+    let values: HashMap<String, u16> = config.deserialize("")?;
+    let parsed: Result<HashMap<u32, u16>, _> = values
+        .into_iter()
+        .map(|(key, value)| key.parse::<u32>().map(|key| (key, value)))
+        .collect();
+    assert_eq!(parsed.expect("valid numeric key parses"), HashMap::from([(80, 8080)]));
+
+    let mut invalid = Config::new();
+    invalid.set("port", 8080_u16)?;
+    let values: HashMap<String, u16> = invalid.deserialize("")?;
+    let parse_error: Result<HashMap<u32, u16>, _> = values
+        .into_iter()
+        .map(|(key, value)| key.parse::<u32>().map(|key| (key, value)))
+        .collect();
+    assert!(parse_error.is_err());
     Ok(())
 }
 
@@ -1284,6 +1327,145 @@ fn interpolation_admission_stops_before_later_bad_reference() -> ConfigResult<()
     assert_eq!(error.path(), Some("tree.b"));
     assert!(!matches!(error, ConfigError::SubstitutionError { .. }));
     assert!(!error.to_string().contains(&secret));
+    Ok(())
+}
+
+#[test]
+fn interpolation_admission_charges_unchanged_text_after_a_changed_value() -> ConfigResult<()> {
+    let mut config = Config::new();
+    config.set("blob", "x".repeat(800))?;
+    config.set("tree.a", "${blob}")?;
+    config.set("tree.b", "y".repeat(800))?;
+    let limits = ConversionLimits::builder()
+        .operation_limits(
+            ConversionOperationLimits::builder()
+                .max_structured_payload_bytes(1599)
+                .build(),
+        )
+        .build();
+    config.set_default_read_policy(ReadPolicy::builder().conversion_limits(limits).build());
+
+    let error = config
+        .deserialize_with::<serde_json::Value>(
+            "tree",
+            ConfigDeserializeOptions {
+                interpolate: true,
+                unknown_fields: UnknownFieldPolicy::Ignore,
+            },
+        )
+        .expect_err("unchanged text is admitted after expanded text consumes the budget");
+    assert!(!matches!(error, ConfigError::SubstitutionError { .. }));
+    assert_eq!(error.path(), Some("tree.b"));
+    Ok(())
+}
+
+#[test]
+fn interpolation_admission_visits_non_string_scalar_before_expansion() -> ConfigResult<()> {
+    let mut scalar = Config::new();
+    scalar.set("tree.flag", 12_345_678_901_234_567_890_u64)?;
+    scalar.set("blob", "x".repeat(800))?;
+    scalar.set("tree.value", "${blob}")?;
+    let limits = ConversionLimits::builder()
+        .operation_limits(
+            ConversionOperationLimits::builder()
+                .max_structured_payload_bytes(800)
+                .build(),
+        )
+        .build();
+    scalar.set_default_read_policy(ReadPolicy::builder().conversion_limits(limits).build());
+    let error = scalar
+        .deserialize_with::<serde_json::Value>(
+            "tree",
+            ConfigDeserializeOptions {
+                interpolate: true,
+                unknown_fields: UnknownFieldPolicy::Ignore,
+            },
+        )
+        .expect_err("the expansion plus non-string scalar exceeds the payload budget");
+    assert_eq!(error.path(), Some("tree.value"));
+    Ok(())
+}
+
+#[test]
+fn interpolation_admission_visits_container_before_expansion() -> ConfigResult<()> {
+    let mut container = Config::new();
+    container.insert_property(
+        "tree.flag",
+        Property::new(
+            "tree.flag",
+            QubitValue::Json(serde_json::json!({"nested": [1]})),
+        )?,
+    )?;
+    let error = interpolation_admission_with_prior_value(&mut container, "tree")?;
+    assert_eq!(error.path(), Some("tree.value"));
+    Ok(())
+}
+
+#[test]
+fn interpolation_admission_charges_long_key_before_expansion() -> ConfigResult<()> {
+    let mut key = Config::new();
+    key.set(format!("tree.{}", "k".repeat(12)), true)?;
+    let error = interpolation_admission_with_prior_value(&mut key, "tree")?;
+    assert_eq!(error.path(), Some("tree.value"));
+    Ok(())
+}
+
+fn interpolation_admission_with_prior_value(
+    config: &mut Config,
+    prefix: &str,
+) -> ConfigResult<ConfigError> {
+    config.set("blob", "x".repeat(800))?;
+    config.set("tree.value", "${blob}")?;
+    let limits = ConversionLimits::builder()
+        .operation_limits(
+            ConversionOperationLimits::builder()
+                .max_input_bytes(807)
+                .build(),
+        )
+        .build();
+    config.set_default_read_policy(ReadPolicy::builder().conversion_limits(limits).build());
+    Ok(config
+        .deserialize_with::<serde_json::Value>(
+            prefix,
+            ConfigDeserializeOptions {
+                interpolate: true,
+                unknown_fields: UnknownFieldPolicy::Ignore,
+            },
+        )
+        .expect_err("the expansion should exceed the remaining input budget"))
+}
+
+#[test]
+fn interpolation_admission_precedes_later_bad_reference_for_both_unknown_policies(
+) -> ConfigResult<()> {
+    for unknown_fields in [UnknownFieldPolicy::Reject, UnknownFieldPolicy::Ignore] {
+        let mut config = Config::new();
+        let secret = "x".repeat(800);
+        config.set("blob", secret.as_str())?;
+        config.set("tree.a", "${blob}")?;
+        config.set("tree.b", "${blob}")?;
+        config.set("tree.z", "${missing}")?;
+        let limits = ConversionLimits::builder()
+            .operation_limits(
+                ConversionOperationLimits::builder()
+                    .max_structured_payload_bytes(1599)
+                    .build(),
+            )
+            .build();
+        config.set_default_read_policy(ReadPolicy::builder().conversion_limits(limits).build());
+
+        let error = config
+            .deserialize_with::<serde_json::Value>(
+                "tree",
+                ConfigDeserializeOptions {
+                    interpolate: true,
+                    unknown_fields,
+                },
+            )
+            .expect_err("admission should stop before resolving the later bad reference");
+        assert!(!matches!(error, ConfigError::SubstitutionError { .. }));
+        assert_eq!(error.path(), Some("tree.b"));
+    }
     Ok(())
 }
 

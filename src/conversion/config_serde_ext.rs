@@ -19,6 +19,31 @@ use crate::UnknownFieldPolicy;
 /// Prefixes select an exact property or a subtree relative to the reader.
 /// Empty prefixes select the entire visible scope. All selected input is
 /// admitted before the target is visited, including ignored fields.
+/// Object member names are passed to Serde's key deserializer as strings;
+/// string keys can be read as `String`, but integer or container key targets
+/// are not parsed from those names.
+/// Numeric keys can be parsed explicitly after deserializing string keys:
+///
+/// ```rust
+/// use std::collections::HashMap;
+/// use qubit_config::Config;
+///
+/// let mut config = Config::new();
+/// config.set("ports.80", 8080_u16)?;
+/// config.set("ports.443", 443_u16)?;
+/// let named: HashMap<String, u16> = config.deserialize("ports")?;
+/// let mut ports = HashMap::new();
+/// for (name, value) in named {
+///     let number = name.parse::<u16>()?;
+///     if ports.insert(number, value).is_some() {
+///         return Err(format!("duplicate numeric port key: {number}").into());
+///     }
+/// }
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// Parsing errors propagate from `parse`; collecting normalized keys directly
+/// into a map can overwrite earlier entries, so check duplicates when needed.
 ///
 /// `UnknownFieldPolicy::Reject` only rejects fields observable through Serde's
 /// `deserialize_ignored_any` path. Ordinary derived structs report those

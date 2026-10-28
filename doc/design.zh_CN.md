@@ -7,6 +7,9 @@ API 文档和测试为准。
 
 ## 稳定核心
 
+对象成员名会以字符串形式交给 Serde 的 key deserializer；`String` 可正常读取，
+数字或容器类型的 key 不会从名称文本解析。
+
 当前兼容性核心包括 `Config`、`ConfigReader`、`ConfigSection`、`ReadPolicy`
 和 `ConfigSerdeExt`：
 
@@ -85,6 +88,8 @@ alias token。
 深度按当前引用链计算，输出字节限制则分别应用于每个展开值。这些预算不会在每个候选键
 或字段开始时重置。被引用值转成文本时使用当前 `ReadPolicy` 及其转换限制；每次引用转换是
 独立转换操作，插值展开计数仍在一次逻辑读取内共享。
+保存的 overlay 按累计聚合预算准入；单个解析文本仍有单值限制。启用累计准入时，
+预算超限错误可能优先于后续解析错误。
 
 ## 结构化 Serde
 
@@ -106,6 +111,7 @@ schema 时，应使用闭合的嵌套 struct，或在反序列化前按应用 sc
 查找、插值和转换错误会保留配置上下文；只有 Serde
 报告的结构不匹配才会转换为已脱敏的 `DeserializeError`。投影遵循 Serde 的 JSON
 风格数据模型，不承诺覆盖 `ConfigReader::get` 为富类型提供的所有原生转换形态。
+对象成员名会以字符串交给 Serde 的 key deserializer；数字 map key 需要应用显式解析。
 
 准备树保存借用值、集合 slice、JSON 节点和合成对象索引，不克隆完整 JSON 中间载荷。
 NodeId 索引 arena 节点及对应的来源表；property index 则索引单独的借用配置项表。来源位置由

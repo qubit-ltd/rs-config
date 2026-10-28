@@ -4,6 +4,20 @@
 
 本手册针对 `qubit-config` `0.15`。读者是需要从多个来源加载配置、以类型化方式读取配置，并在输入无效时获得可诊断错误的 Rust 应用开发者。本手册不要求业务代码绑定到某一种文件格式。
 
+## 从 qubit-config 0.14 迁移
+
+单键参数改为使用实现 `AsRef<str>` 的值（通常是 `&str` 或 `String`）。已移除的 `ConfigName` 类型应替换为字符串键本身；需要搜索多个候选键的 API 继续使用 `ConfigNames`。将 `IntoConfigDefault` 替换为 `qubit_value::IntoValueDefault`。本 crate 不再导出旧 trait；如果应用代码显式引用新 trait，应直接依赖与本 crate 的 `0.13` 要求对齐的 `qubit-value`。
+
+跨 crate 边界传递配置类型前，先检查依赖图：
+
+```sh
+cargo tree -d
+cargo tree -i qubit-config@0.14.0
+cargo tree -i qubit-config@0.15.0
+```
+
+请把 selector 替换为 lockfile 中实际出现的完整版本。依赖图中不存在该版本时，命令会报告找不到匹配 package；这本身不表示依赖冲突。本地 workspace 中，`rs-ioc` 和 `rs-websocket` 要求 `qubit-config` `^0.14`；`rs-http`、`rs-web`、`rs-mime` 和 `rs-magika` 的 dev-dependency 要求 `0.15`。根 crate 使用 `qubit-value` `0.13`。`^0.14` 不会自动接受 `0.15`，两个版本公开的 `Config` 或 `ConfigReader` 类型也彼此不同，不能跨版本传递。优先使用已对齐到 `0.15` 的下游 crate。如果尚无可用版本，请保留兼容的依赖组合，或另开经授权的任务迁移下游；不要使用违反依赖约束的 `patch` 强行统一版本。
+
 ## 手册目标与读者
 
 当应用具有如下配置生命周期时，可以阅读本手册：
@@ -317,6 +331,30 @@ struct 字段、`serde(rename)`、`serde(alias)`、`serde(default)`、嵌套 str
 `serde(flatten)` 共同声明可接受的形状。仅由 Serde 报告的结构不匹配会变成已脱敏的
 `DeserializeError`。
 
+对象成员名会以字符串形式交给 Serde。如果应用需要数字 key，应先反序列化字符串 key，
+再显式解析。`?` 会传播解析错误；收集到 map 时，如果不同字符串解析为相同数字，后写入的值
+会覆盖前一个值，因此认为重复非法时应逐项检查：
+
+```rust
+use std::collections::HashMap;
+use qubit_config::Config;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut config = Config::new();
+    config.set("ports.080", 8080_u16)?;
+    config.set("ports.80", 8081_u16)?;
+    let named: HashMap<String, u16> = config.deserialize("ports")?;
+    let mut ports = HashMap::new();
+    for (name, value) in named {
+        let number = name.parse::<u16>()?;
+        if ports.insert(number, value).is_some() {
+            return Err(format!("重复的数字端口 key：{number}").into());
+        }
+    }
+    Ok(())
+}
+```
+
 即使目标忽略部分字段，也会对选中的完整输入执行准入。插值前后的输入分别检查，然后所有叶子
 转换共享另一个独立的 `ConversionSession`。这些资源域都取 reader 的转换限制，被忽略字段
 不能绕过输入限额。只有真正的字符串叶子参与插值，富类型格式化的文本不参与。
@@ -518,6 +556,8 @@ assert_eq!(error.path(), Some("server.port"));
 标识；其他错误返回 `None`。
 配置源预算失败时，`source_budget_id()` 会指出拒绝扣减的局部或聚合预算，
 `budget_error()` 则返回结构化的 rs-budget 错误。
+保存的 overlay 也可按累计聚合预算准入；单个解析文本仍受单值限制。启用累计准入时，
+预算超限错误可能优先于后续解析错误。
 
 `get_any` 失败时可以使用 `candidate_paths()`，因为多候选键错误可能包含按查找顺序排列的多个路径。如果集合转换错误对应原始集合中的某个元素，可以使用 `source_index()` 获取其位置。
 
