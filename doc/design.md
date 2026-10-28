@@ -48,6 +48,11 @@ loads children in insertion order and merges each completed child layer into its
 own layer. Later values override earlier values unless an existing property is
 final. Loading and merging are transactional at the public boundary: an error
 does not expose a partial source layer or partially mutate the caller's target.
+TOML and YAML reject empty or otherwise invalid mapping member keys before
+recursing into their values; valid empty tables and mappings remain accepted.
+Environment normalization conflicts are checked in sorted order, selecting the
+group with the smallest normalized key and then its two smallest original names.
+That diagnostic is deterministic for valid inputs that fit the source budget.
 
 ## Read Policy and Sections
 
@@ -91,6 +96,11 @@ including when comments contain quote characters. YAML anchors and aliases are
 rejected from the scanner token stream before AST construction; scanner errors
 fail closed, while quoted, commented, and block-scalar text is not treated as
 anchor or alias tokens.
+
+Expansion counts accumulate across one logical read, including candidate-key
+search and fields later ignored by a structured visitor. Depth is measured along
+the current reference chain, and the output-byte limit applies to each expanded
+value. These limits are not reset for each candidate or field.
 
 ## Structured Serde
 
@@ -201,6 +211,16 @@ environment interpolation, asynchronous loading, reload orchestration, or a
 schema DSL. Error enums are non-exhaustive; downstream logic should branch on
 `ConfigErrorKind` and context accessors such as `path()`, `candidate_paths()`,
 `source_id()`, `source_budget_id()`, and `budget_error()`.
+
+### Migration Notes
+
+Check TOML/YAML mapping member names for empty or invalid dotted keys during
+upgrade. Such input is now rejected as a source parse error before recursion;
+valid empty objects remain supported. When normalized environment names
+conflict, the error remains `KeyConflict`, but now consistently reports the
+group with the smallest normalized key and its two smallest original names.
+These notes describe the library contract and do not claim validation across
+all downstream applications.
 
 See the [user guide](user_guide.md), [API documentation](https://docs.rs/qubit-config),
 and [project README](../README.md) for the supported usage surface.

@@ -258,6 +258,11 @@ shared aggregate policy before committing either budget. For TOML and YAML,
 node, property-count, and nesting-depth accounting begins only while flattening
 the parser's already materialized AST. These dimensions constrain accepted
 configuration output but do not bound parser allocation or recursion.
+TOML and YAML also reject empty or invalid dotted mapping member keys before
+recursing; valid empty tables and mappings remain supported. When environment
+normalization produces conflicts, diagnostics select the group with the
+smallest normalized key and then the two smallest original names, provided the
+input is valid and fits the source budget.
 
 Use a convenience constructor when no target customization is needed:
 
@@ -433,6 +438,54 @@ let config = Config::builder().default_read_policy(policy).build();
 ```
 
 Treat configuration that can select environment-variable names as trusted input. The default interpolation limits are a reference-chain depth of 64, 4,096 placeholder expansions per read, and 1 MiB of UTF-8 output. `ReadPolicy::builder()` can change each dimension; failures are reported as structured `ConfigError` categories.
+Expansion count is shared across a logical read, including candidate-key
+search and fields a structured visitor later ignores. Depth applies to the
+current reference chain; the output-byte limit applies to each expanded value.
+
+### Custom Target Types
+
+Implement `FromConfig` for an application type by delegating to a built-in
+conversion. The reader provides the context, so delegation retains its
+conversion policy and resolved key in errors. Interpolation remains explicit:
+an ordinary read preserves `${default_port}` and fails conversion, while the
+scoped interpolated read resolves it relative to `server`.
+
+```rust
+use qubit_config::conversion::{ConfigParseContext, FromConfig};
+use qubit_config::{Config, ConfigErrorKind, ConfigReader, ConfigResult, Property};
+
+#[derive(Debug, PartialEq)]
+struct ServicePort(u16);
+
+impl FromConfig for ServicePort {
+    fn from_config(property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<Self> {
+        u16::from_config(property, ctx).map(Self)
+    }
+}
+
+fn main() -> ConfigResult<()> {
+    let mut config = Config::new();
+    config.set("server.port", "8080")?;
+    assert_eq!(config.get::<ServicePort>("server.port")?, ServicePort(8080));
+
+    config.set("server.default_port", "9090")?;
+    config.set("server.port", "${default_port}")?;
+    let server = config.section("server")?;
+    assert_eq!(server.get_interpolated::<ServicePort>("port")?, ServicePort(9090));
+    assert!(server.get::<ServicePort>("port").is_err());
+
+    config.set("server.port", "invalid")?;
+    let error = config.get::<ServicePort>("server.port").unwrap_err();
+    assert_eq!(error.kind(), ConfigErrorKind::Conversion);
+    assert_eq!(error.path(), Some("server.port"));
+    Ok(())
+}
+```
+
+These four checks cover an ordinary typed read, explicit scoped interpolation,
+placeholder preservation during ordinary reads, and a conversion error that
+retains the root key. `ServicePort` is an application example; whether zero is
+a valid port is a separate business validation decision.
 
 ### Normalize environment keys
 
@@ -522,6 +575,9 @@ Check the feature in `Cargo.toml`: `toml` enables `TomlConfigSource`, `yaml` ena
 ### A source reports a key conflict
 
 Inspect normalized environment names or flattened structured keys. Environment prefix stripping, lowercasing, and underscore conversion can collapse distinct names. TOML/YAML documents can also contain duplicate flattened keys. Rename the inputs or choose less aggressive normalization.
+For environment-name conflicts, the diagnostic consistently selects the
+smallest normalized-key group and its two smallest original names when the
+input is valid and within budget.
 
 ### A source exceeds a limit
 

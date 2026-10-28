@@ -245,6 +245,9 @@ YAML scanner 输入也会直接失败，不会绕过 guard。所有内置配置�
 提供了完整的内存配置源示例。TOML 和 YAML 的节点、配置项数量与嵌套深度只能在解析器已经物化
 AST 后的展平阶段记账，因此它们约束可接受的配置结果，不限制解析器中间阶段的内存
 分配或递归深度。
+TOML 和 YAML 也会在递归处理值之前拒绝空的或无效的点分 mapping 成员键；合法的空 table
+和 mapping 仍然可用。环境变量名称规范化后发生冲突时，只要输入有效且符合配置源预算，
+诊断会稳定选择规范化键最小的冲突组及其中原始名称最小的两项。
 
 如果不需要在加载前定制目标配置，可以使用便捷构造函数：
 
@@ -411,6 +414,49 @@ let config = Config::builder().default_read_policy(policy).build();
 能够选择环境变量名称的配置应被视为受信任输入。默认插值限制为 64 层引用链深度、
 每次读取 4,096 次占位符展开，以及 1 MiB UTF-8 输出。可以通过
 `ReadPolicy::builder()` 分别调整；超限会返回结构化 `ConfigError` 类别。
+占位符展开次数会在一次逻辑读取内共享累计，包括候选键搜索和结构化 visitor 最终忽略的字段。
+深度限制按当前引用链计算，输出字节限制则应用于每个展开值。
+
+### Custom Target Types
+
+为应用类型实现 `FromConfig` 时，可以委托给已有的内置转换。读取器会提供解析上下文，
+因此委托转换会沿用读取策略，并在错误中保留解析后的配置键。插值仍需显式开启：普通读取
+会保留 `${default_port}` 并因无法转换而报错；带作用域的插值读取则会相对于 `server` 解析它。
+
+```rust
+use qubit_config::conversion::{ConfigParseContext, FromConfig};
+use qubit_config::{Config, ConfigErrorKind, ConfigReader, ConfigResult, Property};
+
+#[derive(Debug, PartialEq)]
+struct ServicePort(u16);
+
+impl FromConfig for ServicePort {
+    fn from_config(property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<Self> {
+        u16::from_config(property, ctx).map(Self)
+    }
+}
+
+fn main() -> ConfigResult<()> {
+    let mut config = Config::new();
+    config.set("server.port", "8080")?;
+    assert_eq!(config.get::<ServicePort>("server.port")?, ServicePort(8080));
+
+    config.set("server.default_port", "9090")?;
+    config.set("server.port", "${default_port}")?;
+    let server = config.section("server")?;
+    assert_eq!(server.get_interpolated::<ServicePort>("port")?, ServicePort(9090));
+    assert!(server.get::<ServicePort>("port").is_err());
+
+    config.set("server.port", "invalid")?;
+    let error = config.get::<ServicePort>("server.port").unwrap_err();
+    assert_eq!(error.kind(), ConfigErrorKind::Conversion);
+    assert_eq!(error.path(), Some("server.port"));
+    Ok(())
+}
+```
+
+这段示例覆盖四项检查：普通类型化读取、显式的 section 插值、普通读取保留占位符而转换失败，
+以及非法值错误保留根配置路径。`ServicePort` 仅是应用示例；端口 0 是否有效属于应用的业务校验。
 
 ### 规范化环境变量配置键
 
@@ -494,6 +540,8 @@ assert_eq!(error.path(), Some("server.port"));
 ### 配置源报告键冲突
 
 检查环境变量规范化后的名称或结构化配置键展平结果。去前缀、转小写和下划线转换可能使不同名称合并为同一个配置键；TOML/YAML 文档也可能产生重复的展平配置键。请重命名输入，或减少规范化步骤。
+当环境变量名称冲突时，只要输入有效且符合预算，诊断会稳定选择规范化键最小的冲突组及其中
+原始名称最小的两项。
 
 ### 配置源超出限制
 

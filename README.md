@@ -250,7 +250,9 @@ for configuration persistence. Those encode the configuration envelope;
 add a reverse business-struct-to-configuration serializer. Wire V1 is unchanged.
 
 - [English user guide](doc/user_guide.md)
+- [Custom target types](doc/user_guide.md#custom-target-types)
 - [中文用户手册](doc/user_guide.zh_CN.md)
+- [自定义目标类型](doc/user_guide.zh_CN.md#custom-target-types)
 - [English design document](doc/design.md)
 - [中文设计说明](doc/design.zh_CN.md)
 - [API documentation on docs.rs](https://docs.rs/qubit-config)
