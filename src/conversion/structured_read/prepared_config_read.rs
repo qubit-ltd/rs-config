@@ -292,7 +292,6 @@ pub(super) fn prepare_read<'a, R: ConfigReader + ?Sized>(
         } else {
             super::interpolation_overlay::interpolate(&prepared, &reader.section(prefix)?)?
         };
-        super::input_budget::admit_input(&prepared, reader.read_policy())?;
     }
     super::interpolation_overlay::classify_missing(&mut prepared, reader.read_policy(), exact)?;
     Ok(prepared)

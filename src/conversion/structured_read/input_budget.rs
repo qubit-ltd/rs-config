@@ -34,14 +34,14 @@ use crate::ConfigError;
 use crate::ConfigResult;
 use crate::ReadPolicy;
 
-struct PreparedInputBudget<'a> {
+pub(super) struct PreparedInputBudget<'a> {
     options: &'a ReadPolicy,
     structure: JsonValueBudget<ConversionResource, u64>,
     input: ResourceBudget<ConversionResource, u64>,
 }
 
 impl<'a> PreparedInputBudget<'a> {
-    fn new(options: &'a ReadPolicy) -> Self {
+    pub(super) fn new(options: &'a ReadPolicy) -> Self {
         let limits = options.conversion_limits();
         let value_limits = (*limits.structured().value())
             .into_builder()
@@ -226,6 +226,68 @@ impl<'a> PreparedInputBudget<'a> {
             )),
         }
     }
+
+    /// Admits one complete logical visit, optionally counting owned overlay text.
+    pub(super) fn admit_visit(
+        &mut self,
+        visit: &Visit<'_>,
+        text_override: Option<&str>,
+    ) -> ConfigResult<()> {
+        if let Some(key) = visit.key {
+            self.input(key, visit)?;
+            self.admit(JsonMeasurement::Key { bytes: key.len() }, visit)?;
+        }
+        if let Some(text) = text_override {
+            return self.text(text, visit);
+        }
+        match visit.value {
+            ReadView::Scalar(value) => self.scalar(value, visit),
+            ReadView::Text(value) => self.text(value, visit),
+            ReadView::Missing(_) | ReadView::Json(serde_json::Value::Null) => {
+                self.admit(JsonMeasurement::Null { depth: visit.depth }, visit)
+            }
+            ReadView::Json(serde_json::Value::Bool(_)) => {
+                self.admit(JsonMeasurement::Boolean { depth: visit.depth }, visit)
+            }
+            ReadView::Json(serde_json::Value::String(value)) => self.text(value, visit),
+            ReadView::Json(serde_json::Value::Number(value)) => self.display(value, true, visit),
+            ReadView::Collection(values) => self.admit(
+                JsonMeasurement::Array {
+                    depth: visit.depth,
+                    items: values.len(),
+                },
+                visit,
+            ),
+            ReadView::Json(serde_json::Value::Array(values)) => self.admit(
+                JsonMeasurement::Array {
+                    depth: visit.depth,
+                    items: values.len(),
+                },
+                visit,
+            ),
+            ReadView::Json(serde_json::Value::Object(values)) => self.admit(
+                JsonMeasurement::Object {
+                    depth: visit.depth,
+                    entries: values.len(),
+                },
+                visit,
+            ),
+            ReadView::Object(values) => self.admit(
+                JsonMeasurement::Object {
+                    depth: visit.depth,
+                    entries: values.len(),
+                },
+                visit,
+            ),
+            ReadView::StringMap(values) => self.admit(
+                JsonMeasurement::Object {
+                    depth: visit.depth,
+                    entries: values.len(),
+                },
+                visit,
+            ),
+        }
+    }
 }
 
 fn data_type(visit: &Visit<'_>) -> DataType {
@@ -286,63 +348,10 @@ fn formatting_limits(limits: &ConversionLimits) -> ConversionLimits {
 pub(super) fn admit_input(prepared: &PreparedConfigRead<'_>, options: &ReadPolicy) -> ConfigResult<()> {
     let mut budget = PreparedInputBudget::new(options);
     traversal::walk(prepared, !prepared.overlays.is_empty(), |visit| {
-        if let Some(key) = visit.key {
-            budget.input(key, visit)?;
-            budget.admit(JsonMeasurement::Key { bytes: key.len() }, visit)?;
-        }
-        if let Some(text) = visit
+        let text = visit
             .location
             .as_ref()
-            .and_then(|location| prepared.overlays.get(location))
-        {
-            return budget.text(text, visit);
-        }
-        match visit.value {
-            ReadView::Scalar(value) => budget.scalar(value, visit),
-            ReadView::Text(value) => budget.text(value, visit),
-            ReadView::Missing(_) | ReadView::Json(serde_json::Value::Null) => {
-                budget.admit(JsonMeasurement::Null { depth: visit.depth }, visit)
-            }
-            ReadView::Json(serde_json::Value::Bool(_)) => {
-                budget.admit(JsonMeasurement::Boolean { depth: visit.depth }, visit)
-            }
-            ReadView::Json(serde_json::Value::String(value)) => budget.text(value, visit),
-            ReadView::Json(serde_json::Value::Number(value)) => budget.display(value, true, visit),
-            ReadView::Collection(values) => budget.admit(
-                JsonMeasurement::Array {
-                    depth: visit.depth,
-                    items: values.len(),
-                },
-                visit,
-            ),
-            ReadView::Json(serde_json::Value::Array(values)) => budget.admit(
-                JsonMeasurement::Array {
-                    depth: visit.depth,
-                    items: values.len(),
-                },
-                visit,
-            ),
-            ReadView::Json(serde_json::Value::Object(values)) => budget.admit(
-                JsonMeasurement::Object {
-                    depth: visit.depth,
-                    entries: values.len(),
-                },
-                visit,
-            ),
-            ReadView::Object(values) => budget.admit(
-                JsonMeasurement::Object {
-                    depth: visit.depth,
-                    entries: values.len(),
-                },
-                visit,
-            ),
-            ReadView::StringMap(values) => budget.admit(
-                JsonMeasurement::Object {
-                    depth: visit.depth,
-                    entries: values.len(),
-                },
-                visit,
-            ),
-        }
+            .and_then(|location| prepared.overlays.get(location));
+        budget.admit_visit(visit, text.map(String::as_str))
     })
 }

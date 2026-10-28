@@ -1254,3 +1254,115 @@ fn deserialize_error_wrapper_formats_message_and_config_sources() -> ConfigResul
     assert!(message_error.deserialize::<StringErrorProbe>("message_error").is_err());
     Ok(())
 }
+
+#[test]
+fn interpolation_admission_stops_before_later_bad_reference() -> ConfigResult<()> {
+    let mut config = Config::new();
+    let secret = "x".repeat(800);
+    config.set("blob", secret.as_str())?;
+    config.set("tree.a", "${blob}")?;
+    config.set("tree.b", "${blob}")?;
+    config.set("tree.z", "${missing}")?;
+    let limits = ConversionLimits::builder()
+        .operation_limits(
+            ConversionOperationLimits::builder()
+                .max_structured_payload_bytes(1601)
+                .build(),
+        )
+        .build();
+    config.set_default_read_policy(ReadPolicy::builder().conversion_limits(limits).build());
+
+    let error = config
+        .deserialize_with::<serde_json::Value>(
+            "tree",
+            ConfigDeserializeOptions {
+                interpolate: true,
+                unknown_fields: UnknownFieldPolicy::Ignore,
+            },
+        )
+        .expect_err("expanded value should exceed payload budget before tree.z resolves");
+    assert_eq!(error.path(), Some("tree.b"));
+    assert!(!matches!(error, ConfigError::SubstitutionError { .. }));
+    assert!(!error.to_string().contains(&secret));
+    Ok(())
+}
+
+#[test]
+fn interpolation_admission_payload_limit_accepts_1602_bytes() -> ConfigResult<()> {
+    interpolation_admission_boundary(true, 1602)
+}
+
+#[test]
+fn interpolation_admission_payload_limit_rejects_1601_bytes() -> ConfigResult<()> {
+    interpolation_admission_boundary(true, 1601)
+}
+
+#[test]
+fn interpolation_admission_input_limit_accepts_1602_bytes() -> ConfigResult<()> {
+    interpolation_admission_boundary(false, 1602)
+}
+
+#[test]
+fn interpolation_admission_input_limit_rejects_1601_bytes() -> ConfigResult<()> {
+    interpolation_admission_boundary(false, 1601)
+}
+
+#[test]
+fn interpolation_admission_original_input_precedes_bad_reference() -> ConfigResult<()> {
+    let mut config = Config::new();
+    config.set("tree.value", "${missing}")?;
+    let limits = ConversionLimits::builder()
+        .operation_limits(ConversionOperationLimits::builder().max_input_bytes(0).build())
+        .build();
+    config.set_default_read_policy(ReadPolicy::builder().conversion_limits(limits).build());
+
+    let error = config
+        .deserialize_with::<serde_json::Value>(
+            "tree",
+            ConfigDeserializeOptions {
+                interpolate: true,
+                unknown_fields: UnknownFieldPolicy::Ignore,
+            },
+        )
+        .expect_err("original input admission should fail before placeholder resolution");
+    assert!(!matches!(error, ConfigError::SubstitutionError { .. }));
+    Ok(())
+}
+
+fn interpolation_admission_boundary(payload: bool, limit: u64) -> ConfigResult<()> {
+    let mut config = Config::new();
+    config.set("blob", "x".repeat(800))?;
+    config.set("tree.a", "${blob}")?;
+    config.set("tree.b", "${blob}")?;
+    let operation = if payload {
+        ConversionOperationLimits::builder()
+            .max_structured_payload_bytes(limit)
+            .build()
+    } else {
+        ConversionOperationLimits::builder()
+            .max_input_bytes(limit)
+            .build()
+    };
+    let limits = ConversionLimits::builder()
+        .operation_limits(operation)
+        .build();
+    config.set_default_read_policy(ReadPolicy::builder().conversion_limits(limits).build());
+
+    let result = config.deserialize_with::<serde_json::Value>(
+        "tree",
+        ConfigDeserializeOptions {
+            interpolate: true,
+            unknown_fields: UnknownFieldPolicy::Ignore,
+        },
+    );
+    if limit == 1602 {
+        assert!(
+            result.is_ok(),
+            "the exact expanded boundary should be accepted"
+        );
+    } else {
+        let error = result.expect_err("the expanded value should exceed the configured limit");
+        assert_eq!(error.path(), Some("tree.b"));
+    }
+    Ok(())
+}

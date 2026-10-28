@@ -33,9 +33,10 @@ pub(super) fn interpolate<R: ConfigReader + ?Sized>(
     let options = primary.read_policy();
     let fallback = root_config(primary);
     let mut session = InterpolationSession::new(options);
+    let mut budget = super::input_budget::PreparedInputBudget::new(options);
     traversal::walk(prepared, true, |visit| {
         let Some(text) = visit.value.string() else {
-            return Ok(());
+            return budget.admit_visit(visit, None);
         };
         if !text.contains("${") {
             // Preserve the resolver's output bound even when no replacement is
@@ -46,7 +47,7 @@ pub(super) fn interpolate<R: ConfigReader + ?Sized>(
                     max_output_bytes: options.max_interpolation_output_bytes(),
                 });
             }
-            return Ok(());
+            return budget.admit_visit(visit, None);
         }
         let changed = crate::utils::substitute_variables_with_fallback(
             text,
@@ -56,6 +57,7 @@ pub(super) fn interpolate<R: ConfigReader + ?Sized>(
             &visit.path,
             &mut session,
         )?;
+        budget.admit_visit(visit, Some(&changed))?;
         if changed != text {
             let location = visit
                 .location
