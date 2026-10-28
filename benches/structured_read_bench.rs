@@ -149,15 +149,10 @@ fn benchmark_fixed_subtree(c: &mut Criterion) {
         config.set("settings.a", 1_i32).unwrap();
         config.set("settings.b", 2_i32).unwrap();
         for index in 0..unrelated {
-            config
-                .set(format!("unrelated.field{index}"), index as i32)
-                .unwrap();
+            config.set(format!("unrelated.field{index}"), index).unwrap();
         }
         assert_eq!(
-            config
-                .deserialize::<BTreeMap<String, i32>>("settings")
-                .unwrap()
-                .len(),
+            config.deserialize::<BTreeMap<String, i32>>("settings").unwrap().len(),
             2
         );
         c.bench_function(&format!("structured_read/fixed_subtree/{unrelated}"), |b| {

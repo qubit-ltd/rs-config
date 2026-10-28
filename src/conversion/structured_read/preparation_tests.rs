@@ -278,10 +278,7 @@ fn prefix_selection_root_and_empty_prefix_include_all_properties() {
     let ReadNode::Object(children) = &prepared.nodes[prepared.root] else {
         panic!()
     };
-    assert_eq!(
-        children.keys().map(String::as_str).collect::<Vec<_>>(),
-        ["a"]
-    );
+    assert_eq!(children.keys().map(String::as_str).collect::<Vec<_>>(), ["a"]);
 
     let empty = prepare_read(&config, "missing", false).unwrap();
     let ReadNode::Object(children) = &empty.nodes[empty.root] else {
@@ -308,11 +305,7 @@ fn prefix_selection_section_unicode_and_policy_override() {
     let policy = ReadPolicy::builder()
         .conversion_limits(
             ConversionLimits::builder()
-                .structured_limits(
-                    StructuredConversionLimits::builder()
-                        .max_map_entries(1)
-                        .build(),
-                )
+                .structured_limits(StructuredConversionLimits::builder().max_map_entries(1).build())
                 .build(),
         )
         .build();

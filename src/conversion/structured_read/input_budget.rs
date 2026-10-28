@@ -227,12 +227,9 @@ impl<'a> PreparedInputBudget<'a> {
         }
     }
 
-    /// Admits one complete logical visit, optionally counting owned overlay text.
-    pub(super) fn admit_visit(
-        &mut self,
-        visit: &Visit<'_>,
-        text_override: Option<&str>,
-    ) -> ConfigResult<()> {
+    /// Admits one complete logical visit, optionally counting owned overlay
+    /// text.
+    pub(super) fn admit_visit(&mut self, visit: &Visit<'_>, text_override: Option<&str>) -> ConfigResult<()> {
         if let Some(key) = visit.key {
             self.input(key, visit)?;
             self.admit(JsonMeasurement::Key { bytes: key.len() }, visit)?;

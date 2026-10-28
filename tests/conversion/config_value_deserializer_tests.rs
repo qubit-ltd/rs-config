@@ -1391,10 +1391,7 @@ fn interpolation_admission_visits_container_before_expansion() -> ConfigResult<(
     let mut container = Config::new();
     container.insert_property(
         "tree.flag",
-        Property::new(
-            "tree.flag",
-            QubitValue::Json(serde_json::json!({"nested": [1]})),
-        )?,
+        Property::new("tree.flag", QubitValue::Json(serde_json::json!({"nested": [1]})))?,
     )?;
     let error = interpolation_admission_with_prior_value(&mut container, "tree")?;
     assert_eq!(error.path(), Some("tree.value"));
@@ -1410,18 +1407,11 @@ fn interpolation_admission_charges_long_key_before_expansion() -> ConfigResult<(
     Ok(())
 }
 
-fn interpolation_admission_with_prior_value(
-    config: &mut Config,
-    prefix: &str,
-) -> ConfigResult<ConfigError> {
+fn interpolation_admission_with_prior_value(config: &mut Config, prefix: &str) -> ConfigResult<ConfigError> {
     config.set("blob", "x".repeat(800))?;
     config.set("tree.value", "${blob}")?;
     let limits = ConversionLimits::builder()
-        .operation_limits(
-            ConversionOperationLimits::builder()
-                .max_input_bytes(807)
-                .build(),
-        )
+        .operation_limits(ConversionOperationLimits::builder().max_input_bytes(807).build())
         .build();
     config.set_default_read_policy(ReadPolicy::builder().conversion_limits(limits).build());
     Ok(config
@@ -1436,8 +1426,7 @@ fn interpolation_admission_with_prior_value(
 }
 
 #[test]
-fn interpolation_admission_precedes_later_bad_reference_for_both_unknown_policies(
-) -> ConfigResult<()> {
+fn interpolation_admission_precedes_later_bad_reference_for_both_unknown_policies() -> ConfigResult<()> {
     for unknown_fields in [UnknownFieldPolicy::Reject, UnknownFieldPolicy::Ignore] {
         let mut config = Config::new();
         let secret = "x".repeat(800);
@@ -1521,13 +1510,9 @@ fn interpolation_admission_boundary(payload: bool, limit: u64) -> ConfigResult<(
             .max_structured_payload_bytes(limit)
             .build()
     } else {
-        ConversionOperationLimits::builder()
-            .max_input_bytes(limit)
-            .build()
+        ConversionOperationLimits::builder().max_input_bytes(limit).build()
     };
-    let limits = ConversionLimits::builder()
-        .operation_limits(operation)
-        .build();
+    let limits = ConversionLimits::builder().operation_limits(operation).build();
     config.set_default_read_policy(ReadPolicy::builder().conversion_limits(limits).build());
 
     let result = config.deserialize_with::<serde_json::Value>(
@@ -1538,10 +1523,7 @@ fn interpolation_admission_boundary(payload: bool, limit: u64) -> ConfigResult<(
         },
     );
     if limit == 1602 {
-        assert!(
-            result.is_ok(),
-            "the exact expanded boundary should be accepted"
-        );
+        assert!(result.is_ok(), "the exact expanded boundary should be accepted");
     } else {
         let error = result.expect_err("the expanded value should exceed the configured limit");
         assert_eq!(error.path(), Some("tree.b"));
