@@ -365,10 +365,19 @@ mod test_env_config_source {
 
     #[test]
     fn test_default_creates_plain_source() {
+        if !run_with_env(
+            "test_env_config_source::test_default_creates_plain_source",
+            &[("QUBIT_ENV_CONFIG_DEFAULT_TEST_KEY", "default_value")],
+        ) {
+            return;
+        }
+
         let source = EnvConfigSource::default();
-        let mut config = Config::new();
-        // Should not panic
-        merge_source(&mut config, &source).unwrap();
+        let config = source.load().unwrap();
+        assert_eq!(
+            config.get::<String>("QUBIT_ENV_CONFIG_DEFAULT_TEST_KEY").unwrap(),
+            "default_value"
+        );
     }
 
     #[test]

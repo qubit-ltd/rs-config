@@ -22,6 +22,9 @@ use qubit_config::ConfigWireLimitKind;
 use qubit_config::ConfigWireLimits;
 use qubit_config::options::ReadPolicy;
 use qubit_json::decode::JsonSyntaxErrorReason;
+use qubit_value::MultiValues;
+use qubit_value::Value as ScalarValue;
+use qubit_value::ValueContainer;
 use qubit_value::ValueWireEncodeError;
 use serde::Deserialize;
 use serde::Deserializer;
@@ -40,6 +43,9 @@ use serde_json::json;
 use serde_json::to_string;
 use serde_json::to_value;
 use serde_json::to_vec;
+
+const LEGACY_PROPERTY_WIRE: &[u8] = include_bytes!("../fixtures/config-wire-legacy.json");
+const V1_PROPERTY_WIRE: &[u8] = include_bytes!("../fixtures/config-wire-v1.json");
 
 /// Serde events used to verify format-independent `Config` deserialization.
 enum WireEvent {
@@ -216,6 +222,98 @@ fn test_config_wire_deserializes_unversioned_payload() {
             .expect("legacy property should retain its value"),
         8080,
     );
+}
+
+#[test]
+fn test_frozen_property_wire_decodes_through_both_entries() {
+    let expected_v1: Value = from_slice(V1_PROPERTY_WIRE).expect("the fixed V1 fixture should be valid JSON");
+
+    for bytes in [LEGACY_PROPERTY_WIRE, V1_PROPERTY_WIRE] {
+        let ordinary: Config = from_slice(bytes).expect("the ordinary Serde entry should decode the fixture");
+        let bounded = Config::decode_json_slice(bytes).expect("the bounded entry should decode the fixture");
+
+        for config in [ordinary, bounded] {
+            assert_eq!(config.description(), Some("Frozen config"));
+            assert_eq!(config.get::<i32>("server.port").unwrap(), 8080);
+            assert_eq!(config.get::<Vec<String>>("server.tags").unwrap(), ["blue", "绿"]);
+
+            let port = config.get_property("server.port").unwrap().unwrap();
+            assert!(port.is_final());
+            assert_eq!(port.description(), Some("Port"));
+            assert_eq!(port.value(), &ValueContainer::Scalar(ScalarValue::Int32(8080)));
+            assert_eq!(
+                config.get_property("server.tags").unwrap().unwrap().value(),
+                &ValueContainer::Collection(MultiValues::String(vec!["blue".to_owned(), "绿".to_owned()])),
+            );
+
+            let actual: Value = from_slice(&config.encode_json_vec().unwrap()).unwrap();
+            assert_eq!(actual, expected_v1);
+        }
+    }
+}
+
+#[test]
+fn test_independently_constructed_config_encodes_complete_v1_wire() {
+    let mut config = Config::builder().description("Frozen config").build();
+    config.set("server.port", 8080_i32).unwrap();
+    config.set("server.tags", vec!["blue", "绿"]).unwrap();
+    config
+        .get_property_mut("server.port")
+        .unwrap()
+        .unwrap()
+        .set_description(Some("Port".to_owned()))
+        .unwrap();
+    config.set_final("server.port", true).unwrap();
+
+    assert_eq!(
+        config.get_property("server.port").unwrap().unwrap().value(),
+        &ValueContainer::Scalar(ScalarValue::Int32(8080)),
+    );
+    assert_eq!(
+        config.get_property("server.tags").unwrap().unwrap().value(),
+        &ValueContainer::Collection(MultiValues::String(vec!["blue".to_owned(), "绿".to_owned()])),
+    );
+
+    let actual: Value = from_slice(&config.encode_json_vec().unwrap()).unwrap();
+    let expected: Value = from_slice(V1_PROPERTY_WIRE).unwrap();
+    assert_eq!(actual, expected);
+}
+
+// Frozen from the RSC-003 design's documented V1 payloads, not a historical
+// serializer run or test-time output.
+#[cfg(all(feature = "bigdecimal", feature = "chrono", feature = "num-bigint", feature = "url"))]
+#[test]
+fn test_frozen_rich_wire_preserves_exact_values() {
+    let legacy = include_bytes!("../fixtures/config-wire-legacy-rich.json").as_slice();
+    let v1 = include_bytes!("../fixtures/config-wire-v1-rich.json").as_slice();
+
+    for bytes in [legacy, v1] {
+        let ordinary: Config = from_slice(bytes).expect("the ordinary Serde entry should decode the rich fixture");
+        let bounded = Config::decode_json_slice(bytes).expect("the bounded entry should decode the rich fixture");
+
+        for config in [ordinary, bounded] {
+            assert_eq!(
+                config.get::<bigdecimal::BigDecimal>("rich.decimal").unwrap(),
+                "123.45".parse::<bigdecimal::BigDecimal>().unwrap(),
+            );
+            assert_eq!(
+                config.get::<num_bigint::BigInt>("rich.integer").unwrap(),
+                "18446744073709551616".parse::<num_bigint::BigInt>().unwrap(),
+            );
+            assert_eq!(
+                config.get::<chrono::DateTime<chrono::Utc>>("rich.instant").unwrap(),
+                "2026-01-02T03:04:05Z".parse::<chrono::DateTime<chrono::Utc>>().unwrap(),
+            );
+            assert_eq!(
+                config.get::<url::Url>("rich.url").unwrap(),
+                url::Url::parse("https://example.test/path").unwrap(),
+            );
+            assert_eq!(
+                from_slice::<Value>(&config.encode_json_vec().unwrap()).unwrap(),
+                from_slice::<Value>(v1).unwrap(),
+            );
+        }
+    }
 }
 
 #[test]

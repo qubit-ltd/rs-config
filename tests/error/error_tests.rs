@@ -8,6 +8,7 @@
 
 use std::error::Error;
 
+use qubit_config::Config;
 use qubit_config::ConfigError;
 use qubit_config::ConfigErrorKind;
 use qubit_datatype::DataConversionError;
@@ -64,7 +65,7 @@ fn test_single_property_error_exposes_one_candidate_path() {
 }
 
 #[test]
-fn test_structured_conversion_error_is_redacted() {
+fn test_structured_conversion_error_formatting() {
     let error = ConfigError::ConversionError {
         key: "secret".to_string(),
         source_index: Some(2),
@@ -73,8 +74,31 @@ fn test_structured_conversion_error_is_redacted() {
     let message = error.to_string();
     assert!(message.contains("secret"));
     assert!(message.contains("invalid syntax"));
-    assert!(!message.contains("hunter2"));
     assert!(error.source().is_some());
+}
+
+#[test]
+fn test_structured_conversion_error_is_redacted() {
+    let sentinel = "RS_CONFIG_SECRET_hunter2_20261028";
+    let mut config = Config::new();
+    config.set("secret", sentinel).unwrap();
+    config.set("alias", "${secret}").unwrap();
+
+    for (path, error) in [
+        ("secret", config.get::<u16>("secret").unwrap_err()),
+        ("alias", config.get_interpolated::<u16>("alias").unwrap_err()),
+    ] {
+        assert_eq!(error.kind(), ConfigErrorKind::Conversion);
+        assert_eq!(error.path(), Some(path));
+        assert!(error.source().is_some());
+
+        let mut current: Option<&(dyn Error + 'static)> = Some(&error);
+        while let Some(cause) = current {
+            assert!(!cause.to_string().contains(sentinel));
+            assert!(!format!("{cause:?}").contains(sentinel));
+            current = cause.source();
+        }
+    }
 }
 
 #[test]

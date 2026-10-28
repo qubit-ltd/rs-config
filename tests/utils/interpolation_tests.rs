@@ -471,6 +471,13 @@ fn test_get_string_converts_config_value_instead_of_environment() {
 
 #[test]
 fn test_get_string_environment_fallback_reports_missing_env_var() {
+    if !run_with_environment(
+        "test_variable_substitution::test_get_string_environment_fallback_reports_missing_env_var",
+        &[],
+    ) {
+        return;
+    }
+
     let mut config = Config::new();
     config.set_default_read_policy(crate::with_environment_fallback(ReadPolicy::default()));
     config
@@ -510,7 +517,15 @@ fn run_with_environment(name: &str, values: &[(&str, &str)]) -> bool {
         return true;
     }
     let mut command = Command::new(std::env::current_exe().expect("test executable path"));
-    command.arg("--exact").arg(name).arg("--nocapture").env(CHILD, "1");
+    command
+        .arg("--exact")
+        .arg(name)
+        .arg("--nocapture")
+        .env_clear()
+        .env(CHILD, "1");
+    if let Some(profile) = std::env::var_os("LLVM_PROFILE_FILE") {
+        command.env("LLVM_PROFILE_FILE", profile);
+    }
     for (key, value) in values {
         command.env(key, value);
     }
