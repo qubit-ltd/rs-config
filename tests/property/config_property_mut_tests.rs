@@ -62,6 +62,22 @@ fn test_config_property_mut_rejects_mutation_after_marking_final() {
             property.unset(),
             Err(ConfigError::PropertyIsFinal(name)) if name == "server.host"
         ));
+        assert!(matches!(
+            property.set_description(Some("changed".to_owned())),
+            Err(ConfigError::PropertyIsFinal(name)) if name == "server.host"
+        ));
+        assert!(matches!(
+            property.set_value("changed"),
+            Err(ConfigError::PropertyIsFinal(name)) if name == "server.host"
+        ));
+        assert!(matches!(
+            property.add("changed"),
+            Err(ConfigError::PropertyIsFinal(name)) if name == "server.host"
+        ));
+        assert!(matches!(
+            property.set_final(false),
+            Err(ConfigError::PropertyIsFinal(name)) if name == "server.host"
+        ));
     }
     assert_eq!(config.get::<String>("server.host").unwrap(), "localhost");
 }

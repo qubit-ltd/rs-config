@@ -136,7 +136,7 @@ impl<'a> ConfigSection<'a> {
     }
 
     /// Applies a borrowed read-policy override to this view.
-    #[inline(always)]
+    #[inline]
     pub(crate) fn with_read_policy_override(mut self, policy: &'a ReadPolicy) -> Self {
         self.read_policy = Some(policy);
         self
@@ -155,7 +155,7 @@ impl<'a> ConfigSection<'a> {
     ///
     /// The empty string for the root section, or a path without leading or
     /// trailing `.` separators.
-    #[inline(always)]
+    #[inline]
     #[must_use = "use the returned value"]
     pub fn path(&self) -> &str {
         &self.path
@@ -172,7 +172,7 @@ impl<'a> ConfigSection<'a> {
     /// # Returns
     ///
     /// This scoped section with the override applied.
-    #[inline(always)]
+    #[inline]
     pub fn read_with<'b>(self, policy: &'b ReadPolicy) -> ConfigSection<'b>
     where
         'a: 'b,
@@ -209,7 +209,7 @@ impl<'a> ConfigSection<'a> {
     /// # Returns
     ///
     /// `true` when at least one descendant belongs to the exact section.
-    #[inline(always)]
+    #[inline]
     pub fn contains_section(&self, path: &str) -> ConfigResult<bool> {
         <Self as ConfigReader>::contains_section(self, path)
     }
@@ -351,7 +351,7 @@ impl<'a> ConfigReader for ConfigSection<'a> {
         self.visible_entries()
     }
 
-    #[inline(always)]
+    #[inline]
     fn section(&self, path: &str) -> ConfigResult<ConfigSection<'a>> {
         ConfigSection::section(self, path)
     }

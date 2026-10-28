@@ -210,3 +210,15 @@ fn key_and_path_wrapper_traits_preserve_the_validated_text() {
     assert_eq!(std::hint::black_box(path_as_ref)(&path), "server.http");
     assert_eq!(path.to_string(), "server.http");
 }
+
+#[test]
+fn key_and_path_deserialization_enforce_their_distinct_empty_rules() {
+    let root: ConfigPath = serde_json::from_str("\"\"").unwrap();
+    assert_eq!(root.as_str(), "");
+
+    let key_error = serde_json::from_str::<ConfigKey>("\"\"").unwrap_err();
+    assert!(key_error.to_string().contains("key is empty"));
+
+    let path_error = serde_json::from_str::<ConfigPath>("\"http..proxy\"").unwrap_err();
+    assert!(path_error.to_string().contains("empty segment"));
+}

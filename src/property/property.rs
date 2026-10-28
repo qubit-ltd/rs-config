@@ -243,7 +243,7 @@ impl Property {
     /// # Returns
     ///
     /// Returns a mutable reference to the property value
-    #[inline(always)]
+    #[inline]
     #[must_use = "use the returned value"]
     pub fn value_mut(&mut self) -> &mut ValueContainer {
         &mut self.value
@@ -264,7 +264,7 @@ impl Property {
     /// # Returns
     ///
     /// Returns the property description as Option
-    #[inline(always)]
+    #[inline]
     #[must_use = "use the returned value"]
     pub fn description(&self) -> Option<&str> {
         self.description.as_deref()
@@ -275,7 +275,7 @@ impl Property {
     /// # Parameters
     ///
     /// * `description` - Property description
-    #[inline(always)]
+    #[inline]
     pub fn set_description(&mut self, description: Option<String>) {
         self.description = description;
     }
@@ -306,7 +306,7 @@ impl Property {
     /// # Returns
     ///
     /// Returns the data type of the property value
-    #[inline(always)]
+    #[inline]
     #[must_use = "use the returned value"]
     pub fn data_type(&self) -> DataType {
         self.value.data_type()

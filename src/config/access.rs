@@ -29,7 +29,7 @@ impl Config {
     /// # Returns
     ///
     /// Returns the configuration description as Option
-    #[inline(always)]
+    #[inline]
     #[must_use = "use the returned value"]
     pub fn description(&self) -> Option<&str> {
         self.description.as_deref()

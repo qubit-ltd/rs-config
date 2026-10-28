@@ -169,3 +169,34 @@ fn section_path_and_presence_accessors_are_callable_as_functions() {
     assert_eq!(std::hint::black_box(ConfigSection::path)(&section), "service");
     assert!(std::hint::black_box(ConfigSection::contains_section)(&section, "child").unwrap());
 }
+
+#[test]
+fn test_section_empty_paths_keep_the_current_scope() {
+    let mut config = Config::new();
+    config.set("service.child.value", "visible").unwrap();
+    let service = config.section("service").unwrap();
+
+    let same_section = service.section("").unwrap();
+    assert_eq!(same_section.path(), "service");
+    assert_eq!(same_section.get::<String>("child.value").unwrap(), "visible");
+    assert!(same_section.contains_section("").unwrap());
+    assert!(same_section.contains_section("child").unwrap());
+    assert!(!same_section.contains_section("missing").unwrap());
+
+    let root = config.section("").unwrap();
+    assert_eq!(root.section("service").unwrap().path(), "service");
+    assert!(root.contains_section("").unwrap());
+}
+
+#[test]
+fn test_section_strict_reads_and_property_lookup_are_relative() {
+    let mut config = Config::new();
+    config.set("service.port", "8080").unwrap();
+    config.set("service.ports", vec!["80", "443"]).unwrap();
+    let service = config.section("service").unwrap();
+
+    assert!(service.get_property("port").unwrap().is_some());
+    assert_eq!(service.get_strict::<String>("port").unwrap(), "8080");
+    assert_eq!(service.get_list_strict::<String>("ports").unwrap(), ["80", "443"]);
+    assert!(service.get_property("missing").unwrap().is_none());
+}

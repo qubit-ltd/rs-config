@@ -1807,3 +1807,16 @@ fn property_wire_rejects_noncanonical_names() {
     let error = serde_json::from_value::<Property>(encoded).unwrap_err();
     assert!(error.to_string().contains("bad..name"));
 }
+
+#[test]
+fn property_wire_roundtrip_preserves_typed_unset_values() {
+    let property = new_unset_int32_property("optional.limit");
+
+    let encoded = serde_json::to_value(&property).unwrap();
+    let decoded: Property = serde_json::from_value(encoded).unwrap();
+
+    assert_eq!(decoded.name(), "optional.limit");
+    assert!(decoded.is_unset());
+    assert_eq!(decoded.data_type(), DataType::Int32);
+    assert!(matches!(decoded.get::<i32>(), Err(ValueError::Missing(_))));
+}

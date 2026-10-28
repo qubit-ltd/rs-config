@@ -76,7 +76,7 @@ impl<'de> Deserialize<'de> for ConfigKey {
 
 impl Display for ConfigKey {
     /// Formats the canonical key text.
-    #[inline(always)]
+    #[inline]
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         formatter.write_str(&self.0)
     }
@@ -84,7 +84,7 @@ impl Display for ConfigKey {
 
 impl AsRef<str> for ConfigKey {
     /// Borrows the canonical key text.
-    #[inline(always)]
+    #[inline]
     fn as_ref(&self) -> &str {
         self.as_str()
     }

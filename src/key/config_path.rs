@@ -53,14 +53,14 @@ impl ConfigPath {
     }
 
     /// Borrows the canonical path text.
-    #[inline(always)]
+    #[inline]
     #[must_use = "use the returned value"]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
     /// Consumes this path and returns its owned text.
-    #[inline(always)]
+    #[inline]
     pub fn into_string(self) -> String {
         self.0
     }
@@ -79,7 +79,7 @@ impl<'de> Deserialize<'de> for ConfigPath {
 
 impl Display for ConfigPath {
     /// Formats the canonical path text.
-    #[inline(always)]
+    #[inline]
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         formatter.write_str(&self.0)
     }
@@ -87,7 +87,7 @@ impl Display for ConfigPath {
 
 impl AsRef<str> for ConfigPath {
     /// Borrows the canonical path text.
-    #[inline(always)]
+    #[inline]
     fn as_ref(&self) -> &str {
         self.as_str()
     }

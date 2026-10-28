@@ -26,6 +26,8 @@ use qubit_config::Property;
 use qubit_config::conversion::ConfigParseContext;
 use qubit_config::conversion::FromConfig;
 use qubit_config::options::ReadPolicy;
+use qubit_datatype::ConversionLimits;
+use qubit_datatype::ConversionOperationLimits;
 use qubit_datatype::InvalidValueReason;
 use qubit_datatype::NumericConversionPolicy;
 
@@ -212,4 +214,34 @@ fn test_from_config_interpolation_preserves_non_string_shapes() {
         config.get_interpolated::<u16>("invalid"),
         Err(ConfigError::SubstitutionError { path, .. }) if path == "invalid"
     ));
+}
+
+#[test]
+fn test_from_config_interpolates_string_scalar_and_collection_values() {
+    let mut config = Config::new();
+    config.set("base", "resolved").unwrap();
+    config.set("scalar", "prefix-${base}").unwrap();
+    config.set("values", vec!["${base}", "suffix-${base}"]).unwrap();
+
+    assert_eq!(config.get::<String>("scalar").unwrap(), "prefix-${base}");
+    assert_eq!(config.get_interpolated::<String>("scalar").unwrap(), "prefix-resolved",);
+    assert_eq!(
+        config.get_interpolated::<Vec<String>>("values").unwrap(),
+        ["resolved", "suffix-resolved"],
+    );
+}
+
+#[test]
+fn test_interpolated_string_output_limit_preserves_property_path() {
+    let limits = ConversionLimits::builder()
+        .operation_limits(ConversionOperationLimits::builder().max_output_bytes(1).build())
+        .build();
+    let mut config = Config::builder()
+        .default_read_policy(ReadPolicy::builder().conversion_limits(limits).build())
+        .build();
+    config.set("base", "long").unwrap();
+    config.set("service.name", "${base}").unwrap();
+
+    let error = config.get_interpolated::<String>("service.name").unwrap_err();
+    assert_eq!(error.path(), Some("service.name"));
 }
