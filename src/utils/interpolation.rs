@@ -6,10 +6,7 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-use qubit_budget::ResourceBudget;
-use qubit_budget::ResourceLimit;
-
-use super::internal::InterpolationResource;
+use super::internal::InterpolationSession;
 use super::map_value_error;
 use crate::ConfigError;
 use crate::ConfigReader;
@@ -23,14 +20,18 @@ use crate::options::ReadPolicy;
 /// the fallback reader, then to environment variables only when the active
 /// read policy permits environment fallback. Type and conversion errors in the
 /// primary reader are returned directly.
-pub(crate) fn substitute_variables_with_fallback<P: ConfigReader + ?Sized, F: ConfigReader + ?Sized>(
+pub(crate) fn substitute_variables_with_fallback<
+    P: ConfigReader + ?Sized,
+    F: ConfigReader + ?Sized,
+>(
     value: &str,
     primary: &P,
     fallback: &F,
     options: &ReadPolicy,
     path: &str,
+    session: &mut InterpolationSession,
 ) -> ConfigResult<String> {
-    substitute_variables_by(value, options, path, |var_name| {
+    substitute_variables_by(value, options, path, session, |var_name| {
         find_variable_value_with_fallback(var_name, primary, fallback, options, path)
     })
 }
@@ -40,26 +41,11 @@ fn substitute_variables_by(
     value: &str,
     options: &ReadPolicy,
     path: &str,
+    session: &mut InterpolationSession,
     mut resolve: impl FnMut(&str) -> ConfigResult<String>,
 ) -> ConfigResult<String> {
     let mut stack = Vec::new();
-    let mut expansion_budget = ResourceBudget::new(
-        InterpolationResource::Expansions,
-        options.max_interpolation_expansions(),
-    );
-    let output_limit = ResourceLimit::new(
-        InterpolationResource::OutputBytes,
-        options.max_interpolation_output_bytes(),
-    );
-    substitute_variables_recursive(
-        value,
-        options,
-        path,
-        &mut stack,
-        &mut expansion_budget,
-        &output_limit,
-        &mut resolve,
-    )
+    substitute_variables_recursive(value, options, path, &mut stack, session, &mut resolve)
 }
 
 /// Recursively expands variables while tracking the active variable chain.
@@ -68,15 +54,13 @@ fn substitute_variables_recursive(
     options: &ReadPolicy,
     path: &str,
     stack: &mut Vec<String>,
-    expansion_budget: &mut ResourceBudget<InterpolationResource, usize>,
-    output_limit: &ResourceLimit<InterpolationResource, usize>,
+    session: &mut InterpolationSession,
     resolve: &mut impl FnMut(&str) -> ConfigResult<String>,
 ) -> ConfigResult<String> {
     let max_depth = options.max_interpolation_depth();
-    let max_expansions = options.max_interpolation_expansions();
-    let max_output_bytes = options.max_interpolation_output_bytes();
+    let max_output_bytes = session.max_output_bytes();
     if value.is_empty() || find_next_variable(value, 0).is_none() {
-        check_substitution_output(output_limit, value.len(), max_output_bytes, path)?;
+        session.check_output(value.len(), path)?;
         return Ok(value.to_string());
     }
     if stack.len() >= max_depth {
@@ -90,13 +74,7 @@ fn substitute_variables_recursive(
     let mut last_end = 0;
     let mut search_from = 0;
     while let Some((match_start, match_end, var_name)) = find_next_variable(value, search_from) {
-        push_substitution_fragment(
-            &mut result,
-            &value[last_end..match_start],
-            output_limit,
-            max_output_bytes,
-            path,
-        )?;
+        push_substitution_fragment(&mut result, &value[last_end..match_start], session, path)?;
 
         if let Some(index) = stack.iter().position(|name| name == var_name) {
             let mut chain = stack[index..].to_vec();
@@ -107,30 +85,18 @@ fn substitute_variables_recursive(
             });
         }
 
-        expansion_budget
-            .try_consume(1)
-            .map_err(|_| ConfigError::SubstitutionExpansionLimitExceeded {
-                path: path.to_string(),
-                max_expansions,
-            })?;
+        session.consume_expansion(path)?;
 
         stack.push(var_name.to_string());
         let raw_value = resolve(var_name)?;
-        let expanded = substitute_variables_recursive(
-            &raw_value,
-            options,
-            path,
-            stack,
-            expansion_budget,
-            output_limit,
-            resolve,
-        )?;
+        let expanded =
+            substitute_variables_recursive(&raw_value, options, path, stack, session, resolve)?;
         stack.pop();
-        push_substitution_fragment(&mut result, &expanded, output_limit, max_output_bytes, path)?;
+        push_substitution_fragment(&mut result, &expanded, session, path)?;
         last_end = match_end;
         search_from = match_end;
     }
-    push_substitution_fragment(&mut result, &value[last_end..], output_limit, max_output_bytes, path)?;
+    push_substitution_fragment(&mut result, &value[last_end..], session, path)?;
     Ok(result)
 }
 
@@ -153,37 +119,18 @@ fn find_next_variable(value: &str, mut search_from: usize) -> Option<(usize, usi
 fn push_substitution_fragment(
     result: &mut String,
     fragment: &str,
-    output_limit: &ResourceLimit<InterpolationResource, usize>,
-    max_output_bytes: usize,
+    session: &InterpolationSession,
     path: &str,
 ) -> ConfigResult<()> {
     let Some(prospective_len) = result.len().checked_add(fragment.len()) else {
         return Err(ConfigError::SubstitutionOutputTooLarge {
             path: path.to_string(),
-            max_output_bytes,
+            max_output_bytes: session.max_output_bytes(),
         });
     };
-    check_substitution_output(output_limit, prospective_len, max_output_bytes, path)?;
+    session.check_output(prospective_len, path)?;
     result.push_str(fragment);
     Ok(())
-}
-
-/// Checks bytes before making them visible in an interpolation result.
-///
-/// Returns [`ConfigError::SubstitutionOutputTooLarge`] with `path` when the
-/// prospective result would exceed the configured byte limit.
-fn check_substitution_output(
-    output_limit: &ResourceLimit<InterpolationResource, usize>,
-    output_bytes: usize,
-    max_output_bytes: usize,
-    path: &str,
-) -> ConfigResult<()> {
-    output_limit
-        .check(output_bytes)
-        .map_err(|_| ConfigError::SubstitutionOutputTooLarge {
-            path: path.to_string(),
-            max_output_bytes,
-        })
 }
 
 /// Finds the value of a variable.
@@ -201,7 +148,9 @@ fn find_variable_value<R: ConfigReader + ?Sized>(
                 Err(map_value_error(&resolved, error))
             }
         },
-        Some(_) | None if options.interpolation_sources() == InterpolationSources::ConfigThenEnv => {
+        Some(_) | None
+            if options.interpolation_sources() == InterpolationSources::ConfigThenEnv =>
+        {
             std::env::var(var_name).map_err(|_| ConfigError::SubstitutionError {
                 path: path.to_string(),
                 message: format!("Cannot resolve variable: {var_name}"),

@@ -7,6 +7,8 @@
 // =============================================================================
 //! Conversion and structured deserialization support.
 
+pub(crate) mod internal;
+
 pub use crate::config_deserialize_options::ConfigDeserializeOptions;
 pub use crate::config_parse_context::ConfigParseContext;
 pub use crate::config_serde_ext::ConfigSerdeExt;

@@ -14,6 +14,7 @@ use qubit_config::ConfigReader;
 use qubit_config::UnknownFieldPolicy;
 use qubit_config::options::InterpolationSources;
 use qubit_config::options::ReadPolicy;
+use qubit_datatype::BlankStringPolicy;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize, PartialEq, Eq)]
@@ -83,6 +84,109 @@ fn test_get_interpolated_resolves_string_and_numeric_values() {
 
     assert_eq!(url, "http://localhost:8080/api");
     assert_eq!(port, 8080);
+}
+
+#[test]
+fn test_interpolation_expansions_accumulate_across_list_elements() {
+    let mut config = Config::builder()
+        .default_read_policy(
+            ReadPolicy::builder()
+                .max_interpolation_expansions(1)
+                .build(),
+        )
+        .build();
+    config.set("x", "ok").unwrap();
+    config.set("items", ["${x}", "${x}"]).unwrap();
+    let error = config.get_interpolated::<Vec<String>>("items").unwrap_err();
+    assert!(matches!(error,
+        ConfigError::SubstitutionExpansionLimitExceeded { path, max_expansions: 1 }
+            if path == "items"));
+}
+
+#[test]
+fn test_interpolation_precheck_and_conversion_share_scalar_expansion() {
+    let mut config = Config::builder()
+        .default_read_policy(
+            ReadPolicy::builder()
+                .max_interpolation_expansions(1)
+                .build(),
+        )
+        .build();
+    config.set("x", "ok").unwrap();
+    config.set("value", "${x}").unwrap();
+
+    assert_eq!(config.get_interpolated::<String>("value").unwrap(), "ok");
+}
+
+#[test]
+fn test_interpolation_budget_is_fresh_for_independent_reads() {
+    let mut config = Config::builder()
+        .default_read_policy(
+            ReadPolicy::builder()
+                .max_interpolation_expansions(1)
+                .build(),
+        )
+        .build();
+    config.set("x", "ok").unwrap();
+    config.set("value", "${x}").unwrap();
+
+    assert_eq!(config.get_interpolated::<String>("value").unwrap(), "ok");
+    assert_eq!(config.get_interpolated::<String>("value").unwrap(), "ok");
+}
+
+#[test]
+fn test_interpolation_budget_accumulates_across_missing_candidates() {
+    let mut limited = Config::builder()
+        .default_read_policy(
+            ReadPolicy::builder()
+                .max_interpolation_expansions(1)
+                .blank_string_policy(BlankStringPolicy::TreatAsMissing)
+                .build(),
+        )
+        .build();
+    limited.set("blank", "").unwrap();
+    limited.set("x", "ok").unwrap();
+    limited.set("first", "${blank}").unwrap();
+    limited.set("second", "${x}").unwrap();
+    assert_eq!(
+        limited
+            .read_policy()
+            .conversion_policy()
+            .string()
+            .normalize_optional(""),
+        Ok(None)
+    );
+
+    let error = limited
+        .get_optional_any_interpolated::<String>(["first", "second"])
+        .unwrap_err();
+    assert!(matches!(
+        error,
+        ConfigError::SubstitutionExpansionLimitExceeded {
+            path,
+            max_expansions: 1
+        } if path == "second"
+    ));
+
+    let mut sufficient = Config::builder()
+        .default_read_policy(
+            ReadPolicy::builder()
+                .max_interpolation_expansions(2)
+                .blank_string_policy(BlankStringPolicy::TreatAsMissing)
+                .build(),
+        )
+        .build();
+    sufficient.set("blank", "").unwrap();
+    sufficient.set("x", "ok").unwrap();
+    sufficient.set("first", "${blank}").unwrap();
+    sufficient.set("second", "${x}").unwrap();
+    assert_eq!(
+        sufficient
+            .get_optional_any_interpolated::<String>(["first", "second"])
+            .unwrap()
+            .as_deref(),
+        Some("ok")
+    );
 }
 
 /// Verifies interpolation preserves empty placeholders while resolving later

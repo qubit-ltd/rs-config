@@ -8,6 +8,8 @@
 
 #![allow(private_bounds)]
 
+use std::cell::RefCell;
+
 /// Private sealing implementation for supported reader types.
 mod internal;
 
@@ -25,10 +27,11 @@ use crate::config_path::ensure_config_path;
 use crate::config_section::ConfigSection;
 use crate::conversion::FromConfig;
 use crate::helpers::is_effectively_missing;
-use crate::helpers::is_effectively_missing_interpolated;
+use crate::helpers::is_effectively_missing_with_context;
 use crate::helpers::parse_property_from_reader;
-use crate::helpers::parse_property_from_reader_interpolated;
+use crate::helpers::with_property_read_context;
 use crate::options::ReadPolicy;
+use crate::utils::InterpolationSession;
 
 /// Read-only configuration interface.
 ///
@@ -116,7 +119,7 @@ pub trait ConfigReader: internal::Sealed {
             }
         };
         let resolved = property.name();
-        if !property.is_unset() && is_effectively_missing(self, resolved, property, self.read_policy())? {
+        if !property.is_unset() && is_effectively_missing(property, self.read_policy()) {
             return Err(ConfigError::PropertyHasNoValue(resolved.to_owned()));
         }
         parse_property_from_reader(self, resolved, property, self.read_policy())
@@ -157,10 +160,21 @@ pub trait ConfigReader: internal::Sealed {
             }
         };
         let resolved = property.name();
-        if !property.is_unset() && is_effectively_missing_interpolated(self, resolved, property, self.read_policy())? {
-            return Err(ConfigError::PropertyHasNoValue(resolved.to_owned()));
-        }
-        parse_property_from_reader_interpolated(self, resolved, property, self.read_policy())
+        let session = RefCell::new(InterpolationSession::new(self.read_policy()));
+        with_property_read_context(
+            self,
+            resolved,
+            property,
+            self.read_policy(),
+            true,
+            &session,
+            |context| {
+                if !property.is_unset() && is_effectively_missing_with_context(property, context)? {
+                    return Err(ConfigError::PropertyHasNoValue(resolved.to_owned()));
+                }
+                T::from_config(property, context)
+            },
+        )
     }
 
     /// Reads the first stored value for `name` without cross-type conversion.
@@ -287,7 +301,7 @@ pub trait ConfigReader: internal::Sealed {
             None => Ok(None),
             Some(property) => {
                 let resolved = property.name();
-                if is_effectively_missing(self, resolved, property, self.read_policy())? {
+                if is_effectively_missing(property, self.read_policy()) {
                     Ok(None)
                 } else {
                     optional_converted_value(parse_property_from_reader(self, resolved, property, self.read_policy()))
@@ -326,16 +340,22 @@ pub trait ConfigReader: internal::Sealed {
             None => Ok(None),
             Some(property) => {
                 let resolved = property.name();
-                if is_effectively_missing_interpolated(self, resolved, property, self.read_policy())? {
-                    Ok(None)
-                } else {
-                    optional_converted_value(parse_property_from_reader_interpolated(
-                        self,
-                        resolved,
-                        property,
-                        self.read_policy(),
-                    ))
-                }
+                let session = RefCell::new(InterpolationSession::new(self.read_policy()));
+                with_property_read_context(
+                    self,
+                    resolved,
+                    property,
+                    self.read_policy(),
+                    true,
+                    &session,
+                    |context| {
+                        if is_effectively_missing_with_context(property, context)? {
+                            Ok(None)
+                        } else {
+                            optional_converted_value(T::from_config(property, context))
+                        }
+                    },
+                )
             }
         }
     }
@@ -692,6 +712,7 @@ where
     T: FromConfig,
 {
     names.with_config_names(|names| {
+        let session = RefCell::new(InterpolationSession::new(options));
         for name in names {
             ensure_config_key(name)?;
         }
@@ -700,20 +721,21 @@ where
                 continue;
             };
             let resolved = property.name();
-            let missing = if interpolate {
-                is_effectively_missing_interpolated(reader, resolved, property, options)?
-            } else {
-                is_effectively_missing(reader, resolved, property, options)?
-            };
-            if missing {
-                continue;
-            }
-            let parsed = if interpolate {
-                parse_property_from_reader_interpolated(reader, resolved, property, options)
-            } else {
-                parse_property_from_reader(reader, resolved, property, options)
-            };
-            if let Some(value) = optional_converted_value(parsed)? {
+            let parsed = with_property_read_context(
+                reader,
+                resolved,
+                property,
+                options,
+                interpolate,
+                &session,
+                |context| {
+                    if is_effectively_missing_with_context(property, context)? {
+                        return Ok(None);
+                    }
+                    optional_converted_value(T::from_config(property, context))
+                },
+            )?;
+            if let Some(value) = parsed {
                 return Ok(Some(value));
             }
         }

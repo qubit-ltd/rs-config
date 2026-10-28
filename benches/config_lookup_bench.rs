@@ -17,6 +17,7 @@ use qubit_config::Config;
 use qubit_config::ConfigReader;
 
 const PROPERTY_COUNTS: [usize; 3] = [32, 1_024, 16_384];
+const RAW_STRING_LENGTHS: [usize; 3] = [16, 1_024, 65_536];
 
 /// Builds a fixed configuration outside benchmark timing loops.
 fn build_config(property_count: usize) -> Config {
@@ -206,5 +207,20 @@ fn benchmark_config_lookup(criterion: &mut Criterion) {
     }
 }
 
-criterion_group!(benches, benchmark_config_lookup);
+/// Measures ordinary owned string reads for representative source lengths.
+fn benchmark_raw_string_get(criterion: &mut Criterion) {
+    let mut group = criterion.benchmark_group("raw_string_get");
+    for length in RAW_STRING_LENGTHS {
+        let mut config = Config::new();
+        config
+            .set("text", "x".repeat(length))
+            .expect("benchmark fixture key should be canonical");
+        group.bench_function(BenchmarkId::from_parameter(length), |bencher| {
+            bencher.iter(|| black_box(config.get::<String>(black_box("text")).unwrap()));
+        });
+    }
+    group.finish();
+}
+
+criterion_group!(benches, benchmark_config_lookup, benchmark_raw_string_get);
 criterion_main!(benches);

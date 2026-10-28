@@ -23,6 +23,7 @@ use crate::ConfigReader;
 use crate::ConfigResult;
 use crate::ReadPolicy;
 use crate::config_reader::root_config;
+use crate::utils::InterpolationSession;
 
 pub(super) fn interpolate<R: ConfigReader + ?Sized>(
     prepared: &PreparedConfigRead<'_>,
@@ -31,6 +32,7 @@ pub(super) fn interpolate<R: ConfigReader + ?Sized>(
     let mut overlays = BTreeMap::new();
     let options = primary.read_policy();
     let fallback = root_config(primary);
+    let mut session = InterpolationSession::new(options);
     traversal::walk(prepared, true, |visit| {
         let Some(text) = visit.value.string() else {
             return Ok(());
@@ -46,7 +48,14 @@ pub(super) fn interpolate<R: ConfigReader + ?Sized>(
             }
             return Ok(());
         }
-        let changed = crate::utils::substitute_variables_with_fallback(text, primary, fallback, options, &visit.path)?;
+        let changed = crate::utils::substitute_variables_with_fallback(
+            text,
+            primary,
+            fallback,
+            options,
+            &visit.path,
+            &mut session,
+        )?;
         if changed != text {
             let location = visit
                 .location
@@ -78,16 +87,26 @@ pub(super) fn classify_missing(
         if !origin.segments.is_empty() {
             continue;
         }
-        let text = prepared.overlays.get(origin).map_or(*original, String::as_str);
+        let text = prepared
+            .overlays
+            .get(origin)
+            .map_or(*original, String::as_str);
         let path = prepared
             .sources
             .property(origin.property_index)
             .expect("registered property")
             .name();
-        match options.conversion_policy().string().normalize_optional(text) {
+        match options
+            .conversion_policy()
+            .string()
+            .normalize_optional(text)
+        {
             Ok(Some(_)) => {}
             Ok(None) => {
-                let error = ValueError::from(DataConversionError::missing(DataType::String, DataType::String));
+                let error = ValueError::from(DataConversionError::missing(
+                    DataType::String,
+                    DataType::String,
+                ));
                 *node = ReadNode::Missing(error.missing().expect("missing conversion").clone());
                 if !exact {
                     omitted.get_or_insert_with(|| vec![false; node_count])[id] = true;

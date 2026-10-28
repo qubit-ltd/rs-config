@@ -7,6 +7,7 @@
 // =============================================================================
 
 use crate::ConfigResult;
+use crate::conversion::internal::PreparedScalar;
 use crate::options::ReadPolicy;
 
 /// Context passed to [`crate::conversion::FromConfig`] implementations.
@@ -19,6 +20,8 @@ pub struct ConfigParseContext<'a> {
     substitute: &'a dyn Fn(&str) -> ConfigResult<String>,
     /// Whether string values should be interpolated before conversion.
     interpolate: bool,
+    /// Optional scalar string prepared for the current property.
+    prepared_scalar: Option<PreparedScalar<'a>>,
 }
 
 impl<'a> ConfigParseContext<'a> {
@@ -32,6 +35,8 @@ impl<'a> ConfigParseContext<'a> {
     ///   operation.
     /// * `interpolate` - Whether string values should be interpolated before
     ///   conversion.
+    /// * `prepared_scalar` - Optional borrowed scalar string belonging to the
+    ///   property being parsed.
     ///
     /// # Returns
     ///
@@ -41,12 +46,14 @@ impl<'a> ConfigParseContext<'a> {
         options: &'a ReadPolicy,
         substitute: &'a dyn Fn(&str) -> ConfigResult<String>,
         interpolate: bool,
+        prepared_scalar: Option<&'a str>,
     ) -> Self {
         Self {
             key,
             options,
             substitute,
             interpolate,
+            prepared_scalar: prepared_scalar.map(PreparedScalar::new),
         }
     }
 
@@ -89,6 +96,21 @@ impl<'a> ConfigParseContext<'a> {
     ///
     /// The substituted string value.
     pub fn substitute_string(&self, value: &str) -> ConfigResult<String> {
+        if let Some(prepared) = self.prepared_scalar.as_ref() {
+            if prepared.is_raw(value) {
+                return prepared
+                    .text(self.interpolate, self.substitute)
+                    .map(str::to_owned);
+            }
+        }
         (self.substitute)(value)
+    }
+
+    /// Borrows the current scalar's original or prepared text when it is a string.
+    pub(crate) fn prepared_scalar_text(&self) -> ConfigResult<Option<&str>> {
+        self.prepared_scalar
+            .as_ref()
+            .map(|prepared| prepared.text(self.interpolate, self.substitute))
+            .transpose()
     }
 }

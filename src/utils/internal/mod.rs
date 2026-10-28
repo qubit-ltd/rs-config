@@ -9,5 +9,7 @@
 
 /// Resource dimensions charged while resolving interpolation.
 mod interpolation_resource;
+mod interpolation_session;
 
 pub(super) use interpolation_resource::InterpolationResource;
+pub(crate) use interpolation_session::InterpolationSession;

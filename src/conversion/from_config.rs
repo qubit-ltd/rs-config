@@ -25,6 +25,7 @@ use chrono::Utc;
 #[cfg(feature = "num-bigint")]
 use num_bigint::BigInt;
 use qubit_datatype::DataConversionTarget;
+use qubit_datatype::DataConverter;
 use qubit_value::MultiValues;
 use qubit_value::MultiValuesRef;
 use qubit_value::Value as QubitValue;
@@ -69,21 +70,30 @@ fn convert_first<T>(property: &Property, ctx: &ConfigParseContext<'_>) -> Config
 where
     T: DataConversionTarget,
 {
-    if let Some(value) = first_scalar_string(property) {
+    if first_scalar_string(property).is_some() {
         if !ctx.interpolates() {
             return property
                 .value()
-                .to_first_with::<T>(ctx.options().conversion_policy(), ctx.options().conversion_limits())
+                .to_first_with::<T>(
+                    ctx.options().conversion_policy(),
+                    ctx.options().conversion_limits(),
+                )
                 .map_err(|e| utils::map_value_error(ctx.key(), e));
         }
-        let value = ctx.substitute_string(value)?;
-        QubitValue::String(value)
-            .to_with::<T>(ctx.options().conversion_policy(), ctx.options().conversion_limits())
-            .map_err(|e| utils::map_value_error(ctx.key(), e))
+        let value = ctx.prepared_scalar_text()?.expect("selected scalar string");
+        DataConverter::from(value)
+            .to_with::<T>(
+                ctx.options().conversion_policy(),
+                ctx.options().conversion_limits(),
+            )
+            .map_err(|error| utils::map_value_error(ctx.key(), error.into()))
     } else {
         property
             .value()
-            .to_first_with::<T>(ctx.options().conversion_policy(), ctx.options().conversion_limits())
+            .to_first_with::<T>(
+                ctx.options().conversion_policy(),
+                ctx.options().conversion_limits(),
+            )
             .map_err(|e| utils::map_value_error(ctx.key(), e))
     }
 }
@@ -196,17 +206,31 @@ impl FromConfig for String {
     ///
     /// Parsed value, or a [`crate::ConfigError`] with key context.
     fn from_config(property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<Self> {
-        if let Some(value) = first_scalar_string(property) {
-            let value = ctx.substitute_string(value)?;
-            QubitValue::String(value)
-                .to_with::<String>(ctx.options().conversion_policy(), ctx.options().conversion_limits())
-                .map_err(|e| utils::map_value_error(ctx.key(), e))
-        } else {
-            property
-                .value()
-                .to_first_with::<String>(ctx.options().conversion_policy(), ctx.options().conversion_limits())
-                .map_err(|e| utils::map_value_error(ctx.key(), e))
+        if first_scalar_string(property).is_some() {
+            if !ctx.interpolates() {
+                return property
+                    .value()
+                    .to_first_with::<String>(
+                        ctx.options().conversion_policy(),
+                        ctx.options().conversion_limits(),
+                    )
+                    .map_err(|error| utils::map_value_error(ctx.key(), error));
+            }
+            let value = ctx.prepared_scalar_text()?.expect("selected scalar string");
+            return DataConverter::from(value)
+                .to_with::<String>(
+                    ctx.options().conversion_policy(),
+                    ctx.options().conversion_limits(),
+                )
+                .map_err(|error| utils::map_value_error(ctx.key(), error.into()));
         }
+        property
+            .value()
+            .to_first_with::<String>(
+                ctx.options().conversion_policy(),
+                ctx.options().conversion_limits(),
+            )
+            .map_err(|e| utils::map_value_error(ctx.key(), e))
     }
 }
 
