@@ -7,6 +7,8 @@
 // =============================================================================
 // Tests for explicit configuration interpolation.
 
+use std::process::Command;
+
 use qubit_config::Config;
 use qubit_config::ConfigDeserializeOptions;
 use qubit_config::ConfigError;
@@ -291,8 +293,22 @@ fn test_deserialize_is_raw_and_deserialize_interpolated_is_explicit() {
 #[test]
 fn test_interpolated_reads_keep_environment_outside_the_trust_boundary() {
     const VARIABLE: &str = "QUBIT_CONFIG_EXPLICIT_TRUST_BOUNDARY";
-    unsafe {
-        std::env::set_var(VARIABLE, "from-env");
+    const CHILD: &str = "QUBIT_CONFIG_EXPLICIT_TRUST_CHILD";
+    const NAME: &str = "test_interpolated_reads_keep_environment_outside_the_trust_boundary";
+    if std::env::var_os(CHILD).is_none() {
+        let output = Command::new(std::env::current_exe().expect("test executable path"))
+            .arg("--exact")
+            .arg(NAME)
+            .arg("--nocapture")
+            .env(CHILD, "1")
+            .env(VARIABLE, "from-env")
+            .output()
+            .expect("child test process should start");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stdout.contains("running 1 test"), "{stdout}\n{stderr}");
+        assert!(output.status.success(), "{stdout}\n{stderr}");
+        return;
     }
 
     let mut config = Config::new();
@@ -317,8 +333,4 @@ fn test_interpolated_reads_keep_environment_outside_the_trust_boundary() {
             .unwrap(),
         "from-env"
     );
-
-    unsafe {
-        std::env::remove_var(VARIABLE);
-    }
 }

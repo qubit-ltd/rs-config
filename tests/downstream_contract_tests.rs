@@ -7,10 +7,7 @@
 // =============================================================================
 //! Contract tests for the reader combinations used by `rs-http` and `rs-mime`.
 
-use std::ffi::OsString;
-use std::sync::Mutex;
-use std::sync::MutexGuard;
-use std::sync::OnceLock;
+use std::process::Command;
 use std::time::Duration;
 
 use qubit_config::Config;
@@ -24,40 +21,30 @@ use qubit_datatype::ConversionPolicy;
 use qubit_datatype::DataType;
 use qubit_datatype::DurationConversionPolicy;
 
-fn env_test_lock() -> MutexGuard<'static, ()> {
-    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-    LOCK.get_or_init(|| Mutex::new(()))
-        .lock()
-        .expect("environment lock should not be poisoned")
-}
-
-struct EnvVarGuard {
-    name: String,
-    original: Option<OsString>,
-}
-
-impl EnvVarGuard {
-    fn set(name: &str, value: &str) -> Self {
-        let original = std::env::var_os(name);
-        unsafe {
-            std::env::set_var(name, value);
-        }
-        Self {
-            name: name.to_owned(),
-            original,
-        }
+fn run_with_env(name: &str, values: &[(&str, &str)]) -> bool {
+    const CHILD: &str = "QUBIT_DOWNSTREAM_CONTRACT_CHILD";
+    if std::env::var_os(CHILD).is_some() {
+        return true;
     }
-}
-
-impl Drop for EnvVarGuard {
-    fn drop(&mut self) {
-        unsafe {
-            match &self.original {
-                Some(value) => std::env::set_var(&self.name, value),
-                None => std::env::remove_var(&self.name),
-            }
-        }
+    let mut command = Command::new(std::env::current_exe().expect("test executable path"));
+    command
+        .arg("--exact")
+        .arg(name)
+        .arg("--nocapture")
+        .env_clear()
+        .env(CHILD, "1");
+    if let Some(profile) = std::env::var_os("LLVM_PROFILE_FILE") {
+        command.env("LLVM_PROFILE_FILE", profile);
     }
+    for (key, value) in values {
+        command.env(key, value);
+    }
+    let output = command.output().expect("child test process should start");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stdout.contains("running 1 test"), "{stdout}\n{stderr}");
+    assert!(output.status.success(), "{stdout}\n{stderr}");
+    false
 }
 
 #[test]
@@ -243,13 +230,17 @@ fn mime_style_read_policies_cover_list_mapping_and_duration_values() {
 
 #[test]
 fn read_with_allows_explicit_environment_interpolation_for_downstream_readers() {
-    let _guard = env_test_lock();
-    let env_name = format!("QUBIT_RS_CONFIG_DOWNSTREAM_ENV_{}", std::process::id());
-    let _env_var = EnvVarGuard::set(&env_name, "Bearer environment-token");
+    const ENV_NAME: &str = "QUBIT_RS_CONFIG_DOWNSTREAM_ENV";
+    if !run_with_env(
+        "read_with_allows_explicit_environment_interpolation_for_downstream_readers",
+        &[(ENV_NAME, "Bearer environment-token")],
+    ) {
+        return;
+    }
 
     let mut config = Config::new();
     config
-        .set("http.default_headers.authorization", format!("${{{env_name}}}"))
+        .set("http.default_headers.authorization", format!("${{{ENV_NAME}}}"))
         .unwrap();
 
     let default_error = config
@@ -271,12 +262,14 @@ fn read_with_allows_explicit_environment_interpolation_for_downstream_readers() 
 
 #[test]
 fn mime_style_env_config_options_load_prefixed_keys_without_normalization() {
-    let _guard = env_test_lock();
-    let suffix = std::process::id();
-    let matching = format!("QUBIT_RS_CONFIG_DOWNSTREAM_OPTION_{suffix}");
-    let unrelated = format!("RS_CONFIG_DOWNSTREAM_UNRELATED_{suffix}");
-    let _matching_var = EnvVarGuard::set(&matching, "repository");
-    let _unrelated_var = EnvVarGuard::set(&unrelated, "must-not-load");
+    let matching = "QUBIT_RS_CONFIG_DOWNSTREAM_OPTION";
+    let unrelated = "RS_CONFIG_DOWNSTREAM_UNRELATED";
+    if !run_with_env(
+        "mime_style_env_config_options_load_prefixed_keys_without_normalization",
+        &[(matching, "repository"), (unrelated, "must-not-load")],
+    ) {
+        return;
+    }
 
     let options = EnvConfigOptions::builder()
         .prefix("QUBIT_RS_CONFIG_DOWNSTREAM_")
@@ -284,7 +277,7 @@ fn mime_style_env_config_options_load_prefixed_keys_without_normalization() {
     let config = Config::from_env_options(options).unwrap();
 
     assert_eq!(config.get::<String>(&matching).unwrap(), "repository");
-    assert!(!config.contains(&unrelated).unwrap());
+    assert!(!config.contains(unrelated).unwrap());
 }
 
 #[test]

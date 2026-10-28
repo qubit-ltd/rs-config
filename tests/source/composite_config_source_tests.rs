@@ -9,6 +9,8 @@
 
 #[cfg(feature = "toml")]
 use std::path::PathBuf;
+#[cfg(feature = "toml")]
+use std::process::Command;
 
 use qubit_config::Config;
 #[cfg(feature = "toml")]
@@ -35,6 +37,31 @@ fn fixture(name: &str) -> PathBuf {
 
 fn load_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<()> {
     config.merge_properties_from_source(source)
+}
+
+#[cfg(feature = "toml")]
+fn run_with_env(name: &str, key: &str, value: &str) -> bool {
+    const CHILD: &str = "RS_CONFIG_COMPOSITE_ENV_CHILD";
+    if std::env::var_os(CHILD).is_some() {
+        return true;
+    }
+    let mut command = Command::new(std::env::current_exe().expect("test executable path"));
+    command
+        .arg("--exact")
+        .arg(name)
+        .arg("--nocapture")
+        .env_clear()
+        .env(CHILD, "1")
+        .env(key, value);
+    if let Some(profile) = std::env::var_os("LLVM_PROFILE_FILE") {
+        command.env("LLVM_PROFILE_FILE", profile);
+    }
+    let output = command.output().expect("child test process should start");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stdout.contains("running 1 test"), "{stdout}\n{stderr}");
+    assert!(output.status.success(), "{stdout}\n{stderr}");
+    false
 }
 
 #[test]
@@ -74,6 +101,8 @@ mod test_composite_config_source {
     #[cfg(feature = "toml")]
     use super::fixture;
     use super::load_source;
+    #[cfg(feature = "toml")]
+    use super::run_with_env;
 
     #[test]
     fn test_new_composite_is_empty() {
@@ -148,8 +177,12 @@ mod test_composite_config_source {
     #[cfg(feature = "toml")]
     #[test]
     fn test_composite_with_env_override() {
-        unsafe {
-            std::env::set_var("CTEST_HOST", "env-host");
+        if !run_with_env(
+            "test_composite_config_source::test_composite_with_env_override",
+            "CTEST_HOST",
+            "env-host",
+        ) {
+            return;
         }
 
         let mut composite = CompositeConfigSource::new();
@@ -163,10 +196,6 @@ mod test_composite_config_source {
         assert_eq!(config.get::<String>("host").unwrap(), "env-host");
         // toml-only keys still present
         assert_eq!(config.get::<String>("app.name").unwrap(), "MyApp");
-
-        unsafe {
-            std::env::remove_var("CTEST_HOST");
-        }
     }
 
     #[cfg(feature = "toml")]

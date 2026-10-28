@@ -6,6 +6,7 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+use std::process::Command;
 use std::time::Duration;
 
 use qubit_config::ConfigDeserializeOptions;
@@ -281,8 +282,11 @@ fn test_get_string_substitution_output_limit_counts_utf8_bytes() {
 
 #[test]
 fn test_get_string_uses_environment_fallback() {
-    unsafe {
-        std::env::set_var("QUBIT_CONFIG_TEST_ENV_VAR", "test_value");
+    if !run_with_environment(
+        "test_variable_substitution::test_get_string_uses_environment_fallback",
+        &[("QUBIT_CONFIG_TEST_ENV_VAR", "test_value")],
+    ) {
+        return;
     }
     let mut config = Config::new();
     config.set_default_read_policy(crate::with_environment_fallback(ReadPolicy::default()));
@@ -290,16 +294,16 @@ fn test_get_string_uses_environment_fallback() {
 
     let result = config.get_interpolated::<String>("value");
 
-    unsafe {
-        std::env::remove_var("QUBIT_CONFIG_TEST_ENV_VAR");
-    }
     assert_eq!(result.unwrap(), "Value: test_value");
 }
 
 #[test]
 fn test_get_string_can_disable_environment_fallback() {
-    unsafe {
-        std::env::set_var("QUBIT_CONFIG_TEST_ENV_DISABLED", "from_env");
+    if !run_with_environment(
+        "test_variable_substitution::test_get_string_can_disable_environment_fallback",
+        &[("QUBIT_CONFIG_TEST_ENV_DISABLED", "from_env")],
+    ) {
+        return;
     }
     let mut config = Config::new();
     config.set_default_read_policy(ReadPolicy::default());
@@ -307,9 +311,6 @@ fn test_get_string_can_disable_environment_fallback() {
 
     let result = config.get_interpolated::<String>("value");
 
-    unsafe {
-        std::env::remove_var("QUBIT_CONFIG_TEST_ENV_DISABLED");
-    }
     assert!(matches!(
         result,
         Err(ConfigError::SubstitutionError { path, .. })
@@ -414,8 +415,11 @@ fn test_get_string_reports_non_string_convertible_variable_value() {
 
 #[test]
 fn test_get_string_uses_config_and_environment_sources() {
-    unsafe {
-        std::env::set_var("QUBIT_CONFIG_TEST_ENV_SOURCE", "from_env");
+    if !run_with_environment(
+        "test_variable_substitution::test_get_string_uses_config_and_environment_sources",
+        &[("QUBIT_CONFIG_TEST_ENV_SOURCE", "from_env")],
+    ) {
+        return;
     }
     let mut config = Config::new();
     config.set_default_read_policy(crate::with_environment_fallback(ReadPolicy::default()));
@@ -426,16 +430,16 @@ fn test_get_string_uses_config_and_environment_sources() {
 
     let result = config.get_interpolated::<String>("combined");
 
-    unsafe {
-        std::env::remove_var("QUBIT_CONFIG_TEST_ENV_SOURCE");
-    }
     assert_eq!(result.unwrap(), "from_config and from_env");
 }
 
 #[test]
 fn test_get_string_config_value_has_priority_over_environment() {
-    unsafe {
-        std::env::set_var("QUBIT_CONFIG_TEST_SHARED_VAR", "from_env");
+    if !run_with_environment(
+        "test_variable_substitution::test_get_string_config_value_has_priority_over_environment",
+        &[("QUBIT_CONFIG_TEST_SHARED_VAR", "from_env")],
+    ) {
+        return;
     }
     let mut config = Config::new();
     config.set_default_read_policy(crate::with_environment_fallback(ReadPolicy::default()));
@@ -444,16 +448,16 @@ fn test_get_string_config_value_has_priority_over_environment() {
 
     let result = config.get_interpolated::<String>("value");
 
-    unsafe {
-        std::env::remove_var("QUBIT_CONFIG_TEST_SHARED_VAR");
-    }
     assert_eq!(result.unwrap(), "from_config");
 }
 
 #[test]
 fn test_get_string_converts_config_value_instead_of_environment() {
-    unsafe {
-        std::env::set_var("QUBIT_CONFIG_TEST_STRICT_VAR", "from_env");
+    if !run_with_environment(
+        "test_variable_substitution::test_get_string_converts_config_value_instead_of_environment",
+        &[("QUBIT_CONFIG_TEST_STRICT_VAR", "from_env")],
+    ) {
+        return;
     }
     let mut config = Config::new();
     config.set_default_read_policy(crate::with_environment_fallback(ReadPolicy::default()));
@@ -462,9 +466,6 @@ fn test_get_string_converts_config_value_instead_of_environment() {
 
     let result = config.get_interpolated::<String>("value");
 
-    unsafe {
-        std::env::remove_var("QUBIT_CONFIG_TEST_STRICT_VAR");
-    }
     assert_eq!(result.unwrap(), "8080");
 }
 
@@ -502,4 +503,21 @@ fn test_get_string_substitution_cycle_reports_variable_chain() {
                 && chain == &vec!["b".to_string(), "c".to_string(), "b".to_string()]
     ));
     assert_eq!(error.path(), Some("a"));
+}
+fn run_with_environment(name: &str, values: &[(&str, &str)]) -> bool {
+    const CHILD: &str = "QUBIT_CONFIG_INTERPOLATION_TEST_CHILD";
+    if std::env::var_os(CHILD).is_some() {
+        return true;
+    }
+    let mut command = Command::new(std::env::current_exe().expect("test executable path"));
+    command.arg("--exact").arg(name).arg("--nocapture").env(CHILD, "1");
+    for (key, value) in values {
+        command.env(key, value);
+    }
+    let output = command.output().expect("child test process should start");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stdout.contains("running 1 test"), "{stdout}\n{stderr}");
+    assert!(output.status.success(), "{stdout}\n{stderr}");
+    false
 }

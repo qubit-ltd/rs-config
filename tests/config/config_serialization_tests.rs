@@ -783,14 +783,14 @@ api_url = "${base_url}/api"
 // Source-backed constructors (`Config` API)
 // ============================================================================
 
-#[cfg(all(test, feature = "env-file", feature = "toml", feature = "yaml"))]
+#[cfg(test)]
 mod test_source_backed_constructors {
     use std::path::PathBuf;
-    use std::sync::Mutex;
-    use std::sync::MutexGuard;
-    use std::sync::OnceLock;
+    use std::process::Command;
 
     use qubit_config::source::EnvConfigOptions;
+    use qubit_config::source::PropertiesConfigSource;
+    #[cfg(feature = "toml")]
     use qubit_config::source::TomlConfigSource;
 
     use super::Config;
@@ -802,17 +802,35 @@ mod test_source_backed_constructors {
             .join(name)
     }
 
-    /// Serializes constructor tests that mutate process environment variables.
-    fn env_test_lock() -> MutexGuard<'static, ()> {
-        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        LOCK.get_or_init(|| Mutex::new(()))
-            .lock()
-            .expect("environment test lock should not be poisoned")
+    fn run_with_env(name: &str, values: &[(&str, &str)]) -> bool {
+        const CHILD: &str = "QUBIT_CONFIG_CONSTRUCTOR_TEST_CHILD";
+        if std::env::var_os(CHILD).is_some() {
+            return true;
+        }
+        let mut command = Command::new(std::env::current_exe().expect("test executable path"));
+        command
+            .arg("--exact")
+            .arg(name)
+            .arg("--nocapture")
+            .env_clear()
+            .env(CHILD, "1");
+        if let Some(profile) = std::env::var_os("LLVM_PROFILE_FILE") {
+            command.env("LLVM_PROFILE_FILE", profile);
+        }
+        for (key, value) in values {
+            command.env(key, value);
+        }
+        let output = command.output().expect("child test process should start");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stdout.contains("running 1 test"), "{stdout}\n{stderr}");
+        assert!(output.status.success(), "{stdout}\n{stderr}");
+        false
     }
 
     #[test]
     fn test_from_source_loads_config_source_into_new_config() {
-        let source = TomlConfigSource::from_file(fixture("basic.toml"));
+        let source = PropertiesConfigSource::from_content("host=localhost\nserver.port=9090");
 
         let config = Config::from_source(&source).unwrap();
 
@@ -821,6 +839,7 @@ mod test_source_backed_constructors {
     }
 
     #[test]
+    #[cfg(feature = "toml")]
     fn test_from_toml_file_loads_toml_config() {
         let config = Config::from_toml_file(fixture("basic.toml")).unwrap();
 
@@ -829,6 +848,7 @@ mod test_source_backed_constructors {
     }
 
     #[test]
+    #[cfg(feature = "yaml")]
     fn test_from_yaml_file_loads_yaml_config() {
         let config = Config::from_yaml_file(fixture("basic.yaml")).unwrap();
 
@@ -845,6 +865,7 @@ mod test_source_backed_constructors {
     }
 
     #[test]
+    #[cfg(feature = "env-file")]
     fn test_from_env_file_loads_dotenv_config() {
         let config = Config::from_env_file(fixture("basic.env")).unwrap();
 
@@ -854,9 +875,11 @@ mod test_source_backed_constructors {
 
     #[test]
     fn test_from_env_loads_process_environment() {
-        let _guard = env_test_lock();
-        unsafe {
-            std::env::set_var("QUBIT_CONFIG_FROM_ENV_TEST_KEY", "from-env");
+        if !run_with_env(
+            "test_source_backed_constructors::test_from_env_loads_process_environment",
+            &[("QUBIT_CONFIG_FROM_ENV_TEST_KEY", "from-env")],
+        ) {
+            return;
         }
 
         let config = Config::from_env().unwrap();
@@ -865,19 +888,19 @@ mod test_source_backed_constructors {
             config.get::<String>("QUBIT_CONFIG_FROM_ENV_TEST_KEY").unwrap(),
             "from-env"
         );
-
-        unsafe {
-            std::env::remove_var("QUBIT_CONFIG_FROM_ENV_TEST_KEY");
-        }
     }
 
     #[test]
     fn test_from_env_prefix_loads_and_normalizes_matching_vars() {
-        let _guard = env_test_lock();
-        unsafe {
-            std::env::set_var("QCFG_SERVER__HOST", "env-host");
-            std::env::set_var("QCFG_SERVER__PORT", "9091");
-            std::env::set_var("OTHER_QCFG_SERVER__HOST", "ignored");
+        if !run_with_env(
+            "test_source_backed_constructors::test_from_env_prefix_loads_and_normalizes_matching_vars",
+            &[
+                ("QCFG_SERVER__HOST", "env-host"),
+                ("QCFG_SERVER__PORT", "9091"),
+                ("OTHER_QCFG_SERVER__HOST", "ignored"),
+            ],
+        ) {
+            return;
         }
 
         let config = Config::from_env_prefix("QCFG_").unwrap();
@@ -885,32 +908,25 @@ mod test_source_backed_constructors {
         assert_eq!(config.get::<String>("server.host").unwrap(), "env-host");
         assert_eq!(config.get::<String>("server.port").unwrap(), "9091");
         assert!(!config.contains("OTHER_QCFG_SERVER__HOST").unwrap());
-
-        unsafe {
-            std::env::remove_var("QCFG_SERVER__HOST");
-            std::env::remove_var("QCFG_SERVER__PORT");
-            std::env::remove_var("OTHER_QCFG_SERVER__HOST");
-        }
     }
 
     #[test]
     fn test_from_env_options_respects_explicit_key_transform_options() {
-        let _guard = env_test_lock();
-        unsafe {
-            std::env::set_var("QOPTS_MY_KEY", "raw-value");
+        if !run_with_env(
+            "test_source_backed_constructors::test_from_env_options_respects_explicit_key_transform_options",
+            &[("QOPTS_MY_KEY", "raw-value")],
+        ) {
+            return;
         }
 
         let config = Config::from_env_options(EnvConfigOptions::builder().prefix("QOPTS_").build()).unwrap();
 
         assert_eq!(config.get::<String>("QOPTS_MY_KEY").unwrap(), "raw-value");
         assert!(!config.contains("my.key").unwrap());
-
-        unsafe {
-            std::env::remove_var("QOPTS_MY_KEY");
-        }
     }
 
     #[test]
+    #[cfg(feature = "toml")]
     fn test_from_toml_file_returns_error_for_missing_file() {
         let result = Config::from_toml_file("/nonexistent/path.toml");
 

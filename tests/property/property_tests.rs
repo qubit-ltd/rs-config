@@ -535,7 +535,14 @@ fn test_property_int128_add() {
     prop.add(3000000000000000000000000000000_i128).unwrap();
 
     let values = prop.get_list::<i128>().unwrap();
-    assert_eq!(values.len(), 3);
+    assert_eq!(
+        values,
+        vec![
+            1000000000000000000000000000000_i128,
+            2000000000000000000000000000000_i128,
+            3000000000000000000000000000000_i128,
+        ]
+    );
 }
 
 #[test]
@@ -548,7 +555,7 @@ fn test_property_int128_set() {
 
     prop.set(9999999999999999999999999999999_i128);
     let values = prop.get_list::<i128>().unwrap();
-    assert_eq!(values.len(), 1);
+    assert_eq!(values, vec![9999999999999999999999999999999_i128]);
 }
 
 // ============================================================================
@@ -764,7 +771,14 @@ fn test_property_uint128_add() {
     prop.add(3000000000000000000000000000000_u128).unwrap();
 
     let values = prop.get_list::<u128>().unwrap();
-    assert_eq!(values.len(), 3);
+    assert_eq!(
+        values,
+        vec![
+            1000000000000000000000000000000_u128,
+            2000000000000000000000000000000_u128,
+            3000000000000000000000000000000_u128,
+        ]
+    );
 }
 
 #[test]
@@ -777,7 +791,7 @@ fn test_property_uint128_set() {
 
     prop.set(340282366920938463463374607431768211455_u128);
     let values = prop.get_list::<u128>().unwrap();
-    assert_eq!(values.len(), 1);
+    assert_eq!(values, vec![u128::MAX]);
 }
 
 // ============================================================================
@@ -936,7 +950,7 @@ fn test_property_date_get() {
     prop.set_value(MultiValues::Date(vec![date1, date2, date3]));
 
     let values = prop.get_list::<NaiveDate>().unwrap();
-    assert_eq!(values.len(), 3);
+    assert_eq!(values, vec![date1, date2, date3]);
 }
 
 #[test]
@@ -964,7 +978,7 @@ fn test_property_date_add() {
     prop.add(date3).unwrap();
 
     let values = prop.get_list::<NaiveDate>().unwrap();
-    assert_eq!(values.len(), 3);
+    assert_eq!(values, vec![date1, date2, date3]);
 }
 
 #[test]
@@ -978,7 +992,7 @@ fn test_property_date_set() {
     let new_date = NaiveDate::from_ymd_opt(2023, 12, 31).unwrap();
     prop.set(new_date);
     let values = prop.get_list::<NaiveDate>().unwrap();
-    assert_eq!(values.len(), 1);
+    assert_eq!(values, vec![new_date]);
 }
 
 // ============================================================================
@@ -995,7 +1009,7 @@ fn test_property_time_get() {
     prop.set_value(MultiValues::Time(vec![time1, time2, time3]));
 
     let values = prop.get_list::<NaiveTime>().unwrap();
-    assert_eq!(values.len(), 3);
+    assert_eq!(values, vec![time1, time2, time3]);
 }
 
 #[test]
@@ -1023,7 +1037,7 @@ fn test_property_time_add() {
     prop.add(time3).unwrap();
 
     let values = prop.get_list::<NaiveTime>().unwrap();
-    assert_eq!(values.len(), 3);
+    assert_eq!(values, vec![time1, time2, time3]);
 }
 
 #[test]
@@ -1037,7 +1051,7 @@ fn test_property_time_set() {
     let new_time = NaiveTime::from_hms_opt(23, 59, 59).unwrap();
     prop.set(new_time);
     let values = prop.get_list::<NaiveTime>().unwrap();
-    assert_eq!(values.len(), 1);
+    assert_eq!(values, vec![new_time]);
 }
 
 // ============================================================================
@@ -1054,7 +1068,7 @@ fn test_property_instant_get() {
     prop.set_value(MultiValues::Instant(vec![instant1, instant2, instant3]));
 
     let values = prop.get_list::<DateTime<Utc>>().unwrap();
-    assert_eq!(values.len(), 3);
+    assert_eq!(values, vec![instant1, instant2, instant3]);
 }
 
 #[test]
@@ -1082,7 +1096,7 @@ fn test_property_instant_add() {
     prop.add(instant3).unwrap();
 
     let values = prop.get_list::<DateTime<Utc>>().unwrap();
-    assert_eq!(values.len(), 3);
+    assert_eq!(values, vec![instant1, instant2, instant3]);
 }
 
 #[test]
@@ -1096,7 +1110,7 @@ fn test_property_instant_set() {
     let new_instant = DateTime::from_timestamp(1672790400, 0).unwrap();
     prop.set(new_instant);
     let values = prop.get_list::<DateTime<Utc>>().unwrap();
-    assert_eq!(values.len(), 1);
+    assert_eq!(values, vec![new_instant]);
 }
 
 // ============================================================================

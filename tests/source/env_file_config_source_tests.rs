@@ -11,9 +11,6 @@
 
 use std::path::PathBuf;
 use std::process::Command;
-use std::sync::Mutex;
-use std::sync::MutexGuard;
-use std::sync::OnceLock;
 
 use qubit_config::Config;
 use qubit_config::ConfigError;
@@ -72,23 +69,46 @@ fn test_env_file_comment_does_not_change_substitution_state() {
     }
 
     for environment_value in ["first-process-value", "second-process-value"] {
-        let status = Command::new(std::env::current_exe().expect("test executable path should be available"))
+        let mut command = Command::new(std::env::current_exe().expect("test executable path should be available"));
+        command
             .arg("--exact")
             .arg("test_env_file_comment_does_not_change_substitution_state")
+            .env_clear()
             .env(CHILD_MODE, "1")
-            .env(SENTINEL, environment_value)
-            .status()
-            .expect("child test process should start");
-
-        assert!(status.success(), "child process failed with {environment_value}");
+            .env(SENTINEL, environment_value);
+        if let Some(profile) = std::env::var_os("LLVM_PROFILE_FILE") {
+            command.env("LLVM_PROFILE_FILE", profile);
+        }
+        let output = command.output().expect("child test process should start");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stdout.contains("running 1 test"), "{stdout}\n{stderr}");
+        assert!(output.status.success(), "{stdout}\n{stderr}");
     }
 }
 
-fn env_test_lock() -> MutexGuard<'static, ()> {
-    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-    LOCK.get_or_init(|| Mutex::new(()))
-        .lock()
-        .expect("environment test lock should not be poisoned")
+fn run_with_environment(name: &str, key: &str) -> bool {
+    const CHILD: &str = "RS_CONFIG_ENV_FILE_PROCESS_ENV_CHILD";
+    if std::env::var_os(CHILD).is_some() {
+        return true;
+    }
+    let mut command = Command::new(std::env::current_exe().expect("test executable path"));
+    command
+        .arg("--exact")
+        .arg(name)
+        .arg("--nocapture")
+        .env_clear()
+        .env(CHILD, "1")
+        .env(key, "process-secret");
+    if let Some(profile) = std::env::var_os("LLVM_PROFILE_FILE") {
+        command.env("LLVM_PROFILE_FILE", profile);
+    }
+    let output = command.output().expect("child test process should start");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stdout.contains("running 1 test"), "{stdout}\n{stderr}");
+    assert!(output.status.success(), "{stdout}\n{stderr}");
+    false
 }
 
 fn fixture(name: &str) -> PathBuf {
@@ -123,9 +143,9 @@ mod test_env_file_config_source {
     use super::ConfigSource;
     use super::EnvFileConfigSource;
     use super::PathBuf;
-    use super::env_test_lock;
     use super::fixture;
     use super::merge_source;
+    use super::run_with_environment;
 
     #[test]
     fn test_load_basic_env_file() {
@@ -212,28 +232,28 @@ mod test_env_file_config_source {
 
     #[test]
     fn test_env_file_preserves_process_environment_placeholders() {
-        let _guard = env_test_lock();
         const KEY: &str = "RS_CONFIG_ENV_FILE_PROCESS_SECRET";
-        unsafe {
-            std::env::set_var(KEY, "process-secret");
+        if !run_with_environment(
+            "test_env_file_config_source::test_env_file_preserves_process_environment_placeholders",
+            KEY,
+        ) {
+            return;
         }
 
         let source = EnvFileConfigSource::from_content(format!("VALUE=${{{KEY}}}\n"));
         let config = source.load().expect(".env content should load");
 
         assert_eq!(config.get::<String>("VALUE").unwrap(), format!("${{{KEY}}}"));
-
-        unsafe {
-            std::env::remove_var(KEY);
-        }
     }
 
     #[test]
     fn test_env_file_preserves_process_environment_placeholders_in_double_quotes() {
-        let _guard = env_test_lock();
         const KEY: &str = "RS_CONFIG_ENV_FILE_DOUBLE_QUOTED_SECRET";
-        unsafe {
-            std::env::set_var(KEY, "process-secret");
+        if !run_with_environment(
+            "test_env_file_config_source::test_env_file_preserves_process_environment_placeholders_in_double_quotes",
+            KEY,
+        ) {
+            return;
         }
 
         let source = EnvFileConfigSource::from_content(format!("NAME=\"${KEY}\"\nBRACED=\"${{{KEY}}}\"\n"));
@@ -241,10 +261,6 @@ mod test_env_file_config_source {
 
         assert_eq!(config.get::<String>("NAME").unwrap(), format!("${KEY}"));
         assert_eq!(config.get::<String>("BRACED").unwrap(), format!("${{{KEY}}}"));
-
-        unsafe {
-            std::env::remove_var(KEY);
-        }
     }
 
     #[test]
