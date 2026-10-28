@@ -259,6 +259,79 @@ fn zero_exact_and_exceeded_structure_bounds_are_enforced() {
 }
 
 #[test]
+fn prefix_selection_root_and_empty_prefix_include_all_properties() {
+    let mut config = Config::new();
+    config.set("tree.a", 1_i32).unwrap();
+    config.set("tree2.b", 2_i32).unwrap();
+    config.set("tree_extra.c", 3_i32).unwrap();
+    config.set("other", 4_i32).unwrap();
+
+    let prepared = prepare_read(&config, "", false).unwrap();
+    let ReadNode::Object(children) = &prepared.nodes[prepared.root] else {
+        panic!()
+    };
+    assert_eq!(
+        children.keys().map(String::as_str).collect::<Vec<_>>(),
+        ["other", "tree", "tree2", "tree_extra"]
+    );
+    let prepared = prepare_read(&config, "tree", false).unwrap();
+    let ReadNode::Object(children) = &prepared.nodes[prepared.root] else {
+        panic!()
+    };
+    assert_eq!(
+        children.keys().map(String::as_str).collect::<Vec<_>>(),
+        ["a"]
+    );
+
+    let empty = prepare_read(&config, "missing", false).unwrap();
+    let ReadNode::Object(children) = &empty.nodes[empty.root] else {
+        panic!()
+    };
+    assert!(children.is_empty());
+}
+
+#[test]
+fn prefix_selection_section_unicode_and_policy_override() {
+    let mut config = Config::new();
+    config.set("配置.子项", 1_i32).unwrap();
+    config.set("配置.兄弟", 2_i32).unwrap();
+    let section = config.section("配置").unwrap();
+    let prepared = prepare_read(&section, "", false).unwrap();
+    let ReadNode::Object(children) = &prepared.nodes[prepared.root] else {
+        panic!()
+    };
+    assert_eq!(
+        children.keys().map(String::as_str).collect::<Vec<_>>(),
+        ["兄弟", "子项"]
+    );
+
+    let policy = ReadPolicy::builder()
+        .conversion_limits(
+            ConversionLimits::builder()
+                .structured_limits(
+                    StructuredConversionLimits::builder()
+                        .max_map_entries(1)
+                        .build(),
+                )
+                .build(),
+        )
+        .build();
+    let overridden = section.read_with(&policy);
+    let error = prepare_read(&overridden, "", false).unwrap_err();
+    assert_eq!(error.path(), Some("配置.子项"));
+}
+
+#[test]
+fn prefix_selection_exact_conflict_keeps_full_path() {
+    let mut config = Config::new();
+    config.set("tree", serde_json::json!({"nested": true})).unwrap();
+    config.set("tree.child", 1_i32).unwrap();
+    let error = prepare_read(&config, "tree", false).unwrap_err();
+    assert_eq!(error.path(), Some("tree"));
+    assert!(matches!(error, ConfigError::KeyConflict { .. }));
+}
+
+#[test]
 fn long_keys_and_cumulative_keys_are_bounded_before_index_copying() {
     let mut config = Config::new();
     config.set("tree.abc", true).unwrap();

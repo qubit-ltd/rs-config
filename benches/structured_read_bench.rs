@@ -142,5 +142,35 @@ fn benchmark_structured_reads(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, benchmark_structured_reads);
+/// Measures reads of a fixed subtree as unrelated reader properties grow.
+fn benchmark_fixed_subtree(c: &mut Criterion) {
+    for unrelated in [0, 1024, 16384] {
+        let mut config = Config::new();
+        config.set("settings.a", 1_i32).unwrap();
+        config.set("settings.b", 2_i32).unwrap();
+        for index in 0..unrelated {
+            config
+                .set(format!("unrelated.field{index}"), index as i32)
+                .unwrap();
+        }
+        assert_eq!(
+            config
+                .deserialize::<BTreeMap<String, i32>>("settings")
+                .unwrap()
+                .len(),
+            2
+        );
+        c.bench_function(&format!("structured_read/fixed_subtree/{unrelated}"), |b| {
+            b.iter(|| {
+                black_box(
+                    config
+                        .deserialize::<BTreeMap<String, i32>>(black_box("settings"))
+                        .unwrap(),
+                )
+            });
+        });
+    }
+}
+
+criterion_group!(benches, benchmark_structured_reads, benchmark_fixed_subtree);
 criterion_main!(benches);

@@ -273,13 +273,21 @@ pub(super) fn prepare_read<'a, R: ConfigReader + ?Sized>(
     } else {
         let path = prepared.root_path.clone();
         prepared.push(ReadNode::Object(BTreeMap::new()), None, 1, &mut capacity, &path)?;
-        for (key, property) in reader.iter() {
-            let relative = if prefix.is_empty() {
-                Some(key)
-            } else {
-                key.strip_prefix(prefix).and_then(|key| key.strip_prefix('.'))
-            };
-            if let Some(relative) = relative {
+        if prefix.is_empty() {
+            for (key, property) in reader.iter_prefix("") {
+                prepared.insert_property(key, property, &mut capacity)?;
+            }
+        } else {
+            let child_prefix = format!("{prefix}.");
+            for (key, _) in reader.iter_prefix(&child_prefix) {
+                let relative = key
+                    .strip_prefix(&child_prefix)
+                    .expect("iter_prefix returns matching keys");
+                // `iter_prefix` ties properties to the filter lifetime, so
+                // re-resolve them through the reader before retaining them.
+                let property = reader
+                    .get_property(key)?
+                    .expect("iter_prefix returns existing properties");
                 prepared.insert_property(relative, property, &mut capacity)?;
             }
         }
