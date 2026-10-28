@@ -183,6 +183,57 @@ mod test_properties_config_source {
     }
 
     #[test]
+    fn properties_natural_lines_accept_cr_lf_and_crlf() {
+        for input in ["a=1\rb=2", "a=1\nb=2", "a=1\r\nb=2", "a=1\rb=2\r\n"] {
+            let pairs = PropertiesConfigSource::parse_content(input).unwrap();
+            assert_eq!(
+                pairs,
+                vec![("a".to_owned(), "1".to_owned()), ("b".to_owned(), "2".to_owned())]
+            );
+        }
+    }
+
+    #[test]
+    fn properties_keep_unicode_whitespace_in_keys_and_values() {
+        let pairs = PropertiesConfigSource::parse_content("a\u{00a0}b=\u{00a0}value\nx=\u{3000}text").unwrap();
+        assert_eq!(
+            pairs,
+            vec![
+                ("a\u{00a0}b".to_owned(), "\u{00a0}value".to_owned()),
+                ("x".to_owned(), "\u{3000}text".to_owned()),
+            ]
+        );
+    }
+
+    #[test]
+    fn properties_format_whitespace_and_continuations_are_ascii_only() {
+        let pairs = PropertiesConfigSource::parse_content(
+            "  a\t=\u{000c}value\r\nb=left\\\rright\r\nc=left\\\r\n\u{00a0}right\nd=left\\rright",
+        )
+        .unwrap();
+
+        assert_eq!(
+            pairs,
+            vec![
+                ("a".to_owned(), "value".to_owned()),
+                ("b".to_owned(), "leftright".to_owned()),
+                ("c".to_owned(), "left\u{00a0}right".to_owned()),
+                ("d".to_owned(), "left\rright".to_owned()),
+            ]
+        );
+    }
+
+    #[test]
+    fn properties_source_load_preserves_unicode_whitespace() {
+        let config = PropertiesConfigSource::from_content("a\u{00a0}b=\u{00a0}value\nx=\u{3000}text")
+            .load()
+            .unwrap();
+
+        assert_eq!(config.get::<String>("a\u{00a0}b").unwrap(), "\u{00a0}value");
+        assert_eq!(config.get::<String>("x").unwrap(), "\u{3000}text");
+    }
+
+    #[test]
     fn test_parse_only_comments() {
         let content = "# comment1\n# comment2\n! comment3";
         let pairs = PropertiesConfigSource::parse_content(content).unwrap();

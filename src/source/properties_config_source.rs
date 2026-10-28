@@ -133,10 +133,13 @@ impl PropertiesConfigSource {
         session: &mut SourceLoadSession<'_>,
     ) -> ConfigResult<Vec<(String, String)>> {
         let mut result = Vec::new();
-        let mut lines = content.lines().peekable();
+        let mut lines = content
+            .split_inclusive('\n')
+            .flat_map(|part| part.strip_suffix('\n').unwrap_or(part).split_terminator('\r'))
+            .peekable();
 
         while let Some(line) = lines.next() {
-            let trimmed = line.trim_start();
+            let trimmed = line.trim_start_matches(is_properties_whitespace);
 
             // Skip blank lines and comments
             if trimmed.is_empty() || trimmed.starts_with('#') || trimmed.starts_with('!') {
@@ -148,7 +151,7 @@ impl PropertiesConfigSource {
             while has_line_continuation(&full_line) {
                 full_line.pop(); // remove trailing backslash
                 if let Some(next) = lines.next() {
-                    full_line.push_str(next.trim_start());
+                    full_line.push_str(next.trim_start_matches(is_properties_whitespace));
                 } else {
                     break;
                 }
@@ -224,7 +227,7 @@ impl Default for PropertiesConfigSourceBuilder {
 
 /// Parses a single `key=value`, `key: value`, or `key value` line.
 fn parse_key_value(line: &str) -> Option<(&str, &str)> {
-    let line = line.trim_start();
+    let line = line.trim_start_matches(is_properties_whitespace);
 
     for (i, ch) in line.char_indices() {
         if ch == '=' || ch == ':' {
@@ -235,7 +238,7 @@ fn parse_key_value(line: &str) -> Option<(&str, &str)> {
                 return Some((&line[..i], &line[value_start..]));
             }
         }
-        if ch.is_whitespace() && !is_escaped_separator(line, i) {
+        if is_properties_whitespace(ch) && !is_escaped_separator(line, i) {
             let mut value_start = skip_properties_whitespace(line, i);
             if let Some((sep, sep_len)) = char_at(line, value_start)
                 && (sep == '=' || sep == ':')
@@ -286,11 +289,16 @@ fn char_at(line: &str, index: usize) -> Option<(char, usize)> {
 /// of `line`.
 fn skip_properties_whitespace(line: &str, start: usize) -> usize {
     for (offset, ch) in line[start..].char_indices() {
-        if !ch.is_whitespace() {
+        if !is_properties_whitespace(ch) {
             return start + offset;
         }
     }
     line.len()
+}
+
+#[inline]
+fn is_properties_whitespace(ch: char) -> bool {
+    matches!(ch, ' ' | '\t' | '\u{000c}')
 }
 
 /// Returns true if the separator at `sep_pos` is escaped by a preceding odd
