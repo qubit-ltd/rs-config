@@ -33,6 +33,17 @@ pub enum ConfigError {
         violation: ConfigPathViolation,
     },
 
+    /// A configuration source supplied a non-canonical property key.
+    #[error("Invalid configuration key '{key}' in source '{source_id}': {violation}")]
+    SourceInvalidKey {
+        /// Stable source identifier or path.
+        source_id: String,
+        /// Rejected property key.
+        key: String,
+        /// Structural key violation.
+        violation: ConfigPathViolation,
+    },
+
     /// Configuration section path is not canonical.
     #[error("Invalid configuration path '{path}': {violation}")]
     InvalidPath {
@@ -259,6 +270,17 @@ pub enum ConfigError {
 }
 
 impl ConfigError {
+    pub(crate) fn with_assignment_source(self, source_id: &str) -> Self {
+        match self {
+            Self::InvalidKey { key, violation } => Self::SourceInvalidKey {
+                source_id: source_id.to_owned(),
+                key,
+                violation,
+            },
+            error => error,
+        }
+    }
+
     /// Returns the stable machine-readable category of this error.
     ///
     /// # Returns
@@ -267,7 +289,7 @@ impl ConfigError {
     #[must_use = "use the returned value"]
     pub const fn kind(&self) -> ConfigErrorKind {
         match self {
-            Self::InvalidKey { .. } => ConfigErrorKind::InvalidKey,
+            Self::InvalidKey { .. } | Self::SourceInvalidKey { .. } => ConfigErrorKind::InvalidKey,
             Self::InvalidPath { .. } => ConfigErrorKind::InvalidPath,
             Self::SourceLimitExceeded { .. } => ConfigErrorKind::SourceLimitExceeded,
             Self::PropertyNotFound(_) => ConfigErrorKind::PropertyNotFound,
@@ -302,6 +324,7 @@ impl ConfigError {
     pub fn path(&self) -> Option<&str> {
         match self {
             Self::InvalidKey { key: path, .. }
+            | Self::SourceInvalidKey { key: path, .. }
             | Self::InvalidPath { path, .. }
             | Self::PropertyNotFound(path)
             | Self::PropertyHasNoValue(path)
@@ -329,21 +352,23 @@ impl ConfigError {
         }
     }
 
-    /// Returns the stable source identifier carried by a source-loading error
-    /// or a source-originated key conflict.
+    /// Returns the stable source identifier carried by a source-loading error,
+    /// a source-originated key conflict, or an invalid assignment key from a
+    /// source context.
     ///
     /// # Returns
     ///
     /// The source path or in-memory source label for source I/O, parse,
-    /// resource-limit, and source-originated key-conflict errors; otherwise
-    /// `None`.
+    /// resource-limit, source-originated key-conflict, and source assignment
+    /// key errors; otherwise `None`.
     #[inline]
     #[must_use = "use the returned value"]
     pub fn source_id(&self) -> Option<&str> {
         match self {
             Self::SourceLimitExceeded { source_id, .. }
             | Self::SourceIoError { source_id, .. }
-            | Self::SourceParseError { source_id, .. } => Some(source_id),
+            | Self::SourceParseError { source_id, .. }
+            | Self::SourceInvalidKey { source_id, .. } => Some(source_id),
             Self::KeyConflict {
                 source_id: Some(source_id),
                 ..

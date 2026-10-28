@@ -38,6 +38,10 @@ API 文档和测试为准。
 自定义配置源通过 `SourceLoadContext::set` 或 `set_null` 写入配置，并在消耗资源前
 报告输入字节、解析节点和子配置源数量。框架无法根据最终配置层推断自定义配置源
 没有报告的外部 I/O 或解析工作。
+这些上下文方法返回的无效赋值键使用 `ConfigError::SourceInvalidKey`；`kind()` 仍为
+`InvalidKey`，`path()` 保留被拒绝的键，`source_id()` 标识执行赋值的配置源（嵌套组合时为
+叶子来源）。直接 `Config::set` 仍返回不带来源上下文的 `InvalidKey`。赋值校验前的预算
+检查与扣费顺序保持不变。
 
 `PropertiesConfigSource`、`EnvConfigSource` 和 `CompositeConfigSource` 始终可用；
 TOML、YAML 和 `.env` 适配器由 feature 控制。组合配置源按照添加顺序加载子项，

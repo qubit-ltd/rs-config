@@ -310,7 +310,10 @@ impl<'a> SourceLoadContext<'a> {
         self.session.check_depth(name.split('.').count())?;
         self.session.consume_nodes(1)?;
         self.session.consume_properties(1)?;
-        self.layer.set(name, values)
+        let source_id = self.session.source_id.clone();
+        self.layer
+            .set(name, values)
+            .map_err(|error| error.with_assignment_source(&source_id))
     }
 
     /// Sets an explicitly typed null value after charging the assignment.
@@ -319,7 +322,10 @@ impl<'a> SourceLoadContext<'a> {
         self.session.check_depth(name.split('.').count())?;
         self.session.consume_nodes(1)?;
         self.session.consume_properties(1)?;
-        self.layer.set_null(name, data_type)
+        let source_id = self.session.source_id.clone();
+        self.layer
+            .set_null(name, data_type)
+            .map_err(|error| error.with_assignment_source(&source_id))
     }
 
     /// Sets descriptive metadata on the source-owned layer.

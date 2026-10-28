@@ -598,8 +598,14 @@ assert_eq!(error.path(), Some("server.port"));
 
 Common categories include `InvalidKey`, `InvalidPath`, `PropertyNotFound`, `PropertyHasNoValue`, `TypeMismatch`, `Conversion`, `Substitution`, `SubstitutionCycle`, `SourceLimitExceeded`, `KeyConflict`, `Merge`, `PropertyIsFinal`, `Io`, `Parse`, and `Deserialize`.
 
-`source_id()` returns the path or stable label for source I/O, parse, and limit
-errors. It returns `None` for errors that are not tied to a source loader.
+`source_id()` returns the path or stable label for source I/O, parse, limit,
+and invalid-key errors raised by `SourceLoadContext::set` or `set_null`. Those
+assignment errors use the `SourceInvalidKey` variant while retaining the
+`InvalidKey` kind and rejected key path. Direct `Config::set` errors remain
+`InvalidKey` without a source ID. Other errors return `None` unless their
+variant carries source context. Code matching error variants should handle
+`SourceInvalidKey`; matching `kind()`, `path()`, and `source_id()` is more
+resilient to source-specific diagnostic variants.
 For source budget failures, `source_budget_id()` identifies the local or
 aggregate scope that rejected the charge, and `budget_error()` exposes the
 structured rs-budget failure.

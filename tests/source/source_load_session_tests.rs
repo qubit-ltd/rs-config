@@ -7,6 +7,7 @@
 // =============================================================================
 
 use qubit_config::Config;
+use qubit_config::ConfigErrorKind;
 use qubit_config::ConfigResult;
 use qubit_config::source::CompositeConfigSource;
 use qubit_config::source::ConfigSource;
@@ -53,6 +54,54 @@ impl ConfigSource for RecoveringLocalFailureSource {
 }
 
 struct PartialLayerFailureSource;
+
+struct InvalidKeySource;
+
+struct InvalidNullKeySource;
+
+struct LimitedInvalidKeySource;
+
+impl ConfigSource for InvalidKeySource {
+    fn source_id(&self) -> String {
+        "custom:invalid".to_owned()
+    }
+
+    fn limits(&self) -> SourceLimits {
+        SourceLimits::default()
+    }
+
+    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
+        context.set("bad..key", "unused")
+    }
+}
+
+impl ConfigSource for InvalidNullKeySource {
+    fn source_id(&self) -> String {
+        "custom:null-invalid".to_owned()
+    }
+
+    fn limits(&self) -> SourceLimits {
+        SourceLimits::default()
+    }
+
+    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
+        context.set_null("bad..key", DataType::String)
+    }
+}
+
+impl ConfigSource for LimitedInvalidKeySource {
+    fn source_id(&self) -> String {
+        "custom:limited-invalid".to_owned()
+    }
+
+    fn limits(&self) -> SourceLimits {
+        SourceLimits::builder().max_properties(0).build()
+    }
+
+    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
+        context.set("bad..key", "unused")
+    }
+}
 
 struct NodeAndNullSource;
 
@@ -102,6 +151,56 @@ fn source_load_session_charges_local_and_ancestor_budgets_atomically() {
 }
 
 #[test]
+fn test_custom_assignment_retains_source_id() {
+    let error = InvalidKeySource
+        .load()
+        .expect_err("invalid assignment key should reject the source");
+
+    assert_eq!(error.kind(), ConfigErrorKind::InvalidKey);
+    assert_eq!(error.path(), Some("bad..key"));
+    assert_eq!(error.source_id(), Some("custom:invalid"));
+}
+
+#[test]
+fn test_custom_null_assignment_retains_source_id() {
+    let error = InvalidNullKeySource
+        .load()
+        .expect_err("invalid null assignment key should reject the source");
+
+    assert_eq!(error.kind(), ConfigErrorKind::InvalidKey);
+    assert_eq!(error.path(), Some("bad..key"));
+    assert_eq!(error.source_id(), Some("custom:null-invalid"));
+}
+
+#[test]
+fn test_nested_composite_invalid_key_reports_leaf_source() {
+    let mut inner = CompositeConfigSource::new();
+    inner.add(InvalidKeySource);
+    let mut outer = CompositeConfigSource::new();
+    outer.add(inner);
+
+    let error = outer
+        .load()
+        .expect_err("invalid key from a composite leaf should reject loading");
+
+    assert_eq!(error.kind(), ConfigErrorKind::InvalidKey);
+    assert_eq!(error.path(), Some("bad..key"));
+    assert_eq!(error.source_id(), Some("custom:invalid"));
+}
+
+#[test]
+fn test_direct_config_set_invalid_key_has_no_source_id() {
+    let mut config = Config::new();
+    let error = config
+        .set("bad..key", "unused")
+        .expect_err("direct config assignment should reject an invalid key");
+
+    assert_eq!(error.kind(), ConfigErrorKind::InvalidKey);
+    assert_eq!(error.path(), Some("bad..key"));
+    assert_eq!(error.source_id(), None);
+}
+
+#[test]
 fn source_load_session_reports_outermost_failing_budget_first() {
     let mut aggregate = CompositeConfigSource::builder()
         .limits(SourceLimits::builder().max_input_bytes(1).build())
@@ -137,8 +236,20 @@ fn source_load_failure_discards_partial_layer_before_merge() {
         .expect_err("a failed source must not merge its partial layer");
 
     assert_eq!(error.source_budget_id(), Some("partial layer"));
+    assert_eq!(error.source_id(), Some("partial layer"));
     assert_eq!(config.get::<String>("existing").unwrap(), "kept");
     assert!(!config.contains("partial.key").unwrap());
+}
+
+#[test]
+fn test_assignment_budget_failure_keeps_source_limit_error() {
+    let source = LimitedInvalidKeySource;
+    let error = source
+        .load()
+        .expect_err("assignment budget should fail before key validation");
+
+    assert_eq!(error.kind(), ConfigErrorKind::SourceLimitExceeded);
+    assert_eq!(error.source_id(), Some("custom:limited-invalid"));
 }
 
 #[test]

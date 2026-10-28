@@ -95,6 +95,14 @@ fn test_config_error_kind_covers_every_public_variant() {
             ConfigErrorKind::InvalidKey,
         ),
         (
+            ConfigError::SourceInvalidKey {
+                source_id: "custom:invalid".to_string(),
+                key: "bad..key".to_string(),
+                violation: ConfigPathViolation::EmptySegment,
+            },
+            ConfigErrorKind::InvalidKey,
+        ),
+        (
             ConfigError::InvalidPath {
                 path: ".server".to_string(),
                 violation: ConfigPathViolation::LeadingSeparator,
@@ -215,6 +223,19 @@ fn test_config_error_kind_covers_every_public_variant() {
     for (error, expected_kind) in cases {
         assert_eq!(error.kind(), expected_kind, "unexpected error kind for {error}");
     }
+}
+
+#[test]
+fn test_source_invalid_key_exposes_kind_path_and_source_id() {
+    let error = ConfigError::SourceInvalidKey {
+        source_id: "custom:invalid".to_string(),
+        key: "bad..key".to_string(),
+        violation: ConfigPathViolation::EmptySegment,
+    };
+
+    assert_eq!(error.kind(), ConfigErrorKind::InvalidKey);
+    assert_eq!(error.path(), Some("bad..key"));
+    assert_eq!(error.source_id(), Some("custom:invalid"));
 }
 
 #[test]

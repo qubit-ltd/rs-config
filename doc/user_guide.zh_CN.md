@@ -556,8 +556,12 @@ assert_eq!(error.path(), Some("server.port"));
 
 常见类别包括 `InvalidKey`、`InvalidPath`、`PropertyNotFound`、`PropertyHasNoValue`、`TypeMismatch`、`Conversion`、`Substitution`、`SubstitutionCycle`、`SourceLimitExceeded`、`KeyConflict`、`Merge`、`PropertyIsFinal`、`Io`、`Parse` 和 `Deserialize`。
 
-对于配置源的 IO、解析和限制错误，`source_id()` 会返回文件路径或稳定的配置源
-标识；其他错误返回 `None`。
+对于配置源的 IO、解析、限制错误，以及 `SourceLoadContext::set` 或 `set_null`
+产生的无效键错误，`source_id()` 会返回文件路径或稳定的配置源标识。此类赋值错误
+使用 `SourceInvalidKey` 变体，同时保留 `InvalidKey` 类别和被拒绝的键路径。直接调用
+`Config::set` 仍返回不带来源 ID 的 `InvalidKey`。其他错误是否带来源上下文由其变体决定。
+匹配具体错误变体的代码需要处理 `SourceInvalidKey`；优先使用 `kind()`、`path()` 和
+`source_id()` 可以减少对具体来源诊断变体的依赖。
 配置源预算失败时，`source_budget_id()` 会指出拒绝扣减的局部或聚合预算，
 `budget_error()` 则返回结构化的 rs-budget 错误。
 保存的 overlay 也可按累计聚合预算准入；单个解析文本仍受单值限制。启用累计准入时，

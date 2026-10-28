@@ -41,6 +41,12 @@ default only when fallback is needed. Neither `ConfigName` nor
 through `SourceLoadContext::set` or `set_null` and report input bytes, parser
 nodes, and child sources before consuming those resources. Work not reported by
 a custom source cannot be inferred from its final layer.
+Invalid assignment keys returned by these context methods use
+`ConfigError::SourceInvalidKey`; `kind()` remains `InvalidKey`, `path()` keeps
+the rejected key, and `source_id()` identifies the assigning source (including
+the leaf source in nested composites). Direct `Config::set` continues to return
+`InvalidKey` without source context. Budget checks and charges occur before
+assignment validation.
 
 `PropertiesConfigSource`, `EnvConfigSource`, and `CompositeConfigSource` are
 always available. TOML, YAML, and `.env` adapters are feature-gated. A composite
