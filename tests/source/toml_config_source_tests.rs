@@ -32,6 +32,53 @@ fn merge_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<
 }
 
 #[test]
+fn toml_mapping_members_are_validated_before_recursion() {
+    let cases = [
+        ("\"\" = { port = 8080 }", ""),
+        ("\"\" = {}", ""),
+        ("\"bad..key\" = {}", "bad..key"),
+        ("[server]\n\"\" = { port = 8080 }", "server."),
+    ];
+
+    for (content, expected_path) in cases {
+        let mut target = Config::new();
+        target.set("existing", "old").unwrap();
+        let before = target.clone();
+        let source = TomlConfigSource::from_content(content);
+        let error = target
+            .merge_properties_from_source(&source)
+            .expect_err("invalid mapping member must be rejected");
+
+        assert!(matches!(error, ConfigError::SourceParseError { .. }));
+        assert_eq!(error.source_id(), Some("TOML:<memory>"));
+        assert_eq!(error.path(), Some(expected_path));
+        assert_eq!(target, before, "failed merge must leave target unchanged");
+    }
+}
+
+#[test]
+fn toml_empty_mappings_remain_valid() {
+    let root = TomlConfigSource::from_content("")
+        .load()
+        .expect("empty TOML document should load");
+    assert!(root.is_empty());
+
+    let nested = TomlConfigSource::from_content("[server]\n")
+        .load()
+        .expect("empty TOML table should load");
+    assert!(nested.is_empty());
+}
+
+#[test]
+fn toml_quoted_dotted_member_remains_valid() {
+    let config = TomlConfigSource::from_content("\"server.port\" = 8080")
+        .load()
+        .expect("quoted dotted member should preserve flattening behavior");
+
+    assert_eq!(config.get::<i64>("server.port").unwrap(), 8080);
+}
+
+#[test]
 fn toml_builder_default_loads_configured_content() {
     let builder_default: fn() -> TomlConfigSourceBuilder = Default::default;
     let source = std::hint::black_box(builder_default)()

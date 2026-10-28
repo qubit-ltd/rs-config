@@ -35,6 +35,53 @@ fn merge_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<
 }
 
 #[test]
+fn yaml_mapping_members_are_validated_before_recursion() {
+    let cases = [
+        ("\"\": {port: 8080}", ""),
+        ("\"\": {}", ""),
+        ("\"bad..key\": {}", "bad..key"),
+        ("server: {\"\": {port: 8080}}", "server."),
+    ];
+
+    for (content, expected_path) in cases {
+        let mut target = Config::new();
+        target.set("existing", "old").unwrap();
+        let before = target.clone();
+        let source = YamlConfigSource::from_content(content);
+        let error = target
+            .merge_properties_from_source(&source)
+            .expect_err("invalid mapping member must be rejected");
+
+        assert!(matches!(error, ConfigError::SourceParseError { .. }));
+        assert_eq!(error.source_id(), Some("YAML:<memory>"));
+        assert_eq!(error.path(), Some(expected_path));
+        assert_eq!(target, before, "failed merge must leave target unchanged");
+    }
+}
+
+#[test]
+fn yaml_empty_mappings_remain_valid() {
+    let root = YamlConfigSource::from_content("{}")
+        .load()
+        .expect("empty YAML mapping should load");
+    assert!(root.is_empty());
+
+    let nested = YamlConfigSource::from_content("server: {}")
+        .load()
+        .expect("empty nested YAML mapping should load");
+    assert!(nested.is_empty());
+}
+
+#[test]
+fn yaml_quoted_dotted_member_remains_valid() {
+    let config = YamlConfigSource::from_content("\"server.port\": 8080")
+        .load()
+        .expect("quoted dotted member should preserve flattening behavior");
+
+    assert_eq!(config.get::<i64>("server.port").unwrap(), 8080);
+}
+
+#[test]
 fn yaml_builder_default_loads_configured_content() {
     let builder_default: fn() -> YamlConfigSourceBuilder = Default::default;
     let source = std::hint::black_box(builder_default)()
