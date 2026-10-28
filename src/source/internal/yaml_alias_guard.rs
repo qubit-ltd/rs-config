@@ -44,17 +44,40 @@ pub(in crate::source) fn reject_yaml_aliases(label: &str, content: &str) -> Conf
         }
     }
 
-    if let Some(error) = scanner.get_error() {
-        let marker = error.marker();
-        return Err(ConfigError::source_parse_error(
-            label,
-            format!(
-                "Failed to parse YAML file '{label}' at line {}, column {}: invalid YAML syntax",
-                marker.line(),
-                marker.col() + 1,
-            ),
-        ));
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::reject_yaml_aliases;
+    use crate::ConfigError;
+
+    #[test]
+    fn accepts_yaml_without_anchor_tokens() {
+        reject_yaml_aliases("memory", "value: '*literal'\nquoted: \"&text\"\n")
+            .expect("quoted anchor-like text is ordinary scalar content");
     }
 
-    Ok(())
+    #[test]
+    fn rejects_alias_tokens_with_source_position() {
+        let error = reject_yaml_aliases("memory", "base: &secret value\ncopy: *secret\n")
+            .expect_err("an alias token must be rejected before parsing values");
+
+        assert!(matches!(error, ConfigError::SourceParseError { .. }));
+        assert!(error.to_string().contains("line 1, column 7"));
+        assert!(error.to_string().contains("anchors and aliases are not supported"));
+        assert!(!error.to_string().contains("secret"));
+    }
+
+    #[test]
+    fn redacts_scanner_syntax_errors() {
+        const SECRET: &str = "YAML_SCANNER_SECRET";
+        let error = reject_yaml_aliases("memory", &format!("value: \"{SECRET}\n"))
+            .expect_err("an unterminated quoted scalar is invalid YAML");
+
+        assert!(matches!(error, ConfigError::SourceParseError { .. }));
+        assert!(error.to_string().contains("invalid YAML syntax"));
+        assert!(!error.to_string().contains(SECRET));
+        assert!(!format!("{error:?}").contains(SECRET));
+    }
 }
