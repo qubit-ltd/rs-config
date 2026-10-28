@@ -6,6 +6,8 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+use std::borrow::Cow;
+
 use crate::ConfigResult;
 use crate::conversion::internal::PreparedScalar;
 use crate::options::ReadPolicy;
@@ -131,6 +133,25 @@ impl<'a> ConfigParseContext<'a> {
             return prepared.text(self.interpolate, self.substitute).map(str::to_owned);
         }
         (self.substitute)(value)
+    }
+
+    /// Gets scalar text, reusing the prepared value only when its raw input
+    /// matches.
+    ///
+    /// # Errors
+    ///
+    /// Returns a substitution error when the input needs interpolation and
+    /// substitution fails.
+    pub(crate) fn scalar_text<'s>(&'s self, value: &'s str) -> ConfigResult<Cow<'s, str>> {
+        if !self.interpolate {
+            return Ok(Cow::Borrowed(value));
+        }
+        if let Some(prepared) = self.prepared_scalar.as_ref()
+            && prepared.is_raw(value)
+        {
+            return prepared.text(true, self.substitute).map(Cow::Borrowed);
+        }
+        (self.substitute)(value).map(Cow::Owned)
     }
 
     /// Borrows the current scalar's original or prepared text when it is a

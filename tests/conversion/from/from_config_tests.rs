@@ -21,6 +21,7 @@ use chrono::NaiveDateTime;
 use num_bigint::BigInt;
 use qubit_config::Config;
 use qubit_config::ConfigError;
+use qubit_config::ConfigReader;
 use qubit_config::ConfigResult;
 use qubit_config::Property;
 use qubit_config::conversion::ConfigParseContext;
@@ -244,4 +245,82 @@ fn test_interpolated_string_output_limit_preserves_property_path() {
 
     let error = config.get_interpolated::<String>("service.name").unwrap_err();
     assert_eq!(error.path(), Some("base"));
+}
+
+#[derive(Debug, PartialEq)]
+struct ReplacementNumber(u16);
+
+impl FromConfig for ReplacementNumber {
+    fn from_config(_property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<Self> {
+        let replacement = Property::new("replacement", "20").expect("valid replacement property");
+        u16::from_config(&replacement, ctx).map(Self)
+    }
+}
+
+#[derive(Debug, PartialEq)]
+struct ReplacementCollection(u16);
+
+impl FromConfig for ReplacementCollection {
+    fn from_config(_property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<Self> {
+        let replacement = Property::new("replacement", vec!["20", "30"]).expect("valid replacement collection");
+        u16::from_config(&replacement, ctx).map(Self)
+    }
+}
+
+#[derive(Debug, PartialEq)]
+struct ReplacementString(String);
+
+impl FromConfig for ReplacementString {
+    fn from_config(_property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<Self> {
+        let replacement = Property::new("replacement", "${base}-new").expect("valid replacement property");
+        String::from_config(&replacement, ctx).map(Self)
+    }
+}
+
+#[test]
+fn test_delegated_scalar_conversion_uses_replacement_property_text() {
+    let mut config = Config::new();
+    config.set("base", "10").unwrap();
+    config.set("value", "${base}").unwrap();
+
+    assert_eq!(
+        config.get_interpolated::<ReplacementNumber>("value").unwrap(),
+        ReplacementNumber(20)
+    );
+}
+
+#[test]
+fn test_delegated_collection_conversion_does_not_use_scalar_cache() {
+    let mut config = Config::new();
+    config.set("base", "10").unwrap();
+    config.set("value", vec!["${base}"]).unwrap();
+
+    assert_eq!(
+        config.get_interpolated::<ReplacementNumber>("value").unwrap(),
+        ReplacementNumber(20)
+    );
+}
+
+#[test]
+fn test_delegated_scalar_conversion_accepts_replacement_collection() {
+    let mut config = Config::new();
+    config.set("value", "10").unwrap();
+
+    assert_eq!(
+        config.get_interpolated::<ReplacementCollection>("value").unwrap(),
+        ReplacementCollection(20)
+    );
+}
+
+#[test]
+fn test_delegated_string_conversion_uses_replacement_property_text() {
+    let mut config = Config::new();
+    config.set("http.base", "resolved").unwrap();
+    config.set("http.value", "${base}").unwrap();
+    let section = config.section("http").unwrap();
+
+    assert_eq!(
+        section.get_interpolated::<ReplacementString>("value").unwrap(),
+        ReplacementString("resolved-new".to_owned()),
+    );
 }

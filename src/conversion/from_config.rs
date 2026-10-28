@@ -110,15 +110,15 @@ fn convert_first<T>(property: &Property, ctx: &ConfigParseContext<'_>) -> Config
 where
     T: DataConversionTarget,
 {
-    if first_scalar_string(property).is_some() {
+    if let Some(raw) = first_scalar_string(property) {
         if !ctx.interpolates() {
             return property
                 .value()
                 .to_first_with::<T>(ctx.options().conversion_policy(), ctx.options().conversion_limits())
                 .map_err(|e| utils::map_value_error(ctx.key(), e));
         }
-        let value = ctx.prepared_scalar_text()?.expect("selected scalar string");
-        DataConverter::from(value)
+        let value = ctx.scalar_text(raw)?;
+        DataConverter::from(value.as_ref())
             .to_with::<T>(ctx.options().conversion_policy(), ctx.options().conversion_limits())
             .map_err(|error| utils::map_value_error(ctx.key(), error.into()))
     } else {
@@ -237,15 +237,15 @@ impl FromConfig for String {
     ///
     /// Parsed value, or a [`crate::ConfigError`] with key context.
     fn from_config(property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<Self> {
-        if first_scalar_string(property).is_some() {
+        if let Some(raw) = first_scalar_string(property) {
             if !ctx.interpolates() {
                 return property
                     .value()
                     .to_first_with::<String>(ctx.options().conversion_policy(), ctx.options().conversion_limits())
                     .map_err(|error| utils::map_value_error(ctx.key(), error));
             }
-            let value = ctx.prepared_scalar_text()?.expect("selected scalar string");
-            return DataConverter::from(value)
+            let value = ctx.scalar_text(raw)?;
+            return DataConverter::from(value.as_ref())
                 .to_with::<String>(ctx.options().conversion_policy(), ctx.options().conversion_limits())
                 .map_err(|error| utils::map_value_error(ctx.key(), error.into()));
         }
