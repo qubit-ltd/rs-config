@@ -43,7 +43,7 @@ use serde_norway::from_str;
 use super::ConfigSource;
 use super::SourceLimits;
 use super::SourceLoadContext;
-use super::internal::yaml_alias_guard::reject_yaml_aliases;
+use super::internal::yaml_alias_guard::inspect_yaml_tokens;
 use super::source_input::SourceInput;
 use super::source_load_session::SourceLoadSession;
 use crate::Config;
@@ -199,7 +199,7 @@ impl ConfigSource for YamlConfigSource {
         let session = context.session_mut();
         let label = self.input.label("YAML");
         let content = self.input.read_to_string("YAML", session)?;
-        reject_yaml_aliases(&label, &content)?;
+        let has_value_tokens = inspect_yaml_tokens(&label, &content)?;
 
         if content.trim().is_empty() {
             context.replace_layer(config);
@@ -207,6 +207,11 @@ impl ConfigSource for YamlConfigSource {
         }
 
         let value: YamlValue = from_str(&content).map_err(|error| yaml_parse_error(&label, &error))?;
+
+        if matches!(&value, YamlValue::Null) && !has_value_tokens {
+            context.replace_layer(config);
+            return Ok(());
+        }
 
         let mut seen = HashSet::new();
         flatten_yaml_value(&label, "", &value, &mut config, &mut seen, session, 0)?;

@@ -574,6 +574,7 @@ true: enabled
 mod test_yaml_edge_cases {
     use super::Config;
     use super::ConfigError;
+    use super::ConfigErrorKind;
     use super::ConfigSource;
     use super::SourceLimitKind;
     use super::SourceLimits;
@@ -836,6 +837,53 @@ locked_strings:
             .expect("empty YAML content should load");
 
         assert_eq!(config.len(), 0);
+    }
+
+    #[test]
+    fn yaml_semantically_empty_single_documents_load_empty_layers() {
+        for input in ["", " \n", "# comment\n", "---\n", "---\n# comment\n...\n"] {
+            let config = YamlConfigSource::from_content(input)
+                .load()
+                .unwrap_or_else(|error| panic!("input={input:?}: {error}"));
+            assert!(config.is_empty(), "input={input:?}");
+        }
+    }
+
+    #[test]
+    fn yaml_empty_documents_preserve_source_entry_and_zero_node_limits() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("comment-only.yaml");
+        std::fs::write(&path, "# comment\n").unwrap();
+        assert!(YamlConfigSource::from_file(&path).load().unwrap().is_empty());
+
+        let source = YamlConfigSource::builder()
+            .content("---\n# comment\n...\n")
+            .limits(SourceLimits::builder().max_nodes(0).max_properties(0).build())
+            .build();
+        assert!(source.load().unwrap().is_empty());
+    }
+
+    #[test]
+    fn yaml_root_null_scalars_and_sequences_remain_rejected() {
+        for input in ["null", "~", "'null'", "[]", "!!str null"] {
+            let error = YamlConfigSource::from_content(input)
+                .load()
+                .expect_err("root scalars and sequences are not configuration mappings");
+
+            assert_eq!(error.kind(), ConfigErrorKind::Parse, "input={input:?}");
+            assert_eq!(error.source_id(), Some("YAML:<memory>"), "input={input:?}");
+            assert_eq!(error.path(), Some(""), "input={input:?}");
+        }
+    }
+
+    #[test]
+    fn yaml_multiple_documents_remain_rejected_with_source_context() {
+        let error = YamlConfigSource::from_content("---\nfirst: 1\n---\nsecond: 2\n")
+            .load()
+            .expect_err("multiple YAML documents are not supported");
+
+        assert_eq!(error.kind(), ConfigErrorKind::Parse);
+        assert_eq!(error.source_id(), Some("YAML:<memory>"));
     }
 
     #[test]
