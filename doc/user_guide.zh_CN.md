@@ -348,12 +348,15 @@ assert_eq!(restored.get::<i64>("server.port")?, 8080);
 限制配置组合 rs-budget 的定向 `JsonDecodeLimits`、`JsonEncodeLimits` 与配置专属的
 配置项、配置项键限制。输入通过一个 `JsonDecodeSession` 准入，输出结构和字节
 通过一个 `JsonEncodeSession` 记账；配置专属限制仍由本 crate 处理。
+从 `ConfigWireLimits::builder_from(&limits)` 开始调用 `max_input_bytes` 时，只修改输入字节限制，
+并保留其他解码维度。需要整体替换解码 profile 时使用 `json_decode`。
 普通 Serde 序列化的行为保持不变。该 JSON 预算与读取文本配置源时
 使用的 `SourceLimits` 相互独立。普通 `Deserialize` 会用
 `ConfigWireLimits::default()` 创建有预算约束的已解码值 visitor，从而限制已解码结构、
 载荷、配置项数量和配置项键。通用 Serde 反序列化器不提供原始字节流或 JSON 词法
 token，因此普通 `Deserialize` 无法执行原始输入限制。不可信 JSON 应使用
-`Config::decode_json_slice` 或其自定义限制版本。
+`Config::decode_json_slice` 或其自定义限制版本。V1 拒绝显式 `read_options` 字段，
+包括 `null`；旧版无版本输入仍接受并忽略该字段。手工构造 V1 封装时应省略该字段。
 
 ## 进阶用法
 
@@ -416,6 +419,8 @@ let config = Config::builder().default_read_policy(policy).build();
 `ReadPolicy::builder()` 分别调整；超限会返回结构化 `ConfigError` 类别。
 占位符展开次数会在一次逻辑读取内共享累计，包括候选键搜索和结构化 visitor 最终忽略的字段。
 深度限制按当前引用链计算，输出字节限制则应用于每个展开值。
+引用值转成文本时使用当前 `ReadPolicy` 及其转换限制；每次引用转换使用独立的转换操作，
+一次逻辑读取内的插值展开预算仍会累计共享。
 
 ### Custom Target Types
 
@@ -488,7 +493,8 @@ TOML 和 YAML 配置源会把映射展开成点分配置项，只接受标量、
 所有内置配置源的文件入口和内存入口使用同一套 session API。
 `CompositeConfigSource::builder().limits(...).build()` 会在每个子配置源的局部策略之外增加共享聚合
 策略；只有所有适用预算都接受一次累计扣减后才会统一记账。TOML 和 YAML 的节点、
-配置项与深度检查发生在 AST 已经构建之后，不能限制解析器自身的内存或递归。
+配置项与深度检查发生在 AST 已经构建之后；深度同时检查 AST 嵌套和最终点分配置路径，
+不能限制解析器自身的内存或递归。
 `SourceLimits::unbounded()` 会关闭所有配置源维度；只有应用完全控制输入边界时才应使用。
 
 ## 错误与诊断

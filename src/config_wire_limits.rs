@@ -146,10 +146,11 @@ impl ConfigWireLimitsBuilder {
         }
     }
 
-    /// Sets the maximum complete JSON input length.
+    /// Sets the maximum complete JSON input length while preserving the other
+    /// JSON decoding limits.
     #[inline]
     pub fn max_input_bytes(mut self, maximum: u64) -> Self {
-        self.json_decode = ConfigWireLimits::default_json_decode_limits(maximum);
+        self.json_decode = self.json_decode.into_builder().max_input_bytes(maximum).build();
         self
     }
 

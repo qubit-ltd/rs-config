@@ -11,6 +11,7 @@ use super::map_value_error;
 use crate::ConfigError;
 use crate::ConfigReader;
 use crate::ConfigResult;
+use crate::helpers::is_effectively_missing;
 use crate::options::InterpolationSources;
 use crate::options::ReadPolicy;
 
@@ -137,7 +138,11 @@ fn find_variable_value<R: ConfigReader + ?Sized>(
     path: &str,
 ) -> ConfigResult<String> {
     match config.get_property(var_name)? {
-        Some(property) if !property.is_unset() => match property.value().to_first::<String>() {
+        Some(property) if !property.is_unset() && is_effectively_missing(property, options) => Ok(String::new()),
+        Some(property) if !property.is_unset() => match property
+            .value()
+            .to_first_with::<String>(options.conversion_policy(), options.conversion_limits())
+        {
             Ok(value) => Ok(value),
             Err(error) => {
                 let resolved = config.resolve_key(var_name)?;
@@ -166,7 +171,11 @@ fn find_variable_value_with_fallback<P: ConfigReader + ?Sized, F: ConfigReader +
     path: &str,
 ) -> ConfigResult<String> {
     match primary.get_property(var_name)? {
-        Some(property) if !property.is_unset() => match property.value().to_first::<String>() {
+        Some(property) if !property.is_unset() && is_effectively_missing(property, options) => Ok(String::new()),
+        Some(property) if !property.is_unset() => match property
+            .value()
+            .to_first_with::<String>(options.conversion_policy(), options.conversion_limits())
+        {
             Ok(value) => Ok(value),
             Err(error) => {
                 let resolved = primary.resolve_key(var_name)?;

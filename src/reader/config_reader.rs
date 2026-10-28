@@ -409,9 +409,9 @@ pub trait ConfigReader: internal::Sealed {
     where
         T: FromConfig,
     {
-        names.with_config_names(|names| {
-            self.get_optional_any(names)?
-                .ok_or(missing_candidates_error(self, names)?)
+        names.with_config_names(|names| match self.get_optional_any(names)? {
+            Some(value) => Ok(value),
+            None => Err(missing_candidates_error(self, names)?),
         })
     }
 
@@ -437,9 +437,9 @@ pub trait ConfigReader: internal::Sealed {
     where
         T: FromConfig,
     {
-        names.with_config_names(|names| {
-            self.get_optional_any_interpolated(names)?
-                .ok_or(missing_candidates_error(self, names)?)
+        names.with_config_names(|names| match self.get_optional_any_interpolated(names)? {
+            Some(value) => Ok(value),
+            None => Err(missing_candidates_error(self, names)?),
         })
     }
 

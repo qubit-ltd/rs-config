@@ -5,24 +5,27 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-#![cfg(feature = "toml")]
-
 // # `CompositeConfigSource` tests
 
+#[cfg(feature = "toml")]
 use std::path::PathBuf;
 
 use qubit_config::Config;
+#[cfg(feature = "toml")]
 use qubit_config::ConfigError;
 use qubit_config::ConfigResult;
 use qubit_config::source::CompositeConfigSource;
 use qubit_config::source::CompositeConfigSourceBuilder;
 use qubit_config::source::ConfigSource;
+#[cfg(feature = "toml")]
 use qubit_config::source::EnvConfigSource;
 use qubit_config::source::PropertiesConfigSource;
 use qubit_config::source::SourceLimitKind;
 use qubit_config::source::SourceLimits;
+#[cfg(feature = "toml")]
 use qubit_config::source::TomlConfigSource;
 
+#[cfg(feature = "toml")]
 fn fixture(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests")
@@ -58,13 +61,17 @@ mod test_composite_config_source {
 
     use super::CompositeConfigSource;
     use super::Config;
+    #[cfg(feature = "toml")]
     use super::ConfigError;
     use super::ConfigSource;
+    #[cfg(feature = "toml")]
     use super::EnvConfigSource;
     use super::PropertiesConfigSource;
     use super::SourceLimitKind;
     use super::SourceLimits;
+    #[cfg(feature = "toml")]
     use super::TomlConfigSource;
+    #[cfg(feature = "toml")]
     use super::fixture;
     use super::load_source;
 
@@ -75,6 +82,7 @@ mod test_composite_config_source {
         assert_eq!(composite.len(), 0);
     }
 
+    #[cfg(feature = "toml")]
     #[test]
     fn test_add_source_increases_len() {
         let mut composite = CompositeConfigSource::new();
@@ -83,6 +91,7 @@ mod test_composite_config_source {
         assert!(!composite.is_empty());
     }
 
+    #[cfg(feature = "toml")]
     #[test]
     fn test_add_multiple_sources() {
         let mut composite = CompositeConfigSource::new();
@@ -91,6 +100,7 @@ mod test_composite_config_source {
         assert_eq!(composite.len(), 2);
     }
 
+    #[cfg(feature = "toml")]
     #[test]
     fn test_load_merges_sources_in_order() {
         // basic.toml sets host=localhost, override.toml sets
@@ -118,6 +128,7 @@ mod test_composite_config_source {
         assert!(config.is_empty());
     }
 
+    #[cfg(feature = "toml")]
     #[test]
     fn test_load_stops_on_first_error() {
         let mut composite = CompositeConfigSource::new();
@@ -134,6 +145,7 @@ mod test_composite_config_source {
         assert!(composite.is_empty());
     }
 
+    #[cfg(feature = "toml")]
     #[test]
     fn test_composite_with_env_override() {
         unsafe {
@@ -157,6 +169,7 @@ mod test_composite_config_source {
         }
     }
 
+    #[cfg(feature = "toml")]
     #[test]
     fn test_merge_from_composite_config_source() {
         let mut composite = CompositeConfigSource::new();
@@ -169,6 +182,7 @@ mod test_composite_config_source {
         assert_eq!(config.get::<String>("host").unwrap(), "production-server");
     }
 
+    #[cfg(feature = "toml")]
     #[test]
     fn test_add_returns_mutable_ref_for_chaining() {
         // Verify the builder-style chaining works
@@ -180,6 +194,7 @@ mod test_composite_config_source {
         assert_eq!(composite.len(), 2);
     }
 
+    #[cfg(feature = "toml")]
     #[test]
     fn test_composite_load_is_transactional_when_later_source_fails() {
         let dir = tempfile::tempdir().unwrap();
@@ -233,7 +248,9 @@ mod test_composite_config_source {
             .limits(SourceLimits::builder().max_sources(1).build())
             .build();
         composite.add(PropertiesConfigSource::from_content("first=1\n"));
-        composite.add(TomlConfigSource::from_file("/path-that-must-not-be-opened.toml"));
+        composite.add(PropertiesConfigSource::from_file(
+            "/path-that-must-not-be-opened.properties",
+        ));
 
         let error = composite
             .load()

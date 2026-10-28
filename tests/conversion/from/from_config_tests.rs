@@ -243,5 +243,5 @@ fn test_interpolated_string_output_limit_preserves_property_path() {
     config.set("service.name", "${base}").unwrap();
 
     let error = config.get_interpolated::<String>("service.name").unwrap_err();
-    assert_eq!(error.path(), Some("service.name"));
+    assert_eq!(error.path(), Some("base"));
 }

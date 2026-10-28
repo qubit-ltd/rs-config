@@ -85,4 +85,16 @@ fuzz_target!(|data: &[u8]| {
             consume_typed_config(value);
         }
     }
+    let options = ConfigDeserializeOptions {
+        interpolate: true,
+        unknown_fields: UnknownFieldPolicy::Ignore,
+    };
+    if let Ok(value) = config.deserialize_with::<TypedConfig>("", options) {
+        consume_typed_config(value);
+    }
+    for key in config.keys().into_iter().take(8) {
+        if let Ok(value) = config.deserialize_with::<TypedConfig>(&key, options) {
+            consume_typed_config(value);
+        }
+    }
 });

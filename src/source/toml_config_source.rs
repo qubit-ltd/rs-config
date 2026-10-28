@@ -29,7 +29,8 @@
 //! TODO: replace or wrap the third-party TOML parser with an incremental parser
 //! that charges token, string, node, and depth budgets before allocating the
 //! complete syntax tree. Current node and depth accounting begins while the
-//! already materialized TOML value tree is flattened.
+//! already materialized TOML value tree is flattened. Flattening checks both
+//! the TOML tree depth and the depth of each resulting dot-separated key.
 
 use std::collections::HashSet;
 use std::path::Path;
@@ -233,6 +234,7 @@ impl ConfigSource for TomlConfigSource {
 }
 
 /// Recursively flattens a TOML value into the config using dot-separated keys.
+/// Both TOML tree depth and resulting key depth are subject to source limits.
 ///
 /// Scalar types are stored with their native types (integer → i64, float → f64,
 /// bool → bool). Empty arrays become concrete empty collections. String and
@@ -247,6 +249,9 @@ pub(crate) fn flatten_toml_value(
     depth: usize,
 ) -> ConfigResult<()> {
     budget.check_depth(depth)?;
+    if !prefix.is_empty() {
+        budget.check_depth(prefix.split('.').count())?;
+    }
     budget.consume_nodes(1)?;
     match value {
         TomlValue::Table(table) => {

@@ -900,3 +900,43 @@ fn test_config_wire_rejects_malformed_map_key() {
         "unexpected deserialization error: {error}"
     );
 }
+
+/// Verifies both public decoding paths distinguish a missing legacy field from
+/// every explicitly supplied V1 value.
+#[test]
+fn test_config_wire_read_options_presence_matrix() {
+    let cases = [
+        (r#"{"version":1}"#, true),
+        (r#"{"version":1,"read_options":null}"#, false),
+        (r#"{"version":1,"read_options":{}}"#, false),
+        (r#"{"version":1,"read_options":0}"#, false),
+        (r#"{}"#, true),
+        (r#"{"read_options":null}"#, true),
+        (r#"{"read_options":{}}"#, true),
+    ];
+
+    for (input, accepted) in cases {
+        let value: Value = from_str(input).expect("test wire input should be valid JSON");
+        if accepted {
+            let config = from_value::<Config>(value).expect("accepted wire input should deserialize through Serde");
+            assert!(config.get::<Value>("missing").is_err());
+
+            let config = Config::decode_json_slice(input.as_bytes())
+                .expect("accepted wire input should decode through the bounded API");
+            assert!(config.get::<Value>("missing").is_err());
+        } else {
+            let error = from_value::<Config>(value).expect_err("explicit V1 read_options must be rejected by Serde");
+            assert!(
+                error.to_string().contains("read_options"),
+                "unexpected field error: {error}"
+            );
+
+            let error = Config::decode_json_slice(input.as_bytes())
+                .expect_err("explicit V1 read_options must be rejected by bounded decoding");
+            assert!(
+                matches!(&error, ConfigWireDecodeError::InvalidConfig(message) if message.contains("read_options")),
+                "unexpected wire error: {error}"
+            );
+        }
+    }
+}

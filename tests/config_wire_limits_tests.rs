@@ -117,6 +117,49 @@ fn config_wire_limits_builder_covers_every_json_budget_dimension() {
 }
 
 #[test]
+fn test_input_override_preserves_other_wire_limits() {
+    let decode = JsonDecodeLimits::builder()
+        .max_input_bytes(11)
+        .max_depth(12)
+        .max_nodes(13)
+        .max_sequence_items(14)
+        .max_map_entries(15)
+        .max_key_bytes(16)
+        .max_string_bytes(17)
+        .max_number_bytes(18)
+        .max_payload_bytes(19)
+        .build();
+    let encode = JsonEncodeLimits::builder().max_output_bytes(21).build();
+    let initial = ConfigWireLimits::builder()
+        .json_decode(decode)
+        .json_encode(encode)
+        .max_properties(31)
+        .max_property_key_bytes(32)
+        .build();
+
+    let updated = ConfigWireLimits::builder_from(&initial).max_input_bytes(99).build();
+    assert_eq!(updated.json_decode(), decode.into_builder().max_input_bytes(99).build());
+    assert_eq!(updated.json_encode(), initial.json_encode());
+    assert_eq!(updated.max_properties(), 31);
+    assert_eq!(updated.max_property_key_bytes(), 32);
+
+    let input_after_decode = ConfigWireLimits::builder()
+        .json_decode(decode)
+        .max_input_bytes(99)
+        .build();
+    assert_eq!(
+        input_after_decode.json_decode(),
+        decode.into_builder().max_input_bytes(99).build()
+    );
+
+    let decode_after_input = ConfigWireLimits::builder()
+        .max_input_bytes(99)
+        .json_decode(decode)
+        .build();
+    assert_eq!(decode_after_input.json_decode(), decode);
+}
+
+#[test]
 fn config_wire_scalar_limit_getters_are_callable_as_functions() {
     let limits = ConfigWireLimits::builder()
         .max_properties(11)

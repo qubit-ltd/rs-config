@@ -132,6 +132,130 @@ fn test_raw_scalar_conversion_does_not_clone_source_text() {
     );
 }
 
+#[test]
+fn test_candidate_success_allocations_do_not_grow_with_unused_names() {
+    let _guard = ALLOCATION_TEST_LOCK
+        .lock()
+        .expect("the allocation test lock should not be poisoned");
+    let mut config = Config::new();
+    config.set("hit", 7_u64).expect("set root hit");
+    config.set("server.hit", 7_u64).expect("set section hit");
+    let section = config.section("server").expect("get server section");
+    let single_names = ["hit"];
+    let multiple_names = [
+        "hit", "miss1", "miss2", "miss3", "miss4", "miss5", "miss6", "miss7", "miss8", "miss9", "miss10", "miss11",
+        "miss12", "miss13", "miss14", "miss15",
+    ];
+
+    let _: u64 = config.get_any(single_names).expect("warm up root single read");
+    let _: u64 = config.get_any(multiple_names).expect("warm up root multiple read");
+    let _: u64 = config
+        .get_any_interpolated(single_names)
+        .expect("warm up root single interpolated read");
+    let _: u64 = config
+        .get_any_interpolated(multiple_names)
+        .expect("warm up root multiple interpolated read");
+    let _: u64 = section.get_any(single_names).expect("warm up section single read");
+    let _: u64 = section.get_any(multiple_names).expect("warm up section multiple read");
+    let _: u64 = section
+        .get_any_interpolated(single_names)
+        .expect("warm up section single interpolated read");
+    let _: u64 = section
+        .get_any_interpolated(multiple_names)
+        .expect("warm up section multiple interpolated read");
+
+    reset_test_thread_allocations();
+    let root_single: u64 = config.get_any(single_names).expect("read root single candidate");
+    let root_single_counts = AllocationCounts {
+        count: test_thread_allocations(),
+        bytes: test_thread_allocation_bytes(),
+    };
+    reset_test_thread_allocations();
+    let root_multiple: u64 = config.get_any(multiple_names).expect("read root multiple candidates");
+    let root_multiple_counts = AllocationCounts {
+        count: test_thread_allocations(),
+        bytes: test_thread_allocation_bytes(),
+    };
+
+    reset_test_thread_allocations();
+    let root_single_interpolated: u64 = config
+        .get_any_interpolated(single_names)
+        .expect("read root single interpolated candidate");
+    let root_single_interpolated_counts = AllocationCounts {
+        count: test_thread_allocations(),
+        bytes: test_thread_allocation_bytes(),
+    };
+    reset_test_thread_allocations();
+    let root_multiple_interpolated: u64 = config
+        .get_any_interpolated(multiple_names)
+        .expect("read root multiple interpolated candidates");
+    let root_multiple_interpolated_counts = AllocationCounts {
+        count: test_thread_allocations(),
+        bytes: test_thread_allocation_bytes(),
+    };
+
+    reset_test_thread_allocations();
+    let section_single: u64 = section.get_any(single_names).expect("read section single candidate");
+    let section_single_counts = AllocationCounts {
+        count: test_thread_allocations(),
+        bytes: test_thread_allocation_bytes(),
+    };
+    reset_test_thread_allocations();
+    let section_multiple: u64 = section
+        .get_any(multiple_names)
+        .expect("read section multiple candidates");
+    let section_multiple_counts = AllocationCounts {
+        count: test_thread_allocations(),
+        bytes: test_thread_allocation_bytes(),
+    };
+
+    reset_test_thread_allocations();
+    let section_single_interpolated: u64 = section
+        .get_any_interpolated(single_names)
+        .expect("read section single interpolated candidate");
+    let section_single_interpolated_counts = AllocationCounts {
+        count: test_thread_allocations(),
+        bytes: test_thread_allocation_bytes(),
+    };
+    reset_test_thread_allocations();
+    let section_multiple_interpolated: u64 = section
+        .get_any_interpolated(multiple_names)
+        .expect("read section multiple interpolated candidates");
+    let section_multiple_interpolated_counts = AllocationCounts {
+        count: test_thread_allocations(),
+        bytes: test_thread_allocation_bytes(),
+    };
+
+    assert_eq!(root_single, 7);
+    assert_eq!(root_multiple, 7);
+    assert_eq!(root_single_interpolated, 7);
+    assert_eq!(root_multiple_interpolated, 7);
+    assert_eq!(section_single, 7);
+    assert_eq!(section_multiple, 7);
+    assert_eq!(section_single_interpolated, 7);
+    assert_eq!(section_multiple_interpolated, 7);
+    assert_eq!(root_single_counts.count, root_multiple_counts.count);
+    assert_eq!(root_single_counts.bytes, root_multiple_counts.bytes);
+    assert_eq!(
+        root_single_interpolated_counts.count,
+        root_multiple_interpolated_counts.count
+    );
+    assert_eq!(
+        root_single_interpolated_counts.bytes,
+        root_multiple_interpolated_counts.bytes
+    );
+    assert_eq!(section_single_counts.count, section_multiple_counts.count);
+    assert_eq!(section_single_counts.bytes, section_multiple_counts.bytes);
+    assert_eq!(
+        section_single_interpolated_counts.count,
+        section_multiple_interpolated_counts.count
+    );
+    assert_eq!(
+        section_single_interpolated_counts.bytes,
+        section_multiple_interpolated_counts.bytes
+    );
+}
+
 /// Verifies root prefix iteration avoids boxing allocations.
 #[test]
 fn test_root_reader_prefix_iteration_does_not_box() {

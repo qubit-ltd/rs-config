@@ -48,6 +48,8 @@ loads children in insertion order and merges each completed child layer into its
 own layer. Later values override earlier values unless an existing property is
 final. Loading and merging are transactional at the public boundary: an error
 does not expose a partial source layer or partially mutate the caller's target.
+TOML and YAML depth limits cover both AST nesting and the final dotted property
+path after flattening; parser allocation and recursion remain outside this limit.
 TOML and YAML reject empty or otherwise invalid mapping member keys before
 recursing into their values; valid empty tables and mappings remain accepted.
 Environment normalization conflicts are checked in sorted order, selecting the
@@ -101,6 +103,9 @@ Expansion counts accumulate across one logical read, including candidate-key
 search and fields later ignored by a structured visitor. Depth is measured along
 the current reference chain, and the output-byte limit applies to each expanded
 value. These limits are not reset for each candidate or field.
+Each referenced value is converted to text with the active `ReadPolicy` and its
+conversion limits. Each reference conversion is an independent conversion
+operation; interpolation expansion counters remain shared by the logical read.
 
 ## Structured Serde
 
@@ -150,6 +155,9 @@ legacy unversioned top-level representation, validates canonical map keys and
 embedded property names, and rejects unsupported versions. Runtime read policy
 is deliberately absent from the V1 persisted contract; legacy policy data is
 accepted but ignored.
+V1 rejects any explicit `read_options` field, including `null`; legacy
+unversioned input continues to accept and ignore it. Producers that construct a
+V1 envelope manually must omit that field.
 
 `Config::encode_json_vec` and `Config::decode_json_slice` apply the default
 bounded wire profile. Their `*_with_limits` variants accept a custom
@@ -179,6 +187,8 @@ the charge. Depth is a point limit. TOML and YAML build third-party ASTs before
 flattening; node, assignment, and depth accounting therefore bounds accepted
 configuration output, not parser allocation or parser recursion. Wire budgets
 are independent of `SourceLimits` and read conversion limits.
+`ConfigWireLimitsBuilder::max_input_bytes` changes only the input-byte dimension
+and preserves the other decode limits; `json_decode` replaces the whole profile.
 
 ## Feature Boundaries
 

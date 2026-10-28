@@ -373,13 +373,18 @@ directional `JsonDecodeLimits` and `JsonEncodeLimits` with configuration-only
 property and property-key limits. Decode input is admitted through one
 `JsonDecodeSession`; encode structure and output are charged through one
 `JsonEncodeSession`. Configuration-specific limits remain local to this crate.
+When starting from `ConfigWireLimits::builder_from(&limits)`, `max_input_bytes`
+changes only the input-byte limit and preserves other decode dimensions. Use
+`json_decode` to replace the complete decode profile.
 Ordinary `Deserialize` constructs a budgeted decoded-value visitor with
 `ConfigWireLimits::default()`, so decoded structure, payload, property count,
 and property keys remain bounded. A general Serde deserializer does not expose
 the original byte stream or lexical JSON tokens; ordinary Deserialize therefore
 cannot enforce the raw-input limit. Use `Config::decode_json_slice` or its
 custom-limits variant for untrusted JSON. This wire budget is separate from
-`SourceLimits`, which applies while ingesting text sources.
+`SourceLimits`, which applies while ingesting text sources. V1 rejects an
+explicit `read_options` field, including `null`; legacy unversioned input still
+accepts and ignores it. Manually constructed V1 envelopes must omit it.
 
 ## Advanced Usage
 
@@ -441,6 +446,9 @@ Treat configuration that can select environment-variable names as trusted input.
 Expansion count is shared across a logical read, including candidate-key
 search and fields a structured visitor later ignores. Depth applies to the
 current reference chain; the output-byte limit applies to each expanded value.
+Reference values use the active `ReadPolicy` and its conversion limits. Each
+reference conversion is an independent conversion operation; expansion limits
+remain cumulative for the logical read.
 
 ### Custom Target Types
 
@@ -520,7 +528,8 @@ points. `CompositeConfigSource::builder().limits(...).build()` configures a shar
 policy in addition to every child's local policy. Cumulative charges are
 committed to all applicable scopes only after every scope accepts them.
 For TOML and YAML, node, property, and depth checks occur after the parser has
-built its AST; they are not parser-stage allocation or recursion limits.
+built its AST. Depth checks cover both AST nesting and the final dotted property
+path; they are not parser-stage allocation or recursion limits.
 `SourceLimits::unbounded()` disables every source dimension and should only be
 used when the application controls the input boundary.
 

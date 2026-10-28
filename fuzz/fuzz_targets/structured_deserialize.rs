@@ -11,6 +11,8 @@
 
 use libfuzzer_sys::fuzz_target;
 use qubit_config::Config;
+use qubit_config::ConfigDeserializeOptions;
+use qubit_config::UnknownFieldPolicy;
 
 const MAX_INPUT_BYTES: usize = 64 * 1024;
 
@@ -24,5 +26,13 @@ fuzz_target!(|data: &[u8]| {
     let _ = config.deserialize::<serde_json::Value>("");
     for key in config.keys().into_iter().take(8) {
         let _ = config.deserialize::<serde_json::Value>(&key);
+    }
+    let options = ConfigDeserializeOptions {
+        interpolate: true,
+        unknown_fields: UnknownFieldPolicy::Ignore,
+    };
+    let _ = config.deserialize_with::<serde_json::Value>("", options);
+    for key in config.keys().into_iter().take(8) {
+        let _ = config.deserialize_with::<serde_json::Value>(&key, options);
     }
 });

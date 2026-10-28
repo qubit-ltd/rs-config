@@ -35,9 +35,19 @@ pub(in crate::config) struct ConfigWireFields {
     #[serde(default, deserialize_with = "deserialize_unique_properties")]
     pub(in crate::config) properties: BTreeMap<String, Property>,
     /// Legacy runtime options accepted for backward input compatibility and
-    /// intentionally ignored.
-    #[serde(default)]
+    /// intentionally ignored. `None` means the field was absent; `Some` means
+    /// it was present and consumed, including when its JSON value was `null`.
+    #[serde(default, deserialize_with = "deserialize_present_read_options")]
     pub(in crate::config) read_options: Option<IgnoredAny>,
+}
+
+/// Records that `read_options` appeared while consuming its value without
+/// interpreting the legacy payload.
+fn deserialize_present_read_options<'de, D>(deserializer: D) -> Result<Option<IgnoredAny>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    IgnoredAny::deserialize(deserializer).map(Some)
 }
 
 /// Deserializes the property map while rejecting duplicate JSON object keys.

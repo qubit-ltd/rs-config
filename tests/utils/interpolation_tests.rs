@@ -6,9 +6,88 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+use std::time::Duration;
+
+use qubit_config::ConfigDeserializeOptions;
+use qubit_config::ConfigReader;
+use qubit_config::ConfigSerdeExt;
+use qubit_config::UnknownFieldPolicy;
+use qubit_datatype::ConversionLimits;
+use qubit_datatype::ConversionOperationLimits;
+use qubit_datatype::DurationConversionPolicy;
+use qubit_datatype::DurationUnit;
+
 use crate::Config;
 use crate::ConfigError;
 use crate::ReadPolicy;
+
+#[test]
+fn test_interpolation_reference_honors_duration_output_unit() {
+    let mut config = Config::new();
+    config.set("duration", Duration::from_micros(1500)).unwrap();
+    config.set("alias", "${duration}").unwrap();
+    config.set("server.duration", Duration::from_micros(2500)).unwrap();
+    config.set("server.alias", "${duration}").unwrap();
+    config.set("server.root_alias", "${root_duration}").unwrap();
+    config.set("root_duration", Duration::from_micros(3500)).unwrap();
+    let policy = ReadPolicy::builder()
+        .duration_policy(
+            DurationConversionPolicy::builder()
+                .output_unit(DurationUnit::Microseconds)
+                .build(),
+        )
+        .build();
+    let view = config.read_with(&policy);
+    assert_eq!(view.get::<String>("duration").unwrap(), "1500µs");
+    assert_eq!(view.get_interpolated::<String>("alias").unwrap(), "1500µs");
+    let server = view.section("server").unwrap();
+    assert_eq!(server.get_interpolated::<String>("alias").unwrap(), "2500µs");
+    assert_eq!(server.get_interpolated::<String>("root_alias").unwrap(), "3500µs");
+    assert!(config.get_interpolated::<String>("alias").is_err());
+
+    let options = ConfigDeserializeOptions {
+        interpolate: true,
+        unknown_fields: UnknownFieldPolicy::Ignore,
+    };
+    let structured: serde_json::Value = view.deserialize_with("server", options).unwrap();
+    assert_eq!(structured["alias"], "2500µs");
+    assert_eq!(structured["root_alias"], "3500µs");
+
+    let mut default_policy_config = Config::new();
+    default_policy_config
+        .set("duration", Duration::from_micros(1500))
+        .unwrap();
+    default_policy_config.set("alias", "${duration}").unwrap();
+    default_policy_config.set_default_read_policy(
+        ReadPolicy::builder()
+            .duration_policy(
+                DurationConversionPolicy::builder()
+                    .output_unit(DurationUnit::Microseconds)
+                    .build(),
+            )
+            .build(),
+    );
+    assert_eq!(
+        default_policy_config.get_interpolated::<String>("alias").unwrap(),
+        "1500µs"
+    );
+}
+
+#[test]
+fn test_interpolation_reference_uses_active_conversion_limits() {
+    let mut config = Config::new();
+    config.set("payload", "long value").unwrap();
+    config.set("alias", "${payload}").unwrap();
+    let limits = ConversionLimits::builder()
+        .operation_limits(ConversionOperationLimits::builder().max_input_bytes(4).build())
+        .build();
+    let policy = ReadPolicy::builder().conversion_limits(limits).build();
+    let error = config
+        .read_with(&policy)
+        .get_interpolated::<String>("alias")
+        .unwrap_err();
+    assert_eq!(error.path(), Some("payload"));
+}
 #[test]
 fn test_get_string_substitutes_simple_placeholder() {
     let mut config = Config::new();

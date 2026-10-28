@@ -29,7 +29,8 @@
 //! TODO: replace or wrap the third-party YAML parser with an incremental parser
 //! that charges token, string, node, and depth budgets before allocating the
 //! complete syntax tree. Current node and depth accounting begins while the
-//! already materialized YAML value tree is flattened.
+//! already materialized YAML value tree is flattened. Flattening checks both
+//! the YAML tree depth and the depth of each resulting dot-separated key.
 
 use std::collections::HashSet;
 use std::path::Path;
@@ -215,6 +216,7 @@ impl ConfigSource for YamlConfigSource {
 }
 
 /// Recursively flattens a YAML value into the config using dot-separated keys.
+/// Both YAML tree depth and resulting key depth are subject to source limits.
 ///
 /// Scalar types are stored with their native types where possible:
 /// - Signed integer numbers → i64
@@ -233,6 +235,9 @@ pub(crate) fn flatten_yaml_value(
     depth: usize,
 ) -> ConfigResult<()> {
     budget.check_depth(depth)?;
+    if !prefix.is_empty() {
+        budget.check_depth(prefix.split('.').count())?;
+    }
     budget.consume_nodes(1)?;
     match value {
         YamlValue::Mapping(map) => {
