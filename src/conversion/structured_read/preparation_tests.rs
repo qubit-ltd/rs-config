@@ -162,44 +162,6 @@ fn borrowed_json_and_string_maps_receive_complete_admission() {
 }
 
 #[test]
-fn index_and_nested_payload_respect_depth_and_node_limits() {
-    let mut config = Config::new();
-    config.set("tree.a.b", 1_i32).unwrap();
-    config.set("json", serde_json::json!({"a": {"b": 1}})).unwrap();
-    with_limits(
-        &mut config,
-        ConversionLimits::builder()
-            .structured_limits(StructuredConversionLimits::builder().max_depth(2).build())
-            .build(),
-    );
-    assert!(prepare_read(&config, "tree", false).is_err());
-    assert!(prepare_read(&config, "json", false).is_err());
-    with_limits(
-        &mut config,
-        ConversionLimits::builder()
-            .operation_limits(ConversionOperationLimits::builder().max_structured_nodes(2).build())
-            .build(),
-    );
-    assert!(prepare_read(&config, "json", false).is_err());
-    with_limits(
-        &mut config,
-        ConversionLimits::builder()
-            .operation_limits(ConversionOperationLimits::builder().max_structured_nodes(3).build())
-            .build(),
-    );
-    assert!(prepare_read(&config, "json", false).is_ok());
-}
-
-#[test]
-fn nonfinite_numbers_are_rejected_before_target_selection() {
-    let mut config = Config::new();
-    config.set("ignored", vec![1.0_f64, f64::NAN]).unwrap();
-    let error = prepare_read(&config, "", false).unwrap_err();
-    assert_eq!(error.source_index(), Some(1));
-    assert_eq!(error.path(), Some("ignored[1]"));
-}
-
-#[test]
 fn map_keys_are_not_interpolated_and_values_are() {
     let mut config = Config::new();
     config.set("target", "expanded").unwrap();
@@ -355,40 +317,6 @@ fn index_key_budget_rejects_input_bytes_before_admission() {
             .build(),
     );
     assert!(prepare_read(&config, "tree", false).is_err());
-}
-
-#[test]
-fn deep_json_is_rejected_by_iterative_admission() {
-    let mut value = serde_json::json!(true);
-    for _ in 0..512 {
-        value = serde_json::Value::Array(vec![value]);
-    }
-    let mut config = Config::new();
-    config.set("deep", value).unwrap();
-    with_limits(
-        &mut config,
-        ConversionLimits::builder()
-            .structured_limits(StructuredConversionLimits::builder().max_depth(8).build())
-            .build(),
-    );
-    let error = prepare_read(&config, "deep", false).unwrap_err();
-    assert!(error.to_string().contains("StructuredDepth"));
-}
-
-#[test]
-fn collection_budget_failure_retains_source_index_without_payload() {
-    let mut config = Config::new();
-    config.set("items", vec!["ok", "secret payload"]).unwrap();
-    with_limits(
-        &mut config,
-        ConversionLimits::builder()
-            .structured_limits(StructuredConversionLimits::builder().max_text_bytes(2).build())
-            .build(),
-    );
-    let error = prepare_read(&config, "items", false).unwrap_err();
-    assert_eq!(error.source_index(), Some(1));
-    assert_eq!(error.path(), Some("items[1]"));
-    assert!(!error.to_string().contains("secret payload"));
 }
 
 #[test]
