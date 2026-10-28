@@ -7,6 +7,7 @@
 // =============================================================================
 // # `EnvConfigSource` tests
 
+use std::process::Command;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
 use std::sync::OnceLock;
@@ -19,6 +20,7 @@ use qubit_config::source::EnvConfigOptions;
 use qubit_config::source::EnvConfigOptionsBuilder;
 use qubit_config::source::EnvConfigSource;
 use qubit_config::source::EnvConfigSourceBuilder;
+use qubit_config::source::SourceLimitKind;
 use qubit_config::source::SourceLimits;
 use qubit_redact::RedactionCompletion;
 use qubit_redact::Redactor;
@@ -39,7 +41,8 @@ fn merge_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<
 fn environment_builders_expose_default_and_limit_configuration() {
     let options_default: fn() -> EnvConfigOptionsBuilder = Default::default;
     let source_default: fn() -> EnvConfigSourceBuilder = Default::default;
-    let limits: fn(EnvConfigSourceBuilder, SourceLimits) -> EnvConfigSourceBuilder = EnvConfigSourceBuilder::limits;
+    let limits: fn(EnvConfigSourceBuilder, SourceLimits) -> EnvConfigSourceBuilder =
+        EnvConfigSourceBuilder::limits;
 
     let options = std::hint::black_box(options_default)().build();
     let source = std::hint::black_box(limits)(
@@ -49,6 +52,120 @@ fn environment_builders_expose_default_and_limit_configuration() {
     .options(options)
     .build();
     assert_eq!(source.limits().max_properties(), 0);
+}
+
+#[cfg(unix)]
+#[test]
+fn normalized_conflicts_are_stable_through_public_source_loading() {
+    const CHILD_MODE: &str = "QUBIT_ENV_CONFLICT_CHILD";
+    const PREFIX: &str = "QUBIT_ENV_CONFLICT_REVIEW_";
+    const NAMES: [&str; 3] = [
+        "QUBIT_ENV_CONFLICT_REVIEW_FOO__BAR",
+        "QUBIT_ENV_CONFLICT_REVIEW_foo__bar",
+        "QUBIT_ENV_CONFLICT_REVIEW_foo.bar",
+    ];
+
+    if std::env::var_os(CHILD_MODE).is_some() {
+        let source = EnvConfigSource::from_prefix(PREFIX);
+        let mut target = Config::new();
+        target.set("existing", "old").unwrap();
+        let before = target.clone();
+        let error = merge_source(&mut target, &source)
+            .expect_err("the three normalized names must conflict");
+        assert_eq!(target, before);
+        assert!(matches!(
+            &error,
+            ConfigError::KeyConflict {
+                source_id: Some(source_id),
+                path,
+                existing,
+                incoming,
+            } if source_id == "process environment"
+                && path == "foo.bar"
+                && existing == "environment variable 'QUBIT_ENV_CONFLICT_REVIEW_FOO__BAR'"
+                && incoming == "environment variable 'QUBIT_ENV_CONFLICT_REVIEW_foo.bar'"
+        ));
+        let rendered = format!("{error:?} {error}");
+        for secret in ["private-marker-a", "private-marker-b", "private-marker-c"] {
+            assert!(!rendered.contains(secret));
+        }
+        return;
+    }
+
+    let status =
+        Command::new(std::env::current_exe().expect("test executable path should be available"))
+            .arg("--exact")
+            .arg("normalized_conflicts_are_stable_through_public_source_loading")
+            .env(CHILD_MODE, "1")
+            .env(NAMES[0], "private-marker-a")
+            .env(NAMES[1], "private-marker-b")
+            .env(NAMES[2], "private-marker-c")
+            .status()
+            .expect("child test process should start");
+    assert!(status.success(), "child test process failed");
+}
+
+#[test]
+fn env_source_limits_are_charged_once_and_merge_is_transactional() {
+    const PREFIX: &str = "QUBIT_ENV_LIMIT_REVIEW_";
+    const FIRST: &str = "QUBIT_ENV_LIMIT_REVIEW_FIRST";
+    const SECOND: &str = "QUBIT_ENV_LIMIT_REVIEW_SECOND";
+    let _guard = env_test_lock();
+    unsafe {
+        std::env::set_var(FIRST, "one");
+        std::env::set_var(SECOND, "two");
+    }
+
+    let total_bytes = FIRST.len() + "one".len() + SECOND.len() + "two".len();
+    let exact_limits = SourceLimits::builder()
+        .max_input_bytes(total_bytes)
+        .max_properties(2)
+        .max_nodes(2)
+        .build();
+    let exact_source = EnvConfigSource::builder()
+        .options(EnvConfigOptions::builder().prefix(PREFIX).build())
+        .limits(exact_limits)
+        .build();
+    assert!(
+        exact_source.load().is_ok(),
+        "exactly sufficient budgets should load both entries"
+    );
+
+    let too_small_limits = [
+        (
+            SourceLimits::builder()
+                .max_input_bytes(total_bytes - 1)
+                .build(),
+            SourceLimitKind::InputBytes,
+        ),
+        (
+            SourceLimits::builder().max_properties(1).build(),
+            SourceLimitKind::PropertyCount,
+        ),
+        (
+            SourceLimits::builder().max_nodes(1).build(),
+            SourceLimitKind::NodeCount,
+        ),
+    ];
+    for (limits, expected_kind) in too_small_limits {
+        let source = EnvConfigSource::builder()
+            .options(EnvConfigOptions::builder().prefix(PREFIX).build())
+            .limits(limits)
+            .build();
+        let mut target = Config::new();
+        target.set("existing", "old").unwrap();
+        let before = target.clone();
+        assert!(matches!(
+            merge_source(&mut target, &source),
+            Err(ConfigError::SourceLimitExceeded { kind, .. }) if kind == expected_kind
+        ));
+        assert_eq!(target, before);
+    }
+
+    unsafe {
+        std::env::remove_var(FIRST);
+        std::env::remove_var(SECOND);
+    }
 }
 
 // ============================================================================
@@ -74,7 +191,10 @@ mod test_env_config_source {
         let redacted = Redactor::standard().redact_env("APP_PASSWORD", "plain-secret");
         let rendered = redacted.text().as_str();
 
-        assert_eq!(redacted.summary().completion(), RedactionCompletion::Complete);
+        assert_eq!(
+            redacted.summary().completion(),
+            RedactionCompletion::Complete
+        );
         assert_eq!(rendered, "APP_PASSWORD=<redacted>");
         assert!(!rendered.contains("plain-secret"));
     }
@@ -238,7 +358,8 @@ mod test_env_config_source {
             std::env::set_var("RAWAPP_MY_KEY", "raw_val");
         }
 
-        let source = EnvConfigSource::from_options(EnvConfigOptions::builder().prefix("RAWAPP_").build());
+        let source =
+            EnvConfigSource::from_options(EnvConfigOptions::builder().prefix("RAWAPP_").build());
         let mut config = Config::new();
         merge_source(&mut config, &source).unwrap();
 
@@ -287,7 +408,9 @@ mod test_env_config_source {
         }
 
         let source = EnvConfigSource::from_prefix("QUNICODE_");
-        let error = source.load().expect_err("non-Unicode environment value should fail");
+        let error = source
+            .load()
+            .expect_err("non-Unicode environment value should fail");
 
         unsafe {
             std::env::remove_var(key);
@@ -327,7 +450,9 @@ mod test_env_config_source {
         }
 
         let source = EnvConfigSource::from_prefix("QUNICODE_");
-        let error = source.load().expect_err("non-Unicode environment key should fail");
+        let error = source
+            .load()
+            .expect_err("non-Unicode environment key should fail");
 
         unsafe {
             std::env::remove_var(&key);
@@ -478,7 +603,8 @@ mod test_env_edge_cases {
         unsafe {
             std::env::set_var("COVTEST_FOO", "bar");
         }
-        let source = EnvConfigSource::from_options(EnvConfigOptions::builder().prefix("COVTEST_").build());
+        let source =
+            EnvConfigSource::from_options(EnvConfigOptions::builder().prefix("COVTEST_").build());
         let mut config = Config::new();
         merge_source(&mut config, &source).unwrap();
         // Key kept as-is (not stripped, not lowercased, not converted)
@@ -496,13 +622,18 @@ mod test_env_edge_cases {
         }
 
         let mut config = Config::new();
-        let source = EnvConfigSource::from_options(EnvConfigOptions::builder().prefix("OPTTEST_").build());
+        let source =
+            EnvConfigSource::from_options(EnvConfigOptions::builder().prefix("OPTTEST_").build());
         merge_source(&mut config, &source).unwrap();
         assert!(config.contains("OPTTEST_Mixed_Key").unwrap());
 
         let mut config = Config::new();
-        let source =
-            EnvConfigSource::from_options(EnvConfigOptions::builder().prefix("OPTTEST_").strip_prefix().build());
+        let source = EnvConfigSource::from_options(
+            EnvConfigOptions::builder()
+                .prefix("OPTTEST_")
+                .strip_prefix()
+                .build(),
+        );
         merge_source(&mut config, &source).unwrap();
         assert!(config.contains("Mixed_Key").unwrap());
 
@@ -517,8 +648,12 @@ mod test_env_edge_cases {
         assert!(config.contains("OPTTEST_Mixed_Key").unwrap());
 
         let mut config = Config::new();
-        let source =
-            EnvConfigSource::from_options(EnvConfigOptions::builder().prefix("OPTTEST_").lowercase_keys().build());
+        let source = EnvConfigSource::from_options(
+            EnvConfigOptions::builder()
+                .prefix("OPTTEST_")
+                .lowercase_keys()
+                .build(),
+        );
         merge_source(&mut config, &source).unwrap();
         assert!(config.contains("opttest_mixed_key").unwrap());
 

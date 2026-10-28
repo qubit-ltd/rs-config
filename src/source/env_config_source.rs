@@ -27,8 +27,8 @@
 //! reported in lexicographic order, so diagnostics do not depend on the
 //! operating system's environment-variable iteration order.
 
-use std::collections::HashMap;
 use std::ffi::OsStr;
+use std::ffi::OsString;
 
 use super::ConfigSource;
 use super::SourceLimits;
@@ -440,11 +440,23 @@ impl ConfigSource for EnvConfigSource {
     }
 
     fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
-        let mut config = Config::new();
-        let session = context.session_mut();
-        let mut normalized_keys = HashMap::new();
+        self.load_environment_entries(std::env::vars_os(), context)
+    }
+}
 
-        for (key_os, value_os) in std::env::vars_os() {
+impl EnvConfigSource {
+    fn load_environment_entries<I>(
+        &self,
+        entries: I,
+        context: &mut SourceLoadContext<'_>,
+    ) -> ConfigResult<()>
+    where
+        I: IntoIterator<Item = (OsString, OsString)>,
+    {
+        let mut accepted_entries = Vec::new();
+        let session = context.session_mut();
+
+        for (key_os, value_os) in entries {
             // Filter by prefix if set
             if let Some(prefix) = &self.options.prefix
                 && !Self::env_key_matches_prefix(&key_os, prefix)
@@ -461,31 +473,42 @@ impl ConfigSource for EnvConfigSource {
                     error.with_source_context("process environment", Some(transformed_key.clone()), None)
                 })?;
             }
-            if self.can_collapse_distinct_keys()
-                && let Some(existing) = normalized_keys.insert(transformed_key.clone(), key.clone())
-            {
-                let (first, second) = if existing.as_str() <= key.as_str() {
-                    (&existing, &key)
-                } else {
-                    (&key, &existing)
-                };
-                return Err(ConfigError::KeyConflict {
-                    source_id: Some("process environment".to_string()),
-                    path: transformed_key,
-                    existing: format!("environment variable '{first}'"),
-                    incoming: format!("environment variable '{second}'"),
-                });
-            }
             let _ = ConfigKey::parse(transformed_key.as_str()).map_err(|error| {
                 error.with_source_context("process environment", Some(transformed_key.clone()), None)
             })?;
             session.check_depth(transformed_key.split('.').count())?;
             session.consume_nodes(1)?;
             session.consume_properties(1)?;
-            config.set(&transformed_key, value)?;
+            accepted_entries.push((transformed_key, key, value));
+        }
+
+        accepted_entries.sort_by(|left, right| (&left.0, &left.1).cmp(&(&right.0, &right.1)));
+
+        if self.can_collapse_distinct_keys() {
+            for pair in accepted_entries.windows(2) {
+                let [(left_key, left_name, _), (right_key, right_name, _)] = pair else {
+                    unreachable!("windows(2) always contains two entries");
+                };
+                if left_key == right_key && left_name != right_name {
+                    return Err(ConfigError::KeyConflict {
+                        source_id: Some("process environment".to_string()),
+                        path: left_key.clone(),
+                        existing: format!("environment variable '{left_name}'"),
+                        incoming: format!("environment variable '{right_name}'"),
+                    });
+                }
+            }
+        }
+
+        let mut config = Config::new();
+        for (normalized_key, _original_name, value) in accepted_entries {
+            config.set(&normalized_key, value)?;
         }
 
         context.replace_layer(config);
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod permutation_tests;
