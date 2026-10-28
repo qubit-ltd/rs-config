@@ -22,7 +22,7 @@ if [[ -e "$report_path" ]]; then
     stale_report_saved=true
 fi
 
-"$project_root/.infra/bin/coverage.sh" "$@"
+CARGO_INCREMENTAL=1 "$project_root/.infra/bin/coverage.sh" "$@"
 [[ -f "$report_path" ]] || { echo "error: coverage command did not create $report_path" >&2; exit 1; }
 python3 -B "$project_root/scripts/check-coverage-files.py" "$report_path" \
     --config "$project_root/.infra/coverage/coverage.json"

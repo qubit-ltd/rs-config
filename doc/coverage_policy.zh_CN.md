@@ -13,7 +13,8 @@
 ./scripts/check-project-coverage.sh
 ```
 
-脚本先运行 `.infra/bin/coverage.sh`，在仓库根目录生成共享报告 `coverage.json`，再调用：
+脚本先运行 `.infra/bin/coverage.sh`，与 CI 一样启用增量编译，在仓库根目录生成
+报告 `coverage.json`，再调用：
 
 ```text
 python3 -B scripts/check-coverage-files.py coverage.json --config .infra/coverage/coverage.json
@@ -36,16 +37,16 @@ CI 的 `coverage-files` job 会下载 `rust-ci` job 生成的 `coverage-reports`
 | 文件 | Functions | Lines | Regions | 证据 |
 | --- | ---: | ---: | ---: | --- |
 | `src/error/config_error.rs` | 100.00% (16/16) | 87.91% (160/182) | 86.07% (173/201) | 错误分类和 source adapter 仍包含泛型及防御分支；错误测试覆盖类型、路径、missing facts 和 source 链。该文件自报告生成后未修改。 |
-| `src/source/toml_config_source.rs` | 78.95% (30/38) | 92.48% (209/226) | 83.53% (350/419) | feature-gated 泛型转换和防御性 scalar fallback 路径导致函数/regions 未达门槛；`toml_config_source_tests` 覆盖接受值、混合/嵌套拒绝、解析/I/O 错误、冲突、limits、final 值和事务性。该文件自报告生成后未修改。 |
-| `src/source/yaml_config_source.rs` | 81.25% (39/48) | 87.33% (317/363) | 83.31% (549/659) | 报告早于 RSC-002，计数反映 feature-gated 泛型 sequence 转换和防御性嵌套值分支；本轮移除了旧 scanner，并将 token guard 放入单独文件。这些只是历史计数，需在依赖构建基线恢复后重新采集并复核。 |
+| `src/source/toml_config_source.rs` | 78.95% (30/38) | 92.48% (209/226) | 83.53% (350/419) | feature-gated 泛型转换和防御性 scalar fallback 路径导致函数/regions 未达门槛；`toml_config_source_tests` 覆盖接受值、混合/嵌套拒绝、解析/I/O 错误、冲突、limits、final 值和事务性。这些是历史计数。 |
+| `src/source/yaml_config_source.rs` | 81.25% (39/48) | 87.33% (317/363) | 83.31% (549/659) | 报告早于 RSC-002，计数反映 feature-gated 泛型 sequence 转换和防御性嵌套值分支；RSC-002 移除了旧 scanner，并将 token guard 放入单独文件。这些是历史计数。 |
 
 同一报告中另外六个旧例外已达到三个门槛并移除：`src/config/access.rs`、
 `src/key/config_key.rs`、`src/key/config_path.rs`、`src/property/property.rs`、
-`src/property/property_mut.rs` 和 `src/reader/config_section.rs`；这六个文件自该报告后未修改。
-本轮没有新增例外。
+`src/property/property_mut.rs` 和 `src/reader/config_section.rs`；历史报告不能证明它们在新构建中的覆盖情况。
+部分访问方法使用 `#[inline]` 而非强制内联，以便 LLVM 归属跨测试目标的调用。本轮没有新增阈值例外。
 共享 `.infra/coverage/coverage.json` 遵循 `.infra/bin/coverage.sh` 使用的严格 schema。项目 checker
-在 `.infra/coverage/non-executable-files.json` 中显式记录仅含模块声明的文件，不会仅因报告缺少某个文件
-就静默忽略它。当前 Rust 构建受外部 path dependency 错误阻断，现有报告无法验证 YAML scanner 改造。
+在 `.infra/coverage/non-executable-files.json` 中显式记录仅含声明的文件和仅供测试使用的模块，
+不会仅因报告缺少某个文件就静默忽略它。
 
 ## 维护策略
 

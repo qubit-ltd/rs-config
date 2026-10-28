@@ -124,6 +124,21 @@ class CoverageFileCheckerTests(unittest.TestCase):
         with self.assertRaisesRegex(self.checker.CheckerInputError, "invalid lines coverage counters"):
             self.checker.check_coverage_files(self.root, coverage_path, config_path)
 
+    def test_configured_test_only_module_is_not_a_production_coverage_file(self) -> None:
+        (self.root / "src/internal_tests.rs").write_text("#[test] fn example() {}\n", encoding="utf-8")
+        coverage_path, config_path = self.write_inputs([
+            ("src/checked.rs", summary(100.0, 100.0, 100.0)),
+            ("src/low.rs", summary(100.0, 100.0, 100.0)),
+        ])
+        classification_path = self.root / ".infra/coverage/non-executable-files.json"
+        classification = json.loads(classification_path.read_text(encoding="utf-8"))
+        classification["qubit-config"].append({
+            "path": "src/internal_tests.rs", "reason": "test-only module has no production code",
+        })
+        classification_path.write_text(json.dumps(classification), encoding="utf-8")
+        result = self.checker.check_coverage_files(self.root, coverage_path, config_path)
+        self.assertEqual(result, self.checker.CheckResult(2, 0, ()))
+
 
 if __name__ == "__main__":
     unittest.main()

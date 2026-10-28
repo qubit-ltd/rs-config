@@ -104,6 +104,16 @@ class CoveragePipelineTests(unittest.TestCase):
         self.assertEqual(self.log.read_text(encoding="utf-8").splitlines(), ["success"])
         self.assertIn("checked 1 production coverage files", result.stdout)
 
+    def test_collection_uses_ci_incremental_setting(self) -> None:
+        self.write_script(".infra/bin/coverage.sh", """
+            #!/usr/bin/env bash
+            set -euo pipefail
+            [[ "${CARGO_INCREMENTAL:-}" == 1 ]]
+            python3 "$TEST_REPORT_WRITER" success "$TEST_REPORT" "$TEST_SOURCE"
+        """)
+        result = self.run_wrapper("success")
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_collection_failure_does_not_pass_from_stale_report(self) -> None:
         stale = json.dumps({"stale": True})
         (self.root / "coverage.json").write_text(stale, encoding="utf-8")
