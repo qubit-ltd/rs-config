@@ -258,12 +258,18 @@ fn parse_key_value(line: &str) -> Option<(&str, &str)> {
 /// # Parameters
 ///
 /// * `line` - Source properties line.
-/// * `index` - Byte index to inspect.
+/// * `index` - Byte index to inspect. It must be at most `line.len()` and lie
+///   on a UTF-8 character boundary.
 ///
 /// # Returns
 ///
-/// `Some((ch, len))` if `index` points to a character boundary inside `line`,
-/// otherwise `None`.
+/// `Some((ch, len))` if `index` points inside `line` at a character boundary;
+/// `None` if `index == line.len()`.
+///
+/// # Panics
+///
+/// Panics if `index > line.len()` or if `index` is not a UTF-8 character
+/// boundary.
 #[inline]
 fn char_at(line: &str, index: usize) -> Option<(char, usize)> {
     if index == line.len() {

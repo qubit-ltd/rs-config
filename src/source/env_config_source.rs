@@ -40,6 +40,21 @@ use crate::ConfigResult;
 use crate::utils;
 
 /// Options controlling environment-variable key selection and normalization.
+///
+/// # Examples
+///
+/// ```rust
+/// use qubit_config::source::{EnvConfigOptions, EnvConfigSource};
+///
+/// let options = EnvConfigOptions::builder()
+///     .prefix("APP_")
+///     .strip_prefix()
+///     .double_underscores_to_dots()
+///     .lowercase_keys()
+///     .build();
+/// let source = EnvConfigSource::from_options(options);
+/// # let _ = source;
+/// ```
 #[must_use = "use the returned value"]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EnvConfigOptions {

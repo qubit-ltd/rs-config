@@ -274,9 +274,8 @@ pub(crate) fn flatten_toml_value(
             }
         }
         TomlValue::Array(arr) => {
-            // Detect the element type of the first non-table/non-array item.
-            // All elements must be the same scalar type; mixed-type arrays fall
-            // back to string representation to avoid silent data loss.
+            // All elements must have the same supported scalar type. Mixed or
+            // nested array elements produce a source parse error.
             ensure_toml_property(source_id, seen, prefix, budget)?;
             budget.consume_nodes(arr.len())?;
             flatten_toml_array(source_id, prefix, arr, config)?;

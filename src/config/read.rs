@@ -26,7 +26,9 @@ impl Config {
     // Core Generic Methods
     // ========================================================================
 
-    /// Gets a configuration value, converting the stored first value to `T`.
+    /// Converts the selected property to `T`. Scalar targets use the first
+    /// value; collection targets consume the collection according to their
+    /// [`FromConfig`] implementation.
     ///
     /// Core read API with type inference.
     ///
@@ -84,7 +86,10 @@ impl Config {
         <Self as ConfigReader>::get(self, name)
     }
 
-    /// Gets a configuration value after interpolating string-backed values.
+    /// Converts the selected property to `T`. Scalar targets use the first
+    /// value; collection targets consume the collection according to their
+    /// [`FromConfig`] implementation. String-backed leaves are interpolated
+    /// before conversion.
     ///
     /// # Type Parameters
     ///
@@ -207,7 +212,11 @@ impl Config {
         <Self as ConfigReader>::get_interpolated_or(self, name, default)
     }
 
-    /// Gets the first configured value from `names`.
+    /// Gets the value from the first candidate not effectively missing under
+    /// the active read policy.
+    ///
+    /// A concrete empty collection is present and stops the candidate search.
+    /// Conversion errors are returned without trying later candidates.
     ///
     /// # Parameters
     ///
@@ -215,7 +224,8 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// Parsed value from the first present and non-empty key.
+    /// Parsed value from the first candidate not effectively missing under the
+    /// active read policy.
     pub fn get_any<T>(&self, names: impl ConfigNames) -> ConfigResult<T>
     where
         T: FromConfig,
@@ -223,7 +233,11 @@ impl Config {
         <Self as ConfigReader>::get_any(self, names)
     }
 
-    /// Gets the first configured value after interpolation.
+    /// Gets the value from the first candidate not effectively missing under
+    /// the active read policy, then interpolates and converts it.
+    ///
+    /// A concrete empty collection is present and stops the candidate search.
+    /// Conversion errors are returned without trying later candidates.
     ///
     /// # Type Parameters
     ///
@@ -235,7 +249,8 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// The interpolated value from the first present, non-empty key.
+    /// The interpolated value from the first candidate not effectively missing
+    /// under the active read policy.
     ///
     /// # Errors
     ///

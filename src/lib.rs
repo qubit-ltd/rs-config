@@ -9,6 +9,27 @@
 //!
 //! Provides flexible configuration management with support for multiple data
 //! types and variable substitution.
+//!
+//! # Quick Start
+//!
+//! ```rust
+//! use qubit_config::Config;
+//!
+//! let mut config = Config::new();
+//! config.set("service.port", 8080)?;
+//! let port: i32 = config.get("service.port")?;
+//! let timeout: u64 = config.get_or("service.timeout", 30_u64)?;
+//! assert_eq!(port, 8080);
+//! assert_eq!(timeout, 30);
+//! # Ok::<(), qubit_config::ConfigError>(())
+//! ```
+//!
+//! Common read operations are defined by [`ConfigReader`]. Use
+//! [`ConfigSection`] for a strict view over a subtree and [`ReadPolicy`] to
+//! control read-time conversion and interpolation behavior.
+//!
+//! See the [English user guide](https://github.com/qubit-ltd/rs-config/blob/main/doc/user_guide.md)
+//! or the [简体中文用户指南](https://github.com/qubit-ltd/rs-config/blob/main/doc/user_guide.zh_CN.md).
 
 mod config;
 #[path = "error/config_deserialize_error.rs"]

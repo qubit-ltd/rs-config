@@ -24,6 +24,20 @@ use crate::Property;
 /// `DerefMut`. Value-changing operations re-check the property's final flag on
 /// every call, so setting a property final through the guard immediately blocks
 /// subsequent mutation through the same guard.
+///
+/// # Examples
+///
+/// ```rust
+/// use qubit_config::Config;
+///
+/// let mut config = Config::new();
+/// config.set("port", 8080_u16)?;
+/// let mut property = config.get_property_mut("port")?.expect("configured property");
+/// property.set_description(Some("Service port".to_owned()))?;
+/// property.set_final(true)?;
+/// assert!(property.set_description(None).is_err());
+/// # Ok::<(), qubit_config::ConfigError>(())
+/// ```
 pub struct ConfigPropertyMut<'a> {
     /// Mutable property guarded by this wrapper.
     property: &'a mut Property,

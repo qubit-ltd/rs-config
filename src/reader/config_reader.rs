@@ -93,7 +93,9 @@ pub trait ConfigReader: internal::Sealed {
     /// `true` if the key is present.
     fn contains(&self, name: impl AsRef<str>) -> ConfigResult<bool>;
 
-    /// Reads the first stored value for `name` and converts it to `T`.
+    /// Converts the selected property to `T`. Scalar targets use the first
+    /// value; collection targets consume the collection according to their
+    /// [`FromConfig`] implementation.
     ///
     /// # Type parameters
     ///
@@ -125,8 +127,10 @@ pub trait ConfigReader: internal::Sealed {
         parse_property_from_reader(self, resolved, property, self.read_policy())
     }
 
-    /// Reads and interpolates the first stored value for `name`, then converts
-    /// it to `T`.
+    /// Converts the selected property to `T`. Scalar targets use the first
+    /// value; collection targets consume the collection according to their
+    /// [`FromConfig`] implementation. For string-backed values, interpolation
+    /// expands actual string leaves before conversion.
     ///
     /// String-backed values resolve `${...}` placeholders through this reader,
     /// then the root configuration, and, when enabled by
@@ -397,7 +401,8 @@ pub trait ConfigReader: internal::Sealed {
         ""
     }
 
-    /// Reads a value from the first present key in `names`.
+    /// Reads the value from the first candidate not effectively missing under
+    /// the active read policy.
     ///
     /// Absent, unset, and policy-missing candidates are skipped. Concrete
     /// empty collections remain present, while conversion and collection-item
@@ -422,7 +427,12 @@ pub trait ConfigReader: internal::Sealed {
         })
     }
 
-    /// Reads and interpolates the first configured value from `names`.
+    /// Reads and interpolates the value from the first candidate not
+    /// effectively missing under the active read policy.
+    ///
+    /// Concrete empty collections remain present and stop the candidate
+    /// search. Conversion errors are returned and do not advance to another
+    /// candidate.
     ///
     /// # Type Parameters
     ///
@@ -434,7 +444,9 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// # Returns
     ///
-    /// The interpolated value from the first present, non-empty key.
+    /// The interpolated value from the first candidate not effectively missing
+    /// under the active read policy. A concrete empty collection is present;
+    /// conversion errors are returned without trying later candidates.
     ///
     /// # Errors
     ///

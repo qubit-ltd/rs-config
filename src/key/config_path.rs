@@ -23,6 +23,21 @@ use crate::ConfigResult;
 ///
 /// Unlike [`crate::ConfigKey`], the empty string is valid and represents the
 /// root configuration scope.
+///
+/// # Examples
+///
+/// ```rust
+/// use qubit_config::ConfigPath;
+///
+/// let root = ConfigPath::parse("").unwrap();
+/// assert_eq!(root.as_str(), "");
+///
+/// let server = ConfigPath::parse("server").unwrap();
+/// assert_eq!(server.as_str(), "server");
+///
+/// let error = ConfigPath::parse("server..port").unwrap_err();
+/// assert_eq!(error.kind(), qubit_config::ConfigErrorKind::InvalidPath);
+/// ```
 #[must_use = "use the returned value"]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
 #[serde(transparent)]
