@@ -18,7 +18,7 @@ use crate::ConfigError;
 pub(crate) enum ConfigDeserializeError {
     /// A serde-originated diagnostic message.
     Message {
-        /// Original serde diagnostic, retained only for internal formatting.
+        /// Safe serde diagnostic summary retained for public error formatting.
         message: String,
         /// Most specific configuration path reached before the failure.
         path: Option<String>,
@@ -48,9 +48,12 @@ impl ConfigDeserializeError {
     /// Converts this error into the public configuration error type.
     pub(crate) fn into_config_error(self, path: &str) -> ConfigError {
         match self {
-            ConfigDeserializeError::Message { path: message_path, .. } => ConfigError::DeserializeError {
+            ConfigDeserializeError::Message {
+                message,
+                path: message_path,
+            } => ConfigError::DeserializeError {
                 path: message_path.unwrap_or_else(|| path.to_string()),
-                message: "configuration value does not match the requested type".to_string(),
+                message,
                 source: None,
             },
             ConfigDeserializeError::Config(error) => error,
@@ -59,10 +62,35 @@ impl ConfigDeserializeError {
 }
 
 impl de::Error for ConfigDeserializeError {
-    /// Creates a custom serde error.
-    fn custom<T: fmt::Display>(msg: T) -> Self {
+    /// Creates a generic safe summary without retaining user-provided text.
+    fn custom<T: fmt::Display>(_msg: T) -> Self {
         Self::Message {
-            message: msg.to_string(),
+            message: "configuration value does not match the requested type".to_string(),
+            path: None,
+        }
+    }
+
+    /// Creates a safe summary for a missing schema field.
+    fn missing_field(field: &'static str) -> Self {
+        let field = serde_json::to_string(field).expect("serializing a string cannot fail");
+        Self::Message {
+            message: format!("missing required field: {field}"),
+            path: None,
+        }
+    }
+
+    /// Creates a safe summary for an invalid value type.
+    fn invalid_type(_unexpected: de::Unexpected<'_>, _expected: &dyn de::Expected) -> Self {
+        Self::Message {
+            message: "configuration value has an invalid type".to_string(),
+            path: None,
+        }
+    }
+
+    /// Creates a safe summary for an invalid sequence or tuple length.
+    fn invalid_length(len: usize, _expected: &dyn de::Expected) -> Self {
+        Self::Message {
+            message: format!("configuration value has an invalid length: {len}"),
             path: None,
         }
     }
