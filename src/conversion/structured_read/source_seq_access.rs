@@ -6,6 +6,11 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 //! Collection access retains source indices and never resplits string items.
+//!
+//! `original_index` remains the index in the outer source collection while
+//! nested sequence positions are added to the diagnostic path. This preserves
+//! the original conversion location even when deserialization descends into a
+//! nested target.
 
 use qubit_datatype::ConversionSession;
 use serde::de::DeserializeSeed;

@@ -11,12 +11,17 @@ use std::cell::OnceCell;
 use crate::ConfigResult;
 
 /// Lazily stores one scalar's successful interpolation result.
+///
+/// A successful result is cached and returned by later reads. Errors are not
+/// cached, so a later read retries substitution and can succeed if its inputs
+/// have changed.
 pub(crate) struct PreparedScalar<'a> {
     raw: &'a str,
     expanded: OnceCell<String>,
 }
 
 impl<'a> PreparedScalar<'a> {
+    /// Creates a prepared scalar that borrows its original text.
     pub(crate) fn new(raw: &'a str) -> Self {
         Self {
             raw,
@@ -24,6 +29,10 @@ impl<'a> PreparedScalar<'a> {
         }
     }
 
+    /// Returns original or interpolated text, borrowed until this scalar drops.
+    ///
+    /// When interpolation is enabled, successful substitutions are cached;
+    /// failures leave the cache empty and may be retried on a later call.
     pub(crate) fn text(
         &self,
         interpolate: bool,

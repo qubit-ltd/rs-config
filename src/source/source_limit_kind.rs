@@ -15,6 +15,26 @@ use serde::Deserialize;
 use serde::Serialize;
 
 /// Resource dimension enforced during source ingestion.
+///
+/// A limit violation is returned as `ConfigError::SourceLimitExceeded` and
+/// carries the dimension that rejected the load.
+///
+/// # Examples
+///
+/// ```rust
+/// use qubit_config::ConfigError;
+/// use qubit_config::source::{ConfigSource, PropertiesConfigSource, SourceLimitKind, SourceLimits};
+///
+/// let limits = SourceLimits::builder().max_properties(0).build();
+/// let source = PropertiesConfigSource::builder()
+///     .content("port=8080")
+///     .limits(limits)
+///     .build();
+/// let error = source.load().unwrap_err();
+/// assert!(matches!(error, ConfigError::SourceLimitExceeded {
+///     kind: SourceLimitKind::PropertyCount, ..
+/// }));
+/// ```
 #[non_exhaustive]
 #[must_use = "use the returned value"]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

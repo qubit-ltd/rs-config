@@ -6,6 +6,10 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 //! Native borrowed object entries for configuration deserialization.
+//!
+//! Entries borrow keys and payloads from the prepared tree or source value.
+//! Origin metadata is cloned only when interpolation diagnostics need it or
+//! the value is missing; ordinary reads avoid carrying unused locations.
 
 use super::deserializer::ReadContext;
 use super::node::NodeId;

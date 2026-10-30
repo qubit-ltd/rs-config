@@ -29,6 +29,31 @@ pub const DEFAULT_MAX_SOURCE_DEPTH: usize = 64;
 /// every local and aggregate scope unchanged. Nesting depth is a stateless
 /// point limit checked independently for each observed path. These limits do
 /// not synchronize access or manage resource lifetimes.
+///
+/// Limits can be customized per source or for an entire composite. A zero
+/// threshold rejects any positive consumption of that resource.
+///
+/// # Examples
+///
+/// ```rust
+/// use qubit_config::ConfigError;
+/// use qubit_config::source::{ConfigSource, PropertiesConfigSource, SourceLimitKind, SourceLimits};
+///
+/// let limits = SourceLimits::builder()
+///     .max_input_bytes(1024)
+///     .max_properties(0)
+///     .build();
+/// assert_eq!(limits.max_input_bytes(), 1024);
+/// assert_eq!(limits.max_properties(), 0);
+///
+/// let source = PropertiesConfigSource::builder()
+///     .content("port=8080")
+///     .limits(limits)
+///     .build();
+/// assert!(matches!(source.load(), Err(ConfigError::SourceLimitExceeded {
+///     kind: SourceLimitKind::PropertyCount, ..
+/// })));
+/// ```
 #[must_use = "use the returned value"]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]

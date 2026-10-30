@@ -6,6 +6,10 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 //! Borrowed view over prepared nodes and native source values.
+//!
+//! Views retain the source lifetime instead of materializing another value
+//! tree. Their borrowed data is valid only while the source configuration and
+//! prepared projection remain alive; owned text is used only for overlays.
 
 use std::collections::BTreeMap;
 use std::collections::HashMap;

@@ -20,6 +20,26 @@ use crate::ConfigResult;
 use crate::config_path::validate_config_key;
 
 /// Owned canonical configuration property key.
+///
+/// A key is non-empty and uses non-empty segments separated by single dots.
+/// It can be passed directly to configuration APIs through its string form.
+///
+/// # Examples
+///
+/// ```rust
+/// use qubit_config::{Config, ConfigKey};
+///
+/// let key = ConfigKey::parse("server.port")?;
+/// assert_eq!(key.as_str(), "server.port");
+/// assert!(ConfigKey::parse("server..port").is_err());
+///
+/// let mut config = Config::new();
+/// config.set("server.port", 8080)?;
+/// config.set("legacy.port", 80)?;
+/// let selected: i32 = config.get_any(["server.port", "legacy.port"])?;
+/// assert_eq!(selected, 8080);
+/// # Ok::<(), qubit_config::ConfigError>(())
+/// ```
 #[must_use = "use the returned value"]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
 #[serde(transparent)]

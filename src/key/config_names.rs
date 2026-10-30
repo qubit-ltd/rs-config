@@ -9,6 +9,24 @@
 //! Ergonomic configuration key list argument adapters.
 
 /// Provides borrowed access to a candidate configuration key list.
+///
+/// Candidate order is preserved by this adapter. Configuration lookup APIs
+/// check names in that order and return the first present value.
+///
+/// # Examples
+///
+/// ```rust
+/// use qubit_config::{Config, ConfigNames};
+///
+/// let candidates = ["preferred", "fallback"];
+/// candidates.with_config_names(|names| assert_eq!(names[0], "preferred"));
+///
+/// let mut config = Config::new();
+/// config.set("fallback", 20)?;
+/// config.set("preferred", 10)?;
+/// assert_eq!(config.get_any::<i32>(candidates)?, 10);
+/// # Ok::<(), qubit_config::ConfigError>(())
+/// ```
 pub trait ConfigNames {
     /// Invokes `operation` with this argument as a string slice list.
     fn with_config_names<R>(self, operation: impl FnOnce(&[&str]) -> R) -> R;

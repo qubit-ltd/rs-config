@@ -8,6 +8,24 @@
 //! Stable classifications for configuration errors.
 
 /// Machine-readable category of a [`crate::ConfigError`].
+///
+/// Match known categories and retain a fallback arm because this enum is
+/// non-exhaustive.
+///
+/// # Examples
+///
+/// ```rust
+/// use qubit_config::{Config, ConfigErrorKind};
+///
+/// let config = Config::new();
+/// let error = config.get::<i32>("missing").unwrap_err();
+/// let category = match error.kind() {
+///     ConfigErrorKind::PropertyNotFound => "missing",
+///     ConfigErrorKind::Conversion => "invalid value",
+///     _ => "other configuration error",
+/// };
+/// assert_eq!(category, "missing");
+/// ```
 #[non_exhaustive]
 #[must_use = "use the returned value"]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

@@ -6,6 +6,10 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 //! Child iterators for each supported prepared-read container.
+//!
+//! Items borrow their keys and values from the input or prepared arena. The
+//! prepared-object variant resolves child IDs together with the source table,
+//! so each yielded origin remains aligned with its arena node.
 
 use std::collections::btree_map;
 use std::collections::hash_map;

@@ -21,6 +21,29 @@ use crate::ConfigPathViolation;
 use crate::SourceLimitKind;
 
 /// Configuration error type.
+///
+/// Inspect [`Self::kind`], [`Self::path`], and [`Self::source_index`] for
+/// structured diagnostics instead of parsing the display message.
+///
+/// # Examples
+///
+/// ```rust
+/// use qubit_config::{Config, ConfigError, ConfigErrorKind};
+///
+/// let config = Config::new();
+/// let missing = config.get::<i32>("server.port").unwrap_err();
+/// assert_eq!(missing.kind(), ConfigErrorKind::PropertyNotFound);
+/// assert_eq!(missing.path(), Some("server.port"));
+/// assert_eq!(missing.source_index(), None);
+///
+/// let mut config = Config::new();
+/// config.set("ports", vec!["80", "invalid"])?;
+/// let conversion = config.get::<Vec<u16>>("ports").unwrap_err();
+/// assert_eq!(conversion.kind(), ConfigErrorKind::Conversion);
+/// assert_eq!(conversion.path(), Some("ports"));
+/// assert_eq!(conversion.source_index(), Some(1));
+/// # Ok::<(), ConfigError>(())
+/// ```
 #[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum ConfigError {

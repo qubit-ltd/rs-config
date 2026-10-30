@@ -6,6 +6,10 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 //! One traversal item with its path, depth, and original source index.
+//!
+//! `path` tracks the current logical configuration location, while
+//! `original_index` keeps the outer source collection index unchanged as the
+//! walk descends into nested values.
 
 use std::borrow::Cow;
 

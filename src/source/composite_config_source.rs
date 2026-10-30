@@ -36,6 +36,28 @@
 //! assert_eq!(config.get::<i64>("port").unwrap(), 8080);
 //! # }
 //! ```
+//!
+//! The builder also applies aggregate limits across all child sources. The
+//! following uses the default `properties` source and needs no parser feature:
+//!
+//! ```rust
+//! use qubit_config::ConfigError;
+//! use qubit_config::source::{
+//!     CompositeConfigSource, ConfigSource, PropertiesConfigSource, SourceLimitKind,
+//!     SourceLimits,
+//! };
+//!
+//! let limits = SourceLimits::builder().max_properties(1).build();
+//! let composite = CompositeConfigSource::builder()
+//!     .add_source(PropertiesConfigSource::from_content("a=1"))
+//!     .add_source(PropertiesConfigSource::from_content("b=2"))
+//!     .limits(limits)
+//!     .build();
+//! let error = composite.load().unwrap_err();
+//! assert!(matches!(error, ConfigError::SourceLimitExceeded {
+//!     kind: SourceLimitKind::PropertyCount, ..
+//! }));
+//! ```
 
 use super::ConfigSource;
 use super::SourceLimits;
@@ -109,6 +131,9 @@ impl CompositeConfigSource {
 }
 
 /// Builder for [`CompositeConfigSource`].
+///
+/// Create it with [`CompositeConfigSource::builder`] to add sources and set
+/// aggregate [`SourceLimits`] before loading.
 #[must_use = "use the returned value"]
 pub struct CompositeConfigSourceBuilder {
     /// Sources to apply in insertion order.

@@ -6,6 +6,10 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 //! Borrowed context shared by direct Serde visitors.
+//!
+//! The context and its prepared tree are borrowed for the duration of one
+//! structured read. Values yielded by the visitors therefore cannot outlive
+//! the input or its prepared projection.
 
 use super::prepared_read::PreparedConfigRead;
 

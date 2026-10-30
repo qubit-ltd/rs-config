@@ -6,6 +6,10 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 //! One borrowed child yielded during prepared-read traversal.
+//!
+//! The child's value and optional origin borrow the prepared tree. The origin
+//! is present only when source-location tracking is retained for interpolation
+//! or when missing-value context needs it.
 
 use super::super::read_view::ReadView;
 use super::super::source_location::SourceLocation;

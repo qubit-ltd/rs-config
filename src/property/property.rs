@@ -44,13 +44,16 @@ use crate::ConfigResult;
 /// Configuration Property
 ///
 /// Represents a configuration item: name, value, description, and whether it is
-/// final.
+/// final. The final marker is metadata checked by configuration-managed
+/// operations such as merging and mutation through
+/// [`crate::ConfigPropertyMut`]; it does not prevent direct mutation of a
+/// standalone `Property`.
 ///
 /// # Features
 ///
 /// - Supports multi-value configuration
 /// - Supports description information
-/// - Supports final value marking (final properties cannot be overridden)
+/// - Supports a final marker that configuration-managed operations honor
 /// - Supports serialization and deserialization
 ///
 /// # Examples
@@ -66,6 +69,21 @@ use crate::ConfigResult;
 /// let mut code = Property::new("code", 42u8).unwrap();
 /// code.add(1u8).unwrap();
 /// assert_eq!(code.len(), 2);
+///
+/// // A standalone final property remains directly editable.
+/// let mut standalone = Property::new("port", 80).unwrap();
+/// standalone.set_final(true);
+/// standalone.set_value(8080);
+/// assert_eq!(standalone.get::<i32>().unwrap(), 8080);
+/// standalone.set_final(false);
+///
+/// // Once stored in Config, managed mutation checks the final marker.
+/// let mut config = qubit_config::Config::new();
+/// config.set("port", 80)?;
+/// let mut managed = config.get_property_mut("port")?.unwrap();
+/// managed.set_final(true)?;
+/// assert!(managed.set_value(9090).is_err());
+/// # Ok::<(), qubit_config::ConfigError>(())
 /// ```
 #[must_use = "use the returned value"]
 #[derive(Clone, PartialEq)]
@@ -76,7 +94,8 @@ pub struct Property {
     value: ValueContainer,
     /// Property description
     description: Option<String>,
-    /// Whether this is a final value (cannot be overridden)
+    /// Whether Config-managed merging and mutation treat this property as
+    /// final. Direct mutation of a standalone `Property` is still allowed.
     is_final: bool,
 }
 
@@ -249,7 +268,9 @@ impl Property {
         &mut self.value
     }
 
-    /// Sets the property value
+    /// Sets the property value, even when this standalone `Property` is marked
+    /// final. Use [`crate::ConfigPropertyMut`] to mutate a property through
+    /// `Config`; that managed API enforces the final marker.
     ///
     /// # Parameters
     ///
@@ -291,7 +312,9 @@ impl Property {
         self.is_final
     }
 
-    /// Sets whether this is a final value
+    /// Sets the final metadata checked by Config-managed merging and mutation.
+    /// This setter remains available on a standalone property, including to
+    /// clear a previously set marker.
     ///
     /// # Parameters
     ///

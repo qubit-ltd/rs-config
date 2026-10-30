@@ -52,18 +52,21 @@ impl Default for InterpolationSources {
 /// # Examples
 ///
 /// ```rust
+/// use qubit_config::options::InterpolationSources;
 /// use qubit_config::{Config, ConfigReader, ReadPolicy};
 ///
 /// let mut config = Config::new();
-/// config.set("enabled", "yes")?;
+/// config.set("enabled", "true")?;
 ///
-/// let policy = ReadPolicy::builder_from(&ReadPolicy::env_friendly())
+/// let policy = ReadPolicy::builder()
+///     .interpolation_sources(InterpolationSources::ConfigThenEnv)
 ///     .max_interpolation_depth(8)
 ///     .build();
 /// let reader = config.read_with(&policy);
 ///
 /// assert!(reader.get::<bool>("enabled")?);
 /// assert_eq!(reader.read_policy().max_interpolation_depth(), 8);
+/// assert_eq!(reader.read_policy().interpolation_sources(), InterpolationSources::ConfigThenEnv);
 /// # Ok::<(), qubit_config::ConfigError>(())
 /// ```
 #[must_use = "use the returned value"]

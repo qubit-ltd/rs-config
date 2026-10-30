@@ -24,6 +24,29 @@
 //! schema before deserializing.
 
 /// Controls how structured reads handle unknown fields.
+///
+/// # Examples
+///
+/// ```rust
+/// use qubit_config::{Config, ConfigDeserializeOptions, UnknownFieldPolicy};
+/// use serde::Deserialize;
+///
+/// #[derive(Debug, Deserialize)]
+/// struct Server {
+///     port: u16,
+/// }
+///
+/// let mut config = Config::new();
+/// config.set("server.port", 8080)?;
+/// config.set("server.typo", true)?;
+/// let options = ConfigDeserializeOptions {
+///     interpolate: false,
+///     unknown_fields: UnknownFieldPolicy::Reject,
+/// };
+/// let error = config.deserialize_with::<Server>("server", options).unwrap_err();
+/// assert_eq!(error.unknown_property_paths().unwrap()[0], "server.typo");
+/// # Ok::<(), qubit_config::ConfigError>(())
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum UnknownFieldPolicy {
     /// Reject fields Serde exposes as ignored, with sorted root-relative paths.
