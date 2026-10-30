@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import sys
@@ -214,7 +215,39 @@ def failing_metric(summary: Any, name: str, threshold: float, source: str) -> st
     return f"{name}={percent:.2f}% ({covered}/{count}; requires {operator}{threshold:.2f}%)"
 
 
-def metric_overrides(value: Any) -> dict[str, dict[str, float]]:
+def validate_override_source(
+    root: Path, source: str, evidence: dict[str, Any], allowed_sources: set[str]
+) -> None:
+    relative = Path(source)
+    if (
+        relative.is_absolute()
+        or ".." in relative.parts
+        or relative.as_posix() != source
+        or source not in allowed_sources
+    ):
+        raise CheckerInputError(f"{source}: override source is outside configured exceptions")
+    expected = evidence.get("source_sha256")
+    if (
+        not isinstance(expected, str)
+        or len(expected) != 64
+        or any(character not in "0123456789abcdef" for character in expected)
+    ):
+        raise CheckerInputError(f"{source}: override needs a valid source_sha256")
+    try:
+        path = (root / relative).resolve()
+        path.relative_to(root.resolve())
+        actual = hashlib.sha256(path.read_bytes()).hexdigest()
+    except (OSError, ValueError, RuntimeError) as error:
+        raise CheckerInputError(f"{source}: cannot validate override source") from error
+    if actual != expected:
+        raise CheckerInputError(
+            f"{source}: source evidence is stale; regenerate coverage and review the exception"
+        )
+
+
+def metric_overrides(
+    value: Any, root: Path, allowed_sources: set[str]
+) -> dict[str, dict[str, float]]:
     if not isinstance(value, dict) or value.get("version") != 1 or not isinstance(value.get("files"), dict):
         raise CheckerInputError("metric override policy must contain version 1 and a files object")
     parsed: dict[str, dict[str, float]] = {}
@@ -231,6 +264,7 @@ def metric_overrides(value: Any) -> dict[str, dict[str, float]]:
             for key in ("generated_at", "cargo_llvm_cov", "rust_llvm", "command", "source_baseline")
         ) or not isinstance(evidence.get("metrics"), dict):
             raise CheckerInputError(f"{source}: override needs complete coverage evidence")
+        validate_override_source(root, source, evidence, allowed_sources)
         if set(evidence["metrics"]) != set(METRICS):
             raise CheckerInputError(f"{source}: evidence must include all coverage metrics")
         for name, measurement in evidence["metrics"].items():
@@ -278,10 +312,10 @@ def check_coverage_files(
     source_dirs, exemptions, non_executable, thresholds = policy(
         load_json(config_path, "coverage policy"), load_json(non_executable_path, "non-executable file classification")
     )
-    override_path = metric_overrides_path or root / "scripts/coverage-metric-overrides.json"
-    overrides = metric_overrides(load_json(override_path, "metric override policy"))
     selected = selected_sources(root, source_dirs)
     exempt = set().union(*exemptions.values()) if exemptions else set()
+    override_path = metric_overrides_path or root / "scripts/coverage-metric-overrides.json"
+    overrides = metric_overrides(load_json(override_path, "metric override policy"), root, selected & exempt)
     classified = set().union(*non_executable.values()) if non_executable else set()
     configured_paths = exempt | classified
     unknown = configured_paths - selected

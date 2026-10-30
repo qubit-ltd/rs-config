@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import json
 import sys
 import tempfile
@@ -95,6 +96,7 @@ class CoverageFileCheckerTests(unittest.TestCase):
                 "rust_llvm": "rustc fixture / LLVM fixture",
                 "command": "fixture only",
                 "source_baseline": "fixture source",
+                "source_sha256": hashlib.sha256((self.root / "src/low.rs").read_bytes()).hexdigest(),
                 "metrics": {
                     name: {"covered": 78, "count": 100, "percent": 78.0}
                     for name in ("functions", "lines", "regions")
@@ -181,6 +183,51 @@ class CoverageFileCheckerTests(unittest.TestCase):
         result = self.check(paths)
         self.assertEqual(len(result.errors), 1)
         self.assertIn("lines=20.00%", result.errors[0])
+
+    def test_changed_source_requires_refreshed_evidence(self) -> None:
+        entry = self.override({"functions": 78.0})
+        paths = self.write_inputs([
+            ("src/checked.rs", summary(100, 100, 100)),
+            ("src/low.rs", summary(78, 91, 86)),
+        ], ["src/low.rs"], {"src/low.rs": entry})
+        source = self.root / "src/low.rs"
+        source.write_text("fn changed_low() {}\n", encoding="utf-8")
+        with self.assertRaisesRegex(self.checker.CheckerInputError, "source evidence is stale"):
+            self.check(paths)
+        entry["evidence"]["source_sha256"] = hashlib.sha256(source.read_bytes()).hexdigest()
+        paths[2].write_text(json.dumps({
+            "version": 1, "files": {"src/low.rs": entry},
+        }), encoding="utf-8")
+        self.assertEqual(self.check(paths).errors, ())
+
+    def test_override_source_hash_is_required_and_well_formed(self) -> None:
+        for invalid_hash in (None, 7, "a" * 63, "g" * 64):
+            with self.subTest(invalid_hash=invalid_hash):
+                entry = self.override({})
+                entry["evidence"]["source_sha256"] = invalid_hash
+                paths = self.write_inputs([
+                    ("src/checked.rs", summary(100, 100, 100)),
+                    ("src/low.rs", summary(100, 100, 100)),
+                ], ["src/low.rs"], {"src/low.rs": entry})
+                with self.assertRaisesRegex(self.checker.CheckerInputError, "valid source_sha256"):
+                    self.check(paths)
+
+    def test_override_source_rejects_noncanonical_and_symlink_escape(self) -> None:
+        evidence = {"source_sha256": "0" * 64}
+        for source in ("src/./low.rs", "src/../src/low.rs", "../outside.rs"):
+            with self.subTest(source=source):
+                with self.assertRaisesRegex(self.checker.CheckerInputError, "outside configured exceptions"):
+                    self.checker.validate_override_source(self.root, source, evidence, {"src/low.rs"})
+        outside_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(outside_directory.cleanup)
+        outside = Path(outside_directory.name) / "outside-coverage-source.rs"
+        outside.write_text("fn outside() {}\n", encoding="utf-8")
+        (self.root / "src/escape.rs").symlink_to(outside)
+        escaped_hash = hashlib.sha256(outside.read_bytes()).hexdigest()
+        with self.assertRaisesRegex(self.checker.CheckerInputError, "cannot validate override source"):
+            self.checker.validate_override_source(
+                self.root, "src/escape.rs", {"source_sha256": escaped_hash}, {"src/escape.rs"}
+            )
 
     def test_line_override_applies_at_normal_threshold(self) -> None:
         paths = self.write_inputs([

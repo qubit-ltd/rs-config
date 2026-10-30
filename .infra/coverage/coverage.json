@@ -10,7 +10,6 @@
   },
   "threshold_exempt_files": {
     "qubit-config": [
-      "src/error/config_error.rs",
       "src/source/toml_config_source.rs",
       "src/source/yaml_config_source.rs"
     ]

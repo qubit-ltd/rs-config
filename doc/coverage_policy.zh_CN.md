@@ -44,18 +44,18 @@ regions 必须高于 85%。sidecar 下限只应用于明确列出的指标，并
 在普通阈值的精确等号处，lines 和 regions 仍须使用 override，因为其普通规则是严格大于（`>`）；
 functions 正好为 95% 时已满足普通规则（`>=`），不计为活跃例外。
 
-当前 sidecar 来自 2026-10-30 生成的新报告，工具为 `cargo-llvm-cov 0.8.6`、Rust 1.94.0、
-LLVM 21.1.8，命令为 `CARGO_INCREMENTAL=1 ./.infra/bin/coverage.sh`。源码基线为 HEAD
-`5d772eb560666b7f6872f8f53649b8972d90a64b`；三个测量文件的 SHA-256 已记录在 sidecar 中。
-三份文件都出现在报告内，实际计数如下：
+当前 sidecar 来自 2026-10-30 UTC 生成的新报告，工具为 `cargo-llvm-cov 0.8.6`、Rust 1.94.0、
+LLVM 21.1.8，命令为 `CARGO_INCREMENTAL=1 ./.infra/bin/coverage.sh`。报告基于 HEAD
+`9d38e8fbe867ea4e57ea9bd62a864e24eceaaad0` 的工作树生成；仍需 override 的两个文件的
+SHA-256 已记录在 sidecar 中。三个测量文件都出现在报告内，实际计数如下：
 
 | 文件 | Functions | Lines | Regions | 生效下限 |
 | --- | ---: | ---: | ---: | --- |
-| `src/error/config_error.rs` | 100.00% (17/17) | 89.12% (172/193) | 87.32% (186/213) | lines >= 89.11% |
-| `src/source/toml_config_source.rs` | 77.50% (31/40) | 92.44% (220/238) | 83.37% (376/451) | functions >= 77.50%；regions >= 83.37% |
-| `src/source/yaml_config_source.rs` | 83.72% (36/43) | 93.18% (246/264) | 88.24% (450/510) | functions >= 83.72% |
+| `src/error/config_error.rs` | 100.00% (19/19) | 91.44% (203/222) | 88.26% (233/264) | 无 |
+| `src/source/toml_config_source.rs` | 77.50% (31/40) | 92.53% (223/241) | 83.62% (383/458) | functions >= 77.50%；regions >= 83.62% |
+| `src/source/yaml_config_source.rs` | 84.09% (37/44) | 93.84% (259/276) | 88.74% (465/524) | functions >= 84.09% |
 
-sidecar 为每个文件的三项指标记录完整精度百分比及 covered/count。生效下限取实际百分比向下
+sidecar 为每个有 override 的文件记录三项指标的完整精度百分比及 covered/count。生效下限取实际百分比向下
 保留两位小数；达到正常门槛的指标不设置 override。此前移除的六个旧例外继续保持移除：
 `src/config/access.rs`、`src/key/config_key.rs`、`src/key/config_path.rs`、
 `src/property/property.rs`、`src/property/property_mut.rs` 和 `src/reader/config_section.rs`。

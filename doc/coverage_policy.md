@@ -51,21 +51,21 @@ At the exact normal threshold, lines and regions still need an override because
 their normal rules are strict (`>`); functions at exactly 95% meet their normal
 rule (`>=`) and do not count as an active exception.
 
-The current sidecar is based on a fresh report generated on 2026-10-30 with
+The current sidecar is based on a fresh report generated on 2026-10-30 UTC with
 `cargo-llvm-cov 0.8.6`, Rust 1.94.0, and LLVM 21.1.8, using
-`CARGO_INCREMENTAL=1 ./.infra/bin/coverage.sh`. Its source baseline is HEAD
-`5d772eb560666b7f6872f8f53649b8972d90a64b`; SHA-256 values for the three
-measured files are recorded in the sidecar. All three files are present in the
-report, and their measured counters are:
+`CARGO_INCREMENTAL=1 ./.infra/bin/coverage.sh`. The report was generated from
+the working tree based on HEAD `9d38e8fbe867ea4e57ea9bd62a864e24eceaaad0`;
+source SHA-256 values are recorded for the two files that still need overrides.
+All three measured files are present in the report, and their counters are:
 
 | File | Functions | Lines | Regions | Active minimums |
 | --- | ---: | ---: | ---: | --- |
-| `src/error/config_error.rs` | 100.00% (17/17) | 89.12% (172/193) | 87.32% (186/213) | lines >= 89.11% |
-| `src/source/toml_config_source.rs` | 77.50% (31/40) | 92.44% (220/238) | 83.37% (376/451) | functions >= 77.50%; regions >= 83.37% |
-| `src/source/yaml_config_source.rs` | 83.72% (36/43) | 93.18% (246/264) | 88.24% (450/510) | functions >= 83.72% |
+| `src/error/config_error.rs` | 100.00% (19/19) | 91.44% (203/222) | 88.26% (233/264) | none |
+| `src/source/toml_config_source.rs` | 77.50% (31/40) | 92.53% (223/241) | 83.62% (383/458) | functions >= 77.50%; regions >= 83.62% |
+| `src/source/yaml_config_source.rs` | 84.09% (37/44) | 93.84% (259/276) | 88.74% (465/524) | functions >= 84.09% |
 
 The sidecar records full-precision measured percentages and covered/count
-counters for all three metrics per file. Active minimums are the measured
+counters for all three metrics per overridden file. Active minimums are the measured
 percentage rounded down to two decimal places; metrics meeting the normal
 threshold have no override. The historical six exceptions remain removed:
 `src/config/access.rs`, `src/key/config_key.rs`, `src/key/config_path.rs`,

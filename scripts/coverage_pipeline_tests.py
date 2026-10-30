@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import shutil
 import subprocess
@@ -39,6 +40,9 @@ class CoveragePipelineTests(unittest.TestCase):
                         "rust_llvm": "fixture toolchain",
                         "command": "fixture command",
                         "source_baseline": "fixture source",
+                        "source_sha256": hashlib.sha256(
+                            (self.root / "src/app.rs").read_bytes()
+                        ).hexdigest(),
                         "metrics": {
                             name: {"covered": 78, "count": 100, "percent": 78.0}
                             for name in ("functions", "lines", "regions")
@@ -64,6 +68,7 @@ class CoveragePipelineTests(unittest.TestCase):
                 below-minimum) python3 "$TEST_REPORT_WRITER" below-minimum "$TEST_REPORT" "$TEST_SOURCE" ;;
                 invalid-summary) python3 "$TEST_REPORT_WRITER" invalid-summary "$TEST_REPORT" "$TEST_SOURCE" ;;
                 success) python3 "$TEST_REPORT_WRITER" success "$TEST_REPORT" "$TEST_SOURCE" ;;
+                stale) python3 "$TEST_REPORT_WRITER" success "$TEST_REPORT" "$TEST_SOURCE"; printf '%s\n' '// changed' >> "$TEST_SOURCE" ;;
                 *) exit 24 ;;
             esac
         """)
@@ -168,6 +173,11 @@ class CoveragePipelineTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("src/app.rs", result.stderr)
         self.assertIn("functions=20.00%", result.stderr)
+
+    def test_changed_source_evidence_fails_after_report_generation(self) -> None:
+        result = self.run_wrapper("stale")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("source evidence is stale", result.stderr)
 
     def test_metric_override_minimum_still_rejects_a_lower_report(self) -> None:
         result = self.run_wrapper("below-minimum")
