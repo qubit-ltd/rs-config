@@ -5,66 +5,56 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! # Composite Configuration Source
-//!
-//! Merges configuration from multiple sources in order.
-//!
-//! Sources are applied in the order they are added. Later sources override
-//! earlier sources for the same key (unless the property is marked as final).
-//!
-//! # Examples
-//!
-//! ```rust
-//! # #[cfg(feature = "toml")]
-//! # {
-//! use qubit_config::Config;
-//! use qubit_config::source::{
-//!     CompositeConfigSource, ConfigSource, TomlConfigSource,
-//! };
-//!
-//! let mut composite = CompositeConfigSource::new();
-//! let temp_dir = tempfile::tempdir().unwrap();
-//! let defaults = temp_dir.path().join("defaults.toml");
-//! let override_file = temp_dir.path().join("config.toml");
-//! std::fs::write(&defaults, "port = 80\n").unwrap();
-//! std::fs::write(&override_file, "port = 8080\n").unwrap();
-//! composite.add(TomlConfigSource::from_file(defaults));
-//! composite.add(TomlConfigSource::from_file(override_file));
-//!
-//! let mut config = Config::new();
-//! let config = composite.load().unwrap();
-//! assert_eq!(config.get::<i64>("port").unwrap(), 8080);
-//! # }
-//! ```
-//!
-//! The builder also applies aggregate limits across all child sources. The
-//! following uses the default `properties` source and needs no parser feature:
-//!
-//! ```rust
-//! use qubit_config::ConfigError;
-//! use qubit_config::source::{
-//!     CompositeConfigSource, ConfigSource, PropertiesConfigSource, SourceLimitKind,
-//!     SourceLimits,
-//! };
-//!
-//! let limits = SourceLimits::builder().max_properties(1).build();
-//! let composite = CompositeConfigSource::builder()
-//!     .add_source(PropertiesConfigSource::from_content("a=1"))
-//!     .add_source(PropertiesConfigSource::from_content("b=2"))
-//!     .limits(limits)
-//!     .build();
-//! let error = composite.load().unwrap_err();
-//! assert!(matches!(error, ConfigError::SourceLimitExceeded {
-//!     kind: SourceLimitKind::PropertyCount, ..
-//! }));
-//! ```
+//! Implementation of a source that combines multiple configuration layers.
 
 use super::ConfigSource;
 use super::SourceLimits;
 use super::SourceLoadContext;
 use crate::ConfigResult;
 
-/// Configuration source that merges multiple sources in order
+/// Loads configuration layers in insertion order and merges them into one
+/// result.
+///
+/// Sources are loaded in the order supplied through
+/// [`CompositeConfigSourceBuilder::add_source`]. Later values override earlier
+/// values for the same key, except that a value marked as final cannot be
+/// overridden. If any source fails to load or the merge fails,
+/// [`ConfigSource::load`] returns an error and does not return a partially
+/// merged configuration.
+///
+/// Each child source's local limits and the composite's aggregate
+/// [`SourceLimits`] apply during loading. Property limits count assignments
+/// cumulatively across the composite, including assignments later overridden
+/// by another source; they do not count only the distinct keys in the final
+/// configuration. Configure aggregate limits with
+/// [`CompositeConfigSourceBuilder::limits`].
+///
+/// # Examples
+///
+/// ```rust
+/// use qubit_config::ConfigError;
+/// use qubit_config::source::{
+///     CompositeConfigSource, ConfigSource, PropertiesConfigSource, SourceLimits,
+/// };
+///
+/// let source = CompositeConfigSource::builder()
+///     .add_source(PropertiesConfigSource::from_content("port=8080"))
+///     .add_source(PropertiesConfigSource::from_content("port=9090"))
+///     .build();
+/// let config = source.load()?;
+/// assert_eq!(config.get::<u16>("port")?, 9090);
+///
+/// let limited = CompositeConfigSource::builder()
+///     .limits(SourceLimits::builder().max_properties(1).build())
+///     .add_source(PropertiesConfigSource::from_content("a=1"))
+///     .add_source(PropertiesConfigSource::from_content("b=2"))
+///     .build();
+/// assert!(matches!(
+///     limited.load(),
+///     Err(ConfigError::SourceLimitExceeded { .. })
+/// ));
+/// # Ok::<(), ConfigError>(())
+/// ```
 pub struct CompositeConfigSource {
     /// Sources applied in insertion order.
     sources: Vec<Box<dyn ConfigSource>>,
