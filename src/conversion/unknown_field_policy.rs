@@ -12,7 +12,7 @@
 //! but is not complete schema validation for every `DeserializeOwned`
 //! implementation. Open maps and flatten maps can consume arbitrary keys;
 //! flatten structs, untagged enums, and custom `Deserialize` implementations
-//! that buffer values can hide discarded fields from `serde_ignored`.
+//! that buffer values can hide discarded fields from this source callback.
 //!
 //! When an application must reject misspelled keys, use
 //! `#[serde(deny_unknown_fields)]` on a closed struct. For an untagged enum,
@@ -51,9 +51,10 @@
 pub enum UnknownFieldPolicy {
     /// Reject fields Serde exposes as ignored, with sorted root-relative paths.
     ///
-    /// This is not complete schema validation for all target types. Flatten
-    /// structs, untagged enums, and custom `Deserialize` implementations can
-    /// buffer fields so that `serde_ignored` cannot observe them. Use Serde's
+    /// This is not complete schema validation for all target types. Only
+    /// ignored-value requests received by the source deserializer are
+    /// reported. Flatten structs, untagged enums, and custom `Deserialize`
+    /// implementations can buffer fields before the callback. Use Serde's
     /// `deny_unknown_fields` on closed struct targets when all unknown fields
     /// must be rejected; its errors are sanitized deserialization errors, not
     /// necessarily [`crate::ConfigError::UnknownProperties`].

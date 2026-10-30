@@ -45,11 +45,11 @@ use crate::UnknownFieldPolicy;
 /// Parsing errors propagate from `parse`; collecting normalized keys directly
 /// into a map can overwrite earlier entries, so check duplicates when needed.
 ///
-/// `UnknownFieldPolicy::Reject` only rejects fields observable through Serde's
-/// `deserialize_ignored_any` path. Ordinary derived structs report those
-/// fields, while flatten structs, untagged enums, and custom `Deserialize`
-/// implementations that buffer fields can make discarded keys invisible to
-/// `serde_ignored`. Flatten maps may explicitly consume arbitrary keys.
+/// `UnknownFieldPolicy::Reject` only reports fields for which Serde calls
+/// `deserialize_ignored_any` on this reader's source deserializer. Ordinary
+/// derived structs report those fields, while flatten structs, untagged enums,
+/// and custom `Deserialize` implementations that buffer fields can hide
+/// discarded keys. Flatten maps may explicitly consume arbitrary keys.
 ///
 /// Applications that require a closed schema can put
 /// `#[serde(deny_unknown_fields)]` on ordinary struct targets, and on each
@@ -101,9 +101,10 @@ pub trait ConfigSerdeExt: ConfigReader {
     /// Deserializes without interpolation and rejects observable unknown
     /// fields.
     ///
-    /// Unknown-field rejection follows Serde's `deserialize_ignored_any`
-    /// callbacks and cannot see fields buffered by some flatten structs,
-    /// untagged enums, or custom `Deserialize` implementations. Use
+    /// Unknown-field rejection records only calls to
+    /// `deserialize_ignored_any` received by this reader's source deserializer
+    /// and cannot see fields buffered by some flatten structs, untagged enums,
+    /// or custom `Deserialize` implementations. Use
     /// `#[serde(deny_unknown_fields)]` for closed struct targets when the
     /// application must reject those keys; that produces a sanitized Serde
     /// deserialization error rather than a guaranteed `UnknownProperties`
@@ -124,10 +125,11 @@ pub trait ConfigSerdeExt: ConfigReader {
 
     /// Deserializes with explicit interpolation and unknown-field behavior.
     ///
-    /// `UnknownFieldPolicy::Reject` rejects fields observable through Serde's
-    /// ignored-field callback; it is not universal schema validation. The
-    /// `Ignore` choice still performs complete input admission and honors this
-    /// reader's conversion policies and resource limits.
+    /// `UnknownFieldPolicy::Reject` reports only ignored-value callbacks
+    /// received by this reader's source deserializer; it is not universal
+    /// schema validation. The `Ignore` choice still performs complete input
+    /// admission and honors this reader's conversion policies and resource
+    /// limits.
     ///
     /// Conversion policy and resource limits come from this reader's
     /// ReadPolicy. Only actual String leaves interpolate; rich values keep

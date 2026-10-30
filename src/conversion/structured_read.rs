@@ -7,6 +7,8 @@
 // =============================================================================
 //! Borrowed input preparation and direct structured configuration reads.
 
+use std::cell::RefCell;
+
 use qubit_datatype::ConversionSession;
 
 #[path = "structured_read/conversion_input.rs"]
@@ -67,7 +69,11 @@ where
     let prepared = prepared_read::prepare_read(reader, prefix, interpolate)?;
     let options = reader.read_policy();
     let mut session = ConversionSession::new(options.conversion_policy(), options.conversion_limits());
-    let context = deserializer::ReadContext { prepared: &prepared };
+    let ignored = RefCell::new(Vec::new());
+    let context = deserializer::ReadContext {
+        prepared: &prepared,
+        ignored_paths: reject_unknown.then_some(&ignored),
+    };
     let deserializer = deserializer::SourceDeserializer::new(
         context,
         traversal::ReadView::from_node(&prepared.nodes[prepared.root]),
@@ -76,32 +82,15 @@ where
         true,
         &mut session,
     );
-    let mut ignored = Vec::new();
-    let result = if reject_unknown {
-        serde_ignored::deserialize(deserializer, |path| ignored.push(path.to_string()))
-    } else {
-        T::deserialize(deserializer)
-    };
-    let value = result.map_err(|error| error.into_config_error(&prepared.root_path))?;
+    let value = T::deserialize(deserializer)
+        .map_err(|error| error.into_config_error(&prepared.root_path))?;
+    let mut ignored = ignored.into_inner();
     if ignored.is_empty() {
         return Ok(value);
     }
     ignored.sort();
     ignored.dedup();
-    let paths = ignored
-        .into_iter()
-        .map(|path| {
-            let path = path.trim_start_matches('.');
-            if prepared.root_path.is_empty() {
-                path.to_owned()
-            } else if path.is_empty() {
-                prepared.root_path.clone()
-            } else {
-                format!("{}.{path}", prepared.root_path)
-            }
-        })
-        .collect();
-    Err(crate::ConfigError::UnknownProperties { paths })
+    Err(crate::ConfigError::UnknownProperties { paths: ignored })
 }
 
 #[cfg(test)]

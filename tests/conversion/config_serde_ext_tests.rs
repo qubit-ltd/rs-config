@@ -21,6 +21,8 @@ use qubit_datatype::ConversionLimits;
 use qubit_datatype::ConversionOperationLimits;
 use qubit_value::ValueError;
 use serde::Deserialize;
+use serde::de::DeserializeOwned;
+use serde_json::Value;
 
 #[test]
 fn deserialize_with_accepts_borrowed_prefix_and_explicit_options() {
@@ -596,8 +598,189 @@ fn test_deserialize_strict_supports_serde_alias_default_nested_map_and_flatten()
     assert_eq!(open.extra.get("extra"), Some(&serde_json::json!(true)));
 }
 
+fn assert_unknown_source_paths<T: DeserializeOwned>(input: Value, expected: &[&str]) {
+    let mut config = Config::new();
+    config.set("app.settings", input).unwrap();
+    let section = config.section("app").unwrap();
+    let errors = [
+        config
+            .deserialize::<T>("app.settings")
+            .err()
+            .expect("unknown fields must fail"),
+        section
+            .deserialize::<T>("settings")
+            .err()
+            .expect("scoped unknown fields must fail"),
+    ];
+    for error in errors {
+        let actual: Vec<&str> = error
+            .unknown_property_paths()
+            .expect("error must carry unknown paths")
+            .iter()
+            .map(String::as_str)
+            .collect();
+        assert_eq!(actual, expected);
+        assert!(!error.to_string().contains("REVIEW_SECRET"));
+    }
+}
+
 #[test]
-fn test_reject_only_reports_unknown_fields_observable_to_serde_ignored() {
+fn test_unknown_source_paths_ignore_option_and_newtype_wrappers() {
+    #[allow(dead_code)]
+    #[derive(Deserialize)]
+    struct Payload {
+        port: u16,
+    }
+    #[allow(dead_code)]
+    #[derive(Deserialize)]
+    struct Wrapped(Payload);
+    #[allow(dead_code)]
+    #[derive(Deserialize)]
+    struct Outer {
+        tls: Option<Wrapped>,
+    }
+
+    assert_unknown_source_paths::<Outer>(
+        serde_json::json!({"tls": {"port": 443, "extra": "REVIEW_SECRET"}}),
+        &["app.settings.tls.extra"],
+    );
+}
+
+#[test]
+fn test_unknown_source_paths_use_sequence_indices_and_enum_variants() {
+    #[allow(dead_code)]
+    #[derive(Deserialize)]
+    struct Payload {
+        port: u16,
+    }
+    #[allow(dead_code)]
+    #[derive(Deserialize)]
+    enum Mode {
+        Named { port: u16 },
+    }
+    #[allow(dead_code)]
+    #[derive(Deserialize)]
+    struct Outer {
+        items: Vec<Payload>,
+        mode: Mode,
+    }
+
+    assert_unknown_source_paths::<Outer>(
+        serde_json::json!({
+            "items": [{"port": 80, "extra": "REVIEW_SECRET"}],
+            "mode": {"Named": {"port": 443, "extra": "REVIEW_SECRET"}}
+        }),
+        &[
+            "app.settings.items[0].extra",
+            "app.settings.mode.Named.extra",
+        ],
+    );
+}
+
+#[test]
+fn test_unknown_source_paths_preserve_real_punctuation_and_sort_final_paths() {
+    #[allow(dead_code)]
+    #[derive(Deserialize)]
+    struct Payload {
+        port: u16,
+    }
+
+    assert_unknown_source_paths::<Payload>(
+        serde_json::json!({"port": 80, ".extra": true, "?": true, "extra": true}),
+        &[
+            "app.settings..extra",
+            "app.settings.?",
+            "app.settings.extra",
+        ],
+    );
+}
+
+#[test]
+fn test_unknown_source_paths_include_newtype_enum_variant() {
+    #[allow(dead_code)]
+    #[derive(Deserialize)]
+    struct Payload {
+        port: u16,
+    }
+    #[allow(dead_code)]
+    #[derive(Deserialize)]
+    enum Mode {
+        Named(Payload),
+    }
+    #[allow(dead_code)]
+    #[derive(Deserialize)]
+    struct Outer {
+        mode: Mode,
+    }
+
+    assert_unknown_source_paths::<Outer>(
+        serde_json::json!({"mode": {"Named": {"port": 443, "extra": "REVIEW_SECRET"}}}),
+        &["app.settings.mode.Named.extra"],
+    );
+}
+
+#[test]
+fn test_unknown_source_paths_support_empty_root_and_deduplicate_final_paths() {
+    #[derive(Debug, Deserialize)]
+    struct Empty {}
+    #[derive(Debug, Deserialize)]
+    struct Inner {}
+    #[derive(Debug, Deserialize)]
+    struct Outer {
+        #[allow(dead_code)]
+        a: Inner,
+    }
+
+    let mut root_config = Config::new();
+    root_config.set("extra", true).unwrap();
+    let root_error = root_config
+        .deserialize::<Empty>("")
+        .expect_err("unknown root fields must fail");
+    assert_eq!(
+        root_error.unknown_property_paths(),
+        Some(["extra".to_owned()].as_slice())
+    );
+
+    let mut config = Config::new();
+    config
+        .set(
+            "settings",
+            serde_json::json!({"a.b": true, "a": {"b": true}}),
+        )
+        .unwrap();
+    let error = config
+        .deserialize::<Outer>("settings")
+        .expect_err("unknown fields with the same displayed path must fail");
+    assert_eq!(
+        error.unknown_property_paths(),
+        Some(["settings.a.b".to_owned()].as_slice())
+    );
+}
+
+#[test]
+fn test_unknown_source_paths_do_not_replace_conversion_errors() {
+    #[allow(dead_code)]
+    #[derive(Debug, Deserialize)]
+    struct Payload {
+        port: u16,
+    }
+
+    let mut config = Config::new();
+    config
+        .set(
+            "settings",
+            serde_json::json!({"port": "invalid", "extra": true}),
+        )
+        .unwrap();
+    let error = config
+        .deserialize::<Payload>("settings")
+        .expect_err("a conversion error must take precedence over unknown fields");
+    assert!(!matches!(error, ConfigError::UnknownProperties { .. }));
+    assert_eq!(error.path(), Some("settings.port"));
+}
+
+#[test]
+fn test_reject_only_reports_unknown_fields_observable_to_source_callback() {
     let mut config = Config::new();
     config.set("server.port", 8080_u16).unwrap();
     config.set("server.typo", true).unwrap();
@@ -609,12 +792,12 @@ fn test_reject_only_reports_unknown_fields_observable_to_serde_ignored() {
 
     let flattened: FlattenedSettings = config
         .deserialize("server")
-        .expect("flatten buffering can hide an ignored field from serde_ignored");
+        .expect("flatten buffering can hide an ignored field from the source callback");
     assert_eq!(flattened.server.port, 8080);
 
     let choice: ServerChoice = config
         .deserialize("server")
-        .expect("untagged buffering can hide an ignored field from serde_ignored");
+        .expect("untagged buffering can hide an ignored field from the source callback");
     assert!(matches!(choice, ServerChoice::Server { port: 8080 }));
 }
 

@@ -12,11 +12,14 @@
 //! the input or its prepared projection.
 
 use super::prepared_read::PreparedConfigRead;
+use std::cell::RefCell;
 
 #[derive(Clone, Copy)]
 pub(super) struct ReadContext<'tree> {
     /// Prepared tree and source metadata shared by visitors.
     pub(super) prepared: &'tree PreparedConfigRead<'tree>,
+    /// Unknown source paths collected only for rejecting structured reads.
+    pub(super) ignored_paths: Option<&'tree RefCell<Vec<String>>>,
 }
 
 impl ReadContext<'_> {

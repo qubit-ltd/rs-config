@@ -486,6 +486,9 @@ impl<'de, 'tree, 'policy: 'tree> de::Deserializer<'de> for SourceDeserializer<'t
         self.deserialize_str(visitor)
     }
     fn deserialize_ignored_any<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+        if let Some(paths) = self.context.ignored_paths {
+            paths.borrow_mut().push(self.path.clone());
+        }
         visitor.visit_unit()
     }
 }
@@ -503,7 +506,10 @@ mod tests {
     fn scalar_conversion_accepts_borrowed_text_and_json_primitives() {
         let config = Config::new();
         let prepared = prepare_read(&config, "", false).unwrap();
-        let context = ReadContext { prepared: &prepared };
+        let context = ReadContext {
+            prepared: &prepared,
+            ignored_paths: None,
+        };
         let json_string = serde_json::Value::String("json".to_owned());
         let json_bool = serde_json::Value::Bool(true);
         let json_number = serde_json::json!(1.25);
