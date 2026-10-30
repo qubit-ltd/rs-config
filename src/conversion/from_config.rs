@@ -96,7 +96,10 @@ pub trait FromConfig: Sized {
     fn from_config(property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<Self>;
 }
 
-/// Converts the first scalar string value of a property to a target type.
+/// Converts a property's scalar value or selected first value to a target type.
+///
+/// When interpolation is enabled, a string collection's first item is
+/// substituted before conversion. Remaining collection items are not read.
 ///
 /// # Parameters
 ///
@@ -110,6 +113,18 @@ fn convert_first<T>(property: &Property, ctx: &ConfigParseContext<'_>) -> Config
 where
     T: DataConversionTarget,
 {
+    if ctx.interpolates()
+        && let ValueContainer::Collection(values) = property.value()
+        && let MultiValuesRef::String(values) = values.view()
+        && let Some(first) = values.first()
+    {
+        let expanded = ctx.substitute_string(first)?;
+        let selected = ValueContainer::Collection(MultiValues::String(vec![expanded]));
+        return selected
+            .to_first_with::<T>(ctx.options().conversion_policy(), ctx.options().conversion_limits())
+            .map_err(|error| utils::map_value_error(ctx.key(), error));
+    }
+
     if let Some(raw) = first_scalar_string(property) {
         if !ctx.interpolates() {
             return property
@@ -237,22 +252,7 @@ impl FromConfig for String {
     ///
     /// Parsed value, or a [`crate::ConfigError`] with key context.
     fn from_config(property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<Self> {
-        if let Some(raw) = first_scalar_string(property) {
-            if !ctx.interpolates() {
-                return property
-                    .value()
-                    .to_first_with::<String>(ctx.options().conversion_policy(), ctx.options().conversion_limits())
-                    .map_err(|error| utils::map_value_error(ctx.key(), error));
-            }
-            let value = ctx.scalar_text(raw)?;
-            return DataConverter::from(value.as_ref())
-                .to_with::<String>(ctx.options().conversion_policy(), ctx.options().conversion_limits())
-                .map_err(|error| utils::map_value_error(ctx.key(), error.into()));
-        }
-        property
-            .value()
-            .to_first_with::<String>(ctx.options().conversion_policy(), ctx.options().conversion_limits())
-            .map_err(|e| utils::map_value_error(ctx.key(), e))
+        convert_first::<String>(property, ctx)
     }
 }
 

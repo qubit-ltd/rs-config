@@ -17,6 +17,7 @@ use qubit_config::UnknownFieldPolicy;
 use qubit_config::options::InterpolationSources;
 use qubit_config::options::ReadPolicy;
 use qubit_datatype::BlankStringPolicy;
+use qubit_value::ValueError;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize, PartialEq, Eq)]
@@ -211,6 +212,91 @@ fn test_section_get_interpolated_falls_back_to_root_configuration() {
         .expect("scoped interpolation should fall back to root keys");
 
     assert_eq!(url, "https://api.example.test/v1");
+}
+
+#[test]
+fn test_section_interpolated_collection_first_item_falls_back_to_root() {
+    let mut config = Config::new();
+    config.set("global.port", "8080").unwrap();
+    config
+        .set("service.ports", vec!["${global.port}", "${missing}"])
+        .unwrap();
+    let service = config.section("service").unwrap();
+
+    assert_eq!(service.get_interpolated::<u16>("ports").unwrap(), 8080);
+}
+
+#[test]
+fn test_interpolated_collection_first_item_obeys_optional_default_and_candidate_reads() {
+    let mut config = Config::new();
+    config.set("base", "8080").unwrap();
+    config.set("primary", vec!["${base}", "${missing}"]).unwrap();
+    config.set("ALIAS", vec!["${base}", "${missing}"]).unwrap();
+
+    assert_eq!(config.get_optional_interpolated::<u16>("primary").unwrap(), Some(8080));
+    assert_eq!(config.get_interpolated_or::<u16>("primary", 9).unwrap(), 8080);
+    assert_eq!(config.get_any_interpolated::<u16>(["alias", "ALIAS"]).unwrap(), 8080);
+}
+
+#[test]
+fn test_interpolated_collection_first_item_uses_expansion_budget_and_output_limit() {
+    let mut limited = Config::builder()
+        .default_read_policy(ReadPolicy::builder().max_interpolation_expansions(0).build())
+        .build();
+    limited.set("base", "8080").unwrap();
+    limited.set("ports", vec!["${base}", "${missing}"]).unwrap();
+    let error = limited.get_interpolated::<u16>("ports").unwrap_err();
+    assert!(
+        matches!(
+            error,
+            ConfigError::SubstitutionExpansionLimitExceeded { ref path, max_expansions: 0 } if path == "ports"
+        ),
+        "{error:?}"
+    );
+
+    let limits = qubit_datatype::ConversionLimits::builder()
+        .operation_limits(
+            qubit_datatype::ConversionOperationLimits::builder()
+                .max_output_bytes(3)
+                .build(),
+        )
+        .build();
+    let mut output_limited = Config::builder()
+        .default_read_policy(ReadPolicy::builder().conversion_limits(limits).build())
+        .build();
+    output_limited.set("base", "8080").unwrap();
+    output_limited.set("ports", vec!["${base}", "${missing}"]).unwrap();
+    let error = output_limited.get_interpolated::<String>("ports").unwrap_err();
+    assert!(
+        matches!(error, ConfigError::ConversionError { ref key, .. } if key == "base"),
+        "{error:?}"
+    );
+}
+
+#[test]
+fn test_interpolated_collection_blank_policy_error_stops_candidate_fallback() {
+    let mut config = Config::builder()
+        .default_read_policy(
+            ReadPolicy::builder()
+                .blank_string_policy(BlankStringPolicy::TreatAsMissing)
+                .build(),
+        )
+        .build();
+    config.set("blank", "").unwrap();
+    config.set("fallback", "8080").unwrap();
+    config.set("primary", vec!["${blank}", "${missing}"]).unwrap();
+
+    let error = config
+        .get_optional_any_interpolated::<u16>(["primary", "fallback"])
+        .unwrap_err();
+    assert!(
+        matches!(
+            error,
+            ConfigError::ValueError { ref key, ref source } if key == "primary"
+                && matches!(source, ValueError::Missing(missing) if missing.source_index() == Some(0))
+        ),
+        "{error:?}"
+    );
 }
 
 #[test]

@@ -29,6 +29,7 @@ use qubit_config::conversion::FromConfig;
 use qubit_config::options::ReadPolicy;
 use qubit_datatype::ConversionLimits;
 use qubit_datatype::ConversionOperationLimits;
+use qubit_datatype::DataType;
 use qubit_datatype::InvalidValueReason;
 use qubit_datatype::NumericConversionPolicy;
 
@@ -233,6 +234,33 @@ fn test_from_config_interpolates_string_scalar_and_collection_values() {
 }
 
 #[test]
+fn test_interpolated_scalar_converts_only_the_first_string_collection_item() {
+    let mut config = Config::new();
+    config.set("base", "8080").unwrap();
+    config.set("ports", vec!["${base}", "${missing}"]).unwrap();
+
+    assert_eq!(config.get::<String>("ports").unwrap(), "${base}");
+    assert_eq!(config.get_interpolated::<String>("ports").unwrap(), "8080");
+    assert_eq!(config.get_interpolated::<u16>("ports").unwrap(), 8080);
+    assert!(config.get_interpolated::<Vec<u16>>("ports").is_err());
+}
+
+#[test]
+fn test_interpolated_scalar_keeps_empty_unset_and_non_string_paths() {
+    let mut config = Config::new();
+    config.set("empty", Vec::<String>::new()).unwrap();
+    config.set_null("unset", DataType::String).unwrap();
+    config.set("numbers", vec![7_u16, 8_u16]).unwrap();
+
+    assert!(config.get::<u16>("empty").is_err());
+    assert!(config.get_interpolated::<u16>("empty").is_err());
+    assert!(config.get::<String>("unset").is_err());
+    assert!(config.get_interpolated::<String>("unset").is_err());
+    assert_eq!(config.get::<u16>("numbers").unwrap(), 7);
+    assert_eq!(config.get_interpolated::<u16>("numbers").unwrap(), 7);
+}
+
+#[test]
 fn test_interpolated_string_output_limit_preserves_property_path() {
     let limits = ConversionLimits::builder()
         .operation_limits(ConversionOperationLimits::builder().max_output_bytes(1).build())
@@ -273,6 +301,17 @@ struct ReplacementString(String);
 impl FromConfig for ReplacementString {
     fn from_config(_property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<Self> {
         let replacement = Property::new("replacement", "${base}-new").expect("valid replacement property");
+        String::from_config(&replacement, ctx).map(Self)
+    }
+}
+
+#[derive(Debug, PartialEq)]
+struct ReplacementStringCollection(String);
+
+impl FromConfig for ReplacementStringCollection {
+    fn from_config(_property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<Self> {
+        let replacement =
+            Property::new("replacement", vec!["${base}", "${missing}"]).expect("valid replacement collection");
         String::from_config(&replacement, ctx).map(Self)
     }
 }
@@ -322,5 +361,17 @@ fn test_delegated_string_conversion_uses_replacement_property_text() {
     assert_eq!(
         section.get_interpolated::<ReplacementString>("value").unwrap(),
         ReplacementString("resolved-new".to_owned()),
+    );
+}
+
+#[test]
+fn test_delegated_string_conversion_interpolates_replacement_collection_first_item() {
+    let mut config = Config::new();
+    config.set("base", "resolved").unwrap();
+    config.set("value", "ignored").unwrap();
+
+    assert_eq!(
+        config.get_interpolated::<ReplacementStringCollection>("value").unwrap(),
+        ReplacementStringCollection("resolved".to_owned())
     );
 }
