@@ -48,6 +48,21 @@ struct CountingSource {
     value: u16,
 }
 
+struct FinalSource;
+
+impl ConfigSource for FinalSource {
+    fn source_id(&self) -> String {
+        "final:<memory>".to_owned()
+    }
+    fn limits(&self) -> SourceLimits {
+        SourceLimits::default()
+    }
+    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
+        context.set("locked", 1_u16)?;
+        context.set_final("locked", true)
+    }
+}
+
 impl ConfigSource for CountingSource {
     fn source_id(&self) -> String {
         "test:counting-source".to_owned()
@@ -122,6 +137,7 @@ mod test_composite_config_source {
     use super::CountingSource;
     #[cfg(feature = "toml")]
     use super::EnvConfigSource;
+    use super::FinalSource;
     use super::Ordering;
     use super::PropertiesConfigSource;
     use super::SourceLimitKind;
@@ -294,6 +310,31 @@ mod test_composite_config_source {
         assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
         assert_eq!(config.get::<String>("locked").unwrap(), "old");
         assert!(!config.contains("new_key").unwrap());
+    }
+
+    #[test]
+    fn test_composite_preserves_final_and_rejects_later_override_transactionally() {
+        let composite = CompositeConfigSource::builder()
+            .add_source(FinalSource)
+            .add_source(PropertiesConfigSource::from_content("locked=2\n"))
+            .build();
+
+        let mut target = Config::new();
+        target.set("kept", 7_u16).unwrap();
+        let before = target.clone();
+        let error = target
+            .merge_properties_from_source(&composite)
+            .expect_err("later source must not override a final property");
+        assert!(matches!(error, ConfigError::PropertyIsFinal(ref key) if key == "locked"));
+        assert_eq!(target, before);
+
+        let only_final = CompositeConfigSource::builder().add_source(FinalSource).build();
+        let mut loaded = only_final.load().expect("final source should load");
+        assert!(loaded.get_property("locked").unwrap().unwrap().is_final());
+        let error = loaded
+            .set("locked", 3_u16)
+            .expect_err("the final marker must survive composite loading");
+        assert!(matches!(error, ConfigError::PropertyIsFinal(ref key) if key == "locked"));
     }
 
     #[test]

@@ -49,15 +49,18 @@
 
 mod composite_config_source;
 mod config_source;
+mod env_config_options;
+mod env_config_options_builder;
 mod env_config_source;
+mod env_config_source_builder;
 #[cfg(feature = "env-file")]
 mod env_file_config_source;
-#[cfg(feature = "yaml")]
 mod internal;
 mod properties_config_source;
 mod source_input;
 mod source_limit_kind;
 mod source_limits;
+mod source_load_context;
 mod source_load_session;
 #[cfg(feature = "toml")]
 mod toml_config_source;
@@ -67,10 +70,10 @@ mod yaml_config_source;
 pub use composite_config_source::CompositeConfigSource;
 pub use composite_config_source::CompositeConfigSourceBuilder;
 pub use config_source::ConfigSource;
-pub use env_config_source::EnvConfigOptions;
-pub use env_config_source::EnvConfigOptionsBuilder;
+pub use env_config_options::EnvConfigOptions;
+pub use env_config_options_builder::EnvConfigOptionsBuilder;
 pub use env_config_source::EnvConfigSource;
-pub use env_config_source::EnvConfigSourceBuilder;
+pub use env_config_source_builder::EnvConfigSourceBuilder;
 #[cfg(feature = "env-file")]
 pub use env_file_config_source::EnvFileConfigSource;
 #[cfg(feature = "env-file")]
@@ -85,7 +88,7 @@ pub use source_limits::DEFAULT_MAX_SOURCE_NODES;
 pub use source_limits::DEFAULT_MAX_SOURCE_PROPERTIES;
 pub use source_limits::SourceLimits;
 pub use source_limits::SourceLimitsBuilder;
-pub use source_load_session::SourceLoadContext;
+pub use source_load_context::SourceLoadContext;
 #[cfg(feature = "toml")]
 pub use toml_config_source::TomlConfigSource;
 #[cfg(feature = "toml")]

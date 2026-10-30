@@ -267,6 +267,9 @@ pub(crate) fn flatten_yaml_value(
             }
         }
         YamlValue::Sequence(seq) => {
+            if !seq.is_empty() {
+                budget.check_depth(depth.saturating_add(1))?;
+            }
             ensure_yaml_property(source_id, seen, prefix, budget)?;
             budget.consume_nodes(seq.len())?;
             flatten_yaml_sequence(source_id, prefix, seq, config)?;

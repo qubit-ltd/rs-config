@@ -276,6 +276,9 @@ pub(crate) fn flatten_toml_value(
         TomlValue::Array(arr) => {
             // All elements must have the same supported scalar type. Mixed or
             // nested array elements produce a source parse error.
+            if !arr.is_empty() {
+                budget.check_depth(depth.saturating_add(1))?;
+            }
             ensure_toml_property(source_id, seen, prefix, budget)?;
             budget.consume_nodes(arr.len())?;
             flatten_toml_array(source_id, prefix, arr, config)?;

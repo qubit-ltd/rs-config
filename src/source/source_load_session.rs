@@ -9,69 +9,13 @@
 
 use qubit_budget::BudgetError;
 use qubit_budget::InsufficientBudgetError;
-use qubit_budget::ResourceBudget;
-use qubit_budget::ResourceLimit;
-use qubit_datatype::DataType;
-use qubit_value::ValueContainer;
 
 use super::SourceLimitKind;
 use super::SourceLimits;
-use crate::Config;
+use super::internal::cumulative_dimension::CumulativeDimension;
+use super::internal::source_load_budget::SourceLoadBudget;
 use crate::ConfigError;
 use crate::ConfigResult;
-
-/// Owned resource budgets for one source or composite scope.
-struct SourceLoadBudget {
-    input_bytes: ResourceBudget<SourceLimitKind, usize>,
-    properties: ResourceBudget<SourceLimitKind, usize>,
-    nodes: ResourceBudget<SourceLimitKind, usize>,
-    sources: ResourceBudget<SourceLimitKind, usize>,
-    depth: ResourceLimit<SourceLimitKind, usize>,
-}
-
-impl SourceLoadBudget {
-    /// Creates an unused budget from one source policy.
-    fn new(limits: SourceLimits) -> Self {
-        Self {
-            input_bytes: ResourceBudget::new(SourceLimitKind::InputBytes, limits.max_input_bytes()),
-            properties: ResourceBudget::new(SourceLimitKind::PropertyCount, limits.max_properties()),
-            nodes: ResourceBudget::new(SourceLimitKind::NodeCount, limits.max_nodes()),
-            sources: ResourceBudget::new(SourceLimitKind::SourceCount, limits.max_sources()),
-            depth: ResourceLimit::new(SourceLimitKind::NestingDepth, limits.max_nesting_depth()),
-        }
-    }
-}
-
-/// Selects one cumulative dimension from every active source budget.
-#[derive(Clone, Copy)]
-enum CumulativeDimension {
-    InputBytes,
-    Properties,
-    Nodes,
-    Sources,
-}
-
-impl CumulativeDimension {
-    /// Borrows the selected cumulative resource budget.
-    fn get(self, budget: &SourceLoadBudget) -> &ResourceBudget<SourceLimitKind, usize> {
-        match self {
-            Self::InputBytes => &budget.input_bytes,
-            Self::Properties => &budget.properties,
-            Self::Nodes => &budget.nodes,
-            Self::Sources => &budget.sources,
-        }
-    }
-
-    /// Mutably borrows the selected cumulative resource budget.
-    fn get_mut(self, budget: &mut SourceLoadBudget) -> &mut ResourceBudget<SourceLimitKind, usize> {
-        match self {
-            Self::InputBytes => &mut budget.input_bytes,
-            Self::Properties => &mut budget.properties,
-            Self::Nodes => &mut budget.nodes,
-            Self::Sources => &mut budget.sources,
-        }
-    }
-}
 
 /// Budget session shared by one source and all of its aggregate ancestors.
 ///
@@ -84,7 +28,6 @@ pub(crate) struct SourceLoadSession<'a> {
     ancestor_ids: Vec<String>,
     ancestors: Vec<&'a mut SourceLoadBudget>,
 }
-
 impl SourceLoadSession<'static> {
     /// Creates a root source-loading session.
     #[doc(hidden)]
@@ -99,6 +42,11 @@ impl SourceLoadSession<'static> {
 }
 
 impl<'a> SourceLoadSession<'a> {
+    #[inline]
+    pub(in crate::source) fn source_id(&self) -> &str {
+        &self.source_id
+    }
+
     /// Creates a child session that also charges every budget in this session.
     #[doc(hidden)]
     pub fn child<'child>(
@@ -214,159 +162,5 @@ impl<'a> SourceLoadSession<'a> {
             observed_at_least,
             source,
         }
-    }
-}
-
-/// Controlled output and accounting context supplied to a configuration source.
-///
-/// The executor creates this context and passes it to
-/// [`ConfigSource::load_into`](super::ConfigSource::load_into)
-/// during [`ConfigSource::load`](super::ConfigSource::load). It owns an
-/// independent layer that is returned only after the source succeeds. If a
-/// source returns an error, propagate it; the partial layer is discarded.
-///
-/// `set` and `set_null` each charge one node and one property assignment
-/// themselves. Call [`consume_nodes`](Self::consume_nodes) only for additional
-/// parser or structural work, not for properties written with those methods.
-/// Each charge is checked atomically against this source and all aggregate
-/// ancestors before being committed. Earlier accepted charges are not rolled
-/// back if a later operation fails, so this is not an all-or-nothing budget
-/// transaction for the complete source load.
-///
-/// # Examples
-///
-/// A source receives this context from the executor. Charge its input before
-/// writing properties; `set` already charges one node and property assignment,
-/// so do not call `consume_nodes` again for that property.
-///
-/// ```rust
-/// use qubit_config::ConfigResult;
-/// use qubit_config::source::ConfigSource;
-/// use qubit_config::source::SourceLimits;
-/// use qubit_config::source::SourceLoadContext;
-///
-/// struct MemorySource;
-///
-/// impl ConfigSource for MemorySource {
-///     fn source_id(&self) -> String {
-///         "example:<memory>".to_owned()
-///     }
-///
-///     fn limits(&self) -> SourceLimits {
-///         SourceLimits::default()
-///     }
-///
-///     fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
-///         context.consume_input_bytes("port=8080".len())?;
-///         context.set("server.port", 8080_u16)
-///     }
-/// }
-///
-/// let config = MemorySource.load()?;
-/// assert_eq!(config.get::<u16>("server.port")?, 8080);
-/// # Ok::<(), qubit_config::ConfigError>(())
-/// ```
-///
-/// Input, node, property, source-count, and nesting-depth limit failures are
-/// reported as [`crate::ConfigError`]. A failed operation does not undo charges
-/// accepted by earlier operations.
-pub struct SourceLoadContext<'a> {
-    session: SourceLoadSession<'a>,
-    layer: Config,
-}
-
-impl SourceLoadContext<'static> {
-    /// Creates a root context for one source load.
-    pub(crate) fn new(source_id: String, limits: SourceLimits) -> Self {
-        Self {
-            session: SourceLoadSession::new(source_id, limits),
-            layer: Config::new(),
-        }
-    }
-}
-
-impl<'a> SourceLoadContext<'a> {
-    /// Charges input bytes to the current source and all aggregate ancestors.
-    pub fn consume_input_bytes(&mut self, amount: usize) -> ConfigResult<()> {
-        self.session.consume_input_bytes(amount)
-    }
-
-    /// Charges parsed nodes to the current source and all aggregate ancestors.
-    pub fn consume_nodes(&mut self, amount: usize) -> ConfigResult<()> {
-        self.session.consume_nodes(amount)
-    }
-
-    /// Charges admitted child sources to the current source and ancestors.
-    pub fn consume_sources(&mut self, amount: usize) -> ConfigResult<()> {
-        self.session.consume_sources(amount)
-    }
-
-    /// Sets one output property after validating and charging the assignment.
-    pub fn set<S>(&mut self, name: impl AsRef<str>, values: S) -> ConfigResult<()>
-    where
-        S: Into<ValueContainer>,
-    {
-        let name = name.as_ref();
-        self.session.check_depth(name.split('.').count())?;
-        self.session.consume_nodes(1)?;
-        self.session.consume_properties(1)?;
-        let source_id = self.session.source_id.clone();
-        self.layer
-            .set(name, values)
-            .map_err(|error| error.with_assignment_source(&source_id))
-    }
-
-    /// Sets an explicitly typed null value after charging the assignment.
-    pub fn set_null(&mut self, name: impl AsRef<str>, data_type: DataType) -> ConfigResult<()> {
-        let name = name.as_ref();
-        self.session.check_depth(name.split('.').count())?;
-        self.session.consume_nodes(1)?;
-        self.session.consume_properties(1)?;
-        let source_id = self.session.source_id.clone();
-        self.layer
-            .set_null(name, data_type)
-            .map_err(|error| error.with_assignment_source(&source_id))
-    }
-
-    /// Sets descriptive metadata on the source-owned layer.
-    pub fn set_description(&mut self, description: Option<String>) {
-        self.layer.set_description(description);
-    }
-
-    /// Sets the default read policy on the source-owned layer.
-    pub fn set_default_read_policy(&mut self, policy: crate::options::ReadPolicy) {
-        self.layer.set_default_read_policy(policy);
-    }
-
-    /// Returns the completed source layer to the crate-owned executor.
-    pub(crate) fn finish(self) -> Config {
-        self.layer
-    }
-
-    /// Creates a child context while retaining aggregate budget accounting.
-    pub(crate) fn child<'child>(
-        &'child mut self,
-        source_id: String,
-        limits: SourceLimits,
-    ) -> SourceLoadContext<'child> {
-        SourceLoadContext {
-            session: self.session.child(source_id, limits),
-            layer: Config::new(),
-        }
-    }
-
-    /// Merges a completed child layer into this context transactionally.
-    pub(crate) fn merge_layer(&mut self, layer: Config) -> ConfigResult<()> {
-        self.layer.merge_properties(layer)
-    }
-
-    /// Borrows the legacy accounting session for built-in source parsers.
-    pub(crate) fn session_mut(&mut self) -> &mut SourceLoadSession<'a> {
-        &mut self.session
-    }
-
-    /// Replaces the layer produced by a built-in source parser.
-    pub(crate) fn replace_layer(&mut self, layer: Config) {
-        self.layer = layer;
     }
 }

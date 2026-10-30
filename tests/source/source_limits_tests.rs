@@ -306,3 +306,177 @@ fn yaml_source_rejects_excessive_nesting_depth() {
         })
     ));
 }
+
+#[cfg(feature = "toml")]
+#[test]
+fn test_toml_sequence_element_depth_boundary() {
+    let load = |content: &str, max_depth: usize| {
+        TomlConfigSource::builder()
+            .content(content)
+            .limits(SourceLimits::builder().max_nesting_depth(max_depth).build())
+            .build()
+            .load()
+    };
+    assert_eq!(load("a=[1]", 2).unwrap().get_list::<i64>("a").unwrap(), vec![1]);
+    assert!(load("a=[]", 1).is_ok());
+    assert!(matches!(
+        load("a=[1]", 1),
+        Err(ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::NestingDepth,
+            limit: 1,
+            observed_at_least: 2,
+            ..
+        })
+    ));
+}
+
+#[cfg(feature = "yaml")]
+#[test]
+fn test_yaml_sequence_element_depth_boundary() {
+    let load = |content: &str, max_depth: usize| {
+        YamlConfigSource::builder()
+            .content(content)
+            .limits(SourceLimits::builder().max_nesting_depth(max_depth).build())
+            .build()
+            .load()
+    };
+    assert_eq!(load("a: [1]", 2).unwrap().get_list::<i64>("a").unwrap(), vec![1]);
+    assert!(load("a: []", 1).is_ok());
+    assert!(matches!(
+        load("a: [1]", 1),
+        Err(ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::NestingDepth,
+            limit: 1,
+            observed_at_least: 2,
+            ..
+        })
+    ));
+}
+
+#[cfg(feature = "toml")]
+#[test]
+fn toml_sequence_depth_checks_elements_and_dotted_paths() {
+    let cases = [
+        ("[a]\nb=[1]", 3, true),
+        ("[a]\nb=[1]", 2, false),
+        ("[a]\nb=[]", 2, true),
+        ("\"a.b\"=[1]", 2, true),
+        ("\"a.b\"=[1]", 1, false),
+    ];
+
+    for (content, max_depth, succeeds) in cases {
+        let result = TomlConfigSource::builder()
+            .content(content)
+            .limits(SourceLimits::builder().max_nesting_depth(max_depth).build())
+            .build()
+            .load();
+        assert_eq!(result.is_ok(), succeeds, "content={content:?}, max_depth={max_depth}");
+    }
+}
+
+#[cfg(feature = "yaml")]
+#[test]
+fn yaml_sequence_depth_checks_elements_and_dotted_paths() {
+    let cases = [
+        ("a:\n  b: [1]", 3, true),
+        ("a:\n  b: [1]", 2, false),
+        ("a:\n  b: []", 2, true),
+        ("\"a.b\": [1]", 2, true),
+        ("\"a.b\": [1]", 1, false),
+    ];
+
+    for (content, max_depth, succeeds) in cases {
+        let result = YamlConfigSource::builder()
+            .content(content)
+            .limits(SourceLimits::builder().max_nesting_depth(max_depth).build())
+            .build()
+            .load();
+        assert_eq!(result.is_ok(), succeeds, "content={content:?}, max_depth={max_depth}");
+    }
+}
+
+#[cfg(feature = "toml")]
+#[test]
+fn toml_sequence_element_depth_checks_composite_ancestors_transactionally() {
+    let source = TomlConfigSource::builder()
+        .content("a=[1]")
+        .limits(SourceLimits::builder().max_nesting_depth(2).build())
+        .build();
+    let composite = CompositeConfigSource::builder()
+        .limits(SourceLimits::builder().max_nesting_depth(1).build())
+        .add_source(source)
+        .build();
+    let mut config = Config::new();
+    config.set("kept", 7).unwrap();
+    let before = config.clone();
+
+    let error = config
+        .merge_properties_from_source(&composite)
+        .expect_err("the composite ancestor should reject the sequence element depth");
+
+    assert!(matches!(
+        error,
+        ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::NestingDepth,
+            limit: 1,
+            observed_at_least: 2,
+            ..
+        }
+    ));
+    assert_eq!(error.source_id(), Some("TOML:<memory>"));
+    assert_eq!(error.source_budget_id(), Some("composite configuration source"));
+    assert_eq!(config, before);
+
+    let source = TomlConfigSource::builder()
+        .content("a=[1]")
+        .limits(SourceLimits::builder().max_nesting_depth(2).build())
+        .build();
+    let composite = CompositeConfigSource::builder()
+        .limits(SourceLimits::builder().max_nesting_depth(2).build())
+        .add_source(source)
+        .build();
+    assert!(composite.load().is_ok());
+}
+
+#[cfg(feature = "yaml")]
+#[test]
+fn yaml_sequence_element_depth_checks_composite_ancestors_transactionally() {
+    let source = YamlConfigSource::builder()
+        .content("a: [1]")
+        .limits(SourceLimits::builder().max_nesting_depth(2).build())
+        .build();
+    let composite = CompositeConfigSource::builder()
+        .limits(SourceLimits::builder().max_nesting_depth(1).build())
+        .add_source(source)
+        .build();
+    let mut config = Config::new();
+    config.set("kept", 7).unwrap();
+    let before = config.clone();
+
+    let error = config
+        .merge_properties_from_source(&composite)
+        .expect_err("the composite ancestor should reject the sequence element depth");
+
+    assert!(matches!(
+        error,
+        ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::NestingDepth,
+            limit: 1,
+            observed_at_least: 2,
+            ..
+        }
+    ));
+    assert_eq!(error.source_id(), Some("YAML:<memory>"));
+    assert_eq!(error.source_budget_id(), Some("composite configuration source"));
+    assert_eq!(config, before);
+
+    let source = YamlConfigSource::builder()
+        .content("a: [1]")
+        .limits(SourceLimits::builder().max_nesting_depth(2).build())
+        .build();
+    let composite = CompositeConfigSource::builder()
+        .limits(SourceLimits::builder().max_nesting_depth(2).build())
+        .add_source(source)
+        .build();
+    assert!(composite.load().is_ok());
+}

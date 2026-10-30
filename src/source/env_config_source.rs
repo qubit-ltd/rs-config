@@ -31,6 +31,8 @@ use std::ffi::OsStr;
 use std::ffi::OsString;
 
 use super::ConfigSource;
+use super::EnvConfigOptions;
+use super::EnvConfigSourceBuilder;
 use super::SourceLimits;
 use super::SourceLoadContext;
 use crate::Config;
@@ -38,123 +40,6 @@ use crate::ConfigError;
 use crate::ConfigKey;
 use crate::ConfigResult;
 use crate::utils;
-
-/// Options controlling environment-variable key selection and normalization.
-///
-/// # Examples
-///
-/// ```rust
-/// use qubit_config::source::{EnvConfigOptions, EnvConfigSource};
-///
-/// let options = EnvConfigOptions::builder()
-///     .prefix("APP_")
-///     .strip_prefix()
-///     .double_underscores_to_dots()
-///     .lowercase_keys()
-///     .build();
-/// let source = EnvConfigSource::from_options(options);
-/// # let _ = source;
-/// ```
-#[must_use = "use the returned value"]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EnvConfigOptions {
-    /// Optional prefix used to select environment variables.
-    prefix: Option<String>,
-    /// Whether the configured prefix is removed from loaded keys.
-    strip_prefix: bool,
-    /// Whether double underscores are converted to dots.
-    double_underscores_to_dots: bool,
-    /// Whether loaded keys are lowercased.
-    lowercase_keys: bool,
-}
-
-impl EnvConfigOptions {
-    /// Creates a builder initialized with no prefix filter or transformation.
-    #[inline]
-    pub const fn builder() -> EnvConfigOptionsBuilder {
-        EnvConfigOptionsBuilder::new()
-    }
-}
-
-/// Builder for [`EnvConfigOptions`].
-#[must_use = "use the returned value"]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EnvConfigOptionsBuilder {
-    /// Optional environment-variable prefix filter.
-    prefix: Option<String>,
-    /// Whether to remove the prefix from loaded keys.
-    strip_prefix: bool,
-    /// Whether to map double underscores to dots.
-    double_underscores_to_dots: bool,
-    /// Whether to lowercase loaded keys.
-    lowercase_keys: bool,
-}
-
-impl EnvConfigOptionsBuilder {
-    /// Creates a builder with no prefix filter or transformation.
-    #[inline]
-    pub const fn new() -> Self {
-        Self {
-            prefix: None,
-            strip_prefix: false,
-            double_underscores_to_dots: false,
-            lowercase_keys: false,
-        }
-    }
-
-    /// Restricts loading to variables whose names start with `prefix`.
-    #[inline]
-    pub fn prefix(mut self, prefix: &str) -> Self {
-        self.prefix = Some(prefix.to_string());
-        self
-    }
-
-    /// Removes the configured prefix from loaded keys.
-    #[inline]
-    pub const fn strip_prefix(mut self) -> Self {
-        self.strip_prefix = true;
-        self
-    }
-
-    /// Converts double underscores in loaded keys to dots.
-    #[inline]
-    pub const fn double_underscores_to_dots(mut self) -> Self {
-        self.double_underscores_to_dots = true;
-        self
-    }
-
-    /// Lowercases loaded keys.
-    #[inline]
-    pub const fn lowercase_keys(mut self) -> Self {
-        self.lowercase_keys = true;
-        self
-    }
-
-    /// Builds the configured environment options.
-    #[inline]
-    pub fn build(self) -> EnvConfigOptions {
-        EnvConfigOptions {
-            prefix: self.prefix,
-            strip_prefix: self.strip_prefix,
-            double_underscores_to_dots: self.double_underscores_to_dots,
-            lowercase_keys: self.lowercase_keys,
-        }
-    }
-}
-
-impl Default for EnvConfigOptionsBuilder {
-    /// Creates environment options with no prefix filter or key transformation.
-    #[inline]
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Default for EnvConfigOptions {
-    fn default() -> Self {
-        Self::builder().build()
-    }
-}
 
 /// Configuration source that loads from system environment variables
 ///
@@ -175,9 +60,9 @@ impl Default for EnvConfigOptions {
 #[derive(Debug, Clone)]
 pub struct EnvConfigSource {
     /// Key selection and normalization options.
-    options: EnvConfigOptions,
+    pub(super) options: EnvConfigOptions,
     /// Resource limits for one environment scan.
-    limits: SourceLimits,
+    pub(super) limits: SourceLimits,
 }
 
 impl EnvConfigSource {
@@ -390,51 +275,6 @@ impl EnvConfigSource {
                 ),
             )
         })
-    }
-}
-
-/// Builder for [`EnvConfigSource`].
-#[must_use = "use the returned value"]
-pub struct EnvConfigSourceBuilder {
-    /// Key selection and normalization options.
-    options: EnvConfigOptions,
-    /// Resource limits for one environment scan.
-    limits: SourceLimits,
-}
-
-impl EnvConfigSourceBuilder {
-    /// Creates a builder with default options and limits.
-    pub fn new() -> Self {
-        Self {
-            options: EnvConfigOptions::default(),
-            limits: SourceLimits::default(),
-        }
-    }
-
-    /// Sets environment key transformation options.
-    pub fn options(mut self, options: EnvConfigOptions) -> Self {
-        self.options = options;
-        self
-    }
-
-    /// Sets source resource limits.
-    pub fn limits(mut self, limits: SourceLimits) -> Self {
-        self.limits = limits;
-        self
-    }
-
-    /// Builds the configured environment source.
-    pub fn build(self) -> EnvConfigSource {
-        EnvConfigSource {
-            options: self.options,
-            limits: self.limits,
-        }
-    }
-}
-
-impl Default for EnvConfigSourceBuilder {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
