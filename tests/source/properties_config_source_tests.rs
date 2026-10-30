@@ -130,6 +130,45 @@ mod test_properties_config_source {
     }
 
     #[test]
+    fn test_continuation_preserves_empty_physical_lines() {
+        for first_end in ["\n", "\r", "\r\n"] {
+            for blank_end in ["\n", "\r", "\r\n"] {
+                // Adjacent CR and LF form one CRLF terminator.
+                if first_end == "\r" && blank_end == "\n" {
+                    continue;
+                }
+                let input = format!("a=one\\{first_end}{blank_end}b=two");
+                let pairs = PropertiesConfigSource::parse_content(&input).unwrap();
+                assert_eq!(
+                    pairs,
+                    vec![("a".to_owned(), "one".to_owned()), ("b".to_owned(), "two".to_owned())],
+                    "input={input:?}"
+                );
+                let config = PropertiesConfigSource::from_content(input).load().unwrap();
+                assert_eq!(config.get::<String>("a").unwrap(), "one");
+                assert_eq!(config.get::<String>("b").unwrap(), "two");
+            }
+        }
+
+        for input in ["a=one\\\r\n\r\nb=two", "a=one\\\r\n\nb=two"] {
+            let pairs = PropertiesConfigSource::parse_content(input).unwrap();
+            assert_eq!(
+                pairs,
+                vec![("a".to_owned(), "one".to_owned()), ("b".to_owned(), "two".to_owned())]
+            );
+        }
+    }
+
+    #[test]
+    fn test_continuation_accumulates_escaped_backslashes() {
+        let count = 512;
+        let physical_line = format!("{}\n", "\\".repeat(3));
+        let input = format!("key={}end", physical_line.repeat(count));
+        let pairs = PropertiesConfigSource::parse_content(&input).unwrap();
+        assert_eq!(pairs, vec![("key".to_owned(), format!("{}end", "\\".repeat(count)))]);
+    }
+
+    #[test]
     fn test_parse_unicode_escape() {
         let content = "greeting=\\u4e2d\\u6587";
         let pairs = PropertiesConfigSource::parse_content(content).unwrap();

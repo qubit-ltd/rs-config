@@ -40,6 +40,7 @@
 //! ```
 
 use std::iter::Peekable;
+use std::iter::from_fn;
 use std::path::Path;
 use std::str::Chars;
 
@@ -133,10 +134,7 @@ impl PropertiesConfigSource {
         session: &mut SourceLoadSession<'_>,
     ) -> ConfigResult<Vec<(String, String)>> {
         let mut result = Vec::new();
-        let mut lines = content
-            .split_inclusive('\n')
-            .flat_map(|part| part.strip_suffix('\n').unwrap_or(part).split_terminator('\r'))
-            .peekable();
+        let mut lines = properties_natural_lines(content);
 
         while let Some(line) = lines.next() {
             let trimmed = line.trim_start_matches(is_properties_whitespace);
@@ -148,13 +146,15 @@ impl PropertiesConfigSource {
 
             // Handle line continuation
             let mut full_line = trimmed.to_string();
-            while has_line_continuation(&full_line) {
+            let mut continued = has_line_continuation(trimmed);
+            while continued {
                 full_line.pop(); // remove trailing backslash
-                if let Some(next) = lines.next() {
-                    full_line.push_str(next.trim_start_matches(is_properties_whitespace));
-                } else {
+                let Some(next) = lines.next() else {
                     break;
-                }
+                };
+                let next = next.trim_start_matches(is_properties_whitespace);
+                continued = has_line_continuation(next);
+                full_line.push_str(next);
             }
 
             // Parse key/value pairs using Java properties separators.
@@ -172,6 +172,25 @@ impl PropertiesConfigSource {
 
         Ok(result)
     }
+}
+
+/// Borrows physical lines while preserving empty lines and treating CRLF as
+/// one terminator. Empty input and a final terminator add no synthetic line.
+fn properties_natural_lines(mut remaining: &str) -> impl Iterator<Item = &str> {
+    from_fn(move || {
+        if remaining.is_empty() {
+            return None;
+        }
+        let end = remaining.find(['\r', '\n']).unwrap_or(remaining.len());
+        let line = &remaining[..end];
+        let suffix = &remaining[end..];
+        remaining = suffix
+            .strip_prefix("\r\n")
+            .or_else(|| suffix.strip_prefix('\r'))
+            .or_else(|| suffix.strip_prefix('\n'))
+            .unwrap_or(suffix);
+        Some(line)
+    })
 }
 
 /// Builder for [`PropertiesConfigSource`].

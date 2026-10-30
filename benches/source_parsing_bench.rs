@@ -105,5 +105,19 @@ fn benchmark_source_parsing(criterion: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, benchmark_source_parsing);
+fn benchmark_continuation_backslashes(criterion: &mut Criterion) {
+    let mut group = criterion.benchmark_group("properties_continuation_backslashes");
+    for count in [256_usize, 1_024, 4_096] {
+        let physical_line = format!("{}\n", "\\".repeat(3));
+        let input = format!("key={}end", physical_line.repeat(count));
+        let expected = format!("{}end", "\\".repeat(count));
+        assert_eq!(PropertiesConfigSource::parse_content(&input).unwrap()[0].1, expected);
+        group.bench_with_input(BenchmarkId::from_parameter(count), &input, |b, input| {
+            b.iter(|| PropertiesConfigSource::parse_content(black_box(input)).unwrap());
+        });
+    }
+    group.finish();
+}
+
+criterion_group!(benches, benchmark_source_parsing, benchmark_continuation_backslashes);
 criterion_main!(benches);
