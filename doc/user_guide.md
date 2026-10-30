@@ -538,6 +538,12 @@ current reference chain; the output-byte limit applies to each expanded value.
 Reference values use the active `ReadPolicy` and its conversion limits. Each
 reference conversion is an independent conversion operation; expansion limits
 remain cumulative for the logical read.
+Interpolated string collections are expanded and converted in source order
+with one shared conversion session. The first substitution or conversion error
+is returned with its original item index, and only one expanded item is held
+while conversion proceeds. Collection elements remain individual values;
+scalar text continues to use the configured list-splitting policy. Existing
+calls and valid inputs require no migration.
 
 ### Custom Target Types
 

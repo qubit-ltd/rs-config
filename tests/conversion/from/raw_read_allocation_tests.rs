@@ -133,6 +133,42 @@ fn test_raw_scalar_conversion_does_not_clone_source_text() {
 }
 
 #[test]
+fn test_interpolated_collection_allocation_is_bounded_before_item_limit() {
+    let _guard = ALLOCATION_TEST_LOCK
+        .lock()
+        .expect("the allocation test lock should not be poisoned");
+
+    fn allocated_bytes_for_source_length(source_length: usize) -> usize {
+        let operation = qubit_datatype::ConversionOperationLimits::builder()
+            .max_items(1)
+            .max_output_bytes(65_536)
+            .build();
+        let limits = qubit_datatype::ConversionLimits::builder()
+            .operation_limits(operation)
+            .build();
+        let policy = qubit_config::ReadPolicy::builder().conversion_limits(limits).build();
+        let mut config = Config::builder().default_read_policy(policy).build();
+        config.set("payload", "x".repeat(65_536)).unwrap();
+        config.set("items", vec!["${payload}"; source_length]).unwrap();
+        let _: Result<Vec<String>, _> = config.get_interpolated("items");
+
+        reset_test_thread_allocations();
+        let error = config.get_interpolated::<Vec<String>>("items").unwrap_err();
+        let allocated = test_thread_allocation_bytes();
+        assert_eq!(error.source_index(), Some(1));
+        allocated
+    }
+
+    for source_length in [100, 1_000] {
+        let allocated = allocated_bytes_for_source_length(source_length);
+        assert!(
+            allocated < 8 * 1024 * 1024,
+            "source length {source_length} allocated {allocated} bytes"
+        );
+    }
+}
+
+#[test]
 fn test_candidate_success_allocations_do_not_grow_with_unused_names() {
     let _guard = ALLOCATION_TEST_LOCK
         .lock()

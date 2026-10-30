@@ -160,6 +160,16 @@ pub enum ConfigError {
         message: String,
     },
 
+    /// A substitution error tied to an element of a configuration collection.
+    #[error("{source}")]
+    IndexedSubstitutionError {
+        /// Zero-based index in the original source collection.
+        source_index: usize,
+        /// Original substitution error, whose category and path are preserved.
+        #[source]
+        source: Box<ConfigError>,
+    },
+
     /// Variable substitution depth exceeded.
     #[error("Variable substitution at '{path}' exceeded maximum depth: {max_depth}")]
     SubstitutionDepthExceeded {
@@ -322,6 +332,7 @@ impl ConfigError {
             Self::ConversionError { .. } => ConfigErrorKind::Conversion,
             Self::ValueError { .. } => ConfigErrorKind::Value,
             Self::SubstitutionError { .. } => ConfigErrorKind::Substitution,
+            Self::IndexedSubstitutionError { source, .. } => source.kind(),
             Self::SubstitutionDepthExceeded { .. } => ConfigErrorKind::SubstitutionDepthExceeded,
             Self::SubstitutionExpansionLimitExceeded { .. } => ConfigErrorKind::SubstitutionExpansionLimitExceeded,
             Self::SubstitutionOutputTooLarge { .. } => ConfigErrorKind::SubstitutionOutputTooLarge,
@@ -366,6 +377,7 @@ impl ConfigError {
             | Self::SubstitutionExpansionLimitExceeded { path, .. }
             | Self::SubstitutionOutputTooLarge { path, .. }
             | Self::SubstitutionCycle { path, .. } => Some(path),
+            Self::IndexedSubstitutionError { source, .. } => source.path(),
             Self::SourceParseError { path: Some(path), .. } => Some(path),
             Self::UnknownProperties { paths } => match paths.as_slice() {
                 [path] => Some(path),
@@ -518,12 +530,14 @@ impl ConfigError {
     /// # Returns
     ///
     /// The original zero-based source index for collection conversion errors,
-    /// otherwise `None`.
+    /// indexed substitution errors, source parse errors, and indexed value
+    /// errors when available; otherwise `None`.
     #[inline(always)]
     #[must_use = "use the returned value"]
     pub const fn source_index(&self) -> Option<usize> {
         match self {
             Self::ConversionError { source_index, .. } | Self::SourceParseError { source_index, .. } => *source_index,
+            Self::IndexedSubstitutionError { source_index, .. } => Some(*source_index),
             Self::ValueError { source, .. } => match source {
                 ValueError::Missing(missing) => missing.source_index(),
                 ValueError::JsonProjectionLimit { source_index, .. } => *source_index,

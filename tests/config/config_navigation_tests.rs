@@ -682,11 +682,15 @@ mod test_get_optional_string {
                 vec!["ok", "${qubit_cfg_list_bad_var_that_must_not_exist_9f8e7d6c5b4a}"],
             )
             .unwrap();
-        let result = config.get_optional_interpolated::<Vec<String>>("items");
+        let error = config.get_optional_interpolated::<Vec<String>>("items").unwrap_err();
+        assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Substitution);
+        assert_eq!(error.path(), Some("items"));
+        assert_eq!(error.source_index(), Some(1));
         assert!(matches!(
-            result,
-            Err(ConfigError::SubstitutionError { path, .. })
-                if path == "items"
+            error,
+            ConfigError::IndexedSubstitutionError { source_index: 1, source }
+                if matches!(source.as_ref(), ConfigError::SubstitutionError { path, .. }
+                    if path == "items")
         ));
     }
 
@@ -696,13 +700,17 @@ mod test_get_optional_string {
         crate::set_max_interpolation_depth(&mut config, 0);
         config.set("a", "x").unwrap();
         config.set("items", vec!["${a}"]).unwrap();
-        let result = config.get_optional_interpolated::<Vec<String>>("items");
+        let error = config.get_optional_interpolated::<Vec<String>>("items").unwrap_err();
+        assert_eq!(error.kind(), qubit_config::ConfigErrorKind::SubstitutionDepthExceeded);
+        assert_eq!(error.path(), Some("items"));
+        assert_eq!(error.source_index(), Some(0));
         assert!(matches!(
-            result,
-            Err(ConfigError::SubstitutionDepthExceeded {
-                path,
-                max_depth: 0,
-            }) if path == "items"
+            error,
+            ConfigError::IndexedSubstitutionError { source_index: 0, source }
+                if matches!(source.as_ref(), ConfigError::SubstitutionDepthExceeded {
+                    path,
+                    max_depth: 0,
+                } if path == "items")
         ));
     }
 }

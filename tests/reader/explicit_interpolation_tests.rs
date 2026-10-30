@@ -17,6 +17,7 @@ use qubit_config::UnknownFieldPolicy;
 use qubit_config::options::InterpolationSources;
 use qubit_config::options::ReadPolicy;
 use qubit_datatype::BlankStringPolicy;
+use qubit_datatype::CollectionConversionPolicy;
 use qubit_value::ValueError;
 use serde::Deserialize;
 
@@ -97,9 +98,125 @@ fn test_interpolation_expansions_accumulate_across_list_elements() {
     config.set("x", "ok").unwrap();
     config.set("items", ["${x}", "${x}"]).unwrap();
     let error = config.get_interpolated::<Vec<String>>("items").unwrap_err();
-    assert!(matches!(error,
-        ConfigError::SubstitutionExpansionLimitExceeded { path, max_expansions: 1 }
-            if path == "items"));
+    assert_eq!(
+        error.kind(),
+        qubit_config::ConfigErrorKind::SubstitutionExpansionLimitExceeded
+    );
+    assert_eq!(error.path(), Some("items"));
+    assert_eq!(error.source_index(), Some(1));
+    assert!(matches!(
+        error,
+        ConfigError::IndexedSubstitutionError { source_index: 1, source }
+            if matches!(source.as_ref(), ConfigError::SubstitutionExpansionLimitExceeded {
+                path,
+                max_expansions: 1,
+            } if path == "items")
+    ));
+}
+
+#[test]
+fn test_interpolated_collection_reports_earlier_conversion_error_first() {
+    let mut config = Config::new();
+    config.set("items", vec!["bad", "${missing}"]).unwrap();
+
+    let error = config.get_interpolated::<Vec<u16>>("items").unwrap_err();
+
+    assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Conversion);
+    assert_eq!(error.path(), Some("items"));
+    assert_eq!(error.source_index(), Some(0));
+}
+
+#[test]
+fn test_interpolated_collection_substitution_error_keeps_original_index() {
+    let mut config = Config::new();
+    config.set("items", vec!["valid", "${missing}"]).unwrap();
+
+    let error = config.get_interpolated::<Vec<String>>("items").unwrap_err();
+
+    assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Substitution);
+    assert_eq!(error.path(), Some("items"));
+    assert_eq!(error.source_index(), Some(1));
+}
+
+#[test]
+fn test_interpolated_string_collection_preserves_collection_and_split_semantics() {
+    let policy = ReadPolicy::builder()
+        .collection_policy(CollectionConversionPolicy::builder().split_scalar_strings(true).build())
+        .build();
+    let mut config = Config::builder().default_read_policy(policy).build();
+    config.set("empty", Vec::<String>::new()).unwrap();
+    config.set("items", vec!["1,2"]).unwrap();
+    config.set("scalar", "1,2").unwrap();
+
+    assert!(config.get_interpolated::<Vec<String>>("empty").unwrap().is_empty());
+    let collection_error = config.get_interpolated::<Vec<u16>>("items").unwrap_err();
+    assert_eq!(collection_error.source_index(), Some(0));
+    assert_eq!(config.get_interpolated::<Vec<String>>("scalar").unwrap(), ["1", "2"]);
+}
+
+#[test]
+fn test_interpolated_collection_conversion_budgets_accumulate_across_items() {
+    fn read_with_limits(max_input_bytes: u64, max_output_bytes: u64) -> Result<Vec<String>, ConfigError> {
+        let limits = qubit_datatype::ConversionLimits::builder()
+            .operation_limits(
+                qubit_datatype::ConversionOperationLimits::builder()
+                    .max_items(2)
+                    .max_input_bytes(max_input_bytes)
+                    .max_output_bytes(max_output_bytes)
+                    .build(),
+            )
+            .build();
+        let policy = ReadPolicy::builder().conversion_limits(limits).build();
+        let mut config = Config::builder().default_read_policy(policy).build();
+        config.set("items", vec!["1", "2"]).unwrap();
+        config.get_interpolated("items")
+    }
+
+    assert_eq!(read_with_limits(2, 2).unwrap(), ["1", "2"]);
+    for (input_limit, output_limit) in [(1, 2), (2, 1)] {
+        let error = read_with_limits(input_limit, output_limit).unwrap_err();
+        assert_eq!(error.source_index(), Some(1));
+    }
+
+    let operation = qubit_datatype::ConversionOperationLimits::builder()
+        .max_items(0)
+        .build();
+    let policy = ReadPolicy::builder()
+        .conversion_limits(
+            qubit_datatype::ConversionLimits::builder()
+                .operation_limits(operation)
+                .build(),
+        )
+        .build();
+    let mut config = Config::builder().default_read_policy(policy).build();
+    config.set("items", vec!["1"]).unwrap();
+    let error = config.get_interpolated::<Vec<String>>("items").unwrap_err();
+    assert_eq!(error.source_index(), Some(0));
+}
+
+#[test]
+fn test_interpolated_collection_policy_missing_item_keeps_index_and_path() {
+    let policy = ReadPolicy::builder()
+        .blank_string_policy(BlankStringPolicy::TreatAsMissing)
+        .build();
+    let mut config = Config::builder().default_read_policy(policy).build();
+    config.set("service.items", vec!["1", ""]).unwrap();
+    let service = config.section("service").unwrap();
+
+    let error = service.get_interpolated::<Vec<u16>>("items").unwrap_err();
+    assert_eq!(error.path(), Some("service.items"));
+    assert_eq!(error.source_index(), Some(1));
+
+    for error in [
+        service.get_optional_interpolated::<Vec<u16>>("items").unwrap_err(),
+        service.get_interpolated_or::<Vec<u16>>("items", vec![9]).unwrap_err(),
+        service
+            .get_any_interpolated::<Vec<u16>>(["items", "fallback"])
+            .unwrap_err(),
+    ] {
+        assert_eq!(error.path(), Some("service.items"));
+        assert_eq!(error.source_index(), Some(1));
+    }
 }
 
 #[test]

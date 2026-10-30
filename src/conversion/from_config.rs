@@ -24,12 +24,15 @@ use chrono::NaiveTime;
 use chrono::Utc;
 #[cfg(feature = "num-bigint")]
 use num_bigint::BigInt;
+use qubit_datatype::ConversionSession;
 use qubit_datatype::DataConversionTarget;
 use qubit_datatype::DataConverter;
+use qubit_datatype::DataListConversionError;
 use qubit_value::MultiValues;
 use qubit_value::MultiValuesRef;
 use qubit_value::Value as QubitValue;
 use qubit_value::ValueContainer;
+use qubit_value::ValueError;
 use qubit_value::ValueRef;
 use serde_json::Value as JsonValue;
 #[cfg(feature = "url")]
@@ -37,6 +40,7 @@ use url::Url;
 
 use super::config_parse_context::ConfigParseContext;
 use super::helpers::first_scalar_string;
+use crate::ConfigError;
 use crate::ConfigResult;
 use crate::Property;
 use crate::utils;
@@ -144,7 +148,7 @@ where
     }
 }
 
-/// Builds a conversion source with string leaves after variable substitution.
+/// Builds a conversion source with a scalar string substituted.
 ///
 /// # Parameters
 ///
@@ -153,12 +157,12 @@ where
 ///
 /// # Returns
 ///
-/// A borrowed or owned [`ValueContainer`] with string entries substituted and
-/// its original shape preserved; non-string entries remain borrowed.
+/// A borrowed or owned [`ValueContainer`] with its original shape preserved;
+/// non-string scalar values remain borrowed.
 ///
 /// # Errors
 ///
-/// Returns a substitution error if any string entry cannot be resolved.
+/// Returns a substitution error if the scalar string cannot be resolved.
 fn substituted_values<'a>(
     property: &'a Property,
     ctx: &ConfigParseContext<'_>,
@@ -175,17 +179,50 @@ fn substituted_values<'a>(
                 .map(Cow::Owned),
             _ => Ok(Cow::Borrowed(property.value())),
         },
-        ValueContainer::Collection(values) => match values.view() {
-            MultiValuesRef::String(values) => values
-                .iter()
-                .map(|value| ctx.substitute_string(value))
-                .collect::<ConfigResult<Vec<_>>>()
-                .map(MultiValues::String)
-                .map(ValueContainer::Collection)
-                .map(Cow::Owned),
-            _ => Ok(Cow::Borrowed(property.value())),
-        },
+        ValueContainer::Collection(_) => Ok(Cow::Borrowed(property.value())),
     }
+}
+
+/// Expands and converts interpolated string collection elements in source
+/// order.
+///
+/// Each expanded string is converted before the next element is substituted,
+/// while one conversion session accumulates the collection's conversion limits.
+///
+/// # Parameters
+///
+/// * `values` - Original string collection elements.
+/// * `ctx` - Parsing context that supplies substitution and conversion options.
+///
+/// # Returns
+///
+/// Converted collection values, or the first substitution or conversion error.
+///
+/// # Errors
+///
+/// Returns a substitution error or a conversion error containing the original
+/// collection index and configuration key.
+fn convert_interpolated_string_collection<T>(values: &[String], ctx: &ConfigParseContext<'_>) -> ConfigResult<Vec<T>>
+where
+    T: DataConversionTarget,
+{
+    let mut session = ConversionSession::new(ctx.options().conversion_policy(), ctx.options().conversion_limits());
+    let mut converted = Vec::new();
+    for (index, raw) in values.iter().enumerate() {
+        let expanded = ctx
+            .substitute_string(raw)
+            .map_err(|source| ConfigError::IndexedSubstitutionError {
+                source_index: index,
+                source: Box::new(source),
+            })?;
+        let value = DataConverter::from(expanded.as_str())
+            .to_in::<T>(&mut session)
+            .map_err(|error| {
+                utils::map_value_error(ctx.key(), ValueError::from(DataListConversionError::new(index, error)))
+            })?;
+        converted.push(value);
+    }
+    Ok(converted)
 }
 
 /// Implements the `FromConfig` trait for a list of types.
@@ -271,6 +308,13 @@ where
     ///
     /// Parsed value, or a [`crate::ConfigError`] with key context.
     fn from_config(property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<Self> {
+        if ctx.interpolates()
+            && let ValueContainer::Collection(values) = property.value()
+            && let MultiValuesRef::String(values) = values.view()
+        {
+            return convert_interpolated_string_collection(values, ctx);
+        }
+
         substituted_values(property, ctx)?
             .to_list_with::<T>(ctx.options().conversion_policy(), ctx.options().conversion_limits())
             .map_err(|error| utils::map_value_error(ctx.key(), error))

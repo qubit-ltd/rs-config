@@ -118,6 +118,12 @@ value. These limits are not reset for each candidate or field.
 Each referenced value is converted to text with the active `ReadPolicy` and its
 conversion limits. Each reference conversion is an independent conversion
 operation; interpolation expansion counters remain shared by the logical read.
+Interpolated string collections are expanded and converted in source order with
+one shared conversion session. This returns the first substitution or
+conversion error with its original source index while keeping at most one
+expanded item in flight. Collection values are not split; scalar list text
+continues to follow the configured splitting policy. Existing valid inputs and
+public calls do not require migration.
 Saved overlays are admitted against cumulative aggregate budgets, while one
 parsed text input still has its own single-value limit. With cumulative
 admission, a budget error may take precedence over a later parse error.
