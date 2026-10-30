@@ -42,6 +42,15 @@ fn test_env_file_comment_does_not_change_substitution_state() {
                 format!("VALUE={placeholder} # don't \" expand {placeholder}\n"),
                 placeholder.clone(),
             ),
+            (
+                format!("VALUE=hello\\ #{placeholder}\n"),
+                format!("hello #{placeholder}"),
+            ),
+            (
+                format!("{SENTINEL}=source-value\nVALUE=hello\\ #{placeholder}\n"),
+                format!("hello #{placeholder}"),
+            ),
+            (format!("VALUE=hello #{placeholder}\n"), "hello".to_owned()),
             (format!("VALUE=abc#def{placeholder}\n"), format!("abc#def{placeholder}")),
             (format!("VALUE={short_placeholder}\n"), short_placeholder.clone()),
             (format!("VALUE=\"left#{placeholder}\"\n"), format!("left#{placeholder}")),

@@ -135,7 +135,9 @@ fn escape_dotenv_substitutions(content: &str) -> String {
             escaped_content.push(character);
             escaped = false;
             line_has_non_whitespace |= !character.is_whitespace();
-            previous_was_whitespace = character.is_whitespace();
+            // An escaped whitespace character belongs to the value, not a comment
+            // separator.
+            previous_was_whitespace = false;
             continue;
         }
 

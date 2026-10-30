@@ -27,13 +27,22 @@ fuzz_target!(|data: &[u8]| {
     let _ = source.load();
 
     if std::env::var_os(COMMENT_BYPASS_SENTINEL).is_none() {
-        let guarded = format!("# don't expand ${{{COMMENT_BYPASS_SENTINEL}}}\nVALUE=${{{COMMENT_BYPASS_SENTINEL}}}\n");
-        let result = EnvFileConfigSource::from_content(guarded)
-            .load()
-            .expect("fixed dotenv comment sample should load");
-        assert_eq!(
-            result.get::<String>("VALUE").unwrap(),
-            format!("${{{COMMENT_BYPASS_SENTINEL}}}")
-        );
+        let placeholder = format!("${{{COMMENT_BYPASS_SENTINEL}}}");
+        let cases = [
+            (
+                format!("# don't expand {placeholder}\nVALUE={placeholder}\n"),
+                placeholder.clone(),
+            ),
+            (
+                format!("VALUE=hello\\ #{placeholder}\n"),
+                format!("hello #{placeholder}"),
+            ),
+        ];
+        for (input, expected) in cases {
+            let result = EnvFileConfigSource::from_content(input)
+                .load()
+                .expect("fixed dotenv isolation sample should load");
+            assert_eq!(result.get::<String>("VALUE").unwrap(), expected);
+        }
     }
 });
