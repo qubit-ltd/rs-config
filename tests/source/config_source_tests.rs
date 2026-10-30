@@ -11,8 +11,8 @@ use qubit_config::Config;
 use qubit_config::ConfigError;
 use qubit_config::ConfigResult;
 use qubit_config::options::ReadPolicy;
-use qubit_config::source::ConfigSource;
 use qubit_config::source::CompositeConfigSource;
+use qubit_config::source::ConfigSource;
 use qubit_config::source::SourceLimits;
 use qubit_config::source::SourceLoadContext;
 use qubit_datatype::DataType;
@@ -170,7 +170,9 @@ fn test_config_source_load_populates_config() {
 
 #[test]
 fn test_managed_source_entry_points_use_context_executor() {
-    let source = OverrideLoadSource { limits: SourceLimits::default() };
+    let source = OverrideLoadSource {
+        limits: SourceLimits::default(),
+    };
     assert_eq!(source.load().unwrap().get::<u16>("value").unwrap(), 999);
     assert_eq!(Config::from_source(&source).unwrap().get::<u16>("value").unwrap(), 8080);
     let mut target = Config::new();
@@ -203,11 +205,15 @@ fn test_managed_source_entry_points_enforce_local_budget() {
 #[test]
 fn test_managed_source_entry_points_propagate_errors_transactionally() {
     let source = FailingLoadSource;
-    assert!(matches!(Config::from_source(&source), Err(ConfigError::PropertyNotFound(key)) if key == "expected-source-failure"));
+    assert!(
+        matches!(Config::from_source(&source), Err(ConfigError::PropertyNotFound(key)) if key == "expected-source-failure")
+    );
     let mut target = Config::new();
     target.set("retained", true).unwrap();
     let before = target.clone();
-    assert!(matches!(target.merge_properties_from_source(&source), Err(ConfigError::PropertyNotFound(key)) if key == "expected-source-failure"));
+    assert!(
+        matches!(target.merge_properties_from_source(&source), Err(ConfigError::PropertyNotFound(key)) if key == "expected-source-failure")
+    );
     assert_eq!(target, before);
     let composite = CompositeConfigSource::builder().add_source(source).build();
     assert!(matches!(composite.load(), Err(ConfigError::PropertyNotFound(key)) if key == "expected-source-failure"));

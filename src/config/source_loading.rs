@@ -12,7 +12,6 @@ use std::path::Path;
 use super::Config;
 use crate::ConfigResult;
 use crate::source::ConfigSource;
-use crate::source::load_source;
 use crate::source::EnvConfigOptions;
 use crate::source::EnvConfigSource;
 #[cfg(feature = "env-file")]
@@ -22,6 +21,7 @@ use crate::source::PropertiesConfigSource;
 use crate::source::TomlConfigSource;
 #[cfg(feature = "yaml")]
 use crate::source::YamlConfigSource;
+use crate::source::load_source;
 
 impl Config {
     // ========================================================================
@@ -46,8 +46,9 @@ impl Config {
     ///
     /// Returns any [`crate::ConfigError`] produced by the source while loading
     /// or by the underlying config mutation methods. Loading uses the standard
-    /// context executor and calls `load_into`; an override of `ConfigSource::load`
-    /// is not invoked. Move custom loading behavior into `load_into`.
+    /// context executor and calls `load_into`; an override of
+    /// `ConfigSource::load` is not invoked. Move custom loading behavior
+    /// into `load_into`.
     #[inline]
     pub fn from_source(source: &dyn ConfigSource) -> ConfigResult<Self> {
         load_source(source)
