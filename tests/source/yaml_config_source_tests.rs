@@ -91,6 +91,51 @@ fn yaml_builder_default_loads_configured_content() {
     assert_eq!(source.load().unwrap().get::<String>("covered").unwrap(), "value");
 }
 
+#[test]
+fn test_yaml_null_sequences_report_unsupported_elements() {
+    for content in ["values: [null]", "values: [null, null]", "values: [~, ~]"] {
+        let source = YamlConfigSource::from_content(content);
+        let mut target = Config::new();
+        target.set("existing", "kept").unwrap();
+        let before = target.clone();
+        let error = target.merge_properties_from_source(&source).unwrap_err();
+        assert!(matches!(&error, ConfigError::SourceParseError { .. }));
+        assert_eq!(error.source_id(), Some("YAML:<memory>"));
+        assert_eq!(error.path(), Some("values"));
+        assert_eq!(error.source_index(), Some(0));
+        assert!(
+            error
+                .to_string()
+                .contains("null YAML sequence elements are unsupported")
+        );
+        assert!(!error.to_string().contains("heterogeneous"));
+        assert_eq!(target, before);
+    }
+}
+
+#[test]
+fn test_yaml_sequence_rejection_and_empty_string_boundaries() {
+    for (content, expected_index) in [("values: [null, 1]", 1), ("values: [1, null]", 1)] {
+        let source = YamlConfigSource::from_content(content);
+        let error = source.load().unwrap_err();
+        assert!(matches!(error, ConfigError::SourceParseError { .. }));
+        assert_eq!(error.source_id(), Some("YAML:<memory>"));
+        assert_eq!(error.path(), Some("values"));
+        assert_eq!(error.source_index(), Some(expected_index));
+        assert!(error.to_string().contains("heterogeneous"));
+    }
+
+    let empty = YamlConfigSource::from_content("values: []")
+        .load()
+        .expect("an empty sequence should remain a valid empty list");
+    assert!(empty.get_list::<String>("values").unwrap().is_empty());
+
+    let strings = YamlConfigSource::from_content("values: [\"null\", \"~\"]")
+        .load()
+        .expect("quoted null spellings should remain strings");
+    assert_eq!(strings.get_list::<String>("values").unwrap(), ["null", "~"]);
+}
+
 // ============================================================================
 // YamlConfigSource Tests
 // ============================================================================

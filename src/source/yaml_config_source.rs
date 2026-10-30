@@ -335,7 +335,8 @@ fn ensure_yaml_property(
 
 /// Flattens a YAML sequence into multi-value config entries.
 ///
-/// Homogeneous scalar sequences are stored with their native types. Empty
+/// Homogeneous scalar sequences are stored with their native types; null
+/// sequence elements are unsupported. Empty
 /// sequences are stored as explicit empty string lists because YAML carries no
 /// element type for them. Heterogeneous scalar sequences are rejected with
 /// source location context rather than being coerced to strings.
@@ -376,6 +377,15 @@ fn flatten_yaml_sequence(source_id: &str, prefix: &str, seq: &[YamlValue], confi
             Some(prefix.to_string()),
             Some(index),
             "nested YAML structures inside sequences are unsupported",
+        ));
+    }
+
+    if seq.iter().all(|value| matches!(value, YamlValue::Null)) {
+        return Err(ConfigError::source_parse_error_at(
+            source_id,
+            Some(prefix.to_string()),
+            Some(0),
+            "null YAML sequence elements are unsupported",
         ));
     }
 
