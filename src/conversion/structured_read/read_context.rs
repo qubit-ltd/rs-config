@@ -11,8 +11,9 @@
 //! structured read. Values yielded by the visitors therefore cannot outlive
 //! the input or its prepared projection.
 
-use super::prepared_read::PreparedConfigRead;
 use std::cell::RefCell;
+
+use super::prepared_read::PreparedConfigRead;
 
 #[derive(Clone, Copy)]
 pub(super) struct ReadContext<'tree> {

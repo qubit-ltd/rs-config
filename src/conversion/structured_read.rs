@@ -82,8 +82,7 @@ where
         true,
         &mut session,
     );
-    let value = T::deserialize(deserializer)
-        .map_err(|error| error.into_config_error(&prepared.root_path))?;
+    let value = T::deserialize(deserializer).map_err(|error| error.into_config_error(&prepared.root_path))?;
     let mut ignored = ignored.into_inner();
     if ignored.is_empty() {
         return Ok(value);

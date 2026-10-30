@@ -670,10 +670,7 @@ fn test_unknown_source_paths_use_sequence_indices_and_enum_variants() {
             "items": [{"port": 80, "extra": "REVIEW_SECRET"}],
             "mode": {"Named": {"port": 443, "extra": "REVIEW_SECRET"}}
         }),
-        &[
-            "app.settings.items[0].extra",
-            "app.settings.mode.Named.extra",
-        ],
+        &["app.settings.items[0].extra", "app.settings.mode.Named.extra"],
     );
 }
 
@@ -687,11 +684,7 @@ fn test_unknown_source_paths_preserve_real_punctuation_and_sort_final_paths() {
 
     assert_unknown_source_paths::<Payload>(
         serde_json::json!({"port": 80, ".extra": true, "?": true, "extra": true}),
-        &[
-            "app.settings..extra",
-            "app.settings.?",
-            "app.settings.extra",
-        ],
+        &["app.settings..extra", "app.settings.?", "app.settings.extra"],
     );
 }
 
@@ -743,10 +736,7 @@ fn test_unknown_source_paths_support_empty_root_and_deduplicate_final_paths() {
 
     let mut config = Config::new();
     config
-        .set(
-            "settings",
-            serde_json::json!({"a.b": true, "a": {"b": true}}),
-        )
+        .set("settings", serde_json::json!({"a.b": true, "a": {"b": true}}))
         .unwrap();
     let error = config
         .deserialize::<Outer>("settings")
@@ -767,10 +757,7 @@ fn test_unknown_source_paths_do_not_replace_conversion_errors() {
 
     let mut config = Config::new();
     config
-        .set(
-            "settings",
-            serde_json::json!({"port": "invalid", "extra": true}),
-        )
+        .set("settings", serde_json::json!({"port": "invalid", "extra": true}))
         .unwrap();
     let error = config
         .deserialize::<Payload>("settings")
