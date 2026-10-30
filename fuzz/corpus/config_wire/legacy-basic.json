@@ -1,0 +1,17 @@
+{
+  "description": "Frozen config",
+  "properties": {
+    "server.port": {
+      "name": "server.port",
+      "value": {"version": 1, "value": {"scalar": {"int32": 8080}}},
+      "description": "Port",
+      "is_final": true
+    },
+    "server.tags": {
+      "name": "server.tags",
+      "value": {"version": 1, "value": {"collection": {"string": ["blue", "绿"]}}},
+      "description": null,
+      "is_final": false
+    }
+  }
+}

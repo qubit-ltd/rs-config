@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "description": "Frozen rich config",
+  "properties": {
+    "rich.decimal": {
+      "name": "rich.decimal",
+      "value": {"version": 1, "value": {"scalar": {"bigdecimal": {"coefficient": "12345", "scale": 2}}}},
+      "description": null,
+      "is_final": false
+    },
+    "rich.instant": {
+      "name": "rich.instant",
+      "value": {"version": 1, "value": {"scalar": {"instant": "2026-01-02T03:04:05Z"}}},
+      "description": null,
+      "is_final": false
+    },
+    "rich.integer": {
+      "name": "rich.integer",
+      "value": {"version": 1, "value": {"scalar": {"biginteger": "18446744073709551616"}}},
+      "description": null,
+      "is_final": false
+    },
+    "rich.url": {
+      "name": "rich.url",
+      "value": {"version": 1, "value": {"scalar": {"url": "https://example.test/path"}}},
+      "description": null,
+      "is_final": false
+    }
+  }
+}
