@@ -47,6 +47,9 @@ metric that meets the normal rule does not count as an exception. The checker
 fails closed when a sidecar, version, required file entry, reason, evidence, or
 valid summary is missing. `checked_files` includes all executable production
 files; `exempt_files` reports files where at least one lower bound is active.
+At the exact normal threshold, lines and regions still need an override because
+their normal rules are strict (`>`); functions at exactly 95% meet their normal
+rule (`>=`) and do not count as an active exception.
 
 The current sidecar is based on a fresh report generated on 2026-10-30 with
 `cargo-llvm-cov 0.8.6`, Rust 1.94.0, and LLVM 21.1.8, using

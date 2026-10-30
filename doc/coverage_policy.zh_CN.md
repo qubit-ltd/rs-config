@@ -41,6 +41,8 @@ regions 必须高于 85%。sidecar 下限只应用于明确列出的指标，并
 指标不计为例外。sidecar、版本、必需文件条目、理由、证据或有效 summary 缺失时检查器失败，
 不会回退为整文件豁免。`checked_files` 包含所有可执行生产文件；`exempt_files` 表示至少有
 一个指标正在使用较低下限的文件数。
+在普通阈值的精确等号处，lines 和 regions 仍须使用 override，因为其普通规则是严格大于（`>`）；
+functions 正好为 95% 时已满足普通规则（`>=`），不计为活跃例外。
 
 当前 sidecar 来自 2026-10-30 生成的新报告，工具为 `cargo-llvm-cov 0.8.6`、Rust 1.94.0、
 LLVM 21.1.8，命令为 `CARGO_INCREMENTAL=1 ./.infra/bin/coverage.sh`。源码基线为 HEAD

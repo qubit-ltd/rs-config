@@ -202,10 +202,13 @@ def metric(summary: Any, name: str, source: str) -> tuple[float, int, int]:
     return percent, covered, count
 
 
+def meets_threshold(name: str, percent: float, threshold: float) -> bool:
+    return percent >= threshold if name == "functions" else percent > threshold
+
+
 def failing_metric(summary: Any, name: str, threshold: float, source: str) -> str | None:
     percent, covered, count = metric(summary, name, source)
-    passed = percent >= threshold if name == "functions" else percent > threshold
-    if passed:
+    if meets_threshold(name, percent, threshold):
         return None
     operator = ">=" if name == "functions" else ">"
     return f"{name}={percent:.2f}% ({covered}/{count}; requires {operator}{threshold:.2f}%)"
@@ -314,7 +317,7 @@ def check_coverage_files(
         for name in METRICS:
             percent, covered, count = metric(summary, name, source)
             minimum = overrides.get(source, {}).get(name)
-            if minimum is not None and percent < thresholds[name]:
+            if minimum is not None and not meets_threshold(name, percent, thresholds[name]):
                 used_overrides.add(source)
                 if percent < minimum:
                     failures.append(f"{name}={percent:.2f}% ({covered}/{count}; requires >={minimum:.2f}%)")

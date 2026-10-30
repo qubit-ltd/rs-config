@@ -182,6 +182,68 @@ class CoverageFileCheckerTests(unittest.TestCase):
         self.assertEqual(len(result.errors), 1)
         self.assertIn("lines=20.00%", result.errors[0])
 
+    def test_line_override_applies_at_normal_threshold(self) -> None:
+        paths = self.write_inputs([
+            ("src/checked.rs", summary(100, 100, 100)),
+            ("src/low.rs", summary(100, 90, 100)),
+        ], ["src/low.rs"], {"src/low.rs": self.override({"lines": 89.11})})
+        result = self.check(paths)
+        self.assertEqual(result.errors, ())
+        self.assertEqual(result.exempt_files, 1)
+
+    def test_override_boundaries_match_normal_thresholds(self) -> None:
+        cases = [
+            ("lines", 89.11, [
+                (89.10, False, 1), (89.11, True, 1), (89.99, True, 1),
+                (90.0, True, 1), (90.01, True, 0),
+            ]),
+            ("regions", 83.37, [
+                (83.36, False, 1), (83.37, True, 1), (84.99, True, 1),
+                (85.0, True, 1), (85.01, True, 0),
+            ]),
+            ("functions", 77.50, [
+                (77.49, False, 1), (77.50, True, 1), (94.99, True, 1),
+                (95.0, True, 0), (95.01, True, 0),
+            ]),
+        ]
+        metric_indexes = {"functions": 0, "lines": 1, "regions": 2}
+        for name, minimum, observations in cases:
+            for observed, should_pass, expected_exempt_files in observations:
+                with self.subTest(metric=name, observed=observed):
+                    values = [100.0, 100.0, 100.0]
+                    values[metric_indexes[name]] = observed
+                    paths = self.write_inputs([
+                        ("src/checked.rs", summary(100, 100, 100)),
+                        ("src/low.rs", summary(*values)),
+                    ], ["src/low.rs"], {
+                        "src/low.rs": self.override({name: minimum}),
+                    })
+                    result = self.check(paths)
+                    self.assertEqual(result.exempt_files, expected_exempt_files)
+                    if should_pass:
+                        self.assertEqual(result.errors, ())
+                    else:
+                        self.assertEqual(len(result.errors), 1)
+                        self.assertIn(f"{name}={observed:.2f}%", result.errors[0])
+
+    def test_strict_threshold_equalities_still_fail_without_matching_override(self) -> None:
+        for values, overrides, failed_metric in [
+            ((100, 90, 100), {}, "lines"),
+            ((100, 100, 85), {}, "regions"),
+            ((100, 90, 100), {"functions": 77.5}, "lines"),
+        ]:
+            with self.subTest(values=values, overrides=overrides):
+                paths = self.write_inputs([
+                    ("src/checked.rs", summary(100, 100, 100)),
+                    ("src/low.rs", summary(*values)),
+                ], ["src/low.rs"], {
+                    "src/low.rs": self.override(overrides),
+                })
+                result = self.check(paths)
+                self.assertEqual(result.exempt_files, 0)
+                self.assertEqual(len(result.errors), 1)
+                self.assertIn(f"{failed_metric}=", result.errors[0])
+
     def test_override_below_minimum_and_zero_coverage_fail(self) -> None:
         entry = self.override({"functions": 78.0})
         paths = self.write_inputs([
