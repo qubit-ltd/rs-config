@@ -35,9 +35,11 @@ default only when fallback is needed. Neither `ConfigName` nor
 
 ## Source Pipeline
 
-`ConfigSource::load` is the public execution boundary. It creates a fresh
-`SourceLoadContext`, calls `load_into`, and returns the context-owned independent
-`Config` layer only after loading succeeds. Custom sources write assignments
+Library-managed source entry points use the crate-owned executor. It creates a
+fresh `SourceLoadContext`, calls `load_into`, and returns the context-owned independent
+`Config` layer only after loading succeeds, bypassing any override of `load`.
+The default `ConfigSource::load` uses this executor; direct calls to an overridden
+`load` are the implementation's responsibility. Custom sources write assignments
 through `SourceLoadContext::set` or `set_null` and report input bytes, parser
 nodes, and child sources before consuming those resources. Work not reported by
 a custom source cannot be inferred from its final layer.
@@ -140,7 +142,7 @@ JSON-like object from descendants below the requested prefix. An exact property
 and descendants at the same prefix are a `KeyConflict`. The empty prefix selects
 all properties visible to the reader.
 
-`UnknownFieldPolicy::Reject` reports sorted, root-relative paths for fields exposed through Serde's ignored-field callback as `ConfigError::UnknownProperties`. This is not complete schema validation: flatten structs, untagged enums, and custom deserializers can buffer fields that `serde_ignored` cannot observe, while flatten maps can consume arbitrary keys. Closed ordinary structs can use `#[serde(deny_unknown_fields)]` (including each struct payload of an untagged enum); Serde returns a sanitized deserialization error, not necessarily `UnknownProperties`. Since the attribute cannot be combined with `flatten`, applications needing a closed schema should use a closed nested struct or validate keys against their schema before deserializing. `deserialize(prefix)` defaults to no interpolation and rejected observable unknown fields;
+`UnknownFieldPolicy::Reject` reports sorted, root-relative paths for fields exposed when the source deserializer receives an ignored-value request, as `ConfigError::UnknownProperties`. This is not complete schema validation: flatten structs, untagged enums, and custom deserializers can buffer fields without issuing such requests, while flatten maps can consume arbitrary keys. Closed ordinary structs can use `#[serde(deny_unknown_fields)]` (including each struct payload of an untagged enum); Serde returns a sanitized deserialization error, not necessarily `UnknownProperties`. Since the attribute cannot be combined with `flatten`, applications needing a closed schema should use a closed nested struct or validate keys against their schema before deserializing. `deserialize(prefix)` defaults to no interpolation and rejected observable unknown fields;
 `deserialize_with(prefix, ConfigDeserializeOptions)` allows `interpolate` and
 `unknown_fields: UnknownFieldPolicy::{Reject, Ignore}`. These are the only two
 structured-read entry points. Lookup,

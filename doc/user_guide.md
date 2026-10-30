@@ -244,10 +244,16 @@ Path-sensitive methods such as `section`, `contains`, `get_property`, `is_unset`
 
 ### Load and merge sources
 
-Every `ConfigSource::load` call creates an independent layer. Custom sources implement
+The default `ConfigSource::load` and every library-managed loading request create an
+independent layer. Custom sources implement
 `load_into(&mut SourceLoadContext)` and must use that context as their only output path.
 The default `ConfigSource::load` method executes the source through the standard budget
-and transactional layer executor. Call `context.set(...)` for assignments and report
+and transactional layer executor. Library-managed entry points such as
+`Config::from_source`, `merge_properties_from_source`, and composite loading always
+use that executor and call `load_into`, even when a source overrides `load`. Direct
+calls to an overridden `load` remain the implementation's responsibility. Move custom
+behavior needed by managed entry points into `load_into`. Call `context.set(...)` for
+assignments and report
 external input/parser work with the corresponding accounting methods before doing it.
 The framework cannot infer omitted external I/O or parser work from the finished layer.
 `set` and `set_null` already charge one node and one property assignment; call
@@ -327,6 +333,68 @@ recursing; valid empty tables and mappings remain supported. When environment
 normalization produces conflicts, diagnostics select the group with the
 smallest normalized key and then the two smallest original names, provided the
 input is valid and fits the source budget.
+The following canonical example loads a baseline, applies explicit deployment overrides,
+and checks an invalid override. It uses an isolated prefix in subprocesses for self-validation;
+production applications can choose a prefix that fits their environment:
+
+<!-- example: config_guide_sources -->
+```rust
+use std::process::Command;
+
+use qubit_config::Config;
+use qubit_config::ConfigErrorKind;
+use qubit_config::ConfigReader;
+use qubit_config::ConfigResult;
+use qubit_config::source::CompositeConfigSource;
+use qubit_config::source::EnvConfigSource;
+use qubit_config::source::PropertiesConfigSource;
+
+/// Loads a baseline and an explicit deployment environment layer.
+fn load_server() -> ConfigResult<(String, u16, u64)> {
+    let sources = CompositeConfigSource::builder()
+        .add_source(PropertiesConfigSource::from_content(
+            "server.host=localhost\nserver.port=8080\n",
+        ))
+        .add_source(EnvConfigSource::from_prefix("QUBIT_CONFIG_GUIDE_APP_"))
+        .build();
+    let config = Config::from_source(&sources)?;
+    let server = config.section("server")?;
+    Ok((server.get("host")?, server.get("port")?, server.get_or("timeout", 30)?))
+}
+
+/// Checks one deployment state inside its own environment.
+fn check_child(mode: &str) -> Result<(), Box<dyn std::error::Error>> {
+    match mode {
+        "baseline" => assert_eq!(load_server()?, ("localhost".to_owned(), 8080, 30)),
+        "override" => assert_eq!(load_server()?, ("deployed.test".to_owned(), 9090, 30)),
+        "invalid" => {
+            let error = load_server().expect_err("invalid port must fail");
+            assert_eq!(error.kind(), ConfigErrorKind::Conversion);
+            assert_eq!(error.path(), Some("server.port"));
+        }
+        _ => return Err("unexpected example child mode".into()),
+    }
+    Ok(())
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    if let Some(mode) = std::env::args().nth(1) {
+        return check_child(&mode);
+    }
+    for mode in ["baseline", "override", "invalid"] {
+        let mut command = Command::new(std::env::current_exe()?);
+        command.env_clear().arg(mode);
+        if mode == "override" {
+            command.env("QUBIT_CONFIG_GUIDE_APP_SERVER__HOST", "deployed.test");
+            command.env("QUBIT_CONFIG_GUIDE_APP_SERVER__PORT", "9090");
+        } else if mode == "invalid" {
+            command.env("QUBIT_CONFIG_GUIDE_APP_SERVER__PORT", "not-a-number");
+        }
+        assert!(command.status()?.success(), "example child failed: {mode}");
+    }
+    Ok(())
+}
+```
 
 Use a convenience constructor when no target customization is needed:
 
@@ -390,10 +458,11 @@ fn main() -> Result<(), qubit_config::ConfigError> {
 Import `ConfigSerdeExt` when calling `deserialize` or `deserialize_with` through
 a generic `ConfigReader` or section. `deserialize(prefix)` is equivalent to
 `deserialize_with(prefix, ConfigDeserializeOptions::default())`: interpolation
-is off and fields exposed through Serde's ignored-field callback are rejected
+is off and fields for which the source deserializer receives an ignored-value
+request are rejected
 with sorted root-relative paths in `ConfigError::UnknownProperties`. This is
 not complete schema validation: flatten structs, untagged enums, and custom
-deserializers can buffer keys that `serde_ignored` cannot observe, while
+deserializers can buffer keys without issuing such requests, while
 flatten maps may consume arbitrary keys. For closed ordinary structs, add
 `#[serde(deny_unknown_fields)]` to the target and to every struct payload in an
 untagged enum. Serde then returns a sanitized deserialization error, not
@@ -412,27 +481,38 @@ may change; use `ConfigError::kind()` and `ConfigError::path()` for programmatic
 handling instead of matching `Display` text.
 
 Object member names enter Serde as strings. If the application wants numeric
-keys, deserialize string keys first and parse them explicitly. Parse errors
-propagate through `?`; `collect()` into a map silently keeps the later value
-when distinct strings parse to the same number, so check duplicates when that
-would be invalid:
+keys, deserialize string keys first and parse them explicitly. The canonical example
+rejects distinct strings such as `080` and `80` that normalize to the same key:
 
+<!-- example: config_numeric_map_keys -->
 ```rust
-use std::collections::HashMap;
+use std::collections::BTreeMap;
+
 use qubit_config::Config;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut config = Config::new();
-    config.set("ports.080", 8080_u16)?;
-    config.set("ports.80", 8081_u16)?;
-    let named: HashMap<String, u16> = config.deserialize("ports")?;
-    let mut ports = HashMap::new();
+/// Converts string keys while rejecting normalized numeric duplicates.
+fn numeric_ports(named: BTreeMap<String, u16>) -> Result<BTreeMap<u16, u16>, Box<dyn std::error::Error>> {
+    let mut ports = BTreeMap::new();
     for (name, value) in named {
         let number = name.parse::<u16>()?;
         if ports.insert(number, value).is_some() {
-            return Err(format!("duplicate numeric port key: {number}").into());
+            return Err("duplicate numeric port key".into());
         }
     }
+    Ok(ports)
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut config = Config::new();
+    config.set("ports.80", 8080_u16)?;
+    config.set("ports.443", 8443_u16)?;
+    let named: BTreeMap<String, u16> = config.deserialize("ports")?;
+    let ports = numeric_ports(named)?;
+    assert_eq!(ports.get(&80), Some(&8080));
+    assert_eq!(ports.get(&443), Some(&8443));
+    config.set("ports.080", 8081_u16)?;
+    let duplicate: BTreeMap<String, u16> = config.deserialize("ports")?;
+    assert!(numeric_ports(duplicate).is_err());
     Ok(())
 }
 ```
@@ -507,27 +587,30 @@ successful data roundtrip does not imply that a custom read policy was
 preserved. Restore the policy explicitly or use `read_with` for a temporary
 view:
 
+<!-- example: config_policy_restore -->
 ```rust
 use qubit_config::Config;
 use qubit_config::ConfigReader;
 use qubit_config::ReadPolicy;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let policy = ReadPolicy::builder().max_interpolation_depth(7).build();
-    let mut config = Config::builder().default_read_policy(policy.clone()).build();
-    config.set("port", 8080_u16)?;
-    let mut restored = Config::decode_json_slice(&config.encode_json_vec()?)?;
-    assert_eq!(restored, config);
+    let policy = ReadPolicy::builder_from(&ReadPolicy::env_friendly())
+        .max_interpolation_depth(7)
+        .build();
+    let mut original = Config::builder().default_read_policy(policy.clone()).build();
+    original.set("enabled", "yes")?;
+    assert!(original.get::<bool>("enabled")?);
+    let mut restored = Config::decode_json_slice(&original.encode_json_vec()?)?;
+    assert_eq!(restored, original);
     assert_eq!(restored.default_read_policy(), &ReadPolicy::default());
-    let view = restored.read_with(&policy);
-    assert_eq!(view.get::<u16>("port")?, 8080);
+    assert!(restored.get::<bool>("enabled").is_err());
+    assert!(restored.read_with(&policy).get::<bool>("enabled")?);
     restored.set_default_read_policy(policy.clone());
     assert_eq!(restored.default_read_policy(), &policy);
+    assert!(restored.get::<bool>("enabled")?);
     Ok(())
 }
 ```
-
-## Advanced Usage
 
 ### Choose a read policy
 

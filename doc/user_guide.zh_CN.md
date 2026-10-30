@@ -240,9 +240,12 @@ fn main() -> Result<(), qubit_config::ConfigError> {
 
 ### 加载和合并配置源
 
-每次调用 `ConfigSource::load` 都会生成独立配置层。自定义配置源实现
+默认 `ConfigSource::load` 和每个库管理加载请求都会生成独立配置层。自定义配置源实现
 `load_into(&mut SourceLoadContext)`，必须把 context 作为唯一输出入口。
-默认的 `ConfigSource::load` 方法会通过标准预算和事务配置层执行器加载配置源。
+默认的 `ConfigSource::load` 方法会通过标准预算和事务配置层执行器加载配置源。`Config::from_source`、
+`merge_properties_from_source` 和组合来源等库管理入口始终使用该 executor 并调用 `load_into`，即使
+来源覆盖了 `load` 也一样。直接调用覆盖的 `load` 由实现者负责；需要经库管理入口执行的自定义逻辑应迁入
+`load_into`。
 每次赋值应调用 `context.set(...)`；外部输入和解析工作应在执行前通过对应的记账方法
 报告。框架无法从最终配置层推断遗漏的外部 I/O 或解析工作。内置配置源包括：
 
@@ -308,6 +311,69 @@ TOML 和 YAML 也会在递归处理值之前拒绝空的或无效的点分 mappi
 和 mapping 仍然可用。环境变量名称规范化后发生冲突时，只要输入有效且符合配置源预算，
 诊断会稳定选择规范化键最小的冲突组及其中原始名称最小的两项。
 
+
+下面的规范示例加载基础配置、应用明确的部署覆盖，并检查非法覆盖。它在子进程中使用
+隔离前缀进行自验证；生产应用可以按自身环境约定选择前缀：
+
+<!-- example: config_guide_sources -->
+```rust
+use std::process::Command;
+
+use qubit_config::Config;
+use qubit_config::ConfigErrorKind;
+use qubit_config::ConfigReader;
+use qubit_config::ConfigResult;
+use qubit_config::source::CompositeConfigSource;
+use qubit_config::source::EnvConfigSource;
+use qubit_config::source::PropertiesConfigSource;
+
+/// Loads a baseline and an explicit deployment environment layer.
+fn load_server() -> ConfigResult<(String, u16, u64)> {
+    let sources = CompositeConfigSource::builder()
+        .add_source(PropertiesConfigSource::from_content(
+            "server.host=localhost\nserver.port=8080\n",
+        ))
+        .add_source(EnvConfigSource::from_prefix("QUBIT_CONFIG_GUIDE_APP_"))
+        .build();
+    let config = Config::from_source(&sources)?;
+    let server = config.section("server")?;
+    Ok((server.get("host")?, server.get("port")?, server.get_or("timeout", 30)?))
+}
+
+/// Checks one deployment state inside its own environment.
+fn check_child(mode: &str) -> Result<(), Box<dyn std::error::Error>> {
+    match mode {
+        "baseline" => assert_eq!(load_server()?, ("localhost".to_owned(), 8080, 30)),
+        "override" => assert_eq!(load_server()?, ("deployed.test".to_owned(), 9090, 30)),
+        "invalid" => {
+            let error = load_server().expect_err("invalid port must fail");
+            assert_eq!(error.kind(), ConfigErrorKind::Conversion);
+            assert_eq!(error.path(), Some("server.port"));
+        }
+        _ => return Err("unexpected example child mode".into()),
+    }
+    Ok(())
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    if let Some(mode) = std::env::args().nth(1) {
+        return check_child(&mode);
+    }
+    for mode in ["baseline", "override", "invalid"] {
+        let mut command = Command::new(std::env::current_exe()?);
+        command.env_clear().arg(mode);
+        if mode == "override" {
+            command.env("QUBIT_CONFIG_GUIDE_APP_SERVER__HOST", "deployed.test");
+            command.env("QUBIT_CONFIG_GUIDE_APP_SERVER__PORT", "9090");
+        } else if mode == "invalid" {
+            command.env("QUBIT_CONFIG_GUIDE_APP_SERVER__PORT", "not-a-number");
+        }
+        assert!(command.status()?.success(), "example child failed: {mode}");
+    }
+    Ok(())
+}
+```
+
 如果不需要在加载前定制目标配置，可以使用便捷构造函数：
 
 ```rust,no_run
@@ -370,9 +436,9 @@ fn main() -> Result<(), qubit_config::ConfigError> {
 通过泛型 `ConfigReader` 或 section 调用 `deserialize` 或 `deserialize_with` 时，导入
 `ConfigSerdeExt`。`deserialize(prefix)` 等价于
 `deserialize_with(prefix, ConfigDeserializeOptions::default())`：不插值；Serde 的
-ignored-field 回调可观察到的字段会以排序后的 root-relative 路径返回为
+源反序列化器收到 ignored-value 请求时可观察到的字段会以排序后的 root-relative 路径返回为
 `ConfigError::UnknownProperties`。这不等于完整 schema 校验：flatten struct、untagged enum
-和自定义反序列化器可能缓冲 `serde_ignored` 无法观察的 key；flatten map 也可能消费任意 key。
+和自定义反序列化器可能缓冲 key 而不发出此类请求；flatten map 也可能消费任意 key。
 闭合的普通 struct 可在目标上添加 `#[serde(deny_unknown_fields)]`；untagged enum 的每个
 struct payload 也应添加。Serde 随后返回经过脱敏的反序列化错误，不保证是
 `UnknownProperties`。Serde 禁止该属性与 `flatten` 组合；要求闭合 schema 时，应改用闭合的
@@ -386,26 +452,38 @@ struct 字段、`serde(rename)`、`serde(alias)`、`serde(default)`、嵌套 str
 这些面向人的摘要可能变化；程序判断应使用 `ConfigError::kind()` 和 `ConfigError::path()`，不要依赖
 `Display` 文本。
 
-对象成员名会以字符串形式交给 Serde。如果应用需要数字 key，应先反序列化字符串 key，
-再显式解析。`?` 会传播解析错误；收集到 map 时，如果不同字符串解析为相同数字，后写入的值
-会覆盖前一个值，因此认为重复非法时应逐项检查：
+对象成员名会以字符串形式交给 Serde。若应用需要数字 key，应先读取字符串 key，
+再显式解析。规范示例会拒绝 `080` 和 `80` 这类归一化后重复的 key：
 
+<!-- example: config_numeric_map_keys -->
 ```rust
-use std::collections::HashMap;
+use std::collections::BTreeMap;
+
 use qubit_config::Config;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut config = Config::new();
-    config.set("ports.080", 8080_u16)?;
-    config.set("ports.80", 8081_u16)?;
-    let named: HashMap<String, u16> = config.deserialize("ports")?;
-    let mut ports = HashMap::new();
+/// Converts string keys while rejecting normalized numeric duplicates.
+fn numeric_ports(named: BTreeMap<String, u16>) -> Result<BTreeMap<u16, u16>, Box<dyn std::error::Error>> {
+    let mut ports = BTreeMap::new();
     for (name, value) in named {
         let number = name.parse::<u16>()?;
         if ports.insert(number, value).is_some() {
-            return Err(format!("重复的数字端口 key：{number}").into());
+            return Err("duplicate numeric port key".into());
         }
     }
+    Ok(ports)
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut config = Config::new();
+    config.set("ports.80", 8080_u16)?;
+    config.set("ports.443", 8443_u16)?;
+    let named: BTreeMap<String, u16> = config.deserialize("ports")?;
+    let ports = numeric_ports(named)?;
+    assert_eq!(ports.get(&80), Some(&8080));
+    assert_eq!(ports.get(&443), Some(&8443));
+    config.set("ports.080", 8081_u16)?;
+    let duplicate: BTreeMap<String, u16> = config.deserialize("ports")?;
+    assert!(numeric_ports(duplicate).is_err());
     Ok(())
 }
 ```
@@ -462,27 +540,30 @@ V1 和旧版持久化都不保存运行时默认 `ReadPolicy`。带限制的 JSO
 反序列化都会恢复为 `ReadPolicy::default()`。`Config` 相等性只比较持久化数据，因此
 数据往返相等不表示自定义读取策略也被保留。需要时显式恢复策略，或用 `read_with` 创建临时视图：
 
+<!-- example: config_policy_restore -->
 ```rust
 use qubit_config::Config;
 use qubit_config::ConfigReader;
 use qubit_config::ReadPolicy;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let policy = ReadPolicy::builder().max_interpolation_depth(7).build();
-    let mut config = Config::builder().default_read_policy(policy.clone()).build();
-    config.set("port", 8080_u16)?;
-    let mut restored = Config::decode_json_slice(&config.encode_json_vec()?)?;
-    assert_eq!(restored, config);
+    let policy = ReadPolicy::builder_from(&ReadPolicy::env_friendly())
+        .max_interpolation_depth(7)
+        .build();
+    let mut original = Config::builder().default_read_policy(policy.clone()).build();
+    original.set("enabled", "yes")?;
+    assert!(original.get::<bool>("enabled")?);
+    let mut restored = Config::decode_json_slice(&original.encode_json_vec()?)?;
+    assert_eq!(restored, original);
     assert_eq!(restored.default_read_policy(), &ReadPolicy::default());
-    let view = restored.read_with(&policy);
-    assert_eq!(view.get::<u16>("port")?, 8080);
+    assert!(restored.get::<bool>("enabled").is_err());
+    assert!(restored.read_with(&policy).get::<bool>("enabled")?);
     restored.set_default_read_policy(policy.clone());
     assert_eq!(restored.default_read_policy(), &policy);
+    assert!(restored.get::<bool>("enabled")?);
     Ok(())
 }
 ```
-
-## 进阶用法
 
 ### 选择读取策略
 

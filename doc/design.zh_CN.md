@@ -33,8 +33,9 @@ API 文档和测试为准。
 
 ## 配置源管线
 
-`ConfigSource::load` 是公共执行边界。它创建新的 `SourceLoadContext`，调用
-`load_into`，并且仅在加载成功后返回上下文持有的独立 `Config` 配置层。
+库管理的配置源入口使用 crate-owned executor。它创建新的 `SourceLoadContext`，调用
+`load_into`，并且仅在加载成功后返回上下文持有的独立 `Config` 配置层，同时绕过对 `load` 的覆盖。
+默认 `ConfigSource::load` 使用该 executor；直接调用覆盖的 `load` 由实现者负责。
 自定义配置源通过 `SourceLoadContext::set` 或 `set_null` 写入配置，并在消耗资源前
 报告输入字节、解析节点和子配置源数量。框架无法根据最终配置层推断自定义配置源
 没有报告的外部 I/O 或解析工作。
@@ -111,9 +112,9 @@ alias token。
 JSON 风格对象。同一前缀同时存在精确配置项和子项时返回 `KeyConflict`。空前缀表示
 reader 当前可见的全部配置项。
 
-`UnknownFieldPolicy::Reject` 会把 Serde ignored-field 回调暴露的字段作为
+`UnknownFieldPolicy::Reject` 会把源反序列化器收到 ignored-value 请求时暴露的字段作为
 `ConfigError::UnknownProperties`，并报告排序后的根相对路径。这不等于完整 schema 校验：
-flatten struct、untagged enum 和自定义反序列化器可能缓冲 `serde_ignored` 无法观察的字段，
+flatten struct、untagged enum 和自定义反序列化器可能缓冲字段而不发出此类请求，
 flatten map 也可能消费任意 key。闭合的普通 struct 可使用
 `#[serde(deny_unknown_fields)]`（untagged enum 的每个 struct payload 也应使用）；Serde 返回
 经过脱敏的反序列化错误，不保证是 `UnknownProperties`。该属性不能与 `flatten` 组合；要求闭合
@@ -216,6 +217,8 @@ crate 为不同操作使用相互独立的资源域，而不是共享一个计�
 访问器进行分支处理。
 
 ### 迁移说明
+
+升级下游 crate 前，请先阅读[从 qubit-config 0.14 迁移](user_guide.zh_CN.md#从-qubit-config-014-迁移)。当前依赖图可能同时包含 0.14 与 0.15；两个版本公开的 `Config`、`ConfigReader` 类型不同，不能跨版本互传。具体本地依赖约束以用户指南中的核对结果为准。
 
 升级时应检查 TOML/YAML 中作为 mapping 成员名使用的空键或无效点分键；这些输入现在会在
 递归前作为来源解析错误拒绝，而合法空对象仍可用。环境变量名称归一化后若发生冲突，错误仍是

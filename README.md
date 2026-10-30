@@ -164,10 +164,11 @@ sessions and do not share consumption. A failed field conversion keeps charges
 accepted earlier in the same materialization; the rejected charge itself is
 atomic.
 
-Structured reads reject fields Serde exposes as ignored and report their
-root-relative paths through `ConfigError::UnknownProperties`. Some `flatten`,
-untagged-enum, and custom `Deserialize` implementations buffer or consume keys,
-so `serde_ignored` cannot observe every discarded field. For a closed schema,
+Structured reads reject fields exposed when the source deserializer receives an
+ignored-value request and report their root-relative paths through
+`ConfigError::UnknownProperties`. Some `flatten`, untagged-enum, and custom
+`Deserialize` implementations buffer or consume keys without issuing such a
+request. For a closed schema,
 use `#[serde(deny_unknown_fields)]` on ordinary struct targets (including each
 untagged payload struct); this produces a sanitized Serde deserialization error.
 Serde does not allow combining `deny_unknown_fields` with `flatten`, so replace
@@ -241,6 +242,11 @@ environment variables; use explicit interpolated reads when substitution is
 intended. Customize `SourceLimits` only when the input boundary is understood.
 Custom sources can mark a written property final with `SourceLoadContext::set_final`
 so later sources cannot override it; see the user guide for an example.
+Library-managed entry points such as `Config::from_source` and
+`merge_properties_from_source` always use the executor and call `load_into`,
+even when a source overrides `load`. Direct calls to an override remain the
+implementation's responsibility. Move behavior needed by managed loading into
+`load_into`.
 
 It does not silently interpolate values during ordinary reads, expand process-environment placeholders while loading `.env` files, use defaults to hide a present but invalid value, permit third-party `ConfigReader` implementations, or support `dyn ConfigReader`: the trait is sealed and its generic methods make it non-object-safe. Detailed path rules, source failure behavior, structured deserialization, custom conversion, and troubleshooting are covered in the user guide; current component boundaries and compatibility commitments are recorded in the design document.
 

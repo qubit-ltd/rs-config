@@ -162,9 +162,10 @@ operation limits 会在两个字段之间累计。彼此独立的普通 `get` �
 不会共享消耗。某个字段转换失败时，本次物化此前已接受的消耗不会回滚；被拒绝的
 charge 本身仍保持原子性。
 
-结构化读取会拒绝 Serde 通过 ignored-field 回调暴露的字段，并通过
+结构化读取会拒绝源反序列化器收到 ignored-value 请求时暴露的字段，并通过
 `ConfigError::UnknownProperties` 返回 root-relative 路径。部分 `flatten`、untagged enum
-和自定义 `Deserialize` 实现会缓冲或消费 key，因此 `serde_ignored` 无法观察每个被丢弃字段。
+和自定义 `Deserialize` 实现会缓冲或消费 key，因此源反序列化器不会为每个被丢弃字段收到
+ignored-value 请求。
 若要求闭合 schema，可在普通 struct 目标（以及 untagged enum 的每个 payload struct）上使用
 `#[serde(deny_unknown_fields)]`；这会返回经过脱敏的 Serde 反序列化错误。Serde 不允许
 `deny_unknown_fields` 与 `flatten` 组合，因此应改用闭合的嵌套 struct，或在反序列化前按应用
@@ -226,6 +227,9 @@ TOML 和 YAML 在 parser 边界存在明确例外：第三方 parser
 文本不会被视为这类 token。`.env` 加载会保留 `$NAME` 和 `${NAME}` 字面量，不展开进程环境变量；
 需要替换时应显式使用 interpolated 读取。只有明确了解输入边界时才应放宽 `SourceLimits`。
 自定义 source 可用 `SourceLoadContext::set_final` 锁定已写入的 property，避免后续来源覆盖；使用示例见用户指南。
+`Config::from_source` 和 `merge_properties_from_source` 等库管理入口始终使用该 executor 并调用
+`load_into`，即使配置源覆盖了 `load` 也一样。直接调用覆盖方法由实现者负责；需要由库管理入口
+执行的自定义逻辑应迁入 `load_into`。
 
 本库不会在普通读取时静默执行插值，不会在加载 `.env` 文件时展开进程环境占位符，也不会用默认值掩盖已存在但无效的值。`ConfigReader` 是封闭（sealed）trait，不能由第三方实现；它包含泛型方法，因此不支持 `dyn ConfigReader`。路径规则、配置源失败行为、结构化反序列化、自定义转换和排障细节请参阅用户手册；当前组件边界与兼容承诺记录在设计说明中。
 

@@ -18,6 +18,9 @@ EXAMPLE_DOCS = {
     "config_structured": ("README.md", "README.zh_CN.md"),
     "config_guide_quickstart": ("doc/user_guide.md", "doc/user_guide.zh_CN.md"),
     "config_sections": ("doc/user_guide.md", "doc/user_guide.zh_CN.md"),
+    "config_policy_restore": ("doc/user_guide.md", "doc/user_guide.zh_CN.md"),
+    "config_numeric_map_keys": ("doc/user_guide.md", "doc/user_guide.zh_CN.md"),
+    "config_guide_sources": ("doc/user_guide.md", "doc/user_guide.zh_CN.md"),
 }
 DOCUMENTS = tuple(dict.fromkeys(path for paths in EXAMPLE_DOCS.values() for path in paths))
 MARKER_PATTERN = re.compile(r"^<!-- example: (.*?) -->$")
