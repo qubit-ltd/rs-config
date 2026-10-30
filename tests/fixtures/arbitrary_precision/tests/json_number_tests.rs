@@ -108,6 +108,122 @@ fn test_json_natural_projection_uses_decimal_strings_for_wide_integers() {
 }
 
 #[test]
+fn test_json_wide_natural_projection_obeys_output_budget() {
+    for text in ["18446744073709551617", "-9223372036854775809"] {
+        for maximum in [0_u64, 19, 20] {
+            let limits = ConversionLimits::builder()
+                .operation_limits(
+                    ConversionOperationLimits::builder()
+                        .max_output_bytes(maximum)
+                        .build(),
+                )
+                .build();
+            let mut config = config_with_json("number", text);
+            config.set_default_read_policy(
+                ReadPolicy::builder().conversion_limits(limits).build(),
+            );
+            let result = config.deserialize::<serde_json::Value>("number");
+            if maximum < 20 {
+                let error = result.expect_err("wide text must consume output bytes");
+                assert_eq!(error.kind(), ConfigErrorKind::Conversion);
+                assert_eq!(error.path(), Some("number"));
+                assert!(error.to_string().contains("OutputBytes"));
+                assert!(!error.to_string().contains(text));
+            } else {
+                assert_eq!(result.unwrap(), serde_json::Value::String(text.to_owned()));
+            }
+        }
+    }
+
+    let limits = ConversionLimits::builder()
+        .operation_limits(
+            ConversionOperationLimits::builder()
+                .max_output_bytes(19)
+                .build(),
+        )
+        .build();
+    let mut unsigned = Config::new();
+    unsigned
+        .set("number", 18_446_744_073_709_551_617_u128)
+        .expect("native unsigned integer should be set");
+    unsigned.set_default_read_policy(
+        ReadPolicy::builder().conversion_limits(limits.clone()).build(),
+    );
+    let error = unsigned
+        .deserialize::<serde_json::Value>("number")
+        .expect_err("native unsigned wide text must consume output bytes");
+    assert_eq!(error.kind(), ConfigErrorKind::Conversion);
+    assert_eq!(error.path(), Some("number"));
+    assert!(error.to_string().contains("OutputBytes"));
+
+    let mut signed = Config::new();
+    signed
+        .set("number", -9_223_372_036_854_775_809_i128)
+        .expect("native signed integer should be set");
+    signed.set_default_read_policy(ReadPolicy::builder().conversion_limits(limits).build());
+    let error = signed
+        .deserialize::<serde_json::Value>("number")
+        .expect_err("native signed wide text must consume output bytes");
+    assert_eq!(error.kind(), ConfigErrorKind::Conversion);
+    assert_eq!(error.path(), Some("number"));
+    assert!(error.to_string().contains("OutputBytes"));
+
+    let zero_output = ConversionLimits::builder()
+        .operation_limits(
+            ConversionOperationLimits::builder()
+                .max_output_bytes(0)
+                .build(),
+        )
+        .build();
+    let mut typed_unsigned = config_with_json("number", "18446744073709551617");
+    typed_unsigned.set_default_read_policy(
+        ReadPolicy::builder()
+            .conversion_limits(zero_output.clone())
+            .build(),
+    );
+    assert_eq!(
+        typed_unsigned.deserialize::<u128>("number").unwrap(),
+        18_446_744_073_709_551_617_u128
+    );
+
+    let mut typed_signed = config_with_json("number", "-9223372036854775809");
+    typed_signed.set_default_read_policy(ReadPolicy::builder().conversion_limits(zero_output).build());
+    assert_eq!(
+        typed_signed.deserialize::<i128>("number").unwrap(),
+        -9_223_372_036_854_775_809_i128
+    );
+}
+
+#[test]
+fn test_json_wide_natural_projection_shares_output_budget() {
+    let text = "[18446744073709551617,18446744073709551617]";
+    for maximum in [39_u64, 40] {
+        let limits = ConversionLimits::builder()
+            .operation_limits(
+                ConversionOperationLimits::builder()
+                    .max_output_bytes(maximum)
+                    .build(),
+            )
+            .build();
+        let mut config = config_with_json("numbers", text);
+        config.set_default_read_policy(ReadPolicy::builder().conversion_limits(limits).build());
+        let result = config.deserialize::<serde_json::Value>("numbers");
+        if maximum == 39 {
+            let error = result.expect_err("the second string must exhaust the shared budget");
+            assert_eq!(error.kind(), ConfigErrorKind::Conversion);
+            assert_eq!(error.path(), Some("numbers[1]"));
+            assert_eq!(error.source_index(), Some(1));
+            assert!(error.to_string().contains("OutputBytes"));
+        } else {
+            assert_eq!(
+                result.unwrap(),
+                serde_json::json!(["18446744073709551617", "18446744073709551617"])
+            );
+        }
+    }
+}
+
+#[test]
 fn test_json_nested_and_array_errors_keep_path_and_source_index() {
     let nested = config_with_json("nested", r#"{"value":1e400}"#);
     let nested_error = nested.deserialize::<NestedNumber>("nested").unwrap_err();

@@ -60,6 +60,15 @@ fn benchmark_structured_reads(c: &mut Criterion) {
     c.bench_function("structured_read/numeric_collection/1024", |b| {
         b.iter(|| black_box(config.deserialize::<Vec<i32>>(black_box("numbers")).unwrap()));
     });
+    for count in [32_usize, 1024] {
+        let mut natural = Config::new();
+        let input = serde_json::Value::Array((0..count).map(|index| serde_json::Value::from(index as u64)).collect());
+        natural.set("numbers", input.clone()).unwrap();
+        assert_eq!(natural.deserialize::<serde_json::Value>("numbers").unwrap(), input);
+        c.bench_function(&format!("structured_read/json_natural_numbers/{count}"), |b| {
+            b.iter(|| black_box(natural.deserialize::<serde_json::Value>(black_box("numbers")).unwrap()));
+        });
+    }
     config
         .set(
             "nested",

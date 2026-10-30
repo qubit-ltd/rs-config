@@ -324,9 +324,9 @@ impl<'de, 'tree, 'policy: 'tree> de::Deserializer<'de> for SourceDeserializer<'t
             }
             Some(ReadView::Scalar(ValueRef::Float64(_))) => visitor.visit_f64(self.convert::<f64>()?),
             Some(ReadView::Json(serde_json::Value::Number(value))) => {
-                let text = value.to_string();
-                let is_integer = !text.contains('.') && !text.contains('e') && !text.contains('E');
                 match json_number_converter(value).map_err(|reason| {
+                    let text = value.to_string();
+                    let is_integer = !text.contains('.') && !text.contains('e') && !text.contains('E');
                     let target = if !is_integer {
                         DataType::Float64
                     } else if text.starts_with('-') {
@@ -348,8 +348,9 @@ impl<'de, 'tree, 'policy: 'tree> de::Deserializer<'de> for SourceDeserializer<'t
                     | DataConverter::UInt16(_)
                     | DataConverter::UInt32(_)
                     | DataConverter::UInt64(_) => visitor.visit_u64(self.convert::<u64>()?),
-                    DataConverter::Int128(_) => visitor.visit_string(self.convert::<i128>()?.to_string()),
-                    DataConverter::UInt128(_) => visitor.visit_string(self.convert::<u128>()?.to_string()),
+                    DataConverter::Int128(_) | DataConverter::UInt128(_) => {
+                        visitor.visit_string(self.convert::<String>()?)
+                    }
                     DataConverter::Float32(_) | DataConverter::Float64(_) => visitor.visit_f64(self.convert::<f64>()?),
                     _ => visitor.visit_string(self.convert::<String>()?),
                 }
