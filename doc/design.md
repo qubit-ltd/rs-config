@@ -160,6 +160,11 @@ counters from the shared leaf `ConversionSession`. Known numeric targets convert
 from the original runtime type; `deserialize_any` uses Natural JSON categories,
 including decimal text for wide integers. Scalar list splitting uses already
 admitted items, and strings inside actual collections are not split again.
+JSON integer literals remain exact through the signed and unsigned 128-bit
+ranges. Out-of-range integer literals and non-finite floating-point values
+return conversion errors; finite floats retain the existing binary
+floating-point semantics. This structured conversion contract is distinct from
+the generic wire deserializer when `serde_json/arbitrary_precision` is unified.
 Policy-missing exact scalars can deserialize as `None`; missing subtree scalar
 strings are omitted, while missing collection items remain errors. The public
 result still requires `DeserializeOwned`.

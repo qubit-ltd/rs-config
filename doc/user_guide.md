@@ -416,6 +416,13 @@ Unchanged values remain borrowed internally, while the result is owned.
 Typed numeric fields convert from their original runtime type. Targets using
 `deserialize_any`, such as `serde_json::Value`, receive Natural JSON categories:
 wide integers become decimal strings, and rich values use their natural form.
+For JSON numbers, integer literals are preserved exactly through the signed or
+unsigned 128-bit range. Larger integer literals and non-finite floating-point
+values return conversion errors; finite floating-point values keep the existing
+binary floating-point semantics. This conversion path is separate from the
+generic `Config` wire deserializer, whose handling of a unified
+`serde_json/arbitrary_precision` feature is described in the JSON persistence
+section.
 Not every rich type accepts that Serde shape: `std::time::Duration` expects
 `secs` and `nanos` fields rather than a stored scalar Duration. Distinct object
 leaves can merge with dotted properties; duplicate leaves and exact-property /
@@ -453,7 +460,10 @@ Ordinary `Deserialize` constructs a budgeted decoded-value visitor with
 `ConfigWireLimits::default()`, so decoded structure, payload, property count,
 and property keys remain bounded. A general Serde deserializer does not expose
 the original byte stream or lexical JSON tokens; ordinary Deserialize therefore
-cannot enforce the raw-input limit. Use `Config::decode_json_slice` or its
+cannot enforce the raw-input limit. When `serde_json/arbitrary_precision` is
+unified, generic Serde decoding can also present numbers as private maps; use
+the dedicated JSON helpers for floating-point and JSON domain values. Use
+`Config::decode_json_slice` or its
 custom-limits variant for untrusted JSON. This wire budget is separate from
 `SourceLimits`, which applies while ingesting text sources. V1 rejects an
 explicit `read_options` field, including `null`; legacy unversioned input still

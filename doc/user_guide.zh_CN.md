@@ -389,6 +389,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 明确的数值字段从原始运行时类型转换。`serde_json::Value` 等使用 `deserialize_any` 的目标
 遵循自然 JSON 类别：宽整数是十进制字符串，富类型使用自然表示。并非所有富类型都接受该
 Serde 形状，例如 `std::time::Duration` 需要 `secs` 和 `nanos` 字段，不接受存储的标量 Duration。
+JSON 整数字面量在有符号或无符号 128 位范围内精确保留；更大的整数字面量和非有限浮点值会
+返回转换错误，有限浮点值沿用既有二进制浮点语义。这条转换路径与通用 `Config` wire
+反序列化器不同；依赖图统一启用 `serde_json/arbitrary_precision` 时后者的行为见下文持久化说明。
 不同的对象叶子可与点分属性合并；重复叶子、精确属性与其子项冲突会返回 `KeyConflict`。
 子树中被策略判定缺失的标量字符串会被省略，集合某项缺失仍然报错。
 
@@ -420,7 +423,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 使用的 `SourceLimits` 相互独立。普通 `Deserialize` 会用
 `ConfigWireLimits::default()` 创建有预算约束的已解码值 visitor，从而限制已解码结构、
 载荷、配置项数量和配置项键。通用 Serde 反序列化器不提供原始字节流或 JSON 词法
-token，因此普通 `Deserialize` 无法执行原始输入限制。不可信 JSON 应使用
+token，因此普通 `Deserialize` 无法执行原始输入限制。依赖图统一启用
+`serde_json/arbitrary_precision` 时，通用 Serde 解码也可能将数字呈现为私有 map；浮点数和
+JSON 领域值应通过专用 JSON helper 解码。不可信 JSON 应使用
 `Config::decode_json_slice` 或其自定义限制版本。V1 拒绝显式 `read_options` 字段，
 包括 `null`；旧版无版本输入仍接受并忽略该字段。手工构造 V1 封装时应省略该字段。
 

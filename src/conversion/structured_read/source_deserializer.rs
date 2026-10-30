@@ -6,6 +6,13 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 //! Serde requests convert the original borrowed scalar exactly once.
+//!
+//! Typed requests use the requested target type. `deserialize_any` instead
+//! preserves the JSON value's natural Serde category: signed and unsigned
+//! integers use their native 64-bit visitor methods when representable, wider
+//! 128-bit integers are projected as decimal strings, and fractional values
+//! use `f64`. An integer outside the supported 128-bit range or a non-finite
+//! float is reported as a conversion error.
 
 use qubit_datatype::AdmittedScalarItem;
 use qubit_datatype::ConversionSession;
@@ -14,6 +21,7 @@ use qubit_datatype::DataConversionTarget;
 use qubit_datatype::DataConverter;
 use qubit_datatype::DataListConversionError;
 use qubit_datatype::DataType;
+use qubit_datatype::InvalidValueReason;
 use qubit_value::MultiValues;
 use qubit_value::Value;
 use qubit_value::ValueError;
@@ -36,18 +44,23 @@ pub(super) struct SourceDeserializer<'tree, 'policy, 'session> {
     pub(super) context: ReadContext<'tree>,
     /// Borrowed or already admitted conversion input.
     pub(super) input: ConversionInput<'tree, 'policy, 'session>,
-    /// Optional source location for diagnostics.
+    /// Optional original-tree location for interpolation overlays and missing
+    /// values. Ordinary reads omit it when neither needs source context.
     pub(super) location: Option<SourceLocation>,
     /// Root-relative diagnostic path.
     pub(super) path: String,
     /// Whether scalar text may be split into sequence items.
     pub(super) allow_split: bool,
-    /// Original source item index, when known.
+    /// Original outer collection index, when known; nested traversal preserves
+    /// this value for conversion diagnostics.
     pub(super) original_index: Option<usize>,
 }
 
 impl<'tree, 'policy: 'tree, 'session> SourceDeserializer<'tree, 'policy, 'session> {
     /// Creates a deserializer for a prepared value.
+    ///
+    /// Source locations are retained when interpolation overlays exist or the
+    /// value is missing, since those cases need the original property context.
     pub(super) fn new(
         context: ReadContext<'tree>,
         value: ReadView<'tree>,
@@ -144,6 +157,13 @@ impl<'tree, 'policy: 'tree, 'session> SourceDeserializer<'tree, 'policy, 'sessio
                     DataConverter::from(text)
                 } else {
                     scalar_converter(value, self.context, self.location.as_ref())
+                        .map_err(|reason| {
+                            conversion_error(
+                                &self.path,
+                                index,
+                                DataConversionError::invalid(DataType::Json, T::DATA_TYPE, reason),
+                            )
+                        })?
                         .ok_or_else(|| type_error(&self.path, "a scalar"))?
                 };
                 converter
@@ -194,33 +214,61 @@ fn scalar_converter<'tree>(
     value: ReadView<'tree>,
     context: ReadContext<'tree>,
     location: Option<&SourceLocation>,
-) -> Option<DataConverter<'tree>> {
+) -> Result<Option<DataConverter<'tree>>, InvalidValueReason> {
     match value {
-        ReadView::Scalar(value) => Some(DataConverter::from(value)),
-        ReadView::Text(value) => Some(DataConverter::from(value)),
-        ReadView::Json(serde_json::Value::String(value)) => Some(DataConverter::from(value.as_str())),
-        ReadView::Json(serde_json::Value::Bool(value)) => Some(DataConverter::from(*value)),
-        ReadView::Json(serde_json::Value::Number(value)) => Some(json_number_converter(value)),
-        ReadView::Json(serde_json::Value::Null) => Some(DataConverter::Unset(DataType::Json)),
+        ReadView::Scalar(value) => Ok(Some(DataConverter::from(value))),
+        ReadView::Text(value) => Ok(Some(DataConverter::from(value))),
+        ReadView::Json(serde_json::Value::String(value)) => Ok(Some(DataConverter::from(value.as_str()))),
+        ReadView::Json(serde_json::Value::Bool(value)) => Ok(Some(DataConverter::from(*value))),
+        ReadView::Json(serde_json::Value::Number(value)) => json_number_converter(value).map(Some),
+        ReadView::Json(serde_json::Value::Null) => Ok(Some(DataConverter::Unset(DataType::Json))),
         ReadView::Missing(_) => {
-            let origin = location?;
-            let property = context.prepared.sources.property(origin.property_index)?;
-            Some(DataConverter::from(property.value().as_scalar()?.view()))
+            let Some(origin) = location else {
+                return Ok(None);
+            };
+            let Some(property) = context.prepared.sources.property(origin.property_index) else {
+                return Ok(None);
+            };
+            let Some(value) = property.value().as_scalar() else {
+                return Ok(None);
+            };
+            Ok(Some(DataConverter::from(value.view())))
         }
-        _ => None,
+        _ => Ok(None),
     }
 }
 
-fn json_number_converter(value: &serde_json::Number) -> DataConverter<'_> {
+fn json_number_converter(value: &serde_json::Number) -> Result<DataConverter<'_>, InvalidValueReason> {
     if let Some(value) = value.as_i64() {
-        DataConverter::from(value)
-    } else if let Some(value) = value.as_u64() {
-        DataConverter::from(value)
-    } else {
-        DataConverter::from(value.as_f64().expect("admitted finite JSON number"))
+        return Ok(DataConverter::from(value));
     }
+    if let Some(value) = value.as_u64() {
+        return Ok(DataConverter::from(value));
+    }
+
+    let text = value.to_string();
+    if !text.contains('.') && !text.contains('e') && !text.contains('E') {
+        if text.starts_with('-') {
+            return text
+                .parse::<i128>()
+                .map(DataConverter::from)
+                .map_err(|_| InvalidValueReason::OutOfRange);
+        }
+        return text
+            .parse::<u128>()
+            .map(DataConverter::from)
+            .map_err(|_| InvalidValueReason::OutOfRange);
+    }
+
+    value
+        .as_f64()
+        .filter(|number| number.is_finite())
+        .map(DataConverter::from)
+        .ok_or(InvalidValueReason::NonFinite)
 }
 
+/// Returns the first original array index, which is the source item's index
+/// retained for error reporting even when the location is nested further.
 pub(super) fn source_index(location: Option<&SourceLocation>) -> Option<usize> {
     location?.segments.iter().find_map(|segment| match segment {
         SourceSegment::Index(index) => Some(*index),
@@ -274,12 +322,34 @@ impl<'de, 'tree, 'policy: 'tree> de::Deserializer<'de> for SourceDeserializer<'t
             }
             Some(ReadView::Scalar(ValueRef::Float64(_))) => visitor.visit_f64(self.convert::<f64>()?),
             Some(ReadView::Json(serde_json::Value::Number(value))) => {
-                if value.as_i64().is_some() {
-                    visitor.visit_i64(self.convert::<i64>()?)
-                } else if value.as_u64().is_some() {
-                    visitor.visit_u64(self.convert::<u64>()?)
-                } else {
-                    visitor.visit_f64(self.convert::<f64>()?)
+                let text = value.to_string();
+                let is_integer = !text.contains('.') && !text.contains('e') && !text.contains('E');
+                match json_number_converter(value).map_err(|reason| {
+                    let target = if !is_integer {
+                        DataType::Float64
+                    } else if text.starts_with('-') {
+                        DataType::Int128
+                    } else {
+                        DataType::UInt128
+                    };
+                    conversion_error(
+                        &self.path,
+                        self.original_index,
+                        DataConversionError::invalid(DataType::Json, target, reason),
+                    )
+                })? {
+                    DataConverter::Int8(_)
+                    | DataConverter::Int16(_)
+                    | DataConverter::Int32(_)
+                    | DataConverter::Int64(_) => visitor.visit_i64(self.convert::<i64>()?),
+                    DataConverter::UInt8(_)
+                    | DataConverter::UInt16(_)
+                    | DataConverter::UInt32(_)
+                    | DataConverter::UInt64(_) => visitor.visit_u64(self.convert::<u64>()?),
+                    DataConverter::Int128(_) => visitor.visit_string(self.convert::<i128>()?.to_string()),
+                    DataConverter::UInt128(_) => visitor.visit_string(self.convert::<u128>()?.to_string()),
+                    DataConverter::Float32(_) | DataConverter::Float64(_) => visitor.visit_f64(self.convert::<f64>()?),
+                    _ => visitor.visit_string(self.convert::<String>()?),
                 }
             }
             Some(ReadView::Collection(_) | ReadView::Json(serde_json::Value::Array(_))) => {
