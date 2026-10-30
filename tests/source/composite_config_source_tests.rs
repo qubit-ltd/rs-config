@@ -11,9 +11,11 @@
 use std::path::PathBuf;
 #[cfg(feature = "toml")]
 use std::process::Command;
+use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 
 use qubit_config::Config;
-#[cfg(feature = "toml")]
 use qubit_config::ConfigError;
 use qubit_config::ConfigResult;
 use qubit_config::source::CompositeConfigSource;
@@ -24,6 +26,7 @@ use qubit_config::source::EnvConfigSource;
 use qubit_config::source::PropertiesConfigSource;
 use qubit_config::source::SourceLimitKind;
 use qubit_config::source::SourceLimits;
+use qubit_config::source::SourceLoadContext;
 #[cfg(feature = "toml")]
 use qubit_config::source::TomlConfigSource;
 
@@ -37,6 +40,30 @@ fn fixture(name: &str) -> PathBuf {
 
 fn load_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<()> {
     config.merge_properties_from_source(source)
+}
+
+struct CountingSource {
+    calls: Arc<AtomicUsize>,
+    fail: bool,
+    value: u16,
+}
+
+impl ConfigSource for CountingSource {
+    fn source_id(&self) -> String {
+        "test:counting-source".to_owned()
+    }
+
+    fn limits(&self) -> SourceLimits {
+        SourceLimits::default()
+    }
+
+    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        if self.fail {
+            return Err(ConfigError::PropertyNotFound("counting-source-failure".to_owned()));
+        }
+        context.set("value", self.value)
+    }
 }
 
 #[cfg(feature = "toml")]
@@ -86,13 +113,16 @@ fn composite_builder_default_and_consuming_add_source_preserve_order() {
 mod test_composite_config_source {
     use qubit_budget::BudgetError;
 
+    use super::Arc;
+    use super::AtomicUsize;
     use super::CompositeConfigSource;
     use super::Config;
-    #[cfg(feature = "toml")]
     use super::ConfigError;
     use super::ConfigSource;
+    use super::CountingSource;
     #[cfg(feature = "toml")]
     use super::EnvConfigSource;
+    use super::Ordering;
     use super::PropertiesConfigSource;
     use super::SourceLimitKind;
     use super::SourceLimits;
@@ -157,15 +187,34 @@ mod test_composite_config_source {
         assert!(config.is_empty());
     }
 
-    #[cfg(feature = "toml")]
     #[test]
     fn test_load_stops_on_first_error() {
+        let calls = [
+            Arc::new(AtomicUsize::new(0)),
+            Arc::new(AtomicUsize::new(0)),
+            Arc::new(AtomicUsize::new(0)),
+        ];
         let mut composite = CompositeConfigSource::new();
-        composite.add(TomlConfigSource::from_file("/nonexistent/path.toml"));
-        composite.add(TomlConfigSource::from_file(fixture("basic.toml")));
+        composite.add(CountingSource {
+            calls: Arc::clone(&calls[0]),
+            fail: true,
+            value: 1,
+        });
+        composite.add(CountingSource {
+            calls: Arc::clone(&calls[1]),
+            fail: false,
+            value: 2,
+        });
+        composite.add(CountingSource {
+            calls: Arc::clone(&calls[2]),
+            fail: false,
+            value: 3,
+        });
 
-        let result = composite.load();
-        assert!(result.is_err());
+        let error = composite.load().expect_err("the first source should fail");
+        assert!(matches!(error, ConfigError::PropertyNotFound(ref path) if path == "counting-source-failure"));
+        assert_eq!(error.path(), Some("counting-source-failure"));
+        assert_eq!(calls.map(|count| count.load(Ordering::SeqCst)), [1, 0, 0]);
     }
 
     #[test]
@@ -273,13 +322,21 @@ mod test_composite_config_source {
 
     #[test]
     fn test_composite_rejects_source_before_loading_it() {
+        let calls = [
+            Arc::new(AtomicUsize::new(0)),
+            Arc::new(AtomicUsize::new(0)),
+            Arc::new(AtomicUsize::new(0)),
+        ];
         let mut composite = CompositeConfigSource::builder()
             .limits(SourceLimits::builder().max_sources(1).build())
             .build();
-        composite.add(PropertiesConfigSource::from_content("first=1\n"));
-        composite.add(PropertiesConfigSource::from_file(
-            "/path-that-must-not-be-opened.properties",
-        ));
+        for (index, call_count) in calls.iter().enumerate() {
+            composite.add(CountingSource {
+                calls: Arc::clone(call_count),
+                fail: false,
+                value: index as u16 + 1,
+            });
+        }
 
         let error = composite
             .load()
@@ -294,5 +351,60 @@ mod test_composite_config_source {
                 requested: 1,
             })
         ));
+        assert_eq!(calls.map(|count| count.load(Ordering::SeqCst)), [1, 0, 0]);
+    }
+
+    #[test]
+    fn test_composite_zero_source_limit_rejects_before_loading_any_source() {
+        let calls = [
+            Arc::new(AtomicUsize::new(0)),
+            Arc::new(AtomicUsize::new(0)),
+            Arc::new(AtomicUsize::new(0)),
+        ];
+        let mut composite = CompositeConfigSource::builder()
+            .limits(SourceLimits::builder().max_sources(0).build())
+            .build();
+        for (index, call_count) in calls.iter().enumerate() {
+            composite.add(CountingSource {
+                calls: Arc::clone(call_count),
+                fail: false,
+                value: index as u16 + 1,
+            });
+        }
+
+        let error = composite
+            .load()
+            .expect_err("zero allowed sources should reject the first source");
+        assert!(matches!(
+            error.budget_error(),
+            Some(BudgetError::Insufficient {
+                resource: SourceLimitKind::SourceCount,
+                limit: 0,
+                remaining: 0,
+                requested: 1,
+            })
+        ));
+        assert_eq!(calls.map(|count| count.load(Ordering::SeqCst)), [0, 0, 0]);
+    }
+
+    #[test]
+    fn test_composite_loads_every_successful_source_once_in_order() {
+        let calls = [
+            Arc::new(AtomicUsize::new(0)),
+            Arc::new(AtomicUsize::new(0)),
+            Arc::new(AtomicUsize::new(0)),
+        ];
+        let mut composite = CompositeConfigSource::new();
+        for (index, call_count) in calls.iter().enumerate() {
+            composite.add(CountingSource {
+                calls: Arc::clone(call_count),
+                fail: false,
+                value: index as u16 + 1,
+            });
+        }
+
+        let config = composite.load().expect("all counting sources should succeed");
+        assert_eq!(calls.map(|count| count.load(Ordering::SeqCst)), [1, 1, 1]);
+        assert_eq!(config.get::<u16>("value").unwrap(), 3);
     }
 }
