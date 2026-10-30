@@ -458,6 +458,30 @@ JSON 领域值应通过专用 JSON helper 解码。不可信 JSON 应使用
 `Config::decode_json_slice` 或其自定义限制版本。V1 拒绝显式 `read_options` 字段，
 包括 `null`；旧版无版本输入仍接受并忽略该字段。手工构造 V1 封装时应省略该字段。
 
+V1 和旧版持久化都不保存运行时默认 `ReadPolicy`。带限制的 JSON 解码和普通 Serde
+反序列化都会恢复为 `ReadPolicy::default()`。`Config` 相等性只比较持久化数据，因此
+数据往返相等不表示自定义读取策略也被保留。需要时显式恢复策略，或用 `read_with` 创建临时视图：
+
+```rust
+use qubit_config::Config;
+use qubit_config::ConfigReader;
+use qubit_config::ReadPolicy;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let policy = ReadPolicy::builder().max_interpolation_depth(7).build();
+    let mut config = Config::builder().default_read_policy(policy.clone()).build();
+    config.set("port", 8080_u16)?;
+    let mut restored = Config::decode_json_slice(&config.encode_json_vec()?)?;
+    assert_eq!(restored, config);
+    assert_eq!(restored.default_read_policy(), &ReadPolicy::default());
+    let view = restored.read_with(&policy);
+    assert_eq!(view.get::<u16>("port")?, 8080);
+    restored.set_default_read_policy(policy.clone());
+    assert_eq!(restored.default_read_policy(), &policy);
+    Ok(())
+}
+```
+
 ## 进阶用法
 
 ### 选择读取策略
@@ -580,9 +604,9 @@ fn main() -> ConfigResult<()> {
 
 例如，`APP_DATABASE__MAX_CONNECTIONS` 会变成 `database.max_connections`。如果只需要部分转换，可以使用 `EnvConfigOptions`。如果两个不同的环境变量名称经过规范化后变成同一个配置键，加载会返回 `KeyConflict`，不会静默选择其中一个；错误会按字典序报告冲突名称，因此诊断信息不依赖操作系统的环境变量遍历顺序。
 
-TOML 和 YAML 配置源会把映射展开成点分配置项，只接受标量、空序列和同类型标量序列。
-对象数组、嵌套数组以及 YAML 异构标量序列会携带配置源、路径和索引上下文被拒绝，
-不会通过隐式字符串化掩盖结构不匹配。
+TOML 和 YAML 配置源会把映射展开成点分配置项，接受标量、空序列和同类型的字符串、布尔值或
+现有同一数值类别标量序列。YAML 序列不支持 null 元素；对象数组、嵌套数组和异构标量序列
+也会携带配置源、路径和索引上下文被拒绝，不会通过隐式字符串化掩盖结构不匹配。
 
 ### 配置源限制
 

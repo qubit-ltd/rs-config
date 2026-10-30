@@ -79,7 +79,14 @@ mod traversal;
 /// Serde serialization emits the stable V1 JSON persistence format with an
 /// explicit `version` field and lexically ordered property keys.
 /// Deserialization accepts both V1 and the unversioned top-level form emitted
-/// before V1.
+/// before V1. Persistence includes configuration data and its existing
+/// metadata, but not the runtime [`ReadPolicy`] used by direct reads. Both
+/// ordinary Serde deserialization and the bounded JSON decoders restore
+/// [`ReadPolicy::default`]; legacy `read_options` is accepted and ignored.
+/// [`PartialEq`] also ignores this runtime policy, so equality after a
+/// roundtrip does not imply identical read behavior. Restore a configuration's
+/// direct-read policy with [`Config::set_default_read_policy`], or scope a
+/// temporary policy with [`Config::read_with`].
 ///
 /// # Examples
 ///
@@ -227,6 +234,10 @@ impl Config {
     /// Encodes this configuration as a V1 JSON wire document with the
     /// configuration crate's default JSON budget profile.
     ///
+    /// Runtime read policy is not persisted; decoding restores
+    /// [`ReadPolicy::default`]. See [`Config::set_default_read_policy`] and
+    /// [`Config::read_with`] to restore or temporarily select a policy.
+    ///
     /// # Returns
     ///
     /// The complete encoded JSON document.
@@ -275,6 +286,13 @@ impl Config {
     /// Decodes a complete configuration JSON wire document with the
     /// configuration crate's default JSON budget profile.
     ///
+    /// The persisted document does not contain the runtime read policy, so the
+    /// returned configuration uses [`ReadPolicy::default`]. Legacy
+    /// `read_options` fields continue to be accepted and ignored. Equality
+    /// with the original configuration compares persisted data only; use
+    /// [`Config::set_default_read_policy`] or [`Config::read_with`] when the
+    /// original read behavior must be restored.
+    ///
     /// # Parameters
     ///
     /// * `input` - Complete untrusted configuration JSON document.
@@ -294,6 +312,13 @@ impl Config {
 
     /// Decodes a complete configuration JSON wire document with an explicit
     /// configuration profile.
+    ///
+    /// The persisted document does not contain the runtime read policy, so the
+    /// returned configuration uses [`ReadPolicy::default`]. Legacy
+    /// `read_options` fields continue to be accepted and ignored. Equality
+    /// with the original configuration compares persisted data only; use
+    /// [`Config::set_default_read_policy`] or [`Config::read_with`] when the
+    /// original read behavior must be restored.
     ///
     /// # Parameters
     ///

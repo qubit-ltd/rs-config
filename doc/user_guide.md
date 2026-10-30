@@ -500,6 +500,33 @@ custom-limits variant for untrusted JSON. This wire budget is separate from
 explicit `read_options` field, including `null`; legacy unversioned input still
 accepts and ignores it. Manually constructed V1 envelopes must omit it.
 
+Neither V1 nor legacy persistence stores the runtime default `ReadPolicy`.
+Both bounded JSON decoding and ordinary Serde deserialization restore
+`ReadPolicy::default()`. `Config` equality compares persisted data only, so a
+successful data roundtrip does not imply that a custom read policy was
+preserved. Restore the policy explicitly or use `read_with` for a temporary
+view:
+
+```rust
+use qubit_config::Config;
+use qubit_config::ConfigReader;
+use qubit_config::ReadPolicy;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let policy = ReadPolicy::builder().max_interpolation_depth(7).build();
+    let mut config = Config::builder().default_read_policy(policy.clone()).build();
+    config.set("port", 8080_u16)?;
+    let mut restored = Config::decode_json_slice(&config.encode_json_vec()?)?;
+    assert_eq!(restored, config);
+    assert_eq!(restored.default_read_policy(), &ReadPolicy::default());
+    let view = restored.read_with(&policy);
+    assert_eq!(view.get::<u16>("port")?, 8080);
+    restored.set_default_read_policy(policy.clone());
+    assert_eq!(restored.default_read_policy(), &policy);
+    Ok(())
+}
+```
+
 ## Advanced Usage
 
 ### Choose a read policy
@@ -633,9 +660,11 @@ a valid port is a separate business validation decision.
 For example, `APP_DATABASE__MAX_CONNECTIONS` becomes `database.max_connections`. Use `EnvConfigOptions` when only some transformations are wanted. If two distinct environment names collapse to the same normalized key, loading returns `KeyConflict` rather than selecting one silently. The error reports the conflicting environment names in lexicographic order, so its diagnostics do not depend on the operating system's environment-variable iteration order.
 
 TOML and YAML sources flatten mappings into dotted properties. They accept scalars,
-empty sequences, and homogeneous scalar sequences. Object arrays, nested arrays,
-and heterogeneous YAML scalar sequences are rejected with source, path, and index
-context; values are never silently stringified to hide a structural mismatch.
+empty sequences, and homogeneous scalar sequences of strings, booleans, or values
+within the same existing numeric category. YAML sequences containing null
+elements are unsupported, as are object arrays, nested arrays, and heterogeneous
+scalar sequences; these errors include source, path, and index context. Values
+are never silently stringified to hide a structural mismatch.
 
 ### Configure source limits
 
