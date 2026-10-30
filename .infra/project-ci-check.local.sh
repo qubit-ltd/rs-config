@@ -11,3 +11,4 @@ python3 -B scripts/check_doc_examples_tests.py
 python3 -B scripts/check_package_resources_tests.py
 python3 -B scripts/check-package-resources.py
 cargo test --manifest-path tests/fixtures/arbitrary_precision/Cargo.toml --target-dir target/arbitrary-precision
+cargo test --manifest-path tests/fixtures/standard_json/Cargo.toml --target-dir target/standard-json
