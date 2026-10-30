@@ -245,6 +245,11 @@ mod test_contains_prefix {
 
 #[cfg(test)]
 mod test_get_and_get_list_error_mapping_additional_paths {
+    use qubit_datatype::DataFormat;
+    use qubit_datatype::InvalidValueReason;
+    use qubit_datatype::JsonConversionErrorCategory;
+    use serde_json::Value as JsonValue;
+
     use super::Config;
     use super::ConfigError;
     use super::DataConversionErrorKind;
@@ -256,9 +261,84 @@ mod test_get_and_get_list_error_mapping_additional_paths {
     use super::create_test_config_with_description;
 
     #[test]
-    fn test_get_and_get_list_error_mapping_additional_paths() {
-        use serde_json::Value as JsonValue;
+    fn test_error_mapping_invalid_integer_preserves_reason() {
+        let mut config = Config::new();
+        config.set("bad_int", "abc").unwrap();
+        let error = config.get::<i32>("bad_int").unwrap_err();
+        assert_eq!(error.path(), Some("bad_int"));
+        let ConfigError::ConversionError {
+            key,
+            source_index,
+            source,
+        } = error
+        else {
+            panic!("expected a conversion error");
+        };
+        assert_eq!(key, "bad_int");
+        assert_eq!(source_index, None);
+        assert_eq!(source.kind(), DataConversionErrorKind::InvalidValue);
+        assert!(matches!(
+            source.reason(),
+            Some(InvalidValueReason::InvalidSyntax { .. })
+        ));
+    }
 
+    #[test]
+    fn test_error_mapping_unsupported_object_preserves_kind() {
+        let mut config = Config::new();
+        config
+            .set(
+                "map_value",
+                std::collections::HashMap::from([("key".to_owned(), "value".to_owned())]),
+            )
+            .unwrap();
+        let error = config.get::<i32>("map_value").unwrap_err();
+        assert_eq!(error.path(), Some("map_value"));
+        let ConfigError::ConversionError {
+            key,
+            source_index,
+            source,
+        } = error
+        else {
+            panic!("expected a conversion error");
+        };
+        assert_eq!(key, "map_value");
+        assert_eq!(source_index, None);
+        assert_eq!(source.kind(), DataConversionErrorKind::Unsupported);
+        assert_eq!(source.reason(), None);
+    }
+
+    #[test]
+    fn test_error_mapping_invalid_json_preserves_diagnostic() {
+        let mut config = Config::new();
+        config.set("bad_json", "{invalid-json").unwrap();
+        let error = config.get::<JsonValue>("bad_json").unwrap_err();
+        assert_eq!(error.path(), Some("bad_json"));
+        let ConfigError::ConversionError {
+            key,
+            source_index,
+            source,
+        } = error
+        else {
+            panic!("expected a conversion error");
+        };
+        assert_eq!(key, "bad_json");
+        assert_eq!(source_index, None);
+        assert_eq!(source.kind(), DataConversionErrorKind::InvalidValue);
+        assert_eq!(
+            source.reason(),
+            Some(&InvalidValueReason::Deserialization {
+                format: DataFormat::Json
+            })
+        );
+        assert_eq!(
+            source.json_diagnostic().unwrap().category(),
+            JsonConversionErrorCategory::InvalidJson
+        );
+    }
+
+    #[test]
+    fn test_get_list_error_mapping_additional_paths() {
         let mut config = Config::new();
         config
             .set(
@@ -266,30 +346,6 @@ mod test_get_and_get_list_error_mapping_additional_paths {
                 std::collections::HashMap::from([("key".to_string(), "value".to_string())]),
             )
             .unwrap();
-        config.set("bad_int", "abc").unwrap();
-        config.set("bad_json", "{invalid-json").unwrap();
-
-        // Unsupported conversion path in get().
-        let err = config.get::<i32>("map_value").unwrap_err();
-        assert!(matches!(
-            err,
-            ConfigError::ConversionError { .. } | ConfigError::TypeMismatch { .. }
-        ));
-
-        // Invalid syntax path in get().
-        let err = config.get::<i32>("bad_int").unwrap_err();
-        assert!(matches!(
-            err,
-            ConfigError::ConversionError { .. } | ConfigError::TypeMismatch { .. }
-        ));
-
-        // JSON deserialization error path in get().
-        let err = config.get::<JsonValue>("bad_json").unwrap_err();
-        assert!(matches!(
-            err,
-            ConfigError::ConversionError { .. } | ConfigError::TypeMismatch { .. }
-        ));
-
         // An unset property remains missing for list conversion.
         config.set_null("empty_list", DataType::String).unwrap();
         assert!(matches!(
