@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "files": {
+    "src/error/config_error.rs": {
+      "minimums": {
+        "lines": 89.11
+      },
+      "reason": "The error classification and source adapters retain generic and defensive formatting paths. Existing error tests cover error types, paths, missing facts, and source chains; the fresh all-features report leaves only the line metric below its normal threshold.",
+      "evidence": {
+        "generated_at": "2026-10-30T11:25:42Z",
+        "cargo_llvm_cov": "cargo-llvm-cov 0.8.6",
+        "rust_llvm": "rustc 1.94.0 (4a4ef493e3a1488c6e321570238084b38948f6db), LLVM 21.1.8",
+        "command": "CARGO_INCREMENTAL=1 ./.infra/bin/coverage.sh",
+        "source_baseline": "HEAD 5d772eb560666b7f6872f8f53649b8972d90a64b",
+        "source_sha256": "dcad3760e33bbea900b7412e95f043e74420eb2be2e74fb87e42818f16177689",
+        "metrics": {
+          "functions": { "covered": 17, "count": 17, "percent": 100.0 },
+          "lines": { "covered": 172, "count": 193, "percent": 89.11917098445595 },
+          "regions": { "covered": 186, "count": 213, "percent": 87.32394366197182 }
+        }
+      }
+    },
+    "src/source/toml_config_source.rs": {
+      "minimums": {
+        "functions": 77.5,
+        "regions": 83.37
+      },
+      "reason": "The feature-gated generic conversions and defensive scalar fallback paths account for the remaining function and region attribution gaps. The TOML source tests cover accepted values, mixed and nested value rejection, parse and I/O errors, collisions, limits, final values, and transactionality; lines meet the normal threshold.",
+      "evidence": {
+        "generated_at": "2026-10-30T11:25:42Z",
+        "cargo_llvm_cov": "cargo-llvm-cov 0.8.6",
+        "rust_llvm": "rustc 1.94.0 (4a4ef493e3a1488c6e321570238084b38948f6db), LLVM 21.1.8",
+        "command": "CARGO_INCREMENTAL=1 ./.infra/bin/coverage.sh",
+        "source_baseline": "HEAD 5d772eb560666b7f6872f8f53649b8972d90a64b",
+        "source_sha256": "250ab62ea043cd2e4f6669c7b0b04fc6bc6d6d3f917f1f9f795c1dbb80e658ae",
+        "metrics": {
+          "functions": { "covered": 31, "count": 40, "percent": 77.5 },
+          "lines": { "covered": 220, "count": 238, "percent": 92.43697478991596 },
+          "regions": { "covered": 376, "count": 451, "percent": 83.37028824833703 }
+        }
+      }
+    },
+    "src/source/yaml_config_source.rs": {
+      "minimums": {
+        "functions": 83.72
+      },
+      "reason": "Feature-gated generic sequence conversions and defensive nested-value paths leave a function attribution gap. The YAML source tests cover scalar and sequence kinds, malformed and nested values, aliases, collisions, limits, final values, and transactionality; lines and regions meet the normal thresholds.",
+      "evidence": {
+        "generated_at": "2026-10-30T11:25:42Z",
+        "cargo_llvm_cov": "cargo-llvm-cov 0.8.6",
+        "rust_llvm": "rustc 1.94.0 (4a4ef493e3a1488c6e321570238084b38948f6db), LLVM 21.1.8",
+        "command": "CARGO_INCREMENTAL=1 ./.infra/bin/coverage.sh",
+        "source_baseline": "HEAD 5d772eb560666b7f6872f8f53649b8972d90a64b",
+        "source_sha256": "6470cea44e58d5ee4e1e034a3f7767733550e93ae1f2c5e4b4708587e9394539",
+        "metrics": {
+          "functions": { "covered": 36, "count": 43, "percent": 83.72093023255815 },
+          "lines": { "covered": 246, "count": 264, "percent": 93.18181818181817 },
+          "regions": { "covered": 450, "count": 510, "percent": 88.23529411764706 }
+        }
+      }
+    }
+  }
+}

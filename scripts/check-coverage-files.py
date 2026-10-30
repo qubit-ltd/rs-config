@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,6 +17,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_COVERAGE = ROOT / "coverage.json"
 DEFAULT_CONFIG = ROOT / ".infra/coverage/coverage.json"
 DEFAULT_NON_EXECUTABLE = ROOT / ".infra/coverage/non-executable-files.json"
+DEFAULT_METRIC_OVERRIDES = ROOT / "scripts/coverage-metric-overrides.json"
 METRICS = ("functions", "lines", "regions")
 
 
@@ -179,11 +181,22 @@ def reported_source_summaries(root: Path, coverage: Any, source_dirs: dict[str, 
 def metric(summary: Any, name: str, source: str) -> tuple[float, int, int]:
     try:
         values = summary[name]
-        percent = float(values["percent"])
-        covered = int(values["covered"])
-        count = int(values["count"])
-    except (KeyError, TypeError, ValueError) as error:
+        raw_percent = values["percent"]
+        covered = values["covered"]
+        count = values["count"]
+    except (KeyError, TypeError) as error:
         raise CheckerInputError(f"{source}: missing or invalid {name} coverage summary") from error
+    if (
+        not isinstance(values, dict)
+        or not isinstance(raw_percent, (int, float))
+        or isinstance(raw_percent, bool)
+        or not isinstance(covered, int)
+        or isinstance(covered, bool)
+        or not isinstance(count, int)
+        or isinstance(count, bool)
+    ):
+        raise CheckerInputError(f"{source}: missing or invalid {name} coverage summary")
+    percent = float(raw_percent)
     if count < 0 or covered < 0 or covered > count or not 0 <= percent <= 100:
         raise CheckerInputError(f"{source}: invalid {name} coverage counters")
     return percent, covered, count
@@ -198,8 +211,63 @@ def failing_metric(summary: Any, name: str, threshold: float, source: str) -> st
     return f"{name}={percent:.2f}% ({covered}/{count}; requires {operator}{threshold:.2f}%)"
 
 
+def metric_overrides(value: Any) -> dict[str, dict[str, float]]:
+    if not isinstance(value, dict) or value.get("version") != 1 or not isinstance(value.get("files"), dict):
+        raise CheckerInputError("metric override policy must contain version 1 and a files object")
+    parsed: dict[str, dict[str, float]] = {}
+    for source, entry in value["files"].items():
+        if not isinstance(source, str) or not isinstance(entry, dict):
+            raise CheckerInputError("each metric override must be a file object")
+        minimums = entry.get("minimums")
+        reason = entry.get("reason")
+        evidence = entry.get("evidence")
+        if not isinstance(minimums, dict) or not isinstance(reason, str) or not reason.strip():
+            raise CheckerInputError(f"{source}: override needs minimums and a non-empty reason")
+        if not isinstance(evidence, dict) or not all(
+            isinstance(evidence.get(key), str) and evidence[key].strip()
+            for key in ("generated_at", "cargo_llvm_cov", "rust_llvm", "command", "source_baseline")
+        ) or not isinstance(evidence.get("metrics"), dict):
+            raise CheckerInputError(f"{source}: override needs complete coverage evidence")
+        if set(evidence["metrics"]) != set(METRICS):
+            raise CheckerInputError(f"{source}: evidence must include all coverage metrics")
+        for name, measurement in evidence["metrics"].items():
+            if name not in METRICS or not isinstance(measurement, dict):
+                raise CheckerInputError(f"{source}: evidence contains an unknown metric")
+            try:
+                covered = measurement["covered"]
+                count = measurement["count"]
+                percent = float(measurement["percent"])
+            except (KeyError, TypeError, ValueError) as error:
+                raise CheckerInputError(f"{source}: invalid {name} evidence") from error
+            if (
+                not isinstance(covered, int)
+                or isinstance(covered, bool)
+                or not isinstance(count, int)
+                or isinstance(count, bool)
+                or count < 0
+                or covered < 0
+                or covered > count
+                or not math.isfinite(percent)
+                or not 0 <= percent <= 100
+            ):
+                raise CheckerInputError(f"{source}: invalid {name} evidence")
+        parsed_minimums: dict[str, float] = {}
+        for name, raw_minimum in minimums.items():
+            if name not in METRICS:
+                raise CheckerInputError(f"{source}: unknown metric '{name}' in override")
+            if not isinstance(raw_minimum, (int, float)) or isinstance(raw_minimum, bool):
+                raise CheckerInputError(f"{source}: invalid {name} minimum")
+            minimum = float(raw_minimum)
+            if not math.isfinite(minimum) or not 0 <= minimum <= 100:
+                raise CheckerInputError(f"{source}: invalid {name} minimum")
+            parsed_minimums[name] = minimum
+        parsed[source] = parsed_minimums
+    return parsed
+
+
 def check_coverage_files(
-    root: Path, coverage_path: Path, config_path: Path, non_executable_path: Path | None = None
+    root: Path, coverage_path: Path, config_path: Path, non_executable_path: Path | None = None,
+    metric_overrides_path: Path | None = None,
 ) -> CheckResult:
     """Check complete coverage evidence for configured production source files."""
     coverage = load_json(coverage_path, "coverage report")
@@ -207,6 +275,8 @@ def check_coverage_files(
     source_dirs, exemptions, non_executable, thresholds = policy(
         load_json(config_path, "coverage policy"), load_json(non_executable_path, "non-executable file classification")
     )
+    override_path = metric_overrides_path or root / "scripts/coverage-metric-overrides.json"
+    overrides = metric_overrides(load_json(override_path, "metric override policy"))
     selected = selected_sources(root, source_dirs)
     exempt = set().union(*exemptions.values()) if exemptions else set()
     classified = set().union(*non_executable.values()) if non_executable else set()
@@ -218,27 +288,44 @@ def check_coverage_files(
         )
 
     summaries = reported_source_summaries(root, coverage, source_dirs)
-    required = selected - configured_paths
-    missing = sorted(required - summaries.keys())
+    required = selected - classified
+    invalid_overrides = set(overrides) - exempt
+    if invalid_overrides:
+        raise CheckerInputError(
+            "metric overrides must refer to configured exception files: "
+            + ", ".join(sorted(invalid_overrides))
+        )
+    missing_overrides = exempt - overrides.keys()
+    if missing_overrides:
+        raise CheckerInputError(
+            "configured exception files need a metric override entry: "
+            + ", ".join(sorted(missing_overrides))
+        )
+    missing = sorted((required - exempt) - summaries.keys())
     errors = [f"{source}: production source file is missing from the coverage report" for source in missing]
-    errors.extend(
-        f"{source}: configured exemption is absent from the coverage report"
-        for source in sorted(exempt - summaries.keys())
-    )
+    errors.extend(f"{source}: configured exemption is absent from the coverage report" for source in sorted(exempt - summaries.keys()))
 
     checked_files = 0
+    used_overrides: set[str] = set()
     for source in sorted(required & summaries.keys()):
         checked_files += 1
         summary = summaries[source]
-        failures = [
-            failure
-            for name in METRICS
-            if (failure := failing_metric(summary, name, thresholds[name], source)) is not None
-        ]
+        failures = []
+        for name in METRICS:
+            percent, covered, count = metric(summary, name, source)
+            minimum = overrides.get(source, {}).get(name)
+            if minimum is not None and percent < thresholds[name]:
+                used_overrides.add(source)
+                if percent < minimum:
+                    failures.append(f"{name}={percent:.2f}% ({covered}/{count}; requires >={minimum:.2f}%)")
+            else:
+                failure = failing_metric(summary, name, thresholds[name], source)
+                if failure is not None:
+                    failures.append(failure)
         if failures:
             errors.append(f"{source}: {', '.join(failures)}")
 
-    return CheckResult(checked_files, len(exempt & summaries.keys()), tuple(errors))
+    return CheckResult(checked_files, len(used_overrides), tuple(errors))
 
 
 def parse_args() -> argparse.Namespace:
@@ -249,6 +336,12 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=DEFAULT_COVERAGE,
         help="cargo-llvm-cov JSON report (default: coverage.json in the project root)",
+    )
+    parser.add_argument(
+        "--metric-overrides",
+        type=Path,
+        default=DEFAULT_METRIC_OVERRIDES,
+        help="project per-metric coverage evidence (default: scripts/coverage-metric-overrides.json)",
     )
     parser.add_argument(
         "--config",
@@ -262,7 +355,12 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     arguments = parse_args()
     try:
-        result = check_coverage_files(ROOT, arguments.coverage_json, arguments.config)
+        result = check_coverage_files(
+            ROOT,
+            arguments.coverage_json,
+            arguments.config,
+            metric_overrides_path=arguments.metric_overrides,
+        )
     except CheckerInputError as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
@@ -272,7 +370,7 @@ def main() -> int:
         return 1
     print(
         f"checked {result.checked_files} production coverage files; "
-        f"skipped {result.exempt_files} configured instrumentation exceptions"
+        f"used metric-specific lower bounds for {result.exempt_files} production coverage files"
     )
     return 0
 

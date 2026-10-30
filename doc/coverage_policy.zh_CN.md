@@ -20,6 +20,10 @@
 python3 -B scripts/check-coverage-files.py coverage.json --config .infra/coverage/coverage.json
 ```
 
+检查器还会默认读取 `scripts/coverage-metric-overrides.json`。可用
+`--metric-overrides PATH` 指定其他项目 sidecar。单元测试和 pipeline fixture
+通过检查器默认路径提供各自隔离的 sidecar。
+
 CI 的 `coverage-files` job 会下载 `rust-ci` job 生成的 `coverage-reports` artifact，并使用相同的
 `.infra/coverage/coverage.json` 策略检查 `artifacts/coverage/coverage.json`。共享覆盖率汇总和 badge
 仍可用于查看整体情况，但不能替代逐文件门槛。
@@ -30,32 +34,44 @@ CI 的 `coverage-files` job 会下载 `rust-ci` job 生成的 `coverage-reports`
 - lines 高于 90%；
 - regions 高于 85%。
 
-报告或策略缺失/无效、报告中缺少预期源码文件，或未豁免文件低于门槛时，检查器都会失败。
-原 checkout 当前可用的最近一份变更前报告由 `cargo-llvm-cov 0.8.6` 生成，文件时间为
-2026-10-06。逐文件计数只支持保留以下例外：
+每个被选中的生产文件都必须出现在报告中，且 functions、lines、regions 三项计数均有效，
+包括配置了指标下限的文件。没有 override 时，functions 至少为 95%，lines 必须高于 90%，
+regions 必须高于 85%。sidecar 下限只应用于明确列出的指标，并使用包含边界的 `>=`；
+其他指标继续使用正常门槛。只有指标低于正常门槛时才使用 override，因此已满足正常规则的
+指标不计为例外。sidecar、版本、必需文件条目、理由、证据或有效 summary 缺失时检查器失败，
+不会回退为整文件豁免。`checked_files` 包含所有可执行生产文件；`exempt_files` 表示至少有
+一个指标正在使用较低下限的文件数。
 
-| 文件 | Functions | Lines | Regions | 证据 |
+当前 sidecar 来自 2026-10-30 生成的新报告，工具为 `cargo-llvm-cov 0.8.6`、Rust 1.94.0、
+LLVM 21.1.8，命令为 `CARGO_INCREMENTAL=1 ./.infra/bin/coverage.sh`。源码基线为 HEAD
+`5d772eb560666b7f6872f8f53649b8972d90a64b`；三个测量文件的 SHA-256 已记录在 sidecar 中。
+三份文件都出现在报告内，实际计数如下：
+
+| 文件 | Functions | Lines | Regions | 生效下限 |
 | --- | ---: | ---: | ---: | --- |
-| `src/error/config_error.rs` | 100.00% (16/16) | 87.91% (160/182) | 86.07% (173/201) | 错误分类和 source adapter 仍包含泛型及防御分支；错误测试覆盖类型、路径、missing facts 和 source 链。该文件自报告生成后未修改。 |
-| `src/source/toml_config_source.rs` | 78.95% (30/38) | 92.48% (209/226) | 83.53% (350/419) | feature-gated 泛型转换和防御性 scalar fallback 路径导致函数/regions 未达门槛；`toml_config_source_tests` 覆盖接受值、混合/嵌套拒绝、解析/I/O 错误、冲突、limits、final 值和事务性。这些是历史计数。 |
-| `src/source/yaml_config_source.rs` | 81.25% (39/48) | 87.33% (317/363) | 83.31% (549/659) | 报告早于 RSC-002，计数反映 feature-gated 泛型 sequence 转换和防御性嵌套值分支；RSC-002 移除了旧 scanner，并将 token guard 放入单独文件。这些是历史计数。 |
+| `src/error/config_error.rs` | 100.00% (17/17) | 89.12% (172/193) | 87.32% (186/213) | lines >= 89.11% |
+| `src/source/toml_config_source.rs` | 77.50% (31/40) | 92.44% (220/238) | 83.37% (376/451) | functions >= 77.50%；regions >= 83.37% |
+| `src/source/yaml_config_source.rs` | 83.72% (36/43) | 93.18% (246/264) | 88.24% (450/510) | functions >= 83.72% |
 
-同一报告中另外六个旧例外已达到三个门槛并移除：`src/config/access.rs`、
-`src/key/config_key.rs`、`src/key/config_path.rs`、`src/property/property.rs`、
-`src/property/property_mut.rs` 和 `src/reader/config_section.rs`；历史报告不能证明它们在新构建中的覆盖情况。
-部分访问方法使用 `#[inline]` 而非强制内联，以便 LLVM 归属跨测试目标的调用。本轮没有新增阈值例外。
+sidecar 为每个文件的三项指标记录完整精度百分比及 covered/count。生效下限取实际百分比向下
+保留两位小数；达到正常门槛的指标不设置 override。此前移除的六个旧例外继续保持移除：
+`src/config/access.rs`、`src/key/config_key.rs`、`src/key/config_path.rs`、
+`src/property/property.rs`、`src/property/property_mut.rs` 和 `src/reader/config_section.rs`。
 共享 `.infra/coverage/coverage.json` 遵循 `.infra/bin/coverage.sh` 使用的严格 schema。项目 checker
 在 `.infra/coverage/non-executable-files.json` 中显式记录仅含声明的文件和仅供测试使用的模块，
 不会仅因报告缺少某个文件就静默忽略它。
 
 ## 维护策略
 
-不得将业务分支加入例外。新增例外需要最新覆盖率报告、精确的计数归属缺口或不可达防御分支，以及
-覆盖对应可观察行为的 focused test。修改机器可读策略时，须同步更新中英文文档。Rust/LLVM 或
-`cargo-llvm-cov` 修复计数归属问题后，应移除对应例外。
+不得将业务分支加入例外。新增下限需要最新覆盖率报告、精确的计数归属缺口或不可达防御分支，
+以及覆盖对应可观察行为的 focused test。`minimums` 只列出仍低于正常门槛的指标，不得使用整文件
+放行。修改机器可读 sidecar 时，须同步更新中英文文档。Rust/LLVM 或 `cargo-llvm-cov` 修复计数
+归属问题后，应移除对应下限。
 
 已有报告可单独执行检查：
 
 ```text
 python3 -B scripts/check-coverage-files.py coverage.json --config .infra/coverage/coverage.json
 ```
+
+指定其他证据文件时，增加 `--metric-overrides PATH`。

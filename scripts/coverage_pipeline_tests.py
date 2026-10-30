@@ -28,6 +28,25 @@ class CoveragePipelineTests(unittest.TestCase):
         (self.root / "src").mkdir()
         (self.root / "src/app.rs").write_text("fn app() {}\n", encoding="utf-8")
         (self.root / "src/lib.rs").write_text("mod app;\n", encoding="utf-8")
+        (self.root / "scripts/coverage-metric-overrides.json").write_text(
+            json.dumps({"version": 1, "files": {
+                "src/app.rs": {
+                    "minimums": {"functions": 78.0},
+                    "reason": "A generated fixture models a measured attribution gap.",
+                    "evidence": {
+                        "generated_at": "fixture timestamp",
+                        "cargo_llvm_cov": "fixture tool",
+                        "rust_llvm": "fixture toolchain",
+                        "command": "fixture command",
+                        "source_baseline": "fixture source",
+                        "metrics": {
+                            name: {"covered": 78, "count": 100, "percent": 78.0}
+                            for name in ("functions", "lines", "regions")
+                        },
+                    },
+                },
+            }}), encoding="utf-8"
+        )
         shutil.copy(ROOT / "scripts/check-project-coverage.sh", self.root / "scripts/check-project-coverage.sh")
         shutil.copy(ROOT / "scripts/check-coverage-files.py", self.root / "scripts/check-coverage-files.py")
         (self.root / "scripts/check-project-coverage.sh").chmod(0o755)
@@ -42,6 +61,8 @@ class CoveragePipelineTests(unittest.TestCase):
                 missing) exit 0 ;;
                 malformed) printf '{malformed' > "$TEST_REPORT" ;;
                 low) python3 "$TEST_REPORT_WRITER" low "$TEST_REPORT" "$TEST_SOURCE" ;;
+                below-minimum) python3 "$TEST_REPORT_WRITER" below-minimum "$TEST_REPORT" "$TEST_SOURCE" ;;
+                invalid-summary) python3 "$TEST_REPORT_WRITER" invalid-summary "$TEST_REPORT" "$TEST_SOURCE" ;;
                 success) python3 "$TEST_REPORT_WRITER" success "$TEST_REPORT" "$TEST_SOURCE" ;;
                 *) exit 24 ;;
             esac
@@ -54,6 +75,14 @@ class CoveragePipelineTests(unittest.TestCase):
             def metric(percent):
                 return {"count": 100, "covered": percent, "percent": percent}
             summary = {name: metric(value) for name in ("functions", "lines", "regions")}
+            if mode == "below-minimum":
+                summary = {
+                    "functions": metric(77),
+                    "lines": metric(91),
+                    "regions": metric(86),
+                }
+            if mode == "invalid-summary":
+                summary["lines"] = None
             with open(report_path, "w", encoding="utf-8") as report:
                 json.dump({"data": [{"files": [
                     {"filename": source_path, "summary": summary},
@@ -65,7 +94,7 @@ class CoveragePipelineTests(unittest.TestCase):
             "scope": "package",
             "source_dirs": {"qubit-config": ["src"]},
             "thresholds": {"functions": 95, "lines": 90, "regions": 85},
-            "threshold_exempt_files": {"qubit-config": []},
+            "threshold_exempt_files": {"qubit-config": ["src/app.rs"]},
         }), encoding="utf-8")
         (self.root / ".infra/coverage/non-executable-files.json").write_text(json.dumps({"qubit-config": [{
                 "path": "src/lib.rs", "reason": "module declarations only",
@@ -139,6 +168,17 @@ class CoveragePipelineTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("src/app.rs", result.stderr)
         self.assertIn("functions=20.00%", result.stderr)
+
+    def test_metric_override_minimum_still_rejects_a_lower_report(self) -> None:
+        result = self.run_wrapper("below-minimum")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("functions=77.00%", result.stderr)
+        self.assertIn("requires >=78.00%", result.stderr)
+
+    def test_invalid_summary_fails_after_generation(self) -> None:
+        result = self.run_wrapper("invalid-summary")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("missing or invalid lines coverage summary", result.stderr)
 
     def test_missing_configuration_fails(self) -> None:
         (self.root / ".infra/coverage/coverage.json").unlink()

@@ -52,7 +52,8 @@ class CoverageFileCheckerTests(unittest.TestCase):
         self,
         files: list[tuple[str, dict[str, dict[str, float | int]]]],
         exemptions: list[str] | None = None,
-    ) -> tuple[Path, Path]:
+        overrides: dict[str, dict] | None = None,
+    ) -> tuple[Path, Path, Path]:
         coverage_path = self.root / "coverage.json"
         config_path = self.root / ".infra/coverage/coverage.json"
         non_executable_path = self.root / ".infra/coverage/non-executable-files.json"
@@ -73,42 +74,69 @@ class CoverageFileCheckerTests(unittest.TestCase):
                 "path": "src/lib.rs",
                 "reason": "module declarations only",
             }]}), encoding="utf-8")
-        return coverage_path, config_path
+        override_path = self.root / "scripts/overrides.json"
+        override_path.parent.mkdir(parents=True, exist_ok=True)
+        override_path.write_text(json.dumps({"version": 1, "files": overrides or {}}), encoding="utf-8")
+        return coverage_path, config_path, override_path
+
+    def check(self, paths: tuple[Path, Path, Path]):
+        coverage_path, config_path, override_path = paths
+        return self.checker.check_coverage_files(
+            self.root, coverage_path, config_path, metric_overrides_path=override_path
+        )
+
+    def override(self, minimums: dict[str, float]) -> dict:
+        return {
+            "minimums": minimums,
+            "reason": "LLVM attribution is incomplete for the covered defensive branches.",
+            "evidence": {
+                "generated_at": "2026-10-30T00:00:00Z",
+                "cargo_llvm_cov": "cargo-llvm-cov test fixture",
+                "rust_llvm": "rustc fixture / LLVM fixture",
+                "command": "fixture only",
+                "source_baseline": "fixture source",
+                "metrics": {
+                    name: {"covered": 78, "count": 100, "percent": 78.0}
+                    for name in ("functions", "lines", "regions")
+                },
+            },
+        }
 
     def test_accepts_thresholds_and_explicit_aggregation_classification(self) -> None:
-        coverage_path, config_path = self.write_inputs([
+        paths = self.write_inputs([
             ("src/checked.rs", summary(95.0, 91.0, 86.0)),
             ("src/low.rs", summary(100.0, 100.0, 100.0)),
         ])
-        result = self.checker.check_coverage_files(self.root, coverage_path, config_path)
+        result = self.check(paths)
         self.assertEqual(result, self.checker.CheckResult(2, 0, ()))
 
     def test_low_file_fails_even_when_another_file_is_fully_covered(self) -> None:
-        coverage_path, config_path = self.write_inputs([
+        paths = self.write_inputs([
             ("src/checked.rs", summary(100.0, 100.0, 100.0)),
             ("src/low.rs", summary(20.0, 20.0, 20.0)),
         ])
-        result = self.checker.check_coverage_files(self.root, coverage_path, config_path)
+        result = self.check(paths)
         self.assertEqual(len(result.errors), 1)
         self.assertTrue(result.errors[0].startswith("src/low.rs:"))
         self.assertIn("functions=20.00%", result.errors[0])
 
     def test_missing_production_file_fails_even_when_report_has_a_high_summary(self) -> None:
-        coverage_path, config_path = self.write_inputs([
+        paths = self.write_inputs([
             ("src/checked.rs", summary(100.0, 100.0, 100.0)),
         ])
-        result = self.checker.check_coverage_files(self.root, coverage_path, config_path)
+        result = self.check(paths)
         self.assertEqual(
             result.errors,
             ("src/low.rs: production source file is missing from the coverage report",),
         )
 
     def test_rejects_an_exemption_missing_from_the_report(self) -> None:
-        coverage_path, config_path = self.write_inputs(
+        paths = self.write_inputs(
             [("src/checked.rs", summary(100.0, 100.0, 100.0))],
             ["src/low.rs"],
+            {"src/low.rs": self.override({})},
         )
-        result = self.checker.check_coverage_files(self.root, coverage_path, config_path)
+        result = self.check(paths)
         self.assertEqual(
             result.errors,
             ("src/low.rs: configured exemption is absent from the coverage report",),
@@ -117,16 +145,16 @@ class CoverageFileCheckerTests(unittest.TestCase):
     def test_rejects_malformed_metric_counters(self) -> None:
         malformed = summary(100.0, 100.0, 100.0)
         malformed["lines"]["covered"] = 101
-        coverage_path, config_path = self.write_inputs([
+        paths = self.write_inputs([
             ("src/checked.rs", malformed),
             ("src/low.rs", summary(100.0, 100.0, 100.0)),
         ])
         with self.assertRaisesRegex(self.checker.CheckerInputError, "invalid lines coverage counters"):
-            self.checker.check_coverage_files(self.root, coverage_path, config_path)
+            self.check(paths)
 
     def test_configured_test_only_module_is_not_a_production_coverage_file(self) -> None:
         (self.root / "src/internal_tests.rs").write_text("#[test] fn example() {}\n", encoding="utf-8")
-        coverage_path, config_path = self.write_inputs([
+        paths = self.write_inputs([
             ("src/checked.rs", summary(100.0, 100.0, 100.0)),
             ("src/low.rs", summary(100.0, 100.0, 100.0)),
         ])
@@ -136,8 +164,81 @@ class CoverageFileCheckerTests(unittest.TestCase):
             "path": "src/internal_tests.rs", "reason": "test-only module has no production code",
         })
         classification_path.write_text(json.dumps(classification), encoding="utf-8")
-        result = self.checker.check_coverage_files(self.root, coverage_path, config_path)
+        result = self.check(paths)
         self.assertEqual(result, self.checker.CheckResult(2, 0, ()))
+
+    def test_override_is_per_metric_and_uses_inclusive_minimum(self) -> None:
+        entry = self.override({"functions": 78.0})
+        paths = self.write_inputs([
+            ("src/checked.rs", summary(100, 100, 100)),
+            ("src/low.rs", summary(78, 91, 86)),
+        ], ["src/low.rs"], {"src/low.rs": entry})
+        self.assertEqual(self.check(paths), self.checker.CheckResult(2, 1, ()))
+        paths = self.write_inputs([
+            ("src/checked.rs", summary(100, 100, 100)),
+            ("src/low.rs", summary(78, 20, 86)),
+        ], ["src/low.rs"], {"src/low.rs": entry})
+        result = self.check(paths)
+        self.assertEqual(len(result.errors), 1)
+        self.assertIn("lines=20.00%", result.errors[0])
+
+    def test_override_below_minimum_and_zero_coverage_fail(self) -> None:
+        entry = self.override({"functions": 78.0})
+        paths = self.write_inputs([
+            ("src/checked.rs", summary(100, 100, 100)),
+            ("src/low.rs", summary(77.99, 91, 86)),
+        ], ["src/low.rs"], {"src/low.rs": entry})
+        self.assertIn("functions=77.99%", self.check(paths).errors[0])
+        entry = self.override({"functions": 78.0, "lines": 70.0, "regions": 60.0})
+        paths = self.write_inputs([
+            ("src/checked.rs", summary(100, 100, 100)),
+            ("src/low.rs", summary(0, 0, 0)),
+        ], ["src/low.rs"], {"src/low.rs": entry})
+        self.assertEqual(len(self.check(paths).errors), 1)
+
+    def test_exception_summary_is_always_validated(self) -> None:
+        invalid_summaries = [None, {"functions": summary(100, 100, 100)["functions"]}]
+        invalid_summaries.append(summary(100, 100, 100))
+        invalid_summaries[-1]["lines"]["covered"] = 101
+        invalid_summaries.append(summary(100, 100, 100))
+        invalid_summaries[-1]["regions"]["percent"] = float("nan")
+        for invalid in invalid_summaries:
+            with self.subTest(invalid=invalid):
+                paths = self.write_inputs([
+                    ("src/checked.rs", summary(100, 100, 100)),
+                    ("src/low.rs", invalid),
+                ], ["src/low.rs"], {"src/low.rs": self.override({})})
+                with self.assertRaises(self.checker.CheckerInputError):
+                    self.check(paths)
+
+    def test_override_policy_fails_closed(self) -> None:
+        for sidecar in [
+            None,
+            {"version": 2, "files": {}},
+            {"version": 1, "files": {"src/low.rs": {**self.override({}), "minimums": {"branches": 1}}}},
+            {"version": 1, "files": {"src/low.rs": {**self.override({}), "reason": " "}}},
+            {"version": 1, "files": {"src/low.rs": {"minimums": {}, "reason": "missing evidence"}}},
+            {"version": 1, "files": {"src/low.rs": self.override({"functions": float("inf")})}},
+            {"version": 1, "files": {"src/low.rs": self.override({"functions": 101})}},
+            {"version": 1, "files": {"../outside.rs": self.override({})}},
+        ]:
+            paths = self.write_inputs([
+                ("src/checked.rs", summary(100, 100, 100)),
+                ("src/low.rs", summary(100, 100, 100)),
+            ], ["src/low.rs"])
+            sidecar_path = paths[2]
+            if sidecar is None:
+                sidecar_path.unlink()
+            else:
+                sidecar_path.write_text(json.dumps(sidecar), encoding="utf-8")
+            with self.assertRaises(self.checker.CheckerInputError):
+                self.check(paths)
+
+    def test_exception_must_be_reported(self) -> None:
+        paths = self.write_inputs([("src/checked.rs", summary(100, 100, 100))], ["src/low.rs"], {
+            "src/low.rs": self.override({}),
+        })
+        self.assertIn("configured exemption is absent", self.check(paths).errors[0])
 
 
 if __name__ == "__main__":
