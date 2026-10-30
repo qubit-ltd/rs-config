@@ -6,6 +6,16 @@ corpus/*
 !corpus/interpolation/**
 !corpus/config_wire/
 !corpus/config_wire/**
+!corpus/structured_deserialize/
+corpus/structured_deserialize/*
+!corpus/structured_deserialize/collections-nested.json
+!corpus/structured_deserialize/typed-record.json
+!corpus/structured_deserialize/typed-labeled-interpolation.json
+!corpus/structured_deserialize_typed/
+corpus/structured_deserialize_typed/*
+!corpus/structured_deserialize_typed/collections-nested.json
+!corpus/structured_deserialize_typed/typed-record.json
+!corpus/structured_deserialize_typed/typed-labeled-interpolation.json
 artifacts
 
 # Preserve locally generated libFuzzer corpus without committing hash-named inputs.
