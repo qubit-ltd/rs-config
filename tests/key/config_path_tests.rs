@@ -212,6 +212,12 @@ fn key_and_path_wrapper_traits_preserve_the_validated_text() {
 }
 
 #[test]
+fn config_key_can_be_consumed_into_its_canonical_string() {
+    let key = ConfigKey::parse("server.port").unwrap();
+    assert_eq!(key.into_string(), "server.port");
+}
+
+#[test]
 fn key_and_path_deserialization_enforce_their_distinct_empty_rules() {
     let root: ConfigPath = serde_json::from_str("\"\"").unwrap();
     assert_eq!(root.as_str(), "");

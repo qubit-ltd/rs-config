@@ -162,6 +162,147 @@ fn borrowed_json_and_string_maps_receive_complete_admission() {
 }
 
 #[test]
+fn input_admission_reports_string_map_and_missing_source_types() {
+    use std::borrow::Cow;
+    use std::collections::HashMap;
+
+    use qubit_datatype::DataType;
+    use qubit_value::ValueMissing;
+
+    let options = ReadPolicy::builder()
+        .conversion_limits(
+            ConversionLimits::builder()
+                .operation_limits(ConversionOperationLimits::builder().max_structured_nodes(0).build())
+                .build(),
+        )
+        .build();
+    let map = HashMap::new();
+    let missing = ValueMissing::unset_scalar(DataType::Int32, DataType::Json);
+    let json = serde_json::Value::Bool(true);
+    for value in [
+        super::read_view::ReadView::StringMap(&map),
+        super::read_view::ReadView::Missing(&missing),
+        super::read_view::ReadView::Scalar(ValueRef::Unset(DataType::String)),
+        super::read_view::ReadView::Scalar(ValueRef::Json(&json)),
+    ] {
+        let visit = super::visit::Visit {
+            value,
+            location: None,
+            path: Cow::Borrowed("value"),
+            depth: 0,
+            key: None,
+            original_index: None,
+        };
+        let mut budget = super::input_budget::PreparedInputBudget::new(&options);
+        assert!(budget.admit_visit(&visit, None).is_err());
+    }
+}
+
+#[test]
+fn source_deserializer_preserves_json_any_categories_and_rejects_multi_variant_enums() {
+    use serde::Deserialize;
+
+    let source = serde_json::json!({
+        "signed": -17,
+        "unsigned": u64::MAX,
+        "fraction": 1.25,
+        "text": "borrowed",
+        "flag": true,
+    });
+    let mut config = Config::new();
+    config.set("value", source.clone()).unwrap();
+    let actual: serde_json::Value = super::deserialize_from_reader(&config, "value", false, false).unwrap();
+    assert_eq!(actual, source);
+
+    #[derive(Debug, Deserialize)]
+    enum Choice {
+        First,
+        Second,
+    }
+
+    let mut config = Config::new();
+    config
+        .set("choice", serde_json::json!({"First": null, "Second": null}))
+        .unwrap();
+    let error = super::deserialize_from_reader::<_, Choice>(&config, "choice", false, false).unwrap_err();
+    assert_eq!(error.path(), Some("choice"));
+
+    config
+        .set(
+            "map",
+            std::collections::HashMap::from([("text".to_owned(), "borrowed".to_owned())]),
+        )
+        .unwrap();
+    let actual: std::collections::HashMap<String, String> =
+        super::deserialize_from_reader(&config, "map", false, false).unwrap();
+    assert_eq!(actual.get("text").map(String::as_str), Some("borrowed"));
+
+    let wide: serde_json::Value = serde_json::from_str(
+        r#"{"signed":-170141183460469231731687303715884105728,"unsigned":340282366920938463463374607431768211455,"fraction":1.25}"#,
+    )
+    .unwrap();
+    config.set("wide", wide).unwrap();
+    let actual: serde_json::Value = super::deserialize_from_reader(&config, "wide", false, false).unwrap();
+    assert_eq!(
+        actual,
+        serde_json::json!({
+            "signed": i128::MIN.to_string(),
+            "unsigned": u128::MAX.to_string(),
+            "fraction": 1.25,
+        })
+    );
+
+    let out_of_range: serde_json::Value =
+        serde_json::from_str(r#"{"value":340282366920938463463374607431768211456}"#).unwrap();
+    config.set("invalid", out_of_range).unwrap();
+    let error = super::deserialize_from_reader::<_, serde_json::Value>(&config, "invalid", false, false).unwrap_err();
+    assert_eq!(error.path(), Some("invalid.value"));
+
+    let non_finite: serde_json::Value = serde_json::from_str(r#"{"value":1e10000}"#).unwrap();
+    config.set("non_finite", non_finite).unwrap();
+    let error =
+        super::deserialize_from_reader::<_, serde_json::Value>(&config, "non_finite", false, false).unwrap_err();
+    assert_eq!(error.path(), Some("non_finite.value"));
+
+    let error = super::deserialize_from_reader::<_, u8>(&config, "invalid.value", false, false).unwrap_err();
+    assert_eq!(error.path(), Some("invalid.value"));
+}
+
+#[test]
+fn input_admission_formats_duration_as_bounded_text() {
+    let mut config = Config::new();
+    config.set("duration", std::time::Duration::from_secs(3)).unwrap();
+    assert!(prepare_read(&config, "duration", false).is_ok());
+}
+
+#[test]
+fn source_deserializer_preserves_missing_scalar_and_collection_errors() {
+    use qubit_datatype::BlankStringPolicy;
+    use qubit_datatype::DataType;
+    use qubit_value::MultiValues;
+
+    let mut config = Config::new();
+    config.set_null("scalar", DataType::Int32).unwrap();
+    let error = super::deserialize_from_reader::<_, i32>(&config, "scalar", false, false).unwrap_err();
+    assert_eq!(error.path(), Some("scalar"));
+
+    config
+        .set("collection", MultiValues::new_unset(DataType::String))
+        .unwrap();
+    let error = super::deserialize_from_reader::<_, String>(&config, "collection", false, false).unwrap_err();
+    assert_eq!(error.path(), Some("collection"));
+
+    config.set_default_read_policy(
+        ReadPolicy::builder()
+            .blank_string_policy(BlankStringPolicy::TreatAsMissing)
+            .build(),
+    );
+    config.set("blank", " ").unwrap();
+    let error = super::deserialize_from_reader::<_, String>(&config, "blank", false, false).unwrap_err();
+    assert_eq!(error.path(), Some("blank"));
+}
+
+#[test]
 fn map_keys_are_not_interpolated_and_values_are() {
     let mut config = Config::new();
     config.set("target", "expanded").unwrap();

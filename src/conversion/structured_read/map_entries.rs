@@ -55,6 +55,7 @@ impl<'tree> MapEntries<'tree> {
         }
     }
 
+    /// Returns the number of entries not yet yielded by this iterator.
     pub(super) fn len(&self) -> usize {
         match self {
             Self::Object(values) => values.len(),

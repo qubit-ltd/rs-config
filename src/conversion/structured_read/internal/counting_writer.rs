@@ -13,8 +13,13 @@ use qubit_budget::MeasuredBudgetError;
 use qubit_budget::ResourceBudget;
 use qubit_datatype::ConversionResource;
 
+/// Formatter sink that charges each emitted UTF-8 chunk to a resource budget.
+/// It records the first budget error and stops formatting when the charge
+/// fails.
 pub(crate) struct CountingWriter {
+    /// Remaining and consumed allowance for formatted bytes.
     pub(crate) budget: ResourceBudget<ConversionResource, u64>,
+    /// First budget failure encountered while formatting, if any.
     pub(crate) error: Option<MeasuredBudgetError<ConversionResource, u64>>,
 }
 

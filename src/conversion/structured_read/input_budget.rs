@@ -244,9 +244,8 @@ impl<'a> PreparedInputBudget<'a> {
         }
     }
 
-    /// Admits one complete logical visit, optionally counting owned overlay
-    /// text.
-    /// Admits the input, key, and value represented by one traversal visit.
+    /// Admits the input, key, and value represented by one traversal visit,
+    /// optionally counting owned overlay text.
     ///
     /// The optional text override is owned overlay content and is charged as
     /// input text. This admission is independent from conversion work later
@@ -377,4 +376,39 @@ pub(super) fn admit_input(prepared: &PreparedConfigRead<'_>, options: &ReadPolic
             .and_then(|location| prepared.overlays.get(location));
         budget.admit_visit(visit, text.map(String::as_str))
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::borrow::Cow;
+    use std::fmt;
+    use std::fmt::Display;
+
+    use super::PreparedInputBudget;
+    use super::ReadView;
+    use super::Visit;
+    use crate::ReadPolicy;
+
+    struct FailsFormatting;
+
+    impl Display for FailsFormatting {
+        fn fmt(&self, _: &mut fmt::Formatter<'_>) -> fmt::Result {
+            Err(fmt::Error)
+        }
+    }
+
+    #[test]
+    fn formatting_failure_becomes_a_conversion_error() {
+        let options = ReadPolicy::builder().build();
+        let visit = Visit {
+            value: ReadView::Text("value"),
+            location: None,
+            path: Cow::Borrowed("value"),
+            depth: 0,
+            key: None,
+            original_index: None,
+        };
+        let mut budget = PreparedInputBudget::new(&options);
+        assert!(budget.display(&FailsFormatting, false, &visit).is_err());
+    }
 }

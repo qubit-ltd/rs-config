@@ -28,8 +28,10 @@ use crate::Property;
 /// `nodes` is an arena: every child `NodeId` in an object and `root` index a
 /// live entry in that vector. `sources` is built in lockstep with the arena;
 /// each node has a corresponding optional origin, while property references
-/// are indexed separately for source properties. `root_path` is the requested
-/// reader-relative prefix used for diagnostics. Payloads remain borrowed from
+/// are indexed separately for source properties. `root_path` is the resolved
+/// path of the selected configuration root. It is empty when the root
+/// configuration is selected and includes the section prefix when a section
+/// is selected. Payloads remain borrowed from
 /// the input where possible; only object indexes and necessary text overlays
 /// are owned. Conflicting scalar/object shapes and duplicate leaves are
 /// rejected while constructing the projection.
@@ -39,11 +41,13 @@ pub(super) struct PreparedConfigRead<'a> {
     pub(super) overlays: BTreeMap<SourceLocation, String>,
     /// Arena of borrowed payloads and owned synthetic object indexes.
     pub(super) nodes: Vec<ReadNode<'a>>,
-    /// Property references and optional origins parallel to the node arena.
+    /// Source property table and optional origins indexed by arena node ID;
+    /// property indexes and node IDs belong to separate index domains.
     pub(super) sources: SourceIndex<'a>,
     /// Arena index of the selected input root.
     pub(super) root: NodeId,
-    /// Reader-relative prefix retained for diagnostics.
+    /// Resolved root path retained for diagnostics; empty for the root
+    /// configuration and prefixed with the selected section path otherwise.
     pub(super) root_path: String,
 }
 

@@ -13,10 +13,12 @@ use crate::Property;
 
 /// Borrowed property table and per-node source origins for a prepared read.
 ///
-/// In the exact-property form, only node and property index zero are valid.
-/// In the tree form, `origins` has one slot for each arena node, and
-/// `properties` maps property indexes to the source properties that contributed
-/// leaves. Synthetic path nodes can have no origin. Returned property
+/// `NodeId` values index the node arena, while property indexes address the
+/// separate `properties` table; they are distinct index domains. In the
+/// exact-property form, only node and property index zero are valid. In the
+/// tree form, `origins` has one slot for each arena node, and `properties`
+/// maps property indexes to the source properties that contributed leaves.
+/// Synthetic path nodes can have no origin. Returned property
 /// references borrow the original configuration for the prepared read's
 /// lifetime.
 #[derive(Debug)]
@@ -77,6 +79,10 @@ impl<'a> SourceIndex<'a> {
         }
     }
 
+    /// Returns the number of source properties addressable by property index.
+    ///
+    /// This is not the number of arena nodes; use the prepared node arena for
+    /// that count.
     pub(super) fn len(&self) -> usize {
         match self {
             Self::Exact { .. } => 1,

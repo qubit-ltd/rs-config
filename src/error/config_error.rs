@@ -623,3 +623,41 @@ impl From<(&str, ValueError)> for ConfigError {
 ///
 /// Used for operations that can return a [`ConfigError`].
 pub type ConfigResult<T> = Result<T, ConfigError>;
+
+#[cfg(test)]
+mod tests {
+    use super::ConfigError;
+
+    #[test]
+    fn single_missing_property_is_available_as_a_candidate_path() {
+        let error = ConfigError::PropertyNotFound("server.port".to_string());
+        assert_eq!(error.candidate_paths(), Some(["server.port".to_string()].as_slice()),);
+    }
+
+    #[test]
+    fn candidate_list_and_source_index_accessors_preserve_context() {
+        let error = ConfigError::PropertyCandidatesNotFound {
+            paths: vec!["primary".to_string(), "fallback".to_string()],
+        };
+        assert_eq!(error.candidate_paths().unwrap(), ["primary", "fallback"]);
+
+        let indexed = ConfigError::SourceParseError {
+            source_id: "memory:test".to_string(),
+            path: Some("items".to_string()),
+            source_index: Some(3),
+            message: "invalid element".to_string(),
+        };
+        assert_eq!(indexed.source_index(), Some(3));
+
+        let no_value = ConfigError::PropertyHasNoValue("server.port".to_string());
+        assert_eq!(no_value.path(), Some("server.port"));
+
+        let source_conflict = ConfigError::KeyConflict {
+            source_id: Some("memory:defaults".to_string()),
+            path: "server.port".to_string(),
+            existing: "integer".to_string(),
+            incoming: "string".to_string(),
+        };
+        assert_eq!(source_conflict.source_id(), Some("memory:defaults"));
+    }
+}

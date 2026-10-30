@@ -109,3 +109,15 @@ impl AsRef<str> for ConfigKey {
         self.as_str()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ConfigKey;
+
+    #[test]
+    fn owned_key_string_preserves_its_canonical_text() {
+        let key = ConfigKey::parse("server.port").unwrap();
+        assert_eq!(key.as_str(), "server.port");
+        assert_eq!(key.into_string(), "server.port");
+    }
+}

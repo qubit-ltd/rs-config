@@ -39,6 +39,8 @@ use super::traversal::ReadView;
 use crate::ConfigError;
 use crate::config_deserialize_error::ConfigDeserializeError;
 
+/// Deserializes one value from a prepared tree while carrying optional source
+/// context and the original outer collection index.
 pub(super) struct SourceDeserializer<'tree, 'policy, 'session> {
     /// Prepared-read context.
     pub(super) context: ReadContext<'tree>,
@@ -476,5 +478,52 @@ impl<'de, 'tree, 'policy: 'tree> de::Deserializer<'de> for SourceDeserializer<'t
     }
     fn deserialize_ignored_any<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
         visitor.visit_unit()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::prepared_read::prepare_read;
+    use super::ReadContext;
+    use super::ReadView;
+    use super::json_number_converter;
+    use super::scalar_converter;
+    use crate::Config;
+
+    #[test]
+    fn scalar_conversion_accepts_borrowed_text_and_json_primitives() {
+        let config = Config::new();
+        let prepared = prepare_read(&config, "", false).unwrap();
+        let context = ReadContext { prepared: &prepared };
+        let json_string = serde_json::Value::String("json".to_owned());
+        let json_bool = serde_json::Value::Bool(true);
+        let json_number = serde_json::json!(1.25);
+        let json_null = serde_json::Value::Null;
+        let json_array = serde_json::json!([]);
+        let values = [
+            ReadView::Text("text"),
+            ReadView::Json(&json_string),
+            ReadView::Json(&json_bool),
+            ReadView::Json(&json_number),
+            ReadView::Json(&json_null),
+        ];
+        for value in values {
+            assert!(scalar_converter(value, context, None).unwrap().is_some());
+        }
+        assert!(
+            scalar_converter(ReadView::Json(&json_array), context, None)
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn json_number_conversion_preserves_signed_unsigned_and_fractional_values() {
+        let signed = serde_json::Number::from(-17_i64);
+        let unsigned = serde_json::Number::from(u64::MAX);
+        let fractional = serde_json::Number::from_f64(1.25).unwrap();
+        assert!(json_number_converter(&signed).is_ok());
+        assert!(json_number_converter(&unsigned).is_ok());
+        assert!(json_number_converter(&fractional).is_ok());
     }
 }

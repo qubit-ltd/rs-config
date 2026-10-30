@@ -16,7 +16,9 @@ use crate::ConfigResult;
 /// cached, so a later read retries substitution and can succeed if its inputs
 /// have changed.
 pub(crate) struct PreparedScalar<'a> {
+    /// Original scalar text borrowed from the source.
     raw: &'a str,
+    /// Successful interpolation result, initialized lazily and cached.
     expanded: OnceCell<String>,
 }
 
@@ -49,6 +51,9 @@ impl<'a> PreparedScalar<'a> {
         Ok(self.expanded.get().expect("the expanded scalar was just set"))
     }
 
+    /// Returns whether `value` has the same contents as the original text.
+    ///
+    /// This compares string contents, not pointer identity.
     pub(crate) fn is_raw(&self, value: &str) -> bool {
         self.raw == value
     }

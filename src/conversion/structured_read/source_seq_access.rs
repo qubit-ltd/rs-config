@@ -23,6 +23,8 @@ use super::node::SourceSegment;
 pub(super) use super::sequence_values::SequenceValues;
 use crate::config_deserialize_error::ConfigDeserializeError;
 
+/// Deserializes sequence elements lazily while borrowing values from the
+/// prepared input and preserving the outer source index for diagnostics.
 pub(super) struct SourceSeqAccess<'tree, 'policy, 'session> {
     context: ReadContext<'tree>,
     values: SequenceValues<'tree>,

@@ -111,3 +111,9 @@ fn config_error_optional_context_accessors_are_callable_as_functions() {
     let source_index: fn(&ConfigError) -> Option<usize> = ConfigError::source_index;
     assert_eq!(std::hint::black_box(source_index)(&conversion), Some(2));
 }
+
+#[test]
+fn single_missing_candidate_is_exposed_as_a_candidate_path() {
+    let error = ConfigError::PropertyNotFound("server.port".to_string());
+    assert_eq!(error.candidate_paths(), Some(["server.port".to_string()].as_slice()),);
+}
