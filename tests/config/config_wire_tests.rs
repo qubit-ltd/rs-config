@@ -519,6 +519,100 @@ fn test_bounded_decode_uses_custom_property_key_budget() {
 }
 
 #[test]
+fn test_domain_count_limit_precedes_invalid_property_decode() {
+    let input = br#"{"version":1,"properties":{"x":null}}"#;
+    let limits = ConfigWireLimits::builder().max_properties(0).build();
+
+    assert!(matches!(
+        Config::decode_json_slice_with_limits(input, limits),
+        Err(ConfigWireDecodeError::LimitExceeded {
+            kind: ConfigWireLimitKind::Properties,
+            value: 1,
+            maximum: 0,
+        })
+    ));
+}
+
+#[test]
+fn test_domain_key_limit_precedes_invalid_property_decode() {
+    let input = br#"{"version":1,"properties":{"long-key":null}}"#;
+    let limits = ConfigWireLimits::builder().max_property_key_bytes(3).build();
+
+    assert!(matches!(
+        Config::decode_json_slice_with_limits(input, limits),
+        Err(ConfigWireDecodeError::LimitExceeded {
+            kind: ConfigWireLimitKind::PropertyKeyBytes,
+            value: 8,
+            maximum: 3,
+        })
+    ));
+}
+
+#[test]
+fn test_domain_count_limit_precedes_invalid_legacy_property_decode() {
+    let input = br#"{"properties":{"x":null}}"#;
+    let limits = ConfigWireLimits::builder().max_properties(0).build();
+
+    assert!(matches!(
+        Config::decode_json_slice_with_limits(input, limits),
+        Err(ConfigWireDecodeError::LimitExceeded {
+            kind: ConfigWireLimitKind::Properties,
+            value: 1,
+            maximum: 0,
+        })
+    ));
+}
+
+#[test]
+fn test_domain_key_limit_precedes_invalid_legacy_property_decode() {
+    let input = br#"{"properties":{"long-key":null}}"#;
+    let limits = ConfigWireLimits::builder().max_property_key_bytes(3).build();
+
+    assert!(matches!(
+        Config::decode_json_slice_with_limits(input, limits),
+        Err(ConfigWireDecodeError::LimitExceeded {
+            kind: ConfigWireLimitKind::PropertyKeyBytes,
+            value: 8,
+            maximum: 3,
+        })
+    ));
+}
+
+#[test]
+fn test_domain_property_limits_accept_exact_count_and_utf8_key_byte_bounds() {
+    let mut config = Config::new();
+    config.set("é", "value").expect("the property should be set");
+    let input = to_vec(&config).expect("the config should serialize");
+    let limits = ConfigWireLimits::builder()
+        .max_properties(1)
+        .max_property_key_bytes(2)
+        .build();
+
+    let _restored = Config::decode_json_slice_with_limits(&input, limits)
+        .expect("count and UTF-8 key byte limits should accept exact bounds");
+
+    let limits = ConfigWireLimits::builder().max_property_key_bytes(1).build();
+    assert!(matches!(
+        Config::decode_json_slice_with_limits(&input, limits),
+        Err(ConfigWireDecodeError::LimitExceeded {
+            kind: ConfigWireLimitKind::PropertyKeyBytes,
+            value: 2,
+            maximum: 1,
+        })
+    ));
+}
+
+#[test]
+fn test_domain_limits_allow_invalid_property_decode_when_within_bounds() {
+    let input = br#"{"version":1,"properties":{"x":null}}"#;
+
+    assert!(matches!(
+        Config::decode_json_slice(input),
+        Err(ConfigWireDecodeError::Json { .. })
+    ));
+}
+
+#[test]
 fn test_ordinary_deserialize_enforces_default_property_count_budget() {
     let mut config = Config::new();
     for index in 0..=ConfigWireLimits::DEFAULT_MAX_PROPERTIES {

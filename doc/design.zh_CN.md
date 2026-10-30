@@ -153,6 +153,11 @@ V1 拒绝任何显式 `read_options` 字段，包括 `null`；legacy 无版本�
 `Deserialize` 可以限制已解码值，却无法对原始输入字节或 JSON 词法 token 做准入；
 完整的不可信 JSON 输入必须使用 `decode_json_slice`。
 
+两条 wire 解码路径都会先拒绝重复对象键，再检查配置项数量与 UTF-8 键字节数，并在构造类型化
+`Property` 前完成这些领域限额检查。受限 JSON 入口会先在 JSON profile 下物化唯一键 JSON 树，
+因此领域检查不会阻止上游树分配。若属性值同时无效且超过领域限额，会优先报告限额错误；
+限额满足时仍保留现有 Serde 属性错误。
+
 持久化序列化与 `ConfigSerdeExt` 读取业务结构体是不同能力。本次不增加业务结构体反向展平
 写入配置的 serializer，现有 Wire V1 表示保持不变。
 

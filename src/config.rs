@@ -398,6 +398,24 @@ impl Config {
 }
 
 /// Builder for [`Config`].
+///
+/// # Examples
+///
+/// ```rust
+/// use qubit_config::Config;
+/// use qubit_config::ReadPolicy;
+///
+/// let policy = ReadPolicy::builder().max_interpolation_depth(8).build();
+/// let mut config = Config::builder()
+///     .description("service settings")
+///     .default_read_policy(policy)
+///     .build();
+/// config.set("host", "example.test")?;
+/// config.set("endpoint", "https://${host}")?;
+/// assert_eq!(config.get::<String>("endpoint")?, "https://${host}");
+/// assert_eq!(config.get_interpolated::<String>("endpoint")?, "https://example.test");
+/// # Ok::<(), qubit_config::ConfigError>(())
+/// ```
 #[must_use = "use the returned value"]
 #[derive(Debug, Clone)]
 pub struct ConfigBuilder {

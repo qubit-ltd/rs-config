@@ -14,7 +14,7 @@ use qubit_budget::json::JsonMeasurement;
 use qubit_budget::json::JsonResource;
 use qubit_budget::json::JsonValueBudget;
 use qubit_budget::json::JsonValueTransaction;
-use serde::Deserialize;
+use qubit_json::value::DuplicateKeyRejectingJsonValueSeed;
 use serde::Deserializer;
 use serde::de::DeserializeSeed;
 use serde::de::Error as DeError;
@@ -27,7 +27,6 @@ use serde_json::Value;
 use serde_json::from_value;
 
 use super::ConfigWire;
-use super::ConfigWireFields;
 use crate::ConfigWireDecodeError;
 use crate::ConfigWireLimitKind;
 use crate::ConfigWireLimits;
@@ -96,6 +95,19 @@ impl AccountingConfigWireSeed {
             return Ok(());
         };
         self.check_properties(properties.len(), properties.keys().map(String::as_str))
+    }
+
+    /// Checks domain limits before constructing typed properties from a wire
+    /// value.
+    fn decode_value<E>(&self, value: Value) -> Result<Result<ConfigWire, ConfigWireDecodeError>, E>
+    where
+        E: DeError,
+    {
+        if let Err(error) = self.check_value(&value) {
+            return Ok(Err(error));
+        }
+        let fields = from_value(value).map_err(E::custom)?;
+        Ok(ConfigWire::from_fields(fields).map_err(ConfigWireDecodeError::InvalidConfig))
     }
 }
 
@@ -341,32 +353,6 @@ impl<'de, 'transaction, 'budget> Visitor<'de> for AccountingUniqueJsonValueSeed<
     }
 }
 
-impl JsonAdmittedConfigWireSeed {
-    /// Checks property dimensions on directly decoded wire fields.
-    fn check_fields(&self, fields: &ConfigWireFields) -> Result<(), ConfigWireDecodeError> {
-        let count = u64::try_from(fields.properties.len()).expect("property count must fit in u64");
-        self.limits
-            .properties_limit()
-            .check(count)
-            .map_err(|error| ConfigWireDecodeError::LimitExceeded {
-                kind: ConfigWireLimitKind::Properties,
-                value: error.exact_observed().expect("point failure carries an exact value"),
-                maximum: error.maximum(),
-            })?;
-        for key in fields.properties.keys() {
-            let bytes = u64::try_from(key.len()).expect("property key length must fit in u64");
-            self.limits.property_key_bytes_limit().check(bytes).map_err(|error| {
-                ConfigWireDecodeError::LimitExceeded {
-                    kind: ConfigWireLimitKind::PropertyKeyBytes,
-                    value: error.exact_observed().expect("point failure carries an exact value"),
-                    maximum: error.maximum(),
-                }
-            })?;
-        }
-        Ok(())
-    }
-}
-
 impl<'de> DeserializeSeed<'de> for AccountingConfigWireSeed {
     type Value = Result<ConfigWire, ConfigWireDecodeError>;
 
@@ -378,11 +364,7 @@ impl<'de> DeserializeSeed<'de> for AccountingConfigWireSeed {
         let mut transaction = budget.transaction();
         let value = AccountingUniqueJsonValueSeed::new(&mut transaction).deserialize(deserializer)?;
         transaction.commit().map_err(D::Error::custom)?;
-        if let Err(error) = self.check_value(&value) {
-            return Ok(Err(error));
-        }
-        let fields = from_value(value).map_err(D::Error::custom)?;
-        Ok(ConfigWire::from_fields(fields).map_err(ConfigWireDecodeError::InvalidConfig))
+        self.decode_value::<D::Error>(value)
     }
 }
 
@@ -393,10 +375,9 @@ impl<'de> DeserializeSeed<'de> for JsonAdmittedConfigWireSeed {
     where
         D: Deserializer<'de>,
     {
-        let fields = ConfigWireFields::deserialize(deserializer)?;
-        if let Err(error) = self.check_fields(&fields) {
-            return Ok(Err(error));
-        }
-        Ok(ConfigWire::from_fields(fields).map_err(ConfigWireDecodeError::InvalidConfig))
+        let value = DuplicateKeyRejectingJsonValueSeed::new()
+            .deserialize(deserializer)?
+            .into_inner();
+        AccountingConfigWireSeed::new(self.limits).decode_value::<D::Error>(value)
     }
 }

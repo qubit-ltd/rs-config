@@ -187,6 +187,14 @@ bounded wire profile. Their `*_with_limits` variants accept a custom
 cannot admit the original raw byte stream or lexical JSON tokens; callers must
 use `decode_json_slice` for complete untrusted JSON input.
 
+Both wire paths reject duplicate object keys before applying configuration
+property-count and UTF-8 key-byte limits, and apply those domain limits before
+constructing typed `Property` values. The bounded JSON entry point first
+materializes a unique-key JSON tree under its JSON profile, so these domain
+checks do not prevent that upstream tree from being allocated. When a property
+also has an invalid value, an exceeded domain limit is reported first; with
+limits satisfied, the existing Serde property error is preserved.
+
 This persistence serialization is distinct from reading a business struct with
 `ConfigSerdeExt`. No inverse business-struct flattening serializer is introduced,
 and the existing Wire V1 representation is unchanged.
