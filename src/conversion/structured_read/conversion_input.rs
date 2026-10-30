@@ -13,13 +13,20 @@ use qubit_datatype::ConversionSession;
 use super::traversal::ReadView;
 
 pub(super) enum ConversionInput<'tree, 'policy, 'session> {
-    /// A borrowed prepared view and its live conversion session.
+    /// A prepared value borrowed from the tree and its live conversion session.
+    ///
+    /// Converting this view charges the target conversion session as the
+    /// requested target is produced.
     Borrowed {
-        /// Prepared value being converted.
+        /// Prepared value being converted without copying its payload.
         value: ReadView<'tree>,
-        /// Session that accounts conversion resources.
+        /// Session that accounts resources used by target conversion.
         session: &'session mut ConversionSession<'policy>,
     },
-    /// A scalar item whose admission was already charged.
+    /// A scalar item whose admission was already charged by a collection
+    /// conversion session.
+    ///
+    /// Its session and source index travel with the item; it must not be
+    /// admitted again as fresh collection text or split into more items.
     Admitted(AdmittedScalarItem<'session, 'policy, 'tree>),
 }

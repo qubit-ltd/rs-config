@@ -7,10 +7,11 @@
 // =============================================================================
 //! Collection access retains source indices and never resplits string items.
 //!
-//! `original_index` remains the index in the outer source collection while
-//! nested sequence positions are added to the diagnostic path. This preserves
-//! the original conversion location even when deserialization descends into a
-//! nested target.
+//! Values and string items are borrowed and yielded lazily; this access does
+//! not split an item again. `original_index` remains the first source array
+//! index while nested sequence positions are added to the diagnostic path and
+//! typed source location. This preserves the original conversion location
+//! even when deserialization descends into a nested target.
 
 use qubit_datatype::ConversionSession;
 use serde::de::DeserializeSeed;
@@ -28,9 +29,13 @@ use crate::config_deserialize_error::ConfigDeserializeError;
 pub(super) struct SourceSeqAccess<'tree, 'policy, 'session> {
     context: ReadContext<'tree>,
     values: SequenceValues<'tree>,
+    /// Typed source location extended for each child when one is retained.
     location: Option<SourceLocation>,
+    /// Dotted/keyed diagnostic path, extended with each yielded sequence index.
     path: String,
+    /// Next position in this sequence, distinct from the retained outer index.
     index: usize,
+    /// First source array index used to classify conversion diagnostics.
     original_index: Option<usize>,
     session: &'session mut ConversionSession<'policy>,
 }

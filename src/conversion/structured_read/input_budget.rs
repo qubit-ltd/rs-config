@@ -34,12 +34,20 @@ use crate::ConfigError;
 use crate::ConfigResult;
 use crate::ReadPolicy;
 
+/// Independent admission counters for the prepared logical input.
+///
+/// The structure budget measures the selected, expanded projection's JSON
+/// shape, while the input budget counts UTF-8 bytes from keys and text values.
+/// Target conversion has its own leaf session and does not consume these
+/// admission counters.
 pub(super) struct PreparedInputBudget<'a> {
-    /// Read policy supplying conversion and operation-level limits.
+    /// Read policy supplying the structured and operation-level limits.
     options: &'a ReadPolicy,
-    /// Cumulative JSON structure budget for the prepared logical input.
+    /// Cumulative JSON shape budget for the selected, expanded logical input,
+    /// including collection nodes, keys, scalar shapes, and payload bytes.
     structure: JsonValueBudget<ConversionResource, u64>,
-    /// Cumulative UTF-8 input-byte budget, charged independently of structure.
+    /// Cumulative UTF-8 source-text byte budget, charged independently of the
+    /// JSON shape budget and of later target conversion.
     input: ResourceBudget<ConversionResource, u64>,
 }
 
@@ -244,8 +252,11 @@ impl<'a> PreparedInputBudget<'a> {
         }
     }
 
-    /// Admits the input, key, and value represented by one traversal visit,
-    /// optionally counting owned overlay text.
+    /// Admits the input, key, and value represented by one traversal visit.
+    ///
+    /// The structure budget covers the logical JSON shape. The separate input
+    /// budget counts UTF-8 text bytes; an overlay override counts its owned
+    /// text as input. Neither budget is the leaf target-conversion session.
     ///
     /// The optional text override is owned overlay content and is charged as
     /// input text. This admission is independent from conversion work later

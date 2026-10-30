@@ -39,22 +39,30 @@ use super::traversal::ReadView;
 use crate::ConfigError;
 use crate::config_deserialize_error::ConfigDeserializeError;
 
-/// Deserializes one value from a prepared tree while carrying optional source
-/// context and the original outer collection index.
+/// Deserializes one value while carrying optional original-source context and
+/// the original outer collection index.
+///
+/// Borrowed inputs read payloads from the prepared tree and charge target
+/// conversion to their session. Admitted inputs already carry a scalar item
+/// and its charged session/index. Overlay text is selected through the typed
+/// source location; the dotted diagnostic path is maintained separately.
 pub(super) struct SourceDeserializer<'tree, 'policy, 'session> {
     /// Prepared-read context.
     pub(super) context: ReadContext<'tree>,
     /// Borrowed or already admitted conversion input.
     pub(super) input: ConversionInput<'tree, 'policy, 'session>,
     /// Optional original-tree location for interpolation overlays and missing
-    /// values. Ordinary reads omit it when neither needs source context.
+    /// values. Its property-table index and typed nested key/index segments
+    /// are distinct from both the arena node ID and the diagnostic path.
+    /// Ordinary reads omit it when neither needs source context.
     pub(super) location: Option<SourceLocation>,
     /// Root-relative diagnostic path.
     pub(super) path: String,
     /// Whether scalar text may be split into sequence items.
     pub(super) allow_split: bool,
     /// Original outer collection index, when known; nested traversal preserves
-    /// this value for conversion diagnostics.
+    /// this value for conversion diagnostics even as `path` gains nested
+    /// segments.
     pub(super) original_index: Option<usize>,
 }
 

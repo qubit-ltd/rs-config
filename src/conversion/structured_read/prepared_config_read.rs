@@ -28,8 +28,9 @@ use crate::Property;
 /// `nodes` is an arena: every child `NodeId` in an object and `root` index a
 /// live entry in that vector. `sources` is built in lockstep with the arena;
 /// each node has a corresponding optional origin, while property references
-/// are indexed separately for source properties. `root_path` is the resolved
-/// path of the selected configuration root. It is empty when the root
+/// are indexed separately for source properties. A `NodeId` is therefore not
+/// a property index. `root_path` is the resolved path of the selected
+/// configuration root. It is empty when the root
 /// configuration is selected and includes the section prefix when a section
 /// is selected. Payloads remain borrowed from
 /// the input where possible; only object indexes and necessary text overlays
@@ -52,6 +53,10 @@ pub(super) struct PreparedConfigRead<'a> {
 }
 
 impl<'a> PreparedConfigRead<'a> {
+    /// Admits one arena node, then appends its node and matching origin slot.
+    ///
+    /// Capacity rejection leaves both tables unchanged. The returned node ID
+    /// indexes the arena and origin slot, not the source-property table.
     fn push(
         &mut self,
         node: ReadNode<'a>,
@@ -60,6 +65,7 @@ impl<'a> PreparedConfigRead<'a> {
         capacity: &mut IndexCapacity,
         path: &str,
     ) -> ConfigResult<NodeId> {
+        // Synthetic nodes intentionally use `None` for their origin.
         capacity.admit(JsonMeasurement::Null { depth }, path)?;
         let id = self.nodes.len();
         self.nodes.push(node);
