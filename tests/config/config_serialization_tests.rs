@@ -276,12 +276,15 @@ mod test_toml_type_faithful {
     fn test_toml_integer_stored_as_i64() {
         let config = load_toml("port = 8080\n");
         assert_eq!(config.get::<i64>("port").unwrap(), 8080);
+        assert_eq!(config.get_strict::<i64>("port").unwrap(), 8080);
+        assert!(config.get_strict::<String>("port").is_err());
     }
 
     #[test]
     fn test_toml_float_stored_as_f64() {
         let config = load_toml("timeout = 30.5\n");
         assert_eq!(config.get::<f64>("timeout").unwrap(), 30.5);
+        assert_eq!(config.get_strict::<f64>("timeout").unwrap(), 30.5);
     }
 
     #[test]
@@ -289,12 +292,15 @@ mod test_toml_type_faithful {
         let config = load_toml("debug = true\nenabled = false\n");
         assert!(config.get::<bool>("debug").unwrap());
         assert!(!config.get::<bool>("enabled").unwrap());
+        assert!(config.get_strict::<bool>("debug").unwrap());
+        assert!(!config.get_strict::<bool>("enabled").unwrap());
     }
 
     #[test]
     fn test_toml_string_stored_as_string() {
         let config = load_toml("host = \"localhost\"\n");
         assert_eq!(config.get::<String>("host").unwrap(), "localhost");
+        assert_eq!(config.get_strict::<String>("host").unwrap(), "localhost");
     }
 
     #[test]
@@ -302,6 +308,35 @@ mod test_toml_type_faithful {
         let config = load_toml("ports = [8080, 8081, 8082]\n");
         let ports: Vec<i64> = config.get_list("ports").unwrap();
         assert_eq!(ports, vec![8080i64, 8081, 8082]);
+        assert_eq!(
+            config.get_list_strict::<i64>("ports").unwrap(),
+            vec![8080_i64, 8081, 8082]
+        );
+    }
+
+    #[test]
+    fn test_toml_singleton_and_empty_arrays_remain_collections() {
+        let singleton = load_toml("ports = [8080]\n");
+        assert!(matches!(
+            singleton.get_property("ports").unwrap().unwrap().value(),
+            qubit_value::ValueContainer::Collection(_)
+        ));
+        assert_eq!(singleton.get_list_strict::<i64>("ports").unwrap(), vec![8080_i64]);
+
+        let empty = load_toml("ports = []\n");
+        assert!(matches!(
+            empty.get_property("ports").unwrap().unwrap().value(),
+            qubit_value::ValueContainer::Collection(_)
+        ));
+        assert_eq!(empty.get_list::<i64>("ports").unwrap(), Vec::<i64>::new());
+    }
+
+    #[test]
+    fn test_toml_string_conversion_is_not_strict_type_faithfulness() {
+        let mut config = Config::new();
+        config.set("port", "8080").unwrap();
+        assert_eq!(config.get::<i64>("port").unwrap(), 8080);
+        assert!(config.get_strict::<i64>("port").is_err());
     }
 
     #[test]
@@ -415,12 +450,15 @@ mod test_yaml_type_faithful {
     fn test_yaml_integer_stored_as_i64() {
         let config = load_yaml("port: 8080\n");
         assert_eq!(config.get::<i64>("port").unwrap(), 8080);
+        assert_eq!(config.get_strict::<i64>("port").unwrap(), 8080);
+        assert!(config.get_strict::<String>("port").is_err());
     }
 
     #[test]
     fn test_yaml_float_stored_as_f64() {
         let config = load_yaml("timeout: 30.5\n");
         assert_eq!(config.get::<f64>("timeout").unwrap(), 30.5);
+        assert_eq!(config.get_strict::<f64>("timeout").unwrap(), 30.5);
     }
 
     #[test]
@@ -428,12 +466,15 @@ mod test_yaml_type_faithful {
         let config = load_yaml("debug: true\nenabled: false\n");
         assert!(config.get::<bool>("debug").unwrap());
         assert!(!config.get::<bool>("enabled").unwrap());
+        assert!(config.get_strict::<bool>("debug").unwrap());
+        assert!(!config.get_strict::<bool>("enabled").unwrap());
     }
 
     #[test]
     fn test_yaml_string_stored_as_string() {
         let config = load_yaml("host: localhost\n");
         assert_eq!(config.get::<String>("host").unwrap(), "localhost");
+        assert_eq!(config.get_strict::<String>("host").unwrap(), "localhost");
     }
 
     #[test]
@@ -455,6 +496,10 @@ mod test_yaml_type_faithful {
         let config = load_yaml("ports:\n  - 8080\n  - 8081\n  - 8082\n");
         let ports: Vec<i64> = config.get_list("ports").unwrap();
         assert_eq!(ports, vec![8080i64, 8081, 8082]);
+        assert_eq!(
+            config.get_list_strict::<i64>("ports").unwrap(),
+            vec![8080_i64, 8081, 8082]
+        );
     }
 
     #[test]
@@ -508,6 +553,33 @@ mod test_yaml_type_faithful {
         let config = load_yaml("key: !!str 42\n");
         // The YAML backend treats !!str 42 as a string.
         assert!(config.contains("key").unwrap());
+        assert_eq!(config.get_strict::<String>("key").unwrap(), "42");
+        assert!(config.get_strict::<i64>("key").is_err());
+    }
+
+    #[test]
+    fn test_yaml_singleton_and_empty_sequences_remain_collections() {
+        let singleton = load_yaml("ports: [8080]\n");
+        assert!(matches!(
+            singleton.get_property("ports").unwrap().unwrap().value(),
+            qubit_value::ValueContainer::Collection(_)
+        ));
+        assert_eq!(singleton.get_list_strict::<i64>("ports").unwrap(), vec![8080_i64]);
+
+        let empty = load_yaml("ports: []\n");
+        assert!(matches!(
+            empty.get_property("ports").unwrap().unwrap().value(),
+            qubit_value::ValueContainer::Collection(_)
+        ));
+        assert_eq!(empty.get_list::<i64>("ports").unwrap(), Vec::<i64>::new());
+    }
+
+    #[test]
+    fn test_yaml_string_conversion_is_not_strict_type_faithfulness() {
+        let mut config = Config::new();
+        config.set("port", "8080").unwrap();
+        assert_eq!(config.get::<i64>("port").unwrap(), 8080);
+        assert!(config.get_strict::<i64>("port").is_err());
     }
 
     #[test]
