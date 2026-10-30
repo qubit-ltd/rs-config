@@ -200,3 +200,51 @@ fn test_section_strict_reads_and_property_lookup_are_relative() {
     assert_eq!(service.get_list_strict::<String>("ports").unwrap(), ["80", "443"]);
     assert!(service.get_property("missing").unwrap().is_none());
 }
+
+#[test]
+fn test_section_debug_shows_only_path_and_effective_read_policy() {
+    let mut first = Config::builder().description("first root description").build();
+    first.set("service.visible", "first secret value").unwrap();
+    first.set("service.child.value", true).unwrap();
+
+    let mut second = Config::builder().description("second root description").build();
+    second.set("service.visible", "different secret value").unwrap();
+    second.set("service.child.value", true).unwrap();
+    second.set("service.sibling.marker", "sibling-only marker").unwrap();
+
+    let first_section = first.section("service").unwrap();
+    let second_section = second.section("service").unwrap();
+    let first_debug = format!("{first_section:?}");
+    let second_debug = format!("{second_section:?}");
+
+    assert_eq!(first_debug, second_debug);
+    assert!(first_debug.contains("path: \"service\""));
+    assert!(first_debug.contains(&format!("read_policy: {:?}", first_section.read_policy())));
+    assert!(!first_debug.contains("first root description"));
+    assert!(!first_debug.contains("first secret value"));
+    assert!(!first_debug.contains("second secret value"));
+    assert!(!first_debug.contains("sibling-only marker"));
+
+    let first_child = first_section.section("child").unwrap();
+    let second_child = second_section.section("child").unwrap();
+    assert_eq!(format!("{first_child:?}"), format!("{second_child:?}"));
+    assert!(format!("{first_child:?}").contains("path: \"service.child\""));
+
+    let configured_policy = ReadPolicy::builder().max_interpolation_depth(7).build();
+    let configured = Config::builder().default_read_policy(configured_policy.clone()).build();
+    let inherited = configured.section("service").unwrap().section("child").unwrap();
+    let inherited_debug = format!("{inherited:?}");
+    assert!(inherited_debug.contains(&format!("read_policy: {configured_policy:?}")));
+
+    let override_policy = ReadPolicy::builder_from(&configured_policy)
+        .max_interpolation_depth(3)
+        .build();
+    let overridden = configured
+        .section("service")
+        .unwrap()
+        .read_with(&override_policy)
+        .section("child")
+        .unwrap();
+    let overridden_debug = format!("{overridden:?}");
+    assert!(overridden_debug.contains(&format!("read_policy: {override_policy:?}")));
+}

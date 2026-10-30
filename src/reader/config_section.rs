@@ -8,6 +8,7 @@
 #![allow(private_bounds)]
 
 use std::borrow::Cow;
+use std::fmt;
 use std::ops::Bound;
 
 use qubit_value::StrictValueRead;
@@ -42,7 +43,7 @@ use crate::options::ReadPolicy;
 /// # Ok::<(), qubit_config::ConfigError>(())
 /// ```
 #[must_use = "use the returned value"]
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ConfigSection<'a> {
     /// Root configuration borrowed by this section.
     config: &'a Config,
@@ -52,6 +53,18 @@ pub struct ConfigSection<'a> {
     child_prefix: Option<String>,
     /// Read policy borrowed by this view, when explicitly overridden.
     read_policy: Option<&'a ReadPolicy>,
+}
+
+/// Formats a section's path and effective read policy without exposing
+/// configuration data.
+impl fmt::Debug for ConfigSection<'_> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("ConfigSection")
+            .field("path", &self.path)
+            .field("read_policy", self.read_policy())
+            .finish_non_exhaustive()
+    }
 }
 
 impl<'a> ConfigSection<'a> {
