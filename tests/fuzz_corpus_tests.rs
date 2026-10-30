@@ -39,8 +39,9 @@ enum Mode {
 
 fn load_seed(target: &str, name: &str) -> Config {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("fuzz")
-        .join("corpus")
+        .join("tests")
+        .join("data")
+        .join("fuzz_corpus")
         .join(target)
         .join(name);
     let bytes = fs::read(path).expect("fuzz corpus seed should be readable");
