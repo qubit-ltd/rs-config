@@ -22,7 +22,7 @@ pub(in crate::config) struct ConfigWireV1Ref<'a> {
     description: &'a Option<String>,
     /// Properties indexed by their canonical names in deterministic wire
     /// order.
-    properties: BTreeMap<&'a str, &'a Property>,
+    properties: &'a BTreeMap<String, Property>,
 }
 
 impl<'a> From<&'a Config> for ConfigWireV1Ref<'a> {
@@ -32,11 +32,7 @@ impl<'a> From<&'a Config> for ConfigWireV1Ref<'a> {
         Self {
             version: 1,
             description: &config.description,
-            properties: config
-                .properties
-                .iter()
-                .map(|(key, property)| (key.as_str(), property))
-                .collect(),
+            properties: &config.properties,
         }
     }
 }
