@@ -644,10 +644,7 @@ input is valid and within budget.
 
 ### A source exceeds a limit
 
-Read `budget_error()` and compare its `SourceLimitKind` with the corresponding
-`SourceLimits` dimension. `source_budget_id()` distinguishes a child-local
-failure from a composite aggregate failure. Increase one limit only when the
-input boundary is understood, or split the input into smaller source layers.
+Read `budget_error()` and use `source_budget_id()` to identify the local or aggregate scope that rejected the charge. Splitting a source may help with a child-local cumulative limit only if every enclosing composite still admits the total input. It does not reset ancestor budgets or solve every resource dimension, such as nesting depth. For an aggregate limit, reduce the total input or adjust that composite's corresponding limit after evaluating the input boundary. Splitting also increases the number of child sources. For example, two sources of 4 UTF-8 bytes each still exceed a composite input-byte limit of 6 bytes: the aggregate charge is 8 bytes regardless of the split.
 
 ### A merge changed nothing
 
