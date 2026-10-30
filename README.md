@@ -239,6 +239,8 @@ quoted, commented, and block-scalar text is not treated as such a token. `.env`
 loading preserves `$NAME` and `${NAME}` literally instead of expanding process
 environment variables; use explicit interpolated reads when substitution is
 intended. Customize `SourceLimits` only when the input boundary is understood.
+Custom sources can mark a written property final with `SourceLoadContext::set_final`
+so later sources cannot override it; see the user guide for an example.
 
 It does not silently interpolate values during ordinary reads, expand process-environment placeholders while loading `.env` files, use defaults to hide a present but invalid value, permit third-party `ConfigReader` implementations, or support `dyn ConfigReader`: the trait is sealed and its generic methods make it non-object-safe. Detailed path rules, source failure behavior, structured deserialization, custom conversion, and troubleshooting are covered in the user guide; current component boundaries and compatibility commitments are recorded in the design document.
 

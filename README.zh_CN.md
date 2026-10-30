@@ -225,6 +225,7 @@ TOML 和 YAML 在 parser 边界存在明确例外：第三方 parser
 会在 AST 构建前单独拒绝 anchor 和 alias token；scanner 错误直接失败，引号、注释和块标量
 文本不会被视为这类 token。`.env` 加载会保留 `$NAME` 和 `${NAME}` 字面量，不展开进程环境变量；
 需要替换时应显式使用 interpolated 读取。只有明确了解输入边界时才应放宽 `SourceLimits`。
+自定义 source 可用 `SourceLoadContext::set_final` 锁定已写入的 property，避免后续来源覆盖；使用示例见用户指南。
 
 本库不会在普通读取时静默执行插值，不会在加载 `.env` 文件时展开进程环境占位符，也不会用默认值掩盖已存在但无效的值。`ConfigReader` 是封闭（sealed）trait，不能由第三方实现；它包含泛型方法，因此不支持 `dyn ConfigReader`。路径规则、配置源失败行为、结构化反序列化、自定义转换和排障细节请参阅用户手册；当前组件边界与兼容承诺记录在设计说明中。
 

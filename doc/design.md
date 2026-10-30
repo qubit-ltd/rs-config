@@ -56,6 +56,11 @@ final. Loading and merging are transactional at the public boundary: an error
 does not expose a partial source layer or partially mutate the caller's target.
 TOML and YAML depth limits cover both AST nesting and the final dotted property
 path after flattening; parser allocation and recursion remain outside this limit.
+AST roots have depth zero; each mapping value and sequence element adds one
+level, while an empty sequence adds no element depth. Custom sources may mark an
+existing property final through `SourceLoadContext::set_final`; this updates
+metadata without charging assignment budgets again and preserves the existing
+one-way final-property rule during later merges.
 TOML and YAML reject empty or otherwise invalid mapping member keys before
 recursing into their values; valid empty tables and mappings remain accepted.
 Properties physical lines use LF, CRLF, or CR terminators. Only ASCII space,

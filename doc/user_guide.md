@@ -256,6 +256,37 @@ local and aggregate budgets, but charges accepted earlier in a failed load are
 not rolled back. The failing layer is discarded and the error should be
 propagated. The `ConfigSource` API documentation includes a complete in-memory
 source example.
+
+A custom source can mark a property it has already written as final with
+`context.set_final("service.mode", true)`. This changes property metadata only,
+so it does not charge the source budget again. Repeating the current final state
+is allowed; a final property cannot be unlocked. Missing properties and invalid
+keys return errors. Use this when a source owns a value that later precedence
+layers must not replace:
+
+```rust
+use qubit_config::source::{ConfigSource, SourceLimits, SourceLoadContext};
+use qubit_config::{ConfigError, ConfigResult};
+
+struct FinalSource;
+impl ConfigSource for FinalSource {
+    fn source_id(&self) -> String { "managed-defaults".to_owned() }
+    fn limits(&self) -> SourceLimits { SourceLimits::default() }
+    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
+        context.set("service.mode", "managed")?;
+        context.set_final("service.mode", true)
+    }
+}
+
+let source = qubit_config::source::CompositeConfigSource::builder()
+    .add_source(FinalSource)
+    .add_source(qubit_config::source::PropertiesConfigSource::from_content(
+        "service.mode=override\n",
+    ))
+    .build();
+assert!(matches!(source.load(), Err(ConfigError::PropertyIsFinal(_))));
+```
+
 Built-in sources include:
 
 - `PropertiesConfigSource`, always available, from `.properties` files or in-memory content;
@@ -624,7 +655,10 @@ policy in addition to every child's local policy. Cumulative charges are
 committed to all applicable scopes only after every scope accepts them.
 For TOML and YAML, node, property, and depth checks occur after the parser has
 built its AST. Depth checks cover both AST nesting and the final dotted property
-path; they are not parser-stage allocation or recursion limits.
+path; AST roots have depth zero, and each mapping value or sequence element adds
+one level. An empty sequence has no element depth. For example, `a=[1]` and
+`a: [1]` are rejected at depth limit 1 and accepted at limit 2. These checks are
+not parser-stage allocation or recursion limits.
 `SourceLimits::unbounded()` disables every source dimension and should only be
 used when the application controls the input boundary.
 

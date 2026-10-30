@@ -274,6 +274,35 @@ YAML scanner 输入也会直接失败，不会绕过 guard。所有内置配置�
 提供了完整的内存配置源示例。TOML 和 YAML 的节点、配置项数量与嵌套深度只能在解析器已经物化
 AST 后的展平阶段记账，因此它们约束可接受的配置结果，不限制解析器中间阶段的内存
 分配或递归深度。
+
+自定义配置源可以在写入属性后通过 `context.set_final("service.mode", true)` 将其标记为 final。
+此操作只修改属性元数据，不会再次扣减配置源预算。重复设置当前状态有效；final 属性不能解锁。
+属性不存在或键无效时会返回错误。如果某个配置源拥有的值不应被更高优先级的后续来源覆盖，
+可以这样使用：
+
+```rust
+use qubit_config::source::{ConfigSource, SourceLimits, SourceLoadContext};
+use qubit_config::{ConfigError, ConfigResult};
+
+struct FinalSource;
+impl ConfigSource for FinalSource {
+    fn source_id(&self) -> String { "managed-defaults".to_owned() }
+    fn limits(&self) -> SourceLimits { SourceLimits::default() }
+    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
+        context.set("service.mode", "managed")?;
+        context.set_final("service.mode", true)
+    }
+}
+
+let source = qubit_config::source::CompositeConfigSource::builder()
+    .add_source(FinalSource)
+    .add_source(qubit_config::source::PropertiesConfigSource::from_content(
+        "service.mode=override\n",
+    ))
+    .build();
+assert!(matches!(source.load(), Err(ConfigError::PropertyIsFinal(_))));
+```
+
 仅含注释或其他无值 token 的单个 YAML 文档会加载为空配置层；显式根 `null` 和 `~` 仍不是有效配置根。
 TOML 和 YAML 也会在递归处理值之前拒绝空的或无效的点分 mapping 成员键；合法的空 table
 和 mapping 仍然可用。环境变量名称规范化后发生冲突时，只要输入有效且符合配置源预算，
@@ -571,7 +600,8 @@ TOML 和 YAML 配置源会把映射展开成点分配置项，只接受标量、
 `CompositeConfigSource::builder().limits(...).build()` 会在每个子配置源的局部策略之外增加共享聚合
 策略；只有所有适用预算都接受一次累计扣减后才会统一记账。TOML 和 YAML 的节点、
 配置项与深度检查发生在 AST 已经构建之后；深度同时检查 AST 嵌套和最终点分配置路径，
-不能限制解析器自身的内存或递归。
+AST 根深度为 0，每个 mapping 值或 sequence 元素增加一层；空 sequence 没有元素深度。
+例如，`a=[1]` 和 `a: [1]` 在深度上限为 1 时拒绝、上限为 2 时接受。这些检查不能限制解析器自身的内存或递归。
 `SourceLimits::unbounded()` 会关闭所有配置源维度；只有应用完全控制输入边界时才应使用。
 
 ## 错误与诊断
