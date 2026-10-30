@@ -49,6 +49,7 @@
 
 mod composite_config_source;
 mod config_source;
+pub(crate) use config_source::load_source;
 mod env_config_options;
 mod env_config_options_builder;
 mod env_config_source;

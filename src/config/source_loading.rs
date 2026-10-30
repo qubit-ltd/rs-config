@@ -12,6 +12,7 @@ use std::path::Path;
 use super::Config;
 use crate::ConfigResult;
 use crate::source::ConfigSource;
+use crate::source::load_source;
 use crate::source::EnvConfigOptions;
 use crate::source::EnvConfigSource;
 #[cfg(feature = "env-file")]
@@ -44,10 +45,12 @@ impl Config {
     /// # Errors
     ///
     /// Returns any [`crate::ConfigError`] produced by the source while loading
-    /// or by the underlying config mutation methods.
+    /// or by the underlying config mutation methods. Loading uses the standard
+    /// context executor and calls `load_into`; an override of `ConfigSource::load`
+    /// is not invoked. Move custom loading behavior into `load_into`.
     #[inline]
     pub fn from_source(source: &dyn ConfigSource) -> ConfigResult<Self> {
-        source.load()
+        load_source(source)
     }
 
     /// Creates a configuration from all current process environment variables.

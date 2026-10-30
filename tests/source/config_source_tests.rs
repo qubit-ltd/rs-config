@@ -12,6 +12,7 @@ use qubit_config::ConfigError;
 use qubit_config::ConfigResult;
 use qubit_config::options::ReadPolicy;
 use qubit_config::source::ConfigSource;
+use qubit_config::source::CompositeConfigSource;
 use qubit_config::source::SourceLimits;
 use qubit_config::source::SourceLoadContext;
 use qubit_datatype::DataType;
@@ -36,6 +37,51 @@ impl ConfigSource for InlineSource {
 }
 
 struct MetadataSource;
+
+struct OverrideLoadSource {
+    limits: SourceLimits,
+}
+
+impl ConfigSource for OverrideLoadSource {
+    fn source_id(&self) -> String {
+        "override:<memory>".to_owned()
+    }
+
+    fn limits(&self) -> SourceLimits {
+        self.limits
+    }
+
+    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
+        context.set("value", 8080_u16)
+    }
+
+    fn load(&self) -> ConfigResult<Config> {
+        let mut config = Config::new();
+        config.set("value", 999_u16)?;
+        Ok(config)
+    }
+}
+
+struct FailingLoadSource;
+
+impl ConfigSource for FailingLoadSource {
+    fn source_id(&self) -> String {
+        "failing:<memory>".to_owned()
+    }
+
+    fn limits(&self) -> SourceLimits {
+        SourceLimits::default()
+    }
+
+    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
+        context.set("temporary", 1_u16)?;
+        Err(ConfigError::PropertyNotFound("expected-source-failure".to_owned()))
+    }
+
+    fn load(&self) -> ConfigResult<Config> {
+        Ok(Config::new())
+    }
+}
 
 impl ConfigSource for MetadataSource {
     fn source_id(&self) -> String {
@@ -120,6 +166,51 @@ fn test_config_source_load_populates_config() {
         .expect("inline source should load successfully");
 
     assert_eq!(config.get::<String>("server.host").unwrap(), "localhost");
+}
+
+#[test]
+fn test_managed_source_entry_points_use_context_executor() {
+    let source = OverrideLoadSource { limits: SourceLimits::default() };
+    assert_eq!(source.load().unwrap().get::<u16>("value").unwrap(), 999);
+    assert_eq!(Config::from_source(&source).unwrap().get::<u16>("value").unwrap(), 8080);
+    let mut target = Config::new();
+    target.merge_properties_from_source(&source).unwrap();
+    assert_eq!(target.get::<u16>("value").unwrap(), 8080);
+    let composite = CompositeConfigSource::builder().add_source(source).build();
+    assert_eq!(composite.load().unwrap().get::<u16>("value").unwrap(), 8080);
+}
+
+#[test]
+fn test_managed_source_entry_points_enforce_local_budget() {
+    let source = OverrideLoadSource {
+        limits: SourceLimits::builder().max_properties(0).build(),
+    };
+    let mut target = Config::new();
+    target.set("retained", true).unwrap();
+    let before = target.clone();
+    let top_error = Config::from_source(&source).unwrap_err();
+    let merge_error = target.merge_properties_from_source(&source).unwrap_err();
+    assert_eq!(target, before);
+    let composite = CompositeConfigSource::builder().add_source(source).build();
+    let composite_error = composite.load().unwrap_err();
+    for error in [top_error, merge_error, composite_error] {
+        assert_eq!(error.kind(), qubit_config::ConfigErrorKind::SourceLimitExceeded);
+        assert_eq!(error.source_id(), Some("override:<memory>"));
+        assert_eq!(error.source_budget_id(), Some("override:<memory>"));
+    }
+}
+
+#[test]
+fn test_managed_source_entry_points_propagate_errors_transactionally() {
+    let source = FailingLoadSource;
+    assert!(matches!(Config::from_source(&source), Err(ConfigError::PropertyNotFound(key)) if key == "expected-source-failure"));
+    let mut target = Config::new();
+    target.set("retained", true).unwrap();
+    let before = target.clone();
+    assert!(matches!(target.merge_properties_from_source(&source), Err(ConfigError::PropertyNotFound(key)) if key == "expected-source-failure"));
+    assert_eq!(target, before);
+    let composite = CompositeConfigSource::builder().add_source(source).build();
+    assert!(matches!(composite.load(), Err(ConfigError::PropertyNotFound(key)) if key == "expected-source-failure"));
 }
 
 #[test]

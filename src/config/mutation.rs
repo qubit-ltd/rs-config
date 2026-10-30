@@ -16,6 +16,7 @@ use crate::ConfigResult;
 use crate::Property;
 use crate::config_path::ensure_config_key;
 use crate::source::ConfigSource;
+use crate::source::load_source;
 
 impl Config {
     /// Sets a configuration value.
@@ -146,8 +147,11 @@ impl Config {
     /// # }
     /// ```
     #[inline]
+    /// Loading uses the standard context executor and calls `load_into`; an
+    /// override of `ConfigSource::load` is not invoked. Move custom loading
+    /// behavior into `load_into`.
     pub fn merge_properties_from_source(&mut self, source: &dyn ConfigSource) -> ConfigResult<()> {
-        let layer = source.load()?;
+        let layer = load_source(source)?;
         self.merge_properties(layer)
     }
 

@@ -14,8 +14,11 @@ use crate::ConfigResult;
 
 /// A source that writes configuration through a controlled load context.
 ///
-/// `load` creates the context and an independent output layer, then calls
-/// [`load_into`](Self::load_into). The context is supplied by the executor;
+/// Library-managed loading creates the context and an independent output
+/// layer, then calls [`load_into`](Self::load_into), bypassing an overridden
+/// [`load`](Self::load) method. Direct calls to an overridden `load` are the
+/// implementation's responsibility; the default `load` uses the standard
+/// executor. The context is supplied by the executor;
 /// source implementations must report input bytes and any extra parser nodes
 /// before doing that work. `set` and `set_null` account for their own output
 /// node and property assignment.
@@ -58,7 +61,12 @@ pub trait ConfigSource {
     fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()>;
 
     /// Loads one independent configuration layer through the standard
-    /// budget and transactional executor.
+    /// budget and transactional executor by default.
+    ///
+    /// Library-managed entry points call [`load_into`](Self::load_into)
+    /// through that executor and do not dispatch to an override of this
+    /// method. An implementation that overrides `load` is responsible for
+    /// behavior of direct calls to that override.
     fn load(&self) -> ConfigResult<Config> {
         load_source(self)
     }
