@@ -397,10 +397,11 @@ impl Config {
     /// Gets all configuration values only when the stored values already have
     /// the exact requested element type.
     ///
-    /// Unlike [`Self::get_list`], this method preserves the pre-conversion
-    /// list read semantics. It returns an empty vector for empty properties and
-    /// [`crate::ConfigError::TypeMismatch`] for non-empty values of another
-    /// stored type.
+    /// Unlike [`Self::get_list`], this method does not convert stored values.
+    /// An absent or unset property returns an error. A concrete empty
+    /// collection returns an empty vector. Non-empty values must have the
+    /// exact requested element type; otherwise
+    /// [`crate::ConfigError::TypeMismatch`] is returned.
     ///
     /// # Type Parameters
     ///
