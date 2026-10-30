@@ -146,13 +146,17 @@ serde_json = "1.0"
 
 最小的内存配置如下：
 
+<!-- example: config_guide_quickstart -->
 ```rust
 use qubit_config::Config;
 
-let mut config = Config::new();
-config.set("server.port", 8080)?;
-let port: u16 = config.get("server.port")?;
-# Ok::<(), qubit_config::ConfigError>(())
+fn main() -> Result<(), qubit_config::ConfigError> {
+    let mut config = Config::new();
+    config.set("server.port", 8080)?;
+    let port: u16 = config.get("server.port")?;
+    assert_eq!(port, 8080);
+    Ok(())
+}
 ```
 
 ## 核心工作流
@@ -164,23 +168,25 @@ let port: u16 = config.get("server.port")?;
 ```rust
 use qubit_config::{Config, ConfigError};
 
-let mut config = Config::new();
-config.set("worker.threads", 4u16)?;
-config.set("worker.labels", ["api", "critical"])?;
+fn main() -> Result<(), ConfigError> {
+    let mut config = Config::new();
+    config.set("worker.threads", 4u16)?;
+    config.set("worker.labels", ["api", "critical"])?;
 
-let threads: u16 = config.get("worker.threads")?;
-let labels: Vec<String> = config.get_list("worker.labels")?;
-let missing: u16 = config.get_or("worker.timeout", 30)?;
+    let threads: u16 = config.get("worker.threads")?;
+    let labels: Vec<String> = config.get_list("worker.labels")?;
+    let missing: u16 = config.get_or("worker.timeout", 30)?;
 
-assert_eq!(threads, 4);
-assert_eq!(labels, ["api", "critical"]);
-assert_eq!(missing, 30);
+    assert_eq!(threads, 4);
+    assert_eq!(labels, ["api", "critical"]);
+    assert_eq!(missing, 30);
 
-config.set("worker.invalid", "abc")?;
-let error = config.get_or::<u16>("worker.invalid", 30).unwrap_err();
-assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Conversion);
-assert!(matches!(error, ConfigError::ConversionError { .. }));
-# Ok::<(), ConfigError>(())
+    config.set("worker.invalid", "abc")?;
+    let error = config.get_or::<u16>("worker.invalid", 30).unwrap_err();
+    assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Conversion);
+    assert!(matches!(error, ConfigError::ConversionError { .. }));
+    Ok(())
+}
 ```
 
 缺失值的关键规则如下：
@@ -204,24 +210,30 @@ fn read_endpoint(reader: &impl ConfigReader) -> ConfigResult<(String, u16)> {
     Ok((server.get("host")?, server.get("port")?))
 }
 
-let mut config = Config::new();
-config.set("server.host", "localhost")?;
-config.set("server.port", 8080i32)?;
-assert_eq!(read_endpoint(&config)?, ("localhost".to_owned(), 8080));
-# Ok::<(), qubit_config::ConfigError>(())
+fn main() -> Result<(), qubit_config::ConfigError> {
+    let mut config = Config::new();
+    config.set("server.host", "localhost")?;
+    config.set("server.port", 8080i32)?;
+    assert_eq!(read_endpoint(&config)?, ("localhost".to_owned(), 8080));
+    Ok(())
+}
 ```
 
 `ConfigSection` 是严格相对的，可以继续嵌套：
 
+<!-- example: config_sections -->
 ```rust
-# use qubit_config::{Config, ConfigReader};
-# let mut config = Config::new();
-# config.set("server.tls.enabled", true)?;
-let server = config.section("server")?;
-let tls = server.section("tls")?;
-let enabled: bool = tls.get("enabled")?;
-# let _ = enabled;
-# Ok::<(), qubit_config::ConfigError>(())
+use qubit_config::Config;
+use qubit_config::ConfigReader;
+
+fn main() -> Result<(), qubit_config::ConfigError> {
+    let mut config = Config::new();
+    config.set("server.tls.enabled", true)?;
+    let server = config.section("server")?;
+    let tls = server.section("tls")?;
+    assert!(tls.get::<bool>("enabled")?);
+    Ok(())
+}
 ```
 
 判断点分 section 是否存在时使用 `contains_section("server.tls")`。只有明确需要原始字符前缀匹配时才使用 `contains_key_prefix("server")`；它也可能匹配 `server2` 等同名前缀。路径敏感的 `section`、`contains`、`get_property`、`is_unset`、`remove` 和 `ConfigReader::resolve_key` 都返回 `ConfigResult`，因为非法路径是可观察错误。
@@ -272,9 +284,11 @@ TOML 和 YAML 也会在递归处理值之前拒绝空的或无效的点分 mappi
 ```rust,no_run
 use qubit_config::Config;
 
-let config = Config::from_properties_file("config.properties")?;
-# let _ = config;
-# Ok::<(), qubit_config::ConfigError>(())
+fn main() -> Result<(), qubit_config::ConfigError> {
+    let config = Config::from_properties_file("config.properties")?;
+    assert!(config.contains("port")?);
+    Ok(())
+}
 ```
 
 如果目标已有值或读取策略，则使用 `merge_properties_from_source`：
@@ -285,14 +299,16 @@ use qubit_config::source::{
 };
 use qubit_config::Config;
 
-let mut source = CompositeConfigSource::new();
-source.add(PropertiesConfigSource::from_content("port=8080\n"));
-source.add(PropertiesConfigSource::from_content("port=9090\n"));
+fn main() -> Result<(), qubit_config::ConfigError> {
+    let mut source = CompositeConfigSource::new();
+    source.add(PropertiesConfigSource::from_content("port=8080\n"));
+    source.add(PropertiesConfigSource::from_content("port=9090\n"));
 
-let mut config = Config::new();
-config.merge_properties_from_source(&source)?;
-assert_eq!(config.get::<i64>("port")?, 9090);
-# Ok::<(), qubit_config::ConfigError>(())
+    let mut config = Config::new();
+    config.merge_properties_from_source(&source)?;
+    assert_eq!(config.get::<i64>("port")?, 9090);
+    Ok(())
+}
 ```
 
 配置源加载和合并在公共边界具有事务语义：配置源先加载到独立配置层，完整校验输入配置层后才合并；失败时目标配置保持不变。final 配置项拒绝后续覆盖，并返回 `PropertyIsFinal`。
@@ -311,13 +327,15 @@ struct Server {
     port: u16,
 }
 
-let mut config = Config::new();
-config.set("server.host", "localhost")?;
-config.set("server.port", 8080)?;
+fn main() -> Result<(), qubit_config::ConfigError> {
+    let mut config = Config::new();
+    config.set("server.host", "localhost")?;
+    config.set("server.port", 8080)?;
 
-let server: Server = config.deserialize("server")?;
-assert_eq!(server.port, 8080);
-# Ok::<(), qubit_config::ConfigError>(())
+    let server: Server = config.deserialize("server")?;
+    assert_eq!(server.port, 8080);
+    Ok(())
+}
 ```
 
 通过泛型 `ConfigReader` 或 section 调用 `deserialize` 或 `deserialize_with` 时，导入
@@ -334,6 +352,10 @@ struct payload 也应添加。Serde 随后返回经过脱敏的反序列化错�
 struct 字段、`serde(rename)`、`serde(alias)`、`serde(default)`、嵌套 struct、map 和
 `serde(flatten)` 共同声明可接受的形状。仅由 Serde 报告的结构不匹配会变成已脱敏的
 `DeserializeError`。
+标准缺字段错误会保留经 JSON 转义的 schema 字段名；类型错误使用固定摘要，长度错误只包含
+实际长度。输入值、Serde 的 `Expected` 和 `Unexpected` 描述以及自定义反序列化器消息都不会保留。
+这些面向人的摘要可能变化；程序判断应使用 `ConfigError::kind()` 和 `ConfigError::path()`，不要依赖
+`Display` 文本。
 
 对象成员名会以字符串形式交给 Serde。如果应用需要数字 key，应先反序列化字符串 key，
 再显式解析。`?` 会传播解析错误；收集到 map 时，如果不同字符串解析为相同数字，后写入的值
@@ -377,12 +399,14 @@ Serde 形状，例如 `std::time::Duration` 需要 `secs` 和 `nanos` 字段，�
 ```rust
 use qubit_config::Config;
 
-let mut config = Config::new();
-config.set("server.port", 8080)?;
-let bytes = config.encode_json_vec()?;
-let restored = Config::decode_json_slice(&bytes)?;
-assert_eq!(restored.get::<i64>("server.port")?, 8080);
-# Ok::<(), Box<dyn std::error::Error>>(())
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut config = Config::new();
+    config.set("server.port", 8080)?;
+    let bytes = config.encode_json_vec()?;
+    let restored = Config::decode_json_slice(&bytes)?;
+    assert_eq!(restored.get::<i64>("server.port")?, 8080);
+    Ok(())
+}
 ```
 
 当默认限制配置不适用时，`Config::encode_json_vec_with_limits` 和
@@ -410,17 +434,19 @@ token，因此普通 `Deserialize` 无法执行原始输入限制。不可信 JS
 use qubit_config::{Config, ConfigReader};
 use qubit_config::options::ReadPolicy;
 
-let mut config = Config::new();
-config.set("HTTP_ENABLED", "yes")?;
-config.set("HTTP_PORTS", "8080, 8081,,8082")?;
+fn main() -> Result<(), qubit_config::ConfigError> {
+    let mut config = Config::new();
+    config.set("HTTP_ENABLED", "yes")?;
+    config.set("HTTP_PORTS", "8080, 8081,,8082")?;
 
-let policy = ReadPolicy::env_friendly();
-let reader = config.read_with(&policy);
-let enabled: bool = reader.get("HTTP_ENABLED")?;
-let ports: Vec<u16> = reader.get("HTTP_PORTS")?;
-assert!(enabled);
-assert_eq!(ports, [8080, 8081, 8082]);
-# Ok::<(), qubit_config::ConfigError>(())
+    let policy = ReadPolicy::env_friendly();
+    let reader = config.read_with(&policy);
+    let enabled: bool = reader.get("HTTP_ENABLED")?;
+    let ports: Vec<u16> = reader.get("HTTP_PORTS")?;
+    assert!(enabled);
+    assert_eq!(ports, [8080, 8081, 8082]);
+    Ok(())
+}
 ```
 
 `ReadPolicy` 组合控制字符串空白处理、布尔字面量、集合拆分、数值转换、Duration 转换和插值限制。应用可以使用 builder 方法选择更严格或不同的策略。传入完整的 `StringConversionPolicy` 或 `CollectionConversionPolicy` 时，该嵌套策略会原样替换；叶级 `blank_string_policy` 和 `empty_item_policy` setter 只修改各自对应的嵌套设置。底层转换选项类型由 `qubit-datatype` 提供；如果应用直接配置这些低层选项，也应直接依赖该 crate。
@@ -454,6 +480,7 @@ let policy = ReadPolicy::builder_from(&ReadPolicy::env_friendly())
     .interpolation_sources(InterpolationSources::ConfigThenEnv)
     .build();
 let config = Config::builder().default_read_policy(policy).build();
+let _ = config;
 ```
 
 能够选择环境变量名称的配置应被视为受信任输入。默认插值限制为 64 层引用链深度、
@@ -551,7 +578,6 @@ let error = config.get::<u16>("server.port").unwrap_err();
 
 assert_eq!(error.kind(), ConfigErrorKind::PropertyNotFound);
 assert_eq!(error.path(), Some("server.port"));
-# let _ = ConfigErrorKind::PropertyNotFound;
 ```
 
 常见类别包括 `InvalidKey`、`InvalidPath`、`PropertyNotFound`、`PropertyHasNoValue`、`TypeMismatch`、`Conversion`、`Substitution`、`SubstitutionCycle`、`SourceLimitExceeded`、`KeyConflict`、`Merge`、`PropertyIsFinal`、`Io`、`Parse` 和 `Deserialize`。

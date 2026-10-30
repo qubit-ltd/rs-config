@@ -148,13 +148,17 @@ serde_json = "1.0"
 
 For a small in-memory configuration, the minimum setup is:
 
+<!-- example: config_guide_quickstart -->
 ```rust
 use qubit_config::Config;
 
-let mut config = Config::new();
-config.set("server.port", 8080)?;
-let port: u16 = config.get("server.port")?;
-# Ok::<(), qubit_config::ConfigError>(())
+fn main() -> Result<(), qubit_config::ConfigError> {
+    let mut config = Config::new();
+    config.set("server.port", 8080)?;
+    let port: u16 = config.get("server.port")?;
+    assert_eq!(port, 8080);
+    Ok(())
+}
 ```
 
 ## Core Workflow
@@ -166,23 +170,25 @@ Keys are canonical non-empty dotted names. `server` and `server.port` are valid.
 ```rust
 use qubit_config::{Config, ConfigError};
 
-let mut config = Config::new();
-config.set("worker.threads", 4u16)?;
-config.set("worker.labels", ["api", "critical"])?;
+fn main() -> Result<(), ConfigError> {
+    let mut config = Config::new();
+    config.set("worker.threads", 4u16)?;
+    config.set("worker.labels", ["api", "critical"])?;
 
-let threads: u16 = config.get("worker.threads")?;
-let labels: Vec<String> = config.get_list("worker.labels")?;
-let missing: u16 = config.get_or("worker.timeout", 30)?;
+    let threads: u16 = config.get("worker.threads")?;
+    let labels: Vec<String> = config.get_list("worker.labels")?;
+    let missing: u16 = config.get_or("worker.timeout", 30)?;
 
-assert_eq!(threads, 4);
-assert_eq!(labels, ["api", "critical"]);
-assert_eq!(missing, 30);
+    assert_eq!(threads, 4);
+    assert_eq!(labels, ["api", "critical"]);
+    assert_eq!(missing, 30);
 
-config.set("worker.invalid", "abc")?;
-let error = config.get_or::<u16>("worker.invalid", 30).unwrap_err();
-assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Conversion);
-assert!(matches!(error, ConfigError::ConversionError { .. }));
-# Ok::<(), ConfigError>(())
+    config.set("worker.invalid", "abc")?;
+    let error = config.get_or::<u16>("worker.invalid", 30).unwrap_err();
+    assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Conversion);
+    assert!(matches!(error, ConfigError::ConversionError { .. }));
+    Ok(())
+}
 ```
 
 The important missing-value rules are:
@@ -206,24 +212,30 @@ fn read_endpoint(reader: &impl ConfigReader) -> ConfigResult<(String, u16)> {
     Ok((server.get("host")?, server.get("port")?))
 }
 
-let mut config = Config::new();
-config.set("server.host", "localhost")?;
-config.set("server.port", 8080i32)?;
-assert_eq!(read_endpoint(&config)?, ("localhost".to_owned(), 8080));
-# Ok::<(), qubit_config::ConfigError>(())
+fn main() -> Result<(), qubit_config::ConfigError> {
+    let mut config = Config::new();
+    config.set("server.host", "localhost")?;
+    config.set("server.port", 8080i32)?;
+    assert_eq!(read_endpoint(&config)?, ("localhost".to_owned(), 8080));
+    Ok(())
+}
 ```
 
 `ConfigSection` is strictly relative and can be nested:
 
+<!-- example: config_sections -->
 ```rust
-# use qubit_config::{Config, ConfigReader};
-# let mut config = Config::new();
-# config.set("server.tls.enabled", true)?;
-let server = config.section("server")?;
-let tls = server.section("tls")?;
-let enabled: bool = tls.get("enabled")?;
-# let _ = enabled;
-# Ok::<(), qubit_config::ConfigError>(())
+use qubit_config::Config;
+use qubit_config::ConfigReader;
+
+fn main() -> Result<(), qubit_config::ConfigError> {
+    let mut config = Config::new();
+    config.set("server.tls.enabled", true)?;
+    let server = config.section("server")?;
+    let tls = server.section("tls")?;
+    assert!(tls.get::<bool>("enabled")?);
+    Ok(())
+}
 ```
 
 Use `contains_section("server.tls")` for dotted section membership. Use `contains_key_prefix("server")` only when raw character-prefix matching is intended; it can also match a sibling such as `server2`.
@@ -290,9 +302,11 @@ Use a convenience constructor when no target customization is needed:
 ```rust,no_run
 use qubit_config::Config;
 
-let config = Config::from_properties_file("config.properties")?;
-# let _ = config;
-# Ok::<(), qubit_config::ConfigError>(())
+fn main() -> Result<(), qubit_config::ConfigError> {
+    let config = Config::from_properties_file("config.properties")?;
+    assert!(config.contains("port")?);
+    Ok(())
+}
 ```
 
 Use `merge_properties_from_source` when the target already has values or a read policy:
@@ -303,14 +317,16 @@ use qubit_config::source::{
 };
 use qubit_config::Config;
 
-let mut source = CompositeConfigSource::new();
-source.add(PropertiesConfigSource::from_content("port=8080\n"));
-source.add(PropertiesConfigSource::from_content("port=9090\n"));
+fn main() -> Result<(), qubit_config::ConfigError> {
+    let mut source = CompositeConfigSource::new();
+    source.add(PropertiesConfigSource::from_content("port=8080\n"));
+    source.add(PropertiesConfigSource::from_content("port=9090\n"));
 
-let mut config = Config::new();
-config.merge_properties_from_source(&source)?;
-assert_eq!(config.get::<i64>("port")?, 9090);
-# Ok::<(), qubit_config::ConfigError>(())
+    let mut config = Config::new();
+    config.merge_properties_from_source(&source)?;
+    assert_eq!(config.get::<i64>("port")?, 9090);
+    Ok(())
+}
 ```
 
 Source loading and merging are transactional at the public boundary: a source is loaded into an independent layer, the incoming layer is validated, and a failed merge leaves the target unchanged. A final property rejects a later override with `PropertyIsFinal`.
@@ -329,13 +345,15 @@ struct Server {
     port: u16,
 }
 
-let mut config = Config::new();
-config.set("server.host", "localhost")?;
-config.set("server.port", 8080)?;
+fn main() -> Result<(), qubit_config::ConfigError> {
+    let mut config = Config::new();
+    config.set("server.host", "localhost")?;
+    config.set("server.port", 8080)?;
 
-let server: Server = config.deserialize("server")?;
-assert_eq!(server.port, 8080);
-# Ok::<(), qubit_config::ConfigError>(())
+    let server: Server = config.deserialize("server")?;
+    assert_eq!(server.port, 8080);
+    Ok(())
+}
 ```
 
 Import `ConfigSerdeExt` when calling `deserialize` or `deserialize_with` through
@@ -355,6 +373,12 @@ set `unknown_fields: UnknownFieldPolicy::Ignore`; to expand placeholders, set
 `interpolate: true`. Struct fields, `serde(rename)`, `serde(alias)`,
 `serde(default)`, nested structs, maps, and `serde(flatten)` declare the accepted
 shape. A mismatch raised only by Serde becomes a sanitized `DeserializeError`.
+Standard missing-field errors retain the JSON-escaped schema field name; invalid
+type errors use a fixed summary, and invalid-length errors include only the
+actual length. Input values, Serde `Expected` and `Unexpected` descriptions, and
+custom deserializer messages are not retained. These human-readable summaries
+may change; use `ConfigError::kind()` and `ConfigError::path()` for programmatic
+handling instead of matching `Display` text.
 
 Object member names enter Serde as strings. If the application wants numeric
 keys, deserialize string keys first and parse them explicitly. Parse errors
@@ -405,12 +429,14 @@ are omitted, but missing collection items remain errors.
 ```rust
 use qubit_config::Config;
 
-let mut config = Config::new();
-config.set("server.port", 8080)?;
-let bytes = config.encode_json_vec()?;
-let restored = Config::decode_json_slice(&bytes)?;
-assert_eq!(restored.get::<i64>("server.port")?, 8080);
-# Ok::<(), Box<dyn std::error::Error>>(())
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut config = Config::new();
+    config.set("server.port", 8080)?;
+    let bytes = config.encode_json_vec()?;
+    let restored = Config::decode_json_slice(&bytes)?;
+    assert_eq!(restored.get::<i64>("server.port")?, 8080);
+    Ok(())
+}
 ```
 
 `Config::encode_json_vec_with_limits` and
@@ -443,17 +469,19 @@ accepts and ignores it. Manually constructed V1 envelopes must omit it.
 use qubit_config::{Config, ConfigReader};
 use qubit_config::options::ReadPolicy;
 
-let mut config = Config::new();
-config.set("HTTP_ENABLED", "yes")?;
-config.set("HTTP_PORTS", "8080, 8081,,8082")?;
+fn main() -> Result<(), qubit_config::ConfigError> {
+    let mut config = Config::new();
+    config.set("HTTP_ENABLED", "yes")?;
+    config.set("HTTP_PORTS", "8080, 8081,,8082")?;
 
-let policy = ReadPolicy::env_friendly();
-let reader = config.read_with(&policy);
-let enabled: bool = reader.get("HTTP_ENABLED")?;
-let ports: Vec<u16> = reader.get("HTTP_PORTS")?;
-assert!(enabled);
-assert_eq!(ports, [8080, 8081, 8082]);
-# Ok::<(), qubit_config::ConfigError>(())
+    let policy = ReadPolicy::env_friendly();
+    let reader = config.read_with(&policy);
+    let enabled: bool = reader.get("HTTP_ENABLED")?;
+    let ports: Vec<u16> = reader.get("HTTP_PORTS")?;
+    assert!(enabled);
+    assert_eq!(ports, [8080, 8081, 8082]);
+    Ok(())
+}
 ```
 
 `ReadPolicy` groups string blank handling, boolean literals, collection splitting, numeric conversion, duration conversion, and interpolation limits. Use its builder methods when the application needs a stricter or different policy. Passing a complete `StringConversionPolicy` or `CollectionConversionPolicy` installs that nested policy unchanged; the leaf-level `blank_string_policy` and `empty_item_policy` setters change only their respective nested setting. The conversion option types are supplied by `qubit-datatype`; applications that configure those lower-level options directly should depend on that crate as well.
@@ -483,10 +511,13 @@ The default interpolation source is `ConfigOnly`. To fall back to process enviro
 use qubit_config::{Config, ConfigReader};
 use qubit_config::options::{InterpolationSources, ReadPolicy};
 
-let policy = ReadPolicy::builder_from(&ReadPolicy::env_friendly())
-    .interpolation_sources(InterpolationSources::ConfigThenEnv)
-    .build();
-let config = Config::builder().default_read_policy(policy).build();
+fn main() {
+    let policy = ReadPolicy::builder_from(&ReadPolicy::env_friendly())
+        .interpolation_sources(InterpolationSources::ConfigThenEnv)
+        .build();
+    let config = Config::builder().default_read_policy(policy).build();
+    let _ = config;
+}
 ```
 
 Treat configuration that can select environment-variable names as trusted input. The default interpolation limits are a reference-chain depth of 64, 4,096 placeholder expansions per read, and 1 MiB of UTF-8 output. `ReadPolicy::builder()` can change each dimension; failures are reported as structured `ConfigError` categories.
@@ -593,7 +624,6 @@ let error = config.get::<u16>("server.port").unwrap_err();
 
 assert_eq!(error.kind(), ConfigErrorKind::PropertyNotFound);
 assert_eq!(error.path(), Some("server.port"));
-# let _ = ConfigErrorKind::PropertyNotFound;
 ```
 
 Common categories include `InvalidKey`, `InvalidPath`, `PropertyNotFound`, `PropertyHasNoValue`, `TypeMismatch`, `Conversion`, `Substitution`, `SubstitutionCycle`, `SourceLimitExceeded`, `KeyConflict`, `Merge`, `PropertyIsFinal`, `Io`, `Parse`, and `Deserialize`.
