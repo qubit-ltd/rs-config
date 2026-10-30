@@ -39,6 +39,7 @@ fn fuzz_reference_graph(graph: ReferenceGraph) {
     {
         return;
     }
+    let output_limit = graph.output_bytes.min(4096);
     let mut config = Config::builder()
         .default_read_policy(
             ReadPolicy::builder()
@@ -60,18 +61,36 @@ fn fuzz_reference_graph(graph: ReferenceGraph) {
     }
     let entry = graph.entry % graph.values.len();
     let key = format!("k{entry}");
-    let _ = config.get_interpolated::<String>(&key);
+    if let Ok(value) = config.get_interpolated::<String>(&key) {
+        assert!(value.len() <= output_limit);
+    }
     let scope = config.section("scope");
     if let Ok(scope) = scope {
         let local_key = format!("k{entry}");
-        let _ = scope.get_interpolated::<String>(&local_key);
-        let _ = scope.deserialize_with::<serde_json::Value>(
+        if let Ok(value) = scope.get_interpolated::<String>(&local_key) {
+            assert!(value.len() <= output_limit);
+        }
+        if let Ok(value) = scope.deserialize_with::<serde_json::Value>(
             "",
             ConfigDeserializeOptions {
                 interpolate: true,
                 unknown_fields: UnknownFieldPolicy::Ignore,
             },
-        );
+        ) {
+            assert_structured_strings_within_limit(&value, output_limit);
+        }
+    }
+}
+
+fn assert_structured_strings_within_limit(value: &serde_json::Value, limit: usize) {
+    let mut pending = vec![value];
+    while let Some(value) = pending.pop() {
+        match value {
+            serde_json::Value::String(value) => assert!(value.len() <= limit),
+            serde_json::Value::Array(values) => pending.extend(values),
+            serde_json::Value::Object(values) => pending.extend(values.values()),
+            _ => {}
+        }
     }
 }
 
@@ -87,9 +106,15 @@ fuzz_target!(|data: &[u8]| {
         return;
     };
 
-    let mut config = Config::builder().default_read_policy(ReadPolicy::config_only()).build();
+    let policy = ReadPolicy::builder().max_interpolation_output_bytes(4096).build();
+    let mut config = Config::builder().default_read_policy(policy).build();
     config
         .set("value", value)
         .expect("the fixed fuzzing key should always be valid");
-    let _ = config.get_interpolated::<String>("value");
+    if let Ok(result) = config.get_interpolated::<String>("value") {
+        assert!(result.len() <= 4096);
+        if value == "plain-value" {
+            assert_eq!(result, "plain-value");
+        }
+    }
 });

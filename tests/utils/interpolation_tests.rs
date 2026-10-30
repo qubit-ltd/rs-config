@@ -511,6 +511,47 @@ fn test_get_string_substitution_cycle_reports_variable_chain() {
     ));
     assert_eq!(error.path(), Some("a"));
 }
+
+#[test]
+fn test_interpolation_reports_fixed_budget_error_categories() {
+    let mut cycle = Config::new();
+    cycle.set_default_read_policy(
+        ReadPolicy::builder()
+            .max_interpolation_depth(16)
+            .max_interpolation_expansions(128)
+            .max_interpolation_output_bytes(4096)
+            .build(),
+    );
+    cycle.set("k0", "${k0}").unwrap();
+    assert!(matches!(
+        cycle.get_interpolated::<String>("k0"),
+        Err(ConfigError::SubstitutionCycle { .. })
+    ));
+
+    let mut output_limited = Config::new();
+    output_limited.set_default_read_policy(ReadPolicy::builder().max_interpolation_output_bytes(3).build());
+    output_limited.set("plain", "abcd").unwrap();
+    assert!(matches!(
+        output_limited.get_interpolated::<String>("plain"),
+        Err(ConfigError::SubstitutionOutputTooLarge { .. })
+    ));
+
+    let mut expansion_limited = Config::new();
+    expansion_limited.set_default_read_policy(
+        ReadPolicy::builder()
+            .max_interpolation_depth(16)
+            .max_interpolation_expansions(0)
+            .max_interpolation_output_bytes(4096)
+            .build(),
+    );
+    expansion_limited.set("k0", "${k1}").unwrap();
+    expansion_limited.set("k1", "x").unwrap();
+    assert!(matches!(
+        expansion_limited.get_interpolated::<String>("k0"),
+        Err(ConfigError::SubstitutionExpansionLimitExceeded { .. })
+    ));
+}
+
 fn run_with_environment(name: &str, values: &[(&str, &str)]) -> bool {
     const CHILD: &str = "QUBIT_CONFIG_INTERPOLATION_TEST_CHILD";
     if std::env::var_os(CHILD).is_some() {
