@@ -177,6 +177,29 @@ mod test_properties_config_source {
     }
 
     #[test]
+    fn test_parse_malformed_unicode_escape_preserves_key_and_value() {
+        for (content, expected) in [
+            (r"key=\u+123", ("key", r"\u+123")),
+            (r"\u+123=value", (r"\u+123", "value")),
+            (r"key=\u+123\u0041", ("key", r"\u+123A")),
+            ("key=\\u1é23", ("key", "\\u1é23")),
+        ] {
+            let pairs = PropertiesConfigSource::parse_content(content).unwrap();
+            assert_eq!(
+                pairs,
+                vec![(expected.0.to_owned(), expected.1.to_owned())],
+                "{content:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_parse_unicode_escape_accepts_ascii_hex_in_both_cases() {
+        let pairs = PropertiesConfigSource::parse_content(r"key=\u00aF\u00Af").unwrap();
+        assert_eq!(pairs, vec![("key".to_owned(), "\u{00af}\u{00af}".to_owned())]);
+    }
+
+    #[test]
     fn test_parse_unicode_surrogate_pair_escape() {
         let content = "emoji=\\uD83D\\uDE00";
         let pairs = PropertiesConfigSource::parse_content(content).unwrap();

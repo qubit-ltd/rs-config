@@ -390,6 +390,7 @@ fn unescape_properties(s: &str) -> String {
                 'u' => {
                     let hex: String = chars.by_ref().take(4).collect();
                     if hex.len() == 4
+                        && hex.bytes().all(|byte| byte.is_ascii_hexdigit())
                         && let Ok(code) = u32::from_str_radix(&hex, 16)
                         && let Some(unicode_char) = decode_unicode_escape(code, &mut chars)
                     {
@@ -438,6 +439,7 @@ fn decode_unicode_escape(code: u32, chars: &mut Peekable<Chars<'_>>) -> Option<c
         if lookahead.next() == Some('\\') && lookahead.next() == Some('u') {
             let low_hex: String = lookahead.by_ref().take(4).collect();
             if low_hex.len() == 4
+                && low_hex.bytes().all(|byte| byte.is_ascii_hexdigit())
                 && let Ok(low) = u32::from_str_radix(&low_hex, 16)
                 && is_low_surrogate(low)
             {
