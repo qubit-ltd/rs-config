@@ -130,7 +130,7 @@ fn escape_dotenv_substitutions(content: &str) -> String {
             if !character.is_whitespace() {
                 line_has_non_whitespace = true;
             }
-            previous_was_whitespace = character.is_whitespace();
+            previous_was_whitespace = is_dotenv_comment_separator(character);
             continue;
         }
 
@@ -150,7 +150,7 @@ fn escape_dotenv_substitutions(content: &str) -> String {
                 strong_quote = false;
             }
             line_has_non_whitespace |= !character.is_whitespace();
-            previous_was_whitespace = character.is_whitespace();
+            previous_was_whitespace = is_dotenv_comment_separator(character);
             continue;
         }
 
@@ -168,7 +168,7 @@ fn escape_dotenv_substitutions(content: &str) -> String {
                 _ => escaped_content.push(character),
             }
             line_has_non_whitespace |= !character.is_whitespace();
-            previous_was_whitespace = character.is_whitespace();
+            previous_was_whitespace = is_dotenv_comment_separator(character);
             continue;
         }
 
@@ -193,10 +193,19 @@ fn escape_dotenv_substitutions(content: &str) -> String {
             _ => escaped_content.push(character),
         }
         line_has_non_whitespace |= !character.is_whitespace();
-        previous_was_whitespace = character.is_whitespace();
+        previous_was_whitespace = is_dotenv_comment_separator(character);
     }
 
     escaped_content
+}
+
+/// Returns whether `character` separates an assignment value from a dotenv
+/// comment.
+///
+/// Dotenv's logical-line scanner treats horizontal/Unicode whitespace as a
+/// separator, but CR and LF terminate or participate in line parsing instead.
+fn is_dotenv_comment_separator(character: char) -> bool {
+    character.is_whitespace() && !matches!(character, '\r' | '\n')
 }
 
 impl EnvFileConfigSource {

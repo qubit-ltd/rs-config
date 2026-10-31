@@ -29,6 +29,26 @@ fn test_env_file_comment_does_not_change_substitution_state() {
     if std::env::var_os(CHILD_MODE).is_some() {
         let placeholder = format!("${{{SENTINEL}}}");
         let short_placeholder = format!("${SENTINEL}");
+        let minimal_comment_separator_input = format!("A=\r#'\n='\nVALUE={placeholder}\n");
+        let minimal_comment_separator_config =
+            EnvFileConfigSource::from_content(minimal_comment_separator_input.clone())
+                .load()
+                .expect("minimal comment-separator input should load");
+        assert_eq!(
+            minimal_comment_separator_config.get::<String>("VALUE").unwrap(),
+            placeholder
+        );
+
+        let temp_dir = tempfile::tempdir().expect("temporary directory should be created");
+        let path = temp_dir.path().join("minimal-comment-separator.env");
+        std::fs::write(&path, &minimal_comment_separator_input).expect("temporary dotenv file should be written");
+        let minimal_comment_separator_file_config = EnvFileConfigSource::from_file(&path)
+            .load()
+            .expect("minimal comment-separator file should load");
+        assert_eq!(
+            minimal_comment_separator_file_config.get::<String>("VALUE").unwrap(),
+            placeholder
+        );
         let cases = [
             (
                 format!("# don't expand {placeholder}\nVALUE={placeholder}\n"),
@@ -46,6 +66,7 @@ fn test_env_file_comment_does_not_change_substitution_state() {
                 format!("VALUE=hello\\ #{placeholder}\n"),
                 format!("hello #{placeholder}"),
             ),
+            (format!("VALUE=unicode\u{2003}#{placeholder}\n"), "unicode".to_owned()),
             (
                 format!("{SENTINEL}=source-value\nVALUE=hello\\ #{placeholder}\n"),
                 format!("hello #{placeholder}"),
@@ -54,14 +75,19 @@ fn test_env_file_comment_does_not_change_substitution_state() {
             (format!("VALUE=abc#def{placeholder}\n"), format!("abc#def{placeholder}")),
             (format!("VALUE={short_placeholder}\n"), short_placeholder.clone()),
             (format!("VALUE=\"left#{placeholder}\"\n"), format!("left#{placeholder}")),
+            (format!("VALUE=\"{short_placeholder}\"\n"), short_placeholder.clone()),
             (format!("VALUE='{placeholder}'\n"), placeholder.clone()),
+            (format!("VALUE='{short_placeholder}'\n"), short_placeholder.clone()),
             (
                 format!("VALUE=\"first line\n{placeholder}\"\n"),
                 format!("first line\n{placeholder}"),
             ),
             (format!("VALUE=\\{placeholder}\n"), placeholder.clone()),
             (format!("export VALUE={placeholder}\n"), placeholder.clone()),
-            (format!("{SENTINEL}=source-value\nVALUE={placeholder}\n"), placeholder),
+            (
+                format!("{SENTINEL}=source-value\nVALUE={placeholder}\n"),
+                placeholder.clone(),
+            ),
         ];
 
         for (input, expected) in cases {
@@ -74,6 +100,17 @@ fn test_env_file_comment_does_not_change_substitution_state() {
                 "unexpected value for input {input:?}"
             );
         }
+
+        let invalid_input = format!("VALUE=\"unterminated {placeholder}\n");
+        let error = EnvFileConfigSource::from_content(invalid_input)
+            .load()
+            .expect_err("invalid quoted input must fail instead of expanding");
+        assert!(matches!(error, ConfigError::SourceParseError { .. }));
+        assert!(
+            !error
+                .to_string()
+                .contains(&std::env::var(SENTINEL).expect("sentinel should be set in child"))
+        );
         return;
     }
 
