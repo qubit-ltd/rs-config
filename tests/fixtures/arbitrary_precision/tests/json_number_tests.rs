@@ -126,6 +126,19 @@ fn native_float_wire_roundtrip_is_feature_independent() {
 }
 
 #[test]
+fn ordinary_float_wire_errors_redact_input() {
+    let mut config = Config::new();
+    config.set("ratio", 1.25_f64).unwrap();
+    let mut wire = serde_json::to_value(&config).unwrap();
+    wire["properties"]["ratio"]["value"]["value"]["scalar"]["float64"] =
+        serde_json::json!("secret-marker-arbitrary-precision");
+    let error = serde_json::from_value::<Config>(wire).unwrap_err();
+
+    assert!(!error.to_string().contains("secret-marker-arbitrary-precision"));
+    assert!(!format!("{error:?}").contains("secret-marker-arbitrary-precision"));
+}
+
+#[test]
 fn test_json_natural_projection_uses_decimal_strings_for_wide_integers() {
     let config = config_with_json("number", "18446744073709551617");
     assert_eq!(

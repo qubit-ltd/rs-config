@@ -174,6 +174,29 @@ fn into_wire_events(value: Value, counts: &mut WireEventCounts) -> WireEvent {
     }
 }
 
+fn replace_wire_field_event(event: &mut WireEvent, field: &str, replacement: &mut Option<WireEvent>) -> bool {
+    match event {
+        WireEvent::Map(entries) => {
+            for (key, value) in entries {
+                let matches_field = matches!(key, WireEvent::Str(key) | WireEvent::String(key) if key == field);
+                if matches_field {
+                    *value = replacement.take().expect("replacement should be available");
+                    return true;
+                }
+                if replace_wire_field_event(value, field, replacement) {
+                    return true;
+                }
+            }
+            false
+        }
+        WireEvent::Seq(values) => values
+            .iter_mut()
+            .any(|value| replace_wire_field_event(value, field, replacement)),
+        WireEvent::Some(value) | WireEvent::Newtype(value) => replace_wire_field_event(value, field, replacement),
+        _ => false,
+    }
+}
+
 /// Verifies serialization emits the stable V1 envelope in deterministic order.
 #[test]
 fn test_config_wire_serialization_is_versioned_and_deterministic() {
@@ -437,7 +460,7 @@ fn test_ordinary_deserialize_reads_native_float_roles_without_collapsing_json_ob
 
 #[test]
 fn test_ordinary_deserialize_rejects_non_numeric_native_float_shapes() {
-    for invalid in [json!("1.25"), json!({"value": 1.25}), json!([1.25])] {
+    for invalid in [json!("1.25"), json!(true), json!({"value": 1.25}), json!([1.25])] {
         let mut config = Config::new();
         config.set("ratio", 1.25_f64).unwrap();
         let mut wire = to_value(&config).unwrap();
@@ -448,6 +471,96 @@ fn test_ordinary_deserialize_rejects_non_numeric_native_float_shapes() {
             from_slice::<Config>(&bytes).is_err(),
             "invalid float shapes must remain rejected: {wire}"
         );
+    }
+}
+
+#[test]
+fn test_ordinary_deserialize_redacts_early_native_float_errors() {
+    fn replace_float_leaf(value: &mut Value, field: &str) -> bool {
+        match value {
+            Value::Object(object) => {
+                if let Some(number) = object.get_mut(field) {
+                    *number = json!("secret-marker-7fc3");
+                    return true;
+                }
+                object.values_mut().any(|child| replace_float_leaf(child, field))
+            }
+            Value::Array(values) => values.iter_mut().any(|child| replace_float_leaf(child, field)),
+            _ => false,
+        }
+    }
+
+    fn assert_redacted(config: Config, field: &str) {
+        let mut wire = to_value(&config).expect("the config should serialize");
+        assert!(replace_float_leaf(&mut wire, field), "missing {field} in {wire}");
+        let mut legacy_wire = wire.clone();
+        legacy_wire
+            .as_object_mut()
+            .expect("the serialized config should be an object")
+            .remove("version");
+
+        for invalid_wire in [wire, legacy_wire] {
+            let bytes = to_vec(&invalid_wire).expect("the modified wire should serialize");
+            let error = from_slice::<Config>(&bytes).expect_err("a string is not a native float");
+
+            assert!(!error.to_string().contains("secret-marker-7fc3"));
+            assert!(!format!("{error:?}").contains("secret-marker-7fc3"));
+            let mut cause = std::error::Error::source(&error);
+            while let Some(current) = cause {
+                assert!(!current.to_string().contains("secret-marker-7fc3"));
+                assert!(!format!("{current:?}").contains("secret-marker-7fc3"));
+                cause = current.source();
+            }
+        }
+    }
+
+    let mut ratio32 = Config::new();
+    ratio32.set("ratio32", 1.25_f32).unwrap();
+    assert_redacted(ratio32, "float32");
+
+    let mut ratio64 = Config::new();
+    ratio64.set("ratio64", 1.25_f64).unwrap();
+    assert_redacted(ratio64, "float64");
+
+    let mut ratios32 = Config::new();
+    ratios32.set("ratios32", vec![1.25_f32]).unwrap();
+    assert_redacted(ratios32, "float32");
+
+    let mut ratios64 = Config::new();
+    ratios64.set("ratios64", vec![1.25_f64]).unwrap();
+    assert_redacted(ratios64, "float64");
+
+    let mut scalar = Config::new();
+    scalar.set("ratio", 1.25_f64).unwrap();
+    let mut invalid_wire = to_value(&scalar).unwrap();
+    invalid_wire["properties"]["ratio"]["value"]["value"]["scalar"]["float64"] = json!("secret-marker-7fc3");
+    let bytes = to_vec(&invalid_wire).unwrap();
+    let bounded_error = Config::decode_json_slice(&bytes).expect_err("bounded decoding should reject a string float");
+    assert!(
+        matches!(
+            bounded_error,
+            ConfigWireDecodeError::Representation {
+                ref path,
+                ..
+            } if path == "/properties/ratio/value/value/scalar/float64"
+        ),
+        "unexpected bounded error: {bounded_error:?}"
+    );
+}
+
+#[test]
+fn test_ordinary_float_roles_forward_128_bit_integer_events() {
+    for replacement in [WireEvent::I128(125), WireEvent::U128(125)] {
+        let mut config = Config::new();
+        config.set("ratio", 125.0_f64).unwrap();
+        let wire = to_value(&config).unwrap();
+        let mut counts = WireEventCounts::default();
+        let mut events = into_wire_events(wire, &mut counts);
+        assert!(replace_wire_field_event(&mut events, "float64", &mut Some(replacement),));
+
+        let restored = <Config as Deserialize>::deserialize(events)
+            .expect("typed float role should preserve supported 128-bit numeric events");
+        assert_eq!(restored.get::<f64>("ratio").unwrap(), 125.0);
     }
 }
 

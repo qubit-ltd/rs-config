@@ -602,6 +602,13 @@ or its custom-limits variant for untrusted JSON. This wire budget is separate fr
 explicit `read_options` field, including `null`; legacy unversioned input still
 accepts and ignores it. Manually constructed V1 envelopes must omit it.
 
+For ordinary Serde decoding, early errors in typed float fields are replaced
+with a safe generic message; failures raised by the configuration's numeric
+checks retain their safe budget or representation summary. Rebuilding an error
+through Serde may change its category or source coordinates. Use the bounded
+slice API when stable syntax, budget, representation, and JSON Pointer
+diagnostics are required.
+
 Malformed wire representations return
 `ConfigWireDecodeError::Representation { path, reason }`. The path is a JSON
 Pointer relative to the wire document, such as `/properties/server.port/value`;

@@ -552,6 +552,10 @@ token，因此普通 `Deserialize` 无法执行原始输入限制。即使依赖
 `Config::decode_json_slice` 或其自定义限制版本。V1 拒绝显式 `read_options` 字段，
 包括 `null`；旧版无版本输入仍接受并忽略该字段。手工构造 V1 封装时应省略该字段。
 
+普通 Serde 解码中，类型化浮点字段的早期错误会替换为安全的通用消息；配置数值
+检查产生的错误仍保留安全的预算或表示摘要。通过 Serde 重建错误可能改变错误类别
+或源码坐标。需要稳定的语法、预算、表示分类及 JSON Pointer 诊断时，应使用有界 slice API。
+
 格式错误的 wire 表示会返回
 `ConfigWireDecodeError::Representation { path, reason }`。路径是相对于 wire 文档根的
 JSON Pointer，例如 `/properties/server.port/value`；`server.port` 中的点属于同一个

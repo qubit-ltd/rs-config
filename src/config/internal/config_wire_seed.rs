@@ -32,6 +32,8 @@ use crate::ConfigWireDecodeError;
 use crate::ConfigWireLimitKind;
 use crate::ConfigWireLimits;
 
+mod typed_float_visitor;
+
 /// Decodes one Config wire value under explicit domain limits.
 pub(in crate::config) struct AccountingConfigWireSeed {
     /// Configuration-specific limits applied during decoding.
@@ -318,8 +320,8 @@ impl<'de, 'transaction, 'budget> Visitor<'de> for AccountingUniqueJsonValueSeed<
         D: Deserializer<'de>,
     {
         match self.role {
-            WireReadRole::Float32 => deserializer.deserialize_f32(self),
-            WireReadRole::Float64 => deserializer.deserialize_f64(self),
+            WireReadRole::Float32 => typed_float_visitor::deserialize_f32(deserializer, self),
+            WireReadRole::Float64 => typed_float_visitor::deserialize_f64(deserializer, self),
             _ => deserializer.deserialize_any(self),
         }
     }

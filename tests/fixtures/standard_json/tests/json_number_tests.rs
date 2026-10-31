@@ -32,6 +32,19 @@ fn test_standard_numbers_survive_both_wire_paths() {
 }
 
 #[test]
+fn test_ordinary_float_wire_errors_redact_input() {
+    let mut config = Config::new();
+    config.set("ratio", 1.25_f64).unwrap();
+    let mut wire = serde_json::to_value(&config).unwrap();
+    wire["properties"]["ratio"]["value"]["value"]["scalar"]["float64"] =
+        serde_json::json!("secret-marker-standard-json");
+    let error = serde_json::from_value::<Config>(wire).unwrap_err();
+
+    assert!(!error.to_string().contains("secret-marker-standard-json"));
+    assert!(!format!("{error:?}").contains("secret-marker-standard-json"));
+}
+
+#[test]
 fn native_float_wire_roundtrip_is_feature_independent() {
     let mut config = Config::new();
     config.set("ratio", 1.25_f64).unwrap();
