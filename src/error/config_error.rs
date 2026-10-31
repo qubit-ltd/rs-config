@@ -141,6 +141,17 @@ pub enum ConfigError {
         source: DataConversionError,
     },
 
+    /// A non-negative integer exceeds the range supported by this platform's
+    /// `usize`.
+    #[error("configuration value at '{key}' exceeds the platform usize range")]
+    PlatformIntegerOutOfRange {
+        /// Configuration key/path where the value was read.
+        key: String,
+        /// Zero-based index of the selected source collection item, when
+        /// applicable.
+        source_index: Option<usize>,
+    },
+
     /// Value-layer error not covered by a specialized configuration mapping.
     #[error("Value error at '{key}': {source}")]
     ValueError {
@@ -329,7 +340,7 @@ impl ConfigError {
             Self::PropertyCandidatesNotFound { .. } => ConfigErrorKind::PropertyNotFound,
             Self::PropertyHasNoValue(_) => ConfigErrorKind::PropertyHasNoValue,
             Self::TypeMismatch { .. } => ConfigErrorKind::TypeMismatch,
-            Self::ConversionError { .. } => ConfigErrorKind::Conversion,
+            Self::ConversionError { .. } | Self::PlatformIntegerOutOfRange { .. } => ConfigErrorKind::Conversion,
             Self::ValueError { .. } => ConfigErrorKind::Value,
             Self::SubstitutionError { .. } => ConfigErrorKind::Substitution,
             Self::IndexedSubstitutionError { source, .. } => source.kind(),
@@ -367,9 +378,10 @@ impl ConfigError {
                 [path] => Some(path),
                 _ => None,
             },
-            Self::TypeMismatch { key, .. } | Self::ConversionError { key, .. } | Self::ValueError { key, .. } => {
-                Some(key)
-            }
+            Self::TypeMismatch { key, .. }
+            | Self::ConversionError { key, .. }
+            | Self::PlatformIntegerOutOfRange { key, .. }
+            | Self::ValueError { key, .. } => Some(key),
             Self::KeyConflict { path, .. }
             | Self::DeserializeError { path, .. }
             | Self::SubstitutionError { path, .. }
@@ -536,7 +548,9 @@ impl ConfigError {
     #[must_use = "use the returned value"]
     pub const fn source_index(&self) -> Option<usize> {
         match self {
-            Self::ConversionError { source_index, .. } | Self::SourceParseError { source_index, .. } => *source_index,
+            Self::ConversionError { source_index, .. }
+            | Self::PlatformIntegerOutOfRange { source_index, .. }
+            | Self::SourceParseError { source_index, .. } => *source_index,
             Self::IndexedSubstitutionError { source_index, .. } => Some(*source_index),
             Self::ValueError { source, .. } => match source {
                 ValueError::Missing(missing) => missing.source_index(),

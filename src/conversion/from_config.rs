@@ -265,6 +265,31 @@ impl_from_config_via_value!(
     HashMap<String, String>,
 );
 
+impl FromConfig for usize {
+    /// Parses a value as `u128`, then checks that it fits this platform's
+    /// `usize`.
+    ///
+    /// For a collection, only the first item is converted; an out-of-range
+    /// error records index zero. Errors from the delegated `u128` conversion,
+    /// including interpolation and conversion-budget errors, are preserved.
+    ///
+    /// # Errors
+    ///
+    /// Returns the delegated conversion error, or
+    /// [`ConfigError::PlatformIntegerOutOfRange`] when the parsed integer is
+    /// larger than `usize::MAX` on the current platform.
+    fn from_config(property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<Self> {
+        let value = u128::from_config(property, ctx)?;
+        usize::try_from(value).map_err(|_| ConfigError::PlatformIntegerOutOfRange {
+            key: ctx.key().to_owned(),
+            source_index: match property.value() {
+                ValueContainer::Collection(_) => Some(0),
+                ValueContainer::Scalar(_) => None,
+            },
+        })
+    }
+}
+
 #[cfg(feature = "chrono")]
 impl_from_config_via_value!(NaiveDate, NaiveTime, NaiveDateTime, DateTime<Utc>);
 

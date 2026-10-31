@@ -69,6 +69,21 @@ fn test_config_error_retains_structured_failure() {
 }
 
 #[test]
+fn test_platform_integer_range_error_exposes_context_without_value() {
+    let error = ConfigError::PlatformIntegerOutOfRange {
+        key: "server.secret_limit".to_string(),
+        source_index: Some(0),
+    };
+
+    assert_eq!(error.kind(), ConfigErrorKind::Conversion);
+    assert_eq!(error.path(), Some("server.secret_limit"));
+    assert_eq!(error.source_index(), Some(0));
+    assert!(error.to_string().contains("server.secret_limit"));
+    assert!(!error.to_string().contains("18446744073709551616"));
+    assert!(!format!("{error:?}").contains("18446744073709551616"));
+}
+
+#[test]
 fn test_config_value_error_fallback_retains_key_and_source() {
     let error = ConfigError::ValueError {
         key: "server.port".to_string(),

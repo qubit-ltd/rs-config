@@ -100,6 +100,53 @@ fn test_from_config_reports_keyed_conversion_error() {
     ));
 }
 
+#[test]
+fn test_usize_conversion_checks_platform_range_and_preserves_context() {
+    let mut config = Config::new();
+    config.set("server.zero", 0_u128).expect("set zero");
+    config.set("server.maximum", usize::MAX as u128).expect("set maximum");
+    config
+        .set("server.limit", usize::MAX as u128 + 1)
+        .expect("set out-of-range value");
+    config
+        .set("server.items", vec![usize::MAX as u128 + 1, 0_u128])
+        .expect("set out-of-range collection");
+    let server = config.section("server").expect("server section");
+
+    assert_eq!(server.get::<usize>("zero").expect("zero fits"), 0);
+    assert_eq!(server.get::<usize>("maximum").expect("maximum fits"), usize::MAX);
+
+    let error = server.get::<usize>("limit").expect_err("overflow must fail");
+    assert!(matches!(error, ConfigError::PlatformIntegerOutOfRange { .. }));
+    assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Conversion);
+    assert_eq!(error.path(), Some("server.limit"));
+    assert_eq!(error.source_index(), None);
+
+    let error = server.get::<usize>("items").expect_err("first item overflow must fail");
+    assert!(matches!(error, ConfigError::PlatformIntegerOutOfRange { .. }));
+    assert_eq!(error.path(), Some("server.items"));
+    assert_eq!(error.source_index(), Some(0));
+}
+
+#[test]
+fn test_usize_conversion_supports_optional_default_and_interpolation() {
+    let mut config = Config::new();
+    config.set("fallback", "42").expect("set fallback");
+    config.set("resolved", "17").expect("set resolved");
+    config.set("limit", "${resolved}").expect("set interpolated value");
+
+    assert_eq!(config.get_optional::<usize>("missing").expect("optional read"), None);
+    assert_eq!(config.get_or("missing", 29_usize).expect("default read"), 29);
+    assert_eq!(config.get::<usize>("fallback").expect("parse string"), 42);
+    assert_eq!(config.get_interpolated::<usize>("limit").expect("interpolate"), 17);
+
+    config.set("negative", -1_i64).expect("set negative");
+    assert!(matches!(
+        config.get::<usize>("negative"),
+        Err(ConfigError::ConversionError { .. })
+    ));
+}
+
 /// Test typed vectors are converted without a lossy string intermediary.
 #[test]
 fn test_from_config_preserves_typed_vector_values() {
