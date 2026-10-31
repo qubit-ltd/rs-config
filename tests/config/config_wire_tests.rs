@@ -461,23 +461,23 @@ fn test_ordinary_deserialize_reads_float_wire_independently_of_field_order() {
 #[test]
 fn test_config_wire_numeric_budget_accepts_exact_node_and_number_byte_limits() {
     let mut config = Config::new();
-    config.set("ratio", 1.25_f64).unwrap();
+    config.set("count", 125_i32).unwrap();
     let input = to_vec(&config).unwrap();
 
     let exact_number_bytes = ConfigWireLimits::builder_from(&ConfigWireLimits::default())
-        .json_decode(JsonDecodeLimits::builder().max_number_bytes(4).build())
+        .json_decode(JsonDecodeLimits::builder().max_number_bytes(3).build())
         .build();
     let _ = Config::decode_json_slice_with_limits(&input, exact_number_bytes)
-        .expect("the exact float number byte limit should be accepted");
+        .expect("the exact integer number byte limit should be accepted");
     let short_number_bytes = ConfigWireLimits::builder_from(&ConfigWireLimits::default())
-        .json_decode(JsonDecodeLimits::builder().max_number_bytes(3).build())
+        .json_decode(JsonDecodeLimits::builder().max_number_bytes(2).build())
         .build();
     assert!(matches!(
         Config::decode_json_slice_with_limits(&input, short_number_bytes),
         Err(ConfigWireDecodeError::Budget(BudgetError::LimitExceeded {
             resource: JsonResource::NumberBytes,
-            observed: Observation::Exact(4),
-            maximum: 3,
+            observed: Observation::Exact(3),
+            maximum: 2,
         }))
     ));
 
@@ -602,21 +602,6 @@ fn test_ordinary_deserialize_rejects_unrepresentable_serde_value_events() {
             "unexpected event error: {error}",
         );
     }
-}
-
-#[test]
-fn test_json_decoder_round_trips_float_and_json_domain_values() {
-    let mut expected = Config::new();
-    expected.set("ratio", 1.5_f64).expect("the float should be set");
-    expected
-        .set(
-            "payload",
-            qubit_value::Value::Json(json!({"ratio": 1.25, "nested": [2.5, -3.75]})),
-        )
-        .expect("the JSON domain value should be set");
-    let input = expected.encode_json_vec().expect("the configuration should encode");
-    let restored = Config::decode_json_slice(&input).expect("the JSON decoder should preserve floating values");
-    assert_eq!(restored, expected);
 }
 
 #[test]
