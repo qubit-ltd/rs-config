@@ -132,6 +132,56 @@ fn source_budget_nesting_depth_accepts_limit_and_rejects_next_level() {
     ));
 }
 
+#[cfg(feature = "toml")]
+#[test]
+fn toml_source_node_limit_failure_is_transactional() {
+    let source = TomlConfigSource::builder()
+        .content("items = [0, 0, 0, 0]\n")
+        .limits(SourceLimits::builder().max_nodes(2).build())
+        .build();
+    let mut config = Config::new();
+    config.set("existing", "kept").unwrap();
+
+    let error = config
+        .merge_properties_from_source(&source)
+        .expect_err("the source should exceed its node budget");
+    assert!(matches!(
+        error,
+        ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::NodeCount,
+            ..
+        }
+    ));
+    assert_eq!(error.source_id(), Some("TOML:<memory>"));
+    assert_eq!(config.len(), 1);
+    assert_eq!(config.get::<String>("existing").unwrap(), "kept");
+}
+
+#[cfg(feature = "yaml")]
+#[test]
+fn yaml_source_depth_limit_failure_is_transactional() {
+    let source = YamlConfigSource::builder()
+        .content("items:\n  nested:\n    leaf: 0\n")
+        .limits(SourceLimits::builder().max_nesting_depth(2).build())
+        .build();
+    let mut config = Config::new();
+    config.set("existing", "kept").unwrap();
+
+    let error = config
+        .merge_properties_from_source(&source)
+        .expect_err("the source should exceed its nesting-depth budget");
+    assert!(matches!(
+        error,
+        ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::NestingDepth,
+            ..
+        }
+    ));
+    assert_eq!(error.source_id(), Some("YAML:<memory>"));
+    assert_eq!(config.len(), 1);
+    assert_eq!(config.get::<String>("existing").unwrap(), "kept");
+}
+
 #[test]
 fn properties_source_rejects_oversized_input_transactionally() {
     let source = PropertiesConfigSource::builder()

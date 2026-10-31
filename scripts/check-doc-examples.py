@@ -22,6 +22,7 @@ EXAMPLE_DOCS = {
     "config_numeric_map_keys": ("doc/user_guide.md", "doc/user_guide.zh_CN.md"),
     "config_guide_sources": ("doc/user_guide.md", "doc/user_guide.zh_CN.md"),
 }
+NON_DOCUMENTED_EXAMPLES = {"config_source_resource_probe.rs"}
 DOCUMENTS = tuple(dict.fromkeys(path for paths in EXAMPLE_DOCS.values() for path in paths))
 MARKER_PATTERN = re.compile(r"^<!-- example: (.*?) -->$")
 EXAMPLE_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
@@ -175,7 +176,7 @@ def check_examples() -> list[str]:
 
     example_dir = ROOT / "examples"
     for example_path in sorted(example_dir.glob("*.rs")):
-        if example_path.stem not in expected_ids:
+        if example_path.stem not in expected_ids and example_path.name not in NON_DOCUMENTED_EXAMPLES:
             errors.append(f"{example_path.relative_to(ROOT)}: no document marker for example ID '{example_path.stem}'")
 
     return errors

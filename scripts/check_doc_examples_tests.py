@@ -102,6 +102,12 @@ class RequiredGuideExamplesTests(unittest.TestCase):
             for error in CHECKER.check_examples()
         ))
 
+    def test_manual_resource_probe_is_not_a_documented_example(self) -> None:
+        (self.root / "examples/config_source_resource_probe.rs").write_text(
+            "fn main() {}\n", encoding="utf-8"
+        )
+        self.assertEqual(CHECKER.check_examples(), [])
+
 
 if __name__ == "__main__":
     unittest.main()
