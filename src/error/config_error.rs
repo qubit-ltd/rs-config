@@ -234,6 +234,16 @@ pub enum ConfigError {
         String,
     ),
 
+    /// A source property could not be merged because the target property is
+    /// final.
+    #[error("Property '{key}' is final and cannot be overridden by source '{source_id}'")]
+    SourcePropertyIsFinal {
+        /// Stable identifier of the incoming source at the merge boundary.
+        source_id: String,
+        /// Configuration path protected against mutation.
+        key: String,
+    },
+
     /// Configuration key path cannot be represented without ambiguity.
     #[error("Configuration key conflict at '{path}': existing {existing}, incoming {incoming}")]
     KeyConflict {
@@ -349,7 +359,7 @@ impl ConfigError {
             Self::SubstitutionOutputTooLarge { .. } => ConfigErrorKind::SubstitutionOutputTooLarge,
             Self::SubstitutionCycle { .. } => ConfigErrorKind::SubstitutionCycle,
             Self::MergeError(_) => ConfigErrorKind::Merge,
-            Self::PropertyIsFinal(_) => ConfigErrorKind::PropertyIsFinal,
+            Self::PropertyIsFinal(_) | Self::SourcePropertyIsFinal { .. } => ConfigErrorKind::PropertyIsFinal,
             Self::KeyConflict { .. } => ConfigErrorKind::KeyConflict,
             Self::UnknownProperties { .. } => ConfigErrorKind::UnknownProperty,
             Self::IoError(_) | Self::SourceIoError { .. } => ConfigErrorKind::Io,
@@ -374,6 +384,7 @@ impl ConfigError {
             | Self::PropertyNotFound(path)
             | Self::PropertyHasNoValue(path)
             | Self::PropertyIsFinal(path) => Some(path),
+            Self::SourcePropertyIsFinal { key, .. } => Some(key),
             Self::PropertyCandidatesNotFound { paths } => match paths.as_slice() {
                 [path] => Some(path),
                 _ => None,
@@ -400,14 +411,14 @@ impl ConfigError {
     }
 
     /// Returns the stable source identifier carried by a source-loading error,
-    /// a source-originated key conflict, or an invalid assignment key from a
-    /// source context.
+    /// a source-originated key conflict, an invalid assignment key from a
+    /// source context, or a final-property merge conflict.
     ///
     /// # Returns
     ///
     /// The source path or in-memory source label for source I/O, parse,
-    /// resource-limit, source-originated key-conflict, and source assignment
-    /// key errors; otherwise `None`.
+    /// resource-limit, source-originated key-conflict, source assignment key,
+    /// and final-property merge errors; otherwise `None`.
     #[inline]
     #[must_use = "use the returned value"]
     pub fn source_id(&self) -> Option<&str> {
@@ -415,12 +426,27 @@ impl ConfigError {
             Self::SourceLimitExceeded { source_id, .. }
             | Self::SourceIoError { source_id, .. }
             | Self::SourceParseError { source_id, .. }
-            | Self::SourceInvalidKey { source_id, .. } => Some(source_id),
+            | Self::SourceInvalidKey { source_id, .. }
+            | Self::SourcePropertyIsFinal { source_id, .. } => Some(source_id),
             Self::KeyConflict {
                 source_id: Some(source_id),
                 ..
             } => Some(source_id),
             _ => None,
+        }
+    }
+
+    /// Adds the incoming source identifier to a final-property merge error.
+    ///
+    /// Other errors are returned unchanged so source-loading failures retain
+    /// their original classification and context.
+    pub(crate) fn with_merge_source(self, source_id: &str) -> Self {
+        match self {
+            Self::PropertyIsFinal(key) => Self::SourcePropertyIsFinal {
+                source_id: source_id.to_owned(),
+                key,
+            },
+            error => error,
         }
     }
 

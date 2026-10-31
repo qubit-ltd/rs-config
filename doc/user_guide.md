@@ -302,7 +302,7 @@ let source = qubit_config::source::CompositeConfigSource::builder()
         "service.mode=override\n",
     ))
     .build();
-assert!(matches!(source.load(), Err(ConfigError::PropertyIsFinal(_))));
+assert!(matches!(source.load(), Err(ConfigError::SourcePropertyIsFinal { .. })));
 ```
 
 Built-in sources include:
@@ -440,7 +440,7 @@ fn main() -> Result<(), qubit_config::ConfigError> {
 }
 ```
 
-Source loading and merging are transactional at the public boundary: a source is loaded into an independent layer, the incoming layer is validated, and a failed merge leaves the target unchanged. A final property rejects a later override with `PropertyIsFinal`.
+Source loading and merging are transactional at the public boundary: a source is loaded into an independent layer, the incoming layer is validated, and a failed merge leaves the target unchanged. A final conflict at an incoming source merge boundary uses `SourcePropertyIsFinal`, with the incoming source ID and key; its stable kind remains `PropertyIsFinal`. Nested composites retain the source ID at the inner merge boundary. For an aggregate source that loads several leaves as one incoming layer, the diagnostic identifies that aggregate layer rather than claiming a leaf source. Ordinary in-memory mutations and a source's direct same-layer assignment keep `PropertyIsFinal`.
 
 ### Deserialize structured values
 
@@ -868,10 +868,11 @@ assert_eq!(error.kind(), ConfigErrorKind::PropertyNotFound);
 assert_eq!(error.path(), Some("server.port"));
 ```
 
-Common categories include `InvalidKey`, `InvalidPath`, `PropertyNotFound`, `PropertyHasNoValue`, `TypeMismatch`, `Conversion`, `Substitution`, `SubstitutionCycle`, `SourceLimitExceeded`, `KeyConflict`, `Merge`, `PropertyIsFinal`, `Io`, `Parse`, and `Deserialize`.
+Common categories include `InvalidKey`, `InvalidPath`, `PropertyNotFound`, `PropertyHasNoValue`, `TypeMismatch`, `Conversion`, `Substitution`, `SubstitutionCycle`, `SourceLimitExceeded`, `KeyConflict`, `Merge`, `PropertyIsFinal`, `Io`, `Parse`, and `Deserialize`. Source merge conflicts use the `SourcePropertyIsFinal` variant while retaining the `PropertyIsFinal` kind; ordinary in-memory operations and source-internal direct assignments retain `PropertyIsFinal`.
 
 `source_id()` returns the path or stable label for source I/O, parse, limit,
-and invalid-key errors raised by `SourceLoadContext::set` or `set_null`. Those
+invalid-key errors raised by `SourceLoadContext::set` or `set_null`, and final
+conflicts attributed to an incoming source merge boundary. Those
 assignment errors use the `SourceInvalidKey` variant while retaining the
 `InvalidKey` kind and rejected key path. Direct `Config::set` errors remain
 `InvalidKey` without a source ID. Other errors return `None` unless their

@@ -313,7 +313,7 @@ let source = qubit_config::source::CompositeConfigSource::builder()
         "service.mode=override\n",
     ))
     .build();
-assert!(matches!(source.load(), Err(ConfigError::PropertyIsFinal(_))));
+assert!(matches!(source.load(), Err(ConfigError::SourcePropertyIsFinal { .. })));
 ```
 
 仅含注释或其他无值 token 的单个 YAML 文档会加载为空配置层；显式根 `null` 和 `~` 仍不是有效配置根。
@@ -416,7 +416,7 @@ fn main() -> Result<(), qubit_config::ConfigError> {
 }
 ```
 
-配置源加载和合并在公共边界具有事务语义：配置源先加载到独立配置层，完整校验输入配置层后才合并；失败时目标配置保持不变。final 配置项拒绝后续覆盖，并返回 `PropertyIsFinal`。
+配置源加载和合并在公共边界具有事务语义：配置源先加载到独立配置层，完整校验输入配置层后才合并；失败时目标配置保持不变。incoming 配置源合并时触发 final 冲突，返回 `SourcePropertyIsFinal`，其中包含合并边界的来源 ID 和键；稳定 kind 仍为 `PropertyIsFinal`。嵌套组合会保留内层合并边界的来源 ID。多个叶子被作为一个聚合层加载时，诊断定位到该聚合层，不伪称某个叶子来源。普通内存操作及来源内部同层直接赋值仍返回 `PropertyIsFinal`。
 
 ### 反序列化结构化值
 
@@ -784,7 +784,7 @@ assert_eq!(error.kind(), ConfigErrorKind::PropertyNotFound);
 assert_eq!(error.path(), Some("server.port"));
 ```
 
-常见类别包括 `InvalidKey`、`InvalidPath`、`PropertyNotFound`、`PropertyHasNoValue`、`TypeMismatch`、`Conversion`、`Substitution`、`SubstitutionCycle`、`SourceLimitExceeded`、`KeyConflict`、`Merge`、`PropertyIsFinal`、`Io`、`Parse` 和 `Deserialize`。
+常见类别包括 `InvalidKey`、`InvalidPath`、`PropertyNotFound`、`PropertyHasNoValue`、`TypeMismatch`、`Conversion`、`Substitution`、`SubstitutionCycle`、`SourceLimitExceeded`、`KeyConflict`、`Merge`、`PropertyIsFinal`、`Io`、`Parse` 和 `Deserialize`。来源合并冲突使用 `SourcePropertyIsFinal` 变体，但 kind 仍是 `PropertyIsFinal`；普通内存操作和来源内部直接赋值保留 `PropertyIsFinal`。
 
 对于配置源的 IO、解析、限制错误，以及 `SourceLoadContext::set` 或 `set_null`
 产生的无效键错误，`source_id()` 会返回文件路径或稳定的配置源标识。此类赋值错误

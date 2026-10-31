@@ -453,7 +453,9 @@ db:
 
         let result = merge_source(&mut config, &source);
 
-        assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
+        assert!(
+            matches!(result, Err(ConfigError::SourcePropertyIsFinal { source_id, .. }) if source_id == source.source_id())
+        );
         assert_eq!(config.get::<String>("locked").unwrap(), "old");
     }
 
@@ -535,7 +537,9 @@ db:
 
         let result = merge_source(&mut config, &source);
 
-        assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
+        assert!(
+            matches!(result, Err(ConfigError::SourcePropertyIsFinal { source_id, .. }) if source_id == source.source_id())
+        );
         assert_eq!(config.get::<Vec<String>>("locked").unwrap(), vec!["old"]);
     }
 
@@ -827,7 +831,9 @@ locked_tagged: !custom tagged
 
             let result = merge_source(&mut config, &source);
 
-            assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
+            assert!(
+                matches!(result, Err(ConfigError::SourcePropertyIsFinal { source_id, .. }) if source_id == source.source_id())
+            );
             assert_eq!(config.get::<String>(key).unwrap(), "old");
         }
     }
@@ -870,7 +876,9 @@ locked_strings:
 
             let result = merge_source(&mut config, &source);
 
-            assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
+            assert!(
+                matches!(result, Err(ConfigError::SourcePropertyIsFinal { source_id, .. }) if source_id == source.source_id())
+            );
             assert_eq!(config.get::<Vec<String>>(key).unwrap(), vec!["old"]);
         }
     }

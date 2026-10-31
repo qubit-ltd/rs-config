@@ -382,7 +382,9 @@ mod test_toml_edge_cases {
 
         let result = merge_source(&mut config, &source);
 
-        assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
+        assert!(
+            matches!(result, Err(ConfigError::SourcePropertyIsFinal { source_id, .. }) if source_id == source.source_id())
+        );
         assert_eq!(config.get::<Vec<String>>("locked").unwrap(), vec!["old"]);
     }
 
@@ -494,7 +496,9 @@ locked_datetime = 1979-05-27T07:32:00Z
 
             let result = merge_source(&mut config, &source);
 
-            assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
+            assert!(
+                matches!(result, Err(ConfigError::SourcePropertyIsFinal { source_id, .. }) if source_id == source.source_id())
+            );
             assert_eq!(config.get::<String>(key).unwrap(), "old");
         }
     }
@@ -529,7 +533,9 @@ locked_strings = ["one", "two"]
 
             let result = merge_source(&mut config, &source);
 
-            assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
+            assert!(
+                matches!(result, Err(ConfigError::SourcePropertyIsFinal { source_id, .. }) if source_id == source.source_id())
+            );
             assert_eq!(config.get::<Vec<String>>(key).unwrap(), vec!["old"]);
         }
     }
@@ -553,7 +559,9 @@ locked = "attempted"
 
         let result = merge_source(&mut config, &source);
 
-        assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
+        assert!(
+            matches!(result, Err(ConfigError::SourcePropertyIsFinal { source_id, .. }) if source_id == source.source_id())
+        );
         assert_eq!(config.get::<String>("locked").unwrap(), "old");
         assert!(!config.contains("new_key").unwrap());
     }

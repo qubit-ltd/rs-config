@@ -190,6 +190,13 @@ fn test_config_error_kind_covers_every_public_variant() {
             ConfigErrorKind::PropertyIsFinal,
         ),
         (
+            ConfigError::SourcePropertyIsFinal {
+                source_id: "memory:overrides".to_string(),
+                key: "key".to_string(),
+            },
+            ConfigErrorKind::PropertyIsFinal,
+        ),
+        (
             ConfigError::KeyConflict {
                 source_id: None,
                 path: "key".to_string(),
@@ -223,6 +230,23 @@ fn test_config_error_kind_covers_every_public_variant() {
     for (error, expected_kind) in cases {
         assert_eq!(error.kind(), expected_kind, "unexpected error kind for {error}");
     }
+}
+
+#[test]
+fn test_source_final_error_exposes_stable_context() {
+    let error = ConfigError::SourcePropertyIsFinal {
+        source_id: "memory:overrides".to_owned(),
+        key: "locked".to_owned(),
+    };
+    assert_eq!(error.kind(), ConfigErrorKind::PropertyIsFinal);
+    assert_eq!(error.path(), Some("locked"));
+    assert_eq!(error.source_id(), Some("memory:overrides"));
+    assert_eq!(error.source_index(), None);
+    assert_eq!(error.candidate_paths(), None);
+    assert_eq!(error.unknown_property_paths(), None);
+    assert_eq!(error.source_budget_id(), None);
+    assert!(error.budget_error().is_none());
+    assert!(error.value_missing().is_none());
 }
 
 #[test]

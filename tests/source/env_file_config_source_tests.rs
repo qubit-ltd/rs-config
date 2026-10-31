@@ -273,7 +273,9 @@ mod test_env_file_config_source {
 
         let result = merge_source(&mut config, &source);
 
-        assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
+        assert!(
+            matches!(result, Err(ConfigError::SourcePropertyIsFinal { source_id, .. }) if source_id == source.source_id())
+        );
         assert_eq!(config.get::<String>("LOCKED").unwrap(), "old");
     }
 

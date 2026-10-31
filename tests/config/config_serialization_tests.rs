@@ -759,6 +759,7 @@ mod test_config_error_branches {
 mod test_merge_properties_from_source {
     use std::path::PathBuf;
 
+    use qubit_config::source::ConfigSource;
     use qubit_config::source::TomlConfigSource;
 
     use super::Config;
@@ -802,7 +803,9 @@ mod test_merge_properties_from_source {
         let result = config.merge_properties_from_source(&source);
 
         assert!(result.is_err());
-        assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
+        assert!(
+            matches!(result, Err(ConfigError::SourcePropertyIsFinal { source_id, .. }) if source_id == source.source_id())
+        );
         assert_eq!(config.get::<String>("host").unwrap(), "final-host");
     }
 

@@ -169,6 +169,31 @@ fn test_config_source_load_populates_config() {
 }
 
 #[test]
+fn test_source_merge_final_error_has_inline_context_and_is_atomic() {
+    let source = InlineSource {
+        key: "locked",
+        value: "new",
+    };
+    let mut target = Config::builder().description("target description").build();
+    target.set_default_read_policy(ReadPolicy::env_friendly());
+    target.set("locked", "old").unwrap();
+    target.set_final("locked", true).unwrap();
+    target.set("kept", "value").unwrap();
+    let before = target.clone();
+
+    let error = target.merge_properties_from_source(&source).unwrap_err();
+
+    assert_eq!(error.kind(), qubit_config::ConfigErrorKind::PropertyIsFinal);
+    assert_eq!(error.path(), Some("locked"));
+    assert_eq!(error.source_id(), Some("inline"));
+    assert_eq!(target.get::<String>("locked").unwrap(), "old");
+    assert_eq!(target.description(), Some("target description"));
+    assert_eq!(target.default_read_policy(), &ReadPolicy::env_friendly());
+    assert_eq!(target.get::<String>("kept").unwrap(), "value");
+    assert_eq!(target, before);
+}
+
+#[test]
 fn test_managed_source_entry_points_use_context_executor() {
     let source = OverrideLoadSource {
         limits: SourceLimits::default(),

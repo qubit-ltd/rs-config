@@ -190,8 +190,10 @@ impl<'a> SourceLoadContext<'a> {
     }
 
     /// Merges a completed child layer into this context transactionally.
-    pub(crate) fn merge_layer(&mut self, layer: Config) -> ConfigResult<()> {
-        self.layer.merge_properties(layer)
+    pub(crate) fn merge_layer(&mut self, layer: Config, source_id: &str) -> ConfigResult<()> {
+        self.layer
+            .merge_properties(layer)
+            .map_err(|error| error.with_merge_source(source_id))
     }
 
     /// Borrows the legacy accounting session for built-in source parsers.

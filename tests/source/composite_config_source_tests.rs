@@ -50,6 +50,10 @@ struct CountingSource {
 
 struct FinalSource;
 
+struct CountingFinalSource {
+    calls: Arc<AtomicUsize>,
+}
+
 impl ConfigSource for FinalSource {
     fn source_id(&self) -> String {
         "final:<memory>".to_owned()
@@ -60,6 +64,21 @@ impl ConfigSource for FinalSource {
     fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
         context.set("locked", 1_u16)?;
         context.set_final("locked", true)
+    }
+}
+
+impl ConfigSource for CountingFinalSource {
+    fn source_id(&self) -> String {
+        "test:counting-final-source".to_owned()
+    }
+
+    fn limits(&self) -> SourceLimits {
+        SourceLimits::default()
+    }
+
+    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        context.set("locked", 2_u16)
     }
 }
 
@@ -127,6 +146,7 @@ fn composite_builder_default_and_consuming_add_source_preserve_order() {
 #[cfg(test)]
 mod test_composite_config_source {
     use qubit_budget::BudgetError;
+    use qubit_config::options::ReadPolicy;
 
     use super::Arc;
     use super::AtomicUsize;
@@ -134,6 +154,7 @@ mod test_composite_config_source {
     use super::Config;
     use super::ConfigError;
     use super::ConfigSource;
+    use super::CountingFinalSource;
     use super::CountingSource;
     #[cfg(feature = "toml")]
     use super::EnvConfigSource;
@@ -307,7 +328,9 @@ mod test_composite_config_source {
 
         let result = config.merge_properties_from_source(&composite);
 
-        assert!(matches!(result, Err(ConfigError::PropertyIsFinal(_))));
+        assert!(
+            matches!(result, Err(ConfigError::SourcePropertyIsFinal { source_id, .. }) if source_id == composite.source_id())
+        );
         assert_eq!(config.get::<String>("locked").unwrap(), "old");
         assert!(!config.contains("new_key").unwrap());
     }
@@ -325,7 +348,7 @@ mod test_composite_config_source {
         let error = target
             .merge_properties_from_source(&composite)
             .expect_err("later source must not override a final property");
-        assert!(matches!(error, ConfigError::PropertyIsFinal(ref key) if key == "locked"));
+        assert!(matches!(error, ConfigError::SourcePropertyIsFinal { ref key, .. } if key == "locked"));
         assert_eq!(target, before);
 
         let only_final = CompositeConfigSource::builder().add_source(FinalSource).build();
@@ -335,6 +358,111 @@ mod test_composite_config_source {
             .set("locked", 3_u16)
             .expect_err("the final marker must survive composite loading");
         assert!(matches!(error, ConfigError::PropertyIsFinal(ref key) if key == "locked"));
+    }
+
+    #[test]
+    fn test_final_merge_reports_incoming_leaf_source() {
+        let incoming = PropertiesConfigSource::from_content("locked=2\n");
+        let expected_source = incoming.source_id();
+        let composite = CompositeConfigSource::builder()
+            .add_source(FinalSource)
+            .add_source(incoming)
+            .build();
+        let mut target = Config::new();
+        target.set("kept", "existing-secret-canary").unwrap();
+        let before = target.clone();
+        let error = target.merge_properties_from_source(&composite).unwrap_err();
+        assert_eq!(error.kind(), qubit_config::ConfigErrorKind::PropertyIsFinal);
+        assert_eq!(error.path(), Some("locked"));
+        assert_eq!(error.source_id(), Some(expected_source.as_str()));
+        assert_eq!(target, before);
+        assert!(!error.to_string().contains("existing-secret-canary"));
+        assert!(!format!("{error:?}").contains("existing-secret-canary"));
+    }
+
+    #[test]
+    fn test_nested_final_merge_keeps_inner_source() {
+        let incoming = PropertiesConfigSource::from_content("locked=incoming-secret-canary\n");
+        let expected_source = incoming.source_id();
+        let inner = CompositeConfigSource::builder()
+            .add_source(FinalSource)
+            .add_source(incoming)
+            .build();
+        let outer = CompositeConfigSource::builder().add_source(inner).build();
+        let error = outer.load().unwrap_err();
+        assert_eq!(error.kind(), qubit_config::ConfigErrorKind::PropertyIsFinal);
+        assert_eq!(error.path(), Some("locked"));
+        assert_eq!(error.source_id(), Some(expected_source.as_str()));
+        assert!(!error.to_string().contains("incoming-secret-canary"));
+        assert!(!format!("{error:?}").contains("incoming-secret-canary"));
+    }
+
+    #[test]
+    fn test_final_merge_reports_incoming_composite_boundary() {
+        let incoming = CompositeConfigSource::builder()
+            .add_source(PropertiesConfigSource::from_content("locked=2\n"))
+            .build();
+        let expected_source = incoming.source_id();
+        let composite = CompositeConfigSource::builder()
+            .add_source(FinalSource)
+            .add_source(incoming)
+            .build();
+
+        let error = composite.load().unwrap_err();
+
+        assert_eq!(error.kind(), qubit_config::ConfigErrorKind::PropertyIsFinal);
+        assert_eq!(error.path(), Some("locked"));
+        assert_eq!(error.source_id(), Some(expected_source.as_str()));
+    }
+
+    #[test]
+    fn test_incoming_composite_conflict_keeps_target_metadata_and_properties() {
+        let incoming = CompositeConfigSource::builder()
+            .add_source(PropertiesConfigSource::from_content("locked=2\nnew_key=added\n"))
+            .build();
+        let expected_source = incoming.source_id();
+        let mut target = Config::builder().description("existing description").build();
+        target.set_default_read_policy(ReadPolicy::env_friendly());
+        target.set("locked", "old").unwrap();
+        target.set_final("locked", true).unwrap();
+        target.set("kept", "existing").unwrap();
+        let original_policy = target.default_read_policy().clone();
+
+        let error = target.merge_properties_from_source(&incoming).unwrap_err();
+
+        assert_eq!(error.kind(), qubit_config::ConfigErrorKind::PropertyIsFinal);
+        assert_eq!(error.path(), Some("locked"));
+        assert_eq!(error.source_id(), Some(expected_source.as_str()));
+        assert_eq!(target.get::<String>("locked").unwrap(), "old");
+        assert_eq!(target.get::<String>("kept").unwrap(), "existing");
+        assert!(!target.contains("new_key").unwrap());
+        assert_eq!(target.description(), Some("existing description"));
+        assert_eq!(target.default_read_policy(), &original_policy);
+    }
+
+    #[test]
+    fn test_file_source_final_error_redacts_value_and_preserves_target() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("incoming.properties");
+        std::fs::write(&path, "locked=incoming-secret-canary\n").unwrap();
+        let incoming = PropertiesConfigSource::from_file(&path);
+        let expected_source = incoming.source_id();
+        let composite = CompositeConfigSource::builder()
+            .add_source(FinalSource)
+            .add_source(incoming)
+            .build();
+        let mut target = Config::new();
+        target.set("kept", "old").unwrap();
+        let before = target.clone();
+
+        let error = target.merge_properties_from_source(&composite).unwrap_err();
+
+        assert_eq!(error.kind(), qubit_config::ConfigErrorKind::PropertyIsFinal);
+        assert_eq!(error.path(), Some("locked"));
+        assert_eq!(error.source_id(), Some(expected_source.as_str()));
+        assert_eq!(target, before);
+        assert!(!error.to_string().contains("incoming-secret-canary"));
+        assert!(!format!("{error:?}").contains("incoming-secret-canary"));
     }
 
     #[test]
@@ -447,5 +575,29 @@ mod test_composite_config_source {
         let config = composite.load().expect("all counting sources should succeed");
         assert_eq!(calls.map(|count| count.load(Ordering::SeqCst)), [1, 1, 1]);
         assert_eq!(config.get::<u16>("value").unwrap(), 3);
+    }
+
+    #[test]
+    fn test_composite_loads_final_conflicting_source_once() {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let source = CountingFinalSource {
+            calls: Arc::clone(&calls),
+        };
+        let expected_source = source.source_id();
+        let composite = CompositeConfigSource::builder()
+            .add_source(FinalSource)
+            .add_source(source)
+            .build();
+        let mut target = Config::new();
+        target.set("retained", "value").unwrap();
+        let before = target.clone();
+
+        let error = target.merge_properties_from_source(&composite).unwrap_err();
+
+        assert_eq!(error.kind(), qubit_config::ConfigErrorKind::PropertyIsFinal);
+        assert_eq!(error.path(), Some("locked"));
+        assert_eq!(error.source_id(), Some(expected_source.as_str()));
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+        assert_eq!(target, before);
     }
 }
