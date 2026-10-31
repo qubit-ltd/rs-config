@@ -218,6 +218,9 @@ JSON 词法 token，因此不可信 JSON 还必须通过 `Config::decode_json_sl
 原始输入准入。
 已知键校验仍须显式调用，`usize` 是读取目标而非存储类型。Wire 表示失败使用 `ConfigWireDecodeError::Representation`；未被有界预检识别的深层失败归类为 `InvalidValue`。
 此前归为 `Json(Data)` 的业务表示失败现在归为 `Representation`；语法和预算错误仍保留原有分类。
+普通 Serde 解码会按 Wire schema 角色读取原生 Float32/Float64 字段，即使依赖图统一启用
+`serde_json/arbitrary_precision` 也一样。任意 JSON 领域数字仍遵循通用 Serde 事件语义；需要保留
+JSON 数字语义时应使用专用 JSON helper。
 
 所有内置 source 都通过 `SourceLoadContext` 和 crate-owned executor 加载。自定义
 `ConfigSource` 必须通过 context（例如 `context.set(...)`）写入输出，并在执行外部

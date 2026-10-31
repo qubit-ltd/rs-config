@@ -161,6 +161,12 @@ native rich-value conversion shape supported by `ConfigReader::get`.
 Object member names are exposed to Serde's key deserializer as strings; numeric
 map keys require explicit parsing by the application.
 
+Interpolation scope follows the selected storage shape. Dotted descendants use
+the selected subtree as the initial lookup scope. An exact structured property,
+such as a JSON object, uses the calling reader's scope; object member names do
+not become configuration keys. Existing root and permitted environment
+fallback remains unchanged.
+
 The prepared tree stores borrowed values, collection slices, JSON nodes, and
 synthetic object indices. Node IDs index the arena and its per-node origin table;
 property indexes address a separate table of borrowed source properties. A source
@@ -184,8 +190,10 @@ admitted items, and strings inside actual collections are not split again.
 JSON integer literals remain exact through the signed and unsigned 128-bit
 ranges. Out-of-range integer literals and non-finite floating-point values
 return conversion errors; finite floats retain the existing binary
-floating-point semantics. This structured conversion contract is distinct from
-the generic wire deserializer when `serde_json/arbitrary_precision` is unified.
+floating-point semantics. In the generic wire deserializer, schema-aware
+Float32/Float64 fields use typed reads even when `serde_json/arbitrary_precision`
+is unified. Arbitrary JSON-domain numbers still follow generic Serde event
+semantics and may require the dedicated JSON helpers.
 Policy-missing exact scalars can deserialize as `None`; missing subtree scalar
 strings are omitted, while missing collection items remain errors. The public
 result still requires `DeserializeOwned`.
@@ -207,6 +215,11 @@ bounded wire profile. Their `*_with_limits` variants accept a custom
 `ConfigWireLimits`. Ordinary Serde `Deserialize` bounds the decoded value but
 cannot admit the original raw byte stream or lexical JSON tokens; callers must
 use `decode_json_slice` for complete untrusted JSON input.
+
+Schema-aware Float32/Float64 wire fields retain typed decoding when
+`serde_json/arbitrary_precision` is unified. Arbitrary JSON-domain numbers
+still follow generic Serde event semantics; use the dedicated JSON helpers
+when their JSON number semantics must be preserved.
 
 Both wire paths reject duplicate object keys before applying configuration
 property-count and UTF-8 key-byte limits, and apply those domain limits before
@@ -251,6 +264,28 @@ configuration output, not parser allocation or parser recursion. Wire budgets
 are independent of `SourceLimits` and read conversion limits.
 `ConfigWireLimitsBuilder::max_input_bytes` changes only the input-byte dimension
 and preserves the other decode limits; `json_decode` replaces the whole profile.
+
+### TOML/YAML parser resource measurements
+
+The manual resource probe exercised TOML and YAML wide arrays at approximately
+1 KiB, 64 KiB, and 1 MiB, plus valid nested mappings at depths 8, 32, 64, and
+128. Each format/shape/size/limit group ran five isolated load and five
+generate-only processes on the documented Linux x86_64 environment. For a
+1 MiB wide input, low limits (`max_nodes=16`, `max_nesting_depth=8`) still
+reached about 88 MiB RSS for TOML and 110 MiB for YAML before node-budget
+rejection. Generate-only runs were about 12 MiB; those whole-process values
+include input generation and do not measure AST allocation exactly. Both
+parsers returned Parse errors at depth 128 before `SourceLimits` could report a
+depth rejection. The complete five-run measurements and commands are recorded
+in the dated implementation design appendix.
+
+The crate retains both parsers in this change. The measurements show that
+post-parse node/depth limits do not constrain parser tree construction for the
+tested inputs, but they do not establish an OOM threshold or prove the default
+byte limit safe. Any parser-stage protection requires a separate design that
+proves YAML pre-count equivalence with flattening, preserves ancestor budgets,
+avoids duplicate charging, and identifies a TOML parser/API that can reject
+before materializing the full tree. No such protection is implemented here.
 
 ## Feature Boundaries
 
@@ -298,6 +333,13 @@ conflict, the error remains `KeyConflict`, but now consistently reports the
 group with the smallest normalized key and its two smallest original names.
 These notes describe the library contract and do not claim validation across
 all downstream applications.
+
+The rs-http configuration adapter delegates unknown-key checks and `usize`
+reads to `ConfigReader`. An integer above the platform `usize` range now
+surfaces as `PlatformIntegerOutOfRange` (`Conversion`), mapped to
+`HttpConfigErrorKind::TypeError`; this intentionally replaces the former
+32-bit helper-specific `DeserializeError` category. Successful values and
+helper signatures remain unchanged.
 
 See the [user guide](user_guide.md), [API documentation](https://docs.rs/qubit-config),
 and [project README](../README.md) for the supported usage surface.

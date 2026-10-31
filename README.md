@@ -228,6 +228,10 @@ JSON must use `Config::decode_json_slice` for raw-input admission as well.
 Known-key validation remains explicit, and `usize` is a read target rather than a stored value type. Wire representation failures use `ConfigWireDecodeError::Representation`; unclassified nested failures use `InvalidValue`.
 Business representation failures previously reported as `Json(Data)` now use
 `Representation`, while syntax and budget failures keep their categories.
+Ordinary Serde decoding reads native Float32/Float64 wire fields through their
+schema roles, including when `serde_json/arbitrary_precision` is unified.
+Arbitrary JSON-domain numbers still follow generic Serde event behavior; use
+the dedicated JSON helpers when their JSON number semantics must be preserved.
 
 Built-in sources load through `SourceLoadContext` and the crate-owned executor.
 Custom `ConfigSource` implementations must write through the context (for

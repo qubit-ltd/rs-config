@@ -462,6 +462,10 @@ struct 字段、`serde(rename)`、`serde(alias)`、`serde(default)`、嵌套 str
 这些面向人的摘要可能变化；程序判断应使用 `ConfigError::kind()` 和 `ConfigError::path()`，不要依赖
 `Display` 文本。
 
+插值查找作用域取决于选中的存储形态。`prefix` 选中点分子配置项时，先在选中的子树中查找；
+选中 JSON 对象等精确结构化属性时，则从调用 reader 的作用域开始查找。对象成员名只是数据，
+不会成为 Config key。原有根配置和允许的环境变量回退规则仍然适用。
+
 对象成员名会以字符串形式交给 Serde。若应用需要数字 key，应先读取字符串 key，
 再显式解析。规范示例会拒绝 `080` 和 `80` 这类归一化后重复的 key：
 
@@ -540,9 +544,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 使用的 `SourceLimits` 相互独立。普通 `Deserialize` 会用
 `ConfigWireLimits::default()` 创建有预算约束的已解码值 visitor，从而限制已解码结构、
 载荷、配置项数量和配置项键。通用 Serde 反序列化器不提供原始字节流或 JSON 词法
-token，因此普通 `Deserialize` 无法执行原始输入限制。依赖图统一启用
-`serde_json/arbitrary_precision` 时，通用 Serde 解码也可能将数字呈现为私有 map；浮点数和
-JSON 领域值应通过专用 JSON helper 解码。不可信 JSON 应使用
+token，因此普通 `Deserialize` 无法执行原始输入限制。即使依赖图统一启用
+`serde_json/arbitrary_precision`，普通 Serde 也会按 schema 角色读取原生 Float32/Float64 wire 字段；
+任意 JSON 领域数字仍遵循通用事件语义，需要保留 JSON 数字语义时使用专用 JSON helper。不可信 JSON 应使用
 `Config::decode_json_slice` 或其自定义限制版本。V1 拒绝显式 `read_options` 字段，
 包括 `null`；旧版无版本输入仍接受并忽略该字段。手工构造 V1 封装时应省略该字段。
 

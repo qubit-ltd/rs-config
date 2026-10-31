@@ -492,6 +492,12 @@ custom deserializer messages are not retained. These human-readable summaries
 may change; use `ConfigError::kind()` and `ConfigError::path()` for programmatic
 handling instead of matching `Display` text.
 
+Interpolation scope follows the selected storage shape. When `prefix` selects
+dotted child properties, lookup starts in that selected subtree. When it
+selects an exact structured property such as a JSON object, lookup starts in
+the calling reader's scope; object member names are values, not configuration
+keys. Existing root and permitted environment fallback still applies.
+
 Object member names enter Serde as strings. If the application wants numeric
 keys, deserialize string keys first and parse them explicitly. The canonical example
 rejects distinct strings such as `080` and `80` that normalize to the same key:
@@ -583,11 +589,12 @@ Ordinary `Deserialize` constructs a budgeted decoded-value visitor with
 `ConfigWireLimits::default()`, so decoded structure, payload, property count,
 and property keys remain bounded. A general Serde deserializer does not expose
 the original byte stream or lexical JSON tokens; ordinary Deserialize therefore
-cannot enforce the raw-input limit. When `serde_json/arbitrary_precision` is
-unified, generic Serde decoding can also present numbers as private maps; use
-the dedicated JSON helpers for floating-point and JSON domain values. Use
-`Config::decode_json_slice` or its
-custom-limits variant for untrusted JSON. This wire budget is separate from
+cannot enforce the raw-input limit. Ordinary Serde decoding reads native
+Float32/Float64 wire fields through their schema roles, even when
+`serde_json/arbitrary_precision` is unified. Arbitrary JSON-domain numbers
+still follow generic Serde event behavior; use the dedicated JSON helpers when
+their JSON number semantics must be preserved. Use `Config::decode_json_slice`
+or its custom-limits variant for untrusted JSON. This wire budget is separate from
 `SourceLimits`, which applies while ingesting text sources. V1 rejects an
 explicit `read_options` field, including `null`; legacy unversioned input still
 accepts and ignores it. Manually constructed V1 envelopes must omit it.

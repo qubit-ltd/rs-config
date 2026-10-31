@@ -147,7 +147,8 @@ URL 等富类型格式化后的文本不作为插值输入，未变化文本保�
 十进制文本表示。标量列表拆分复用已准入元素，真实集合内的字符串不再拆分。
 JSON 整数字面量在有符号或无符号 128 位范围内精确保留。超范围整数字面量和非有限浮点值
 返回转换错误；有限浮点数沿用既有二进制浮点语义。该结构化转换合同与依赖图统一启用
-`serde_json/arbitrary_precision` 时通用 wire 反序列化器的行为相互独立。
+`serde_json/arbitrary_precision` 时，通用 wire 反序列化器会在对应 schema 角色下类型化读取
+Float32/Float64。任意 JSON 领域数字仍遵循通用 Serde 事件语义，需要保留 JSON 数字语义时使用专用 helper。
 精确标量被策略判定缺失时可读取为 `None`，子树中的缺失标量字符串会被省略，集合某项缺失
 仍然报错。公共返回值仍要求 `DeserializeOwned`。
 
@@ -199,6 +200,20 @@ crate 为不同操作使用相互独立的资源域，而不是共享一个计�
 `ConfigWireLimitsBuilder::max_input_bytes` 只修改输入字节维度并保留其他解码限制；
 `json_decode` 用于整体替换解码 profile。
 
+### TOML/YAML 解析器资源测量
+
+人工探针对 TOML 和 YAML 的宽数组测量了约 1 KiB、64 KiB、1 MiB 输入，并对合法嵌套映射测量了
+深度 8、32、64、128。每个格式/形态/规模/限额组合都在文档记录的 Linux x86_64 环境中以独立进程
+运行 5 次 load 和 5 次 generate-only。1 MiB 宽输入在低限额（`max_nodes=16`、`max_nesting_depth=8`）下，
+仍分别达到约 88 MiB（TOML）和 110 MiB（YAML）RSS，随后才因节点预算被拒绝；generate-only 约 12 MiB。
+这些整进程数据包含输入生成，不能当作 AST 分配量。深度 128 时两种 parser 都先返回 Parse 错误，
+`SourceLimits` 尚未报告深度超限。完整五次数据和命令记录在带日期的实施设计附录中。
+
+本次保留两个 parser。测量说明对已测输入而言，解析后的节点/深度限额不能约束 parser 构树过程，
+但不能据此推出 OOM 阈值或默认字节限制安全。任何解析前保护都需要单独设计：证明 YAML 预计数与
+flatten 语义等价、保留祖先预算且避免重复扣费，并确认 TOML parser/API 能在完整构树前拒绝；本次没有
+实现这类保护。
+
 ## Feature 边界
 
 默认 feature 集为空。核心存储、reader、配置项、`.properties`、进程环境变量和组合
@@ -235,6 +250,10 @@ crate 为不同操作使用相互独立的资源域，而不是共享一个计�
 递归前作为来源解析错误拒绝，而合法空对象仍可用。环境变量名称归一化后若发生冲突，错误仍是
 `KeyConflict`，但现在会稳定报告规范化键最小组及其中名称最小的两项。此说明只描述本库合同，
 不声称已在所有下游应用中完成验证。
+
+rs-http 配置适配器将未知键校验和 `usize` 读取委托给 `ConfigReader`。超出平台 `usize` 范围的整数现在
+会以 `PlatformIntegerOutOfRange`（`Conversion`）返回，并映射为 `HttpConfigErrorKind::TypeError`；这有意
+替换原来 32 位 helper 自行生成的 `DeserializeError` 分类。成功值和 helper 签名不变。
 
 受支持的使用方式请参阅[用户手册](user_guide.zh_CN.md)、
 [API 文档](https://docs.rs/qubit-config)和[项目 README](../README.zh_CN.md)。
