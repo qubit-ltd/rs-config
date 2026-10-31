@@ -59,6 +59,10 @@ impl<'a> SourceIndex<'a> {
         }
     }
 
+    /// Returns whether this index represents one property read directly.
+    ///
+    /// Exact indexes address only node and property index zero; subtree reads
+    /// use the tree variant instead.
     pub(super) fn is_exact(&self) -> bool {
         matches!(self, Self::Exact { .. })
     }
@@ -90,6 +94,11 @@ impl<'a> SourceIndex<'a> {
         }
     }
 
+    /// Appends the origin slot for the next arena node in a subtree index.
+    ///
+    /// Call this once, in arena-node insertion order, so a node ID addresses
+    /// the matching origin slot. `None` records a synthetic node. This is
+    /// valid only for [`Self::Tree`]; calling it on [`Self::Exact`] panics.
     pub(super) fn push_origin(&mut self, origin: Option<SourceLocation>) {
         let Self::Tree { origins, .. } = self else {
             unreachable!("only subtree construction appends nodes")
@@ -97,6 +106,11 @@ impl<'a> SourceIndex<'a> {
         origins.push(origin);
     }
 
+    /// Adds a source property to the subtree property's table.
+    ///
+    /// Property indexes address this table and are distinct from arena node
+    /// IDs. Append properties in the order used by their source locations;
+    /// this is valid only for [`Self::Tree`], and panics on [`Self::Exact`].
     pub(super) fn push_property(&mut self, property: &'a Property) {
         let Self::Tree { properties, .. } = self else {
             unreachable!("only subtree construction appends properties")

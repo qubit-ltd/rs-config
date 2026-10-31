@@ -27,7 +27,9 @@ use crate::config_deserialize_error::ConfigDeserializeError;
 /// Deserializes sequence elements lazily while borrowing values from the
 /// prepared input and preserving the outer source index for diagnostics.
 pub(super) struct SourceSeqAccess<'tree, 'policy, 'session> {
+    /// Borrowed context for resolving nodes and their retained source index.
     context: ReadContext<'tree>,
+    /// Borrowed sequence values, yielded one at a time.
     values: SequenceValues<'tree>,
     /// Typed source location extended for each child when one is retained.
     location: Option<SourceLocation>,
@@ -37,10 +39,16 @@ pub(super) struct SourceSeqAccess<'tree, 'policy, 'session> {
     index: usize,
     /// First source array index used to classify conversion diagnostics.
     original_index: Option<usize>,
+    /// Mutable borrow of the read's shared conversion session.
     session: &'session mut ConversionSession<'policy>,
 }
 
 impl<'tree, 'policy, 'session> SourceSeqAccess<'tree, 'policy, 'session> {
+    /// Creates a lazy sequence accessor borrowing the prepared values and
+    /// shared conversion session.
+    ///
+    /// The outer source index is retained for yielded children; constructing
+    /// the accessor does not convert or consume any elements.
     pub(super) fn new(
         context: ReadContext<'tree>,
         values: SequenceValues<'tree>,

@@ -17,6 +17,10 @@ use super::deserializer::SourceDeserializer;
 use super::deserializer::conversion_error;
 use crate::config_deserialize_error::ConfigDeserializeError;
 
+/// Provides lazy Serde access to items admitted from a scalar string source.
+///
+/// The accessor shares the read's conversion session and reports item
+/// conversion failures with their sequence index.
 pub(super) struct ScalarSeqAccess<'tree, 'policy, 'session> {
     /// Shared prepared-read context.
     context: ReadContext<'tree>,
@@ -40,7 +44,11 @@ impl<'tree, 'policy: 'tree, 'session> ScalarSeqAccess<'tree, 'policy, 'session> 
         Ok(Self { context, source, path })
     }
 
-    /// Reports whether another item can be consumed.
+    /// Consumes and admits the next item to determine whether one remains.
+    ///
+    /// This advances the source and charges the shared conversion session.
+    /// An item admission failure is returned with its sequence index and
+    /// diagnostic path; it is not reported as `Ok(false)`.
     pub(super) fn has_remaining(&mut self) -> Result<bool, ConfigDeserializeError> {
         match self.source.next_item() {
             None => Ok(false),
