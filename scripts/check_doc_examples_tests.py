@@ -67,7 +67,8 @@ class RequiredGuideExamplesTests(unittest.TestCase):
 
     def test_new_guide_examples_are_required(self) -> None:
         for example_id in (
-            "config_policy_restore", "config_numeric_map_keys", "config_guide_sources"
+            "config_policy_restore", "config_numeric_map_keys", "config_guide_sources",
+            "config_custom_target", "config_read_policy", "config_structured_guide",
         ):
             self.assertEqual(
                 CHECKER.EXAMPLE_DOCS[example_id],
@@ -76,31 +77,40 @@ class RequiredGuideExamplesTests(unittest.TestCase):
         self.assertEqual(CHECKER.check_examples(), [])
 
     def test_missing_chinese_marker_is_reported(self) -> None:
-        path = self.root / "doc/user_guide.zh_CN.md"
-        path.write_text(path.read_text(encoding="utf-8").replace(
-            "<!-- example: config_policy_restore -->\n", ""
-        ), encoding="utf-8")
-        self.assertTrue(any(
-            "missing example ID 'config_policy_restore'" in error
-            for error in CHECKER.check_examples()
-        ))
+        for example_id in ("config_custom_target", "config_read_policy", "config_structured_guide"):
+            with self.subTest(example_id=example_id):
+                path = self.root / "doc/user_guide.zh_CN.md"
+                original = path.read_text(encoding="utf-8")
+                path.write_text(original.replace(f"<!-- example: {example_id} -->\n", ""), encoding="utf-8")
+                self.assertTrue(any(
+                    f"missing example ID '{example_id}'" in error
+                    for error in CHECKER.check_examples()
+                ))
+                path.write_text(original, encoding="utf-8")
 
     def test_changed_chinese_code_is_reported(self) -> None:
-        path = self.root / "doc/user_guide.zh_CN.md"
-        path.write_text(path.read_text(encoding="utf-8").replace(
-            "/* config_numeric_map_keys */", "/* changed */"
-        ), encoding="utf-8")
-        self.assertTrue(any(
-            "config_numeric_map_keys" in error and "differs" in error
-            for error in CHECKER.check_examples()
-        ))
+        for example_id in ("config_custom_target", "config_read_policy", "config_structured_guide"):
+            with self.subTest(example_id=example_id):
+                path = self.root / "doc/user_guide.zh_CN.md"
+                original = path.read_text(encoding="utf-8")
+                path.write_text(original.replace(f"/* {example_id} */", "/* changed */"), encoding="utf-8")
+                self.assertTrue(any(
+                    example_id in error and "differs" in error
+                    for error in CHECKER.check_examples()
+                ))
+                path.write_text(original, encoding="utf-8")
 
     def test_missing_canonical_file_is_reported(self) -> None:
-        (self.root / "examples/config_guide_sources.rs").unlink()
-        self.assertTrue(any(
-            "config_guide_sources" in error and "has no file" in error
-            for error in CHECKER.check_examples()
-        ))
+        for example_id in ("config_custom_target", "config_read_policy", "config_structured_guide"):
+            with self.subTest(example_id=example_id):
+                path = self.root / f"examples/{example_id}.rs"
+                code = f"fn main() {{ /* {example_id} */ }}\n"
+                path.unlink()
+                self.assertTrue(any(
+                    example_id in error and "has no file" in error
+                    for error in CHECKER.check_examples()
+                ))
+                path.write_text(CHECKER.COPYRIGHT_HEADER + code, encoding="utf-8")
 
     def test_manual_resource_probe_is_not_a_documented_example(self) -> None:
         (self.root / "examples/config_source_resource_probe.rs").write_text(

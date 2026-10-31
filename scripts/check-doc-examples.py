@@ -21,6 +21,9 @@ EXAMPLE_DOCS = {
     "config_policy_restore": ("doc/user_guide.md", "doc/user_guide.zh_CN.md"),
     "config_numeric_map_keys": ("doc/user_guide.md", "doc/user_guide.zh_CN.md"),
     "config_guide_sources": ("doc/user_guide.md", "doc/user_guide.zh_CN.md"),
+    "config_custom_target": ("doc/user_guide.md", "doc/user_guide.zh_CN.md"),
+    "config_read_policy": ("doc/user_guide.md", "doc/user_guide.zh_CN.md"),
+    "config_structured_guide": ("doc/user_guide.md", "doc/user_guide.zh_CN.md"),
 }
 NON_DOCUMENTED_EXAMPLES = {"config_source_resource_probe.rs"}
 DOCUMENTS = tuple(dict.fromkeys(path for paths in EXAMPLE_DOCS.values() for path in paths))

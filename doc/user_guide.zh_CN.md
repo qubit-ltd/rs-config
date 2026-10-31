@@ -422,6 +422,7 @@ fn main() -> Result<(), qubit_config::ConfigError> {
 
 `Config::deserialize` 会把精确 property 或点分 subtree 映射为由 Serde 管理的类型。空 prefix 表示根 map。
 
+<!-- example: config_structured_guide -->
 ```rust
 use qubit_config::Config;
 use serde::Deserialize;
@@ -438,6 +439,7 @@ fn main() -> Result<(), qubit_config::ConfigError> {
     config.set("server.port", 8080)?;
 
     let server: Server = config.deserialize("server")?;
+    assert_eq!(server.host, "localhost");
     assert_eq!(server.port, 8080);
     Ok(())
 }
@@ -457,10 +459,10 @@ struct payload 也应添加。Serde 随后返回经过脱敏的反序列化错�
 struct 字段、`serde(rename)`、`serde(alias)`、`serde(default)`、嵌套 struct、map 和
 `serde(flatten)` 共同声明可接受的形状。仅由 Serde 报告的结构不匹配会变成已脱敏的
 `DeserializeError`。
-标准缺字段错误会保留经 JSON 转义的 schema 字段名；类型错误使用固定摘要，长度错误只包含
-实际长度。输入值、Serde 的 `Expected` 和 `Unexpected` 描述以及自定义反序列化器消息都不会保留。
-这些面向人的摘要可能变化；程序判断应使用 `ConfigError::kind()` 和 `ConfigError::path()`，不要依赖
-`Display` 文本。
+标准缺字段错误会保留经 JSON 转义的 schema 字段名；类型错误使用固定摘要。输入值、Serde 的
+`Expected` 和 `Unexpected` 描述以及自定义反序列化器消息都不会保留。库内部固定摘要可以报告
+内部结构名称、已知完整长度或多余项信息。这些面向人的摘要可能变化；程序判断应使用
+`ConfigError::kind()` 和 `ConfigError::path()`，不要依赖 `Display` 文本。
 
 插值查找作用域取决于选中的存储形态。`prefix` 选中点分子配置项时，先在选中的子树中查找；
 选中 JSON 对象等精确结构化属性时，则从调用 reader 的作用域开始查找。对象成员名只是数据，
@@ -615,9 +617,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 `Config` 为直接读取持有默认 `ReadPolicy`。`read_with` 创建临时借用视图，在不修改配置的情况下使用另一套 policy：
 
+<!-- example: config_read_policy -->
 ```rust
-use qubit_config::{Config, ConfigReader};
 use qubit_config::options::ReadPolicy;
+use qubit_config::{Config, ConfigReader};
 
 fn main() -> Result<(), qubit_config::ConfigError> {
     let mut config = Config::new();
@@ -630,6 +633,7 @@ fn main() -> Result<(), qubit_config::ConfigError> {
     let ports: Vec<u16> = reader.get("HTTP_PORTS")?;
     assert!(enabled);
     assert_eq!(ports, [8080, 8081, 8082]);
+    assert_eq!(config.default_read_policy(), &ReadPolicy::default());
     Ok(())
 }
 ```
@@ -685,6 +689,7 @@ let _ = config;
 因此委托转换会沿用读取策略，并在错误中保留解析后的配置键。插值仍需显式开启：普通读取
 会保留 `${default_port}` 并因无法转换而报错；带作用域的插值读取则会相对于 `server` 解析它。
 
+<!-- example: config_custom_target -->
 ```rust
 use qubit_config::conversion::{ConfigParseContext, FromConfig};
 use qubit_config::{Config, ConfigErrorKind, ConfigReader, ConfigResult, Property};

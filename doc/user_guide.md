@@ -446,6 +446,7 @@ Source loading and merging are transactional at the public boundary: a source is
 
 `Config::deserialize` maps an exact property or dotted subtree to a Serde-owned type. The empty prefix selects the root map.
 
+<!-- example: config_structured_guide -->
 ```rust
 use qubit_config::Config;
 use serde::Deserialize;
@@ -462,6 +463,7 @@ fn main() -> Result<(), qubit_config::ConfigError> {
     config.set("server.port", 8080)?;
 
     let server: Server = config.deserialize("server")?;
+    assert_eq!(server.host, "localhost");
     assert_eq!(server.port, 8080);
     Ok(())
 }
@@ -486,11 +488,12 @@ set `unknown_fields: UnknownFieldPolicy::Ignore`; to expand placeholders, set
 `serde(default)`, nested structs, maps, and `serde(flatten)` declare the accepted
 shape. A mismatch raised only by Serde becomes a sanitized `DeserializeError`.
 Standard missing-field errors retain the JSON-escaped schema field name; invalid
-type errors use a fixed summary, and invalid-length errors include only the
-actual length. Input values, Serde `Expected` and `Unexpected` descriptions, and
-custom deserializer messages are not retained. These human-readable summaries
-may change; use `ConfigError::kind()` and `ConfigError::path()` for programmatic
-handling instead of matching `Display` text.
+type errors use a fixed summary. Input values, Serde `Expected` and `Unexpected`
+descriptions, and custom deserializer messages are not retained. Fixed
+library-owned summaries may report internal structure names, known complete
+lengths, or extra-item information. These human-readable summaries may change;
+use `ConfigError::kind()` and `ConfigError::path()` for programmatic handling
+instead of matching `Display` text.
 
 Interpolation scope follows the selected storage shape. When `prefix` selects
 dotted child properties, lookup starts in that selected subtree. When it
@@ -677,9 +680,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 `Config` owns a default `ReadPolicy` for direct reads. `read_with` creates a borrowed view with a temporary policy without changing the configuration:
 
+<!-- example: config_read_policy -->
 ```rust
-use qubit_config::{Config, ConfigReader};
 use qubit_config::options::ReadPolicy;
+use qubit_config::{Config, ConfigReader};
 
 fn main() -> Result<(), qubit_config::ConfigError> {
     let mut config = Config::new();
@@ -692,6 +696,7 @@ fn main() -> Result<(), qubit_config::ConfigError> {
     let ports: Vec<u16> = reader.get("HTTP_PORTS")?;
     assert!(enabled);
     assert_eq!(ports, [8080, 8081, 8082]);
+    assert_eq!(config.default_read_policy(), &ReadPolicy::default());
     Ok(())
 }
 ```
@@ -755,6 +760,7 @@ conversion policy and resolved key in errors. Interpolation remains explicit:
 an ordinary read preserves `${default_port}` and fails conversion, while the
 scoped interpolated read resolves it relative to `server`.
 
+<!-- example: config_custom_target -->
 ```rust
 use qubit_config::conversion::{ConfigParseContext, FromConfig};
 use qubit_config::{Config, ConfigErrorKind, ConfigReader, ConfigResult, Property};
