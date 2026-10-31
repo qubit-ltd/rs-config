@@ -193,9 +193,9 @@ impl TomlConfigSourceBuilder {
 
     /// Replaces the limits used for input admission and flattening.
     ///
-    /// Input bytes are admitted before parsing. Node, assignment, and depth limits
-    /// are checked while flattening the already materialized syntax tree; they do
-    /// not protect parser allocation or recursion.
+    /// Input bytes are admitted before parsing. Node, assignment, and depth
+    /// limits are checked while flattening the already materialized syntax
+    /// tree; they do not protect parser allocation or recursion.
     pub const fn limits(mut self, limits: SourceLimits) -> Self {
         self.limits = limits;
         self

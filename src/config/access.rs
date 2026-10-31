@@ -200,7 +200,8 @@ impl Config {
     /// # Errors
     ///
     /// - [`ConfigError::InvalidKey`] when `name` is not canonical.
-    /// - [`ConfigError::PropertyIsFinal`] when the property exists and is final.
+    /// - [`ConfigError::PropertyIsFinal`] when the property exists and is
+    ///   final.
     #[inline]
     pub fn get_property_mut(&mut self, name: impl AsRef<str>) -> ConfigResult<Option<ConfigPropertyMut<'_>>> {
         let name = name.as_ref();
@@ -227,7 +228,8 @@ impl Config {
     ///
     /// - [`ConfigError::InvalidKey`] when `name` is not canonical.
     /// - [`ConfigError::PropertyNotFound`] if the key does not exist.
-    /// - [`ConfigError::PropertyIsFinal`] when trying to unset a final property.
+    /// - [`ConfigError::PropertyIsFinal`] when trying to unset a final
+    ///   property.
     pub fn set_final(&mut self, name: impl AsRef<str>, is_final: bool) -> ConfigResult<()> {
         let name = name.as_ref();
         ensure_config_key(name)?;
@@ -256,8 +258,8 @@ impl Config {
     /// # Errors
     ///
     /// - [`ConfigError::InvalidKey`] when `name` is not canonical.
-    /// - [`ConfigError::PropertyIsFinal`] when the property exists and is final.
-    ///   No property is removed on failure.
+    /// - [`ConfigError::PropertyIsFinal`] when the property exists and is
+    ///   final. No property is removed on failure.
     ///
     /// # Examples
     ///
