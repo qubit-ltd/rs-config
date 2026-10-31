@@ -8,12 +8,12 @@
       },
       "reason": "The feature-gated generic conversions and defensive scalar fallback paths account for the remaining function and region attribution gaps. The TOML source tests cover accepted values, mixed and nested value rejection, parse and I/O errors, collisions, limits, final values, and transactionality; lines meet the normal threshold.",
       "evidence": {
-      "generated_at": "2026-10-30T18:35:11Z",
+        "generated_at": "2026-10-31T16:52:18Z",
         "cargo_llvm_cov": "cargo-llvm-cov 0.8.6",
         "rust_llvm": "rustc 1.94.0 (4a4ef493e3a1488c6e321570238084b38948f6db), LLVM 21.1.8",
         "command": "CARGO_INCREMENTAL=1 ./.infra/bin/coverage.sh",
-      "source_baseline": "working tree based on HEAD 9d38e8fbe867ea4e57ea9bd62a864e24eceaaad0",
-      "source_sha256": "0b23e5f5e9ffeaea12e70d2e6d27e8cae814210efa1c19bd44d3da71e78ebca6",
+        "source_baseline": "working tree based on HEAD 8ea2d29fff44d06b3d1118dcac5225336929d228; pre-existing local wire changes were applied to run the full test suite",
+        "source_sha256": "e5924a42a8f1287f193d952796c8c2518e30b1b90bcb383522a328708b4fedfe",
         "metrics": {
           "functions": { "covered": 31, "count": 40, "percent": 77.5 },
           "lines": { "covered": 223, "count": 241, "percent": 92.5311203319502 },
@@ -27,12 +27,12 @@
       },
       "reason": "Feature-gated generic sequence conversions and defensive nested-value paths leave a function attribution gap. The YAML source tests cover scalar and sequence kinds, malformed and nested values, aliases, collisions, limits, final values, and transactionality; lines and regions meet the normal thresholds.",
       "evidence": {
-      "generated_at": "2026-10-30T18:35:11Z",
+        "generated_at": "2026-10-31T16:52:18Z",
         "cargo_llvm_cov": "cargo-llvm-cov 0.8.6",
         "rust_llvm": "rustc 1.94.0 (4a4ef493e3a1488c6e321570238084b38948f6db), LLVM 21.1.8",
         "command": "CARGO_INCREMENTAL=1 ./.infra/bin/coverage.sh",
-      "source_baseline": "working tree based on HEAD 9d38e8fbe867ea4e57ea9bd62a864e24eceaaad0",
-      "source_sha256": "08ea44633a9616620763917c56fe953eb9d6a67e317ca7f7e0079d5afa50b9b9",
+        "source_baseline": "working tree based on HEAD 8ea2d29fff44d06b3d1118dcac5225336929d228; pre-existing local wire changes were applied to run the full test suite",
+        "source_sha256": "8ad692772fc50abec35e251e7623c0db3cb22c778edfd4f2f4cbe02e504d09d6",
         "metrics": {
           "functions": { "covered": 37, "count": 44, "percent": 84.0909090909091 },
           "lines": { "covered": 259, "count": 276, "percent": 93.84057971014492 },

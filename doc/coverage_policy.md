@@ -51,16 +51,17 @@ At the exact normal threshold, lines and regions still need an override because
 their normal rules are strict (`>`); functions at exactly 95% meet their normal
 rule (`>=`) and do not count as an active exception.
 
-The current sidecar is based on a fresh report generated on 2026-10-30 UTC with
+The current sidecar is based on a fresh report generated on 2026-10-31 UTC with
 `cargo-llvm-cov 0.8.6`, Rust 1.94.0, and LLVM 21.1.8, using
 `CARGO_INCREMENTAL=1 ./.infra/bin/coverage.sh`. The report was generated from
-the working tree based on HEAD `9d38e8fbe867ea4e57ea9bd62a864e24eceaaad0`;
+the working tree based on HEAD `8ea2d29fff44d06b3d1118dcac5225336929d228`,
+with the pre-existing local wire changes applied to run the full test suite;
 source SHA-256 values are recorded for the two files that still need overrides.
 All three measured files are present in the report, and their counters are:
 
 | File | Functions | Lines | Regions | Active minimums |
 | --- | ---: | ---: | ---: | --- |
-| `src/error/config_error.rs` | 100.00% (19/19) | 91.44% (203/222) | 88.26% (233/264) | none |
+| `src/error/config_error.rs` | 100.00% (20/20) | 91.10% (215/236) | 88.09% (244/277) | none |
 | `src/source/toml_config_source.rs` | 77.50% (31/40) | 92.53% (223/241) | 83.62% (383/458) | functions >= 77.50%; regions >= 83.62% |
 | `src/source/yaml_config_source.rs` | 84.09% (37/44) | 93.84% (259/276) | 88.74% (465/524) | functions >= 84.09% |
 
