@@ -650,11 +650,14 @@ fn test_ordinary_deserialize_accounts_array_values_and_missing_properties() {
 fn test_ordinary_deserialize_accepts_equivalent_serde_value_events() {
     let mut expected = Config::builder().description("Serde event coverage").build();
     expected
-        .set("numbers.first", -7_i32)
+        .set("numbers.first", i64::MIN)
         .expect("the first signed value should be set");
     expected
         .set("numbers.second", -9_i64)
         .expect("the second signed value should be set");
+    expected
+        .set("maximum", u64::MAX)
+        .expect("the maximum unsigned value should be set");
     expected
         .set("numbers.ratio", 1.5_f64)
         .expect("the floating-point value should be set");
@@ -699,6 +702,18 @@ fn test_ordinary_deserialize_rejects_unrepresentable_serde_value_events() {
             "JSON integer is outside the supported 64-bit range",
         ),
         (
+            WireEvent::I128(i128::from(i64::MIN) - 1),
+            "JSON integer is outside the supported 64-bit range",
+        ),
+        (
+            WireEvent::I128(i128::from(u64::MAX) + 1),
+            "JSON integer is outside the supported 64-bit range",
+        ),
+        (
+            WireEvent::U128(u128::from(u64::MAX) + 1),
+            "JSON integer is outside the supported 64-bit range",
+        ),
+        (
             WireEvent::F64(f64::NAN),
             "non-finite float is not representable as JSON",
         ),
@@ -716,6 +731,21 @@ fn test_ordinary_deserialize_rejects_unrepresentable_serde_value_events() {
             "unexpected event error: {error}",
         );
     }
+}
+
+#[test]
+fn test_json_decoder_round_trips_float_and_json_domain_values() {
+    let mut expected = Config::new();
+    expected.set("ratio", 1.5_f64).expect("the float should be set");
+    expected
+        .set(
+            "payload",
+            qubit_value::Value::Json(json!({"ratio": 1.25, "nested": [2.5, -3.75]})),
+        )
+        .expect("the JSON domain value should be set");
+    let input = expected.encode_json_vec().expect("the configuration should encode");
+    let restored = Config::decode_json_slice(&input).expect("the JSON decoder should preserve floating values");
+    assert_eq!(restored, expected);
 }
 
 #[test]

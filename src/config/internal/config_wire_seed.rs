@@ -236,8 +236,13 @@ impl<'de, 'transaction, 'budget> Visitor<'de> for AccountingUniqueJsonValueSeed<
     where
         E: DeError,
     {
-        let number =
-            Number::from_i128(value).ok_or_else(|| E::custom("JSON integer is outside the supported 64-bit range"))?;
+        let number = if let Ok(value) = i64::try_from(value) {
+            Number::from(value)
+        } else {
+            Number::from(
+                u64::try_from(value).map_err(|_| E::custom("JSON integer is outside the supported 64-bit range"))?,
+            )
+        };
         self.enter_number(number)
     }
 

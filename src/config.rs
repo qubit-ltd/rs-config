@@ -332,14 +332,16 @@ impl Config {
     /// # Errors
     ///
     /// Returns a shared budget error, a JSON error, or a configuration
-    /// invariant/limit error.
+    /// invariant/limit error. Business decoding uses a materialized JSON value;
+    /// its Serde errors have line and column zero rather than source
+    /// coordinates.
     pub fn decode_json_slice_with_limits(
         input: &[u8],
         limits: ConfigWireLimits,
     ) -> Result<Self, ConfigWireDecodeError> {
         let session = JsonDecodeSession::from_limits(limits.json_decode());
         let wire = JsonDecoder::new(session)
-            .decode_seed_utf8(JsonAdmittedConfigWireSeed::new(limits), input)
+            .decode_unique_seed_utf8(JsonAdmittedConfigWireSeed::new(limits), input)
             .map_err(map_decode_json_error)??;
         let config = Self::try_from(wire).map_err(ConfigWireDecodeError::InvalidConfig)?;
         Ok(config)
