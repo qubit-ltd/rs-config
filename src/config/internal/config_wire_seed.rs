@@ -245,9 +245,9 @@ impl<'de, 'transaction, 'budget> Visitor<'de> for AccountingUniqueJsonValueSeed<
     where
         E: DeError,
     {
-        let number =
-            Number::from_u128(value).ok_or_else(|| E::custom("JSON integer is outside the supported 64-bit range"))?;
-        self.enter_number(number)
+        let value =
+            u64::try_from(value).map_err(|_| E::custom("JSON integer is outside the supported 64-bit range"))?;
+        self.enter_number(Number::from(value))
     }
 
     fn visit_f64<E>(mut self, value: f64) -> Result<Self::Value, E>

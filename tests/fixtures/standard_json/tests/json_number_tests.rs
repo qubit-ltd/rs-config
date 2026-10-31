@@ -16,6 +16,20 @@ fn test_dependency_uses_standard_json_numbers() {
 }
 
 #[test]
+fn ordinary_wire_rejects_out_of_range_u128_events() {
+    use serde::Deserialize;
+    use serde::de::value::Error;
+    use serde::de::value::U128Deserializer;
+
+    for value in [u128::from(u64::MAX) + 1, u128::MAX] {
+        let error = <Config as Deserialize>::deserialize(U128Deserializer::<Error>::new(value)).unwrap_err();
+        assert!(error.to_string().contains("JSON integer is outside the supported 64-bit range"));
+    }
+    let error = <Config as Deserialize>::deserialize(U128Deserializer::<Error>::new(u128::from(u64::MAX))).unwrap_err();
+    assert!(!error.to_string().contains("outside the supported 64-bit range"));
+}
+
+#[test]
 fn test_standard_numbers_survive_both_wire_paths() {
     let mut config = Config::new();
     config.set("native", 1.25_f64).unwrap();
