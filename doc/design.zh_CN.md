@@ -77,6 +77,11 @@ V1 wire 表示。
 具体空集合的首项也不能回退。`PropertyHasNoValue` 仅用于配置 reader 的策略预检查，
 不再替代值错误而丢失上下文。
 
+`ConfigReader::ensure_known_keys` 是显式、可选的 schema 校验。声明的字段和开放 section
+名称相对于当前 reader；报告的未知路径会解析为根配置的点分路径。该方法不会改变其他读取
+入口的宽松行为，也不会检查值转换。`usize` 通过委托 `u128` 并执行受检的平台转换实现
+标量 `FromConfig`。它仅是读取目标；存储类型和 Wire V1 不变，也不增加集合转换。
+
 普通类型化读取各自使用独立的转换操作。一次结构化 Serde 物化会让所有字段、映射、
 序列、枚举变体和嵌套值共享一个 `ConversionSession`，因此操作限制会在整个结果内
 累计。
@@ -164,6 +169,12 @@ V1 拒绝任何显式 `read_options` 字段，包括 `null`；legacy 无版本�
 `Property` 前完成这些领域限额检查。受限 JSON 入口会先在 JSON profile 下物化唯一键 JSON 树，
 因此领域检查不会阻止上游树分配。若属性值同时无效且超过领域限额，会优先报告限额错误；
 限额满足时仍保留现有 Serde 属性错误。
+
+有界表示失败使用 `ConfigWireDecodeError::Representation { path, reason }`。路径是相对于
+wire 文档根的 JSON Pointer，因此 `/properties/server.port/value` 中的点属于单个 property
+名称；它与点分配置路径不同。预检会识别缺失/未知封装字段和封装字段类型错误，其他深层
+失败安全地归类为 `InvalidValue`，不包含输入值，也不声称保留原始源码坐标。业务错误的
+可观察分类从 `Json(Data)` 变为 `Representation`；语法、预算和领域限额错误仍分别处理。
 
 持久化序列化与 `ConfigSerdeExt` 读取业务结构体是不同能力。本次不增加业务结构体反向展平
 写入配置的 serializer，现有 Wire V1 表示保持不变。

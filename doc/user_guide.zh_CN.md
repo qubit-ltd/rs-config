@@ -221,6 +221,16 @@ fn main() -> Result<(), qubit_config::ConfigError> {
 
 `ConfigSection` 是严格相对的，可以继续嵌套：
 
+组件需要限定允许的名称、同时保留明确开放的子 section 时，可以显式调用
+`ensure_known_keys`。它只检查键名，不转换值，也不改变 reader 默认的宽松行为。
+section 中的声明相对于当前 reader：
+
+```rust
+reader.ensure_known_keys(&["port", "max_connections"], &["proxy"])?;
+```
+
+根 reader 也可使用相同 API。未知路径以根配置的点分路径报告。
+
 <!-- example: config_sections -->
 ```rust
 use qubit_config::Config;
@@ -535,6 +545,38 @@ token，因此普通 `Deserialize` 无法执行原始输入限制。依赖图统
 JSON 领域值应通过专用 JSON helper 解码。不可信 JSON 应使用
 `Config::decode_json_slice` 或其自定义限制版本。V1 拒绝显式 `read_options` 字段，
 包括 `null`；旧版无版本输入仍接受并忽略该字段。手工构造 V1 封装时应省略该字段。
+
+格式错误的 wire 表示会返回
+`ConfigWireDecodeError::Representation { path, reason }`。路径是相对于 wire 文档根的
+JSON Pointer，例如 `/properties/server.port/value`；`server.port` 中的点属于同一个
+property 名称。JSON Pointer 会把 `~` 编码为 `~0`，把 `/` 编码为 `~1`。这与类型化读取
+返回的 `server.port` 等点分配置路径不同。有界预检会识别缺少字段、封装字段类型错误和
+未知字段；其他深层解码失败统一使用安全的通用原因 `InvalidValue`。解码器不会包含无效
+输入值，也不会伪造源码行列坐标。此前归为 `Json(Data)` 的业务表示失败现在归为
+`Representation`；匹配旧分类的调用方应处理此变体。语法和预算错误仍保留原有分类。
+
+`usize` 支持标量类型化读取，也可用于可选值和默认值读取：
+
+```rust
+let maximum = reader.get_optional::<usize>("max_connections")?;
+let fallback = reader.get_or("max_connections", 1024_usize)?;
+```
+
+转换沿用现有 `u128` 策略，再检查当前目标平台的范围。零到 `usize::MAX` 均可接受；
+更大的值返回带已解析 key 的转换错误，集合首项还会保留来源索引。`usize` 不是存储或
+wire 整数类型，本次也不增加 `Vec<usize>` 转换。
+
+下游可用 `ensure_known_keys` 替换重复的未知键检查，用 `get_optional::<usize>` 替换
+重复的平台范围检查。例如：
+
+```rust
+reader.ensure_known_keys(&["port", "max_connections"], &["proxy"])?;
+let maximum = reader.get_optional::<usize>("max_connections")?;
+let fallback = reader.get_or("max_connections", 1024_usize)?;
+```
+
+`rs-websocket` 当前依赖 `qubit-config` 0.14，使用这些 API 前必须先升级到包含新 API
+的版本。本节是迁移示例，不表示本轮修改了下游仓库。
 
 V1 和旧版持久化都不保存运行时默认 `ReadPolicy`。带限制的 JSON 解码和普通 Serde
 反序列化都会恢复为 `ReadPolicy::default()`。`Config` 相等性只比较持久化数据，因此

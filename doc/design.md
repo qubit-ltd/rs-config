@@ -93,6 +93,14 @@ fallback and candidate-key search. A concrete empty collection has no defaultabl
 first item. `PropertyHasNoValue` remains only for configuration reader policy
 prechecks, not as a lossy replacement for value errors.
 
+`ConfigReader::ensure_known_keys` is an explicit, opt-in schema check. Declared
+field and open-section names are relative to the reader; reported unknown paths
+are resolved to root-relative dotted configuration paths. It does not change
+the permissive behavior of other reads or inspect value conversions. `usize`
+implements scalar `FromConfig` by delegating to `u128` and applying a checked
+platform conversion. It is a read target only; storage types and Wire V1 do not
+change, and collection conversion is not added.
+
 Each ordinary typed read has its own conversion operation. One structured Serde
 materialization instead shares one `ConversionSession` across all fields, maps,
 sequences, enum variants, and nested values, so its operation limits accumulate
@@ -207,6 +215,17 @@ materializes a unique-key JSON tree under its JSON profile, so these domain
 checks do not prevent that upstream tree from being allocated. When a property
 also has an invalid value, an exceeded domain limit is reported first; with
 limits satisfied, the existing Serde property error is preserved.
+
+Bounded representation failures use
+`ConfigWireDecodeError::Representation { path, reason }`. Paths are JSON
+Pointers relative to the wire document, so `/properties/server.port/value`
+contains a single property name with a dot; this is distinct from dotted
+configuration paths. Missing and unknown envelope fields and invalid envelope
+types are identified by precheck. Other nested failures are safely classified
+as `InvalidValue`, without embedding input values or claiming original source
+coordinates. This changes the observable business-error category from
+`Json(Data)` to `Representation`; syntax, budget, and domain errors retain their
+separate handling.
 
 This persistence serialization is distinct from reading a business struct with
 `ConfigSerdeExt`. No inverse business-struct flattening serializer is introduced,

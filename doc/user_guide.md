@@ -223,6 +223,18 @@ fn main() -> Result<(), qubit_config::ConfigError> {
 
 `ConfigSection` is strictly relative and can be nested:
 
+Call `ensure_known_keys` when a component owns a closed set of names plus
+explicitly open subsections. It checks names only; it does not convert values
+or change the reader's default permissive behavior. Section declarations are
+relative to that reader:
+
+```rust
+reader.ensure_known_keys(&["port", "max_connections"], &["proxy"])?;
+```
+
+The same API can validate the root reader. Unknown paths are reported as
+root-relative dotted configuration paths.
+
 <!-- example: config_sections -->
 ```rust
 use qubit_config::Config;
@@ -579,6 +591,48 @@ custom-limits variant for untrusted JSON. This wire budget is separate from
 `SourceLimits`, which applies while ingesting text sources. V1 rejects an
 explicit `read_options` field, including `null`; legacy unversioned input still
 accepts and ignores it. Manually constructed V1 envelopes must omit it.
+
+Malformed wire representations return
+`ConfigWireDecodeError::Representation { path, reason }`. The path is a JSON
+Pointer relative to the wire document, such as `/properties/server.port/value`;
+the dot in `server.port` is part of one property name. JSON Pointer escapes
+`~` as `~0` and `/` as `~1`. This differs from dotted configuration paths such
+as `server.port` returned by typed reads. The bounded precheck identifies
+missing fields, invalid envelope types, and unknown fields. Other nested decode
+failures use the safe, general `InvalidValue` reason. The decoder does not
+include invalid input values or invent source line and column coordinates.
+Business representation failures that previously surfaced as
+`Json(Data)` are now classified as `Representation`; callers matching the
+former category should handle this variant. Syntax and budget failures retain
+their existing categories.
+
+`usize` is supported by typed scalar reads, including optional and defaulted
+reads:
+
+```rust
+let maximum = reader.get_optional::<usize>("max_connections")?;
+let fallback = reader.get_or("max_connections", 1024_usize)?;
+```
+
+Conversion delegates to the existing `u128` policy and then checks the current
+target platform's range. Values from zero through `usize::MAX` are accepted;
+a larger value returns a conversion error with the resolved key and, for a
+collection's first item, its source index. `usize` is not a stored or wire
+integer type, and this addition does not define `Vec<usize>` conversion.
+
+Downstream code can replace duplicated unknown-key checks with
+`ensure_known_keys` and duplicated platform checks with `get_optional::<usize>`.
+For example:
+
+```rust
+reader.ensure_known_keys(&["port", "max_connections"], &["proxy"])?;
+let maximum = reader.get_optional::<usize>("max_connections")?;
+let fallback = reader.get_or("max_connections", 1024_usize)?;
+```
+
+`rs-websocket` currently depends on `qubit-config` 0.14 and must first upgrade
+that dependency to a release containing these APIs. This guide describes a
+migration pattern; it does not imply that downstream repositories are changed.
 
 Neither V1 nor legacy persistence stores the runtime default `ReadPolicy`.
 Both bounded JSON decoding and ordinary Serde deserialization restore

@@ -200,6 +200,8 @@ qubit-datatype = { version = "0.15", default-features = false, features = ["conv
 - 通过 `ReadPolicy` 明确控制转换规则；`read_with` 可以临时使用借用的 policy。
 - 插值通过普通读取的 `*_interpolated` 方法或结构化读取选项显式开启；回退到环境变量必须显式配置 `InterpolationSources::ConfigThenEnv`。
 - `ConfigError::kind()`、`path()`、`source_id()` 和 `candidate_paths()` 提供稳定的诊断上下文，无需穷举错误变体。
+- `ConfigReader::ensure_known_keys` 可显式校验应用 schema；`usize` 可作为类型化读取目标，并会检查当前平台的整数范围。
+- 有界 wire 解码使用安全的 JSON Pointer 路径，与点分配置路径含义不同。
 
 ## 提供什么，以及不提供什么
 
@@ -214,6 +216,8 @@ qubit-datatype = { version = "0.15", default-features = false, features = ["conv
 property 数量和 property key 限制；通用 Serde deserializer 无法看到原始字节或
 JSON 词法 token，因此不可信 JSON 还必须通过 `Config::decode_json_slice` 执行
 原始输入准入。
+已知键校验仍须显式调用，`usize` 是读取目标而非存储类型。Wire 表示失败使用 `ConfigWireDecodeError::Representation`；未被有界预检识别的深层失败归类为 `InvalidValue`。
+此前归为 `Json(Data)` 的业务表示失败现在归为 `Representation`；语法和预算错误仍保留原有分类。
 
 所有内置 source 都通过 `SourceLoadContext` 和 crate-owned executor 加载。自定义
 `ConfigSource` 必须通过 context（例如 `context.set(...)`）写入输出，并在执行外部

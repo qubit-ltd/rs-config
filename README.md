@@ -207,6 +207,8 @@ Configuration often arrives as strings, but application code needs typed values,
 - Conversion rules are explicit through `ReadPolicy`; `read_with` applies a temporary borrowed policy.
 - Interpolation is opt-in through ordinary `*_interpolated` reads or structured-read options. Environment fallback requires `InterpolationSources::ConfigThenEnv` explicitly.
 - `ConfigError::kind()`, `path()`, `source_id()`, and `candidate_paths()` expose stable diagnostic context without requiring exhaustive matching on error variants.
+- `ConfigReader::ensure_known_keys` provides opt-in schema validation, and `usize` is a checked typed-read target with platform-range errors.
+- Bounded wire decoding reports safe JSON Pointer paths, distinct from dotted configuration paths.
 
 ## What It Provides—and What It Does Not
 
@@ -223,6 +225,9 @@ Ordinary `Deserialize` for `Config` applies the default decoded structure,
 payload, property-count, and property-key limits. Because a general Serde
 deserializer does not expose original bytes or lexical JSON tokens, untrusted
 JSON must use `Config::decode_json_slice` for raw-input admission as well.
+Known-key validation remains explicit, and `usize` is a read target rather than a stored value type. Wire representation failures use `ConfigWireDecodeError::Representation`; unclassified nested failures use `InvalidValue`.
+Business representation failures previously reported as `Json(Data)` now use
+`Representation`, while syntax and budget failures keep their categories.
 
 Built-in sources load through `SourceLoadContext` and the crate-owned executor.
 Custom `ConfigSource` implementations must write through the context (for
