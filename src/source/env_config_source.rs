@@ -11,15 +11,18 @@
 //!
 //! # Key Transformation
 //!
-//! When a prefix is set, only variables matching the prefix are loaded, and
-//! the prefix is stripped from the key name. The key is then lowercased and
-//! double underscores are converted to dots to produce the config key.
+//! [`EnvConfigSource::new()`] uses the default options and loads names
+//! unchanged. [`EnvConfigSource::from_prefix("APP_")`] filters matching
+//! variables, strips the prefix, lowercases names, and replaces double
+//! underscores with dots. For example, `APP_SERVER__PORT` becomes `server.port`
+//! through that constructor.
 //!
-//! For example, with prefix `APP_`:
-//! - `APP_SERVER__HOST=localhost` → `server.host = "localhost"`
-//! - `APP_SERVER__PORT=8080` → `server.port = "8080"`
-//!
-//! Without a prefix, all environment variables are loaded as-is.
+//! Explicit options keep filtering and transformation independent. With
+//! `EnvConfigOptions::builder().prefix("APP_").build()`, a matching name such
+//! as `APP_SERVER__PORT` remains `APP_SERVER__PORT`. Enable `strip_prefix()`,
+//! `lowercase_keys()`, and `double_underscores_to_dots()` to select
+//! transformations. Lowercasing and double-underscore conversion can also be
+//! enabled without a prefix filter.
 //!
 //! When key transformations make distinct environment names collapse to one
 //! configuration key, loading fails with [`ConfigError::KeyConflict`] instead

@@ -265,27 +265,33 @@ are independent of `SourceLimits` and read conversion limits.
 `ConfigWireLimitsBuilder::max_input_bytes` changes only the input-byte dimension
 and preserves the other decode limits; `json_decode` replaces the whole profile.
 
-### TOML/YAML parser resource measurements
+### TOML/YAML parser resource limits
 
-The manual resource probe exercised TOML and YAML wide arrays at approximately
-1 KiB, 64 KiB, and 1 MiB, plus valid nested mappings at depths 8, 32, 64, and
-128. Each format/shape/size/limit group ran five isolated load and five
-generate-only processes on the documented Linux x86_64 environment. For a
-1 MiB wide input, low limits (`max_nodes=16`, `max_nesting_depth=8`) still
-reached about 88 MiB RSS for TOML and 110 MiB for YAML before node-budget
-rejection. Generate-only runs were about 12 MiB; those whole-process values
-include input generation and do not measure AST allocation exactly. Both
-parsers returned Parse errors at depth 128 before `SourceLimits` could report a
-depth rejection. The complete five-run measurements and commands are recorded
-in the dated implementation design appendix.
+The complete historical measurement materials are not currently accessible
+from the project documentation, so historical measurements are not treated as
+a reproducible baseline. Source inspection confirms that TOML and YAML build
+third-party ASTs before flattening; node and depth checks therefore constrain
+accepted configuration output, not parser allocation or recursion. These
+limits do not establish an OOM threshold or prove the default byte limit safe.
 
-The crate retains both parsers in this change. The measurements show that
-post-parse node/depth limits do not constrain parser tree construction for the
-tested inputs, but they do not establish an OOM threshold or prove the default
-byte limit safe. Any parser-stage protection requires a separate design that
-proves YAML pre-count equivalence with flattening, preserves ancestor budgets,
-avoids duplicate charging, and identifies a TOML parser/API that can reject
-before materializing the full tree. No such protection is implemented here.
+The [resource probe](../examples/config_source_resource_probe.rs) provides an
+optional manual entry point. For `wide`, `SIZE` is the number of array elements;
+use the reported `input_bytes` for the generated input size. A `load` run may
+exit nonzero when a resource limit rejects the input, while `generate-only`
+only generates it and does not load the configuration:
+
+```bash
+cargo run --locked --example config_source_resource_probe --features formats -- toml wide 524288 16 8 load
+cargo run --locked --example config_source_resource_probe --features formats -- yaml wide 524288 16 8 generate-only
+```
+
+These commands expose the probe, but do not reproduce historical RSS results.
+Any future published measurements should record the toolchain, dependencies,
+build mode, machine environment, exact commands, raw output, and sample count.
+Any parser-stage protection requires a separate design that proves YAML
+pre-count equivalence with flattening, preserves ancestor budgets, avoids
+duplicate charging, and identifies a TOML parser/API that can reject before
+materializing the full tree. No such protection is implemented here.
 
 ## Feature Boundaries
 

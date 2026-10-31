@@ -200,19 +200,24 @@ crate 为不同操作使用相互独立的资源域，而不是共享一个计�
 `ConfigWireLimitsBuilder::max_input_bytes` 只修改输入字节维度并保留其他解码限制；
 `json_decode` 用于整体替换解码 profile。
 
-### TOML/YAML 解析器资源测量
+### TOML/YAML 解析器资源限制
 
-人工探针对 TOML 和 YAML 的宽数组测量了约 1 KiB、64 KiB、1 MiB 输入，并对合法嵌套映射测量了
-深度 8、32、64、128。每个格式/形态/规模/限额组合都在文档记录的 Linux x86_64 环境中以独立进程
-运行 5 次 load 和 5 次 generate-only。1 MiB 宽输入在低限额（`max_nodes=16`、`max_nesting_depth=8`）下，
-仍分别达到约 88 MiB（TOML）和 110 MiB（YAML）RSS，随后才因节点预算被拒绝；generate-only 约 12 MiB。
-这些整进程数据包含输入生成，不能当作 AST 分配量。深度 128 时两种 parser 都先返回 Parse 错误，
-`SourceLimits` 尚未报告深度超限。完整五次数据和命令记录在带日期的实施设计附录中。
+完整的历史测量材料目前无法从项目文档访问，因此历史数字不作为可复现基线。源码可确认，TOML
+和 YAML 会先构建第三方 AST，再进行展平；节点和深度检查约束的是可接受的配置输出，不能限制
+解析器自身的内存分配或递归。这些限制不能证明 OOM 阈值，也不能证明默认字节限额安全。
 
-本次保留两个 parser。测量说明对已测输入而言，解析后的节点/深度限额不能约束 parser 构树过程，
-但不能据此推出 OOM 阈值或默认字节限制安全。任何解析前保护都需要单独设计：证明 YAML 预计数与
-flatten 语义等价、保留祖先预算且避免重复扣费，并确认 TOML parser/API 能在完整构树前拒绝；本次没有
-实现这类保护。
+[资源探针](../examples/config_source_resource_probe.rs)提供了可选的手动入口。对于 `wide`，`SIZE`
+表示数组元素数；生成输入的实际字节数以输出的 `input_bytes` 为准。`load` 可能因资源限额拒绝输入
+而以非零状态退出，`generate-only` 只生成输入，不加载配置：
+
+```bash
+cargo run --locked --example config_source_resource_probe --features formats -- toml wide 524288 16 8 load
+cargo run --locked --example config_source_resource_probe --features formats -- yaml wide 524288 16 8 generate-only
+```
+
+这些命令提供探针入口，不复现历史 RSS 结果。未来发布新测量数据时，应记录工具链、依赖、构建模式、
+机器环境、实际命令、原始输出和样本数。任何解析前保护都需要单独设计：证明 YAML 预计数与 flatten
+语义等价、保留祖先预算且避免重复扣费，并确认 TOML parser/API 能在完整构树前拒绝；本次没有实现这类保护。
 
 ## Feature 边界
 
