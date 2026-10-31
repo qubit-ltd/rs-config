@@ -54,6 +54,15 @@ use crate::utils;
 
 /// Configuration source that loads from YAML format files
 ///
+/// # Resource Limits
+///
+/// Input bytes are admitted before parsing. The parser materializes a complete
+/// syntax tree before node, assignment, and nesting-depth limits are checked
+/// during flattening. These structural limits bound accepted configuration
+/// output; they do not bound parser allocation or recursion.
+///
+/// See the [source-limit guide](https://github.com/qubit-ltd/rs-config/blob/main/doc/user_guide.md#configure-source-limits).
+///
 /// # Examples
 ///
 /// ```rust
@@ -160,8 +169,11 @@ impl YamlConfigSourceBuilder {
         self
     }
 
-    /// Replaces the resource limits enforced while reading, parsing, and
-    /// flattening the source.
+    /// Replaces the limits used for input admission and flattening.
+    ///
+    /// Input bytes are admitted before parsing. Node, assignment, and depth limits
+    /// are checked while flattening the already materialized syntax tree; they do
+    /// not protect parser allocation or recursion.
     pub const fn limits(mut self, limits: SourceLimits) -> Self {
         self.limits = limits;
         self

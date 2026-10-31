@@ -30,6 +30,13 @@ pub const DEFAULT_MAX_SOURCE_DEPTH: usize = 64;
 /// point limit checked independently for each observed path. These limits do
 /// not synchronize access or manage resource lifetimes.
 ///
+/// Enforcement stages depend on the source adapter. TOML and YAML admit input
+/// bytes before parsing, then check node, assignment, and depth limits while
+/// flattening a complete syntax tree. Those structural limits do not bound
+/// parser allocation or recursion.
+///
+/// See the [source-limit guide](https://github.com/qubit-ltd/rs-config/blob/main/doc/user_guide.md#configure-source-limits).
+///
 /// Limits can be customized per source or for an entire composite. A zero
 /// threshold rejects any positive consumption of that resource.
 ///
