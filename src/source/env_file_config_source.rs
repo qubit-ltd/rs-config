@@ -22,6 +22,7 @@ use std::path::Path;
 use super::ConfigSource;
 use super::SourceLimits;
 use super::SourceLoadContext;
+use super::internal::dotenv_line_state::DotenvLineState;
 use super::source_input::SourceInput;
 use crate::Config;
 use crate::ConfigError;
@@ -89,12 +90,59 @@ fn map_dotenv_error(label: &str, error: dotenvy::Error) -> ConfigError {
     }
 }
 
+/// Protects substitutions independently within each dotenv logical line.
+///
+/// Dotenv uses one scanner to find logical-line boundaries and another to
+/// parse value escapes. A backslash inside a single-quoted value escapes a
+/// quote for boundary detection, while the value parser keeps its existing
+/// literal backslash behavior. Resetting value state only at logical-line
+/// boundaries prevents comment text from carrying quote state into the next
+/// assignment.
+fn escape_dotenv_substitutions(content: &str) -> String {
+    let mut escaped_content = String::with_capacity(content.len());
+    let mut state = DotenvLineState::Complete;
+    let mut logical_line_start = 0;
+    let mut physical_line_start = 0;
+
+    for (index, character) in content.char_indices() {
+        if index == physical_line_start
+            && state == DotenvLineState::Complete
+            && is_dotenv_full_comment_line(content, index)
+        {
+            state = DotenvLineState::Comment;
+        }
+
+        state.advance(character);
+        let end = index + character.len_utf8();
+        if character == '\n' && state == DotenvLineState::Complete {
+            escaped_content.push_str(&escape_dotenv_substitutions_in_line(&content[logical_line_start..end]));
+            logical_line_start = end;
+            state = DotenvLineState::Complete;
+        }
+        if character == '\n' {
+            physical_line_start = end;
+        }
+    }
+
+    escaped_content.push_str(&escape_dotenv_substitutions_in_line(&content[logical_line_start..]));
+    escaped_content
+}
+
+/// Returns whether the physical line beginning at `start` is a dotenv comment.
+fn is_dotenv_full_comment_line(content: &str, start: usize) -> bool {
+    let line_end = content[start..]
+        .find('\n')
+        .map_or(content.len(), |offset| start + offset);
+    content[start..line_end].trim_start().starts_with('#')
+}
+
 /// Escapes dotenv substitution markers while preserving quote and escape rules.
 ///
-/// `dotenvy` always expands `$NAME` and `${NAME}` from the process environment.
-/// Prefixing unquoted and double-quoted markers with a dotenv escape keeps the
-/// parser's format handling while making the source boundary explicit.
-fn escape_dotenv_substitutions(content: &str) -> String {
+/// Strong-quoted backslashes remain ordinary value characters here. The
+/// separate logical-line scanner handles escaped quotes for boundary
+/// detection; this value state resets only after that scanner finds a line
+/// boundary.
+fn escape_dotenv_substitutions_in_line(content: &str) -> String {
     let mut escaped_content = String::with_capacity(content.len());
     let mut strong_quote = false;
     let mut weak_quote = false;

@@ -29,6 +29,30 @@ fn test_env_file_comment_does_not_change_substitution_state() {
     if std::env::var_os(CHILD_MODE).is_some() {
         let placeholder = format!("${{{SENTINEL}}}");
         let short_placeholder = format!("${SENTINEL}");
+        let isolated_input = format!("A=#'\\''\nVALUE={placeholder}\n");
+        let isolated_config = EnvFileConfigSource::from_content(isolated_input.clone())
+            .load()
+            .expect("comment and quote input should load");
+        assert_eq!(isolated_config.get::<String>("VALUE").unwrap(), placeholder);
+        assert_eq!(isolated_config.get::<String>("A").unwrap(), "");
+
+        let temp_dir = tempfile::tempdir().expect("temporary directory should be created");
+        let path = temp_dir.path().join("comment-quote-isolation.env");
+        std::fs::write(&path, &isolated_input).expect("temporary dotenv file should be written");
+        let isolated_file_config = EnvFileConfigSource::from_file(&path)
+            .load()
+            .expect("comment and quote file should load");
+        assert_eq!(isolated_file_config.get::<String>("VALUE").unwrap(), placeholder);
+        assert_eq!(isolated_file_config.get::<String>("A").unwrap(), "");
+
+        let crlf_input = format!("A=#'\\''\r\nVALUE={placeholder}\r\n");
+        std::fs::write(&path, &crlf_input).expect("CRLF dotenv file should be written");
+        let crlf_file_config = EnvFileConfigSource::from_file(&path)
+            .load()
+            .expect("CRLF comment and quote file should load");
+        assert_eq!(crlf_file_config.get::<String>("VALUE").unwrap(), placeholder);
+        assert_eq!(crlf_file_config.get::<String>("A").unwrap(), "");
+
         let minimal_comment_separator_input = format!("A=\r#'\n='\nVALUE={placeholder}\n");
         let minimal_comment_separator_config =
             EnvFileConfigSource::from_content(minimal_comment_separator_input.clone())
@@ -50,6 +74,21 @@ fn test_env_file_comment_does_not_change_substitution_state() {
             placeholder
         );
         let cases = [
+            (format!("A=#'\\''\nVALUE={placeholder}\n"), placeholder.clone()),
+            (
+                format!("A=#'\\''\nVALUE={short_placeholder}\n"),
+                short_placeholder.clone(),
+            ),
+            (format!("A=#'\\''\r\nVALUE={placeholder}\r\n"), placeholder.clone()),
+            (
+                format!("VALUE='first line\n{placeholder}'\n"),
+                format!("first line\n{placeholder}"),
+            ),
+            ("VALUE='left\\right'\n".to_owned(), "left\\right".to_owned()),
+            (
+                format!("VALUE=prefix # ' \" dangling {placeholder}\n"),
+                "prefix".to_owned(),
+            ),
             (
                 format!("# don't expand {placeholder}\nVALUE={placeholder}\n"),
                 placeholder.clone(),
@@ -100,6 +139,27 @@ fn test_env_file_comment_does_not_change_substitution_state() {
                 "unexpected value for input {input:?}"
             );
         }
+
+        let multiline_then_placeholder =
+            format!("VALUE='first line\nsecond line'\nNEXT={placeholder}\nSHORT={short_placeholder}\n");
+        let config = EnvFileConfigSource::from_content(multiline_then_placeholder)
+            .load()
+            .expect("assignment following a multiline value should load");
+        assert_eq!(config.get::<String>("NEXT").unwrap(), placeholder);
+        assert_eq!(config.get::<String>("SHORT").unwrap(), short_placeholder);
+
+        let comment_with_unmatched_quote = format!("VALUE=prefix # ' \" dangling {placeholder}\nNEXT={placeholder}\n");
+        let config = EnvFileConfigSource::from_content(comment_with_unmatched_quote)
+            .load()
+            .expect("assignment following a quoted comment should load");
+        assert_eq!(config.get::<String>("NEXT").unwrap(), placeholder);
+
+        let comment_with_paired_quotes =
+            format!("VALUE=prefix # 'paired' \"paired\" {placeholder}\nNEXT={short_placeholder}\n");
+        let config = EnvFileConfigSource::from_content(comment_with_paired_quotes)
+            .load()
+            .expect("assignment following a paired-quote comment should load");
+        assert_eq!(config.get::<String>("NEXT").unwrap(), short_placeholder);
 
         let invalid_input = format!("VALUE=\"unterminated {placeholder}\n");
         let error = EnvFileConfigSource::from_content(invalid_input)
