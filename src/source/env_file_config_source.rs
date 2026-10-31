@@ -54,9 +54,14 @@ pub struct EnvFileConfigSource {
 
 /// Maps a dotenv parser error without exposing the offending assignment.
 ///
+/// The position returned for a line parse error is parser-local. Since input
+/// may be pre-escaped before parsing, it does not identify a position in the
+/// original file; its unit is not guaranteed to be a file column or byte
+/// offset.
+///
 /// # Parameters
 ///
-/// * `path` - Path of the dotenv file being loaded.
+/// * `label` - Label of the dotenv source being loaded.
 /// * `error` - Parser or I/O error returned by dotenvy.
 ///
 /// # Returns
@@ -68,12 +73,10 @@ fn map_dotenv_error(label: &str, error: dotenvy::Error) -> ConfigError {
             label,
             std::io::Error::new(source.kind(), format!("Failed to read .env source '{label}': {source}")),
         ),
-        dotenvy::Error::LineParse(_line, error_index) => ConfigError::source_parse_error(
+        dotenvy::Error::LineParse(_line, parser_offset) => ConfigError::source_parse_error(
             label,
             format!(
-                "Failed to parse .env file '{}' at line index \
-                    {error_index}: invalid assignment: <redacted>",
-                label,
+                "Failed to parse .env file '{label}' at parser-local offset {parser_offset} (not a file line or column): invalid assignment: <redacted>",
             ),
         ),
         _error => ConfigError::source_parse_error(

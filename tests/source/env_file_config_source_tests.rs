@@ -141,6 +141,27 @@ fn env_file_builder_default_loads_configured_content() {
     assert_eq!(source.load().unwrap().get::<String>("COVERED").unwrap(), "value");
 }
 
+#[test]
+fn test_env_file_parse_error_reports_parser_local_offset() {
+    const SECRET: &str = "RS_CONFIG_DOTENV_OFFSET_SECRET";
+    for prefix in ["", "VALID=1\n# preceding comment\n"] {
+        let content = format!("{prefix}PASSWORD=\"{SECRET}\n");
+        let source = EnvFileConfigSource::from_content(content);
+        let expected_source = source.source_id();
+        let error = source.load().expect_err("unterminated value must fail");
+        assert!(matches!(&error, ConfigError::SourceParseError { .. }));
+        assert_eq!(error.source_id(), Some(expected_source.as_str()));
+        let display = error.to_string();
+        let debug = format!("{error:?}");
+        assert!(display.contains("parser-local offset"));
+        assert!(display.contains("not a file line or column"));
+        assert!(!display.contains("line index"));
+        assert!(display.contains("<redacted>"));
+        assert!(!display.contains(SECRET));
+        assert!(!debug.contains(SECRET));
+    }
+}
+
 // ============================================================================
 // EnvFileConfigSource Tests
 // ============================================================================
