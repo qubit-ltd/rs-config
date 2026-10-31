@@ -19,6 +19,8 @@ use qubit_json::decode::JsonSyntaxError;
 use serde_json::error::Category;
 use thiserror::Error;
 
+use crate::ConfigWireRepresentationErrorKind;
+
 /// Resource categories specific to configuration wire envelopes.
 ///
 /// # Examples
@@ -432,6 +434,14 @@ pub enum ConfigWireDecodeError {
         line: usize,
         /// One-based column reported by Serde, or zero when unavailable.
         column: usize,
+    },
+    /// The admitted JSON document does not match the persisted wire shape.
+    #[error("invalid configuration wire representation at '{path}': {reason:?}")]
+    Representation {
+        /// JSON Pointer to the invalid wire location.
+        path: String,
+        /// Safe classification of the representation failure.
+        reason: ConfigWireRepresentationErrorKind,
     },
     /// A future JSON adapter failure that has no dedicated configuration
     /// error variant yet.

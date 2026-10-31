@@ -20,6 +20,7 @@ use qubit_config::ConfigWireDecodeError;
 use qubit_config::ConfigWireEncodeError;
 use qubit_config::ConfigWireLimitKind;
 use qubit_config::ConfigWireLimits;
+use qubit_config::ConfigWireRepresentationErrorKind;
 use qubit_config::options::ReadPolicy;
 use qubit_json::decode::JsonSyntaxErrorReason;
 use qubit_value::MultiValues;
@@ -35,7 +36,6 @@ use serde::de::value::MapDeserializer;
 use serde::de::value::SeqDeserializer;
 use serde::forward_to_deserialize_any;
 use serde_json::Value;
-use serde_json::error::Category;
 use serde_json::from_slice;
 use serde_json::from_str;
 use serde_json::from_value;
@@ -608,7 +608,10 @@ fn test_domain_limits_allow_invalid_property_decode_when_within_bounds() {
 
     assert!(matches!(
         Config::decode_json_slice(input),
-        Err(ConfigWireDecodeError::Json { .. })
+        Err(ConfigWireDecodeError::Representation {
+            ref path,
+            reason: ConfigWireRepresentationErrorKind::InvalidType,
+        }) if path == "/properties/x"
     ));
 }
 
@@ -950,20 +953,109 @@ fn test_config_wire_bounded_decode_preflights_json_syntax() {
     );
 }
 
-/// Verifies typed JSON decoding exposes only safe Serde error metadata.
+/// Verifies bounded decoding classifies an invalid envelope type at its path.
 #[test]
-fn test_config_wire_bounded_decode_preserves_json_error_metadata() {
+fn test_config_wire_reports_invalid_version_type_without_value() {
     let error = Config::decode_json_slice(br#"{"version":true,"properties":{}}"#)
         .expect_err("an invalid wire version type must be rejected");
 
     assert!(matches!(
         error,
-        ConfigWireDecodeError::Json {
-            category: Category::Data,
-            line: 1,
-            column: 15,
-        }
+        ConfigWireDecodeError::Representation {
+            ref path,
+            reason: ConfigWireRepresentationErrorKind::InvalidType,
+        } if path == "/version"
     ));
+}
+
+#[test]
+fn test_ordinary_deserialize_reports_safe_wire_path() {
+    let error = from_value::<Config>(json!({"version": true, "properties": {}}))
+        .expect_err("ordinary deserialization must retain the safe wire path");
+
+    assert!(error.to_string().contains("/version"));
+    assert!(!error.to_string().contains("true"));
+}
+
+#[test]
+fn test_config_wire_reports_missing_property_value() {
+    let error = Config::decode_json_slice(
+        br#"{"version":1,"properties":{"service.port":{"name":"service.port","is_final":false}}}"#,
+    )
+    .expect_err("a missing property value must be rejected");
+
+    assert!(matches!(
+        error,
+        ConfigWireDecodeError::Representation {
+            ref path,
+            reason: ConfigWireRepresentationErrorKind::MissingField,
+        } if path == "/properties/service.port/value"
+    ));
+}
+
+#[test]
+fn test_config_wire_reports_invalid_property_metadata_type() {
+    let error = Config::decode_json_slice(
+        br#"{"version":1,"properties":{"service.port":{"name":"service.port","value":{},"is_final":"false"}}}"#,
+    )
+    .expect_err("a property metadata type mismatch must be rejected");
+
+    assert!(matches!(
+        error,
+        ConfigWireDecodeError::Representation {
+            ref path,
+            reason: ConfigWireRepresentationErrorKind::InvalidType,
+        } if path == "/properties/service.port/is_final"
+    ));
+}
+
+#[test]
+fn test_config_wire_reports_unknown_property_metadata_field() {
+    let error = Config::decode_json_slice(
+        br#"{"version":1,"properties":{"service.port":{"name":"service.port","value":{},"is_final":false,"future":1}}}"#,
+    )
+    .expect_err("an unknown property field must be rejected");
+
+    assert!(matches!(
+        error,
+        ConfigWireDecodeError::Representation {
+            ref path,
+            reason: ConfigWireRepresentationErrorKind::UnknownField,
+        } if path == "/properties/service.port"
+    ));
+}
+
+#[test]
+fn test_config_wire_pointer_escapes_property_key_segments() {
+    let error = Config::decode_json_slice(br#"{"version":1,"properties":{"a~/b":{"name":"a~/b","is_final":false}}}"#)
+        .expect_err("a missing field under an escaped property key must be rejected");
+
+    assert!(matches!(
+        error,
+        ConfigWireDecodeError::Representation {
+            ref path,
+            reason: ConfigWireRepresentationErrorKind::MissingField,
+        } if path == "/properties/a~0~1b/value"
+    ));
+}
+
+#[test]
+fn test_config_wire_redacts_nested_invalid_value_from_error_chain() {
+    let secret = "wire-secret-marker-7fc3";
+    let input = format!(
+        r#"{{"version":1,"properties":{{"secret.key":{{"name":"secret.key","value":{{"{secret}":"{secret}"}},"is_final":false}}}}}}"#
+    );
+    let error = Config::decode_json_slice(input.as_bytes())
+        .expect_err("an invalid nested value representation must be rejected");
+
+    assert!(!error.to_string().contains(secret));
+    assert!(!format!("{error:?}").contains(secret));
+    let mut source = std::error::Error::source(&error);
+    while let Some(cause) = source {
+        assert!(!cause.to_string().contains(secret));
+        assert!(!format!("{cause:?}").contains(secret));
+        source = cause.source();
+    }
 }
 
 /// Verifies configuration invariants are reported after runtime decoding.

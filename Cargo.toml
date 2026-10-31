@@ -59,6 +59,7 @@ qubit-json = { path = "../rs-json", version = "0.12" }
 
 qubit-utils = "^0.3"
 serde = { version = "^1.0", features = ["derive"] }
+serde_path_to_error = "0.1"
 serde_json = "^1.0"
 thiserror = "^2.0"
 chrono = { version = "^0.4", features = ["serde"], optional = true }

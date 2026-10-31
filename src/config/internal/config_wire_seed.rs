@@ -24,9 +24,9 @@ use serde::de::Visitor;
 use serde_json::Map;
 use serde_json::Number;
 use serde_json::Value;
-use serde_json::from_value;
 
 use super::ConfigWire;
+use super::decode_fields;
 use crate::ConfigWireDecodeError;
 use crate::ConfigWireLimitKind;
 use crate::ConfigWireLimits;
@@ -106,7 +106,10 @@ impl AccountingConfigWireSeed {
         if let Err(error) = self.check_value(&value) {
             return Ok(Err(error));
         }
-        let fields = from_value(value).map_err(E::custom)?;
+        let fields = match decode_fields(value) {
+            Ok(fields) => fields,
+            Err(error) => return Ok(Err(error)),
+        };
         Ok(ConfigWire::from_fields(fields).map_err(ConfigWireDecodeError::InvalidConfig))
     }
 }

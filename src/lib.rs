@@ -63,6 +63,7 @@ mod config_section;
 mod config_serde_ext;
 mod config_wire_encode_error;
 mod config_wire_limits;
+mod config_wire_representation_error_kind;
 /// Default limits used by configuration reads and interpolation.
 mod constants;
 pub mod conversion;
@@ -104,6 +105,7 @@ pub use config_wire_limits::ConfigWireDecodeError;
 pub use config_wire_limits::ConfigWireLimitKind;
 pub use config_wire_limits::ConfigWireLimits;
 pub use config_wire_limits::ConfigWireLimitsBuilder;
+pub use config_wire_representation_error_kind::ConfigWireRepresentationErrorKind;
 pub use error::ConfigError;
 pub use error::ConfigResult;
 pub use property::Property;
