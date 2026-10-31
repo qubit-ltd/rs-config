@@ -94,7 +94,12 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// A section borrowing this configuration.
+    /// A section borrowing this configuration. An empty path selects the
+    /// root section.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::InvalidPath`] when `path` is not canonical.
     #[inline(always)]
     pub fn section(&self, path: &str) -> ConfigResult<ConfigSection<'_>> {
         ConfigSection::new(self, path)
@@ -134,7 +139,12 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// Returns `true` if the configuration item exists
+    /// Returns `Ok(true)` when the item is present and `Ok(false)` when it is
+    /// absent.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::InvalidKey`] when `name` is not canonical.
     ///
     /// # Examples
     ///
@@ -162,7 +172,12 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// Returns Option containing the configuration item
+    /// Returns `Ok(Some(property))` borrowing the existing property, or
+    /// `Ok(None)` when the property is absent.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::InvalidKey`] when `name` is not canonical.
     #[inline]
     pub fn get_property(&self, name: impl AsRef<str>) -> ConfigResult<Option<&Property>> {
         let name = name.as_ref();
@@ -178,10 +193,14 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// Returns `Ok(Some(_))` for an existing non-final property, `Ok(None)`
-    /// for a missing property, or [`ConfigError::PropertyIsFinal`] for an
-    /// existing final property. The returned guard re-checks final state before
-    /// each value-changing operation.
+    /// Returns `Ok(Some(guard))` for an existing non-final property, or
+    /// `Ok(None)` when the property is absent. The returned guard re-checks
+    /// final state before each value-changing operation.
+    ///
+    /// # Errors
+    ///
+    /// - [`ConfigError::InvalidKey`] when `name` is not canonical.
+    /// - [`ConfigError::PropertyIsFinal`] when the property exists and is final.
     #[inline]
     pub fn get_property_mut(&mut self, name: impl AsRef<str>) -> ConfigResult<Option<ConfigPropertyMut<'_>>> {
         let name = name.as_ref();
@@ -206,9 +225,9 @@ impl Config {
     ///
     /// # Errors
     ///
+    /// - [`ConfigError::InvalidKey`] when `name` is not canonical.
     /// - [`ConfigError::PropertyNotFound`] if the key does not exist.
-    /// - [`ConfigError::PropertyIsFinal`] when trying to unset a final
-    ///   property.
+    /// - [`ConfigError::PropertyIsFinal`] when trying to unset a final property.
     pub fn set_final(&mut self, name: impl AsRef<str>, is_final: bool) -> ConfigResult<()> {
         let name = name.as_ref();
         ensure_config_key(name)?;
@@ -231,7 +250,14 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// Returns the removed configuration item, or None if it doesn't exist
+    /// Returns `Ok(Some(property))` with the removed property, or `Ok(None)`
+    /// when the property is absent.
+    ///
+    /// # Errors
+    ///
+    /// - [`ConfigError::InvalidKey`] when `name` is not canonical.
+    /// - [`ConfigError::PropertyIsFinal`] when the property exists and is final.
+    ///   No property is removed on failure.
     ///
     /// # Examples
     ///
@@ -270,7 +296,12 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// `Ok(())` when all properties were removed.
+    /// `Ok(())` after all properties have been removed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::PropertyIsFinal`] when any property is final.
+    /// The complete configuration remains unchanged on failure.
     #[inline]
     pub fn clear(&mut self) -> ConfigResult<()> {
         self.ensure_no_final_properties()?;
