@@ -626,6 +626,68 @@ pub trait ConfigReader: internal::Sealed {
     /// as [`Self::keys`]).
     fn iter<'a>(&'a self) -> impl Iterator<Item = (&'a str, &'a Property)> + 'a;
 
+    /// Ensures every visible property is explicitly declared or belongs to an
+    /// open section.
+    ///
+    /// `fields` and `open_sections` contain canonical, non-empty keys
+    /// relative to this reader. Fields match exact keys. An open section
+    /// accepts only descendants whose keys begin with the section path and a
+    /// dot; a property at the section path itself must also be listed in
+    /// `fields`.
+    ///
+    /// This method checks property names only. It does not read values or
+    /// change the behavior of ordinary reads or deserialization.
+    ///
+    /// # Parameters
+    ///
+    /// * `fields` - Exact property keys allowed in this reader's scope.
+    /// * `open_sections` - Section paths whose descendants are allowed.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when all visible property keys are allowed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::InvalidKey`] if any declared key is not
+    /// canonical, or [`ConfigError::UnknownProperties`] containing sorted,
+    /// deduplicated root-relative paths for undeclared properties.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use qubit_config::{Config, ConfigReader};
+    ///
+    /// let mut config = Config::new();
+    /// config.set("server.port", 8080_u16)?;
+    /// config.set("server.proxy.host", "localhost")?;
+    /// let server = config.section("server")?;
+    /// server.ensure_known_keys(&["port"], &["proxy"])?;
+    /// # Ok::<(), qubit_config::ConfigError>(())
+    /// ```
+    fn ensure_known_keys(&self, fields: &[&str], open_sections: &[&str]) -> ConfigResult<()> {
+        for name in fields.iter().chain(open_sections.iter()) {
+            ensure_config_key(name)?;
+        }
+        let mut paths = Vec::new();
+        for (key, _) in self.iter() {
+            let accepted = fields.contains(&key)
+                || open_sections
+                    .iter()
+                    .any(|section| key.strip_prefix(*section).is_some_and(|suffix| suffix.starts_with('.')));
+            if !accepted {
+                paths.push(self.resolve_key(key)?);
+            }
+        }
+        paths.sort();
+        paths.dedup();
+        if paths.is_empty() {
+            Ok(())
+        } else {
+            Err(ConfigError::UnknownProperties { paths })
+        }
+    }
+
     /// Returns whether `name` exists as an unset property.
     ///
     /// A missing key and a concrete empty collection both return `false`.

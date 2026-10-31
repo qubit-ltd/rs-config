@@ -1043,3 +1043,62 @@ fn refactor_optional_reads_classify_custom_conversion_missing() {
             .is_none()
     );
 }
+
+#[test]
+fn test_known_keys_are_relative_and_report_root_paths() {
+    let mut config = Config::new();
+    config.set("server.port", 8080_u16).unwrap();
+    config.set("server.proxy.host", "local").unwrap();
+    config.set("server.proxy2", true).unwrap();
+    config.set("unrelated", true).unwrap();
+    let section = config.section("server").unwrap();
+    let error = section.ensure_known_keys(&["port"], &["proxy"]).unwrap_err();
+    assert_eq!(
+        error.unknown_property_paths(),
+        Some(["server.proxy2".to_owned()].as_slice())
+    );
+    section.ensure_known_keys(&["port", "proxy2"], &["proxy"]).unwrap();
+}
+
+#[test]
+fn test_known_keys_validate_declarations_before_scanning_and_check_names_only() {
+    let mut config = Config::new();
+    config.set("broken.value", "not-an-integer").unwrap();
+    let section = config.section("broken").unwrap();
+
+    assert!(matches!(
+        section.ensure_known_keys(&["value"], &["valid", ""]),
+        Err(ConfigError::InvalidKey { .. })
+    ));
+    assert!(matches!(
+        section.ensure_known_keys(&["a..b"], &[]),
+        Err(ConfigError::InvalidKey { .. })
+    ));
+    section.ensure_known_keys(&["value"], &[]).unwrap();
+}
+
+#[test]
+fn test_known_keys_cover_root_nested_and_empty_readers() {
+    let mut config = Config::new();
+    config.set("a.b.value", "raw").unwrap();
+    config.set("a.scalar", "raw").unwrap();
+    let nested = config.section("a").unwrap().section("b").unwrap();
+    nested.ensure_known_keys(&["value", "value"], &[]).unwrap();
+
+    let error = config.section("a").unwrap().ensure_known_keys(&[], &["b"]).unwrap_err();
+    assert_eq!(error.unknown_property_paths(), Some(["a.scalar".to_owned()].as_slice()));
+    assert!(config.section("missing").unwrap().ensure_known_keys(&[], &[]).is_ok());
+}
+
+#[test]
+fn test_known_keys_empty_declarations_reject_visible_keys_in_sorted_order() {
+    let mut config = Config::new();
+    config.set("zeta", true).unwrap();
+    config.set("alpha", true).unwrap();
+    let error = config.ensure_known_keys(&[], &[]).unwrap_err();
+    assert_eq!(
+        error.unknown_property_paths(),
+        Some(["alpha".to_owned(), "zeta".to_owned()].as_slice())
+    );
+    config.ensure_known_keys(&["zeta", "alpha", "alpha"], &[]).unwrap();
+}
