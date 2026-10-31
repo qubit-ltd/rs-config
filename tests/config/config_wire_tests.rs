@@ -573,20 +573,25 @@ fn test_ordinary_deserialize_reads_float_wire_independently_of_field_order() {
 
 #[test]
 fn test_config_wire_numeric_budget_accepts_exact_node_and_number_byte_limits() {
-    let mut config = Config::new();
-    config.set("count", 125_i32).unwrap();
-    let input = to_vec(&config).unwrap();
+    // JSON values each cost one node; object keys do not cost Nodes.
+    // Scalar: root + 3 root values + property + 4 property values
+    // + 2 value-envelope members + scalar object + int32 value = 13.
+    // Collection: the array replaces the final scalar and adds 2 items = 15.
+    let scalar: &[u8] = br#"{"version":1,"description":null,"properties":{"count":{"name":"count","value":{"version":1,"value":{"scalar":{"int32":125}}},"description":null,"is_final":false}}}"#;
+    let collection: &[u8] = br#"{"version":1,"description":null,"properties":{"count":{"name":"count","value":{"version":1,"value":{"collection":{"int32":[125,126]}}},"description":null,"is_final":false}}}"#;
 
     let exact_number_bytes = ConfigWireLimits::builder_from(&ConfigWireLimits::default())
         .json_decode(JsonDecodeLimits::builder().max_number_bytes(3).build())
         .build();
-    let _ = Config::decode_json_slice_with_limits(&input, exact_number_bytes)
+    let decoded = Config::decode_json_slice_with_limits(scalar, exact_number_bytes)
         .expect("the exact integer number byte limit should be accepted");
+    assert_eq!(decoded.get::<i32>("count").unwrap(), 125);
+
     let short_number_bytes = ConfigWireLimits::builder_from(&ConfigWireLimits::default())
         .json_decode(JsonDecodeLimits::builder().max_number_bytes(2).build())
         .build();
     assert!(matches!(
-        Config::decode_json_slice_with_limits(&input, short_number_bytes),
+        Config::decode_json_slice_with_limits(scalar, short_number_bytes),
         Err(ConfigWireDecodeError::Budget(BudgetError::LimitExceeded {
             resource: JsonResource::NumberBytes,
             observed: Observation::Exact(3),
@@ -594,39 +599,35 @@ fn test_config_wire_numeric_budget_accepts_exact_node_and_number_byte_limits() {
         }))
     ));
 
-    let mut minimum_nodes = None;
-    for maximum in 0..64 {
-        let limits = ConfigWireLimits::builder_from(&ConfigWireLimits::default())
-            .json_decode(JsonDecodeLimits::builder().max_nodes(maximum).build())
+    for (input, expected_nodes, expected_values) in [
+        (scalar, 13_usize, vec![125_i32]),
+        (collection, 15_usize, vec![125_i32, 126_i32]),
+    ] {
+        let exact = ConfigWireLimits::builder_from(&ConfigWireLimits::default())
+            .json_decode(JsonDecodeLimits::builder().max_nodes(expected_nodes).build())
             .build();
-        if Config::decode_json_slice_with_limits(&input, limits).is_ok() {
-            minimum_nodes = Some(maximum);
-            break;
-        }
+        let decoded = Config::decode_json_slice_with_limits(input, exact)
+            .expect("the independently counted JSON node limit should be accepted");
+        assert_eq!(decoded.get_list::<i32>("count").unwrap(), expected_values);
+
+        let short = ConfigWireLimits::builder_from(&ConfigWireLimits::default())
+            .json_decode(JsonDecodeLimits::builder().max_nodes(expected_nodes - 1).build())
+            .build();
+        let result = Config::decode_json_slice_with_limits(input, short);
+        assert!(
+            matches!(
+                &result,
+                Err(ConfigWireDecodeError::Budget(BudgetError::Insufficient {
+                    resource: JsonResource::Nodes,
+                    limit,
+                    remaining: 0,
+                    requested: 1,
+                    ..
+                })) if *limit == expected_nodes - 1
+            ),
+            "unexpected node-budget result: {result:?}"
+        );
     }
-    let minimum_nodes = minimum_nodes.expect("the small float wire should fit under 64 nodes");
-    let exact_nodes = ConfigWireLimits::builder_from(&ConfigWireLimits::default())
-        .json_decode(JsonDecodeLimits::builder().max_nodes(minimum_nodes).build())
-        .build();
-    let _ = Config::decode_json_slice_with_limits(&input, exact_nodes)
-        .expect("the exact JSON node limit should be accepted");
-    let short_nodes = ConfigWireLimits::builder_from(&ConfigWireLimits::default())
-        .json_decode(JsonDecodeLimits::builder().max_nodes(minimum_nodes - 1).build())
-        .build();
-    let result = Config::decode_json_slice_with_limits(&input, short_nodes);
-    assert!(
-        matches!(
-            &result,
-            Err(ConfigWireDecodeError::Budget(BudgetError::Insufficient {
-                resource: JsonResource::Nodes,
-                limit,
-                remaining: 0,
-                requested: 1,
-                ..
-            })) if *limit == minimum_nodes - 1
-        ),
-        "unexpected over-budget result: {result:?}"
-    );
 }
 
 #[test]
