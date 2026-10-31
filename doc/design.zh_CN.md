@@ -132,6 +132,9 @@ schema 时，应使用闭合的嵌套 struct，或在反序列化前按应用 sc
 报告的结构不匹配才会转换为已脱敏的 `DeserializeError`。投影遵循 Serde 的 JSON
 风格数据模型，不承诺覆盖 `ConfigReader::get` 为富类型提供的所有原生转换形态。
 对象成员名会以字符串交给 Serde 的 key deserializer；数字 map key 需要应用显式解析。
+插值查找作用域取决于选中的存储形态：点分后代从选中的子树查找，精确结构化属性则从调用
+reader 查找。对象成员名只是数据，不会自动成为 `Config` key；根配置和显式允许的环境变量
+回退规则仍然适用。详见[结构化读取说明](user_guide.zh_CN.md#反序列化结构化值)。
 
 准备树保存借用值、集合 slice、JSON 节点和合成对象索引，不克隆完整 JSON 中间载荷。
 NodeId 索引 arena 节点及对应的来源表；property index 则索引单独的借用配置项表。来源位置由
