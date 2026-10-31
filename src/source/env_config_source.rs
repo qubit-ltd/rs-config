@@ -265,8 +265,9 @@ impl EnvConfigSource {
     ///
     /// # Errors
     ///
-    /// Returns a source-aware parse error containing only the reviewed key and
-    /// a fixed redaction marker when the value is not valid Unicode.
+    /// Returns a source-aware parse error containing the escaped Unicode key,
+    /// or a fixed redaction marker if the key is not Unicode, and a fixed
+    /// redaction marker when the value is not valid Unicode.
     #[inline]
     fn env_value_to_string(key: &OsStr, value: &OsStr) -> ConfigResult<String> {
         value.to_str().map(str::to_owned).ok_or_else(|| {
@@ -274,7 +275,7 @@ impl EnvConfigSource {
                 "process environment",
                 format!(
                     "Environment variable value is not valid Unicode for {}: <redacted>",
-                    key.to_str().unwrap_or("<redacted>"),
+                    key.to_str().unwrap_or("<redacted>").escape_debug(),
                 ),
             )
         })

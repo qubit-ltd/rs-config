@@ -453,6 +453,36 @@ mod test_env_config_source {
 
     #[cfg(unix)]
     #[test]
+    fn test_non_unicode_value_escapes_unicode_key_controls() {
+        use std::ffi::OsString;
+        use std::os::unix::ffi::OsStringExt;
+
+        const KEY: &str = "QUNICODE_KEY\nFORGED\r\u{1b}[31m";
+        const SECRET: &str = "RS_CONFIG_VALUE_CONTROL_SECRET";
+        let mut value = SECRET.as_bytes().to_vec();
+        value.push(0xff);
+        if !run_with_os_env(
+            "test_env_config_source::test_non_unicode_value_escapes_unicode_key_controls",
+            &[(OsString::from(KEY), OsString::from_vec(value))],
+        ) {
+            return;
+        }
+        let error = EnvConfigSource::from_prefix("QUNICODE_").load().unwrap_err();
+        let display = error.to_string();
+        let debug = format!("{error:?}");
+        assert!(display.contains(&KEY.escape_debug().to_string()));
+        assert!(display.contains("not valid Unicode"));
+        assert!(display.contains("<redacted>"));
+        for control in ['\n', '\r', '\u{1b}'] {
+            assert!(!display.contains(control));
+            assert!(!debug.contains(control));
+        }
+        assert!(!display.contains(SECRET));
+        assert!(!debug.contains(SECRET));
+    }
+
+    #[cfg(unix)]
+    #[test]
     fn test_load_with_prefix_rejects_matching_non_unicode_env_key() {
         use std::ffi::OsString;
         use std::os::unix::ffi::OsStringExt;
