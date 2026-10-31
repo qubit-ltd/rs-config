@@ -22,6 +22,7 @@ use qubit_config::ConfigWireLimitKind;
 use qubit_config::ConfigWireLimits;
 use qubit_config::ConfigWireRepresentationErrorKind;
 use qubit_config::options::ReadPolicy;
+use qubit_datatype::DataType;
 use qubit_json::decode::JsonSyntaxErrorReason;
 use qubit_value::MultiValues;
 use qubit_value::Value as ScalarValue;
@@ -387,13 +388,132 @@ fn test_ordinary_deserialize_enforces_default_node_budget_incrementally() {
     let mut config = Config::new();
     for index in 0..ConfigWireLimits::DEFAULT_MAX_PROPERTIES {
         config
-            .set(format!("values{index}"), vec![0_i32; 25])
+            .set(format!("values{index}"), vec![0.0_f64; 25])
             .expect("the large collection should be accepted by the domain model");
     }
     let input = to_vec(&config).expect("the config should serialize");
 
     let error = from_slice::<Config>(&input).expect_err("ordinary Deserialize should enforce node limits");
     assert!(error.to_string().contains("Nodes"), "unexpected error: {error}");
+}
+
+#[test]
+fn test_ordinary_deserialize_reads_native_float_roles_without_collapsing_json_objects() {
+    let mut config = Config::new();
+    config.set("ratio32", f32::MAX).unwrap();
+    config.set("ratio64", f64::MAX).unwrap();
+    config
+        .set("ratios32", vec![0.0_f32, -0.0_f32, f32::MIN_POSITIVE])
+        .unwrap();
+    config
+        .set("ratios64", vec![0.0_f64, -0.0_f64, f64::MIN_POSITIVE])
+        .unwrap();
+    config
+        .set("payload", json!({"$serde_json::private::Number": "1.25"}))
+        .unwrap();
+    config.set_null("null-ratio", DataType::Float64).unwrap();
+    config.set_null("null-ratio32", DataType::Float32).unwrap();
+
+    let bytes = to_vec(&config).expect("the config should serialize");
+    let decoded: Config = from_slice(&bytes).expect("native float wire values should deserialize");
+
+    assert_eq!(decoded.get::<f32>("ratio32").unwrap(), f32::MAX);
+    assert_eq!(decoded.get::<f64>("ratio64").unwrap(), f64::MAX);
+    let values = decoded.get::<Vec<f32>>("ratios32").unwrap();
+    assert_eq!(values[0].to_bits(), 0.0_f32.to_bits());
+    assert_eq!(values[1].to_bits(), (-0.0_f32).to_bits());
+    assert_eq!(values[2], f32::MIN_POSITIVE);
+    let values = decoded.get::<Vec<f64>>("ratios64").unwrap();
+    assert_eq!(values[0].to_bits(), 0.0_f64.to_bits());
+    assert_eq!(values[1].to_bits(), (-0.0_f64).to_bits());
+    assert_eq!(values[2], f64::MIN_POSITIVE);
+    assert_eq!(
+        decoded.get::<Value>("payload").unwrap(),
+        json!({"$serde_json::private::Number": "1.25"}),
+    );
+    assert!(decoded.is_unset("null-ratio").unwrap());
+    assert!(decoded.is_unset("null-ratio32").unwrap());
+}
+
+#[test]
+fn test_ordinary_deserialize_rejects_non_numeric_native_float_shapes() {
+    for invalid in [json!("1.25"), json!({"value": 1.25}), json!([1.25])] {
+        let mut config = Config::new();
+        config.set("ratio", 1.25_f64).unwrap();
+        let mut wire = to_value(&config).unwrap();
+        wire["properties"]["ratio"]["value"]["value"]["scalar"]["float64"] = invalid;
+        let bytes = to_vec(&wire).unwrap();
+
+        assert!(
+            from_slice::<Config>(&bytes).is_err(),
+            "invalid float shapes must remain rejected: {wire}"
+        );
+    }
+}
+
+#[test]
+fn test_ordinary_deserialize_reads_float_wire_independently_of_field_order() {
+    let input = br#"{"properties":{"ratio":{"is_final":false,"description":null,"value":{"value":{"scalar":{"float64":1.25}},"version":1},"name":"ratio"}},"description":null,"version":1}"#;
+    let decoded: Config = from_slice(input).expect("reordered wire fields should deserialize");
+    assert_eq!(decoded.get::<f64>("ratio").unwrap(), 1.25);
+}
+
+#[test]
+fn test_config_wire_numeric_budget_accepts_exact_node_and_number_byte_limits() {
+    let mut config = Config::new();
+    config.set("ratio", 1.25_f64).unwrap();
+    let input = to_vec(&config).unwrap();
+
+    let exact_number_bytes = ConfigWireLimits::builder_from(&ConfigWireLimits::default())
+        .json_decode(JsonDecodeLimits::builder().max_number_bytes(4).build())
+        .build();
+    let _ = Config::decode_json_slice_with_limits(&input, exact_number_bytes)
+        .expect("the exact float number byte limit should be accepted");
+    let short_number_bytes = ConfigWireLimits::builder_from(&ConfigWireLimits::default())
+        .json_decode(JsonDecodeLimits::builder().max_number_bytes(3).build())
+        .build();
+    assert!(matches!(
+        Config::decode_json_slice_with_limits(&input, short_number_bytes),
+        Err(ConfigWireDecodeError::Budget(BudgetError::LimitExceeded {
+            resource: JsonResource::NumberBytes,
+            observed: Observation::Exact(4),
+            maximum: 3,
+        }))
+    ));
+
+    let mut minimum_nodes = None;
+    for maximum in 0..64 {
+        let limits = ConfigWireLimits::builder_from(&ConfigWireLimits::default())
+            .json_decode(JsonDecodeLimits::builder().max_nodes(maximum).build())
+            .build();
+        if Config::decode_json_slice_with_limits(&input, limits).is_ok() {
+            minimum_nodes = Some(maximum);
+            break;
+        }
+    }
+    let minimum_nodes = minimum_nodes.expect("the small float wire should fit under 64 nodes");
+    let exact_nodes = ConfigWireLimits::builder_from(&ConfigWireLimits::default())
+        .json_decode(JsonDecodeLimits::builder().max_nodes(minimum_nodes).build())
+        .build();
+    let _ = Config::decode_json_slice_with_limits(&input, exact_nodes)
+        .expect("the exact JSON node limit should be accepted");
+    let short_nodes = ConfigWireLimits::builder_from(&ConfigWireLimits::default())
+        .json_decode(JsonDecodeLimits::builder().max_nodes(minimum_nodes - 1).build())
+        .build();
+    let result = Config::decode_json_slice_with_limits(&input, short_nodes);
+    assert!(
+        matches!(
+            &result,
+            Err(ConfigWireDecodeError::Budget(BudgetError::Insufficient {
+                resource: JsonResource::Nodes,
+                limit,
+                remaining: 0,
+                requested: 1,
+                ..
+            })) if *limit == minimum_nodes - 1
+        ),
+        "unexpected over-budget result: {result:?}"
+    );
 }
 
 #[test]
@@ -482,6 +602,21 @@ fn test_ordinary_deserialize_rejects_unrepresentable_serde_value_events() {
             "unexpected event error: {error}",
         );
     }
+}
+
+#[test]
+fn test_json_decoder_round_trips_float_and_json_domain_values() {
+    let mut expected = Config::new();
+    expected.set("ratio", 1.5_f64).expect("the float should be set");
+    expected
+        .set(
+            "payload",
+            qubit_value::Value::Json(json!({"ratio": 1.25, "nested": [2.5, -3.75]})),
+        )
+        .expect("the JSON domain value should be set");
+    let input = expected.encode_json_vec().expect("the configuration should encode");
+    let restored = Config::decode_json_slice(&input).expect("the JSON decoder should preserve floating values");
+    assert_eq!(restored, expected);
 }
 
 #[test]

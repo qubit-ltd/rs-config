@@ -27,6 +27,7 @@ use serde_json::Value;
 
 use super::ConfigWire;
 use super::decode_fields;
+use super::wire_read_role::WireReadRole;
 use crate::ConfigWireDecodeError;
 use crate::ConfigWireLimitKind;
 use crate::ConfigWireLimits;
@@ -123,6 +124,8 @@ struct AccountingUniqueJsonValueSeed<'transaction, 'budget> {
     depth: usize,
     /// Container count to check before decoding the next child.
     prospective_container: Option<(JsonContainerKind, usize)>,
+    /// Schema location used to request typed float values only in the wire.
+    role: WireReadRole,
 }
 
 impl<'transaction, 'budget> AccountingUniqueJsonValueSeed<'transaction, 'budget> {
@@ -132,15 +135,17 @@ impl<'transaction, 'budget> AccountingUniqueJsonValueSeed<'transaction, 'budget>
             transaction,
             depth: 1,
             prospective_container: None,
+            role: WireReadRole::ConfigRoot,
         }
     }
 
     /// Creates a child seed at the next root-inclusive depth.
-    fn child<'child>(&'child mut self) -> AccountingUniqueJsonValueSeed<'child, 'budget> {
+    fn child<'child>(&'child mut self, role: WireReadRole) -> AccountingUniqueJsonValueSeed<'child, 'budget> {
         AccountingUniqueJsonValueSeed {
             transaction: self.transaction,
             depth: self.depth.saturating_add(1),
             prospective_container: None,
+            role,
         }
     }
 
@@ -150,11 +155,13 @@ impl<'transaction, 'budget> AccountingUniqueJsonValueSeed<'transaction, 'budget>
         &'child mut self,
         kind: JsonContainerKind,
         prospective: usize,
+        role: WireReadRole,
     ) -> AccountingUniqueJsonValueSeed<'child, 'budget> {
         AccountingUniqueJsonValueSeed {
             transaction: self.transaction,
             depth: self.depth.saturating_add(1),
             prospective_container: Some((kind, prospective)),
+            role,
         }
     }
 
@@ -185,7 +192,10 @@ impl<'de, 'transaction, 'budget> DeserializeSeed<'de> for AccountingUniqueJsonVa
                 .check_container_count(kind, prospective)
                 .map_err(D::Error::custom)?;
         }
-        deserializer.deserialize_any(self)
+        match self.role {
+            WireReadRole::Float32 | WireReadRole::Float64 => deserializer.deserialize_option(self),
+            _ => deserializer.deserialize_any(self),
+        }
     }
 }
 
@@ -242,8 +252,21 @@ impl<'de, 'transaction, 'budget> Visitor<'de> for AccountingUniqueJsonValueSeed<
     where
         E: DeError,
     {
+        let value = match self.role {
+            WireReadRole::Float32 => f64::from(value as f32),
+            _ => value,
+        };
         let number =
             Number::from_f64(value).ok_or_else(|| E::custom("non-finite float is not representable as JSON"))?;
+        self.enter_number(number)
+    }
+
+    fn visit_f32<E>(mut self, value: f32) -> Result<Self::Value, E>
+    where
+        E: DeError,
+    {
+        let number = Number::from_f64(f64::from(value))
+            .ok_or_else(|| E::custom("non-finite float is not representable as JSON"))?;
         self.enter_number(number)
     }
 
@@ -294,7 +317,11 @@ impl<'de, 'transaction, 'budget> Visitor<'de> for AccountingUniqueJsonValueSeed<
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_any(self)
+        match self.role {
+            WireReadRole::Float32 => deserializer.deserialize_f32(self),
+            WireReadRole::Float64 => deserializer.deserialize_f64(self),
+            _ => deserializer.deserialize_any(self),
+        }
     }
 
     fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
@@ -316,7 +343,9 @@ impl<'de, 'transaction, 'budget> Visitor<'de> for AccountingUniqueJsonValueSeed<
             let Some(next) = values.len().checked_add(1) else {
                 return Err(A::Error::custom("JSON sequence item count overflowed usize"));
             };
-            let Some(value) = sequence.next_element_seed(self.prospective_child(JsonContainerKind::Sequence, next))?
+            let element_role = self.role.sequence_element();
+            let Some(value) =
+                sequence.next_element_seed(self.prospective_child(JsonContainerKind::Sequence, next, element_role))?
             else {
                 break;
             };
@@ -348,7 +377,8 @@ impl<'de, 'transaction, 'budget> Visitor<'de> for AccountingUniqueJsonValueSeed<
             self.transaction
                 .try_admit(JsonMeasurement::Key { bytes: key.len() })
                 .map_err(A::Error::custom)?;
-            let value = map.next_value_seed(self.child())?;
+            let role = self.role.child_for_key(&key);
+            let value = map.next_value_seed(self.child(role))?;
             values.insert(key, value);
             entries = next;
         }

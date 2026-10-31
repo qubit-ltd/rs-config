@@ -19,6 +19,7 @@ mod config_wire_v1;
 mod config_wire_v1_ref;
 /// Safe diagnostics for bounded wire representation failures.
 mod wire_diagnostics;
+mod wire_read_role;
 
 pub(super) use config_serde_repr::ConfigSerdeRepr;
 pub(super) use config_wire::ConfigWire;
