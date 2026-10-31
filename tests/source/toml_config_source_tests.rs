@@ -408,6 +408,50 @@ mod test_toml_edge_cases {
     }
 
     #[test]
+    fn test_toml_string_datetime_arrays_share_string_storage() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("string-datetime.toml");
+        std::fs::write(
+            &path,
+            "first = [\"manual\", 2026-04-09T12:00:00Z]\nsecond = [2026-04-09T12:00:00Z, \"manual\"]\n",
+        )
+        .unwrap();
+        let mut config = Config::new();
+        merge_source(&mut config, &TomlConfigSource::from_file(&path)).unwrap();
+        assert_eq!(
+            config.get::<Vec<String>>("first").unwrap(),
+            ["manual", "2026-04-09T12:00:00Z"]
+        );
+        assert_eq!(
+            config.get::<Vec<String>>("second").unwrap(),
+            ["2026-04-09T12:00:00Z", "manual"]
+        );
+    }
+
+    #[test]
+    fn test_toml_string_integer_array_is_rejected_without_partial_write() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("mixed-string-integer.toml");
+        std::fs::write(&path, "tags = [\"manual\", 1]\n").unwrap();
+        let source = TomlConfigSource::from_file(&path);
+        let mut config = Config::new();
+        config.set("existing", "preserved").unwrap();
+
+        let error = merge_source(&mut config, &source).expect_err("mixed TOML scalar categories should be rejected");
+
+        assert!(matches!(
+            error,
+            ConfigError::SourceParseError {
+                path: Some(path),
+                source_index: Some(1),
+                ..
+            } if path == "tags"
+        ));
+        assert_eq!(config.get::<String>("existing").unwrap(), "preserved");
+        assert!(!config.contains("tags").unwrap());
+    }
+
+    #[test]
     fn test_toml_mixed_nested_array_returns_parse_error() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("mixed_nested.toml");

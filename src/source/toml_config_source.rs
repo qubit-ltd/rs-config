@@ -249,8 +249,10 @@ impl ConfigSource for TomlConfigSource {
 /// Both TOML tree depth and resulting key depth are subject to source limits.
 ///
 /// Scalar types are stored with their native types (integer → i64, float → f64,
-/// bool → bool). Empty arrays become concrete empty collections. String and
-/// datetime values are stored as `String`.
+/// bool → bool). Empty arrays become concrete empty collections. Strings and
+/// datetime values are stored as `String`; within arrays, they share one string
+/// category and may be mixed. Other array categories retain their native types
+/// and must be homogeneous.
 pub(crate) fn flatten_toml_value(
     source_id: &str,
     prefix: &str,
@@ -343,10 +345,12 @@ fn ensure_toml_property(
 
 /// Flattens a TOML array into multi-value config entries.
 ///
-/// Homogeneous scalar arrays preserve their native scalar types. Empty arrays
+/// Homogeneous scalar arrays preserve their native scalar types. Strings and
+/// datetime values share one category and are stored as strings, so they may be
+/// mixed in an array. Other scalar categories must be homogeneous. Empty arrays
 /// are stored as explicit empty string lists because TOML carries no element
-/// type for them. Mixed or nested arrays are rejected with source location
-/// context rather than being coerced to strings or flattened.
+/// type for them. Unsupported mixed or nested arrays are rejected with source
+/// location context rather than being coerced to strings or flattened.
 ///
 /// # Parameters
 ///
@@ -414,13 +418,16 @@ fn flatten_toml_array(source_id: &str, prefix: &str, arr: &[TomlValue], config: 
     }
 }
 
-/// Reports whether two TOML values have the same supported scalar shape.
+/// Reports whether two TOML values have the same supported scalar category.
+/// Strings and datetime values share a category; other scalar categories remain
+/// distinct.
 fn same_toml_scalar_kind(first: &TomlValue, other: &TomlValue) -> bool {
     matches!(
         (first, other),
-        (TomlValue::String(_), TomlValue::String(_))
-            | (TomlValue::Datetime(_), TomlValue::Datetime(_))
-            | (TomlValue::Integer(_), TomlValue::Integer(_))
+        (
+            TomlValue::String(_) | TomlValue::Datetime(_),
+            TomlValue::String(_) | TomlValue::Datetime(_),
+        ) | (TomlValue::Integer(_), TomlValue::Integer(_))
             | (TomlValue::Float(_), TomlValue::Float(_))
             | (TomlValue::Boolean(_), TomlValue::Boolean(_))
     )

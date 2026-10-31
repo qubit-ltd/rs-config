@@ -824,7 +824,9 @@ For example, `APP_DATABASE__MAX_CONNECTIONS` becomes `database.max_connections`.
 
 TOML and YAML sources flatten mappings into dotted properties. They accept scalars,
 empty sequences, and homogeneous scalar sequences of strings, booleans, or values
-within the same existing numeric category. YAML sequences containing null
+within the same existing numeric category. TOML strings and date/time values may
+share an array and are stored as strings; this exception does not change YAML's
+homogeneous sequence rules or allow other mixed categories. YAML sequences containing null
 elements are unsupported, as are object arrays, nested arrays, and heterogeneous
 scalar sequences; these errors include source, path, and index context. Values
 are never silently stringified to hide a structural mismatch.
