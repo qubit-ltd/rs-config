@@ -135,6 +135,13 @@ pub trait ConfigSerdeExt: ConfigReader {
     /// ReadPolicy. Only actual String leaves interpolate; rich values keep
     /// their own types.
     ///
+    /// Interpolation scope depends on the selected shape. When `prefix`
+    /// selects dotted child keys, lookup starts in that selected subtree.
+    /// When it selects an exact structured property such as a JSON object,
+    /// lookup starts in this reader's scope; object member names are values,
+    /// not configuration keys. Existing root and permitted environment
+    /// fallback still applies.
+    ///
     /// # Parameters
     ///
     /// * `prefix` - Relative property or subtree path; empty selects this

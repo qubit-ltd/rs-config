@@ -252,6 +252,94 @@ struct StringPair {
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+struct ScopedInterpolationSettings {
+    x: String,
+    result: String,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+struct StringPairResult {
+    result: String,
+}
+
+/// Dotted children bind interpolation to their selected subtree; exact JSON
+/// object members remain values while lookup uses the calling reader's scope.
+#[test]
+fn structured_interpolation_distinguishes_subtree_and_exact_json_scope() {
+    let options = ConfigDeserializeOptions {
+        interpolate: true,
+        ..Default::default()
+    };
+
+    let mut dotted = Config::new();
+    dotted.set("x", "root").unwrap();
+    dotted.set("retry.x", "parent").unwrap();
+    dotted.set("retry.settings.x", "inner").unwrap();
+    dotted.set("retry.settings.result", "${x}").unwrap();
+    let subtree = dotted
+        .section("retry")
+        .unwrap()
+        .deserialize_with::<ScopedInterpolationSettings>("settings", options)
+        .unwrap();
+    assert_eq!(subtree.x, "inner");
+    assert_eq!(subtree.result, "inner");
+
+    let mut exact = Config::new();
+    exact.set("x", "root").unwrap();
+    exact.set("retry.x", "parent").unwrap();
+    exact
+        .set("retry.settings", serde_json::json!({"x": "inner", "result": "${x}"}))
+        .unwrap();
+    let object = exact
+        .section("retry")
+        .unwrap()
+        .deserialize_with::<ScopedInterpolationSettings>("settings", options)
+        .unwrap();
+    assert_eq!(object.x, "inner");
+    assert_eq!(object.result, "parent");
+}
+
+/// Root fallback remains available, while disabled interpolation preserves
+/// the original leaf text in both storage shapes.
+#[test]
+fn structured_interpolation_fallback_and_disabled_mode_match_both_shapes() {
+    let mut dotted = Config::new();
+    dotted.set("x", "root").unwrap();
+    dotted.set("retry.settings.result", "${x}").unwrap();
+
+    let mut exact = Config::new();
+    exact.set("x", "root").unwrap();
+    exact
+        .set("retry.settings", serde_json::json!({"result": "${x}"}))
+        .unwrap();
+
+    for config in [&dotted, &exact] {
+        let section = config.section("retry").unwrap();
+        let interpolated: StringPairResult = section
+            .deserialize_with(
+                "settings",
+                ConfigDeserializeOptions {
+                    interpolate: true,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        assert_eq!(interpolated.result, "root");
+
+        let literal: StringPairResult = section
+            .deserialize_with(
+                "settings",
+                ConfigDeserializeOptions {
+                    interpolate: false,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        assert_eq!(literal.result, "${x}");
+    }
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
 struct ScalarStringSettings {
     enabled: String,
     attempts: String,

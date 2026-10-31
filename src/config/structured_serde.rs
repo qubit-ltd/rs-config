@@ -48,6 +48,9 @@ impl Config {
     ///
     /// Interpolation visits actual String leaves once using scope, root, then
     /// permitted environment fallback. Ignored fields still undergo admission.
+    /// For dotted child keys, the selected subtree is the lookup scope. For an
+    /// exact structured property such as a JSON object, lookup uses this
+    /// reader's scope; JSON member names do not become configuration keys.
     /// `UnknownFieldPolicy::Reject` is limited to unknown fields observable by
     /// ignored-value requests received by the source deserializer; it cannot
     /// see every field buffered by flatten structs, untagged enums, or custom
