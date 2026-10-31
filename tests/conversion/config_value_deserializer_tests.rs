@@ -1809,6 +1809,67 @@ fn test_tuple_lengths_and_collection_missing_are_not_silently_ignored() {
     assert_eq!(error.source_index(), Some(1));
     assert!(!error.value_missing().unwrap().is_defaultable_for_conversion());
 }
+
+#[test]
+fn tuple_diagnostics_report_known_native_and_scalar_lengths() -> ConfigResult<()> {
+    #[derive(Debug, Deserialize)]
+    #[allow(dead_code)]
+    struct RequiredPair {
+        pair: (i32, i32),
+    }
+
+    for (values, expected_message) in [
+        (vec![], "length 0"),
+        (vec![1_i32], "length 1"),
+        (vec![1_i32, 2], ""),
+        (vec![1_i32, 2, 3], "length 3"),
+    ] {
+        let mut config = Config::new();
+        config.set("app.pair", values)?;
+        if expected_message.is_empty() {
+            assert_eq!(config.deserialize::<(i32, i32)>("app.pair")?, (1, 2));
+        } else {
+            let error = config
+                .deserialize::<(i32, i32)>("app.pair")
+                .expect_err("native collection length must match the tuple");
+            assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Deserialize);
+            assert_eq!(error.path(), Some("app.pair"));
+            assert!(error.to_string().contains(expected_message));
+            assert!(error.to_string().contains("expected 2"));
+        }
+    }
+
+    let mut config = Config::new();
+    config.set_default_read_policy(ReadPolicy::env_friendly());
+    config.set("app.pair", "1,2,3")?;
+    let error = config
+        .deserialize::<RequiredPair>("app")
+        .expect_err("a split scalar with an extra tuple item must fail");
+    assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Deserialize);
+    assert_eq!(error.path(), Some("app.pair"));
+    assert!(error.to_string().contains("more elements"));
+    assert!(error.to_string().contains("expected length 2"));
+    Ok(())
+}
+
+#[test]
+fn map_and_sequence_shape_errors_describe_expected_shape() -> ConfigResult<()> {
+    let mut config = Config::new();
+    config.set("value", true)?;
+    let map_error = config
+        .deserialize::<HashMap<String, u8>>("value")
+        .expect_err("a scalar cannot be deserialized as a map");
+    assert_eq!(map_error.path(), Some("value"));
+    assert!(map_error.to_string().contains("shape: a map"));
+
+    config.set("value", true)?;
+    let sequence_error = config
+        .deserialize::<Vec<u8>>("value")
+        .expect_err("a boolean cannot be deserialized as a sequence");
+    assert_eq!(sequence_error.path(), Some("value"));
+    assert!(sequence_error.to_string().contains("shape: a sequence"));
+    Ok(())
+}
 #[test]
 fn test_interpolation_uses_overlays_for_nested_maps_sequences_and_missing_options() {
     #[derive(Debug, Deserialize, PartialEq)]

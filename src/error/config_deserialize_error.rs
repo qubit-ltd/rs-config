@@ -29,6 +29,32 @@ pub(crate) enum ConfigDeserializeError {
 }
 
 impl ConfigDeserializeError {
+    /// Creates a safe diagnostic for a value with the wrong configuration shape.
+    pub(crate) fn shape_mismatch(path: &str, expected: &'static str) -> Self {
+        Self::Message {
+            message: format!("configuration value must have shape: {expected}"),
+            path: Some(path.to_owned()),
+        }
+    }
+
+    /// Creates a safe diagnostic for a tuple with a known, incorrect length.
+    pub(crate) fn tuple_length(path: &str, actual: usize, expected: usize) -> Self {
+        Self::Message {
+            message: format!("configuration tuple has length {actual}; expected {expected}"),
+            path: Some(path.to_owned()),
+        }
+    }
+
+    /// Creates a safe diagnostic when a scalar sequence has more items than a tuple accepts.
+    pub(crate) fn tuple_has_extra_items(path: &str, expected: usize) -> Self {
+        Self::Message {
+            message: format!(
+                "configuration tuple has more elements than expected length {expected}"
+            ),
+            path: Some(path.to_owned()),
+        }
+    }
+
     /// Creates a deserialization error from a structured configuration error.
     pub(crate) fn from_config(error: ConfigError) -> Self {
         Self::Config(error)

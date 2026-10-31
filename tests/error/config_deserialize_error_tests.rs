@@ -140,7 +140,7 @@ fn test_serde_shape_error_has_sanitized_message_without_source() {
     assert_eq!(error.path(), Some("app.value"));
     assert!(
         matches!(&error, ConfigError::DeserializeError { message, source: None, .. }
-        if message == "configuration value has an invalid type")
+        if message == "configuration value must have shape: a scalar")
     );
     assert!(error.source().is_none());
 }
@@ -192,7 +192,7 @@ fn test_type_and_tuple_length_summaries_preserve_safe_categories() {
     assert!(matches!(
         &type_error,
         ConfigError::DeserializeError { message, source: None, .. }
-            if message == "configuration value has an invalid type"
+            if message == "configuration value must have shape: a scalar"
     ));
 
     let mut length_config = Config::new();
@@ -232,7 +232,7 @@ fn test_nested_sequence_type_error_keeps_leaf_path_and_safe_category() {
     assert!(matches!(
         &error,
         ConfigError::DeserializeError { message, source: None, .. }
-            if message == "configuration value has an invalid type"
+            if message == "configuration value must have shape: a scalar"
     ));
 }
 

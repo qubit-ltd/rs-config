@@ -193,8 +193,14 @@ impl<'tree, 'policy: 'tree, 'session> SourceDeserializer<'tree, 'policy, 'sessio
             return Err(type_error(&self.path, "a sequence"));
         };
         if let Some(values) = super::seq_access::SequenceValues::from_view(value) {
-            if expected_len.is_some_and(|length| length != values.len()) {
-                return Err(type_error(&self.path, "a tuple with the requested length"));
+            if let Some(expected) = expected_len
+                && expected != values.len()
+            {
+                return Err(ConfigDeserializeError::tuple_length(
+                    &self.path,
+                    values.len(),
+                    expected,
+                ));
             }
             return visitor.visit_seq(super::seq_access::SourceSeqAccess::new(
                 self.context,
@@ -211,8 +217,13 @@ impl<'tree, 'policy: 'tree, 'session> SourceDeserializer<'tree, 'policy, 'sessio
             let mut access =
                 super::scalar_seq_access::ScalarSeqAccess::new(self.context, text, self.path.clone(), session)?;
             let result = visitor.visit_seq(&mut access)?;
-            if expected_len.is_some() && access.has_remaining()? {
-                return Err(type_error(&self.path, "a tuple with the requested length"));
+            if let Some(expected) = expected_len
+                && access.has_remaining()?
+            {
+                return Err(ConfigDeserializeError::tuple_has_extra_items(
+                    &self.path,
+                    expected,
+                ));
             }
             return Ok(result);
         }
@@ -295,8 +306,7 @@ pub(super) fn conversion_error(path: &str, index: Option<usize>, error: DataConv
 }
 
 pub(super) fn type_error(path: &str, expected: &'static str) -> ConfigDeserializeError {
-    <ConfigDeserializeError as de::Error>::invalid_type(de::Unexpected::Other("configuration source"), &expected)
-        .with_path(path.to_owned())
+    ConfigDeserializeError::shape_mismatch(path, expected)
 }
 
 macro_rules! typed {
