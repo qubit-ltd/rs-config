@@ -95,6 +95,24 @@ impl<'a> ConfigSection<'a> {
     /// An exact scalar at the nested path does not make the section present.
     /// The returned section inherits this section's read policy.
     ///
+    /// The returned view borrows the root configuration and any read policy,
+    /// but does not borrow this parent view. It can therefore outlive a
+    /// temporary parent view while those underlying values remain available.
+    ///
+    /// ```rust
+    /// use qubit_config::{Config, ConfigReader, ConfigResult, ConfigSection};
+    ///
+    /// fn select_proxy(config: &Config) -> ConfigResult<Option<ConfigSection<'_>>> {
+    ///     config.section("http")?.section_if_present("proxy")
+    /// }
+    ///
+    /// let mut config = Config::new();
+    /// config.set("http.proxy.host", "localhost")?;
+    /// let proxy = select_proxy(&config)?.expect("proxy section should exist");
+    /// assert_eq!(proxy.get::<String>("host")?, "localhost");
+    /// # Ok::<(), qubit_config::ConfigError>(())
+    /// ```
+    ///
     /// # Arguments
     ///
     /// * `path` - Relative child section path; an empty path checks this
@@ -110,8 +128,13 @@ impl<'a> ConfigSection<'a> {
     /// Returns [`crate::ConfigError::InvalidPath`] when `path` is not
     /// canonical.
     #[inline]
-    pub fn section_if_present(&self, path: &str) -> ConfigResult<Option<ConfigSection<'_>>> {
-        <Self as ConfigReader>::section_if_present(self, path)
+    pub fn section_if_present(&self, path: &str) -> ConfigResult<Option<ConfigSection<'a>>> {
+        let section = self.section(path)?;
+        if section.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(section))
+        }
     }
 
     /// Creates a section over `config` at `path`.

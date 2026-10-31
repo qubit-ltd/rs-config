@@ -10,8 +10,74 @@
 use qubit_config::Config;
 use qubit_config::ConfigError;
 use qubit_config::ConfigReader;
+use qubit_config::ConfigResult;
 use qubit_config::ConfigSection;
 use qubit_config::options::ReadPolicy;
+
+fn select_proxy(config: &Config) -> ConfigResult<Option<ConfigSection<'_>>> {
+    config.section("http")?.section_if_present("proxy")
+}
+
+fn select_proxy_with_policy<'a>(config: &'a Config, policy: &'a ReadPolicy) -> ConfigResult<Option<ConfigSection<'a>>> {
+    config.section("http")?.read_with(policy).section_if_present("proxy")
+}
+
+#[test]
+fn test_optional_child_outlives_parent_view() {
+    let mut config = Config::new();
+    config.set("http.proxy.host", "localhost").unwrap();
+    let proxy = select_proxy(&config).unwrap().unwrap();
+
+    assert_eq!(proxy.path(), "http.proxy");
+    assert_eq!(proxy.get::<String>("host").unwrap(), "localhost");
+}
+
+#[test]
+fn test_optional_child_presence_and_policy_lifetime() {
+    let mut config = Config::new();
+    config.set("http.proxy.enabled", "yes").unwrap();
+    config.set("http.scalar", "value").unwrap();
+    let policy = ReadPolicy::env_friendly();
+
+    let proxy = select_proxy_with_policy(&config, &policy).unwrap().unwrap();
+    assert!(proxy.get::<bool>("enabled").unwrap());
+    assert!(matches!(
+        config.get::<bool>("http.proxy.enabled"),
+        Err(ConfigError::ConversionError { .. })
+    ));
+    assert!(select_proxy(&config).unwrap().is_some());
+    assert!(
+        config
+            .section("http")
+            .unwrap()
+            .section_if_present("scalar")
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        config
+            .section("http")
+            .unwrap()
+            .section_if_present("missing")
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        config
+            .section("http")
+            .unwrap()
+            .section_if_present("")
+            .unwrap()
+            .is_some()
+    );
+    let mut missing_proxy = Config::new();
+    missing_proxy.set("http.server.host", "localhost").unwrap();
+    assert!(select_proxy(&missing_proxy).unwrap().is_none());
+    assert!(matches!(
+        config.section("http").unwrap().section_if_present(".proxy"),
+        Err(ConfigError::InvalidPath { .. })
+    ));
+}
 
 #[test]
 fn test_section_resolves_keys_strictly_relative() {
