@@ -94,7 +94,7 @@ version = "0.15.0"
 dependencies = [
  "qubit-budget",
  "qubit-datatype",
- "qubit-json 0.12.1",
+ "qubit-json",
  "qubit-redact",
  "qubit-utils",
  "qubit-value",
@@ -115,10 +115,12 @@ dependencies = [
 
 [[package]]
 name = "qubit-datatype"
-version = "0.15.1"
+version = "0.15.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13ee50328f95637a2689cd8c77fa3a4f8cdb7b2af3fda3b991001eb92b0df4d4"
 dependencies = [
  "qubit-budget",
- "qubit-json 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "qubit-json",
  "serde",
  "serde_json",
  "thiserror",
@@ -126,23 +128,11 @@ dependencies = [
 
 [[package]]
 name = "qubit-io"
-version = "0.19.1"
+version = "0.19.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68e1ec30447bea2466d46c5149d029b45b8714e1eff690f110ff35b23904b643"
+checksum = "be15020e4d41c243b5ef1dd3f0965c10a05252e58fcbccf298fba87eafb45379"
 dependencies = [
  "qubit-utils",
-]
-
-[[package]]
-name = "qubit-json"
-version = "0.12.1"
-dependencies = [
- "qubit-budget",
- "qubit-io",
- "serde",
- "serde_json",
- "stacker",
- "thiserror",
 ]
 
 [[package]]
@@ -164,7 +154,7 @@ name = "qubit-redact"
 version = "0.10.0"
 dependencies = [
  "qubit-budget",
- "qubit-json 0.12.1",
+ "qubit-json",
  "serde",
  "serde_json",
 ]
@@ -181,7 +171,7 @@ version = "0.13.0"
 dependencies = [
  "qubit-budget",
  "qubit-datatype",
- "qubit-json 0.12.1",
+ "qubit-json",
  "qubit-redact",
  "serde",
  "serde_json",

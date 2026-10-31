@@ -1,5 +1,1 @@
 # relative git root<TAB>repository URL<TAB>default branch
-../rs-json	https://github.com/qubit-ltd/rs-json.git	1bebf725b1d7cbcba82365c04b0a15fb6793bc27
-../rs-datatype	https://github.com/qubit-ltd/rs-datatype.git	e71312d9f9b3aa6d79c09e7fdcdc3342206ea704
-../rs-redact	https://github.com/qubit-ltd/rs-redact.git	3f1aa0858e00b3dd472d53218ccccb85f9f15c00
-../rs-value	https://github.com/qubit-ltd/rs-value.git	331eb47df0b4012d73c67b04ed2ea54886562c6e

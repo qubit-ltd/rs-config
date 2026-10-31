@@ -53,30 +53,25 @@ formats = ["env-file", "toml", "yaml"]
 full = ["rich-types", "formats"]
 
 [dependencies]
-qubit-budget = { version = "0.10", features = ["json"] }
-
-qubit-json = { path = "../rs-json", version = "0.12" }
-
-qubit-utils = "^0.3"
 serde = { version = "^1.0", features = ["derive"] }
-serde_path_to_error = "0.1"
+serde_path_to_error = "^0.1"
 serde_json = "^1.0"
 thiserror = "^2.0"
 chrono = { version = "^0.4", features = ["serde"], optional = true }
 url = { version = "^2.5", optional = true }
 num-bigint = { version = "^0.4", features = ["serde"], optional = true }
 bigdecimal = { version = "^0.4", features = ["serde"], optional = true }
-toml = { version = "^0.9", features = ["parse"], optional = true }
+toml = { version = "^1.1", features = ["parse"], optional = true }
 serde_norway = { version = "^0.9", optional = true }
-yaml-rust2 = { version = "0.13", default-features = false, optional = true }
+yaml-rust2 = { version = "^0.13", default-features = false, optional = true }
 dotenvy = { version = "^0.15", optional = true }
 
-qubit-datatype = { path = "../rs-datatype", version = "0.15", default-features = false, features = ["converter"] }
-
+qubit-utils = "^0.3"
+qubit-budget = { version = "^0.10", features = ["json"] }
+qubit-json = "^0.12"
+qubit-datatype = { version = "^0.15", default-features = false, features = ["converter"] }
 qubit-redact = { path = "../rs-redact", version = "0.10", default-features = false }
-
 qubit-value = { path = "../rs-value", version = "0.13", default-features = false, features = ["converter", "json"] }
-
 
 [dev-dependencies]
 criterion = { version = "^0.8", default-features = false }
