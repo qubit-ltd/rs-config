@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use qubit_config::Config;
 use qubit_config::ConfigDeserializeOptions;
 use qubit_config::ConfigError;
+use qubit_config::ConfigErrorKind;
 use qubit_config::ConfigReader;
 use qubit_config::ConfigResult;
 use qubit_config::UnknownFieldPolicy;
@@ -853,21 +854,27 @@ fn test_deserialize_unknown_properties_are_sorted_and_deduplicated() {
 
 #[test]
 fn test_serde_materialization_shares_one_conversion_operation_limit() {
-    let limits = ConversionLimits::builder()
-        .operation_limits(ConversionOperationLimits::builder().max_input_bytes(3).build())
-        .build();
-    let mut config = Config::new();
-    config
-        .set_default_read_policy(ReadPolicy::builder().conversion_limits(limits).build())
-        .set("first", "aa")
-        .expect("first value should be stored");
-    config.set("second", "bb").expect("second value should be stored");
+    for maximum in [3_u64, 4] {
+        let limits = ConversionLimits::builder()
+            .operation_limits(ConversionOperationLimits::builder().max_output_bytes(maximum).build())
+            .build();
+        let mut config = Config::new();
+        config.set_default_read_policy(ReadPolicy::builder().conversion_limits(limits).build());
+        config.set("first", "aa").expect("first value should be stored");
+        config.set("second", "bb").expect("second value should be stored");
 
-    let error = config
-        .deserialize::<StringPair>("")
-        .expect_err("the second field should exceed cumulative input bytes");
-
-    assert!(error.to_string().contains("InputBytes"));
+        let result = config.deserialize::<StringPair>("");
+        if maximum == 3 {
+            let error = result.expect_err("second field exhausts shared output bytes");
+            assert_eq!(error.kind(), ConfigErrorKind::Conversion);
+            assert_eq!(error.path(), Some("second"));
+            assert!(error.to_string().contains("OutputBytes"));
+        } else {
+            let pair = result.expect("four output bytes should fit");
+            assert_eq!(pair.first, "aa");
+            assert_eq!(pair.second, "bb");
+        }
+    }
 }
 
 #[test]
