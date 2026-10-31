@@ -149,9 +149,9 @@ URL 等富类型格式化后的文本不作为插值输入，未变化文本保�
 明确的数值目标从原始运行时类型转换；`deserialize_any` 遵循自然 JSON 类别，包括宽整数的
 十进制文本表示。标量列表拆分复用已准入元素，真实集合内的字符串不再拆分。
 JSON 整数字面量在有符号或无符号 128 位范围内精确保留。超范围整数字面量和非有限浮点值
-返回转换错误；有限浮点数沿用既有二进制浮点语义。该结构化转换合同与依赖图统一启用
-`serde_json/arbitrary_precision` 时，通用 wire 反序列化器会在对应 schema 角色下类型化读取
-Float32/Float64。任意 JSON 领域数字仍遵循通用 Serde 事件语义，需要保留 JSON 数字语义时使用专用 helper。
+返回转换错误；有限浮点数沿用既有二进制浮点语义。通用 wire 反序列化器即使在依赖图中统一启用了
+`serde_json/arbitrary_precision`，也会按对应的 schema 角色类型化读取 Float32/Float64。任意 JSON
+领域数字仍遵循通用 Serde 事件语义；需要保留 JSON 数字语义时，应使用专用 JSON helper。
 精确标量被策略判定缺失时可读取为 `None`，子树中的缺失标量字符串会被省略，集合某项缺失
 仍然报错。公共返回值仍要求 `DeserializeOwned`。
 
