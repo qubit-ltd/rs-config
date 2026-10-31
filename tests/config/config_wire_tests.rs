@@ -600,8 +600,8 @@ fn test_config_wire_numeric_budget_accepts_exact_node_and_number_byte_limits() {
     ));
 
     for (input, expected_nodes, expected_values) in [
-        (scalar, 13_usize, vec![125_i32]),
-        (collection, 15_usize, vec![125_i32, 126_i32]),
+        (scalar, 13_u64, vec![125_i32]),
+        (collection, 15_u64, vec![125_i32, 126_i32]),
     ] {
         let exact = ConfigWireLimits::builder_from(&ConfigWireLimits::default())
             .json_decode(JsonDecodeLimits::builder().max_nodes(expected_nodes).build())
