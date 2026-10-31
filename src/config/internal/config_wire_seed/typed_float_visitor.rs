@@ -150,9 +150,16 @@ impl<'safe, 'transaction, 'budget> TypedFloatVisitor<'safe, 'transaction, 'budge
 #[cfg(test)]
 mod tests {
     use qubit_budget::json::JsonDecodeLimits;
+    use qubit_budget::json::JsonValueBudget;
     use serde::de::DeserializeSeed;
+    use serde::de::Visitor;
+    use serde::de::value::Error as ValueError;
 
     use super::super::AccountingConfigWireSeed;
+    use super::super::AccountingUniqueJsonValueSeed;
+    use super::super::WireReadRole;
+    use super::INVALID_NATIVE_FLOAT;
+    use super::TypedFloatVisitor;
     use crate::Config;
     use crate::ConfigWireLimits;
 
@@ -174,5 +181,87 @@ mod tests {
         assert!(error.to_string().contains("NumberBytes"), "unexpected error: {error}");
         assert!(error.to_string().contains("exactly 4"), "unexpected charge: {error}");
         assert!(!error.to_string().contains("invalid native floating-point wire value"));
+    }
+
+    #[test]
+    fn decodes_float32_roles_and_redacts_pre_callback_errors() {
+        let mut config = Config::new();
+        config.set("ratio", 1.25_f32).unwrap();
+        let mut wire = serde_json::to_value(config).unwrap();
+        let bytes = serde_json::to_vec(&wire).unwrap();
+        let mut deserializer = serde_json::Deserializer::from_slice(&bytes);
+        let decoded = AccountingConfigWireSeed::new(ConfigWireLimits::default())
+            .deserialize(&mut deserializer)
+            .expect("the f32 wire value should deserialize")
+            .expect("the f32 wire value should form a config");
+        drop(decoded);
+
+        wire["properties"]["ratio"]["value"]["value"]["scalar"]["float32"] =
+            serde_json::Value::String("secret".to_owned());
+        let bytes = serde_json::to_vec(&wire).unwrap();
+        let mut deserializer = serde_json::Deserializer::from_slice(&bytes);
+        let error = match AccountingConfigWireSeed::new(ConfigWireLimits::default()).deserialize(&mut deserializer) {
+            Ok(_) => panic!("a string cannot be decoded as a native float"),
+            Err(error) => error,
+        };
+        assert!(error.to_string().contains(INVALID_NATIVE_FLOAT));
+        assert!(!error.to_string().contains("secret"));
+    }
+
+    #[test]
+    fn forwards_every_supported_numeric_event_to_the_accounting_seed() {
+        macro_rules! visit {
+            ($method:ident, $value:expr) => {{
+                let limits = JsonDecodeLimits::default();
+                let mut budget = JsonValueBudget::new(*limits.value_limits());
+                let mut transaction = budget.transaction();
+                let seed = AccountingUniqueJsonValueSeed {
+                    transaction: &mut transaction,
+                    depth: 1,
+                    prospective_container: None,
+                    role: WireReadRole::Float64,
+                };
+                let mut safe_failure = None;
+                let visitor = TypedFloatVisitor {
+                    seed,
+                    safe_failure: &mut safe_failure,
+                };
+                visitor
+                    .$method::<ValueError>($value)
+                    .expect("numeric event should be admitted");
+            }};
+        }
+
+        visit!(visit_f32, 1.25_f32);
+        visit!(visit_f64, 1.25_f64);
+        visit!(visit_i64, -7_i64);
+        visit!(visit_i128, -7_i128);
+        visit!(visit_u64, 7_u64);
+        visit!(visit_u128, 7_u128);
+    }
+
+    #[test]
+    fn forwards_conversion_failures_as_safe_diagnostics() {
+        let limits = JsonDecodeLimits::default();
+        let mut budget = JsonValueBudget::new(*limits.value_limits());
+        let mut transaction = budget.transaction();
+        let seed = AccountingUniqueJsonValueSeed {
+            transaction: &mut transaction,
+            depth: 1,
+            prospective_container: None,
+            role: WireReadRole::Float64,
+        };
+        let mut safe_failure = None;
+        let visitor = TypedFloatVisitor {
+            seed,
+            safe_failure: &mut safe_failure,
+        };
+
+        assert!(visitor.visit_i128::<ValueError>(i128::MAX).is_err());
+        assert!(
+            safe_failure
+                .as_deref()
+                .is_some_and(|message| message.contains("supported 64-bit range"))
+        );
     }
 }

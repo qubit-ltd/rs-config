@@ -149,3 +149,67 @@ fn representation(path: &str, reason: ConfigWireRepresentationErrorKind) -> Conf
         reason,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::check_wire_shape;
+    use crate::ConfigWireDecodeError;
+    use crate::ConfigWireRepresentationErrorKind as Kind;
+
+    #[test]
+    fn classifies_invalid_wire_shapes_at_their_contract_paths() {
+        let cases = [
+            (json!(null), "", Kind::InvalidType),
+            (json!({"unexpected": 1}), "", Kind::UnknownField),
+            (json!({"version": "1"}), "/version", Kind::InvalidType),
+            (json!({"version": 256}), "/version", Kind::InvalidValue),
+            (json!({"description": false}), "/description", Kind::InvalidType),
+            (json!({"properties": []}), "/properties", Kind::InvalidType),
+            (json!({"properties": {"a": false}}), "/properties/a", Kind::InvalidType),
+            (
+                json!({"properties": {"a": {"name": "a", "value": null, "is_final": false, "extra": 1}}}),
+                "/properties/a",
+                Kind::UnknownField,
+            ),
+            (
+                json!({"properties": {"a": {"name": "a", "is_final": false}}}),
+                "/properties/a/value",
+                Kind::MissingField,
+            ),
+            (
+                json!({"properties": {"a": {"name": 1, "value": null, "is_final": false}}}),
+                "/properties/a/name",
+                Kind::InvalidType,
+            ),
+            (
+                json!({"properties": {"a": {"name": "a", "value": null, "is_final": 1}}}),
+                "/properties/a/is_final",
+                Kind::InvalidType,
+            ),
+            (
+                json!({"properties": {"a": {"name": "a", "value": null, "is_final": false, "description": 1}}}),
+                "/properties/a/description",
+                Kind::InvalidType,
+            ),
+        ];
+
+        for (value, expected_path, expected_kind) in cases {
+            let error = check_wire_shape(&value).expect_err("the malformed shape should be rejected");
+            assert!(
+                matches!(error, ConfigWireDecodeError::Representation { ref path, reason }
+                    if path == expected_path && reason == expected_kind),
+                "unexpected shape error: {error:?}"
+            );
+        }
+
+        assert!(check_wire_shape(&json!({"description": null})).is_ok());
+        assert!(
+            check_wire_shape(&json!({"properties": {"a": {
+                "name": "a", "value": null, "is_final": false, "description": null
+            }}}))
+            .is_ok()
+        );
+    }
+}

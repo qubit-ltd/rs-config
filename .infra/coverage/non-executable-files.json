@@ -15,6 +15,7 @@
     { "path": "src/conversion/structured_read/source_segment.rs", "reason": "source segment data declaration only" },
     { "path": "src/conversion/unknown_field_policy.rs", "reason": "policy enum declaration only" },
     { "path": "src/error/config_error_kind.rs", "reason": "error enum declaration only" },
+    { "path": "src/config_wire_representation_error_kind.rs", "reason": "error category enum declaration only" },
     { "path": "src/property/property/internal/property_wire_ref.rs", "reason": "serialization data declaration only" },
     { "path": "src/reader/internal/sealed.rs", "reason": "trait declaration only" },
     { "path": "src/utils/internal/interpolation_resource.rs", "reason": "resource enum declaration only" },

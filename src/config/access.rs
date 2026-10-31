@@ -359,3 +359,18 @@ impl Config {
         self.properties.keys().cloned().collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Config;
+
+    #[test]
+    fn direct_accessors_report_property_count_and_section_presence() {
+        let mut config = Config::new();
+        config.set("service.port", 8080_u16).unwrap();
+
+        assert_eq!(config.len(), 1);
+        assert!(config.section_if_present("service").unwrap().is_some());
+        assert!(config.section_if_present("missing").unwrap().is_none());
+    }
+}

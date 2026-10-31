@@ -68,3 +68,41 @@ impl DotenvLineState {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::DotenvLineState;
+
+    #[test]
+    fn advances_through_each_logical_line_state() {
+        let cases = [
+            (DotenvLineState::Complete, ' ', DotenvLineState::WhiteSpace),
+            (DotenvLineState::Complete, '\r', DotenvLineState::Complete),
+            (DotenvLineState::Complete, '\n', DotenvLineState::Complete),
+            (DotenvLineState::Complete, '\\', DotenvLineState::Escape),
+            (DotenvLineState::Complete, '\'', DotenvLineState::StrongOpen),
+            (DotenvLineState::Complete, '"', DotenvLineState::WeakOpen),
+            (DotenvLineState::WhiteSpace, '#', DotenvLineState::Comment),
+            (DotenvLineState::WhiteSpace, 'x', DotenvLineState::Complete),
+            (DotenvLineState::Escape, 'x', DotenvLineState::Complete),
+            (DotenvLineState::StrongOpen, '\\', DotenvLineState::StrongOpenEscape),
+            (DotenvLineState::StrongOpen, '\'', DotenvLineState::Complete),
+            (DotenvLineState::StrongOpen, 'x', DotenvLineState::StrongOpen),
+            (DotenvLineState::StrongOpenEscape, 'x', DotenvLineState::StrongOpen),
+            (DotenvLineState::WeakOpen, '\\', DotenvLineState::WeakOpenEscape),
+            (DotenvLineState::WeakOpen, '"', DotenvLineState::Complete),
+            (DotenvLineState::WeakOpen, 'x', DotenvLineState::WeakOpen),
+            (DotenvLineState::WeakOpenEscape, 'x', DotenvLineState::WeakOpen),
+            (DotenvLineState::Comment, 'x', DotenvLineState::Comment),
+        ];
+
+        for (mut state, character, expected) in cases {
+            state.advance(character);
+            assert_eq!(state, expected, "state {state:?} after {character:?}");
+        }
+
+        let mut comment = DotenvLineState::Comment;
+        comment.advance('\n');
+        assert_eq!(comment, DotenvLineState::Complete);
+    }
+}
