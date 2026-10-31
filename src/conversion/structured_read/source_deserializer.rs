@@ -95,11 +95,22 @@ impl<'tree, 'policy: 'tree, 'session> SourceDeserializer<'tree, 'policy, 'sessio
         }
     }
 
+    /// Sets a known outer source index, preferring it over the index inferred
+    /// from this value's source location.
+    ///
+    /// `None` preserves any index already inferred from the original source
+    /// location. The index is retained for conversion diagnostics as nested
+    /// paths are traversed.
     pub(super) fn with_source_index(mut self, index: Option<usize>) -> Self {
         self.original_index = index.or(self.original_index);
         self
     }
 
+    /// Creates a deserializer from an item already admitted by the shared
+    /// conversion session.
+    ///
+    /// The item's source index is retained for diagnostics, and its existing
+    /// admission charge is not repeated during conversion.
     pub(super) fn admitted(
         context: ReadContext<'tree>,
         path: String,
@@ -116,6 +127,8 @@ impl<'tree, 'policy: 'tree, 'session> SourceDeserializer<'tree, 'policy, 'sessio
         }
     }
 
+    /// Returns the borrowed prepared-tree view; admitted items have no tree
+    /// view because their scalar and admission state are carried by the item.
     fn view(&self) -> Option<ReadView<'tree>> {
         match &self.input {
             ConversionInput::Borrowed { value, .. } => Some(*value),
@@ -123,6 +136,8 @@ impl<'tree, 'policy: 'tree, 'session> SourceDeserializer<'tree, 'policy, 'sessio
         }
     }
 
+    /// Returns text from the interpolation overlay when one exists for this
+    /// source location, otherwise from the borrowed tree view.
     fn string(&self) -> Option<&'tree str> {
         self.location
             .as_ref()
@@ -131,6 +146,7 @@ impl<'tree, 'policy: 'tree, 'session> SourceDeserializer<'tree, 'policy, 'sessio
             .or_else(|| self.view()?.string())
     }
 
+    /// Reports values represented as missing, JSON null, or an unset scalar.
     fn is_missing(&self) -> bool {
         matches!(
             self.view(),
@@ -138,6 +154,13 @@ impl<'tree, 'policy: 'tree, 'session> SourceDeserializer<'tree, 'policy, 'sessio
         )
     }
 
+    /// Converts this input to its original target type through the active
+    /// conversion session, preserving source index and path in errors.
+    ///
+    /// Admitted items reuse their prior admission; borrowed values are
+    /// converted from overlay text or their original scalar representation.
+    /// Missing values retain their unset source type when the source records
+    /// one.
     pub(super) fn convert<T: DataConversionTarget>(self) -> Result<T, ConfigDeserializeError> {
         let index = self.original_index;
         let text = self.string();
@@ -252,6 +275,13 @@ fn scalar_converter<'tree>(
     }
 }
 
+/// Builds a converter without losing the JSON number's signed or unsigned
+/// integer domain. Integer values beyond the native 64-bit range are retained
+/// as 128-bit integers when possible; fractional values use finite `f64`.
+///
+/// Returns `OutOfRange` for integral values outside the supported 128-bit
+/// range and `NonFinite` when a fractional value cannot be represented as a
+/// finite `f64`.
 fn json_number_converter(value: &serde_json::Number) -> Result<DataConverter<'_>, InvalidValueReason> {
     if let Some(value) = value.as_i64() {
         return Ok(DataConverter::from(value));

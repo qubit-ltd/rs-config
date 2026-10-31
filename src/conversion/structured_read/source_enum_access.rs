@@ -18,8 +18,15 @@ use serde::de::value::StrDeserializer;
 use super::deserializer::SourceDeserializer;
 use crate::config_deserialize_error::ConfigDeserializeError;
 
+/// Provides a borrowed external enum tag and its payload deserializer.
+///
+/// The payload keeps the same conversion session as the containing structured
+/// read, so nested variant fields share its accounting and limits.
 pub(super) struct SourceEnumAccess<'tree, 'policy, 'session> {
+    /// Borrowed variant name from the prepared source tree.
     pub(super) variant: &'tree str,
+    /// Deserializer for the variant payload, carrying its root-relative path
+    /// and the shared read session.
     pub(super) payload: SourceDeserializer<'tree, 'policy, 'session>,
 }
 

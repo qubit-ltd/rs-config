@@ -248,6 +248,8 @@ impl<'a> PreparedConfigRead<'a> {
     }
 }
 
+/// Creates a path-specific error when an existing shape conflicts with an
+/// incoming shape or leaf.
 fn conflict(path: &str, existing: &str, incoming: &str) -> ConfigError {
     ConfigError::KeyConflict {
         source_id: None,
@@ -257,6 +259,25 @@ fn conflict(path: &str, existing: &str, incoming: &str) -> ConfigError {
     }
 }
 
+/// Selects a root or subtree and builds its bounded logical read projection.
+///
+/// A non-empty prefix selects an exact property when present; that property
+/// conflicts with descendant keys. Otherwise matching descendants are merged
+/// beneath the selected root, with duplicate leaves and scalar/object shape
+/// conflicts rejected. The projection is admitted against conversion limits
+/// before input payload limits are checked. Interpolation overlays are then
+/// prepared when requested, followed by missing-value classification.
+///
+/// The returned projection borrows source payloads where possible and owns
+/// only the indexes and overlays needed for the read. Its arena `NodeId`s
+/// index projection nodes; property indexes remain a separate source-table
+/// domain.
+///
+/// # Errors
+///
+/// Returns lookup or path-resolution errors from the reader, a conflict for
+/// incompatible selected shapes or duplicate leaves, or a limit/interpolation
+/// error encountered while preparing the projection.
 pub(super) fn prepare_read<'a, R: ConfigReader + ?Sized>(
     reader: &'a R,
     prefix: &str,

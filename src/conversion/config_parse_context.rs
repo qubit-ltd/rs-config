@@ -125,7 +125,21 @@ impl<'a> ConfigParseContext<'a> {
     ///
     /// # Returns
     ///
-    /// The substituted string value.
+    /// The string produced by this parse's substitution function. In an
+    /// ordinary read that function returns the input unchanged; interpolation
+    /// is enabled by the read operation, not by calling this method.
+    /// When `value` matches the current property scalar, its prepared text is
+    /// reused, including a successful cached interpolation result.
+    ///
+    /// In an interpolating read, variables are resolved from the active
+    /// reader first, then from the root reader, and from the environment only
+    /// when the read policy permits that fallback. Expansion uses the read's
+    /// shared interpolation limits and session.
+    ///
+    /// # Errors
+    ///
+    /// Returns the configured substitution error, including lookup failures,
+    /// interpolation cycles, or exhausted interpolation limits.
     pub fn substitute_string(&self, value: &str) -> ConfigResult<String> {
         if let Some(prepared) = self.prepared_scalar.as_ref()
             && prepared.is_raw(value)
