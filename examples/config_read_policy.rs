@@ -6,8 +6,9 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+use qubit_config::Config;
+use qubit_config::ConfigReader;
 use qubit_config::options::ReadPolicy;
-use qubit_config::{Config, ConfigReader};
 
 fn main() -> Result<(), qubit_config::ConfigError> {
     let mut config = Config::new();

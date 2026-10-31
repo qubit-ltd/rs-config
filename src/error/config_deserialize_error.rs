@@ -29,7 +29,8 @@ pub(crate) enum ConfigDeserializeError {
 }
 
 impl ConfigDeserializeError {
-    /// Creates a safe diagnostic for a value with the wrong configuration shape.
+    /// Creates a safe diagnostic for a value with the wrong configuration
+    /// shape.
     pub(crate) fn shape_mismatch(path: &str, expected: &'static str) -> Self {
         Self::Message {
             message: format!("configuration value must have shape: {expected}"),
@@ -45,12 +46,11 @@ impl ConfigDeserializeError {
         }
     }
 
-    /// Creates a safe diagnostic when a scalar sequence has more items than a tuple accepts.
+    /// Creates a safe diagnostic when a scalar sequence has more items than a
+    /// tuple accepts.
     pub(crate) fn tuple_has_extra_items(path: &str, expected: usize) -> Self {
         Self::Message {
-            message: format!(
-                "configuration tuple has more elements than expected length {expected}"
-            ),
+            message: format!("configuration tuple has more elements than expected length {expected}"),
             path: Some(path.to_owned()),
         }
     }

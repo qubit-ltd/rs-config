@@ -196,11 +196,7 @@ impl<'tree, 'policy: 'tree, 'session> SourceDeserializer<'tree, 'policy, 'sessio
             if let Some(expected) = expected_len
                 && expected != values.len()
             {
-                return Err(ConfigDeserializeError::tuple_length(
-                    &self.path,
-                    values.len(),
-                    expected,
-                ));
+                return Err(ConfigDeserializeError::tuple_length(&self.path, values.len(), expected));
             }
             return visitor.visit_seq(super::seq_access::SourceSeqAccess::new(
                 self.context,
@@ -220,10 +216,7 @@ impl<'tree, 'policy: 'tree, 'session> SourceDeserializer<'tree, 'policy, 'sessio
             if let Some(expected) = expected_len
                 && access.has_remaining()?
             {
-                return Err(ConfigDeserializeError::tuple_has_extra_items(
-                    &self.path,
-                    expected,
-                ));
+                return Err(ConfigDeserializeError::tuple_has_extra_items(&self.path, expected));
             }
             return Ok(result);
         }

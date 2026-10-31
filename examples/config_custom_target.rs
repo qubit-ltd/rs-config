@@ -6,8 +6,13 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-use qubit_config::conversion::{ConfigParseContext, FromConfig};
-use qubit_config::{Config, ConfigErrorKind, ConfigReader, ConfigResult, Property};
+use qubit_config::Config;
+use qubit_config::ConfigErrorKind;
+use qubit_config::ConfigReader;
+use qubit_config::ConfigResult;
+use qubit_config::Property;
+use qubit_config::conversion::ConfigParseContext;
+use qubit_config::conversion::FromConfig;
 
 #[derive(Debug, PartialEq)]
 struct ServicePort(u16);
