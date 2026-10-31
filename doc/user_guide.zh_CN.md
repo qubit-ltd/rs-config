@@ -619,8 +619,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 <!-- example: config_read_policy -->
 ```rust
+use qubit_config::Config;
+use qubit_config::ConfigReader;
 use qubit_config::options::ReadPolicy;
-use qubit_config::{Config, ConfigReader};
 
 fn main() -> Result<(), qubit_config::ConfigError> {
     let mut config = Config::new();
@@ -691,8 +692,13 @@ let _ = config;
 
 <!-- example: config_custom_target -->
 ```rust
-use qubit_config::conversion::{ConfigParseContext, FromConfig};
-use qubit_config::{Config, ConfigErrorKind, ConfigReader, ConfigResult, Property};
+use qubit_config::Config;
+use qubit_config::ConfigErrorKind;
+use qubit_config::ConfigReader;
+use qubit_config::ConfigResult;
+use qubit_config::Property;
+use qubit_config::conversion::ConfigParseContext;
+use qubit_config::conversion::FromConfig;
 
 #[derive(Debug, PartialEq)]
 struct ServicePort(u16);
