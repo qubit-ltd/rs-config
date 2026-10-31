@@ -53,27 +53,27 @@ fn yaml_content(property_count: usize) -> String {
 
 /// Builds all source fixtures before Criterion starts timing iterations.
 fn source_fixtures(property_count: usize) -> Vec<(&'static str, Box<dyn ConfigSource>)> {
-    let mut fixtures: Vec<(&'static str, Box<dyn ConfigSource>)> = vec![(
-        "properties",
-        Box::new(PropertiesConfigSource::from_content(properties_content(property_count))),
-    )];
-
-    #[cfg(feature = "env-file")]
-    fixtures.push((
-        "env-file",
-        Box::new(EnvFileConfigSource::from_content(env_file_content(property_count))),
-    ));
-    #[cfg(feature = "toml")]
-    fixtures.push((
-        "toml",
-        Box::new(TomlConfigSource::from_content(toml_content(property_count))),
-    ));
-    #[cfg(feature = "yaml")]
-    fixtures.push((
-        "yaml",
-        Box::new(YamlConfigSource::from_content(yaml_content(property_count))),
-    ));
-
+    let fixtures: Vec<(&'static str, Box<dyn ConfigSource>)> = vec![
+        (
+            "properties",
+            Box::new(PropertiesConfigSource::from_content(properties_content(property_count))),
+        ),
+        #[cfg(feature = "env-file")]
+        (
+            "env-file",
+            Box::new(EnvFileConfigSource::from_content(env_file_content(property_count))),
+        ),
+        #[cfg(feature = "toml")]
+        (
+            "toml",
+            Box::new(TomlConfigSource::from_content(toml_content(property_count))),
+        ),
+        #[cfg(feature = "yaml")]
+        (
+            "yaml",
+            Box::new(YamlConfigSource::from_content(yaml_content(property_count))),
+        ),
+    ];
     fixtures
 }
 

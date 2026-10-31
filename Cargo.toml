@@ -96,7 +96,6 @@ harness = false
 name = "source_parsing_bench"
 path = "benches/source_parsing_bench.rs"
 harness = false
-required-features = ["formats"]
 
 [[bench]]
 name = "interpolation_bench"
