@@ -161,6 +161,17 @@ native rich-value conversion shape supported by `ConfigReader::get`.
 Object member names are exposed to Serde's key deserializer as strings; numeric
 map keys require explicit parsing by the application.
 
+Structured-read diagnostic paths keep ordinary member names in dotted form.
+Names containing `.`, `[`, `]`, `"`, `\\`, or control characters use a
+JSON-quoted bracket segment: a literal `a.b` member is `payload["a.b"]`, while
+nested members remain `payload.a.b`; array positions remain `[index]`. The same
+encoding applies to special segments in the selected configuration root. These
+strings are diagnostic representations only and must not be passed to
+`Config::get` or section lookup. Ordinary reader paths and Wire JSON Pointers
+retain their existing formats. Consumers that compare special-key structured
+diagnostic strings should update those comparisons; configuration keys and
+query behavior do not change.
+
 Interpolation scope follows the selected storage shape. Dotted descendants use
 the selected subtree as the initial lookup scope. An exact structured property,
 such as a JSON object, uses the calling reader's scope; object member names do
@@ -172,7 +183,8 @@ synthetic object indices. Node IDs index the arena and its per-node origin table
 property indexes address a separate table of borrowed source properties. A source
 location identifies one original property plus typed nested key segments, so
 literal dots in JSON keys remain distinct from dotted configuration paths. The
-requested prefix is retained as `root_path` for diagnostics. The tree never
+canonical requested prefix stays in `root_path` for lookup and byte offsets; a
+separate encoded root is derived for structured diagnostics. The tree never
 clones a complete intermediate JSON payload.
 Object/object contributions with distinct leaves merge; duplicate leaves and
 scalar/object conflicts fail. Interpolation overlays use typed source locations,
@@ -267,12 +279,16 @@ and preserves the other decode limits; `json_decode` replaces the whole profile.
 
 ### TOML/YAML parser resource limits
 
-The complete historical measurement materials are not currently accessible
-from the project documentation, so historical measurements are not treated as
-a reproducible baseline. Source inspection confirms that TOML and YAML build
-third-party ASTs before flattening; node and depth checks therefore constrain
-accepted configuration output, not parser allocation or recursion. These
-limits do not establish an OOM threshold or prove the default byte limit safe.
+The [2026-11-01 measurement report](resource-probe-20261101T042738659Z-7be245fc.md)
+contains the complete matrix and raw process records. It reproduced a YAML
+allocation abort for an 8 MiB, 4.19-million-element wide sequence under a 1 GiB
+address-space cap, with roughly 613 MiB maximum RSS; lowering node/depth limits
+did not prevent it. The source call order places this failure inside
+`serde_norway::from_str`, before flattening, though the probe cannot identify
+the scanner versus parser allocation site. A corresponding TOML sample reached
+roughly 640 MiB RSS before flattening returned the configured node-limit error.
+These synthetic results warrant a separate parser-stage protection design;
+they are not application SLOs and do not establish a general safety threshold.
 
 The [resource probe](../examples/config_source_resource_probe.rs) provides an
 optional manual entry point. For `wide`, `SIZE` is the number of array elements;
@@ -285,13 +301,11 @@ cargo run --locked --example config_source_resource_probe --features formats -- 
 cargo run --locked --example config_source_resource_probe --features formats -- yaml wide 524288 16 8 generate-only
 ```
 
-These commands expose the probe, but do not reproduce historical RSS results.
-Any future published measurements should record the toolchain, dependencies,
-build mode, machine environment, exact commands, raw output, and sample count.
-Any parser-stage protection requires a separate design that proves YAML
-pre-count equivalence with flattening, preserves ancestor budgets, avoids
-duplicate charging, and identifies a TOML parser/API that can reject before
-materializing the full tree. No such protection is implemented here.
+These commands provide the probe entry point. Any parser-stage protection
+requires a separate design that proves YAML pre-count equivalence with
+flattening, preserves ancestor budgets, avoids duplicate charging, and
+identifies a TOML parser/API that can reject before materializing the full tree.
+No such protection is implemented here.
 
 ## Feature Boundaries
 

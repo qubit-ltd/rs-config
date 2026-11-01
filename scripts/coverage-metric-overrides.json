@@ -37,29 +37,29 @@
       "minimums": {
         "functions": 81.57894736842105
       },
-      "reason": "The source-owned parser and defensive nested-value paths retain the measured function attribution gap. The extracted YamlConfigSourceBuilder is covered independently in yaml_config_source_builder.rs (6/6 functions, 27/27 lines, 23/23 regions). YAML source tests cover scalar and sequence kinds, malformed and nested values, aliases, collisions, limits, final values, and transactionality; lines and regions meet the normal thresholds.",
+      "reason": "The source-owned parser and defensive nested-value paths retain the measured function attribution gap. The new mixed-numeric sequence regression exercises the category-intersection error path; the extracted YamlConfigSourceBuilder remains covered independently. The new full report shows lines and regions meet the normal thresholds, so only the function metric keeps an override.",
       "evidence": {
-        "generated_at": "2026-11-01T01:41:14Z",
+        "generated_at": "2026-11-01T04:47:28Z",
         "cargo_llvm_cov": "cargo-llvm-cov 0.8.6",
         "rust_llvm": "rustc 1.94.0 (4a4ef493e3a1488c6e321570238084b38948f6db), LLVM 21.1.8",
-        "command": "CARGO_INCREMENTAL=1 ./.infra/bin/coverage.sh",
-        "source_baseline": "working tree based on HEAD d1dccbf186c16ddb564a8f83672f2dd9aa669182; T2 moved the source builder into its own module and T1/T3/T4 changes were present during measurement",
-        "source_sha256": "b183f78920740b1b8b040c0881ed2cf6a225c0ba39556fa3777ad0c79fd13b07",
+        "command": "./scripts/check-project-coverage.sh",
+        "source_baseline": "working tree based on HEAD 26acafa6c5c917856949974930fc4496d4e16df3; RSC-001 YAML sequence error-index fix and RSC-002 structured diagnostic path changes were present",
+        "source_sha256": "6bc0faa18b2cb221fd52bf47e284eafce390f43f5e65a22321320993b3e1d027",
         "metrics": {
           "functions": {
-            "covered": 31,
-            "count": 38,
-            "percent": 81.57894736842105
+            "covered": 32,
+            "count": 39,
+            "percent": 82.05128205128204
           },
           "lines": {
-            "covered": 232,
-            "count": 249,
-            "percent": 93.17269076305222
+            "covered": 245,
+            "count": 264,
+            "percent": 92.8030303030303
           },
           "regions": {
-            "covered": 442,
-            "count": 501,
-            "percent": 88.22355289421158
+            "covered": 462,
+            "count": 532,
+            "percent": 86.8421052631579
           }
         }
       }

@@ -51,26 +51,27 @@ At the exact normal threshold, lines and regions still need an override because
 their normal rules are strict (`>`); functions at exactly 95% meet their normal
 rule (`>=`) and do not count as an active exception.
 
-The sidecar records a measurement snapshot generated at `2026-11-01T01:41:14Z`
-with `cargo-llvm-cov 0.8.6`, Rust 1.94.0, and LLVM 21.1.8, using
-`CARGO_INCREMENTAL=1 ./.infra/bin/coverage.sh`. It is based on the working tree
-at HEAD `d1dccbf186c16ddb564a8f83672f2dd9aa669182`; T2 moved the source builder
-into its own module and T1/T3/T4 changes were present during measurement. The
-sidecar baseline is `working tree based on HEAD d1dccbf186c16ddb564a8f83672f2dd9aa669182; T2 moved the source builder into its own module and T1/T3/T4 changes were present during measurement`. The
-sidecar records source SHA-256 `e97fca1562693442fa9cfe721c0f27a631c9b1e446338eb7be95604ae1cc4613`
-for TOML and `b183f78920740b1b8b040c0881ed2cf6a225c0ba39556fa3777ad0c79fd13b07`
-for YAML. These are historical evidence values from the sidecar, not a new measurement in this update:
+The sidecar stores per-file evidence. TOML retains its `2026-11-01T01:41:14Z`
+measurement; its source baseline is `working tree based on HEAD d1dccbf186c16ddb564a8f83672f2dd9aa669182; T2 moved the source builder into its own module and T1/T3/T4 changes were present during measurement`. YAML was remeasured at `2026-11-01T04:47:28Z` with
+`cargo-llvm-cov 0.8.6`, Rust 1.94.0, and LLVM 21.1.8, using
+`./scripts/check-project-coverage.sh`. The YAML evidence is based on the working
+tree at HEAD `26acafa6c5c917856949974930fc4496d4e16df3`, with the RSC-001 YAML
+index fix and RSC-002 structured diagnostic changes present. Its source
+SHA-256 is `6bc0faa18b2cb221fd52bf47e284eafce390f43f5e65a22321320993b3e1d027`.
+The full source baseline is `working tree based on HEAD 26acafa6c5c917856949974930fc4496d4e16df3; RSC-001 YAML sequence error-index fix and RSC-002 structured diagnostic path changes were present`.
+The TOML source SHA-256 remains `e97fca1562693442fa9cfe721c0f27a631c9b1e446338eb7be95604ae1cc4613`;
+the YAML SHA-256 above was recomputed from the measured source.
 
 | File | Functions | Lines | Regions | Active minimums |
 | --- | ---: | ---: | ---: | --- |
 | `src/source/toml_config_source.rs` | 73.53% (25/34) | 91.59% (196/214) | 82.76% (360/435) | functions >= 73.52941176470588; regions >= 82.75862068965517 |
-| `src/source/yaml_config_source.rs` | 81.58% (31/38) | 93.17% (232/249) | 88.22% (442/501) | functions >= 81.57894736842105 |
+| `src/source/yaml_config_source.rs` | 82.05% (32/39) | 92.80% (245/264) | 86.84% (462/532) | functions >= 81.57894736842105 |
 
 The sidecar records full-precision measured percentages and covered/count
 counters for all three metrics per overridden file. Only displayed percentages
 are rounded to two decimal places; enforcement uses the JSON minimum and an
 inclusive `>=` comparison. Metrics meeting the normal threshold have no
-override. The historical six exceptions remain removed:
+override. The six earlier exceptions remain removed:
 `src/config/access.rs`, `src/key/config_key.rs`, `src/key/config_path.rs`,
 `src/property/property.rs`, `src/property/property_mut.rs`, and
 `src/reader/config_section.rs`.

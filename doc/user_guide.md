@@ -495,6 +495,16 @@ lengths, or extra-item information. These human-readable summaries may change;
 use `ConfigError::kind()` and `ConfigError::path()` for programmatic handling
 instead of matching `Display` text.
 
+For structured-read diagnostics, ordinary member names keep dotted paths.
+Names containing `.`, `[`, `]`, `"`, `\\`, or control characters use a
+JSON-quoted bracket segment: a literal `a.b` member is `payload["a.b"]`, while
+nested members remain `payload.a.b`; array positions remain `[index]`. Special
+segments in the selected root use the same encoding. These strings are for
+diagnostics only; do not pass them to `Config::get` or section lookup. Ordinary
+reader paths and Wire JSON Pointers keep their own formats. Consumers that
+compare special-key diagnostic strings should update those comparisons; config
+keys and lookup behavior are unchanged.
+
 Interpolation scope follows the selected storage shape. When `prefix` selects
 dotted child properties, lookup starts in that selected subtree. When it
 selects an exact structured property such as a JSON object, lookup starts in
