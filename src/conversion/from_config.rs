@@ -104,7 +104,8 @@ pub trait FromConfig: Sized {
 ///
 /// When interpolation is enabled, a string collection's first item is
 /// substituted before conversion. Remaining collection items are not read.
-/// Substitution failures for the selected collection item retain source index zero.
+/// Substitution failures for the selected collection item retain source index
+/// zero.
 ///
 /// # Parameters
 ///

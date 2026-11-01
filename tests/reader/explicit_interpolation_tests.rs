@@ -29,8 +29,12 @@ fn test_interpolated_first_item_error_keeps_index_across_reader_apis() {
             reader.get_optional_interpolated::<String>(key).unwrap_err(),
             reader.get_interpolated_or::<String>(key, "default").unwrap_err(),
             reader.get_any_interpolated::<String>([key, fallback]).unwrap_err(),
-            reader.get_optional_any_interpolated::<String>([key, fallback]).unwrap_err(),
-            reader.get_any_interpolated_or::<String>([key, fallback], "default").unwrap_err(),
+            reader
+                .get_optional_any_interpolated::<String>([key, fallback])
+                .unwrap_err(),
+            reader
+                .get_any_interpolated_or::<String>([key, fallback], "default")
+                .unwrap_err(),
         ];
         for error in errors {
             assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Substitution);
