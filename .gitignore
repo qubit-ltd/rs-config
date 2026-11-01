@@ -89,6 +89,7 @@ external/
 /coverage.txt
 /coverage-summary.md
 /coverage-badge.json
+/coverage-functions.json
 /lcov.info
 /scripts/__pycache__/
 
