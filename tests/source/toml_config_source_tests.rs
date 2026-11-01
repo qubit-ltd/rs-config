@@ -216,6 +216,99 @@ fn test_toml_parser_depth_tracks_inline_and_array_tables() {
 }
 
 #[test]
+fn test_toml_parser_depth_inline_dotted_key_boundary() {
+    let accepted = TomlConfigSource::builder()
+        .content("inline = { a.b = 1 }\n")
+        .limits(SourceLimits::builder().max_parser_nesting_depth(7).build())
+        .build();
+    assert_eq!(accepted.load().unwrap().get::<i64>("inline.a.b").unwrap(), 1);
+
+    let rejected = TomlConfigSource::builder()
+        .content("inline = { a.b = 1 }\n")
+        .limits(SourceLimits::builder().max_parser_nesting_depth(6).build())
+        .build();
+    assert!(matches!(
+        rejected.load(),
+        Err(ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::ParserNestingDepth,
+            limit: 6,
+            observed_at_least: 7,
+            ..
+        })
+    ));
+}
+
+#[test]
+fn test_toml_parser_depth_array_table_nested_scopes_boundary() {
+    let cases = [
+        (
+            "[[products]]\n[products.details]\nname = \"widget\"\n",
+            "array-table member followed by an ordinary table",
+        ),
+        (
+            "[[a]]\n[[a.b]]\nc = 1\n",
+            "multi-level array-table",
+        ),
+    ];
+
+    for (content, scenario) in cases {
+        let accepted = TomlConfigSource::builder()
+            .content(content)
+            .limits(SourceLimits::builder().max_parser_nesting_depth(6).build())
+            .build();
+        let error = accepted
+            .load()
+            .expect_err("the existing flattening behavior rejects TOML array-of-tables");
+        assert!(
+            matches!(error, ConfigError::SourceParseError { .. }),
+            "{scenario} must pass parser-depth admission at depth 6: {error:?}"
+        );
+
+        let rejected = TomlConfigSource::builder()
+            .content(content)
+            .limits(SourceLimits::builder().max_parser_nesting_depth(5).build())
+            .build();
+        assert!(matches!(
+            rejected.load(),
+            Err(ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::ParserNestingDepth,
+                limit: 5,
+                observed_at_least: 6,
+                ..
+            })
+        ), "{scenario}");
+    }
+}
+
+#[test]
+fn test_toml_parser_depth_repeated_array_table_instances_do_not_accumulate() {
+    let content = "[[items]]\nname = \"first\"\n[[items]]\nname = \"second\"\n";
+
+    let accepted = TomlConfigSource::builder()
+        .content(content)
+        .limits(SourceLimits::builder().max_parser_nesting_depth(4).build())
+        .build();
+    let error = accepted
+        .load()
+        .expect_err("the existing flattening behavior rejects TOML array-of-tables");
+    assert!(matches!(error, ConfigError::SourceParseError { .. }));
+
+    let rejected = TomlConfigSource::builder()
+        .content(content)
+        .limits(SourceLimits::builder().max_parser_nesting_depth(3).build())
+        .build();
+    assert!(matches!(
+        rejected.load(),
+        Err(ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::ParserNestingDepth,
+            limit: 3,
+            observed_at_least: 4,
+            ..
+        })
+    ));
+}
+
+#[test]
 fn test_toml_parser_depth_ignores_value_punctuation_and_quoted_key_dots() {
     let content = concat!(
         "\"quoted.dot\" = 1 # [ { (\n",
