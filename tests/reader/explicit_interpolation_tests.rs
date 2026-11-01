@@ -21,6 +21,46 @@ use qubit_datatype::CollectionConversionPolicy;
 use qubit_value::ValueError;
 use serde::Deserialize;
 
+#[test]
+fn test_interpolated_first_item_error_keeps_index_across_reader_apis() {
+    fn check(reader: &impl ConfigReader, key: &str, fallback: &str) {
+        let errors = [
+            reader.get_interpolated::<String>(key).unwrap_err(),
+            reader.get_optional_interpolated::<String>(key).unwrap_err(),
+            reader.get_interpolated_or::<String>(key, "default").unwrap_err(),
+            reader.get_any_interpolated::<String>([key, fallback]).unwrap_err(),
+            reader.get_optional_any_interpolated::<String>([key, fallback]).unwrap_err(),
+            reader.get_any_interpolated_or::<String>([key, fallback], "default").unwrap_err(),
+        ];
+        for error in errors {
+            assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Substitution);
+            assert_eq!(error.path(), Some("service.items"));
+            assert_eq!(error.source_index(), Some(0));
+            assert!(matches!(error,
+                ConfigError::IndexedSubstitutionError { source_index: 0, source }
+                    if matches!(source.as_ref(), ConfigError::SubstitutionError { .. })
+            ));
+        }
+    }
+    let mut config = Config::new();
+    config.set("service.items", vec!["${missing}", "tail"]).unwrap();
+    config.set("service.fallback", "fallback").unwrap();
+    check(&config, "service.items", "service.fallback");
+    check(&config.section("service").unwrap(), "items", "fallback");
+}
+
+#[test]
+fn test_interpolated_first_item_retains_scalar_and_lazy_semantics() {
+    let mut config = Config::new();
+    config.set("scalar", "${missing}").unwrap();
+    let error = config.get_interpolated::<String>("scalar").unwrap_err();
+    assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Substitution);
+    assert_eq!(error.source_index(), None);
+    config.set("items", vec!["ready", "${missing}"]).unwrap();
+    assert_eq!(config.get_interpolated::<String>("items").unwrap(), "ready");
+    assert_eq!(config.get::<String>("scalar").unwrap(), "${missing}");
+}
+
 #[derive(Debug, Deserialize, PartialEq, Eq)]
 struct Endpoint {
     url: String,
@@ -366,7 +406,10 @@ fn test_interpolated_collection_first_item_uses_expansion_budget_and_output_limi
     assert!(
         matches!(
             error,
-            ConfigError::SubstitutionExpansionLimitExceeded { ref path, max_expansions: 0 } if path == "ports"
+            ConfigError::IndexedSubstitutionError { source_index: 0, ref source }
+                if matches!(source.as_ref(), ConfigError::SubstitutionExpansionLimitExceeded {
+                    path, max_expansions: 0,
+                } if path == "ports")
         ),
         "{error:?}"
     );
@@ -385,7 +428,10 @@ fn test_interpolated_collection_first_item_uses_expansion_budget_and_output_limi
     output_limited.set("ports", vec!["${base}", "${missing}"]).unwrap();
     let error = output_limited.get_interpolated::<String>("ports").unwrap_err();
     assert!(
-        matches!(error, ConfigError::ConversionError { ref key, .. } if key == "base"),
+        matches!(error,
+            ConfigError::IndexedSubstitutionError { source_index: 0, ref source }
+                if matches!(source.as_ref(), ConfigError::ConversionError { key, .. } if key == "base")
+        ),
         "{error:?}"
     );
 }

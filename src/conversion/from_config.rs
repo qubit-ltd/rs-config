@@ -104,6 +104,7 @@ pub trait FromConfig: Sized {
 ///
 /// When interpolation is enabled, a string collection's first item is
 /// substituted before conversion. Remaining collection items are not read.
+/// Substitution failures for the selected collection item retain source index zero.
 ///
 /// # Parameters
 ///
@@ -122,7 +123,12 @@ where
         && let MultiValuesRef::String(values) = values.view()
         && let Some(first) = values.first()
     {
-        let expanded = ctx.substitute_string(first)?;
+        let expanded = ctx
+            .substitute_string(first)
+            .map_err(|source| ConfigError::IndexedSubstitutionError {
+                source_index: 0,
+                source: Box::new(source),
+            })?;
         let selected = ValueContainer::Collection(MultiValues::String(vec![expanded]));
         return selected
             .to_first_with::<T>(ctx.options().conversion_policy(), ctx.options().conversion_limits())
