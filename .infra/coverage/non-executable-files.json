@@ -74,6 +74,14 @@
     {
       "path": "src/utils/internal/mod.rs",
       "reason": "private module declarations only"
+    },
+    {
+      "path": "src/config_wire_limit_kind.rs",
+      "reason": "resource category enum declaration only"
+    },
+    {
+      "path": "src/config_wire_decode_error.rs",
+      "reason": "error data enum declaration only"
     }
   ]
 }

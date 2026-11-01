@@ -3,40 +3,64 @@
   "files": {
     "src/source/toml_config_source.rs": {
       "minimums": {
-        "functions": 77.5,
-        "regions": 83.62
+        "functions": 73.52941176470588,
+        "regions": 82.75862068965517
       },
-      "reason": "The feature-gated generic conversions and defensive scalar fallback paths account for the remaining function and region attribution gaps. The TOML source tests cover accepted values, mixed and nested value rejection, parse and I/O errors, collisions, limits, final values, and transactionality; lines meet the normal threshold.",
+      "reason": "The source-owned parser and defensive fallback paths retain the measured function and region attribution gaps. The extracted TomlConfigSourceBuilder is covered independently in toml_config_source_builder.rs (6/6 functions, 27/27 lines, 23/23 regions). TOML source tests cover accepted values, mixed and nested value rejection, parse and I/O errors, collisions, limits, final values, and transactionality; lines meet the normal threshold.",
       "evidence": {
-        "generated_at": "2026-10-31T16:52:18Z",
+        "generated_at": "2026-11-01T01:41:14Z",
         "cargo_llvm_cov": "cargo-llvm-cov 0.8.6",
         "rust_llvm": "rustc 1.94.0 (4a4ef493e3a1488c6e321570238084b38948f6db), LLVM 21.1.8",
         "command": "CARGO_INCREMENTAL=1 ./.infra/bin/coverage.sh",
-        "source_baseline": "working tree based on HEAD 8ea2d29fff44d06b3d1118dcac5225336929d228; pre-existing local wire changes were applied to run the full test suite",
-        "source_sha256": "e5924a42a8f1287f193d952796c8c2518e30b1b90bcb383522a328708b4fedfe",
+        "source_baseline": "working tree based on HEAD d1dccbf186c16ddb564a8f83672f2dd9aa669182; T2 moved the source builder into its own module and T1/T3/T4 changes were present during measurement",
+        "source_sha256": "e97fca1562693442fa9cfe721c0f27a631c9b1e446338eb7be95604ae1cc4613",
         "metrics": {
-          "functions": { "covered": 31, "count": 40, "percent": 77.5 },
-          "lines": { "covered": 223, "count": 241, "percent": 92.5311203319502 },
-          "regions": { "covered": 383, "count": 458, "percent": 83.62445414847161 }
+          "functions": {
+            "covered": 25,
+            "count": 34,
+            "percent": 73.52941176470588
+          },
+          "lines": {
+            "covered": 196,
+            "count": 214,
+            "percent": 91.58878504672897
+          },
+          "regions": {
+            "covered": 360,
+            "count": 435,
+            "percent": 82.75862068965517
+          }
         }
       }
     },
     "src/source/yaml_config_source.rs": {
       "minimums": {
-        "functions": 84.09
+        "functions": 81.57894736842105
       },
-      "reason": "Feature-gated generic sequence conversions and defensive nested-value paths leave a function attribution gap. The YAML source tests cover scalar and sequence kinds, malformed and nested values, aliases, collisions, limits, final values, and transactionality; lines and regions meet the normal thresholds.",
+      "reason": "The source-owned parser and defensive nested-value paths retain the measured function attribution gap. The extracted YamlConfigSourceBuilder is covered independently in yaml_config_source_builder.rs (6/6 functions, 27/27 lines, 23/23 regions). YAML source tests cover scalar and sequence kinds, malformed and nested values, aliases, collisions, limits, final values, and transactionality; lines and regions meet the normal thresholds.",
       "evidence": {
-        "generated_at": "2026-10-31T16:52:18Z",
+        "generated_at": "2026-11-01T01:41:14Z",
         "cargo_llvm_cov": "cargo-llvm-cov 0.8.6",
         "rust_llvm": "rustc 1.94.0 (4a4ef493e3a1488c6e321570238084b38948f6db), LLVM 21.1.8",
         "command": "CARGO_INCREMENTAL=1 ./.infra/bin/coverage.sh",
-        "source_baseline": "working tree based on HEAD 8ea2d29fff44d06b3d1118dcac5225336929d228; pre-existing local wire changes were applied to run the full test suite",
-        "source_sha256": "8ad692772fc50abec35e251e7623c0db3cb22c778edfd4f2f4cbe02e504d09d6",
+        "source_baseline": "working tree based on HEAD d1dccbf186c16ddb564a8f83672f2dd9aa669182; T2 moved the source builder into its own module and T1/T3/T4 changes were present during measurement",
+        "source_sha256": "b183f78920740b1b8b040c0881ed2cf6a225c0ba39556fa3777ad0c79fd13b07",
         "metrics": {
-          "functions": { "covered": 37, "count": 44, "percent": 84.0909090909091 },
-          "lines": { "covered": 259, "count": 276, "percent": 93.84057971014492 },
-          "regions": { "covered": 465, "count": 524, "percent": 88.74045801526718 }
+          "functions": {
+            "covered": 31,
+            "count": 38,
+            "percent": 81.57894736842105
+          },
+          "lines": {
+            "covered": 232,
+            "count": 249,
+            "percent": 93.17269076305222
+          },
+          "regions": {
+            "covered": 442,
+            "count": 501,
+            "percent": 88.22355289421158
+          }
         }
       }
     }
