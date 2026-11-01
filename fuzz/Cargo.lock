@@ -518,6 +518,7 @@ dependencies = [
  "serde_path_to_error",
  "thiserror",
  "toml",
+ "toml_parser",
  "url",
  "yaml-rust2",
 ]
