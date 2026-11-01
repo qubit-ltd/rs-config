@@ -20,22 +20,35 @@ use crate::ConfigResult;
 
 #[derive(Clone, Copy)]
 enum Frame {
+    /// Parent value depth saved before entering an array.
     Array(usize),
+    /// Parent value depth saved before entering an inline table.
     Inline(usize),
 }
 
-/// Tracks bounded TOML nesting without constructing parser values.
+/// Tracks conservative TOML parser nesting without constructing parser values.
+///
+/// The root depth is zero. Table headers and keys contribute a conservative
+/// parser-depth bound; this is not the semantic output depth used by
+/// `max_nesting_depth`.
 pub(super) struct TomlParserDepth<'a, 'b> {
     session: &'a SourceLoadSession<'b>,
+    /// Conservative base depth of the current table.
     table_depth: usize,
+    /// Number of segments in the key currently being parsed.
     key_segments: usize,
+    /// Conservative base depth of the current value.
     value_depth: usize,
+    /// Parent value depths used to restore state when containers close.
     frames: Vec<Frame>,
+    /// Whether parser events are currently inside a table header.
     in_header: bool,
+    /// First parser-depth error; later checks cannot replace it.
     first_error: Option<ConfigError>,
 }
 
 impl<'a, 'b> TomlParserDepth<'a, 'b> {
+    /// Creates a receiver with root depth zero and no active containers.
     pub(super) fn new(session: &'a SourceLoadSession<'b>) -> Self {
         Self {
             session,
@@ -48,6 +61,7 @@ impl<'a, 'b> TomlParserDepth<'a, 'b> {
         }
     }
 
+    /// Returns the first recorded parser-depth error, if any.
     pub(super) fn finish(self) -> ConfigResult<()> {
         match self.first_error {
             Some(error) => Err(error),
@@ -55,6 +69,7 @@ impl<'a, 'b> TomlParserDepth<'a, 'b> {
         }
     }
 
+    /// Checks a representable conservative depth and retains the first error.
     fn check(&mut self, depth: usize) -> bool {
         if self.first_error.is_some() {
             return false;
@@ -67,6 +82,11 @@ impl<'a, 'b> TomlParserDepth<'a, 'b> {
         }
     }
 
+    /// Rejects a depth whose arithmetic representation overflowed.
+    ///
+    /// The parser-depth check receives `usize::MAX` as a saturated lower
+    /// bound; the resulting error records that the actual observation is at
+    /// least that large. An earlier error is preserved.
     fn reject_unrepresentable_depth(&mut self) {
         if self.first_error.is_some() {
             return;
@@ -93,10 +113,16 @@ impl<'a, 'b> TomlParserDepth<'a, 'b> {
         });
     }
 
+    /// Adds depth components, returning `None` if their sum is unrepresentable.
     fn add_depth(left: usize, right: usize) -> Option<usize> {
         left.checked_add(right)
     }
 
+    /// Returns the conservative key bound: two depth units per key segment.
+    ///
+    /// The multiplication is checked, and overflow is handled as an
+    /// unrepresentable parser depth by the caller. This bound does not define
+    /// the semantic nesting depth of the parsed value.
     fn key_depth(&self) -> Option<usize> {
         self.key_segments.checked_mul(2)
     }

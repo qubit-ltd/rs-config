@@ -366,7 +366,11 @@ impl Config {
     ///
     /// # Type Parameters
     ///
-    /// * `T` - Target type supported by [`FromConfig`]
+    /// * `T` - Element type implementing [`DataConversionTarget`].
+    ///
+    /// Elements use the built-in data conversion pipeline. Implementing
+    /// [`FromConfig`] for a custom scalar target does not by itself make that
+    /// target usable with this method.
     ///
     /// # Parameters
     ///
