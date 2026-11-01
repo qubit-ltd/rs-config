@@ -9,8 +9,6 @@
 //
 // Covers the public `Config` API (including APIs introduced in v0.3.0).
 
-#![allow(dead_code, unused_imports)]
-
 #[cfg(feature = "chrono")]
 pub(crate) use chrono::DateTime;
 #[cfg(feature = "chrono")]
@@ -25,14 +23,9 @@ pub(crate) use qubit_config::Config;
 pub(crate) use qubit_config::ConfigBuilder;
 pub(crate) use qubit_config::ConfigError;
 pub(crate) use qubit_config::ConfigReader;
-pub(crate) use qubit_config::Property;
 pub(crate) use qubit_config::options::InterpolationSources;
 pub(crate) use qubit_config::options::ReadPolicy;
-pub(crate) use qubit_datatype::BlankStringPolicy;
-pub(crate) use qubit_datatype::DataConversionErrorKind;
-pub(crate) use qubit_datatype::DataType;
 pub(crate) use qubit_value::MultiValues;
-pub(crate) use serde::Deserialize;
 
 /// Creates a test configuration object
 pub(crate) fn create_test_config() -> Config {
@@ -42,20 +35,6 @@ pub(crate) fn create_test_config() -> Config {
     config.set("bool_value", true).unwrap();
     config.set("float_value", 3.5).unwrap();
     config
-}
-
-/// Creates a test configuration with description
-#[allow(dead_code)]
-pub(crate) fn create_test_config_with_description() -> Config {
-    Config::builder().description("Test Configuration").build()
-}
-
-/// Changes the interpolation recursion limit while preserving other options.
-pub(crate) fn set_max_interpolation_depth(config: &mut Config, max_depth: usize) {
-    let options = ReadPolicy::builder_from(config.default_read_policy())
-        .max_interpolation_depth(max_depth)
-        .build();
-    config.set_default_read_policy(options);
 }
 
 #[test]
@@ -150,17 +129,8 @@ fn test_config_splits_scalar_text_but_preserves_collection_items() {
 
 #[cfg(test)]
 mod test_new {
-    use super::BlankStringPolicy;
     use super::Config;
-    use super::ConfigError;
-    use super::DataType;
-    use super::Deserialize;
     use super::InterpolationSources;
-    use super::MultiValues;
-    use super::Property;
-    use super::ReadPolicy;
-    use super::create_test_config;
-    use super::create_test_config_with_description;
 
     #[test]
     fn test_new_creates_empty_config() {
@@ -188,17 +158,8 @@ mod test_new {
 
 #[cfg(test)]
 mod test_with_description {
-    use super::BlankStringPolicy;
     use super::Config;
-    use super::ConfigError;
-    use super::DataType;
-    use super::Deserialize;
     use super::InterpolationSources;
-    use super::MultiValues;
-    use super::Property;
-    use super::ReadPolicy;
-    use super::create_test_config;
-    use super::create_test_config_with_description;
 
     #[test]
     fn test_with_description_creates_config_with_description() {
@@ -230,16 +191,7 @@ mod test_with_description {
 
 #[cfg(test)]
 mod test_description {
-    use super::BlankStringPolicy;
     use super::Config;
-    use super::ConfigError;
-    use super::DataType;
-    use super::Deserialize;
-    use super::MultiValues;
-    use super::Property;
-    use super::ReadPolicy;
-    use super::create_test_config;
-    use super::create_test_config_with_description;
 
     #[test]
     fn test_description_returns_none_for_new_config() {
@@ -279,13 +231,6 @@ mod test_description {
 mod test_variable_substitution {
     use super::Config;
     use super::ConfigError;
-    use super::DataType;
-    use super::Deserialize;
-    use super::InterpolationSources;
-    use super::MultiValues;
-    use super::Property;
-    use super::create_test_config;
-    use super::create_test_config_with_description;
 
     #[test]
     fn test_generic_get_string_preserves_placeholder() {
@@ -343,14 +288,6 @@ mod test_variable_substitution {
 #[cfg(test)]
 mod test_contains {
     use super::Config;
-    use super::ConfigError;
-    use super::DataType;
-    use super::Deserialize;
-    use super::InterpolationSources;
-    use super::MultiValues;
-    use super::Property;
-    use super::create_test_config;
-    use super::create_test_config_with_description;
 
     #[test]
     fn test_contains_returns_false_for_empty_config() {
@@ -376,13 +313,6 @@ mod test_contains {
 #[cfg(test)]
 mod test_get_property {
     use super::Config;
-    use super::ConfigError;
-    use super::DataType;
-    use super::Deserialize;
-    use super::MultiValues;
-    use super::Property;
-    use super::create_test_config;
-    use super::create_test_config_with_description;
 
     #[test]
     fn test_get_property_returns_none_for_nonexistent_property() {
@@ -403,12 +333,7 @@ mod test_get_property {
 mod test_get_property_mut {
     use super::Config;
     use super::ConfigError;
-    use super::DataType;
-    use super::Deserialize;
     use super::MultiValues;
-    use super::Property;
-    use super::create_test_config;
-    use super::create_test_config_with_description;
 
     #[test]
     fn test_get_property_mut_returns_none_for_nonexistent_property() {
@@ -499,12 +424,6 @@ mod test_get_property_mut {
 mod test_remove {
     use super::Config;
     use super::ConfigError;
-    use super::DataType;
-    use super::Deserialize;
-    use super::MultiValues;
-    use super::Property;
-    use super::create_test_config;
-    use super::create_test_config_with_description;
 
     #[test]
     fn test_remove_returns_none_for_nonexistent_property() {
@@ -540,12 +459,7 @@ mod test_remove {
 mod test_clear {
     use super::Config;
     use super::ConfigError;
-    use super::DataType;
-    use super::Deserialize;
-    use super::MultiValues;
-    use super::Property;
     use super::create_test_config;
-    use super::create_test_config_with_description;
 
     #[test]
     fn test_clear_does_nothing_on_empty_config() {
@@ -579,13 +493,6 @@ mod test_clear {
 #[cfg(test)]
 mod test_len {
     use super::Config;
-    use super::ConfigError;
-    use super::DataType;
-    use super::Deserialize;
-    use super::MultiValues;
-    use super::Property;
-    use super::create_test_config;
-    use super::create_test_config_with_description;
 
     #[test]
     fn test_len_returns_zero_for_empty_config() {
@@ -606,13 +513,6 @@ mod test_len {
 #[cfg(test)]
 mod test_is_empty {
     use super::Config;
-    use super::ConfigError;
-    use super::DataType;
-    use super::Deserialize;
-    use super::MultiValues;
-    use super::Property;
-    use super::create_test_config;
-    use super::create_test_config_with_description;
 
     #[test]
     fn test_is_empty_returns_true_for_empty_config() {
@@ -631,13 +531,6 @@ mod test_is_empty {
 #[cfg(test)]
 mod test_keys {
     use super::Config;
-    use super::ConfigError;
-    use super::DataType;
-    use super::Deserialize;
-    use super::MultiValues;
-    use super::Property;
-    use super::create_test_config;
-    use super::create_test_config_with_description;
 
     #[test]
     fn test_keys_returns_empty_vec_for_empty_config() {
@@ -669,22 +562,16 @@ mod test_keys {
 mod test_get {
     use super::Config;
     use super::ConfigError;
-    use super::DataType;
     #[cfg(feature = "chrono")]
     use super::DateTime;
-    use super::Deserialize;
-    use super::MultiValues;
     #[cfg(feature = "chrono")]
     use super::NaiveDate;
     #[cfg(feature = "chrono")]
     use super::NaiveDateTime;
     #[cfg(feature = "chrono")]
     use super::NaiveTime;
-    use super::Property;
     #[cfg(feature = "chrono")]
     use super::Utc;
-    use super::create_test_config;
-    use super::create_test_config_with_description;
 
     // String type tests
     #[test]
@@ -921,13 +808,6 @@ mod test_get {
 #[cfg(test)]
 mod test_get_or {
     use super::Config;
-    use super::ConfigError;
-    use super::DataType;
-    use super::Deserialize;
-    use super::MultiValues;
-    use super::Property;
-    use super::create_test_config;
-    use super::create_test_config_with_description;
 
     #[test]
     fn test_get_or_returns_value_when_property_exists() {

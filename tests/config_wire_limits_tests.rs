@@ -59,6 +59,19 @@ fn config_wire_limits_support_json_profiles_and_default_builder_overrides() {
         ConfigWireLimits::DEFAULT_MAX_PROPERTY_KEY_BYTES
     );
 
+    let unbounded_bytes =
+        ConfigWireLimits::from_json(JsonDecodeLimits::builder().build(), JsonEncodeLimits::builder().build());
+    assert_eq!(unbounded_bytes.json_decode().max_input_bytes(), None);
+    assert_eq!(unbounded_bytes.json_encode().max_output_bytes(), None);
+    assert_eq!(
+        unbounded_bytes.max_properties(),
+        ConfigWireLimits::DEFAULT_MAX_PROPERTIES
+    );
+    assert_eq!(
+        unbounded_bytes.max_property_key_bytes(),
+        ConfigWireLimits::DEFAULT_MAX_PROPERTY_KEY_BYTES,
+    );
+
     let overridden = ConfigWireLimitsBuilder::default().max_input_bytes(23).build();
     assert_eq!(overridden.json_decode().max_input_bytes(), Some(23));
 }

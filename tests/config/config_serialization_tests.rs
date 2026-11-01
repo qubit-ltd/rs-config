@@ -9,58 +9,15 @@
 //
 // Covers the public `Config` API (including APIs introduced in v0.3.0).
 
-#![allow(dead_code, unused_imports)]
-
-#[cfg(feature = "chrono")]
-pub(crate) use chrono::DateTime;
-#[cfg(feature = "chrono")]
-pub(crate) use chrono::NaiveDate;
-#[cfg(feature = "chrono")]
-pub(crate) use chrono::NaiveDateTime;
-#[cfg(feature = "chrono")]
-pub(crate) use chrono::NaiveTime;
-#[cfg(feature = "chrono")]
-pub(crate) use chrono::Utc;
 pub(crate) use qubit_config::Config;
 pub(crate) use qubit_config::ConfigError;
-pub(crate) use qubit_config::ConfigReader;
 pub(crate) use qubit_config::Property;
-pub(crate) use qubit_config::options::InterpolationSources;
-pub(crate) use qubit_config::options::ReadPolicy;
-pub(crate) use qubit_config::source::SourceLimitKind;
-pub(crate) use qubit_config::source::SourceLimits;
-pub(crate) use qubit_datatype::BlankStringPolicy;
 pub(crate) use qubit_datatype::DataConversionError;
 pub(crate) use qubit_datatype::DataConversionErrorKind;
 pub(crate) use qubit_datatype::DataType;
 pub(crate) use qubit_datatype::InvalidValueReason;
 pub(crate) use qubit_value::MultiValues;
-pub(crate) use qubit_value::ValueError;
-pub(crate) use serde::Deserialize;
 
-/// Creates a test configuration object
-pub(crate) fn create_test_config() -> Config {
-    let mut config = Config::new();
-    config.set("string_value", "test").unwrap();
-    config.set("int_value", 42).unwrap();
-    config.set("bool_value", true).unwrap();
-    config.set("float_value", 3.5).unwrap();
-    config
-}
-
-/// Creates a test configuration with description
-#[allow(dead_code)]
-pub(crate) fn create_test_config_with_description() -> Config {
-    Config::builder().description("Test Configuration").build()
-}
-
-/// Changes the interpolation recursion limit while preserving other options.
-pub(crate) fn set_max_interpolation_depth(config: &mut Config, max_depth: usize) {
-    let options = ReadPolicy::builder_from(config.default_read_policy())
-        .max_interpolation_depth(max_depth)
-        .build();
-    config.set_default_read_policy(options);
-}
 // ============================================================================
 // Enhanced Error Model Tests
 // ============================================================================
@@ -72,12 +29,7 @@ mod test_enhanced_errors {
     use super::DataConversionError;
     use super::DataConversionErrorKind;
     use super::DataType;
-    use super::Deserialize;
     use super::InvalidValueReason;
-    use super::MultiValues;
-    use super::Property;
-    use super::create_test_config;
-    use super::create_test_config_with_description;
 
     #[test]
     fn test_get_type_mismatch_carries_key() {
@@ -257,12 +209,6 @@ mod test_toml_type_faithful {
 
     use super::Config;
     use super::ConfigError;
-    use super::DataType;
-    use super::Deserialize;
-    use super::MultiValues;
-    use super::Property;
-    use super::create_test_config;
-    use super::create_test_config_with_description;
 
     fn load_toml(content: &str) -> Config {
         let dir = tempfile::tempdir().unwrap();
@@ -431,12 +377,6 @@ mod test_yaml_type_faithful {
 
     use super::Config;
     use super::ConfigError;
-    use super::DataType;
-    use super::Deserialize;
-    use super::MultiValues;
-    use super::Property;
-    use super::create_test_config;
-    use super::create_test_config_with_description;
 
     fn load_yaml(content: &str) -> Config {
         let dir = tempfile::tempdir().unwrap();
@@ -630,11 +570,8 @@ mod test_property_insertion_api {
     use super::Config;
     use super::ConfigError;
     use super::DataType;
-    use super::Deserialize;
     use super::MultiValues;
     use super::Property;
-    use super::create_test_config;
-    use super::create_test_config_with_description;
 
     #[test]
     fn test_insert_property_success() {
@@ -687,11 +624,6 @@ mod test_config_error_branches {
     use super::Config;
     use super::ConfigError;
     use super::DataType;
-    use super::Deserialize;
-    use super::MultiValues;
-    use super::Property;
-    use super::create_test_config;
-    use super::create_test_config_with_description;
 
     #[test]
     fn test_get_list_on_unset_property_reports_no_value() {
@@ -865,8 +797,6 @@ mod test_source_backed_constructors {
 
     use qubit_config::source::EnvConfigOptions;
     use qubit_config::source::PropertiesConfigSource;
-    #[cfg(feature = "toml")]
-    use qubit_config::source::TomlConfigSource;
 
     use super::Config;
 

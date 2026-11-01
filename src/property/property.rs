@@ -392,19 +392,17 @@ impl DerefMut for Property {
 }
 
 #[cfg(test)]
-mod coverage_tests {
+mod tests {
     use std::ops::Deref;
-
-    use qubit_value::ValueContainer;
 
     use super::Property;
 
     #[test]
-    fn property_length_and_read_only_deref_are_available_in_unit_builds() {
-        let property = Property::new("coverage.property", "value").expect("the test property name is canonical");
+    fn len_and_deref_observe_the_same_stored_value() {
+        let property = Property::new("coverage.property", "value").unwrap();
+        let dereferenced = property.deref();
 
-        assert_eq!(property.len(), 1);
-        let value: &ValueContainer = property.deref();
-        assert_eq!(value, property.value());
+        assert_eq!(property.len(), dereferenced.len());
+        assert!(std::ptr::eq(dereferenced, property.value()));
     }
 }

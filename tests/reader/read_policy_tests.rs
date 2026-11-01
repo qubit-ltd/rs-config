@@ -455,4 +455,8 @@ fn read_policy_defaults_limits_and_borrowed_limits_are_callable_as_functions() {
 
     let as_limits: for<'a> fn(&'a ReadPolicy) -> &'a ConversionLimits = <ReadPolicy as AsRef<ConversionLimits>>::as_ref;
     assert_eq!(std::hint::black_box(as_limits)(&policy), policy.conversion_limits());
+    assert_eq!(
+        <ReadPolicy as AsRef<ConversionPolicy>>::as_ref(&policy),
+        policy.conversion_policy(),
+    );
 }

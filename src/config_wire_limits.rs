@@ -207,9 +207,6 @@ impl ConfigWireLimits {
 
 #[cfg(test)]
 mod tests {
-    use qubit_budget::json::JsonDecodeLimits;
-    use qubit_budget::json::JsonEncodeLimits;
-
     use super::ConfigWireLimits;
 
     #[test]
@@ -221,36 +218,20 @@ mod tests {
         let rebuilt = ConfigWireLimits::builder_from(&original).build();
         assert_eq!(rebuilt.properties_limit().maximum(), 17);
         assert_eq!(rebuilt.property_key_bytes_limit().maximum(), 23);
-    }
 
-    #[test]
-    fn public_limit_accessors_are_exercised() {
-        let limits =
-            ConfigWireLimits::from_json(JsonDecodeLimits::builder().build(), JsonEncodeLimits::builder().build());
-        assert_eq!(limits.json_decode().max_input_bytes(), None);
-        assert_eq!(limits.json_encode().max_output_bytes(), None);
-        assert_eq!(limits.max_properties(), ConfigWireLimits::DEFAULT_MAX_PROPERTIES);
-        assert_eq!(
-            limits.max_property_key_bytes(),
-            ConfigWireLimits::DEFAULT_MAX_PROPERTY_KEY_BYTES
+        let json_limits = ConfigWireLimits::from_json(
+            super::JsonDecodeLimits::builder().max_input_bytes(29).build(),
+            super::JsonEncodeLimits::builder().max_output_bytes(31).build(),
         );
-    }
-
-    #[test]
-    fn read_policy_as_ref_implementations_are_exercised() {
-        use qubit_datatype::ConversionLimits;
-        use qubit_datatype::ConversionPolicy;
-
-        use crate::ReadPolicy;
-
-        let policy = ReadPolicy::default();
+        assert_eq!(json_limits.json_decode().max_input_bytes(), Some(29));
+        assert_eq!(json_limits.json_encode().max_output_bytes(), Some(31));
         assert_eq!(
-            <ReadPolicy as AsRef<ConversionPolicy>>::as_ref(&policy),
-            policy.conversion_policy()
+            json_limits.properties_limit().maximum(),
+            ConfigWireLimits::DEFAULT_MAX_PROPERTIES
         );
         assert_eq!(
-            <ReadPolicy as AsRef<ConversionLimits>>::as_ref(&policy),
-            policy.conversion_limits()
+            json_limits.property_key_bytes_limit().maximum(),
+            ConfigWireLimits::DEFAULT_MAX_PROPERTY_KEY_BYTES,
         );
     }
 }

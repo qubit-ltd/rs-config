@@ -9,46 +9,12 @@
 //
 // Covers the public `Config` API (including APIs introduced in v0.3.0).
 
-#![allow(dead_code, unused_imports)]
-
-#[cfg(feature = "chrono")]
-pub(crate) use chrono::DateTime;
-#[cfg(feature = "chrono")]
-pub(crate) use chrono::NaiveDate;
-#[cfg(feature = "chrono")]
-pub(crate) use chrono::NaiveDateTime;
-#[cfg(feature = "chrono")]
-pub(crate) use chrono::NaiveTime;
-#[cfg(feature = "chrono")]
-pub(crate) use chrono::Utc;
 pub(crate) use qubit_config::Config;
 pub(crate) use qubit_config::ConfigError;
 pub(crate) use qubit_config::ConfigReader;
-pub(crate) use qubit_config::Property;
-pub(crate) use qubit_config::options::InterpolationSources;
 pub(crate) use qubit_config::options::ReadPolicy;
-pub(crate) use qubit_datatype::BlankStringPolicy;
-pub(crate) use qubit_datatype::DataConversionError;
 pub(crate) use qubit_datatype::DataConversionErrorKind;
 pub(crate) use qubit_datatype::DataType;
-pub(crate) use qubit_datatype::InvalidValueReason;
-pub(crate) use qubit_value::MultiValues;
-pub(crate) use qubit_value::ValueError;
-pub(crate) use serde::Deserialize;
-pub(crate) use serde_json::Value as JsonValue;
-pub(crate) use serde_json::from_value;
-pub(crate) use serde_json::json;
-pub(crate) use serde_json::to_value;
-
-/// Creates a test configuration object
-pub(crate) fn create_test_config() -> Config {
-    let mut config = Config::new();
-    config.set("string_value", "test").unwrap();
-    config.set("int_value", 42).unwrap();
-    config.set("bool_value", true).unwrap();
-    config.set("float_value", 3.5).unwrap();
-    config
-}
 
 #[test]
 fn test_inherent_section_accessors_preserve_presence_semantics() {
@@ -70,12 +36,6 @@ fn test_inherent_section_accessors_preserve_presence_semantics() {
     assert_eq!(config.len(), 1);
 }
 
-/// Creates a test configuration with description
-#[allow(dead_code)]
-pub(crate) fn create_test_config_with_description() -> Config {
-    Config::builder().description("Test Configuration").build()
-}
-
 /// Changes the interpolation recursion limit while preserving other options.
 pub(crate) fn set_max_interpolation_depth(config: &mut Config, max_depth: usize) {
     let options = ReadPolicy::builder_from(config.default_read_policy())
@@ -90,13 +50,6 @@ pub(crate) fn set_max_interpolation_depth(config: &mut Config, max_depth: usize)
 #[cfg(test)]
 mod test_iter_prefix {
     use super::Config;
-    use super::ConfigError;
-    use super::DataType;
-    use super::Deserialize;
-    use super::MultiValues;
-    use super::Property;
-    use super::create_test_config;
-    use super::create_test_config_with_description;
 
     #[test]
     fn test_iter_prefix_empty_config() {
@@ -156,14 +109,7 @@ mod test_iter_prefix {
 #[cfg(test)]
 mod test_contains_prefix {
     use super::Config;
-    use super::ConfigError;
     use super::ConfigReader;
-    use super::DataType;
-    use super::Deserialize;
-    use super::MultiValues;
-    use super::Property;
-    use super::create_test_config;
-    use super::create_test_config_with_description;
 
     #[test]
     fn test_contains_prefix_empty_config() {
@@ -255,11 +201,6 @@ mod test_get_and_get_list_error_mapping_additional_paths {
     use super::ConfigError;
     use super::DataConversionErrorKind;
     use super::DataType;
-    use super::Deserialize;
-    use super::MultiValues;
-    use super::Property;
-    use super::create_test_config;
-    use super::create_test_config_with_description;
 
     #[test]
     fn test_error_mapping_invalid_integer_preserves_reason() {
@@ -379,13 +320,7 @@ mod test_get_and_get_list_error_mapping_additional_paths {
 #[cfg(test)]
 mod test_is_unset {
     use super::Config;
-    use super::ConfigError;
     use super::DataType;
-    use super::Deserialize;
-    use super::MultiValues;
-    use super::Property;
-    use super::create_test_config;
-    use super::create_test_config_with_description;
 
     #[test]
     fn test_is_unset_missing_key_returns_false() {
@@ -425,11 +360,6 @@ mod test_get_optional {
     use super::Config;
     use super::ConfigError;
     use super::DataType;
-    use super::Deserialize;
-    use super::MultiValues;
-    use super::Property;
-    use super::create_test_config;
-    use super::create_test_config_with_description;
 
     #[test]
     fn test_get_optional_missing_key_returns_none() {
@@ -494,11 +424,6 @@ mod test_get_optional_list {
     use super::Config;
     use super::ConfigError;
     use super::DataType;
-    use super::Deserialize;
-    use super::MultiValues;
-    use super::Property;
-    use super::create_test_config;
-    use super::create_test_config_with_description;
 
     #[test]
     fn test_get_optional_list_missing_key_returns_none() {
@@ -555,11 +480,6 @@ mod test_get_optional_string {
     use super::Config;
     use super::ConfigError;
     use super::DataType;
-    use super::Deserialize;
-    use super::MultiValues;
-    use super::Property;
-    use super::create_test_config;
-    use super::create_test_config_with_description;
 
     #[test]
     fn test_get_optional_string_missing_returns_none() {

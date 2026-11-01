@@ -10,6 +10,7 @@
 // Tests all public methods of the Property struct, including methods delegated
 // to ValueContainer.
 
+use std::ops::Deref;
 #[cfg(feature = "bigdecimal")]
 use std::str::FromStr;
 
@@ -86,6 +87,16 @@ fn property_accessors_remain_callable_through_the_public_api() {
     assert_eq!(std::hint::black_box(len)(&property), 1);
     std::hint::black_box(value_mut)(&mut property).unset();
     assert!(property.is_unset());
+}
+
+#[test]
+fn test_property_read_only_deref_matches_value() {
+    let property = Property::new("coverage.property", "value").unwrap();
+    let len: fn(&Property) -> usize = Property::len;
+    let deref: for<'a> fn(&'a Property) -> &'a ValueContainer = <Property as Deref>::deref;
+    assert_eq!(std::hint::black_box(len)(&property), 1);
+    let value: &ValueContainer = std::hint::black_box(deref)(&property);
+    assert_eq!(value, property.value());
 }
 
 #[test]
