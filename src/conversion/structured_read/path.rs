@@ -9,17 +9,32 @@
 
 use std::fmt::Write;
 
+/// Appends one raw object key to an already formatted diagnostic parent.
 pub(super) fn child_key(parent: &str, key: &str) -> String {
-    if parent.is_empty() {
+    let quoted = key.is_empty()
+        || key
+            .chars()
+            .any(|ch| ch.is_control() || matches!(ch, '.' | '[' | ']' | '"' | '\\'));
+    if quoted {
+        let escaped = serde_json::to_string(key).expect("serializing a string is infallible");
+        format!("{parent}[{escaped}]")
+    } else if parent.is_empty() {
         return key.to_owned();
+    } else {
+        format!("{parent}.{key}")
     }
-    let mut result = String::with_capacity(parent.len().saturating_add(key.len()).saturating_add(1));
-    result.push_str(parent);
-    result.push('.');
-    result.push_str(key);
-    result
 }
 
+/// Converts a canonical dotted configuration path into an unambiguous
+/// diagnostic path by encoding each original key segment exactly once.
+pub(super) fn config_path(path: &str) -> String {
+    if path.is_empty() {
+        return String::new();
+    }
+    path.split('.').fold(String::new(), |parent, key| child_key(&parent, key))
+}
+
+/// Appends one array index to an already formatted diagnostic parent.
 pub(super) fn child_index(parent: &str, index: usize) -> String {
     let mut result = String::with_capacity(parent.len().saturating_add(2 + usize::MAX.ilog10() as usize + 1));
     result.push_str(parent);

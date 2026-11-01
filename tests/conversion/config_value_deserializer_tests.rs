@@ -40,6 +40,164 @@ use serde::de::MapAccess;
 use serde::de::SeqAccess;
 use serde::de::Visitor;
 
+#[derive(Debug, serde::Deserialize)]
+struct PathInner {}
+
+#[derive(Debug, serde::Deserialize)]
+#[allow(dead_code)]
+struct PathOuter {
+    a: PathInner,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct PathEmpty {}
+
+#[derive(Debug, serde::Deserialize)]
+#[allow(dead_code)]
+struct PathBadNumber {
+    #[serde(rename = "bad.key")]
+    value: u8,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[allow(dead_code)]
+struct PathWithItems {
+    items: Vec<PathInner>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[allow(dead_code)]
+struct PathExpectedNested {
+    #[serde(rename = "bad.key")]
+    nested: PathInner,
+}
+
+#[test]
+fn test_structured_unknown_paths_distinguish_literal_dots() {
+    let mut config = Config::new();
+    config.set("payload", serde_json::json!({"a.b": 1, "a": {"b": 2}})).unwrap();
+    let error = config.deserialize::<PathOuter>("payload").err().unwrap();
+    assert_eq!(
+        error.unknown_property_paths().unwrap(),
+        &["payload.a.b".to_owned(), "payload[\"a.b\"]".to_owned()]
+    );
+}
+
+#[test]
+fn test_structured_paths_escape_special_members_without_collisions() {
+    let mut config = Config::new();
+    config
+        .set(
+            "payload",
+            serde_json::json!({
+                "items[0]": 1,
+                "items": [1],
+                "": 2,
+                "quote\"slash\\line\nbreak": 3,
+                "雪": 4
+            }),
+        )
+        .unwrap();
+    let error = config.deserialize::<PathEmpty>("payload").unwrap_err();
+    assert_eq!(
+        error.unknown_property_paths().unwrap(),
+        &[
+            "payload.items",
+            "payload.雪",
+            "payload[\"\"]",
+            "payload[\"items[0]\"]",
+            "payload[\"quote\\\"slash\\\\line\\nbreak\"]",
+        ]
+    );
+}
+
+#[test]
+fn test_structured_paths_distinguish_array_index_from_literal_key() {
+    let mut config = Config::new();
+    config
+        .set(
+            "payload",
+            serde_json::json!({"items[0].a.b": 1, "items": [{"a.b": 2}]}),
+        )
+        .unwrap();
+    let error = config.deserialize::<PathWithItems>("payload").unwrap_err();
+    assert_eq!(
+        error.unknown_property_paths().unwrap(),
+        &["payload.items[0][\"a.b\"]", "payload[\"items[0].a.b\"]"]
+    );
+}
+
+#[test]
+fn test_structured_conversion_error_escapes_member_and_redacts_value() {
+    let mut config = Config::new();
+    config
+        .set("payload", serde_json::json!({"bad.key": "secret-sentinel"}))
+        .unwrap();
+    let error = config.deserialize::<PathBadNumber>("payload").unwrap_err();
+    assert_eq!(error.path(), Some("payload[\"bad.key\"]"));
+    assert!(!error.to_string().contains("secret-sentinel"));
+    assert!(!format!("{error:?}").contains("secret-sentinel"));
+}
+
+#[test]
+fn test_structured_shape_error_escapes_member() {
+    let mut config = Config::new();
+    config.set("payload", serde_json::json!({"bad.key": 7})).unwrap();
+    let error = config.deserialize::<PathExpectedNested>("payload").unwrap_err();
+    assert_eq!(error.path(), Some("payload[\"bad.key\"]"));
+}
+
+#[test]
+fn test_structured_root_config_key_is_escaped_once() {
+    let mut config = Config::new();
+    config.set("app[prod]", serde_json::json!({"value": "secret-sentinel"})).unwrap();
+    let error = config.deserialize::<u8>("app[prod]").unwrap_err();
+    assert_eq!(error.path(), Some("[\"app[prod]\"]"));
+    assert!(!error.to_string().contains("secret-sentinel"));
+}
+
+#[test]
+fn test_structured_section_root_and_nested_member_are_escaped() {
+    let mut config = Config::new();
+    config
+        .set("app[prod].payload", serde_json::json!({"bad.key": "secret-sentinel"}))
+        .unwrap();
+    let section = config.section("app[prod]").unwrap();
+    let error = section.deserialize::<PathBadNumber>("payload").unwrap_err();
+    assert_eq!(error.path(), Some("[\"app[prod]\"].payload[\"bad.key\"]"));
+    assert!(!format!("{error:?}").contains("secret-sentinel"));
+}
+
+#[test]
+fn test_structured_special_member_is_escaped_in_budget_and_interpolation_errors() {
+    let mut config = Config::new();
+    config.set("payload", serde_json::json!({"bad.key": {"child": 1}})).unwrap();
+    with_limits(
+        &mut config,
+        ConversionLimits::builder()
+            .structured_limits(StructuredConversionLimits::builder().max_depth(1).build())
+            .build(),
+    );
+    let error = config.deserialize::<serde_json::Value>("payload").unwrap_err();
+    assert_eq!(error.path(), Some("payload[\"bad.key\"]"));
+
+    let mut config = Config::new();
+    config
+        .set("payload", serde_json::json!({"bad.key": "${missing}"}))
+        .unwrap();
+    config.set_default_read_policy(ReadPolicy::builder().max_interpolation_expansions(0).build());
+    let error = config
+        .deserialize_with::<serde_json::Value>(
+            "payload",
+            ConfigDeserializeOptions {
+                interpolate: true,
+                unknown_fields: UnknownFieldPolicy::Ignore,
+            },
+        )
+        .unwrap_err();
+    assert_eq!(error.path(), Some("payload[\"bad.key\"]"));
+}
+
 /// Scalar-list diagnostics retain positions before empty items are skipped.
 #[test]
 fn test_scalar_list_error_preserves_original_index() -> ConfigResult<()> {

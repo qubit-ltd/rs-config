@@ -372,10 +372,27 @@ fn flatten_yaml_sequence(source_id: &str, prefix: &str, seq: &[YamlValue], confi
             unreachable!("nested YAML structures were rejected above")
         }
         _ => {
-            let index = seq
-                .iter()
-                .position(|value| !same_yaml_scalar_kind(&seq[0], value))
-                .unwrap_or(0);
+            let index = if let YamlValue::Number(first_number) = &seq[0] {
+                let mut allowed = [first_number.is_i64(), first_number.is_u64(), first_number.is_f64()];
+                seq.iter()
+                    .enumerate()
+                    .skip(1)
+                    .find_map(|(index, value)| {
+                        let YamlValue::Number(number) = value else {
+                            return Some(index);
+                        };
+                        let incoming = [number.is_i64(), number.is_u64(), number.is_f64()];
+                        for category in 0..3 {
+                            allowed[category] &= incoming[category];
+                        }
+                        (!allowed.iter().any(|accepted| *accepted)).then_some(index)
+                    })
+                    .unwrap_or(0)
+            } else {
+                seq.iter()
+                    .position(|value| !same_yaml_scalar_kind(&seq[0], value))
+                    .unwrap_or(0)
+            };
             Err(ConfigError::source_parse_error_at(
                 source_id,
                 Some(prefix.to_string()),
@@ -471,7 +488,8 @@ fn yaml_scalar_to_string(value: &YamlValue, key: &str) -> ConfigResult<String> {
     }
 }
 
-/// Reports whether two YAML scalar values have the same conversion shape.
+/// Reports whether two YAML scalar values share the same successful conversion
+/// category, matching the common representation accepted for a whole sequence.
 fn same_yaml_scalar_kind(first: &YamlValue, other: &YamlValue) -> bool {
     match (first, other) {
         (YamlValue::Null, YamlValue::Null)

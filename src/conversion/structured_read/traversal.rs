@@ -46,7 +46,7 @@ pub(super) fn walk<'a>(
         } else {
             None
         },
-        path: Cow::Borrowed(&prepared.root_path),
+        path: Cow::Borrowed(&prepared.diagnostic_root_path),
         depth: 1,
         key: None,
         original_index: None,

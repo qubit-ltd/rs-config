@@ -30,9 +30,9 @@ use crate::Property;
 /// each node has a corresponding optional origin, while property references
 /// are indexed separately for source properties. A `NodeId` is therefore not
 /// a property index. `root_path` is the resolved path of the selected
-/// configuration root. It is empty when the root
-/// configuration is selected and includes the section prefix when a section
-/// is selected. Payloads remain borrowed from
+/// configuration root for lookup and byte offsets. It is empty when the
+/// root configuration is selected and includes the section prefix when a
+/// section is selected. Payloads remain borrowed from
 /// the input where possible; only object indexes and necessary text overlays
 /// are owned. Conflicting scalar/object shapes and duplicate leaves are
 /// rejected while constructing the projection.
@@ -47,9 +47,11 @@ pub(super) struct PreparedConfigRead<'a> {
     pub(super) sources: SourceIndex<'a>,
     /// Arena index of the selected input root.
     pub(super) root: NodeId,
-    /// Resolved root path retained for diagnostics; empty for the root
-    /// configuration and prefixed with the selected section path otherwise.
+    /// Resolved canonical root path used for lookup and property byte offsets.
     pub(super) root_path: String,
+    /// Root path encoded for structured diagnostics; never used for lookup or
+    /// property byte offsets.
+    pub(super) diagnostic_root_path: String,
 }
 
 impl<'a> PreparedConfigRead<'a> {
@@ -133,7 +135,12 @@ impl<'a> PreparedConfigRead<'a> {
         let mut path_end = self.root_path.len();
         let mut segments = key.split('.').peekable();
         while let Some(segment) = segments.next() {
-            self.expand_object(current, depth, capacity, &property.name()[..path_end])?;
+            self.expand_object(
+                current,
+                depth,
+                capacity,
+                &super::path::config_path(&property.name()[..path_end]),
+            )?;
             if path_end != 0 {
                 path_end += 1;
             }
@@ -147,8 +154,9 @@ impl<'a> PreparedConfigRead<'a> {
                 let ReadNode::Object(children) = &self.nodes[current] else {
                     unreachable!()
                 };
-                capacity.entries(children.len().saturating_add(1), property.name())?;
-                capacity.key(segment.len(), property.name())?;
+                let diagnostic_path = super::path::config_path(property.name());
+                capacity.entries(children.len().saturating_add(1), &diagnostic_path)?;
+                capacity.key(segment.len(), &diagnostic_path)?;
             }
             if segments.peek().is_none() {
                 let location = SourceLocation {
@@ -163,10 +171,11 @@ impl<'a> PreparedConfigRead<'a> {
                         location,
                         depth,
                         capacity,
-                        &property.name()[..path_end],
+                        &super::path::config_path(&property.name()[..path_end]),
                     )?;
                 } else {
-                    let child = self.push(incoming, Some(location), depth, capacity, property.name())?;
+                    let diagnostic_path = super::path::config_path(property.name());
+                    let child = self.push(incoming, Some(location), depth, capacity, &diagnostic_path)?;
                     let ReadNode::Object(children) = &mut self.nodes[current] else {
                         unreachable!()
                     };
@@ -183,7 +192,7 @@ impl<'a> PreparedConfigRead<'a> {
                         None,
                         depth,
                         capacity,
-                        property.name(),
+                        &super::path::config_path(property.name()),
                     )?;
                     let ReadNode::Object(children) = &mut self.nodes[current] else {
                         unreachable!()
@@ -289,6 +298,7 @@ pub(super) fn prepare_read<'a, R: ConfigReader + ?Sized>(
         nodes: Vec::new(),
         sources: SourceIndex::tree(),
         root: 0,
+        diagnostic_root_path: super::path::config_path(&root_path),
         root_path,
     };
     let mut capacity = IndexCapacity::new(reader.read_policy().conversion_limits());
@@ -296,13 +306,16 @@ pub(super) fn prepare_read<'a, R: ConfigReader + ?Sized>(
         && let Some(property) = reader.get_property(prefix)?
     {
         if reader.contains_section(prefix)? {
-            return Err(conflict(&prepared.root_path, "exact value", "nested child keys"));
+            return Err(conflict(&prepared.diagnostic_root_path, "exact value", "nested child keys"));
         }
-        capacity.admit(JsonMeasurement::Null { depth: 1 }, property.name())?;
+        capacity.admit(
+            JsonMeasurement::Null { depth: 1 },
+            &super::path::config_path(property.name()),
+        )?;
         prepared.nodes = vec![ReadNode::from_container(property.value())];
         prepared.sources = SourceIndex::exact(property);
     } else {
-        let path = prepared.root_path.clone();
+        let path = prepared.diagnostic_root_path.clone();
         prepared.push(ReadNode::Object(BTreeMap::new()), None, 1, &mut capacity, &path)?;
         if prefix.is_empty() {
             for (key, property) in reader.iter_prefix("") {

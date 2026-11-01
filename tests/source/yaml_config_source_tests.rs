@@ -35,6 +35,36 @@ fn merge_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<
 }
 
 #[test]
+fn test_yaml_numeric_sequence_reports_first_incompatible_item() {
+    for content in [
+        "values: [1, -1, 2.5]",
+        "values: [-1, 1, 2.5]",
+        "values: [1, -1, 18446744073709551615]",
+        "values: [1, 18446744073709551615, -1]",
+    ] {
+        let source = YamlConfigSource::from_content(content);
+        let mut target = Config::new();
+        target.set("existing", "kept").unwrap();
+        let before = target.clone();
+        let error = target.merge_properties_from_source(&source).unwrap_err();
+        assert_eq!(error.path(), Some("values"));
+        assert_eq!(error.source_id(), Some("YAML:<memory>"));
+        assert_eq!(error.source_index(), Some(2), "{content}");
+        assert!(matches!(error, ConfigError::SourceParseError { .. }));
+        assert_eq!(target, before);
+    }
+}
+
+#[test]
+fn test_yaml_numeric_sequences_keep_valid_signed_and_unsigned_prefixes() {
+    let source = YamlConfigSource::from_content("signed: [1, -1]\nunsigned: [1, 18446744073709551615]");
+    let mut config = Config::new();
+    config.merge_properties_from_source(&source).unwrap();
+    assert_eq!(config.get_list::<i64>("signed").unwrap(), [1, -1]);
+    assert_eq!(config.get_list::<u64>("unsigned").unwrap(), [1, u64::MAX]);
+}
+
+#[test]
 fn yaml_mapping_members_are_validated_before_recursion() {
     let cases = [
         ("\"\": {port: 8080}", ""),

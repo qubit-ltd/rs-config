@@ -484,6 +484,7 @@ fn dotted_subtree_has_sorted_children_and_absolute_path() {
     let section = config.section("service").unwrap();
     let prepared = prepare_read(&section, "database", false).unwrap();
     assert_eq!(prepared.root_path, "service.database");
+    assert_eq!(prepared.diagnostic_root_path, "service.database");
     let ReadNode::Object(children) = &prepared.nodes[prepared.root] else {
         panic!()
     };
