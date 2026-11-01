@@ -25,6 +25,17 @@ use crate::ReadPolicy;
 use crate::config_reader::root_config;
 use crate::utils::InterpolationSession;
 
+/// Resolves string leaves into an overlay keyed by their typed source
+/// locations.
+///
+/// One interpolation session is shared across the complete traversal, so its
+/// expansion count and reference-chain state are not reset for each field.
+/// Prepared-input admission uses a separate budget: it admits the raw or
+/// expanded logical input independently of the per-value interpolation output
+/// limit. Unchanged text remains borrowed and is not copied into the overlay;
+/// only changed strings are allocated. The dotted read path is used for
+/// diagnostics, while each overlay key retains the originating property-table
+/// index and nested key/index segments.
 pub(super) fn interpolate<R: ConfigReader + ?Sized>(
     prepared: &PreparedConfigRead<'_>,
     primary: &R,

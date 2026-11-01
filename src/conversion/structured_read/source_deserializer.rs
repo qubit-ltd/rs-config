@@ -206,6 +206,16 @@ impl<'tree, 'policy: 'tree, 'session> SourceDeserializer<'tree, 'policy, 'sessio
         }
     }
 
+    /// Deserializes either a stored collection or, when enabled, a scalar split
+    /// into sequence items.
+    ///
+    /// For a stored collection, a requested tuple length is compared with the
+    /// actual collection length before the visitor runs. A split scalar is
+    /// consumed lazily: the visitor handles too few items, and after it returns
+    /// an extra-item probe rejects any remainder. That probe may admit the next
+    /// item through the shared conversion session. Nested item paths remain
+    /// root-relative, while the original outer source index is retained
+    /// separately for conversion errors.
     fn sequence<'de, V: Visitor<'de>>(
         self,
         visitor: V,
@@ -247,6 +257,14 @@ impl<'tree, 'policy: 'tree, 'session> SourceDeserializer<'tree, 'policy, 'sessio
     }
 }
 
+/// Builds a converter for scalar views and recovers an original scalar for a
+/// missing prepared node when its source location identifies a scalar
+/// property.
+///
+/// `Ok(None)` means the view is not convertible from a scalar, or that the
+/// missing node has no usable source location/property/scalar. The caller then
+/// reports the expected scalar shape; an invalid scalar representation is
+/// returned as `Err` instead.
 fn scalar_converter<'tree>(
     value: ReadView<'tree>,
     context: ReadContext<'tree>,
@@ -320,6 +338,13 @@ pub(super) fn source_index(location: Option<&SourceLocation>) -> Option<usize> {
     })
 }
 
+/// Wraps a conversion failure with its root-relative path and, when known, the
+/// original outer source index.
+///
+/// The index is represented as a list-item conversion error without replacing
+/// the nested diagnostic path. This preserves the distinction between where
+/// traversal found the failure and which original collection item supplied
+/// it.
 pub(super) fn conversion_error(path: &str, index: Option<usize>, error: DataConversionError) -> ConfigDeserializeError {
     let source = match index {
         Some(index) => ValueError::from(DataListConversionError::new(index, error)),
@@ -328,6 +353,10 @@ pub(super) fn conversion_error(path: &str, index: Option<usize>, error: DataConv
     ConfigDeserializeError::from_config(ConfigError::from((path, source)))
 }
 
+/// Creates a shape-mismatch error at a root-relative diagnostic path.
+///
+/// Unlike [`conversion_error`], this describes an unsupported input shape and
+/// does not attach a source collection index.
 pub(super) fn type_error(path: &str, expected: &'static str) -> ConfigDeserializeError {
     ConfigDeserializeError::shape_mismatch(path, expected)
 }

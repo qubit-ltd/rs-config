@@ -30,6 +30,13 @@ pub(super) enum MapEntries<'tree> {
 }
 
 impl<'tree> MapEntries<'tree> {
+    /// Creates borrowed entry access for a supported map-shaped read view.
+    ///
+    /// Prepared objects, JSON objects, and string maps are supported. Other
+    /// shapes return `None`, allowing the caller to report a shape mismatch.
+    /// The iterator borrows keys and values from the input; prepared object
+    /// entries retain their node IDs for looking up values and optional source
+    /// locations.
     pub(super) fn new(value: ReadView<'tree>) -> Option<Self> {
         match value {
             ReadView::Object(values) => Some(Self::Object(values.iter())),
@@ -39,6 +46,13 @@ impl<'tree> MapEntries<'tree> {
         }
     }
 
+    /// Returns the next borrowed key, value view, and optional source location.
+    ///
+    /// `None` means the entry iterator is exhausted. Keys and payloads remain
+    /// borrowed from their backing object. A prepared entry clones its source
+    /// location only when diagnostics or missing-value recovery may use it;
+    /// direct JSON and string-map entries have no prepared source location and
+    /// return `None` for that component.
     pub(super) fn next(
         &mut self,
         context: ReadContext<'tree>,

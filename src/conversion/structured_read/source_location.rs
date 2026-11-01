@@ -25,6 +25,12 @@ pub(super) struct SourceLocation {
 }
 
 impl SourceLocation {
+    /// Returns a child location by cloning this location and appending one
+    /// typed key or array-index segment.
+    ///
+    /// The property-table index is preserved. Segments remain distinct from
+    /// dotted diagnostic paths, so a literal dot in a key is not interpreted
+    /// as a path separator.
     pub(super) fn child(&self, segment: SourceSegment) -> Self {
         let mut result = self.clone();
         result.segments.push(segment);
