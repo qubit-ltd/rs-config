@@ -23,6 +23,23 @@ fn with_limits(config: &mut Config, limits: ConversionLimits) {
 }
 
 #[test]
+fn diagnostic_paths_encode_each_original_segment_unambiguously() {
+    assert_eq!(super::path::config_path("alpha.beta.gamma"), "alpha.beta.gamma");
+    assert_eq!(super::path::child_key("", "root.key"), "[\"root.key\"]");
+    assert_eq!(super::path::child_key("root", "a[b]"), "root[\"a[b]\"]");
+    assert_eq!(super::path::child_key("root", "a\"b\\c"), "root[\"a\\\"b\\\\c\"]");
+    assert_eq!(super::path::child_key("root", "line\nfeed"), "root[\"line\\nfeed\"]");
+    assert_eq!(
+        super::path::child_key("root", "literal.dot"),
+        "root[\"literal.dot\"]"
+    );
+    assert_eq!(
+        super::path::child_key("root", "nested").as_str(),
+        super::path::config_path("root.nested")
+    );
+}
+
+#[test]
 fn nested_object_properties_merge_json_and_string_map_leaves() {
     use std::collections::HashMap;
     for use_map in [false, true] {
@@ -458,6 +475,21 @@ fn index_key_budget_rejects_input_bytes_before_admission() {
             .build(),
     );
     assert!(prepare_read(&config, "tree", false).is_err());
+}
+
+#[test]
+fn structured_depth_limit_error_keeps_full_diagnostic_path() {
+    let mut config = Config::new();
+    config.set("alpha.beta.gamma", true).unwrap();
+    with_limits(
+        &mut config,
+        ConversionLimits::builder()
+            .structured_limits(StructuredConversionLimits::builder().max_depth(1).build())
+            .build(),
+    );
+
+    let error = super::deserialize_from_reader::<_, serde_json::Value>(&config, "", false, false).unwrap_err();
+    assert_eq!(error.path(), Some("alpha.beta.gamma"));
 }
 
 #[test]

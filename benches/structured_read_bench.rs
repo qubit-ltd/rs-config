@@ -176,5 +176,27 @@ fn benchmark_fixed_subtree(c: &mut Criterion) {
     }
 }
 
-criterion_group!(benches, benchmark_structured_reads, benchmark_fixed_subtree);
+/// Measures rejection of a single property with a deeply dotted key.
+fn benchmark_deep_key_rejection(c: &mut Criterion) {
+    for segment_count in [64, 256, 1024, 4096] {
+        let key = std::iter::repeat_n("a", segment_count).collect::<Vec<_>>().join(".");
+        let limits = qubit_datatype::ConversionLimits::builder()
+            .operation_limits(
+                qubit_datatype::ConversionOperationLimits::builder()
+                    .max_input_bytes(0)
+                    .build(),
+            )
+            .build();
+        let policy = qubit_config::ReadPolicy::builder().conversion_limits(limits).build();
+        let mut config = Config::builder().default_read_policy(policy).build();
+        config.set(key, "value").unwrap();
+        assert!(config.deserialize::<serde_json::Value>("").is_err());
+
+        c.bench_function(&format!("structured_read/deep_key_rejection/{segment_count}"), |b| {
+            b.iter(|| black_box(config.deserialize::<serde_json::Value>(black_box("")).unwrap_err()));
+        });
+    }
+}
+
+criterion_group!(benches, benchmark_structured_reads, benchmark_fixed_subtree, benchmark_deep_key_rejection);
 criterion_main!(benches);

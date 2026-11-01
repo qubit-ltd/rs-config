@@ -133,6 +133,62 @@ fn test_raw_scalar_conversion_does_not_clone_source_text() {
 }
 
 #[test]
+fn test_structured_deep_key_allocation_is_linear() {
+    let _guard = ALLOCATION_TEST_LOCK
+        .lock()
+        .expect("the allocation test lock should not be poisoned");
+
+    for segment_count in [512, 2048] {
+        let key = std::iter::repeat_n("a", segment_count).collect::<Vec<_>>().join(".");
+        let operation = qubit_datatype::ConversionOperationLimits::builder()
+            .max_input_bytes(0)
+            .build();
+        let limits = qubit_datatype::ConversionLimits::builder()
+            .operation_limits(operation)
+            .build();
+        let policy = qubit_config::ReadPolicy::builder().conversion_limits(limits).build();
+        let mut config = Config::builder().default_read_policy(policy).build();
+        config.set(key.as_str(), "value").expect("set deep key");
+        let _ = config.deserialize::<serde_json::Value>("").unwrap_err();
+
+        reset_test_thread_allocations();
+        let error = config.deserialize::<serde_json::Value>("").unwrap_err();
+        let allocated = test_thread_allocation_bytes();
+        assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Value);
+        assert!(
+            allocated <= 64 * key.len() + 65_536,
+            "{segment_count} segments allocated {allocated} bytes for {} key bytes",
+            key.len()
+        );
+        let rendered = error.to_string();
+        assert!(rendered.contains(&key), "error omitted full key: {rendered}");
+    }
+}
+
+#[test]
+fn test_structured_deep_key_error_path_is_preserved() {
+    let _guard = ALLOCATION_TEST_LOCK
+        .lock()
+        .expect("the allocation test lock should not be poisoned");
+    let key = (0..512).map(|_| "a").collect::<Vec<_>>().join(".");
+    let limits = qubit_datatype::ConversionLimits::builder()
+        .operation_limits(
+            qubit_datatype::ConversionOperationLimits::builder()
+                .max_input_bytes(0)
+                .build(),
+        )
+        .build();
+    let policy = qubit_config::ReadPolicy::builder().conversion_limits(limits).build();
+    let mut config = Config::builder().default_read_policy(policy).build();
+    config.set(key.as_str(), "value").expect("set deep key");
+
+    let error = config.deserialize::<serde_json::Value>("").unwrap_err();
+    assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Value);
+    let rendered = error.to_string();
+    assert!(rendered.contains(&key), "error omitted full key: {rendered}");
+}
+
+#[test]
 fn test_interpolated_collection_allocation_is_bounded_before_item_limit() {
     let _guard = ALLOCATION_TEST_LOCK
         .lock()

@@ -132,19 +132,17 @@ impl<'a> PreparedConfigRead<'a> {
     fn insert_property(&mut self, key: &str, property: &'a Property, capacity: &mut IndexCapacity) -> ConfigResult<()> {
         let mut current = self.root;
         let mut depth = 1usize;
-        let mut path_end = self.root_path.len();
+        let mut current_path = super::path::config_path(&self.root_path);
+        let full_path = super::path::config_path(property.name());
         let mut segments = key.split('.').peekable();
         while let Some(segment) = segments.next() {
             self.expand_object(
                 current,
                 depth,
                 capacity,
-                &super::path::config_path(&property.name()[..path_end]),
+                &current_path,
             )?;
-            if path_end != 0 {
-                path_end += 1;
-            }
-            path_end += segment.len();
+            super::path::append_key(&mut current_path, segment);
             depth = depth.saturating_add(1);
             let existing = match &self.nodes[current] {
                 ReadNode::Object(children) => children.get(segment).copied(),
@@ -154,9 +152,8 @@ impl<'a> PreparedConfigRead<'a> {
                 let ReadNode::Object(children) = &self.nodes[current] else {
                     unreachable!()
                 };
-                let diagnostic_path = super::path::config_path(property.name());
-                capacity.entries(children.len().saturating_add(1), &diagnostic_path)?;
-                capacity.key(segment.len(), &diagnostic_path)?;
+                capacity.entries(children.len().saturating_add(1), &full_path)?;
+                capacity.key(segment.len(), &full_path)?;
             }
             if segments.peek().is_none() {
                 let location = SourceLocation {
@@ -171,11 +168,10 @@ impl<'a> PreparedConfigRead<'a> {
                         location,
                         depth,
                         capacity,
-                        &super::path::config_path(&property.name()[..path_end]),
+                        &current_path,
                     )?;
                 } else {
-                    let diagnostic_path = super::path::config_path(property.name());
-                    let child = self.push(incoming, Some(location), depth, capacity, &diagnostic_path)?;
+                    let child = self.push(incoming, Some(location), depth, capacity, &full_path)?;
                     let ReadNode::Object(children) = &mut self.nodes[current] else {
                         unreachable!()
                     };
@@ -192,7 +188,7 @@ impl<'a> PreparedConfigRead<'a> {
                         None,
                         depth,
                         capacity,
-                        &super::path::config_path(property.name()),
+                        &full_path,
                     )?;
                     let ReadNode::Object(children) = &mut self.nodes[current] else {
                         unreachable!()

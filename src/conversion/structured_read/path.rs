@@ -11,17 +11,28 @@ use std::fmt::Write;
 
 /// Appends one raw object key to an already formatted diagnostic parent.
 pub(super) fn child_key(parent: &str, key: &str) -> String {
+    let mut result = String::with_capacity(parent.len().saturating_add(key.len()).saturating_add(4));
+    result.push_str(parent);
+    append_key(&mut result, key);
+    result
+}
+
+/// Appends one raw object key to an already formatted diagnostic path.
+pub(super) fn append_key(path: &mut String, key: &str) {
     let quoted = key.is_empty()
         || key
             .chars()
             .any(|ch| ch.is_control() || matches!(ch, '.' | '[' | ']' | '"' | '\\'));
     if quoted {
         let escaped = serde_json::to_string(key).expect("serializing a string is infallible");
-        format!("{parent}[{escaped}]")
-    } else if parent.is_empty() {
-        key.to_owned()
+        path.push('[');
+        path.push_str(&escaped);
+        path.push(']');
+    } else if path.is_empty() {
+        path.push_str(key);
     } else {
-        format!("{parent}.{key}")
+        path.push('.');
+        path.push_str(key);
     }
 }
 
@@ -31,8 +42,11 @@ pub(super) fn config_path(path: &str) -> String {
     if path.is_empty() {
         return String::new();
     }
-    path.split('.')
-        .fold(String::new(), |parent, key| child_key(&parent, key))
+    let mut result = String::new();
+    for key in path.split('.') {
+        append_key(&mut result, key);
+    }
+    result
 }
 
 /// Appends one array index to an already formatted diagnostic parent.
