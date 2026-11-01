@@ -159,8 +159,7 @@ impl EventReceiver for TomlParserDepth<'_, '_> {
             Some(Frame::Inline(parent)) => parent.checked_add(1),
             _ => Some(self.table_depth),
         };
-        let Some(depth) =
-            base_depth.and_then(|base| self.key_depth().and_then(|key| Self::add_depth(base, key)))
+        let Some(depth) = base_depth.and_then(|base| self.key_depth().and_then(|key| Self::add_depth(base, key)))
         else {
             self.reject_unrepresentable_depth();
             return;
@@ -215,6 +214,7 @@ mod tests {
     use toml_parser::Span;
     use toml_parser::parser::EventReceiver;
 
+    use super::Frame;
     use super::TomlParserDepth;
     use crate::ConfigError;
     use crate::source::SourceLimitKind;
@@ -239,5 +239,49 @@ mod tests {
             })
         ));
         assert_eq!(receiver.key_segments, usize::MAX);
+    }
+
+    #[test]
+    fn parser_depth_rejection_is_retained_and_stops_later_checks() {
+        let limits = SourceLimits::builder().max_parser_nesting_depth(0).build();
+        let session = SourceLoadSession::new("TOML:test", limits);
+        let mut receiver = TomlParserDepth::new(&session);
+
+        assert!(!receiver.array_open(Span::new_unchecked(0, 0), &mut ()));
+        assert!(!receiver.inline_table_open(Span::new_unchecked(0, 0), &mut ()));
+        let error = receiver
+            .finish()
+            .expect_err("the first over-depth event must be preserved");
+        assert!(matches!(
+            error,
+            ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::ParserNestingDepth,
+                observed_at_least: 1,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn arithmetic_overflow_fails_closed_for_key_and_value_depths() {
+        let session = SourceLoadSession::new("TOML:test", SourceLimits::unbounded());
+        let mut key_receiver = TomlParserDepth::new(&session);
+        key_receiver.frames.push(Frame::Inline(usize::MAX));
+        key_receiver.key_val_sep(Span::new_unchecked(0, 0), &mut ());
+        assert!(matches!(
+            key_receiver.first_error,
+            Some(ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::ParserNestingDepth,
+                ..
+            })
+        ));
+
+        let mut array_receiver = TomlParserDepth::new(&session);
+        array_receiver.value_depth = usize::MAX;
+        assert!(!array_receiver.array_open(Span::new_unchecked(0, 0), &mut ()));
+
+        let mut inline_receiver = TomlParserDepth::new(&session);
+        inline_receiver.value_depth = usize::MAX;
+        assert!(!inline_receiver.inline_table_open(Span::new_unchecked(0, 0), &mut ()));
     }
 }

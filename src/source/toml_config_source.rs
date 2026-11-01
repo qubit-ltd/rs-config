@@ -179,65 +179,6 @@ impl ConfigSource for TomlConfigSource {
     }
 }
 
-#[cfg(test)]
-mod admission_tests {
-    use std::cell::Cell;
-
-    use super::with_toml_admission;
-    use crate::ConfigError;
-    use crate::source::SourceLimitKind;
-    use crate::source::SourceLimits;
-    use crate::source::source_load_session::SourceLoadSession;
-
-    #[test]
-    fn backend_is_not_called_when_token_admission_fails() {
-        let mut session = SourceLoadSession::new(
-            "TOML:test",
-            SourceLimits::builder().max_parser_tokens(2).build(),
-        );
-        let called = Cell::new(false);
-        let error = with_toml_admission("TOML:test", "wide = [1, 2, 3]", &mut session, || {
-            called.set(true);
-            Ok(())
-        })
-        .expect_err("token admission must fail before backend parsing");
-
-        assert!(!called.get());
-        assert!(matches!(
-            error,
-            ConfigError::SourceLimitExceeded {
-                kind: SourceLimitKind::ParserTokenCount,
-                ..
-            }
-        ));
-    }
-
-    #[test]
-    fn backend_is_not_called_when_depth_admission_fails() {
-        let mut session = SourceLoadSession::new(
-            "TOML:test",
-            SourceLimits::builder().max_parser_nesting_depth(2).build(),
-        );
-        let called = Cell::new(false);
-        let error = with_toml_admission("TOML:test", "values = [[1]]", &mut session, || {
-            called.set(true);
-            Ok(())
-        })
-        .expect_err("depth admission must fail before backend parsing");
-
-        assert!(!called.get());
-        assert!(matches!(
-            error,
-            ConfigError::SourceLimitExceeded {
-                kind: SourceLimitKind::ParserNestingDepth,
-                limit: 2,
-                observed_at_least: 3,
-                ..
-            }
-        ));
-    }
-}
-
 /// Recursively flattens a TOML value into the config using dot-separated keys.
 /// Both TOML tree depth and resulting key depth are subject to source limits.
 ///
@@ -504,5 +445,97 @@ fn toml_scalar_to_string(value: &TomlValue, key: &str) -> ConfigResult<String> {
                 key
             )))
         }
+    }
+}
+
+#[cfg(test)]
+mod admission_tests {
+    use std::cell::Cell;
+
+    use super::toml_error_location;
+    use super::toml_parse_error;
+    use super::toml_scalar_to_string;
+    use super::with_toml_admission;
+    use crate::ConfigError;
+    use crate::source::SourceLimitKind;
+    use crate::source::SourceLimits;
+    use crate::source::source_load_session::SourceLoadSession;
+
+    #[test]
+    fn scalar_conversion_covers_each_supported_toml_scalar() {
+        let datetime = "1979-05-27T07:32:00Z"
+            .parse::<toml::value::Datetime>()
+            .expect("the test datetime is valid");
+        let values = [
+            (toml::Value::String("value".to_owned()), "value"),
+            (toml::Value::Integer(42), "42"),
+            (toml::Value::Float(1.5), "1.5"),
+            (toml::Value::Boolean(true), "true"),
+            (toml::Value::Datetime(datetime), "1979-05-27T07:32:00Z"),
+        ];
+        for (value, expected) in values {
+            assert_eq!(
+                toml_scalar_to_string(&value, "value").expect("a supported scalar converts"),
+                expected
+            );
+        }
+        assert!(toml_scalar_to_string(&toml::Value::Array(Vec::new()), "nested").is_err());
+    }
+
+    #[test]
+    fn backend_parse_error_fallback_keeps_safe_location() {
+        let content = "name = \"parser-secret\"\nvalue = [";
+        let error = content
+            .parse::<toml::Table>()
+            .expect_err("the backend input is intentionally malformed");
+
+        assert_eq!(toml_error_location(content, &error), Some((2, 10)));
+        let error = toml_parse_error("TOML:test", content, &error);
+        assert!(matches!(error, ConfigError::SourceParseError { .. }));
+        assert!(error.to_string().contains("line 2, column 10"));
+        assert!(!error.to_string().contains("parser-secret"));
+    }
+
+    #[test]
+    fn backend_is_not_called_when_token_admission_fails() {
+        let mut session = SourceLoadSession::new("TOML:test", SourceLimits::builder().max_parser_tokens(2).build());
+        let called = Cell::new(false);
+        let error = with_toml_admission("TOML:test", "wide = [1, 2, 3]", &mut session, || {
+            called.set(true);
+            Ok(())
+        })
+        .expect_err("token admission must fail before backend parsing");
+
+        assert!(!called.get());
+        assert!(matches!(
+            error,
+            ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::ParserTokenCount,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn backend_is_not_called_when_depth_admission_fails() {
+        let mut session =
+            SourceLoadSession::new("TOML:test", SourceLimits::builder().max_parser_nesting_depth(2).build());
+        let called = Cell::new(false);
+        let error = with_toml_admission("TOML:test", "values = [[1]]", &mut session, || {
+            called.set(true);
+            Ok(())
+        })
+        .expect_err("depth admission must fail before backend parsing");
+
+        assert!(!called.get());
+        assert!(matches!(
+            error,
+            ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::ParserNestingDepth,
+                limit: 2,
+                observed_at_least: 3,
+                ..
+            }
+        ));
     }
 }

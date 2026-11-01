@@ -84,7 +84,9 @@ fn test_toml_parser_token_limit() {
         .content("values = [1, 2, 3, 4, 5, 6]\n")
         .limits(SourceLimits::builder().max_parser_tokens(8).build())
         .build();
-    let error = source.load().expect_err("wide TOML must be rejected before AST parsing");
+    let error = source
+        .load()
+        .expect_err("wide TOML must be rejected before AST parsing");
     assert!(matches!(
         error,
         ConfigError::SourceLimitExceeded {
@@ -245,10 +247,7 @@ fn test_toml_parser_depth_array_table_nested_scopes_boundary() {
             "[[products]]\n[products.details]\nname = \"widget\"\n",
             "array-table member followed by an ordinary table",
         ),
-        (
-            "[[a]]\n[[a.b]]\nc = 1\n",
-            "multi-level array-table",
-        ),
+        ("[[a]]\n[[a.b]]\nc = 1\n", "multi-level array-table"),
     ];
 
     for (content, scenario) in cases {
@@ -268,15 +267,18 @@ fn test_toml_parser_depth_array_table_nested_scopes_boundary() {
             .content(content)
             .limits(SourceLimits::builder().max_parser_nesting_depth(5).build())
             .build();
-        assert!(matches!(
-            rejected.load(),
-            Err(ConfigError::SourceLimitExceeded {
-                kind: SourceLimitKind::ParserNestingDepth,
-                limit: 5,
-                observed_at_least: 6,
-                ..
-            })
-        ), "{scenario}");
+        assert!(
+            matches!(
+                rejected.load(),
+                Err(ConfigError::SourceLimitExceeded {
+                    kind: SourceLimitKind::ParserNestingDepth,
+                    limit: 5,
+                    observed_at_least: 6,
+                    ..
+                })
+            ),
+            "{scenario}"
+        );
     }
 }
 

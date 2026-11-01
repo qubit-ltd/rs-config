@@ -85,14 +85,16 @@ impl SourceLimitsBuilder {
         self
     }
 
-    /// Sets the maximum parser tokens accepted by this source and its ancestors.
+    /// Sets the maximum parser tokens accepted by this source and its
+    /// ancestors.
     #[inline]
     pub const fn max_parser_tokens(mut self, maximum: usize) -> Self {
         self.max_parser_tokens = maximum;
         self
     }
 
-    /// Sets the maximum parser nesting depth for one input, with root depth zero.
+    /// Sets the maximum parser nesting depth for one input, with root depth
+    /// zero.
     #[inline]
     pub const fn max_parser_nesting_depth(mut self, maximum: usize) -> Self {
         self.max_parser_nesting_depth = maximum;

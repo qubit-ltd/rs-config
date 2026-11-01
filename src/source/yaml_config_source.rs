@@ -182,70 +182,6 @@ impl ConfigSource for YamlConfigSource {
     }
 }
 
-#[cfg(test)]
-mod admission_tests {
-    use std::cell::Cell;
-
-    use super::with_yaml_admission;
-    use crate::ConfigError;
-    use crate::source::SourceLimitKind;
-    use crate::source::SourceLimits;
-    use crate::source::source_load_session::SourceLoadSession;
-
-    #[test]
-    fn backend_is_not_called_when_token_admission_fails() {
-        let called = Cell::new(false);
-        let mut session = SourceLoadSession::new(
-            "YAML:<memory>",
-            SourceLimits::builder().max_parser_tokens(0).build(),
-        );
-
-        let error = with_yaml_admission("YAML:<memory>", "value: yes", &mut session, || {
-            called.set(true);
-            Ok(())
-        })
-        .expect_err("scanner admission must fail before invoking the backend");
-
-        assert!(!called.get());
-        assert!(matches!(
-            error,
-            ConfigError::SourceLimitExceeded {
-                kind: SourceLimitKind::ParserTokenCount,
-                ..
-            }
-        ));
-    }
-
-    #[test]
-    fn backend_is_not_called_when_depth_admission_fails() {
-        let called = Cell::new(false);
-        let mut session = SourceLoadSession::new(
-            "YAML:<memory>",
-            SourceLimits::builder().max_parser_nesting_depth(0).build(),
-        );
-
-        let error = with_yaml_admission(
-            "YAML:<memory>",
-            "outer: {inner: value}",
-            &mut session,
-            || {
-                called.set(true);
-                Ok(())
-            },
-        )
-        .expect_err("depth admission must fail before invoking the backend");
-
-        assert!(!called.get());
-        assert!(matches!(
-            error,
-            ConfigError::SourceLimitExceeded {
-                kind: SourceLimitKind::ParserNestingDepth,
-                ..
-            }
-        ));
-    }
-}
-
 /// Recursively flattens a YAML value into the config using dot-separated keys.
 /// Both YAML tree depth and resulting key depth are subject to source limits.
 ///
@@ -575,5 +511,94 @@ fn same_yaml_scalar_kind(first: &YamlValue, other: &YamlValue) -> bool {
             first.is_i64() == other.is_i64() && first.is_u64() == other.is_u64() && first.is_f64() == other.is_f64()
         }
         _ => false,
+    }
+}
+
+#[cfg(test)]
+mod admission_tests {
+    use std::cell::Cell;
+
+    use super::YamlValue;
+    use super::same_yaml_scalar_kind;
+    use super::with_yaml_admission;
+    use super::yaml_parse_error;
+    use super::yaml_scalar_to_string;
+    use crate::ConfigError;
+    use crate::source::SourceLimitKind;
+    use crate::source::SourceLimits;
+    use crate::source::source_load_session::SourceLoadSession;
+
+    #[test]
+    fn scalar_conversion_and_category_checks_cover_yaml_scalar_variants() {
+        let number = YamlValue::Number(serde_norway::Number::from(7));
+        for (value, expected) in [
+            (YamlValue::String("text".to_owned()), "text"),
+            (number, "7"),
+            (YamlValue::Bool(true), "true"),
+            (YamlValue::Null, ""),
+        ] {
+            assert_eq!(
+                yaml_scalar_to_string(&value, "value").expect("a scalar converts"),
+                expected
+            );
+            assert!(same_yaml_scalar_kind(&value, &value));
+        }
+        assert!(!same_yaml_scalar_kind(&YamlValue::Null, &YamlValue::Bool(false)));
+        assert!(yaml_scalar_to_string(&YamlValue::Sequence(Vec::new()), "nested").is_err());
+    }
+
+    #[test]
+    fn backend_parse_error_fallback_keeps_safe_location() {
+        let error = serde_norway::from_str::<YamlValue>("value: [\"parser-secret\"")
+            .expect_err("the backend input is intentionally malformed");
+        let error = yaml_parse_error("YAML:<memory>", &error);
+
+        assert!(matches!(error, ConfigError::SourceParseError { .. }));
+        assert!(!error.to_string().contains("parser-secret"));
+    }
+
+    #[test]
+    fn backend_is_not_called_when_token_admission_fails() {
+        let called = Cell::new(false);
+        let mut session = SourceLoadSession::new("YAML:<memory>", SourceLimits::builder().max_parser_tokens(0).build());
+
+        let error = with_yaml_admission("YAML:<memory>", "value: yes", &mut session, || {
+            called.set(true);
+            Ok(())
+        })
+        .expect_err("scanner admission must fail before invoking the backend");
+
+        assert!(!called.get());
+        assert!(matches!(
+            error,
+            ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::ParserTokenCount,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn backend_is_not_called_when_depth_admission_fails() {
+        let called = Cell::new(false);
+        let mut session = SourceLoadSession::new(
+            "YAML:<memory>",
+            SourceLimits::builder().max_parser_nesting_depth(0).build(),
+        );
+
+        let error = with_yaml_admission("YAML:<memory>", "outer: {inner: value}", &mut session, || {
+            called.set(true);
+            Ok(())
+        })
+        .expect_err("depth admission must fail before invoking the backend");
+
+        assert!(!called.get());
+        assert!(matches!(
+            error,
+            ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::ParserNestingDepth,
+                ..
+            }
+        ));
     }
 }

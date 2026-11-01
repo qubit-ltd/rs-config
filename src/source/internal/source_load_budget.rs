@@ -27,21 +27,12 @@ impl SourceLoadBudget {
     pub(in crate::source) fn new(limits: SourceLimits) -> Self {
         Self {
             input_bytes: ResourceBudget::new(SourceLimitKind::InputBytes, limits.max_input_bytes()),
-            properties: ResourceBudget::new(
-                SourceLimitKind::PropertyCount,
-                limits.max_properties(),
-            ),
+            properties: ResourceBudget::new(SourceLimitKind::PropertyCount, limits.max_properties()),
             nodes: ResourceBudget::new(SourceLimitKind::NodeCount, limits.max_nodes()),
-            parser_tokens: ResourceBudget::new(
-                SourceLimitKind::ParserTokenCount,
-                limits.max_parser_tokens(),
-            ),
+            parser_tokens: ResourceBudget::new(SourceLimitKind::ParserTokenCount, limits.max_parser_tokens()),
             sources: ResourceBudget::new(SourceLimitKind::SourceCount, limits.max_sources()),
             depth: ResourceLimit::new(SourceLimitKind::NestingDepth, limits.max_nesting_depth()),
-            parser_depth: ResourceLimit::new(
-                SourceLimitKind::ParserNestingDepth,
-                limits.max_parser_nesting_depth(),
-            ),
+            parser_depth: ResourceLimit::new(SourceLimitKind::ParserNestingDepth, limits.max_parser_nesting_depth()),
         }
     }
 }

@@ -22,10 +22,7 @@ pub(in crate::source) enum CumulativeDimension {
 
 impl CumulativeDimension {
     /// Borrows the selected cumulative resource budget.
-    pub(in crate::source) fn get(
-        self,
-        budget: &SourceLoadBudget,
-    ) -> &ResourceBudget<SourceLimitKind, usize> {
+    pub(in crate::source) fn get(self, budget: &SourceLoadBudget) -> &ResourceBudget<SourceLimitKind, usize> {
         match self {
             Self::InputBytes => &budget.input_bytes,
             Self::Properties => &budget.properties,

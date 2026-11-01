@@ -55,14 +55,8 @@ fn source_context_charges_local_and_aggregate_budgets_atomically() {
         .expect_err("the aggregate budget should reject the second charge");
 
     assert_eq!(error.source_id(), Some("input-accounting"));
-    assert_eq!(
-        error.source_budget_id(),
-        Some("composite configuration source")
-    );
-    assert_eq!(
-        error.budget_error().and_then(|error| error.remaining()),
-        Some(1)
-    );
+    assert_eq!(error.source_budget_id(), Some("composite configuration source"));
+    assert_eq!(error.budget_error().and_then(|error| error.remaining()), Some(1));
 }
 
 #[test]
@@ -110,10 +104,7 @@ fn test_parser_limits_defaults_and_serde_compatibility() {
     assert_eq!(zero.max_parser_tokens(), 0);
     assert_eq!(zero.max_parser_nesting_depth(), 0);
     assert_eq!(SourceLimits::unbounded().max_parser_tokens(), usize::MAX);
-    assert_eq!(
-        SourceLimits::unbounded().max_parser_nesting_depth(),
-        usize::MAX
-    );
+    assert_eq!(SourceLimits::unbounded().max_parser_nesting_depth(), usize::MAX);
 
     let legacy = r#"{"max_input_bytes":1,"max_properties":2,"max_nodes":3,"max_sources":4,"max_nesting_depth":5}"#;
     let decoded: SourceLimits = serde_json::from_str(legacy).expect("legacy limits should decode");
@@ -128,14 +119,8 @@ fn source_limit_kinds_have_stable_display_names() {
     assert_eq!(SourceLimitKind::NodeCount.to_string(), "node count");
     assert_eq!(SourceLimitKind::SourceCount.to_string(), "source count");
     assert_eq!(SourceLimitKind::NestingDepth.to_string(), "nesting depth");
-    assert_eq!(
-        SourceLimitKind::ParserTokenCount.to_string(),
-        "parser token count"
-    );
-    assert_eq!(
-        SourceLimitKind::ParserNestingDepth.to_string(),
-        "parser nesting depth"
-    );
+    assert_eq!(SourceLimitKind::ParserTokenCount.to_string(), "parser token count");
+    assert_eq!(SourceLimitKind::ParserNestingDepth.to_string(), "parser nesting depth");
 }
 
 #[test]
@@ -405,10 +390,7 @@ fn test_toml_sequence_element_depth_boundary() {
             .build()
             .load()
     };
-    assert_eq!(
-        load("a=[1]", 2).unwrap().get_list::<i64>("a").unwrap(),
-        vec![1]
-    );
+    assert_eq!(load("a=[1]", 2).unwrap().get_list::<i64>("a").unwrap(), vec![1]);
     assert!(load("a=[]", 1).is_ok());
     assert!(matches!(
         load("a=[1]", 1),
@@ -431,10 +413,7 @@ fn test_yaml_sequence_element_depth_boundary() {
             .build()
             .load()
     };
-    assert_eq!(
-        load("a: [1]", 2).unwrap().get_list::<i64>("a").unwrap(),
-        vec![1]
-    );
+    assert_eq!(load("a: [1]", 2).unwrap().get_list::<i64>("a").unwrap(), vec![1]);
     assert!(load("a: []", 1).is_ok());
     assert!(matches!(
         load("a: [1]", 1),
@@ -464,11 +443,7 @@ fn toml_sequence_depth_checks_elements_and_dotted_paths() {
             .limits(SourceLimits::builder().max_nesting_depth(max_depth).build())
             .build()
             .load();
-        assert_eq!(
-            result.is_ok(),
-            succeeds,
-            "content={content:?}, max_depth={max_depth}"
-        );
+        assert_eq!(result.is_ok(), succeeds, "content={content:?}, max_depth={max_depth}");
     }
 }
 
@@ -489,11 +464,7 @@ fn yaml_sequence_depth_checks_elements_and_dotted_paths() {
             .limits(SourceLimits::builder().max_nesting_depth(max_depth).build())
             .build()
             .load();
-        assert_eq!(
-            result.is_ok(),
-            succeeds,
-            "content={content:?}, max_depth={max_depth}"
-        );
+        assert_eq!(result.is_ok(), succeeds, "content={content:?}, max_depth={max_depth}");
     }
 }
 
@@ -526,10 +497,7 @@ fn toml_sequence_element_depth_checks_composite_ancestors_transactionally() {
         }
     ));
     assert_eq!(error.source_id(), Some("TOML:<memory>"));
-    assert_eq!(
-        error.source_budget_id(),
-        Some("composite configuration source")
-    );
+    assert_eq!(error.source_budget_id(), Some("composite configuration source"));
     assert_eq!(config, before);
 
     let source = TomlConfigSource::builder()
@@ -572,10 +540,7 @@ fn yaml_sequence_element_depth_checks_composite_ancestors_transactionally() {
         }
     ));
     assert_eq!(error.source_id(), Some("YAML:<memory>"));
-    assert_eq!(
-        error.source_budget_id(),
-        Some("composite configuration source")
-    );
+    assert_eq!(error.source_budget_id(), Some("composite configuration source"));
     assert_eq!(config, before);
 
     let source = YamlConfigSource::builder()

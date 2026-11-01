@@ -38,9 +38,7 @@ impl ConfigSource for RecoveringParserChargeSource {
         self.source_id.to_owned()
     }
     fn limits(&self) -> SourceLimits {
-        SourceLimits::builder()
-            .max_parser_tokens(self.local_limit)
-            .build()
+        SourceLimits::builder().max_parser_tokens(self.local_limit).build()
     }
     fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
         let error = context
@@ -192,10 +190,7 @@ fn source_load_session_charges_local_and_ancestor_budgets_atomically() {
         .load()
         .expect_err("the aggregate budget should reject the second charge");
 
-    assert_eq!(
-        error.source_budget_id(),
-        Some("composite configuration source")
-    );
+    assert_eq!(error.source_budget_id(), Some("composite configuration source"));
 }
 
 #[test]
@@ -259,10 +254,7 @@ fn source_load_session_reports_outermost_failing_budget_first() {
         .load()
         .expect_err("both aggregate and child budgets should reject the charge");
 
-    assert_eq!(
-        error.source_budget_id(),
-        Some("composite configuration source")
-    );
+    assert_eq!(error.source_budget_id(), Some("composite configuration source"));
 }
 
 #[test]
@@ -309,11 +301,7 @@ fn source_load_context_exposes_node_charges_and_typed_nulls() {
 
     assert!(config.is_unset("optional.value").unwrap());
     assert_eq!(
-        config
-            .get_property("optional.value")
-            .unwrap()
-            .unwrap()
-            .data_type(),
+        config.get_property("optional.value").unwrap().unwrap().data_type(),
         DataType::String
     );
 }
@@ -334,10 +322,7 @@ fn test_parser_token_charge_is_atomic_across_ancestors() {
                 .consume_parser_tokens(2)
                 .expect_err("the ancestor has one token remaining");
             assert_eq!(error.source_id(), Some("charge sequence"));
-            assert_eq!(
-                error.source_budget_id(),
-                Some("composite configuration source")
-            );
+            assert_eq!(error.source_budget_id(), Some("composite configuration source"));
             context.consume_parser_tokens(1)
         }
     }
@@ -377,10 +362,7 @@ fn test_parser_token_charge_is_atomic_across_ancestors() {
         }
     ));
     assert_eq!(error.source_id(), Some("parser child"));
-    assert_eq!(
-        error.source_budget_id(),
-        Some("composite configuration source")
-    );
+    assert_eq!(error.source_budget_id(), Some("composite configuration source"));
 
     let mut aggregate = CompositeConfigSource::builder()
         .limits(SourceLimits::builder().max_parser_tokens(2).build())
@@ -401,10 +383,7 @@ fn test_parser_token_charge_is_atomic_across_ancestors() {
         .load()
         .expect_err("the successful charge uses one ancestor token");
     assert_eq!(error.source_id(), Some("later parser"));
-    assert_eq!(
-        error.source_budget_id(),
-        Some("composite configuration source")
-    );
+    assert_eq!(error.source_budget_id(), Some("composite configuration source"));
 }
 
 #[test]
@@ -431,10 +410,7 @@ fn test_parser_depth_reports_rejecting_scope() {
         }
     ));
     assert_eq!(error.source_id(), Some("deep parser"));
-    assert_eq!(
-        error.source_budget_id(),
-        Some("composite configuration source")
-    );
+    assert_eq!(error.source_budget_id(), Some("composite configuration source"));
 
     let mut same_depth = CompositeConfigSource::builder()
         .limits(SourceLimits::builder().max_parser_nesting_depth(3).build())
@@ -465,9 +441,7 @@ fn test_parser_budget_failure_preserves_merged_config() {
         limits: SourceLimits::builder().max_parser_tokens(0).build(),
     };
     let mut config = Config::new();
-    config
-        .set("existing", "kept")
-        .expect("initial value should be valid");
+    config.set("existing", "kept").expect("initial value should be valid");
 
     let error = config
         .merge_properties_from_source(&source)
@@ -483,9 +457,7 @@ fn test_parser_budget_failure_preserves_merged_config() {
         }
     ));
     assert_eq!(
-        config
-            .get::<String>("existing")
-            .expect("existing value should remain"),
+        config.get::<String>("existing").expect("existing value should remain"),
         "kept"
     );
     assert_eq!(config.len(), 1);

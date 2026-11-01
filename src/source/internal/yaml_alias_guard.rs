@@ -58,14 +58,10 @@ pub(in crate::source) fn inspect_yaml_tokens(
                 close_collection(label, &mut frames, |frame| frame == CollectionFrame::Block)?;
             }
             TokenType::FlowMappingEnd => {
-                close_collection(label, &mut frames, |frame| {
-                    frame == CollectionFrame::FlowMapping
-                })?;
+                close_collection(label, &mut frames, |frame| frame == CollectionFrame::FlowMapping)?;
             }
             TokenType::FlowSequenceEnd => {
-                close_collection(label, &mut frames, |frame| {
-                    frame == CollectionFrame::FlowSequence
-                })?;
+                close_collection(label, &mut frames, |frame| frame == CollectionFrame::FlowSequence)?;
             }
             _ => {}
         }
@@ -139,6 +135,8 @@ fn invalid_collection_end(label: &str) -> ConfigError {
 
 #[cfg(test)]
 mod tests {
+    use super::CollectionFrame;
+    use super::close_collection;
     use super::inspect_yaml_tokens;
     use crate::source::SourceLimits;
     use crate::source::source_load_session::SourceLoadSession;
@@ -151,31 +149,19 @@ mod tests {
     #[test]
     fn accepts_yaml_without_anchor_tokens() {
         assert!(
-            inspect_yaml_tokens(
-                "memory",
-                "value: '*literal'\nquoted: \"&text\"\n",
-                &mut session()
-            )
-            .expect("quoted anchor-like text is ordinary scalar content")
+            inspect_yaml_tokens("memory", "value: '*literal'\nquoted: \"&text\"\n", &mut session())
+                .expect("quoted anchor-like text is ordinary scalar content")
         );
     }
 
     #[test]
     fn rejects_alias_tokens_with_source_position() {
-        let error = inspect_yaml_tokens(
-            "memory",
-            "base: &secret value\ncopy: *secret\n",
-            &mut session(),
-        )
-        .expect_err("an alias token must be rejected before parsing values");
+        let error = inspect_yaml_tokens("memory", "base: &secret value\ncopy: *secret\n", &mut session())
+            .expect_err("an alias token must be rejected before parsing values");
 
         assert!(matches!(error, ConfigError::SourceParseError { .. }));
         assert!(error.to_string().contains("line 1, column 7"));
-        assert!(
-            error
-                .to_string()
-                .contains("anchors and aliases are not supported")
-        );
+        assert!(error.to_string().contains("anchors and aliases are not supported"));
         assert!(!error.to_string().contains("secret"));
     }
 
@@ -205,5 +191,18 @@ mod tests {
                 "input={input:?}"
             );
         }
+    }
+
+    #[test]
+    fn rejects_unbalanced_or_mismatched_collection_closes() {
+        let mut frames = Vec::new();
+        let error = close_collection("memory", &mut frames, |_| true)
+            .expect_err("a close token without an open collection is invalid");
+        assert!(matches!(error, ConfigError::SourceParseError { .. }));
+
+        frames.push(CollectionFrame::Block);
+        let error = close_collection("memory", &mut frames, |frame| frame == CollectionFrame::FlowSequence)
+            .expect_err("a close token must match its most recent opening token");
+        assert!(matches!(error, ConfigError::SourceParseError { .. }));
     }
 }

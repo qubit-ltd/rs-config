@@ -63,10 +63,10 @@ use crate::ConfigResult;
 /// # Ok::<(), qubit_config::ConfigError>(())
 /// ```
 ///
-/// Input, node, parser-token, property, source-count, and nesting-depth limit
-/// failures are reported as [`crate::ConfigError`]. Parser-token charges are
-/// distinct from semantic node charges. A failed operation does not undo
-/// charges accepted by earlier operations.
+/// Input, node, parser-token, property, source-count, semantic-depth, and
+/// parser-depth limit failures are reported as [`crate::ConfigError`].
+/// Parser-token charges are distinct from semantic node charges. A failed
+/// operation does not undo charges accepted by earlier operations.
 pub struct SourceLoadContext<'a> {
     session: SourceLoadSession<'a>,
     layer: Config,
@@ -93,25 +93,29 @@ impl<'a> SourceLoadContext<'a> {
         self.session.consume_nodes(amount)
     }
 
-    /// Charges parser tokens before syntax-tree construction to this source and its ancestors.
+    /// Charges parser tokens before syntax-tree construction to this source and
+    /// its ancestors.
     ///
     /// # Errors
     ///
-    /// Returns [`crate::ConfigError::SourceLimitExceeded`] when this charge would exceed any
-    /// active source or aggregate parser-token budget. A rejected charge changes no budget.
+    /// Returns [`crate::ConfigError::SourceLimitExceeded`] when this charge
+    /// would exceed any active source or aggregate parser-token budget. A
+    /// rejected charge changes no budget.
     pub fn consume_parser_tokens(&mut self, amount: usize) -> ConfigResult<()> {
         self.session.consume_parser_tokens(amount)
     }
 
-    /// Checks parser depth for one input against this source and every ancestor.
+    /// Checks parser depth for one input against this source and every
+    /// ancestor.
     ///
-    /// The root depth is zero. Parser depth is checked independently per input and is not
-    /// accumulated across sibling sources.
+    /// The root depth is zero. Parser depth is checked independently per input
+    /// and is not accumulated across sibling sources.
     ///
     /// # Errors
     ///
-    /// Returns [`crate::ConfigError::SourceLimitExceeded`] if the depth exceeds an active
-    /// source or aggregate parser-depth limit; the error identifies the rejecting scope.
+    /// Returns [`crate::ConfigError::SourceLimitExceeded`] if the depth exceeds
+    /// an active source or aggregate parser-depth limit; the error
+    /// identifies the rejecting scope.
     pub fn check_parser_depth(&self, depth: usize) -> ConfigResult<()> {
         self.session.check_parser_depth(depth)
     }
