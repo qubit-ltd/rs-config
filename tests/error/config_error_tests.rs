@@ -128,7 +128,29 @@ fn config_error_optional_context_accessors_are_callable_as_functions() {
 }
 
 #[test]
-fn single_missing_candidate_is_exposed_as_a_candidate_path() {
+fn test_single_missing_candidate_is_exposed_as_a_candidate_path() {
     let error = ConfigError::PropertyNotFound("server.port".to_string());
     assert_eq!(error.candidate_paths(), Some(["server.port".to_string()].as_slice()),);
+}
+
+#[test]
+fn test_error_accessors_retain_missing_value_source_and_conflict_context() {
+    let no_value = ConfigError::PropertyHasNoValue("server.port".to_string());
+    assert_eq!(no_value.path(), Some("server.port"));
+
+    let source_parse = ConfigError::SourceParseError {
+        source_id: "memory:test".to_string(),
+        path: Some("items".to_string()),
+        source_index: Some(3),
+        message: "invalid element".to_string(),
+    };
+    assert_eq!(source_parse.source_index(), Some(3));
+
+    let conflict = ConfigError::KeyConflict {
+        source_id: Some("memory:defaults".to_string()),
+        path: "server.port".to_string(),
+        existing: "integer".to_string(),
+        incoming: "string".to_string(),
+    };
+    assert_eq!(conflict.source_id(), Some("memory:defaults"));
 }

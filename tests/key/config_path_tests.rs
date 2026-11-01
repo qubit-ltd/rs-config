@@ -15,14 +15,16 @@ use qubit_config::ConfigPathViolation;
 use qubit_config::ConfigReader;
 
 #[test]
-fn config_key_accepts_canonical_dotted_names() {
+fn test_config_key_parse_as_str_and_into_string_preserve_canonical_text() {
     for value in ["server", "server.port", "default_headers.x-request-id", "服务.端口"] {
-        assert_eq!(ConfigKey::parse(value).unwrap().as_str(), value);
+        let key = ConfigKey::parse(value).unwrap();
+        assert_eq!(key.as_str(), value);
+        assert_eq!(key.clone().into_string(), value);
     }
 }
 
 #[test]
-fn config_key_rejects_malformed_names_without_normalizing() {
+fn test_config_key_rejects_malformed_names_without_normalizing() {
     let cases = [
         ("", ConfigPathViolation::Empty),
         (".server", ConfigPathViolation::LeadingSeparator),
@@ -209,12 +211,6 @@ fn key_and_path_wrapper_traits_preserve_the_validated_text() {
     assert_eq!(std::hint::black_box(path_as_str)(&path), "server.http");
     assert_eq!(std::hint::black_box(path_as_ref)(&path), "server.http");
     assert_eq!(path.to_string(), "server.http");
-}
-
-#[test]
-fn config_key_can_be_consumed_into_its_canonical_string() {
-    let key = ConfigKey::parse("server.port").unwrap();
-    assert_eq!(key.into_string(), "server.port");
 }
 
 #[test]

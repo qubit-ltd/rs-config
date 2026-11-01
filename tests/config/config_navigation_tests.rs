@@ -51,7 +51,7 @@ pub(crate) fn create_test_config() -> Config {
 }
 
 #[test]
-fn inherent_section_accessors_preserve_presence_semantics() {
+fn test_inherent_section_accessors_preserve_presence_semantics() {
     let mut config = Config::new();
     config.set("service.port", 8080_u16).unwrap();
 
@@ -67,6 +67,7 @@ fn inherent_section_accessors_preserve_presence_semantics() {
             .unwrap()
             .is_none()
     );
+    assert_eq!(config.len(), 1);
 }
 
 /// Creates a test configuration with description
