@@ -334,10 +334,12 @@ block scalar text remain ordinary scalar content; malformed YAML scanner input
 also fails closed rather than bypassing the guard. Every built-in source loads
 through `SourceLoadContext`; a
 composite checks each charge against both the child's local policy and its
-shared aggregate policy before committing either budget. For TOML and YAML,
-node, property-count, and nesting-depth accounting begins only while flattening
-the parser's already materialized AST. These dimensions constrain accepted
-configuration output but do not bound parser allocation or recursion.
+shared aggregate policy before committing either budget. TOML and YAML charge
+parser tokens and check parser nesting before calling their AST backends. Their
+existing node, property-count, and semantic output-depth checks still run while
+flattening the resulting AST. Parser admission limits do not promise a strict
+RSS or CPU ceiling: a scanner may allocate one large token before it can be
+charged, and admitted input still incurs AST cost.
 Comment-only and otherwise value-free single YAML documents load as empty
 layers. Explicit root `null` and `~` remain invalid configuration roots.
 TOML and YAML also reject empty or invalid dotted mapping member keys before
@@ -850,6 +852,8 @@ The default `SourceLimits` are:
 | Input bytes | 8 MiB (`8 * 1024 * 1024`) |
 | Emitted assignments | 65,536 |
 | Parsed structural nodes | 262,144 |
+| Parser tokens | 1,048,576 |
+| Parser nesting depth | 128 |
 | Composite child sources | 256 |
 | Nesting depth | 64 |
 
@@ -857,14 +861,40 @@ All built-in sources use the same session API for file and in-memory entry
 points. `CompositeConfigSource::builder().limits(...).build()` configures a shared aggregate
 policy in addition to every child's local policy. Cumulative charges are
 committed to all applicable scopes only after every scope accepts them.
-For TOML and YAML, node, property, and depth checks occur after the parser has
-built its AST. Depth checks cover both AST nesting and the final dotted property
-path; AST roots have depth zero, and each mapping value or sequence element adds
-one level. An empty sequence has no element depth. For example, `a=[1]` and
-`a: [1]` are rejected at depth limit 1 and accepted at limit 2. These checks are
-not parser-stage allocation or recursion limits.
-`SourceLimits::unbounded()` disables every source dimension and should only be
-used when the application controls the input boundary.
+`max_parser_tokens` counts returned scanner/lexer tokens, including stream or
+document markers; TOML also counts whitespace, comments, newlines, and EOF.
+It is cumulative across the source and all enclosing composite scopes. Parser
+nesting depth is checked independently for each input, with its root at zero.
+YAML measures nested collections. TOML uses a conservative structural upper
+bound (each dotted key segment may count as two levels, with array/inline
+containers adding levels), so it is not equivalent to semantic `max_depth`.
+The existing `max_nodes`, `max_properties`, and `max_nesting_depth` checks still
+run while flattening the backend AST. Parser limits reduce admitted work but do
+not promise a strict allocation or CPU ceiling; one large scanner token and the
+accepted AST still have costs.
+
+Use the builder to adjust these dimensions when the input boundary is known:
+
+```rust
+use qubit_config::source::SourceLimits;
+
+let limits = SourceLimits::builder()
+    .max_parser_tokens(65_536)
+    .max_parser_nesting_depth(96)
+    .build();
+assert_eq!(limits.max_parser_tokens(), 65_536);
+```
+
+`SourceLimitKind::ParserTokenCount` and `SourceLimitKind::ParserNestingDepth`
+identify these `SourceLimitExceeded` errors. Older serialized `SourceLimits`
+objects that omit the new fields use the defaults above; `SourceLimits::unbounded()`
+disables both new dimensions as well as the existing limits. The new parser
+limits can reject input before a later syntax, node, property, or semantic-depth
+error, by design. Custom parsers can report work through
+`SourceLoadContext::consume_parser_tokens` and
+`SourceLoadContext::check_parser_depth` before invoking their own backend.
+Use `SourceLimits::unbounded()` only when the application controls the input
+boundary.
 
 ## Errors and Diagnostics
 
@@ -942,10 +972,11 @@ Check the source result independently with `source.load()`, then inspect its key
 - Ordinary reads do not interpolate. Keep interpolation at explicit call sites so the trust boundary is visible.
 - Process-environment fallback is disabled unless `InterpolationSources::ConfigThenEnv` is selected.
 - Built-in source loads are bounded locally and, for composites, in aggregate.
-  TOML/YAML node, property, and depth accounting starts after third-party AST
-  materialization and does not protect parser allocation or recursion. JSON
-  wire operations have a separate `ConfigWireLimits` profile; use the bounded
-  slice API when raw-input admission is required.
+  TOML/YAML parser tokens and parser depth are checked before AST construction;
+  node, property, and semantic depth checks still happen during flattening.
+  Parser limits do not cap one scanner token, CPU time, or the AST cost of
+  admitted input. JSON wire operations have a separate `ConfigWireLimits`
+  profile; use the bounded slice API when raw-input admission is required.
 - Source layers are independent and merged transactionally, but `Config` itself is mutable; choose ownership and synchronization in the application that uses it.
 - `ConfigReader` is sealed and not object-safe because it has generic methods. Use generic bounds such as `&impl ConfigReader` rather than `dyn ConfigReader`.
 - `ConfigSection` is a borrowed view. Keep the originating `Config` alive while using it and use relative keys within the section.

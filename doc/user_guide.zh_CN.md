@@ -284,9 +284,9 @@ YAML scanner 输入也会直接失败，不会绕过 guard。所有内置配置�
 全部通过后才扣减。`set` 和 `set_null` 已分别记入一个 node 和一个 property assignment；
 只有额外解析工作才调用 `consume_nodes`。每次 charge 会先同时检查局部和聚合预算，但失败前已
 接受的 charge 不会回滚。失败的配置层会被丢弃，调用方应传播错误。`ConfigSource` API 文档
-提供了完整的内存配置源示例。TOML 和 YAML 的节点、配置项数量与嵌套深度只能在解析器已经物化
-AST 后的展平阶段记账，因此它们约束可接受的配置结果，不限制解析器中间阶段的内存
-分配或递归深度。
+提供了完整的内存配置源示例。TOML 和 YAML 会在调用 AST backend 前累计 parser token 并检查
+parser nesting；原有 node、配置项数量和语义输出深度仍在展平阶段检查。解析准入预算不保证严格
+RSS 或 CPU 上限：scanner 可能在 charge 前为一个大 token 分配内存，通过准入的输入仍会构造 AST。
 
 自定义配置源可以在写入属性后通过 `context.set_final("service.mode", true)` 将其标记为 final。
 此操作只修改属性元数据，不会再次扣减配置源预算。重复设置当前状态有效；final 属性不能解锁。
@@ -767,16 +767,39 @@ TOML 和 YAML 配置源会把映射展开成点分配置项，接受标量、空
 | 输入字节数 | 8 MiB（`8 * 1024 * 1024`） |
 | 输出 assignment 数 | 65,536 |
 | 解析结构节点数 | 262,144 |
+| Parser token 数 | 1,048,576 |
+| Parser nesting depth | 128 |
 | 组合配置源的子项数 | 256 |
 | 嵌套深度 | 64 |
 
 所有内置配置源的文件入口和内存入口使用同一套 session API。
 `CompositeConfigSource::builder().limits(...).build()` 会在每个子配置源的局部策略之外增加共享聚合
 策略；只有所有适用预算都接受一次累计扣减后才会统一记账。TOML 和 YAML 的节点、
-配置项与深度检查发生在 AST 已经构建之后；深度同时检查 AST 嵌套和最终点分配置路径，
-AST 根深度为 0，每个 mapping 值或 sequence 元素增加一层；空 sequence 没有元素深度。
-例如，`a=[1]` 和 `a: [1]` 在深度上限为 1 时拒绝、上限为 2 时接受。这些检查不能限制解析器自身的内存或递归。
-`SourceLimits::unbounded()` 会关闭所有配置源维度；只有应用完全控制输入边界时才应使用。
+配置项和语义输出深度检查仍发生在 AST 构建后的 flatten 阶段。`max_parser_tokens` 按 scanner/lexer
+返回的 token 计数并在 source 与所有外层 composite 间累计；TOML 的空白、注释、换行和 EOF 也计入。
+Parser nesting depth 对每个输入单独检查，根深度为 0；YAML 按 collection 层级计数，TOML 使用保守的
+结构上界（每个点分 key 段最多计两层，array/inline 容器还会增加层级），因此不等同于语义 `max_depth`。
+这些限制减少送入 backend 的工作，但不保证严格内存或 CPU 上限；单个大 token 和准入后的 AST 仍有成本。
+
+在了解输入边界后，可用 builder 调整限制：
+
+```rust
+use qubit_config::source::SourceLimits;
+
+let limits = SourceLimits::builder()
+    .max_parser_tokens(65_536)
+    .max_parser_nesting_depth(96)
+    .build();
+assert_eq!(limits.max_parser_tokens(), 65_536);
+```
+
+对应错误类别为 `SourceLimitKind::ParserTokenCount` 和
+`SourceLimitKind::ParserNestingDepth`，错误仍是 `SourceLimitExceeded`。旧版序列化的
+`SourceLimits` 缺少新字段时使用上表默认值；`SourceLimits::unbounded()` 也会关闭这两个新维度。
+解析准入限额可能先于后续语法、node、assignment 或语义深度错误返回。自定义 parser 可在调用
+backend 前通过 `SourceLoadContext::consume_parser_tokens` 和
+`SourceLoadContext::check_parser_depth` 报告工作量。
+只有应用完全控制输入边界时才应使用 `SourceLimits::unbounded()`。
 
 ## 错误与诊断
 
@@ -849,8 +872,9 @@ assert_eq!(error.path(), Some("server.port"));
 - 配置键和 section 路径会被校验；不要依赖普通配置键的隐式去空白或规范化。
 - 普通读取不会插值。把插值放在显式调用点，让信任边界清晰可见。
 - 只有选择 `InterpolationSources::ConfigThenEnv` 后才会回退到进程环境变量。
-- 内置配置源默认同时支持局部边界与组合配置源的聚合边界。TOML/YAML 的节点、
-  配置项和深度记账在第三方 AST 物化后才开始，不能保护解析器自身的内存分配或递归。
+- 内置配置源默认同时支持局部边界与组合配置源的聚合边界。TOML/YAML 会在 AST 构建前检查
+  parser token 和 parser depth；node、property 和语义深度仍在 flatten 阶段检查。解析准入不限制
+  单个 scanner token、CPU 时间或准入后 AST 的成本。
   JSON wire 使用独立的 `ConfigWireLimits`；需要原始输入准入时必须使用有限制的 slice API。
 - 配置源层独立创建并事务式合并，但 `Config` 本身是可变的；应用需要自行决定所有权和同步方式。
 - `ConfigReader` 是封闭（sealed）且不满足对象安全要求，因为它含有泛型方法。请使用 `&impl ConfigReader` 等泛型约束，而不是 `dyn ConfigReader`。

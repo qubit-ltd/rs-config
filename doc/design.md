@@ -56,8 +56,11 @@ loads children in insertion order and merges each completed child layer into its
 own layer. Later values override earlier values unless an existing property is
 final. Loading and merging are transactional at the public boundary: an error
 does not expose a partial source layer or partially mutate the caller's target.
-TOML and YAML depth limits cover both AST nesting and the final dotted property
-path after flattening; parser allocation and recursion remain outside this limit.
+TOML and YAML admit parser-token and parser-depth work before constructing the
+backend AST, then retain the existing node, assignment, and semantic output-depth
+checks during flattening. Parser depth is per input and separate from the
+post-flatten depth limit. This bounds work admitted to the backend but does not
+provide a strict RSS or CPU ceiling.
 AST roots have depth zero; each mapping value and sequence element adds one
 level, while an empty sequence adds no element depth. Custom sources may mark an
 existing property final through `SourceLoadContext::set_final`; this updates
@@ -265,15 +268,22 @@ The crate has separate resource domains rather than one shared counter:
 | Typed conversion | `qubit-datatype` `ConversionLimits::default()` | One ordinary read, or one complete structured materialization |
 | Structured input admission | Reader conversion operation and structured-value limits | Complete selected input; independent original/expanded passes for interpolation |
 | Interpolation | depth 64; 4,096 expansions; 1 MiB output | One interpolated read |
-| Source loading | 8 MiB input; 65,536 assignments; 262,144 nodes; 256 composite children; depth 64 | One local source and every enclosing composite scope |
+| Source loading | 8 MiB input; 65,536 assignments; 262,144 nodes; 1,048,576 parser tokens; parser depth 128; 256 composite children; semantic depth 64 | Tokens aggregate across a source and its enclosing composites; parser depth is checked per input; other cumulative dimensions use local and enclosing scopes |
 | JSON wire | 1 MiB input/output; depth 64; 100,000 nodes; 4,096 sequence items/map entries/properties; 256 KiB strings/object keys; 4 KiB numbers; 1 MiB payload; 256-byte property keys | One encode or decode operation |
 
-Source byte, assignment, node, and child-source charges are cumulative and are
-committed to local and aggregate scopes only when every applicable scope accepts
-the charge. Depth is a point limit. TOML and YAML build third-party ASTs before
-flattening; node, assignment, and depth accounting therefore bounds accepted
-configuration output, not parser allocation or parser recursion. Wire budgets
-are independent of `SourceLimits` and read conversion limits.
+Source byte, assignment, node, parser-token, and child-source charges are
+cumulative and are committed to local and aggregate scopes only when every
+applicable scope accepts the charge. Semantic depth and parser depth are point
+limits. TOML lexer tokens (including whitespace, comments, newlines, and EOF)
+and YAML scanner tokens are charged before the AST backend runs. YAML depth is
+collection nesting from root zero; TOML depth is a conservative upper bound
+that counts each dotted key segment as up to two levels and adds array/inline
+container nesting. The parser-depth value is not equivalent to semantic
+`max_nesting_depth`. Existing node, assignment, and semantic-depth budgets
+still apply during flattening. Older serialized `SourceLimits` values that
+omit parser fields receive the new defaults; `SourceLimits::unbounded()`
+disables them. Wire budgets are independent of `SourceLimits` and read
+conversion limits.
 `ConfigWireLimitsBuilder::max_input_bytes` changes only the input-byte dimension
 and preserves the other decode limits; `json_decode` replaces the whole profile.
 
@@ -287,8 +297,12 @@ did not prevent it. The source call order places this failure inside
 `serde_norway::from_str`, before flattening, though the probe cannot identify
 the scanner versus parser allocation site. A corresponding TOML sample reached
 roughly 640 MiB RSS before flattening returned the configured node-limit error.
-These synthetic results warrant a separate parser-stage protection design;
+These synthetic results were measured before parser-stage admission was added.
+They motivated the separate token and parser-depth budgets documented above;
 they are not application SLOs and do not establish a general safety threshold.
+The new checks do not bound memory allocated for one scanner token, CPU time,
+or the AST cost of input that passes admission. They are also disabled when a
+caller uses `SourceLimits::unbounded()`.
 
 The [resource probe](../examples/config_source_resource_probe.rs) provides an
 optional manual entry point. For `wide`, `SIZE` is the number of array elements;
@@ -301,11 +315,10 @@ cargo run --locked --example config_source_resource_probe --features formats -- 
 cargo run --locked --example config_source_resource_probe --features formats -- yaml wide 524288 16 8 generate-only
 ```
 
-These commands provide the probe entry point. Any parser-stage protection
-requires a separate design that proves YAML pre-count equivalence with
-flattening, preserves ancestor budgets, avoids duplicate charging, and
-identifies a TOML parser/API that can reject before materializing the full tree.
-No such protection is implemented here.
+The follow-up acceptance record is kept in
+[`resource-probe-20261101T124404Z-rsc101.md`](resource-probe-20261101T124404Z-rsc101.md).
+The probe reports the actual error dimension and process RSS; a passing result
+is specific to the recorded toolchain, machine, input, and limits.
 
 ## Feature Boundaries
 

@@ -49,8 +49,9 @@ TOML、YAML 和 `.env` 适配器由 feature 控制。组合配置源按照添加
 再将每个完整子配置层合并到自身。后加载的值会覆盖先前值，但已有配置项标记为
 final 时拒绝覆盖。公共边界提供事务语义：失败不会暴露不完整的配置源结果，也不会
 对调用方的目标配置产生部分修改。
-TOML 和 YAML 深度限制在展平后同时检查 AST 嵌套和最终点分配置路径；解析器自身的内存分配
-与递归不受此限制。
+TOML 和 YAML 会在构建 backend AST 前准入 parser token 并检查 parser depth，之后仍在展平时
+检查原有 node、assignment 和语义输出深度。Parser depth 按单个输入检查，与展平后的语义深度
+分开计算。这会限制传入 backend 的工作量，但不保证严格 RSS 或 CPU 上限。
 AST 根深度为 0；每个 mapping 值和 sequence 元素增加一层，空 sequence 不增加元素深度。
 自定义来源可通过 `SourceLoadContext::set_final` 将已有配置项标记为 final；它只修改元数据，
 不重复扣减赋值预算，并在后续合并中遵循既有的单向 final 属性规则。
@@ -198,14 +199,16 @@ crate 为不同操作使用相互独立的资源域，而不是共享一个计�
 | 类型转换 | `qubit-datatype` 的 `ConversionLimits::default()` | 单次普通读取，或一次完整的结构化物化 |
 | 结构化输入准入 | reader 的转换操作与结构值限制 | 完整选中输入；插值前后分别检查，计数独立 |
 | 插值 | 深度 64；展开 4,096 次；输出 1 MiB | 单次插值读取 |
-| 配置源加载 | 输入 8 MiB；赋值 65,536 个；节点 262,144 个；组合子配置源 256 个；深度 64 | 单个配置源及其所有外层组合配置源作用域 |
+| 配置源加载 | 输入 8 MiB；赋值 65,536 个；节点 262,144 个；parser token 1,048,576 个；parser depth 128；组合子配置源 256 个；语义深度 64 | Token 在单个 source 和所有外层 composite 间累计；parser depth 按每个输入检查；其他累计维度适用局部与外层作用域 |
 | JSON wire | 输入/输出 1 MiB；深度 64；节点 100,000 个；序列项、映射项和配置项各 4,096 个；字符串和对象键 256 KiB；数字 4 KiB；载荷 1 MiB；配置项键 256 字节 | 单次编码或解码 |
 
-配置源的字节、赋值、节点和子配置源计数是累计预算，只有全部适用的局部与聚合
-作用域都接受一次扣减时才会共同提交；深度是点限制。TOML 和 YAML 会先由第三方解析器
-构建 AST，再进行展平，因此节点、赋值和深度预算约束的是最终可接受的配置，
-无法限制解析器自身的内存分配或递归。Wire 预算与 `SourceLimits`、读取转换限制互相
-独立。
+配置源的字节、赋值、节点、parser token 和子配置源计数是累计预算，只有全部适用的局部与聚合
+作用域都接受一次扣减时才会共同提交；语义深度和 parser depth 是点限制。TOML lexer token
+（包括空白、注释、换行和 EOF）与 YAML scanner token 都在 AST backend 前计费。YAML depth
+从根 0 开始按 collection 嵌套；TOML depth 是保守上界，每个点分 key 段最多计两层，并叠加
+array/inline container 深度；它不等同于语义 `max_nesting_depth`。原有 node、assignment 和语义深度
+仍在 flatten 阶段检查。旧版序列化 `SourceLimits` 缺少 parser 字段时使用新默认值；
+`SourceLimits::unbounded()` 也会关闭这两个维度。Wire 预算与 `SourceLimits`、读取转换限制互相独立。
 `ConfigWireLimitsBuilder::max_input_bytes` 只修改输入字节维度并保留其他解码限制；
 `json_decode` 用于整体替换解码 profile。
 
@@ -216,7 +219,9 @@ crate 为不同操作使用相互独立的资源域，而不是共享一个计�
 613 MiB；降低节点/深度预算也未阻止失败。按源码调用顺序，失败发生在
 `serde_norway::from_str` 内、展平之前，但探针无法区分 scanner 与 parser 的具体分配点。
 对应 TOML 样本达到约 640 MiB RSS 后才在展平阶段返回节点预算错误。这些合成结果足以要求
-单独设计解析阶段防护，但不是应用 SLO，也不构成普遍安全阈值。
+这些结果是在加入解析阶段准入前测得，促成了上文的 parser token 与 parser depth 限制；
+它们不是应用 SLO，也不构成普遍安全阈值。新检查不限制单个 scanner token 的内存分配、CPU 时间，
+也不消除通过准入后的 AST 成本。调用方使用 `SourceLimits::unbounded()` 时也会关闭新限制。
 
 [资源探针](../examples/config_source_resource_probe.rs)提供了可选的手动入口。对于 `wide`，`SIZE`
 表示数组元素数；生成输入的实际字节数以输出的 `input_bytes` 为准。`load` 可能因资源限额拒绝输入
@@ -227,8 +232,9 @@ cargo run --locked --example config_source_resource_probe --features formats -- 
 cargo run --locked --example config_source_resource_probe --features formats -- yaml wide 524288 16 8 generate-only
 ```
 
-这些命令提供探针入口。任何解析前保护都需要单独设计：证明 YAML 预计数与 flatten 语义等价、
-保留祖先预算且避免重复扣费，并确认 TOML parser/API 能在完整构树前拒绝；本次没有实现这类保护。
+后续验收记录见
+[`resource-probe-20261101T124404Z-rsc101.md`](resource-probe-20261101T124404Z-rsc101.md)。
+探针报告实际错误维度和进程 RSS；通过结果仅适用于记录的工具链、机器、输入与限额。
 
 ## Feature 边界
 

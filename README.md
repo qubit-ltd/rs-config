@@ -239,13 +239,19 @@ example, `context.set(...)`) and explicitly report input bytes or parser nodes
 before doing work. This is the boundary that lets rs-config enforce local and
 composite aggregate budgets atomically for input bytes, assignments, parsed
 nodes, child-source count, and nesting depth; unreported external I/O or parser
-work cannot be inferred from the final layer. TOML and YAML are an explicit
-exception at the parser boundary: their third-party parsers materialize an AST
-before node, assignment, and depth accounting during flattening. Those limits
-do not bound parser allocation or recursion; a future streaming parser is
-required to provide that guarantee. The YAML source separately rejects anchor
-and alias tokens before AST construction; scanner errors fail closed, while
-quoted, commented, and block-scalar text is not treated as such a token. `.env`
+work cannot be inferred from the final layer. TOML and YAML now apply separate
+parser-token and parser-depth limits before entering their AST backends. The
+defaults are 1,048,576 parser tokens and parser depth 128; applications can
+configure them with `SourceLimitsBuilder::max_parser_tokens` and
+`max_parser_nesting_depth`. Parser tokens are cumulative across a source and
+its enclosing composites; parser depth is checked per input from root depth
+zero. Existing node, assignment, and semantic output-depth checks still run
+while flattening. The admission limits bound work passed to the backend, but do
+not promise a strict RSS or CPU ceiling, and a single large token can still be
+allocated by a scanner. YAML
+also rejects anchor and alias tokens before AST construction; scanner errors
+fail closed, while quoted, commented, and block-scalar text is not treated as
+such a token. `.env`
 loading preserves `$NAME` and `${NAME}` literally instead of expanding process
 environment variables; use explicit interpolated reads when substitution is
 intended. Customize `SourceLimits` only when the input boundary is understood.

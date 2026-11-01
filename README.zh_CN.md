@@ -227,10 +227,13 @@ JSON 数字语义时应使用专用 JSON helper。
 I/O 或 parser 工作前主动报告输入字节和解析节点；最终 layer 无法反推出未报告的
 工作量。通过 context 的输入字节、assignment、解析节点、子 source 数量和嵌套深度
 会同时检查 source 局部预算与 composite 聚合预算，任一预算拒绝时不会只扣减其中一层。
-TOML 和 YAML 在 parser 边界存在明确例外：第三方 parser
-会先物化完整 AST，节点、assignment 和深度只能在 flatten 阶段记账，所以这些限制
-不能约束 parser 自身的内存分配或递归。要获得该保证，未来需要流式 parser。YAML source
-会在 AST 构建前单独拒绝 anchor 和 alias token；scanner 错误直接失败，引号、注释和块标量
+TOML 和 YAML 现在会在 AST backend 前分别执行 parser token 与 parser depth 限制，默认值分别为
+1,048,576 个 token 和 128 层；可通过 `SourceLimitsBuilder::max_parser_tokens` 与
+`max_parser_nesting_depth` 配置。Parser token 会在单个 source 及其所有外层 composite 间累计；
+parser depth 对每个输入单独检查，根深度为 0。原有 node、assignment 和语义输出深度仍在 flatten
+阶段检查。这些准入预算限制传给 backend 的解析工作量，但不承诺严格 RSS 或 CPU 上限；scanner
+仍可能先为单个大 token 分配内存。
+YAML 还会在 AST 构建前拒绝 anchor 和 alias token；scanner 错误直接失败，引号、注释和块标量
 文本不会被视为这类 token。`.env` 加载会保留 `$NAME` 和 `${NAME}` 字面量，不展开进程环境变量；
 需要替换时应显式使用 interpolated 读取。只有明确了解输入边界时才应放宽 `SourceLimits`。
 自定义 source 可用 `SourceLoadContext::set_final` 锁定已写入的 property，避免后续来源覆盖；使用示例见用户指南。
