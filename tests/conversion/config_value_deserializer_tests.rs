@@ -75,7 +75,9 @@ struct PathExpectedNested {
 #[test]
 fn test_structured_unknown_paths_distinguish_literal_dots() {
     let mut config = Config::new();
-    config.set("payload", serde_json::json!({"a.b": 1, "a": {"b": 2}})).unwrap();
+    config
+        .set("payload", serde_json::json!({"a.b": 1, "a": {"b": 2}}))
+        .unwrap();
     let error = config.deserialize::<PathOuter>("payload").err().unwrap();
     assert_eq!(
         error.unknown_property_paths().unwrap(),
@@ -115,10 +117,7 @@ fn test_structured_paths_escape_special_members_without_collisions() {
 fn test_structured_paths_distinguish_array_index_from_literal_key() {
     let mut config = Config::new();
     config
-        .set(
-            "payload",
-            serde_json::json!({"items[0].a.b": 1, "items": [{"a.b": 2}]}),
-        )
+        .set("payload", serde_json::json!({"items[0].a.b": 1, "items": [{"a.b": 2}]}))
         .unwrap();
     let error = config.deserialize::<PathWithItems>("payload").unwrap_err();
     assert_eq!(
@@ -150,7 +149,9 @@ fn test_structured_shape_error_escapes_member() {
 #[test]
 fn test_structured_root_config_key_is_escaped_once() {
     let mut config = Config::new();
-    config.set("app[prod]", serde_json::json!({"value": "secret-sentinel"})).unwrap();
+    config
+        .set("app[prod]", serde_json::json!({"value": "secret-sentinel"}))
+        .unwrap();
     let error = config.deserialize::<u8>("app[prod]").unwrap_err();
     assert_eq!(error.path(), Some("[\"app[prod]\"]"));
     assert!(!error.to_string().contains("secret-sentinel"));
@@ -171,7 +172,9 @@ fn test_structured_section_root_and_nested_member_are_escaped() {
 #[test]
 fn test_structured_special_member_is_escaped_in_budget_and_interpolation_errors() {
     let mut config = Config::new();
-    config.set("payload", serde_json::json!({"bad.key": {"child": 1}})).unwrap();
+    config
+        .set("payload", serde_json::json!({"bad.key": {"child": 1}}))
+        .unwrap();
     with_limits(
         &mut config,
         ConversionLimits::builder()

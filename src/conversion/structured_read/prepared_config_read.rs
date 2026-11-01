@@ -306,7 +306,11 @@ pub(super) fn prepare_read<'a, R: ConfigReader + ?Sized>(
         && let Some(property) = reader.get_property(prefix)?
     {
         if reader.contains_section(prefix)? {
-            return Err(conflict(&prepared.diagnostic_root_path, "exact value", "nested child keys"));
+            return Err(conflict(
+                &prepared.diagnostic_root_path,
+                "exact value",
+                "nested child keys",
+            ));
         }
         capacity.admit(
             JsonMeasurement::Null { depth: 1 },

@@ -19,7 +19,7 @@ pub(super) fn child_key(parent: &str, key: &str) -> String {
         let escaped = serde_json::to_string(key).expect("serializing a string is infallible");
         format!("{parent}[{escaped}]")
     } else if parent.is_empty() {
-        return key.to_owned();
+        key.to_owned()
     } else {
         format!("{parent}.{key}")
     }
@@ -31,7 +31,8 @@ pub(super) fn config_path(path: &str) -> String {
     if path.is_empty() {
         return String::new();
     }
-    path.split('.').fold(String::new(), |parent, key| child_key(&parent, key))
+    path.split('.')
+        .fold(String::new(), |parent, key| child_key(&parent, key))
 }
 
 /// Appends one array index to an already formatted diagnostic parent.
