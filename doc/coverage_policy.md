@@ -51,24 +51,26 @@ At the exact normal threshold, lines and regions still need an override because
 their normal rules are strict (`>`); functions at exactly 95% meet their normal
 rule (`>=`) and do not count as an active exception.
 
-The current sidecar is based on a fresh report generated on 2026-10-31 UTC with
-`cargo-llvm-cov 0.8.6`, Rust 1.94.0, and LLVM 21.1.8, using
-`CARGO_INCREMENTAL=1 ./.infra/bin/coverage.sh`. The report was generated from
-the working tree based on HEAD `8ea2d29fff44d06b3d1118dcac5225336929d228`,
-with the pre-existing local wire changes applied to run the full test suite;
-source SHA-256 values are recorded for the two files that still need overrides.
-All three measured files are present in the report, and their counters are:
+The sidecar records a measurement snapshot generated at `2026-11-01T01:41:14Z`
+with `cargo-llvm-cov 0.8.6`, Rust 1.94.0, and LLVM 21.1.8, using
+`CARGO_INCREMENTAL=1 ./.infra/bin/coverage.sh`. It is based on the working tree
+at HEAD `d1dccbf186c16ddb564a8f83672f2dd9aa669182`; T2 moved the source builder
+into its own module and T1/T3/T4 changes were present during measurement. The
+sidecar baseline is `working tree based on HEAD d1dccbf186c16ddb564a8f83672f2dd9aa669182; T2 moved the source builder into its own module and T1/T3/T4 changes were present during measurement`. The
+sidecar records source SHA-256 `e97fca1562693442fa9cfe721c0f27a631c9b1e446338eb7be95604ae1cc4613`
+for TOML and `b183f78920740b1b8b040c0881ed2cf6a225c0ba39556fa3777ad0c79fd13b07`
+for YAML. These are historical evidence values from the sidecar, not a new measurement in this update:
 
 | File | Functions | Lines | Regions | Active minimums |
 | --- | ---: | ---: | ---: | --- |
-| `src/error/config_error.rs` | 100.00% (20/20) | 91.10% (215/236) | 88.09% (244/277) | none |
-| `src/source/toml_config_source.rs` | 77.50% (31/40) | 92.53% (223/241) | 83.62% (383/458) | functions >= 77.50%; regions >= 83.62% |
-| `src/source/yaml_config_source.rs` | 84.09% (37/44) | 93.84% (259/276) | 88.74% (465/524) | functions >= 84.09% |
+| `src/source/toml_config_source.rs` | 73.53% (25/34) | 91.59% (196/214) | 82.76% (360/435) | functions >= 73.52941176470588; regions >= 82.75862068965517 |
+| `src/source/yaml_config_source.rs` | 81.58% (31/38) | 93.17% (232/249) | 88.22% (442/501) | functions >= 81.57894736842105 |
 
 The sidecar records full-precision measured percentages and covered/count
-counters for all three metrics per overridden file. Active minimums are the measured
-percentage rounded down to two decimal places; metrics meeting the normal
-threshold have no override. The historical six exceptions remain removed:
+counters for all three metrics per overridden file. Only displayed percentages
+are rounded to two decimal places; enforcement uses the JSON minimum and an
+inclusive `>=` comparison. Metrics meeting the normal threshold have no
+override. The historical six exceptions remain removed:
 `src/config/access.rs`, `src/key/config_key.rs`, `src/key/config_path.rs`,
 `src/property/property.rs`, `src/property/property_mut.rs`, and
 `src/reader/config_section.rs`.

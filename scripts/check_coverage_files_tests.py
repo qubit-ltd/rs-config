@@ -350,5 +350,36 @@ class CoverageFileCheckerTests(unittest.TestCase):
         self.assertIn("configured exemption is absent", self.check(paths).errors[0])
 
 
+class CoveragePolicyDocumentationTests(unittest.TestCase):
+    def test_bilingual_policy_matches_sidecar_evidence(self) -> None:
+        root = Path(__file__).resolve().parent.parent
+        files = json.loads(
+            (root / "scripts/coverage-metric-overrides.json").read_text(encoding="utf-8")
+        )["files"]
+        metrics = ("functions", "lines", "regions")
+        expected_rows = []
+        for path, item in sorted(files.items()):
+            evidence = item["evidence"]
+            cells = [f"`{path}`"]
+            for name in metrics:
+                metric = evidence["metrics"][name]
+                cells.append(
+                    f"{metric['percent']:.2f}% ({metric['covered']}/{metric['count']})"
+                )
+            cells.append("; ".join(
+                f"{name} >= {item['minimums'][name]}"
+                for name in metrics if name in item["minimums"]
+            ))
+            expected_rows.append("| " + " | ".join(cells) + " |")
+        for name in ("coverage_policy.md", "coverage_policy.zh_CN.md"):
+            with self.subTest(document=name):
+                text = (root / "doc" / name).read_text(encoding="utf-8")
+                actual_rows = [
+                    line for line in text.splitlines() if line.startswith("| `src/")
+                ]
+                self.assertCountEqual(actual_rows, expected_rows)
+                for item in files.values():
+                    for field in ("generated_at", "source_baseline", "source_sha256"):
+                        self.assertIn(item["evidence"][field], text)
 if __name__ == "__main__":
     unittest.main()

@@ -44,19 +44,20 @@ regions 必须高于 85%。sidecar 下限只应用于明确列出的指标，并
 在普通阈值的精确等号处，lines 和 regions 仍须使用 override，因为其普通规则是严格大于（`>`）；
 functions 正好为 95% 时已满足普通规则（`>=`），不计为活跃例外。
 
-当前 sidecar 来自 2026-10-31 UTC 生成的新报告，工具为 `cargo-llvm-cov 0.8.6`、Rust 1.94.0、
-LLVM 21.1.8，命令为 `CARGO_INCREMENTAL=1 ./.infra/bin/coverage.sh`。报告基于 HEAD
-`8ea2d29fff44d06b3d1118dcac5225336929d228` 的工作树，并应用了原工作区已有的 wire 修改
-以运行完整测试套件；仍需 override 的两个文件 SHA-256 已记录在 sidecar 中。三个测量文件的计数如下：
+sidecar 记录的测量快照生成于 `2026-11-01T01:41:14Z`，工具为 `cargo-llvm-cov 0.8.6`、Rust 1.94.0、
+LLVM 21.1.8，命令为 `CARGO_INCREMENTAL=1 ./.infra/bin/coverage.sh`。测量基于 HEAD
+`d1dccbf186c16ddb564a8f83672f2dd9aa669182` 的工作树；测量时 T2 已将 source builder 移至独立模块，且 T1/T3/T4
+修改已存在。sidecar 基线字段为 `working tree based on HEAD d1dccbf186c16ddb564a8f83672f2dd9aa669182; T2 moved the source builder into its own module and T1/T3/T4 changes were present during measurement`。TOML 的 SHA-256 为
+`e97fca1562693442fa9cfe721c0f27a631c9b1e446338eb7be95604ae1cc4613`，YAML 为
+`b183f78920740b1b8b040c0881ed2cf6a225c0ba39556fa3777ad0c79fd13b07`。这些是 sidecar 中的历史证据值，并非本次更新重新测量：
 
 | 文件 | Functions | Lines | Regions | 生效下限 |
 | --- | ---: | ---: | ---: | --- |
-| `src/error/config_error.rs` | 100.00% (20/20) | 91.10% (215/236) | 88.09% (244/277) | 无 |
-| `src/source/toml_config_source.rs` | 77.50% (31/40) | 92.53% (223/241) | 83.62% (383/458) | functions >= 77.50%；regions >= 83.62% |
-| `src/source/yaml_config_source.rs` | 84.09% (37/44) | 93.84% (259/276) | 88.74% (465/524) | functions >= 84.09% |
+| `src/source/toml_config_source.rs` | 73.53% (25/34) | 91.59% (196/214) | 82.76% (360/435) | functions >= 73.52941176470588; regions >= 82.75862068965517 |
+| `src/source/yaml_config_source.rs` | 81.58% (31/38) | 93.17% (232/249) | 88.22% (442/501) | functions >= 81.57894736842105 |
 
-sidecar 为每个有 override 的文件记录三项指标的完整精度百分比及 covered/count。生效下限取实际百分比向下
-保留两位小数；达到正常门槛的指标不设置 override。此前移除的六个旧例外继续保持移除：
+sidecar 为每个有 override 的文件记录三项指标的完整精度百分比及 covered/count。仅展示百分比保留两位小数，
+生效下限按 JSON 数值及 `>=` 判断；达到正常门槛的指标不设置 override。此前移除的六个旧例外继续保持移除：
 `src/config/access.rs`、`src/key/config_key.rs`、`src/key/config_path.rs`、
 `src/property/property.rs`、`src/property/property_mut.rs` 和 `src/reader/config_section.rs`。
 共享 `.infra/coverage/coverage.json` 遵循 `.infra/bin/coverage.sh` 使用的严格 schema。项目 checker
