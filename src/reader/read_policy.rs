@@ -6,43 +6,19 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-use qubit_datatype::BlankStringPolicy;
-use qubit_datatype::BooleanConversionPolicy;
-use qubit_datatype::CollectionConversionLimits;
-use qubit_datatype::CollectionConversionPolicy;
 use qubit_datatype::ConversionLimits;
 use qubit_datatype::ConversionPolicy;
-use qubit_datatype::DurationConversionLimits;
-use qubit_datatype::DurationConversionPolicy;
-use qubit_datatype::EmptyItemPolicy;
-use qubit_datatype::NumericConversionLimits;
-use qubit_datatype::NumericConversionPolicy;
-use qubit_datatype::StringConversionPolicy;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::constants::DEFAULT_MAX_SUBSTITUTION_DEPTH;
-use crate::constants::DEFAULT_MAX_SUBSTITUTION_EXPANSIONS;
-use crate::constants::DEFAULT_MAX_SUBSTITUTION_OUTPUT_BYTES;
-
-/// Sources consulted while resolving an interpolated variable.
-#[must_use = "use the returned value"]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum InterpolationSources {
-    /// Resolve variables from configuration data only.
-    ConfigOnly,
-    /// Resolve from configuration data, then fall back to the process
-    /// environment.
-    ConfigThenEnv,
-}
-
-impl Default for InterpolationSources {
-    /// Uses configuration data as the only interpolation source.
-    #[inline]
-    fn default() -> Self {
-        Self::ConfigOnly
-    }
-}
+// Defines policy construction without exposing stored policy fields.
+#[path = "read_policy_builder.rs"]
+mod read_policy_builder;
+pub use read_policy_builder::ReadPolicyBuilder;
+// Defines the supported interpolation lookup sources.
+#[path = "interpolation_sources.rs"]
+mod interpolation_sources;
+pub use interpolation_sources::InterpolationSources;
 
 /// Runtime policy that controls configuration conversion and interpolation.
 ///
@@ -196,156 +172,6 @@ impl ReadPolicy {
     #[must_use = "use the returned value"]
     pub const fn max_interpolation_output_bytes(&self) -> usize {
         self.max_interpolation_output_bytes
-    }
-}
-
-/// Builder for [`ReadPolicy`].
-#[must_use = "use the returned value"]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ReadPolicyBuilder {
-    /// Semantic conversion rules used by the completed policy.
-    conversion_policy: ConversionPolicy,
-    /// Resource limits used by the completed policy.
-    conversion_limits: ConversionLimits,
-    /// Interpolation sources used by the completed policy.
-    interpolation_sources: InterpolationSources,
-    /// Maximum active placeholder-reference chain length.
-    max_interpolation_depth: usize,
-    /// Maximum placeholder resolutions per read.
-    max_interpolation_expansions: usize,
-    /// Maximum bytes produced by one interpolation.
-    max_interpolation_output_bytes: usize,
-}
-
-impl ReadPolicyBuilder {
-    /// Creates a builder initialized with the default read policy.
-    pub fn new() -> Self {
-        Self {
-            conversion_policy: ConversionPolicy::default(),
-            conversion_limits: ConversionLimits::default(),
-            interpolation_sources: InterpolationSources::ConfigOnly,
-            max_interpolation_depth: DEFAULT_MAX_SUBSTITUTION_DEPTH,
-            max_interpolation_expansions: DEFAULT_MAX_SUBSTITUTION_EXPANSIONS,
-            max_interpolation_output_bytes: DEFAULT_MAX_SUBSTITUTION_OUTPUT_BYTES,
-        }
-    }
-
-    /// Sets the data conversion policy.
-    pub fn conversion_policy(mut self, policy: ConversionPolicy) -> Self {
-        self.conversion_policy = policy;
-        self
-    }
-
-    /// Sets the data conversion limits.
-    pub fn conversion_limits(mut self, limits: ConversionLimits) -> Self {
-        self.conversion_limits = limits;
-        self
-    }
-
-    /// Sets the interpolation sources.
-    pub const fn interpolation_sources(mut self, sources: InterpolationSources) -> Self {
-        self.interpolation_sources = sources;
-        self
-    }
-
-    /// Sets the maximum recursive interpolation depth.
-    pub const fn max_interpolation_depth(mut self, maximum: usize) -> Self {
-        self.max_interpolation_depth = maximum;
-        self
-    }
-
-    /// Sets the maximum placeholder-resolution count per read.
-    pub const fn max_interpolation_expansions(mut self, maximum: usize) -> Self {
-        self.max_interpolation_expansions = maximum;
-        self
-    }
-
-    /// Sets the maximum interpolated output byte length.
-    pub const fn max_interpolation_output_bytes(mut self, maximum: usize) -> Self {
-        self.max_interpolation_output_bytes = maximum;
-        self
-    }
-
-    /// Sets the blank string conversion policy.
-    pub fn blank_string_policy(mut self, policy: BlankStringPolicy) -> Self {
-        self.conversion_policy = self
-            .conversion_policy
-            .into_builder()
-            .blank_string_policy(policy)
-            .build();
-        self
-    }
-
-    /// Sets the empty collection item policy.
-    pub fn empty_item_policy(mut self, policy: EmptyItemPolicy) -> Self {
-        self.conversion_policy = self.conversion_policy.into_builder().empty_item_policy(policy).build();
-        self
-    }
-
-    /// Sets the string conversion policy.
-    pub fn string_policy(mut self, policy: StringConversionPolicy) -> Self {
-        self.conversion_policy = self.conversion_policy.into_builder().string_policy(policy).build();
-        self
-    }
-
-    /// Sets the Boolean conversion policy.
-    pub fn boolean_policy(mut self, policy: BooleanConversionPolicy) -> Self {
-        self.conversion_policy = self.conversion_policy.into_builder().boolean_policy(policy).build();
-        self
-    }
-
-    /// Sets the collection conversion policy.
-    pub fn collection_policy(mut self, policy: CollectionConversionPolicy) -> Self {
-        self.conversion_policy = self.conversion_policy.into_builder().collection_policy(policy).build();
-        self
-    }
-
-    /// Sets the collection conversion limits.
-    pub fn collection_limits(mut self, limits: CollectionConversionLimits) -> Self {
-        self.conversion_limits = self.conversion_limits.into_builder().collection_limits(limits).build();
-        self
-    }
-
-    /// Sets the duration conversion policy.
-    pub fn duration_policy(mut self, policy: DurationConversionPolicy) -> Self {
-        self.conversion_policy = self.conversion_policy.into_builder().duration_policy(policy).build();
-        self
-    }
-
-    /// Sets the duration conversion limits.
-    pub fn duration_limits(mut self, limits: DurationConversionLimits) -> Self {
-        self.conversion_limits = self.conversion_limits.into_builder().duration_limits(limits).build();
-        self
-    }
-
-    /// Sets the numeric conversion policy.
-    pub fn numeric_policy(mut self, policy: NumericConversionPolicy) -> Self {
-        self.conversion_policy = self.conversion_policy.into_builder().numeric_policy(policy).build();
-        self
-    }
-
-    /// Sets the numeric conversion limits.
-    pub fn numeric_limits(mut self, limits: NumericConversionLimits) -> Self {
-        self.conversion_limits = self.conversion_limits.into_builder().numeric_limits(limits).build();
-        self
-    }
-
-    /// Builds the configured read policy.
-    pub fn build(self) -> ReadPolicy {
-        ReadPolicy {
-            conversion_policy: self.conversion_policy,
-            conversion_limits: self.conversion_limits,
-            interpolation_sources: self.interpolation_sources,
-            max_interpolation_depth: self.max_interpolation_depth,
-            max_interpolation_expansions: self.max_interpolation_expansions,
-            max_interpolation_output_bytes: self.max_interpolation_output_bytes,
-        }
-    }
-}
-
-impl Default for ReadPolicyBuilder {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

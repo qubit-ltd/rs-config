@@ -14,8 +14,11 @@
 /// Private persistence representations and bounded wire decoding helpers.
 mod internal;
 
+// Defines the builder while retaining access to private configuration fields.
+mod config_builder;
 use std::collections::BTreeMap;
 
+pub use config_builder::ConfigBuilder;
 use qubit_budget::MeasuredBudgetError;
 use qubit_budget::json::JsonDecodeSession;
 use qubit_budget::json::JsonEncodeSession;
@@ -421,75 +424,6 @@ impl Config {
     #[inline]
     pub fn new() -> Self {
         Self::builder().build()
-    }
-}
-
-/// Builder for [`Config`].
-///
-/// # Examples
-///
-/// ```rust
-/// use qubit_config::Config;
-/// use qubit_config::ReadPolicy;
-///
-/// let policy = ReadPolicy::builder().max_interpolation_depth(8).build();
-/// let mut config = Config::builder()
-///     .description("service settings")
-///     .default_read_policy(policy)
-///     .build();
-/// config.set("host", "example.test")?;
-/// config.set("endpoint", "https://${host}")?;
-/// assert_eq!(config.get::<String>("endpoint")?, "https://${host}");
-/// assert_eq!(config.get_interpolated::<String>("endpoint")?, "https://example.test");
-/// # Ok::<(), qubit_config::ConfigError>(())
-/// ```
-#[must_use = "use the returned value"]
-#[derive(Debug, Clone)]
-pub struct ConfigBuilder {
-    /// Optional description copied into the built configuration.
-    description: Option<String>,
-    /// Read policy installed as the configuration's default.
-    default_read_policy: ReadPolicy,
-}
-
-impl ConfigBuilder {
-    /// Creates a builder initialized with an empty configuration.
-    #[inline]
-    pub fn new() -> Self {
-        Self {
-            description: None,
-            default_read_policy: ReadPolicy::default(),
-        }
-    }
-
-    /// Sets the configuration description.
-    #[inline]
-    pub fn description(mut self, description: &str) -> Self {
-        self.description = Some(description.to_string());
-        self
-    }
-
-    /// Sets the default runtime read policy.
-    #[inline]
-    pub fn default_read_policy(mut self, policy: ReadPolicy) -> Self {
-        self.default_read_policy = policy;
-        self
-    }
-
-    /// Builds the configured empty configuration.
-    #[inline]
-    pub fn build(self) -> Config {
-        Config {
-            description: self.description,
-            properties: BTreeMap::new(),
-            default_read_policy: Transient::new(self.default_read_policy),
-        }
-    }
-}
-
-impl Default for ConfigBuilder {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

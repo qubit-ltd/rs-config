@@ -8,47 +8,24 @@
 
 //! Configuration-specific profiles layered on rs-budget JSON limits.
 
-use qubit_budget::BudgetError;
-use qubit_budget::QuantityConversionError;
 use qubit_budget::ResourceLimit;
 use qubit_budget::json::JsonDecodeLimits;
 use qubit_budget::json::JsonEncodeLimits;
 use qubit_budget::json::JsonResource;
 use qubit_budget::json::JsonValueLimits;
-use qubit_json::decode::JsonSyntaxError;
-use serde_json::error::Category;
-use thiserror::Error;
 
-use crate::ConfigWireRepresentationErrorKind;
-
-/// Resource categories specific to configuration wire envelopes.
-///
-/// # Examples
-///
-/// ```rust
-/// use qubit_config::{Config, ConfigWireDecodeError, ConfigWireLimitKind, ConfigWireLimits};
-///
-/// let mut config = Config::new();
-/// config.set("port", 8080_u16)?;
-/// let bytes = config.encode_json_vec()?;
-/// let limits = ConfigWireLimits::builder().max_properties(0).build();
-/// let result = Config::decode_json_slice_with_limits(&bytes, limits);
-/// assert!(matches!(
-///     result,
-///     Err(ConfigWireDecodeError::LimitExceeded {
-///         kind: ConfigWireLimitKind::Properties,
-///         ..
-///     })
-/// ));
-/// # Ok::<(), Box<dyn std::error::Error>>(())
-/// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ConfigWireLimitKind {
-    /// Number of persisted properties.
-    Properties,
-    /// UTF-8 bytes in one property key.
-    PropertyKeyBytes,
-}
+// Defines the wire limit category used by public limits and errors.
+#[path = "config_wire_limit_kind.rs"]
+mod config_wire_limit_kind;
+pub use config_wire_limit_kind::ConfigWireLimitKind;
+// Defines the bounded wire decoding error.
+#[path = "config_wire_decode_error.rs"]
+mod config_wire_decode_error;
+pub use config_wire_decode_error::ConfigWireDecodeError;
+// Defines limit construction without exposing stored limit fields.
+#[path = "config_wire_limits_builder.rs"]
+mod config_wire_limits_builder;
+pub use config_wire_limits_builder::ConfigWireLimitsBuilder;
 
 /// Limits applied while decoding or encoding a complete configuration wire
 /// document.
@@ -168,95 +145,6 @@ impl ConfigWireLimits {
     }
 }
 
-/// Builder for [`ConfigWireLimits`].
-///
-/// # Examples
-///
-/// ```rust
-/// use qubit_config::ConfigWireLimits;
-///
-/// let limits = ConfigWireLimits::builder().max_properties(10).build();
-/// assert_eq!(limits.max_properties(), 10);
-/// ```
-#[must_use = "use the returned value"]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ConfigWireLimitsBuilder {
-    /// Limits for JSON decoding.
-    json_decode: JsonDecodeLimits<JsonResource, u64>,
-    /// Limits for JSON encoding.
-    json_encode: JsonEncodeLimits<JsonResource, u64>,
-    /// Maximum number of properties.
-    max_properties: u64,
-    /// Maximum UTF-8 bytes in one property key.
-    max_property_key_bytes: u64,
-}
-
-impl ConfigWireLimitsBuilder {
-    /// Creates a builder initialized with the default wire limits.
-    #[inline]
-    pub fn new() -> Self {
-        Self {
-            json_decode: ConfigWireLimits::default_json_decode_limits(ConfigWireLimits::DEFAULT_MAX_INPUT_BYTES),
-            json_encode: ConfigWireLimits::default_json_encode_limits(ConfigWireLimits::DEFAULT_MAX_OUTPUT_BYTES),
-            max_properties: ConfigWireLimits::DEFAULT_MAX_PROPERTIES,
-            max_property_key_bytes: ConfigWireLimits::DEFAULT_MAX_PROPERTY_KEY_BYTES,
-        }
-    }
-
-    /// Sets the maximum complete JSON input length while preserving the other
-    /// JSON decoding limits.
-    #[inline]
-    pub fn max_input_bytes(mut self, maximum: u64) -> Self {
-        self.json_decode = self.json_decode.into_builder().max_input_bytes(maximum).build();
-        self
-    }
-
-    /// Replaces the JSON decoding limits.
-    #[inline]
-    pub fn json_decode(mut self, limits: JsonDecodeLimits<JsonResource, u64>) -> Self {
-        self.json_decode = limits;
-        self
-    }
-
-    /// Replaces the JSON encoding limits.
-    #[inline]
-    pub fn json_encode(mut self, limits: JsonEncodeLimits<JsonResource, u64>) -> Self {
-        self.json_encode = limits;
-        self
-    }
-
-    /// Sets the maximum number of persisted properties.
-    #[inline]
-    pub const fn max_properties(mut self, maximum: u64) -> Self {
-        self.max_properties = maximum;
-        self
-    }
-
-    /// Sets the maximum UTF-8 bytes in one property key.
-    #[inline]
-    pub const fn max_property_key_bytes(mut self, maximum: u64) -> Self {
-        self.max_property_key_bytes = maximum;
-        self
-    }
-
-    /// Builds the configured wire limits.
-    #[inline]
-    pub const fn build(self) -> ConfigWireLimits {
-        ConfigWireLimits {
-            json_decode: self.json_decode,
-            json_encode: self.json_encode,
-            properties: ResourceLimit::new(ConfigWireLimitKind::Properties, self.max_properties),
-            property_key_bytes: ResourceLimit::new(ConfigWireLimitKind::PropertyKeyBytes, self.max_property_key_bytes),
-        }
-    }
-}
-
-impl Default for ConfigWireLimitsBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Default for ConfigWireLimits {
     #[inline(always)]
     fn default() -> Self {
@@ -365,89 +253,4 @@ mod tests {
             policy.conversion_limits()
         );
     }
-}
-
-/// Error returned by bounded configuration wire decoding.
-///
-/// # Examples
-///
-/// ```rust
-/// use qubit_config::{Config, ConfigWireDecodeError, ConfigWireLimitKind, ConfigWireLimits};
-///
-/// let mut config = Config::new();
-/// config.set("port", 8080_u16)?;
-/// let bytes = config.encode_json_vec()?;
-/// let limits = ConfigWireLimits::builder().max_properties(0).build();
-/// match Config::decode_json_slice_with_limits(&bytes, limits) {
-///     Err(ConfigWireDecodeError::LimitExceeded {
-///         kind: ConfigWireLimitKind::Properties,
-///         ..
-///     }) => {}
-///     other => panic!("expected property limit, got {other:?}"),
-/// }
-/// # Ok::<(), Box<dyn std::error::Error>>(())
-/// ```
-#[derive(Debug, Error)]
-#[non_exhaustive]
-pub enum ConfigWireDecodeError {
-    /// A shared JSON resource limit was exceeded.
-    #[error(transparent)]
-    Budget(BudgetError<JsonResource, u64>),
-    /// A native JSON measurement could not be represented by the budget
-    /// quantity type.
-    #[error("configuration wire resource quantity conversion failed for {resource:?}: {source}")]
-    Quantity {
-        /// Resource whose measurement failed.
-        resource: JsonResource,
-        /// Native measurement conversion failure.
-        #[source]
-        source: QuantityConversionError,
-    },
-    /// The JSON adapter rejected the input syntax before Serde decoding.
-    #[error("invalid configuration JSON syntax: {0}")]
-    Syntax(#[from] JsonSyntaxError),
-    /// A native configuration-limit measurement could not fit `u64`.
-    #[error("configuration wire {kind:?} quantity conversion failed: {source}")]
-    LimitQuantity {
-        /// Configuration-specific resource category being measured.
-        kind: ConfigWireLimitKind,
-        /// Exact failed native quantity conversion.
-        #[source]
-        source: QuantityConversionError,
-    },
-    /// A configuration-specific resource limit was exceeded.
-    #[error("configuration wire {kind:?} value {value} exceeds the limit of {maximum}")]
-    LimitExceeded {
-        /// Resource category that exceeded its limit.
-        kind: ConfigWireLimitKind,
-        /// Observed resource value.
-        value: u64,
-        /// Largest permitted resource value.
-        maximum: u64,
-    },
-    /// The admitted JSON document violates its Serde representation.
-    #[error("failed to decode configuration JSON wire input ({category:?}) at line {line}, column {column}")]
-    Json {
-        /// Broad Serde failure category.
-        category: Category,
-        /// One-based line reported by Serde, or zero when unavailable.
-        line: usize,
-        /// One-based column reported by Serde, or zero when unavailable.
-        column: usize,
-    },
-    /// The admitted JSON document does not match the persisted wire shape.
-    #[error("invalid configuration wire representation at '{path}': {reason:?}")]
-    Representation {
-        /// JSON Pointer to the invalid wire location.
-        path: String,
-        /// Safe classification of the representation failure.
-        reason: ConfigWireRepresentationErrorKind,
-    },
-    /// A future JSON adapter failure that has no dedicated configuration
-    /// error variant yet.
-    #[error("configuration JSON adapter failure: {0}")]
-    Adapter(String),
-    /// The decoded wire fields violate a configuration invariant.
-    #[error("invalid configuration wire value: {0}")]
-    InvalidConfig(String),
 }

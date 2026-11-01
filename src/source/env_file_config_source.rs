@@ -29,6 +29,11 @@ use crate::ConfigError;
 use crate::ConfigKey;
 use crate::ConfigResult;
 
+// Defines EnvFileConfigSource construction without exposing its stored fields.
+#[path = "env_file_config_source_builder.rs"]
+mod env_file_config_source_builder;
+pub use env_file_config_source_builder::EnvFileConfigSourceBuilder;
+
 /// Configuration source that loads from `.env` format files
 ///
 /// # Examples
@@ -275,72 +280,6 @@ impl EnvFileConfigSource {
     /// Creates a builder for a dotenv source.
     pub fn builder() -> EnvFileConfigSourceBuilder {
         EnvFileConfigSourceBuilder::new()
-    }
-}
-
-/// Builder for [`EnvFileConfigSource`].
-#[must_use = "use the returned value"]
-pub struct EnvFileConfigSourceBuilder {
-    /// Selected file or in-memory content.
-    input: SourceInput,
-    /// Resource limits for the source load.
-    limits: SourceLimits,
-}
-
-impl EnvFileConfigSourceBuilder {
-    /// Creates a builder using empty in-memory content and default source
-    /// limits.
-    ///
-    /// The empty content is not parsed until the built source is loaded.
-    pub fn new() -> Self {
-        Self {
-            input: SourceInput::Content(String::new()),
-            limits: SourceLimits::default(),
-        }
-    }
-
-    /// Uses `content` as the source input.
-    ///
-    /// The owned content replaces any file or content selected earlier. It is
-    /// parsed only when the built source is loaded, when format and resource
-    /// limit errors are reported through [`ConfigSource`].
-    pub fn content(mut self, content: impl Into<String>) -> Self {
-        self.input = SourceInput::Content(content.into());
-        self
-    }
-
-    /// Uses `path` as the source input.
-    ///
-    /// The path replaces any file or content selected earlier. The file is not
-    /// opened until the built source is loaded, so I/O, format, and resource
-    /// limit errors are reported by [`ConfigSource`].
-    pub fn file<P: AsRef<Path>>(mut self, path: P) -> Self {
-        self.input = SourceInput::File(path.as_ref().to_path_buf());
-        self
-    }
-
-    /// Replaces the resource limits enforced while reading and parsing the
-    /// source.
-    pub const fn limits(mut self, limits: SourceLimits) -> Self {
-        self.limits = limits;
-        self
-    }
-
-    /// Builds the source without reading or parsing its selected input.
-    ///
-    /// Input and limit failures remain deferred until the source is loaded
-    /// through [`ConfigSource`].
-    pub fn build(self) -> EnvFileConfigSource {
-        EnvFileConfigSource {
-            input: self.input,
-            limits: self.limits,
-        }
-    }
-}
-
-impl Default for EnvFileConfigSourceBuilder {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

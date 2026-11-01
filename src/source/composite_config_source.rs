@@ -12,6 +12,12 @@ use super::SourceLimits;
 use super::SourceLoadContext;
 use crate::ConfigResult;
 
+// Defines CompositeConfigSource construction without exposing its stored
+// fields.
+#[path = "composite_config_source_builder.rs"]
+mod composite_config_source_builder;
+pub use composite_config_source_builder::CompositeConfigSourceBuilder;
+
 /// Loads configuration layers in insertion order and merges them into one
 /// result.
 ///
@@ -117,54 +123,6 @@ impl CompositeConfigSource {
     #[must_use = "use the returned value"]
     pub fn is_empty(&self) -> bool {
         self.sources.is_empty()
-    }
-}
-
-/// Builder for [`CompositeConfigSource`].
-///
-/// Create it with [`CompositeConfigSource::builder`] to add sources and set
-/// aggregate [`SourceLimits`] before loading.
-#[must_use = "use the returned value"]
-pub struct CompositeConfigSourceBuilder {
-    /// Sources to apply in insertion order.
-    sources: Vec<Box<dyn ConfigSource>>,
-    /// Aggregate limits for the completed composite.
-    limits: SourceLimits,
-}
-
-impl CompositeConfigSourceBuilder {
-    /// Creates an empty composite source builder.
-    pub fn new() -> Self {
-        Self {
-            sources: Vec::new(),
-            limits: SourceLimits::default(),
-        }
-    }
-
-    /// Adds a source to the composite in application order.
-    pub fn add_source<S: ConfigSource + 'static>(mut self, source: S) -> Self {
-        self.sources.push(Box::new(source));
-        self
-    }
-
-    /// Sets aggregate resource limits for the complete composite load.
-    pub fn limits(mut self, limits: SourceLimits) -> Self {
-        self.limits = limits;
-        self
-    }
-
-    /// Builds the configured composite source.
-    pub fn build(self) -> CompositeConfigSource {
-        CompositeConfigSource {
-            sources: self.sources,
-            limits: self.limits,
-        }
-    }
-}
-
-impl Default for CompositeConfigSourceBuilder {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
