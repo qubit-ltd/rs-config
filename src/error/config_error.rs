@@ -371,6 +371,11 @@ impl ConfigError {
 
     /// Returns the configuration path carried by this error.
     ///
+    /// For structured-read errors, special object member names use
+    /// JSON-quoted bracket segments (for example, `payload["a.b"]`) so that
+    /// they remain distinct from nested configuration paths. This diagnostic
+    /// representation is not a query path for `Config::get` or section lookup.
+    ///
     /// # Returns
     ///
     /// `Some(path)` for errors tied to one configuration key, otherwise
@@ -544,7 +549,7 @@ impl ConfigError {
     /// A one-element slice for [`Self::PropertyNotFound`], all ordered
     /// candidates for [`Self::PropertyCandidatesNotFound`], or `None` for
     /// other error kinds.
-    #[inline(always)]
+    #[inline]
     #[must_use = "use the returned value"]
     pub fn candidate_paths(&self) -> Option<&[String]> {
         match self {
@@ -555,6 +560,11 @@ impl ConfigError {
     }
 
     /// Returns unknown configuration paths found by strict deserialization.
+    ///
+    /// Special member names use JSON-quoted bracket segments; for example,
+    /// the literal key `a.b` is reported as `payload["a.b"]`, distinct from
+    /// the nested path `payload.a.b`. These strings are diagnostic paths, not
+    /// configuration lookup paths.
     #[must_use = "use the returned value"]
     pub fn unknown_property_paths(&self) -> Option<&[String]> {
         match self {

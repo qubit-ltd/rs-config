@@ -19,6 +19,12 @@ use crate::UnknownFieldPolicy;
 /// Prefixes select an exact property or a subtree relative to the reader.
 /// Empty prefixes select the entire visible scope. All selected input is
 /// admitted before the target is visited, including ignored fields.
+/// Structured-read diagnostics use dotted segments for ordinary member names
+/// and JSON-quoted bracket segments for names containing `.`, brackets,
+/// quotes, backslashes, or control characters (for example,
+/// `payload["a.b"]`). This representation is for diagnostics only; do not
+/// pass it to `Config::get` or section lookup. Ordinary reader paths and Wire
+/// JSON Pointer paths keep their separate formats.
 /// Object member names are passed to Serde's key deserializer as strings;
 /// string keys can be read as `String`, but integer or container key targets
 /// are not parsed from those names.

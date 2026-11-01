@@ -773,7 +773,7 @@ fn test_unknown_source_paths_preserve_real_punctuation_and_sort_final_paths() {
 
     assert_unknown_source_paths::<Payload>(
         serde_json::json!({"port": 80, ".extra": true, "?": true, "extra": true}),
-        &["app.settings..extra", "app.settings.?", "app.settings.extra"],
+        &["app.settings.?", "app.settings.extra", "app.settings[\".extra\"]"],
     );
 }
 
@@ -802,7 +802,7 @@ fn test_unknown_source_paths_include_newtype_enum_variant() {
 }
 
 #[test]
-fn test_unknown_source_paths_support_empty_root_and_deduplicate_final_paths() {
+fn test_unknown_source_paths_support_empty_root_and_distinguish_literal_dots() {
     #[derive(Debug, Deserialize)]
     struct Empty {}
     #[derive(Debug, Deserialize)]
@@ -829,10 +829,10 @@ fn test_unknown_source_paths_support_empty_root_and_deduplicate_final_paths() {
         .unwrap();
     let error = config
         .deserialize::<Outer>("settings")
-        .expect_err("unknown fields with the same displayed path must fail");
+        .expect_err("unknown fields at distinct paths must remain distinct");
     assert_eq!(
         error.unknown_property_paths(),
-        Some(["settings.a.b".to_owned()].as_slice())
+        Some(["settings.a.b".to_owned(), "settings[\"a.b\"]".to_owned()].as_slice())
     );
 }
 
