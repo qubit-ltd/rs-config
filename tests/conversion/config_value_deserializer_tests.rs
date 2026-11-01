@@ -198,6 +198,19 @@ fn test_structured_special_member_is_escaped_in_budget_and_interpolation_errors(
     assert_eq!(error.path(), Some("payload[\"bad.key\"]"));
 }
 
+#[test]
+fn test_structured_missing_rejection_escapes_property_path() {
+    let mut config = Config::new();
+    config.set_default_read_policy(
+        ReadPolicy::builder()
+            .blank_string_policy(BlankStringPolicy::Reject)
+            .build(),
+    );
+    config.set("payload.bad[key]", " ").unwrap();
+    let error = config.deserialize::<serde_json::Value>("payload").unwrap_err();
+    assert_eq!(error.path(), Some("payload[\"bad[key]\"]"));
+}
+
 /// Scalar-list diagnostics retain positions before empty items are skipped.
 #[test]
 fn test_scalar_list_error_preserves_original_index() -> ConfigResult<()> {

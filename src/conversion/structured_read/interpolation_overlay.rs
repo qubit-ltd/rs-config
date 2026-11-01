@@ -116,8 +116,9 @@ pub(super) fn classify_missing(
                 }
             }
             Err(error) => {
+                let diagnostic_path = super::path::config_path(path);
                 return Err(ConfigError::from_data_conversion_error(
-                    path,
+                    &diagnostic_path,
                     error.into_data_conversion_error(DataType::String),
                 ));
             }
