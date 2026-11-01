@@ -3,63 +3,63 @@
   "files": {
     "src/source/toml_config_source.rs": {
       "minimums": {
-        "functions": 73.52941176470588,
-        "regions": 82.75862068965517
+        "functions": 73.17073170731707,
+        "regions": 85.84558823529412
       },
-      "reason": "The source-owned parser and defensive fallback paths retain the measured function and region attribution gaps. The extracted TomlConfigSourceBuilder is covered independently in toml_config_source_builder.rs (6/6 functions, 27/27 lines, 23/23 regions). TOML source tests cover accepted values, mixed and nested value rejection, parse and I/O errors, collisions, limits, final values, and transactionality; lines meet the normal threshold.",
+      "reason": "The current full report includes parser admission and safe diagnostic regressions. Remaining source-owned gaps are defensive Config write-error fallbacks and deliberately uninvoked backend callbacks used to prove token/depth rejection happens before parsing; these paths are outside business branch selection. Keep the exact measured lower bounds and source hash pinned.",
       "evidence": {
-        "generated_at": "2026-11-01T01:41:14Z",
+        "generated_at": "2026-11-01T16:33:00Z",
         "cargo_llvm_cov": "cargo-llvm-cov 0.8.6",
-        "rust_llvm": "rustc 1.94.0 (4a4ef493e3a1488c6e321570238084b38948f6db), LLVM 21.1.8",
-        "command": "CARGO_INCREMENTAL=1 ./.infra/bin/coverage.sh",
-        "source_baseline": "working tree based on HEAD d1dccbf186c16ddb564a8f83672f2dd9aa669182; T2 moved the source builder into its own module and T1/T3/T4 changes were present during measurement",
-        "source_sha256": "e97fca1562693442fa9cfe721c0f27a631c9b1e446338eb7be95604ae1cc4613",
+        "rust_llvm": "rustc 1.94.0 (4a4ef493e 2026-03-02), LLVM 21.1.8",
+        "command": "./scripts/check-project-coverage.sh",
+        "source_baseline": "working tree based on HEAD 452d3d77e9d4b37666946a9bb9eb31f322b2fd4f; RSC-101 TOML/YAML parser admission and RSC-102 structured diagnostic path changes were present",
+        "source_sha256": "ddf50ca7e93037395f6aea19409a775bcf197aefcb05ea828ef3493dd0777355",
         "metrics": {
           "functions": {
-            "covered": 25,
-            "count": 34,
-            "percent": 73.52941176470588
+            "covered": 30,
+            "count": 41,
+            "percent": 73.17073170731707
           },
           "lines": {
-            "covered": 196,
-            "count": 214,
-            "percent": 91.58878504672897
+            "covered": 254,
+            "count": 272,
+            "percent": 93.38235294117648
           },
           "regions": {
-            "covered": 360,
-            "count": 435,
-            "percent": 82.75862068965517
+            "covered": 467,
+            "count": 544,
+            "percent": 85.84558823529412
           }
         }
       }
     },
     "src/source/yaml_config_source.rs": {
       "minimums": {
-        "functions": 81.57894736842105
+        "functions": 80.85106382978722
       },
-      "reason": "The source-owned parser and defensive nested-value paths retain the measured function attribution gap. The new mixed-numeric sequence regression exercises the category-intersection error path; the extracted YamlConfigSourceBuilder remains covered independently. The new full report shows lines and regions meet the normal thresholds, so only the function metric keeps an override.",
+      "reason": "The current full report includes pre-backend scanner/depth admission and safe diagnostic regressions. Remaining source-owned function attribution gaps are defensive nested-sequence and backend/scanner fallback paths; observable token/depth limits, supported scalar conversions, aliases, and redaction are covered. Keep only the measured function lower bound and source hash pinned.",
       "evidence": {
-        "generated_at": "2026-11-01T04:47:28Z",
+        "generated_at": "2026-11-01T16:33:00Z",
         "cargo_llvm_cov": "cargo-llvm-cov 0.8.6",
-        "rust_llvm": "rustc 1.94.0 (4a4ef493e3a1488c6e321570238084b38948f6db), LLVM 21.1.8",
+        "rust_llvm": "rustc 1.94.0 (4a4ef493e 2026-03-02), LLVM 21.1.8",
         "command": "./scripts/check-project-coverage.sh",
-        "source_baseline": "working tree based on HEAD 26acafa6c5c917856949974930fc4496d4e16df3; RSC-001 YAML sequence error-index fix and RSC-002 structured diagnostic path changes were present",
-        "source_sha256": "6bc0faa18b2cb221fd52bf47e284eafce390f43f5e65a22321320993b3e1d027",
+        "source_baseline": "working tree based on HEAD 452d3d77e9d4b37666946a9bb9eb31f322b2fd4f; RSC-101 TOML/YAML parser admission and RSC-102 structured diagnostic path changes were present",
+        "source_sha256": "d2057642031b34f94f38b8a315cafbf2e9b52b0a0e7871bdaa965cee346d7306",
         "metrics": {
           "functions": {
-            "covered": 32,
-            "count": 39,
-            "percent": 82.05128205128204
+            "covered": 38,
+            "count": 47,
+            "percent": 80.85106382978722
           },
           "lines": {
-            "covered": 245,
-            "count": 264,
-            "percent": 92.8030303030303
+            "covered": 311,
+            "count": 328,
+            "percent": 94.81707317073169
           },
           "regions": {
-            "covered": 462,
-            "count": 532,
-            "percent": 86.8421052631579
+            "covered": 582,
+            "count": 643,
+            "percent": 90.51321928460342
           }
         }
       }
