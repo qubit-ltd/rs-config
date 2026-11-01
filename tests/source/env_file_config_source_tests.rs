@@ -29,6 +29,19 @@ fn test_env_file_comment_does_not_change_substitution_state() {
     if std::env::var_os(CHILD_MODE).is_some() {
         let placeholder = format!("${{{SENTINEL}}}");
         let short_placeholder = format!("${SENTINEL}");
+        let literal_value = format!("literal-${SENTINEL}-{placeholder}");
+        for assignment in [
+            format!("VALUE={literal_value}\n"),
+            format!("VALUE=\"{literal_value}\"\n"),
+            format!("VALUE='{literal_value}'\n"),
+        ] {
+            let input = format!("# comment with ' \" \\\\ # $\n{assignment}");
+            let config = EnvFileConfigSource::from_content(input)
+                .load()
+                .expect("quoted comment and placeholder input should load");
+            assert_eq!(config.get::<String>("VALUE").unwrap(), literal_value);
+        }
+
         let isolated_input = format!("A=#'\\''\nVALUE={placeholder}\n");
         let isolated_config = EnvFileConfigSource::from_content(isolated_input.clone())
             .load()
@@ -166,22 +179,22 @@ fn test_env_file_comment_does_not_change_substitution_state() {
             .load()
             .expect_err("invalid quoted input must fail instead of expanding");
         assert!(matches!(error, ConfigError::SourceParseError { .. }));
-        assert!(
-            !error
-                .to_string()
-                .contains(&std::env::var(SENTINEL).expect("sentinel should be set in child"))
-        );
+        if let Ok(sentinel_value) = std::env::var(SENTINEL) {
+            assert!(!error.to_string().contains(&sentinel_value));
+        }
         return;
     }
 
-    for environment_value in ["first-process-value", "second-process-value"] {
+    for environment_value in [Some("first-process-value"), Some("second-process-value"), None] {
         let mut command = Command::new(std::env::current_exe().expect("test executable path should be available"));
         command
             .arg("--exact")
             .arg("test_env_file_comment_does_not_change_substitution_state")
             .env_clear()
-            .env(CHILD_MODE, "1")
-            .env(SENTINEL, environment_value);
+            .env(CHILD_MODE, "1");
+        if let Some(environment_value) = environment_value {
+            command.env(SENTINEL, environment_value);
+        }
         if let Some(profile) = std::env::var_os("LLVM_PROFILE_FILE") {
             command.env("LLVM_PROFILE_FILE", profile);
         }

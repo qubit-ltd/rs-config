@@ -14,35 +14,43 @@ use qubit_config::source::ConfigSource;
 use qubit_config::source::EnvFileConfigSource;
 
 const MAX_INPUT_BYTES: usize = 64 * 1024;
-const COMMENT_BYPASS_SENTINEL: &str = "RS_CONFIG_ENV_FILE_FUZZ_SENTINEL_7D3C91";
+const PLACEHOLDER: &str = "RS_CONFIG_FUZZ_LITERAL_7D3C91";
+
+fn hex_prefix(data: &[u8]) -> String {
+    data.iter().take(64).map(|byte| format!("{byte:02x}")).collect()
+}
+
+fn comment_prefix(data: &[u8]) -> String {
+    const CHARACTERS: &[u8] = b"quote'\"\\#$";
+
+    data.iter()
+        .take(64)
+        .map(|byte| CHARACTERS[usize::from(*byte) % CHARACTERS.len()] as char)
+        .collect()
+}
 
 fuzz_target!(|data: &[u8]| {
     if data.len() > MAX_INPUT_BYTES {
         return;
     }
+
+    let payload = hex_prefix(data);
+    let comment = comment_prefix(data);
+    let expected = format!("{payload}-${PLACEHOLDER}-${{{PLACEHOLDER}}}");
+    let assignment = match data.first().copied().unwrap_or_default() % 3 {
+        0 => format!("VALUE={expected}\n"),
+        1 => format!("VALUE=\"{expected}\"\n"),
+        _ => format!("VALUE='{expected}'\n"),
+    };
+    let generated = format!("# {comment}\n{assignment}");
+    let config = EnvFileConfigSource::from_content(generated)
+        .load()
+        .expect("generated valid dotenv must load");
+    assert_eq!(config.get::<String>("VALUE").unwrap(), expected);
+
     let Ok(content) = std::str::from_utf8(data) else {
         return;
     };
     let source = EnvFileConfigSource::from_content(content);
     let _ = source.load();
-
-    if std::env::var_os(COMMENT_BYPASS_SENTINEL).is_none() {
-        let placeholder = format!("${{{COMMENT_BYPASS_SENTINEL}}}");
-        let cases = [
-            (
-                format!("# don't expand {placeholder}\nVALUE={placeholder}\n"),
-                placeholder.clone(),
-            ),
-            (
-                format!("VALUE=hello\\ #{placeholder}\n"),
-                format!("hello #{placeholder}"),
-            ),
-        ];
-        for (input, expected) in cases {
-            let result = EnvFileConfigSource::from_content(input)
-                .load()
-                .expect("fixed dotenv isolation sample should load");
-            assert_eq!(result.get::<String>("VALUE").unwrap(), expected);
-        }
-    }
 });

@@ -82,6 +82,16 @@ fn yaml_quoted_dotted_member_remains_valid() {
 }
 
 #[test]
+fn yaml_double_quoted_marker_characters_remain_scalar_text() {
+    let text = "* & # : \" ' marker text";
+    let quoted = serde_json::to_string(text).expect("marker text should serialize");
+    let safe = YamlConfigSource::from_content(format!("message: {quoted}\n"))
+        .load()
+        .expect("double-quoted marker text should load as a scalar");
+    assert_eq!(safe.get::<String>("message").unwrap(), text);
+}
+
+#[test]
 fn yaml_builder_default_loads_configured_content() {
     let builder_default: fn() -> YamlConfigSourceBuilder = Default::default;
     let source = std::hint::black_box(builder_default)()
