@@ -49,6 +49,10 @@ pub enum SourceLimitKind {
     SourceCount,
     /// Root-relative structured nesting depth.
     NestingDepth,
+    /// Tokens admitted by a format parser before syntax-tree construction.
+    ParserTokenCount,
+    /// Parser structure depth for one input.
+    ParserNestingDepth,
 }
 
 impl Display for SourceLimitKind {
@@ -59,6 +63,8 @@ impl Display for SourceLimitKind {
             Self::NodeCount => formatter.write_str("node count"),
             Self::SourceCount => formatter.write_str("source count"),
             Self::NestingDepth => formatter.write_str("nesting depth"),
+            Self::ParserTokenCount => formatter.write_str("parser token count"),
+            Self::ParserNestingDepth => formatter.write_str("parser nesting depth"),
         }
     }
 }

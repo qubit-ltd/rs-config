@@ -19,6 +19,51 @@ struct ChildAccountingSource {
     amount: usize,
 }
 
+struct ParserAccountingSource {
+    source_id: &'static str,
+    tokens: usize,
+    depth: usize,
+    limits: SourceLimits,
+}
+
+struct RecoveringParserChargeSource {
+    source_id: &'static str,
+    local_limit: usize,
+    rejected_amount: usize,
+    accepted_amount: usize,
+}
+
+impl ConfigSource for RecoveringParserChargeSource {
+    fn source_id(&self) -> String {
+        self.source_id.to_owned()
+    }
+    fn limits(&self) -> SourceLimits {
+        SourceLimits::builder()
+            .max_parser_tokens(self.local_limit)
+            .build()
+    }
+    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
+        let error = context
+            .consume_parser_tokens(self.rejected_amount)
+            .expect_err("the configured local parser limit should reject this charge");
+        assert_eq!(error.source_budget_id(), Some(self.source_id));
+        context.consume_parser_tokens(self.accepted_amount)
+    }
+}
+
+impl ConfigSource for ParserAccountingSource {
+    fn source_id(&self) -> String {
+        self.source_id.to_owned()
+    }
+    fn limits(&self) -> SourceLimits {
+        self.limits
+    }
+    fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
+        context.consume_parser_tokens(self.tokens)?;
+        context.check_parser_depth(self.depth)
+    }
+}
+
 impl ConfigSource for ChildAccountingSource {
     fn source_id(&self) -> String {
         "child".to_string()
@@ -147,7 +192,10 @@ fn source_load_session_charges_local_and_ancestor_budgets_atomically() {
         .load()
         .expect_err("the aggregate budget should reject the second charge");
 
-    assert_eq!(error.source_budget_id(), Some("composite configuration source"));
+    assert_eq!(
+        error.source_budget_id(),
+        Some("composite configuration source")
+    );
 }
 
 #[test]
@@ -211,7 +259,10 @@ fn source_load_session_reports_outermost_failing_budget_first() {
         .load()
         .expect_err("both aggregate and child budgets should reject the charge");
 
-    assert_eq!(error.source_budget_id(), Some("composite configuration source"));
+    assert_eq!(
+        error.source_budget_id(),
+        Some("composite configuration source")
+    );
 }
 
 #[test]
@@ -258,7 +309,149 @@ fn source_load_context_exposes_node_charges_and_typed_nulls() {
 
     assert!(config.is_unset("optional.value").unwrap());
     assert_eq!(
-        config.get_property("optional.value").unwrap().unwrap().data_type(),
+        config
+            .get_property("optional.value")
+            .unwrap()
+            .unwrap()
+            .data_type(),
         DataType::String
     );
+}
+
+#[test]
+fn test_parser_token_charge_is_atomic_across_ancestors() {
+    struct ChargeSequence;
+    impl ConfigSource for ChargeSequence {
+        fn source_id(&self) -> String {
+            "charge sequence".to_owned()
+        }
+        fn limits(&self) -> SourceLimits {
+            SourceLimits::builder().max_parser_tokens(5).build()
+        }
+        fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
+            context.consume_parser_tokens(2)?;
+            let error = context
+                .consume_parser_tokens(2)
+                .expect_err("the ancestor has one token remaining");
+            assert_eq!(error.source_id(), Some("charge sequence"));
+            assert_eq!(
+                error.source_budget_id(),
+                Some("composite configuration source")
+            );
+            context.consume_parser_tokens(1)
+        }
+    }
+    let mut sequence = CompositeConfigSource::builder()
+        .limits(SourceLimits::builder().max_parser_tokens(3).build())
+        .build();
+    sequence.add(ChargeSequence);
+    let _ = sequence
+        .load()
+        .expect("failed grouped charge must leave one token available");
+
+    let mut composite = CompositeConfigSource::builder()
+        .limits(SourceLimits::builder().max_parser_tokens(3).build())
+        .build();
+    composite.add(ParserAccountingSource {
+        source_id: "parser child",
+        tokens: 2,
+        depth: 0,
+        limits: SourceLimits::builder().max_parser_tokens(5).build(),
+    });
+    composite.add(ParserAccountingSource {
+        source_id: "parser child",
+        tokens: 2,
+        depth: 0,
+        limits: SourceLimits::builder().max_parser_tokens(5).build(),
+    });
+    let error = composite
+        .load()
+        .expect_err("ancestor charge should reject sibling's second charge");
+    assert!(matches!(
+        error,
+        qubit_config::ConfigError::SourceLimitExceeded {
+            kind: qubit_config::source::SourceLimitKind::ParserTokenCount,
+            limit: 3,
+            observed_at_least: 4,
+            ..
+        }
+    ));
+    assert_eq!(error.source_id(), Some("parser child"));
+    assert_eq!(
+        error.source_budget_id(),
+        Some("composite configuration source")
+    );
+
+    let mut aggregate = CompositeConfigSource::builder()
+        .limits(SourceLimits::builder().max_parser_tokens(2).build())
+        .build();
+    aggregate.add(RecoveringParserChargeSource {
+        source_id: "local parser",
+        local_limit: 1,
+        rejected_amount: 2,
+        accepted_amount: 1,
+    });
+    aggregate.add(ParserAccountingSource {
+        source_id: "later parser",
+        tokens: 2,
+        depth: 0,
+        limits: SourceLimits::builder().max_parser_tokens(5).build(),
+    });
+    let error = aggregate
+        .load()
+        .expect_err("the successful charge uses one ancestor token");
+    assert_eq!(error.source_id(), Some("later parser"));
+    assert_eq!(
+        error.source_budget_id(),
+        Some("composite configuration source")
+    );
+}
+
+#[test]
+fn test_parser_depth_reports_rejecting_scope() {
+    let mut composite = CompositeConfigSource::builder()
+        .limits(SourceLimits::builder().max_parser_nesting_depth(2).build())
+        .build();
+    composite.add(ParserAccountingSource {
+        source_id: "deep parser",
+        tokens: 0,
+        depth: 3,
+        limits: SourceLimits::builder().max_parser_nesting_depth(4).build(),
+    });
+    let error = composite
+        .load()
+        .expect_err("ancestor depth limit should reject the input");
+    assert!(matches!(
+        error,
+        qubit_config::ConfigError::SourceLimitExceeded {
+            kind: qubit_config::source::SourceLimitKind::ParserNestingDepth,
+            limit: 2,
+            observed_at_least: 3,
+            ..
+        }
+    ));
+    assert_eq!(error.source_id(), Some("deep parser"));
+    assert_eq!(
+        error.source_budget_id(),
+        Some("composite configuration source")
+    );
+
+    let mut same_depth = CompositeConfigSource::builder()
+        .limits(SourceLimits::builder().max_parser_nesting_depth(3).build())
+        .build();
+    same_depth.add(ParserAccountingSource {
+        source_id: "depth one",
+        tokens: 0,
+        depth: 3,
+        limits: SourceLimits::default(),
+    });
+    same_depth.add(ParserAccountingSource {
+        source_id: "depth two",
+        tokens: 0,
+        depth: 3,
+        limits: SourceLimits::default(),
+    });
+    let _ = same_depth
+        .load()
+        .expect("parser depth is checked per input, not accumulated");
 }

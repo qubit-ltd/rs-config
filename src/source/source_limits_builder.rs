@@ -10,6 +10,8 @@ use super::DEFAULT_MAX_COMPOSITE_SOURCES;
 use super::DEFAULT_MAX_SOURCE_DEPTH;
 use super::DEFAULT_MAX_SOURCE_INPUT_BYTES;
 use super::DEFAULT_MAX_SOURCE_NODES;
+use super::DEFAULT_MAX_SOURCE_PARSER_DEPTH;
+use super::DEFAULT_MAX_SOURCE_PARSER_TOKENS;
 use super::DEFAULT_MAX_SOURCE_PROPERTIES;
 use super::SourceLimits;
 
@@ -27,6 +29,10 @@ pub struct SourceLimitsBuilder {
     max_sources: usize,
     /// Maximum nesting depth of structured input.
     max_nesting_depth: usize,
+    /// Maximum parser tokens accepted before syntax-tree construction.
+    max_parser_tokens: usize,
+    /// Maximum parser nesting depth for one input.
+    max_parser_nesting_depth: usize,
 }
 
 impl SourceLimitsBuilder {
@@ -39,6 +45,8 @@ impl SourceLimitsBuilder {
             max_nodes: DEFAULT_MAX_SOURCE_NODES,
             max_sources: DEFAULT_MAX_COMPOSITE_SOURCES,
             max_nesting_depth: DEFAULT_MAX_SOURCE_DEPTH,
+            max_parser_tokens: DEFAULT_MAX_SOURCE_PARSER_TOKENS,
+            max_parser_nesting_depth: DEFAULT_MAX_SOURCE_PARSER_DEPTH,
         }
     }
 
@@ -77,6 +85,20 @@ impl SourceLimitsBuilder {
         self
     }
 
+    /// Sets the maximum parser tokens accepted by this source and its ancestors.
+    #[inline]
+    pub const fn max_parser_tokens(mut self, maximum: usize) -> Self {
+        self.max_parser_tokens = maximum;
+        self
+    }
+
+    /// Sets the maximum parser nesting depth for one input, with root depth zero.
+    #[inline]
+    pub const fn max_parser_nesting_depth(mut self, maximum: usize) -> Self {
+        self.max_parser_nesting_depth = maximum;
+        self
+    }
+
     /// Builds the configured source limits.
     #[inline]
     pub const fn build(self) -> SourceLimits {
@@ -86,6 +108,8 @@ impl SourceLimitsBuilder {
             max_nodes: self.max_nodes,
             max_sources: self.max_sources,
             max_nesting_depth: self.max_nesting_depth,
+            max_parser_tokens: self.max_parser_tokens,
+            max_parser_nesting_depth: self.max_parser_nesting_depth,
         }
     }
 }

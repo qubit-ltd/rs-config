@@ -20,6 +20,10 @@ pub const DEFAULT_MAX_SOURCE_NODES: usize = 262_144;
 pub const DEFAULT_MAX_COMPOSITE_SOURCES: usize = 256;
 /// Default maximum structured document nesting depth.
 pub const DEFAULT_MAX_SOURCE_DEPTH: usize = 64;
+/// Default maximum number of parser tokens accepted by one source and its ancestors.
+pub const DEFAULT_MAX_SOURCE_PARSER_TOKENS: usize = 1_048_576;
+/// Default maximum parser nesting depth for one input.
+pub const DEFAULT_MAX_SOURCE_PARSER_DEPTH: usize = 128;
 
 // Defines limit construction without exposing stored limit fields.
 #[path = "source_limits_builder.rs"]
@@ -28,17 +32,22 @@ pub use source_limits_builder::SourceLimitsBuilder;
 
 /// Resource limits for one configuration source load.
 ///
-/// Input bytes, emitted properties, parsed nodes, and admitted child sources
-/// are cumulative budgets: every accepted consumption is retained for the
-/// lifetime of one load session, while a rejected grouped consumption leaves
-/// every local and aggregate scope unchanged. Nesting depth is a stateless
-/// point limit checked independently for each observed path. These limits do
-/// not synchronize access or manage resource lifetimes.
+/// Input bytes, emitted properties, parsed nodes, parser tokens, and admitted
+/// child sources are cumulative budgets: every accepted consumption is
+/// retained for the lifetime of one load session, while a rejected grouped
+/// consumption leaves every local and aggregate scope unchanged. Parser tokens
+/// count parser work before syntax-tree construction and are distinct from
+/// semantic nodes counted while flattening. Nesting depth and parser nesting
+/// depth are stateless point limits checked independently for each input path.
+/// These limits do not synchronize access or manage resource lifetimes.
+/// The default parser-token budget is 1,048,576 tokens per source ancestry,
+/// and the default parser-depth limit is 128 for each input.
 ///
 /// Enforcement stages depend on the source adapter. TOML and YAML admit input
-/// bytes before parsing, then check node, assignment, and depth limits while
-/// flattening a complete syntax tree. Those structural limits do not bound
-/// parser allocation or recursion.
+/// bytes, parser tokens, and parser nesting depth before constructing a syntax
+/// tree, then check node, assignment, and semantic depth limits while
+/// flattening it. Parser limits bound admitted work but do not guarantee a
+/// strict allocation or CPU ceiling.
 ///
 /// See the [source-limit guide](https://github.com/qubit-ltd/rs-config/blob/main/doc/user_guide.md#configure-source-limits).
 ///
@@ -80,6 +89,10 @@ pub struct SourceLimits {
     max_sources: usize,
     /// Maximum nesting depth of structured input.
     max_nesting_depth: usize,
+    /// Maximum parser tokens accepted before syntax-tree construction.
+    max_parser_tokens: usize,
+    /// Maximum parser nesting depth for one input.
+    max_parser_nesting_depth: usize,
 }
 
 impl SourceLimits {
@@ -97,6 +110,8 @@ impl SourceLimits {
             max_nodes: usize::MAX,
             max_sources: usize::MAX,
             max_nesting_depth: usize::MAX,
+            max_parser_tokens: usize::MAX,
+            max_parser_nesting_depth: usize::MAX,
         }
     }
 
@@ -133,6 +148,20 @@ impl SourceLimits {
     #[must_use = "use the returned value"]
     pub const fn max_nesting_depth(self) -> usize {
         self.max_nesting_depth
+    }
+
+    /// Returns the maximum parser tokens accepted by this source and its ancestors.
+    #[inline(always)]
+    #[must_use = "use the returned value"]
+    pub const fn max_parser_tokens(self) -> usize {
+        self.max_parser_tokens
+    }
+
+    /// Returns the maximum parser nesting depth for one input, with root depth zero.
+    #[inline(always)]
+    #[must_use = "use the returned value"]
+    pub const fn max_parser_nesting_depth(self) -> usize {
+        self.max_parser_nesting_depth
     }
 }
 

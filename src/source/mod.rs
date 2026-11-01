@@ -86,6 +86,8 @@ pub use source_limits::DEFAULT_MAX_COMPOSITE_SOURCES;
 pub use source_limits::DEFAULT_MAX_SOURCE_DEPTH;
 pub use source_limits::DEFAULT_MAX_SOURCE_INPUT_BYTES;
 pub use source_limits::DEFAULT_MAX_SOURCE_NODES;
+pub use source_limits::DEFAULT_MAX_SOURCE_PARSER_DEPTH;
+pub use source_limits::DEFAULT_MAX_SOURCE_PARSER_TOKENS;
 pub use source_limits::DEFAULT_MAX_SOURCE_PROPERTIES;
 pub use source_limits::SourceLimits;
 pub use source_limits::SourceLimitsBuilder;
