@@ -176,6 +176,151 @@ fn test_yaml_sequence_rejection_and_empty_string_boundaries() {
     assert_eq!(strings.get_list::<String>("values").unwrap(), ["null", "~"]);
 }
 
+#[test]
+fn test_yaml_parser_token_limit() {
+    // yaml-rust2 emits 12 scanner tokens for this mapping and flow sequence.
+    let accepted = YamlConfigSource::builder()
+        .content("a: [1, 2]")
+        .limits(SourceLimits::builder().max_parser_tokens(12).build())
+        .build()
+        .load()
+        .expect("the exact scanner token boundary should be admitted");
+    assert_eq!(accepted.get_list::<i64>("a").unwrap(), [1, 2]);
+
+    let error = YamlConfigSource::builder()
+        .content("a: [1, 2]")
+        .limits(SourceLimits::builder().max_parser_tokens(11).build())
+        .build()
+        .load()
+        .expect_err("one token below the boundary should be rejected");
+    assert!(matches!(
+        &error,
+        ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::ParserTokenCount,
+            source_id,
+            budget_id,
+            limit: 11,
+            observed_at_least: 12,
+            ..
+        }
+            if source_id == "YAML:<memory>" && budget_id == "YAML:<memory>"
+    ));
+    assert_eq!(error.source_id(), Some("YAML:<memory>"));
+
+    let error = YamlConfigSource::builder()
+        .content("")
+        .limits(SourceLimits::builder().max_parser_tokens(0).build())
+        .build()
+        .load()
+        .expect_err("the scanner stream token must be charged for empty input");
+    assert!(matches!(
+        &error,
+        ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::ParserTokenCount,
+            limit: 0,
+            ..
+        }
+    ));
+}
+
+#[test]
+fn test_yaml_parser_depth_limit() {
+    // Root collection depth is zero; its nested flow sequence is depth one.
+    for (maximum, succeeds) in [(0, false), (1, true)] {
+        let result = YamlConfigSource::builder()
+            .content("a: [1, 2]")
+            .limits(SourceLimits::builder().max_parser_nesting_depth(maximum).build())
+            .build()
+            .load();
+        assert_eq!(result.is_ok(), succeeds, "depth limit={maximum}");
+        if let Err(error) = result {
+            assert!(matches!(
+                error,
+                ConfigError::SourceLimitExceeded {
+                    kind: SourceLimitKind::ParserNestingDepth,
+                    source_id,
+                    budget_id,
+                    limit: 0,
+                    observed_at_least: 1,
+                    ..
+                }
+                    if source_id == "YAML:<memory>" && budget_id == "YAML:<memory>"
+            ));
+        }
+    }
+
+    let at_depth_two = YamlConfigSource::builder()
+        .content("outer: {inner: [value]}")
+        .limits(SourceLimits::builder().max_parser_nesting_depth(2).build())
+        .build()
+        .load();
+    assert!(at_depth_two.is_ok(), "collection depth two should be admitted");
+
+    let nested = YamlConfigSource::builder()
+        .content("outer: {inner: {deep: [value]}}")
+        .limits(SourceLimits::builder().max_parser_nesting_depth(2).build())
+        .build()
+        .load()
+        .expect_err("collection depth three should exceed depth two");
+    assert!(matches!(
+        nested,
+        ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::ParserNestingDepth,
+            limit: 2,
+            observed_at_least: 3,
+            ..
+        }
+    ));
+
+    let block = YamlConfigSource::builder()
+        .content("outer:\n  inner: value\n")
+        .limits(SourceLimits::builder().max_parser_nesting_depth(0).build())
+        .build()
+        .load()
+        .expect_err("nested block mapping should exceed depth zero");
+    assert!(matches!(
+        block,
+        ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::ParserNestingDepth,
+            limit: 0,
+            observed_at_least: 1,
+            ..
+        }
+    ));
+
+    let indentless = YamlConfigSource::builder()
+        .content("items:\n- one\n- two\n")
+        .limits(SourceLimits::builder().max_parser_nesting_depth(1).build())
+        .build()
+        .load()
+        .expect("indentless block sequence remains nested under its mapping");
+    assert_eq!(indentless.get_list::<String>("items").unwrap(), ["one", "two"]);
+}
+
+#[test]
+fn test_yaml_parser_limit_preserves_target() {
+    let source = YamlConfigSource::builder()
+        .content("a: [1, 2]")
+        .limits(SourceLimits::builder().max_parser_tokens(11).build())
+        .build();
+    let mut target = Config::new();
+    target.set("keep", "value").unwrap();
+    let before = target.clone();
+
+    let error = target
+        .merge_properties_from_source(&source)
+        .expect_err("parser admission failure should abort the merge");
+
+    assert!(matches!(
+        error,
+        ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::ParserTokenCount,
+            ..
+        }
+    ));
+    assert_eq!(target, before);
+}
+
 // ============================================================================
 // YamlConfigSource Tests
 // ============================================================================

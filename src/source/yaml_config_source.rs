@@ -24,13 +24,9 @@
 //!
 //! Arrays are stored as multi-value properties.
 //!
-//! # TODO: Streaming budget enforcement
-//!
-//! TODO: replace or wrap the third-party YAML parser with an incremental parser
-//! that charges token, string, node, and depth budgets before allocating the
-//! complete syntax tree. Current node and depth accounting begins while the
-//! already materialized YAML value tree is flattened. Flattening checks both
-//! the YAML tree depth and the depth of each resulting dot-separated key.
+//! Parser-token and collection-depth limits are admitted by the scanner before
+//! the backend builds a syntax tree. Node and semantic-depth accounting still
+//! occurs while the resulting value tree is flattened.
 
 use std::collections::HashSet;
 use std::path::Path;
@@ -61,10 +57,10 @@ pub use yaml_config_source_builder::YamlConfigSourceBuilder;
 ///
 /// # Resource Limits
 ///
-/// Input bytes are admitted before parsing. The parser materializes a complete
-/// syntax tree before node, assignment, and nesting-depth limits are checked
-/// during flattening. These structural limits bound accepted configuration
-/// output; they do not bound parser allocation or recursion.
+/// Input bytes, parser tokens, and YAML collection depth are admitted before
+/// the backend builds a syntax tree. Node, assignment, and semantic key depth
+/// limits are checked during flattening. Parser limits do not guarantee a
+/// strict allocation or CPU ceiling.
 ///
 /// See the [source-limit guide](https://github.com/qubit-ltd/rs-config/blob/main/doc/user_guide.md#configure-source-limits).
 ///
@@ -135,6 +131,17 @@ impl YamlConfigSource {
     }
 }
 
+/// Runs the YAML backend only after scanner admission succeeds.
+fn with_yaml_admission<T>(
+    label: &str,
+    content: &str,
+    session: &mut SourceLoadSession<'_>,
+    backend: impl FnOnce() -> ConfigResult<T>,
+) -> ConfigResult<(bool, T)> {
+    let has_value_tokens = inspect_yaml_tokens(label, content, session)?;
+    Ok((has_value_tokens, backend()?))
+}
+
 impl ConfigSource for YamlConfigSource {
     fn source_id(&self) -> String {
         self.input.label("YAML")
@@ -149,14 +156,19 @@ impl ConfigSource for YamlConfigSource {
         let session = context.session_mut();
         let label = self.input.label("YAML");
         let content = self.input.read_to_string("YAML", session)?;
-        let has_value_tokens = inspect_yaml_tokens(&label, &content)?;
+        let (has_value_tokens, value) = with_yaml_admission(&label, &content, session, || {
+            if content.trim().is_empty() {
+                return Ok(None);
+            }
+            from_str::<YamlValue>(&content)
+                .map(Some)
+                .map_err(|error| yaml_parse_error(&label, &error))
+        })?;
 
-        if content.trim().is_empty() {
+        let Some(value) = value else {
             context.replace_layer(config);
             return Ok(());
-        }
-
-        let value: YamlValue = from_str(&content).map_err(|error| yaml_parse_error(&label, &error))?;
+        };
 
         if matches!(&value, YamlValue::Null) && !has_value_tokens {
             context.replace_layer(config);
@@ -167,6 +179,70 @@ impl ConfigSource for YamlConfigSource {
         flatten_yaml_value(&label, "", &value, &mut config, &mut seen, session, 0)?;
         context.replace_layer(config);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod admission_tests {
+    use std::cell::Cell;
+
+    use super::with_yaml_admission;
+    use crate::ConfigError;
+    use crate::source::SourceLimitKind;
+    use crate::source::SourceLimits;
+    use crate::source::source_load_session::SourceLoadSession;
+
+    #[test]
+    fn backend_is_not_called_when_token_admission_fails() {
+        let called = Cell::new(false);
+        let mut session = SourceLoadSession::new(
+            "YAML:<memory>",
+            SourceLimits::builder().max_parser_tokens(0).build(),
+        );
+
+        let error = with_yaml_admission("YAML:<memory>", "value: yes", &mut session, || {
+            called.set(true);
+            Ok(())
+        })
+        .expect_err("scanner admission must fail before invoking the backend");
+
+        assert!(!called.get());
+        assert!(matches!(
+            error,
+            ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::ParserTokenCount,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn backend_is_not_called_when_depth_admission_fails() {
+        let called = Cell::new(false);
+        let mut session = SourceLoadSession::new(
+            "YAML:<memory>",
+            SourceLimits::builder().max_parser_nesting_depth(0).build(),
+        );
+
+        let error = with_yaml_admission(
+            "YAML:<memory>",
+            "outer: {inner: value}",
+            &mut session,
+            || {
+                called.set(true);
+                Ok(())
+            },
+        )
+        .expect_err("depth admission must fail before invoking the backend");
+
+        assert!(!called.get());
+        assert!(matches!(
+            error,
+            ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::ParserNestingDepth,
+                ..
+            }
+        ));
     }
 }
 
