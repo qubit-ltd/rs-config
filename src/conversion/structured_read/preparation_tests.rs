@@ -29,10 +29,7 @@ fn diagnostic_paths_encode_each_original_segment_unambiguously() {
     assert_eq!(super::path::child_key("root", "a[b]"), "root[\"a[b]\"]");
     assert_eq!(super::path::child_key("root", "a\"b\\c"), "root[\"a\\\"b\\\\c\"]");
     assert_eq!(super::path::child_key("root", "line\nfeed"), "root[\"line\\nfeed\"]");
-    assert_eq!(
-        super::path::child_key("root", "literal.dot"),
-        "root[\"literal.dot\"]"
-    );
+    assert_eq!(super::path::child_key("root", "literal.dot"), "root[\"literal.dot\"]");
     assert_eq!(
         super::path::child_key("root", "nested").as_str(),
         super::path::config_path("root.nested")

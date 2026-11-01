@@ -198,5 +198,10 @@ fn benchmark_deep_key_rejection(c: &mut Criterion) {
     }
 }
 
-criterion_group!(benches, benchmark_structured_reads, benchmark_fixed_subtree, benchmark_deep_key_rejection);
+criterion_group!(
+    benches,
+    benchmark_structured_reads,
+    benchmark_fixed_subtree,
+    benchmark_deep_key_rejection
+);
 criterion_main!(benches);

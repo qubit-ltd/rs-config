@@ -136,12 +136,7 @@ impl<'a> PreparedConfigRead<'a> {
         let full_path = super::path::config_path(property.name());
         let mut segments = key.split('.').peekable();
         while let Some(segment) = segments.next() {
-            self.expand_object(
-                current,
-                depth,
-                capacity,
-                &current_path,
-            )?;
+            self.expand_object(current, depth, capacity, &current_path)?;
             super::path::append_key(&mut current_path, segment);
             depth = depth.saturating_add(1);
             let existing = match &self.nodes[current] {
@@ -162,14 +157,7 @@ impl<'a> PreparedConfigRead<'a> {
                 };
                 let incoming = ReadNode::from_container(property.value());
                 if let Some(existing) = existing {
-                    self.merge_object(
-                        existing,
-                        incoming,
-                        location,
-                        depth,
-                        capacity,
-                        &current_path,
-                    )?;
+                    self.merge_object(existing, incoming, location, depth, capacity, &current_path)?;
                 } else {
                     let child = self.push(incoming, Some(location), depth, capacity, &full_path)?;
                     let ReadNode::Object(children) = &mut self.nodes[current] else {
@@ -183,13 +171,7 @@ impl<'a> PreparedConfigRead<'a> {
             current = match existing {
                 Some(existing) => existing,
                 None => {
-                    let child = self.push(
-                        ReadNode::Object(BTreeMap::new()),
-                        None,
-                        depth,
-                        capacity,
-                        &full_path,
-                    )?;
+                    let child = self.push(ReadNode::Object(BTreeMap::new()), None, depth, capacity, &full_path)?;
                     let ReadNode::Object(children) = &mut self.nodes[current] else {
                         unreachable!()
                     };
