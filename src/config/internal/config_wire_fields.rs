@@ -12,6 +12,7 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::de::IgnoredAny;
 
+use super::wire_version::WireVersion;
 use crate::Property;
 
 /// Common fields decoded before selecting the versioned or legacy contract.
@@ -44,17 +45,4 @@ where
     D: Deserializer<'de>,
 {
     IgnoredAny::deserialize(deserializer).map(Some)
-}
-
-/// Distinguishes an absent legacy version from every explicitly supplied byte.
-#[derive(Default)]
-pub(in crate::config) struct WireVersion(pub(in crate::config) Option<u8>);
-
-impl<'de> Deserialize<'de> for WireVersion {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        u8::deserialize(deserializer).map(|version| Self(Some(version)))
-    }
 }

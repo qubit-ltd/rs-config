@@ -157,11 +157,11 @@ mod tests {
 
     use super::super::AccountingConfigWireSeed;
     use super::super::AccountingUniqueJsonValueSeed;
-    use super::super::WireReadRole;
     use super::INVALID_NATIVE_FLOAT;
     use super::TypedFloatVisitor;
     use crate::Config;
     use crate::ConfigWireLimits;
+    use crate::config::internal::wire_read_role::WireReadRole;
 
     #[test]
     fn preserves_safe_number_budget_error_from_numeric_callback() {
