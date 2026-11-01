@@ -24,13 +24,9 @@
 //!
 //! Arrays are stored as multi-value properties.
 //!
-//! # TODO: Streaming budget enforcement
-//!
-//! TODO: replace or wrap the third-party TOML parser with an incremental parser
-//! that charges token, string, node, and depth budgets before allocating the
-//! complete syntax tree. Current node and depth accounting begins while the
-//! already materialized TOML value tree is flattened. Flattening checks both
-//! the TOML tree depth and the depth of each resulting dot-separated key.
+//! Parser token and conservative nesting-depth budgets are admitted before the
+//! TOML backend builds its value tree. Node and output-depth accounting remains
+//! in the existing flattening pass.
 
 use std::collections::HashSet;
 use std::path::Path;
@@ -43,6 +39,7 @@ use toml::de::Error as TomlError;
 use super::ConfigSource;
 use super::SourceLimits;
 use super::SourceLoadContext;
+use super::internal::toml_parser_guard::with_toml_admission;
 use super::source_input::SourceInput;
 use super::source_load_session::SourceLoadSession;
 use crate::Config;
@@ -60,10 +57,9 @@ pub use toml_config_source_builder::TomlConfigSourceBuilder;
 ///
 /// # Resource Limits
 ///
-/// Input bytes are admitted before parsing. The parser materializes a complete
-/// syntax tree before node, assignment, and nesting-depth limits are checked
-/// during flattening. These structural limits bound accepted configuration
-/// output; they do not bound parser allocation or recursion.
+/// Input bytes, lexer tokens, and conservative parser nesting are admitted
+/// before parsing. Node, assignment, and semantic output depth limits are
+/// checked while flattening the backend's value tree.
 ///
 /// See the [source-limit guide](https://github.com/qubit-ltd/rs-config/blob/main/doc/user_guide.md#configure-source-limits).
 ///
@@ -170,14 +166,75 @@ impl ConfigSource for TomlConfigSource {
         let label = self.input.label("TOML");
         let content = self.input.read_to_string("TOML", session)?;
 
-        let table: TomlTable = content
-            .parse()
-            .map_err(|error| toml_parse_error(&label, &content, &error))?;
+        let table: TomlTable = with_toml_admission(&label, &content, session, || {
+            content
+                .parse()
+                .map_err(|error| toml_parse_error(&label, &content, &error))
+        })?;
 
         let mut seen = HashSet::new();
         flatten_toml_value(&label, "", &TomlValue::Table(table), &mut config, &mut seen, session, 0)?;
         context.replace_layer(config);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod admission_tests {
+    use std::cell::Cell;
+
+    use super::with_toml_admission;
+    use crate::ConfigError;
+    use crate::source::SourceLimitKind;
+    use crate::source::SourceLimits;
+    use crate::source::source_load_session::SourceLoadSession;
+
+    #[test]
+    fn backend_is_not_called_when_token_admission_fails() {
+        let mut session = SourceLoadSession::new(
+            "TOML:test",
+            SourceLimits::builder().max_parser_tokens(2).build(),
+        );
+        let called = Cell::new(false);
+        let error = with_toml_admission("TOML:test", "wide = [1, 2, 3]", &mut session, || {
+            called.set(true);
+            Ok(())
+        })
+        .expect_err("token admission must fail before backend parsing");
+
+        assert!(!called.get());
+        assert!(matches!(
+            error,
+            ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::ParserTokenCount,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn backend_is_not_called_when_depth_admission_fails() {
+        let mut session = SourceLoadSession::new(
+            "TOML:test",
+            SourceLimits::builder().max_parser_nesting_depth(2).build(),
+        );
+        let called = Cell::new(false);
+        let error = with_toml_admission("TOML:test", "values = [[1]]", &mut session, || {
+            called.set(true);
+            Ok(())
+        })
+        .expect_err("depth admission must fail before backend parsing");
+
+        assert!(!called.get());
+        assert!(matches!(
+            error,
+            ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::ParserNestingDepth,
+                limit: 2,
+                observed_at_least: 3,
+                ..
+            }
+        ));
     }
 }
 

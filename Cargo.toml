@@ -46,7 +46,7 @@ chrono = ["dep:chrono", "qubit-value/chrono"]
 num-bigint = ["dep:num-bigint", "qubit-value/big-integer"]
 url = ["dep:url", "qubit-value/url"]
 env-file = ["dep:dotenvy"]
-toml = ["dep:toml"]
+toml = ["dep:toml", "dep:toml_parser"]
 yaml = ["dep:serde_norway", "dep:yaml-rust2"]
 rich-types = ["bigdecimal", "chrono", "num-bigint", "url"]
 formats = ["env-file", "toml", "yaml"]
@@ -62,6 +62,7 @@ url = { version = "^2.5", optional = true }
 num-bigint = { version = "^0.4", features = ["serde"], optional = true }
 bigdecimal = { version = "^0.4", features = ["serde"], optional = true }
 toml = { version = "^1.1", features = ["parse"], optional = true }
+toml_parser = { version = "^1.1.5", default-features = false, optional = true }
 serde_norway = { version = "^0.9", optional = true }
 yaml-rust2 = { version = "^0.13", default-features = false, optional = true }
 dotenvy = { version = "^0.15", optional = true }

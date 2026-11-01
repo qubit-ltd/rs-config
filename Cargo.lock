@@ -695,6 +695,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "toml",
+ "toml_parser",
  "url",
  "yaml-rust2",
 ]

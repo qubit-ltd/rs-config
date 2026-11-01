@@ -79,6 +79,171 @@ fn toml_quoted_dotted_member_remains_valid() {
 }
 
 #[test]
+fn test_toml_parser_token_limit() {
+    let source = TomlConfigSource::builder()
+        .content("values = [1, 2, 3, 4, 5, 6]\n")
+        .limits(SourceLimits::builder().max_parser_tokens(8).build())
+        .build();
+    let error = source.load().expect_err("wide TOML must be rejected before AST parsing");
+    assert!(matches!(
+        error,
+        ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::ParserTokenCount,
+            limit: 8,
+            observed_at_least: observed,
+            ..
+        } if observed >= 9
+    ));
+}
+
+#[test]
+fn test_toml_parser_empty_input_counts_eof_token() {
+    let rejected = TomlConfigSource::builder()
+        .content("")
+        .limits(SourceLimits::builder().max_parser_tokens(0).build())
+        .build();
+    assert!(matches!(
+        rejected.load(),
+        Err(ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::ParserTokenCount,
+            limit: 0,
+            observed_at_least: 1,
+            ..
+        })
+    ));
+
+    let accepted = TomlConfigSource::builder()
+        .content("")
+        .limits(SourceLimits::builder().max_parser_tokens(1).build())
+        .build();
+    assert!(accepted.load().unwrap().is_empty());
+}
+
+#[test]
+fn test_toml_parser_whitespace_and_comment_tokens_count_toward_limit() {
+    let source = TomlConfigSource::builder()
+        .content(" # private-value\n")
+        .limits(SourceLimits::builder().max_parser_tokens(3).build())
+        .build();
+    assert!(matches!(
+        source.load(),
+        Err(ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::ParserTokenCount,
+            limit: 3,
+            observed_at_least: 4,
+            ..
+        })
+    ));
+}
+
+#[test]
+fn test_toml_parser_depth_limit() {
+    let accepted = TomlConfigSource::builder()
+        .content("a.b.c = 1\n")
+        .limits(SourceLimits::builder().max_parser_nesting_depth(6).build())
+        .build();
+    assert_eq!(accepted.load().unwrap().get::<i64>("a.b.c").unwrap(), 1);
+
+    for content in ["[a.b.c]\n", "a.b.c = 1\n"] {
+        let source = TomlConfigSource::builder()
+            .content(content)
+            .limits(SourceLimits::builder().max_parser_nesting_depth(5).build())
+            .build();
+        assert!(
+            matches!(
+                source.load(),
+                Err(ConfigError::SourceLimitExceeded {
+                    kind: SourceLimitKind::ParserNestingDepth,
+                    limit: 5,
+                    observed_at_least: 6,
+                    ..
+                })
+            ),
+            "input: {content}"
+        );
+    }
+
+    let nested_scope = TomlConfigSource::builder()
+        .content("[a.b]\nc.d = 1\n")
+        .limits(SourceLimits::builder().max_parser_nesting_depth(7).build())
+        .build();
+    assert!(matches!(
+        nested_scope.load(),
+        Err(ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::ParserNestingDepth,
+            limit: 7,
+            observed_at_least: 8,
+            ..
+        })
+    ));
+}
+
+#[test]
+fn test_toml_parser_depth_tracks_inline_and_array_tables() {
+    let inline = TomlConfigSource::builder()
+        .content("inline = { a = { b = 1 } }\n")
+        .limits(SourceLimits::builder().max_parser_nesting_depth(8).build())
+        .build();
+    assert_eq!(inline.load().unwrap().get::<i64>("inline.a.b").unwrap(), 1);
+
+    let inline_too_deep = TomlConfigSource::builder()
+        .content("inline = { a = { b = 1 } }\n")
+        .limits(SourceLimits::builder().max_parser_nesting_depth(7).build())
+        .build();
+    assert!(matches!(
+        inline_too_deep.load(),
+        Err(ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::ParserNestingDepth,
+            limit: 7,
+            observed_at_least: 8,
+            ..
+        })
+    ));
+
+    let array_table = TomlConfigSource::builder()
+        .content("[[a.b]]\n")
+        .limits(SourceLimits::builder().max_parser_nesting_depth(3).build())
+        .build();
+    assert!(matches!(
+        array_table.load(),
+        Err(ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::ParserNestingDepth,
+            limit: 3,
+            observed_at_least: 4,
+            ..
+        })
+    ));
+}
+
+#[test]
+fn test_toml_parser_depth_ignores_value_punctuation_and_quoted_key_dots() {
+    let content = concat!(
+        "\"quoted.dot\" = 1 # [ { (\n",
+        "text = \"\"\"brackets: [ { } ]\nparentheses: ( )\"\"\"\n",
+        "ratio = 1.25\n",
+        "when = 2026-11-01T12:30:00Z\n",
+    );
+    let source = TomlConfigSource::builder()
+        .content(content)
+        .limits(SourceLimits::builder().max_parser_nesting_depth(2).build())
+        .build();
+    let config = source
+        .load()
+        .expect("text, comments, float and datetime punctuation is not structural nesting");
+    assert_eq!(config.get::<i64>("quoted.dot").unwrap(), 1);
+    assert_eq!(config.get::<f64>("ratio").unwrap(), 1.25);
+}
+
+#[test]
+fn test_toml_parser_syntax_error_does_not_expose_input() {
+    let secret = "parser-secret-value";
+    let source = TomlConfigSource::from_content(format!("value = '{secret}'\nother = ["));
+    let error = source.load().expect_err("malformed TOML must fail");
+    assert!(matches!(error, ConfigError::SourceParseError { .. }));
+    assert!(!error.to_string().contains(secret));
+}
+
+#[test]
 fn toml_builder_default_loads_configured_content() {
     let builder_default: fn() -> TomlConfigSourceBuilder = Default::default;
     let source = std::hint::black_box(builder_default)()

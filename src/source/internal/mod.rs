@@ -10,5 +10,9 @@ pub(super) mod cumulative_dimension;
 #[cfg(feature = "env-file")]
 pub(super) mod dotenv_line_state;
 pub(super) mod source_load_budget;
+#[cfg(feature = "toml")]
+pub(super) mod toml_parser_depth;
+#[cfg(feature = "toml")]
+pub(super) mod toml_parser_guard;
 #[cfg(feature = "yaml")]
 pub(super) mod yaml_alias_guard;
