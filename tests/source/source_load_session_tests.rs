@@ -455,3 +455,38 @@ fn test_parser_depth_reports_rejecting_scope() {
         .load()
         .expect("parser depth is checked per input, not accumulated");
 }
+
+#[test]
+fn test_parser_budget_failure_preserves_merged_config() {
+    let source = ParserAccountingSource {
+        source_id: "limited parser",
+        tokens: 1,
+        depth: 0,
+        limits: SourceLimits::builder().max_parser_tokens(0).build(),
+    };
+    let mut config = Config::new();
+    config
+        .set("existing", "kept")
+        .expect("initial value should be valid");
+
+    let error = config
+        .merge_properties_from_source(&source)
+        .expect_err("parser token budget should reject the source");
+
+    assert!(matches!(
+        error,
+        qubit_config::ConfigError::SourceLimitExceeded {
+            kind: qubit_config::source::SourceLimitKind::ParserTokenCount,
+            limit: 0,
+            observed_at_least: 1,
+            ..
+        }
+    ));
+    assert_eq!(
+        config
+            .get::<String>("existing")
+            .expect("existing value should remain"),
+        "kept"
+    );
+    assert_eq!(config.len(), 1);
+}
