@@ -146,13 +146,13 @@ impl Config {
     /// std::fs::remove_file(&path).unwrap();
     /// # }
     /// ```
-    #[inline]
     /// Loading uses the standard context executor and calls `load_into`; an
     /// override of `ConfigSource::load` is not invoked. Move custom loading
     /// behavior into `load_into`. A final-property conflict while merging the
     /// loaded layer is reported as [`ConfigError::SourcePropertyIsFinal`] with
     /// the incoming source identifier. Errors raised while loading retain
     /// their original classification.
+    #[inline]
     pub fn merge_properties_from_source(&mut self, source: &dyn ConfigSource) -> ConfigResult<()> {
         let layer = load_source(source)?;
         self.merge_properties(layer).map_err(|error| match error {

@@ -50,6 +50,15 @@ the leaf source in nested composites). Direct `Config::set` continues to return
 `InvalidKey` without source context. Budget checks and charges occur before
 assignment validation.
 
+The five text and composite source builders accept an optional `label`. A
+nonempty label is used verbatim as the diagnostic source identifier; an empty
+label restores the prior default, and the last call wins regardless of
+`file`/`content` call order. Labels need not be unique and must not contain
+secrets. They are diagnostic metadata only: they are not persisted and do not
+change Wire V1, source order, final protection, or budget accounting. In nested
+loads, `source_id()` identifies the charging leaf while `source_budget_id()`
+identifies the local or aggregate scope that rejected the charge.
+
 `PropertiesConfigSource`, `EnvConfigSource`, and `CompositeConfigSource` are
 always available. TOML, YAML, and `.env` adapters are feature-gated. A composite
 loads children in insertion order and merges each completed child layer into its
@@ -88,6 +97,14 @@ Defaults apply only when a property is absent or effectively missing under the
 active string policy. They do not hide conversion failures. An explicit empty
 collection remains present. Candidate-key reads inspect names in caller-supplied
 order, while section reads resolve only relative keys beneath the section path.
+
+With `BlankStringPolicy::TreatAsMissing`, ordinary scalar blank prechecks may
+return a missing/default result before `FromConfig` starts; conversion
+`max_input_bytes` does not account for that precheck. Nonblank values enter the
+conversion operation and are subject to its byte limit. Structured deserialization
+has a separate full-input admission check before the target visitor, including
+blank members of the selected JSON value or subtree. The checks cover distinct
+resource domains; conversion input limits do not claim a strict CPU-time bound.
 
 `Config::get` remains a policy-controlled converting read. Missing errors from
 the value layer preserve `ValueMissing`, the original conversion source, and

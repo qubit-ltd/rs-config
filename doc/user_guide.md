@@ -314,6 +314,35 @@ Built-in sources include:
 - `EnvFileConfigSource`, behind `env-file`;
 - `CompositeConfigSource`, which merges other sources in order.
 
+Use `label` on a properties, TOML, YAML, `.env`, or composite builder when
+diagnostics need a stable source name. The label becomes the source identifier
+as written; it is diagnostic metadata and is not stored in configuration or
+Wire V1. Labels need not be unique, so give nested sources distinct names when
+you need to identify the rejecting budget scope. Do not include credentials or
+other secrets. An unset label preserves the existing identifier, and
+`.label("")` restores that default. The last `label` call wins, regardless of
+whether it appears before or after `file`/`content`.
+
+```rust
+use qubit_config::source::{CompositeConfigSource, PropertiesConfigSource};
+
+let defaults = PropertiesConfigSource::builder()
+    .label("defaults")
+    .content("service.port=8080")
+    .build();
+let sources = CompositeConfigSource::builder()
+    .label("service-config")
+    .add_source(defaults)
+    .build();
+```
+
+When a nested budget rejects a charge, `source_id()` identifies the leaf doing
+the work and `source_budget_id()` identifies the local source or composite
+whose limit rejected it. For example, a `leaf-b` assignment rejected by the
+`outer` composite reports `leaf-b` as the source and `outer` as the budget
+scope. Labels do not change source order, final-property checks, or budget
+accounting.
+
 The properties parser follows the Java properties escape dialect. It decodes
 `\t`, `\n`, `\r`, `\f`, escaped separators and spaces, valid `\uXXXX` UTF-16
 code units, and valid surrogate pairs. Malformed or incomplete Unicode escapes
@@ -722,6 +751,27 @@ fn main() -> Result<(), qubit_config::ConfigError> {
 ```
 
 `ReadPolicy` groups string blank handling, boolean literals, collection splitting, numeric conversion, duration conversion, and interpolation limits. Use its builder methods when the application needs a stricter or different policy. Passing a complete `StringConversionPolicy` or `CollectionConversionPolicy` installs that nested policy unchanged; the leaf-level `blank_string_policy` and `empty_item_policy` setters change only their respective nested setting. The conversion option types are supplied by `qubit-datatype`; applications that configure those lower-level options directly should depend on that crate as well.
+
+`ConversionOperationLimits::max_input_bytes` limits input admitted to a
+conversion operation. With `BlankStringPolicy::TreatAsMissing`, an ordinary
+scalar blank-string precheck may return `None` or a default before invoking
+`FromConfig`; that precheck is not charged against the conversion input-byte
+limit. A nonblank value proceeds to conversion and is subject to that limit.
+This does not place a strict time bound on prechecks. Structured reads use a
+separate admission boundary: the complete selected JSON value or subtree is
+checked before target deserialization, including blank string members. These
+are distinct resource domains; a structured input-byte rejection does not
+imply that ordinary optional reads reject the same blank scalar.
+
+This boundary also depends on the stored shape. A scalar string collection
+such as `[" "]` enters element conversion, so a missing-value policy can
+produce an indexed missing/value error; an explicitly empty collection remains
+valid. Interpolated reads precheck both the original blank text and text that
+becomes blank after expansion, while interpolation expansion limits still
+apply. For structured reads, exact JSON properties and dotted subtrees are
+both admitted as complete inputs before deserialization; with a sufficient
+input budget, an exact `Option<String>` field containing whitespace reports
+missing, while the equivalent dotted subtree can yield `None`.
 
 ### Interpolate explicitly
 

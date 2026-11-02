@@ -44,20 +44,20 @@ regions 必须高于 85%。sidecar 下限只应用于明确列出的指标，并
 在普通阈值的精确等号处，lines 和 regions 仍须使用 override，因为其普通规则是严格大于（`>`）；
 functions 正好为 95% 时已满足普通规则（`>=`），不计为活跃例外。
 
-完整测量源码基线为 `working tree based on HEAD 452d3d77e9d4b37666946a9bb9eb31f322b2fd4f; RSC-101 TOML/YAML parser admission and RSC-102 structured diagnostic path changes were present`。
-固定的 TOML 源码 SHA-256 为 `ddf50ca7e93037395f6aea19409a775bcf197aefcb05ea828ef3493dd0777355`；
-YAML 源码 SHA-256 为 `d2057642031b34f94f38b8a315cafbf2e9b52b0a0e7871bdaa965cee346d7306`。
-TOML 和 YAML 在 `2026-11-01T16:33:00Z` 使用 `cargo-llvm-cov 0.8.6`、Rust 1.94.0、LLVM 21.1.8，
-通过 `./scripts/check-project-coverage.sh` 一起测量。测量工作树基于 HEAD
-`452d3d77e9d4b37666946a9bb9eb31f322b2fd4f`，包含 RSC-101 TOML/YAML 解析准入和 RSC-102
-结构化诊断改动。各源码 SHA-256 分别固定在 sidecar 中。TOML 精确下限反映防御性的 Config
-写入错误处理，以及用于证明解析准入拒绝输入时 backend 不会被调用的回调。YAML 仅保留
-functions 下限，其 lines 和 regions 达到正常门槛。
+完整测量源码基线为 `task worktree based on c8bd18f82f7189a8a6638cb441733e4d170f6407; RSC-201 source labels and source-id propagation were included in this report`。
+固定的 TOML 源码 SHA-256 为 `fe9e1febe3bd7f5a4121802f39868f1df36e5bb35cef79a516443560e2e7c2c9`；
+YAML 源码 SHA-256 为 `4c2ef991bc399c38b4c9c28ee56254571595d42e0bf906591349eb4c460e9577`。
+TOML 和 YAML 在 `2026-11-02T00:37:50Z` 使用 `cargo-llvm-cov 0.8.6`、Rust 1.94.0、LLVM 21.1.8，
+通过 `./scripts/check-project-coverage.sh` 一起测量。测量任务工作树基于 HEAD
+`c8bd18f82f7189a8a6638cb441733e4d170f6407`，包含 RSC-201 来源标签和 source-id 归因。
+各源码 SHA-256 分别固定在 sidecar 中。TOML 精确下限反映防御性的 Config 写入错误处理，
+以及用于证明解析准入拒绝输入时 backend 不会被调用的回调。YAML 仅保留 functions 下限，
+其 lines 和 regions 达到正常门槛。
 
 | 文件 | Functions | Lines | Regions | 生效下限 |
 | --- | ---: | ---: | ---: | --- |
-| `src/source/toml_config_source.rs` | 73.17% (30/41) | 93.38% (254/272) | 85.85% (467/544) | functions >= 73.17073170731707; regions >= 85.84558823529412 |
-| `src/source/yaml_config_source.rs` | 80.85% (38/47) | 94.82% (311/328) | 90.51% (582/643) | functions >= 80.85106382978722 |
+| `src/source/toml_config_source.rs` | 73.81% (31/42) | 93.41% (255/273) | 85.90% (469/546) | functions >= 73.17073170731707; regions >= 85.84558823529412 |
+| `src/source/yaml_config_source.rs` | 81.25% (39/48) | 95.14% (313/329) | 90.70% (585/645) | functions >= 80.85106382978722 |
 
 sidecar 为每个有 override 的文件记录三项指标的完整精度百分比及 covered/count。仅展示百分比保留两位小数，
 生效下限按 JSON 数值及 `>=` 判断；达到正常门槛的指标不设置 override。此前移除的六个旧例外继续保持移除：

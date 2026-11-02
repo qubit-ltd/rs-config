@@ -52,23 +52,23 @@ their normal rules are strict (`>`); functions at exactly 95% meet their normal
 rule (`>=`) and do not count as an active exception.
 
 The sidecar stores per-file evidence. The exact measured source baseline is
-`working tree based on HEAD 452d3d77e9d4b37666946a9bb9eb31f322b2fd4f; RSC-101 TOML/YAML parser admission and RSC-102 structured diagnostic path changes were present`.
-The pinned TOML source SHA-256 is `ddf50ca7e93037395f6aea19409a775bcf197aefcb05ea828ef3493dd0777355`;
-the YAML source SHA-256 is `d2057642031b34f94f38b8a315cafbf2e9b52b0a0e7871bdaa965cee346d7306`.
+`task worktree based on c8bd18f82f7189a8a6638cb441733e4d170f6407; RSC-201 source labels and source-id propagation were included in this report`.
+The pinned TOML source SHA-256 is `fe9e1febe3bd7f5a4121802f39868f1df36e5bb35cef79a516443560e2e7c2c9`;
+the YAML source SHA-256 is `4c2ef991bc399c38b4c9c28ee56254571595d42e0bf906591349eb4c460e9577`.
 TOML and YAML were measured together at
-`2026-11-01T16:33:00Z` with `cargo-llvm-cov 0.8.6`, Rust 1.94.0, and LLVM
-21.1.8, using `./scripts/check-project-coverage.sh`. The measured working tree
-was based on HEAD `452d3d77e9d4b37666946a9bb9eb31f322b2fd4f` and included the
-RSC-101 TOML/YAML parser admission and RSC-102 structured diagnostic changes.
-The source SHA-256 values are pinned separately in the sidecar. TOML's exact
-lower bounds reflect defensive Config write-error paths and backend callbacks
-that must remain uncalled when parser admission rejects input. YAML retains a
-function-only lower bound; its lines and regions meet the normal thresholds.
+`2026-11-02T00:37:50Z` with `cargo-llvm-cov 0.8.6`, Rust 1.94.0, and LLVM
+21.1.8, using `./scripts/check-project-coverage.sh`. The measured task worktree
+was based on HEAD `c8bd18f82f7189a8a6638cb441733e4d170f6407` and included
+RSC-201 source labels and source-id propagation. The source SHA-256 values are
+pinned separately in the sidecar. TOML's exact lower bounds reflect defensive
+Config write-error paths and backend callbacks that must remain uncalled when
+parser admission rejects input. YAML retains a function-only lower bound; its
+lines and regions meet the normal thresholds.
 
 | File | Functions | Lines | Regions | Active minimums |
 | --- | ---: | ---: | ---: | --- |
-| `src/source/toml_config_source.rs` | 73.17% (30/41) | 93.38% (254/272) | 85.85% (467/544) | functions >= 73.17073170731707; regions >= 85.84558823529412 |
-| `src/source/yaml_config_source.rs` | 80.85% (38/47) | 94.82% (311/328) | 90.51% (582/643) | functions >= 80.85106382978722 |
+| `src/source/toml_config_source.rs` | 73.81% (31/42) | 93.41% (255/273) | 85.90% (469/546) | functions >= 73.17073170731707; regions >= 85.84558823529412 |
+| `src/source/yaml_config_source.rs` | 81.25% (39/48) | 95.14% (313/329) | 90.70% (585/645) | functions >= 80.85106382978722 |
 
 The sidecar records full-precision measured percentages and covered/count
 counters for all three metrics per overridden file. Only displayed percentages

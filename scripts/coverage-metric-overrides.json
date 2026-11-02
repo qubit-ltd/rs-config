@@ -6,29 +6,29 @@
         "functions": 73.17073170731707,
         "regions": 85.84558823529412
       },
-      "reason": "The current full report includes parser admission and safe diagnostic regressions. Remaining source-owned gaps are defensive Config write-error fallbacks and deliberately uninvoked backend callbacks used to prove token/depth rejection happens before parsing; these paths are outside business branch selection. Keep the exact measured lower bounds and source hash pinned.",
+      "reason": "The regenerated full default-feature report includes TOML parser admission, safe diagnostic regressions, and RSC-201 label/error-attribution tests. Remaining gaps are defensive Config write-error fallbacks and backend callbacks deliberately not invoked when token/depth admission rejects parsing; these are outside normal business branch selection. Retain the existing measured floors and pin the current source hash.",
       "evidence": {
-        "generated_at": "2026-11-01T16:33:00Z",
+        "generated_at": "2026-11-02T00:37:50Z",
         "cargo_llvm_cov": "cargo-llvm-cov 0.8.6",
         "rust_llvm": "rustc 1.94.0 (4a4ef493e 2026-03-02), LLVM 21.1.8",
         "command": "./scripts/check-project-coverage.sh",
-        "source_baseline": "working tree based on HEAD 452d3d77e9d4b37666946a9bb9eb31f322b2fd4f; RSC-101 TOML/YAML parser admission and RSC-102 structured diagnostic path changes were present",
-        "source_sha256": "ddf50ca7e93037395f6aea19409a775bcf197aefcb05ea828ef3493dd0777355",
+        "source_baseline": "task worktree based on c8bd18f82f7189a8a6638cb441733e4d170f6407; RSC-201 source labels and source-id propagation were included in this report",
+        "source_sha256": "fe9e1febe3bd7f5a4121802f39868f1df36e5bb35cef79a516443560e2e7c2c9",
         "metrics": {
           "functions": {
-            "covered": 30,
-            "count": 41,
-            "percent": 73.17073170731707
+            "covered": 31,
+            "count": 42,
+            "percent": 73.80952380952381
           },
           "lines": {
-            "covered": 254,
-            "count": 272,
-            "percent": 93.38235294117648
+            "covered": 255,
+            "count": 273,
+            "percent": 93.4065934065934
           },
           "regions": {
-            "covered": 467,
-            "count": 544,
-            "percent": 85.84558823529412
+            "covered": 469,
+            "count": 546,
+            "percent": 85.8974358974359
           }
         }
       }
@@ -37,29 +37,29 @@
       "minimums": {
         "functions": 80.85106382978722
       },
-      "reason": "The current full report includes pre-backend scanner/depth admission and safe diagnostic regressions. Remaining source-owned function attribution gaps are defensive nested-sequence and backend/scanner fallback paths; observable token/depth limits, supported scalar conversions, aliases, and redaction are covered. Keep only the measured function lower bound and source hash pinned.",
+      "reason": "The regenerated full default-feature report includes YAML pre-backend scanner/depth admission, safe diagnostic regressions, and RSC-201 label/error-attribution tests. Remaining gaps are defensive nested-sequence and backend/scanner fallback paths; observable token/depth limits, supported scalar conversions, aliases, and redaction are covered. Retain the existing measured function floor and pin the current source hash.",
       "evidence": {
-        "generated_at": "2026-11-01T16:33:00Z",
+        "generated_at": "2026-11-02T00:37:50Z",
         "cargo_llvm_cov": "cargo-llvm-cov 0.8.6",
         "rust_llvm": "rustc 1.94.0 (4a4ef493e 2026-03-02), LLVM 21.1.8",
         "command": "./scripts/check-project-coverage.sh",
-        "source_baseline": "working tree based on HEAD 452d3d77e9d4b37666946a9bb9eb31f322b2fd4f; RSC-101 TOML/YAML parser admission and RSC-102 structured diagnostic path changes were present",
-        "source_sha256": "d2057642031b34f94f38b8a315cafbf2e9b52b0a0e7871bdaa965cee346d7306",
+        "source_baseline": "task worktree based on c8bd18f82f7189a8a6638cb441733e4d170f6407; RSC-201 source labels and source-id propagation were included in this report",
+        "source_sha256": "4c2ef991bc399c38b4c9c28ee56254571595d42e0bf906591349eb4c460e9577",
         "metrics": {
           "functions": {
-            "covered": 38,
-            "count": 47,
-            "percent": 80.85106382978722
+            "covered": 39,
+            "count": 48,
+            "percent": 81.25
           },
           "lines": {
-            "covered": 311,
-            "count": 328,
-            "percent": 94.81707317073169
+            "covered": 313,
+            "count": 329,
+            "percent": 95.13677811550151
           },
           "regions": {
-            "covered": 582,
-            "count": 643,
-            "percent": 90.51321928460342
+            "covered": 585,
+            "count": 645,
+            "percent": 90.69767441860466
           }
         }
       }

@@ -266,6 +266,29 @@ fn main() -> Result<(), qubit_config::ConfigError> {
 - 由 `env-file` feature 启用的 `EnvFileConfigSource`；
 - 按顺序合并其他配置源的 `CompositeConfigSource`。
 
+需要让诊断显示稳定来源名称时，可在 properties、TOML、YAML、`.env` 或组合配置源的
+builder 上调用 `label`。标签会原样成为来源标识，只用于诊断，不会写入配置或 Wire V1。
+标签不要求唯一；如果需要分辨具体预算层，请为嵌套来源分别命名。不要把凭据或其他秘密放进
+标签。省略标签会保留原有标识，`.label("")` 会恢复默认值。无论 `label` 放在 `file`／`content`
+之前还是之后，最后一次调用都会生效。
+
+```rust
+use qubit_config::source::{CompositeConfigSource, PropertiesConfigSource};
+
+let defaults = PropertiesConfigSource::builder()
+    .label("defaults")
+    .content("service.port=8080")
+    .build();
+let sources = CompositeConfigSource::builder()
+    .label("service-config")
+    .add_source(defaults)
+    .build();
+```
+
+嵌套预算拒绝扣费时，`source_id()` 指向正在处理数据的叶子来源，`source_budget_id()` 指向
+拒绝该扣费的局部来源或组合来源。例如 `leaf-b` 的赋值被 `outer` 组合来源拒绝时，来源标识是
+`leaf-b`，预算作用域是 `outer`。标签不会改变来源顺序、final 校验或预算记账。
+
 properties 解析器遵循 Java properties 的转义规则。它会解码
 `\t`、`\n`、`\r`、`\f`、被转义的分隔符和空格、合法的 `\uXXXX`
 UTF-16 code unit 以及合法的 surrogate pair。像 `\u12G4` 这样错误或
@@ -651,6 +674,19 @@ fn main() -> Result<(), qubit_config::ConfigError> {
 ```
 
 `ReadPolicy` 组合控制字符串空白处理、布尔字面量、集合拆分、数值转换、Duration 转换和插值限制。应用可以使用 builder 方法选择更严格或不同的策略。传入完整的 `StringConversionPolicy` 或 `CollectionConversionPolicy` 时，该嵌套策略会原样替换；叶级 `blank_string_policy` 和 `empty_item_policy` setter 只修改各自对应的嵌套设置。底层转换选项类型由 `qubit-datatype` 提供；如果应用直接配置这些低层选项，也应直接依赖该 crate。
+
+`ConversionOperationLimits::max_input_bytes` 限制进入一次转换操作的输入。使用
+`BlankStringPolicy::TreatAsMissing` 时，普通标量空白值可能在调用 `FromConfig` 前就被预检查为
+`None` 或默认值；这个预检查不计入转换输入字节预算。非空白值会进入转换并受该预算约束。
+这不表示预检查的 CPU 时间有严格上限。结构化读取有独立的准入边界：完整选中的 JSON 值或子树会在
+目标反序列化前检查，包括其中的空白字符串成员。这属于不同资源域；结构化输入字节预算拒绝某个
+对象，不代表普通可选读取也会拒绝相同的空白标量。
+
+存储形态也会影响结果。像 `[" "]` 这样的字符串集合会进入逐项转换，因此缺失策略可能返回带元素
+索引的 missing/value 错误；显式空集合仍可成功。插值读取会预检查原始空白文本以及展开后变成空白的
+文本，但插值展开次数等限制仍然生效。结构化读取会先对完整输入准入，无论输入来自精确 JSON 属性还是
+点分子树。预算足够时，精确属性中的空白 `Option<String>` 字段报告缺失，而对应的点分子树可以得到
+`None`。
 
 ### 显式执行插值
 
