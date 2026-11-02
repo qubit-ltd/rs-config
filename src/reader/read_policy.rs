@@ -206,3 +206,20 @@ impl From<ConversionPolicy> for ReadPolicy {
         Self::builder().conversion_policy(conversion_policy).build()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use qubit_datatype::ConversionPolicy;
+
+    use super::ReadPolicy;
+
+    #[test]
+    fn conversion_traits_preserve_policy_values() {
+        let policy = ReadPolicy::default();
+        let conversion_policy: &ConversionPolicy = policy.as_ref();
+        assert_eq!(conversion_policy, policy.conversion_policy());
+
+        let converted = ReadPolicy::from(ConversionPolicy::env_friendly());
+        assert_eq!(converted.conversion_policy(), &ConversionPolicy::env_friendly());
+    }
+}

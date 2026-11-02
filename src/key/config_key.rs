@@ -109,3 +109,18 @@ impl AsRef<str> for ConfigKey {
         self.as_str()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ConfigKey;
+
+    #[test]
+    fn deserialize_validates_and_preserves_key_text() {
+        let key: ConfigKey = serde_json::from_str("\"server.port\"").unwrap();
+        assert_eq!(key.as_str(), "server.port");
+        assert_eq!(key.as_ref(), "server.port");
+
+        let error = serde_json::from_str::<ConfigKey>("\"server..port\"").unwrap_err();
+        assert!(error.to_string().contains("empty segment"));
+    }
+}

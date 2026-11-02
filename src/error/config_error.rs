@@ -687,3 +687,38 @@ impl From<(&str, ValueError)> for ConfigError {
 ///
 /// Used for operations that can return a [`ConfigError`].
 pub type ConfigResult<T> = Result<T, ConfigError>;
+
+#[cfg(test)]
+mod tests {
+    use qubit_datatype::DataConversionError;
+    use qubit_datatype::DataType;
+    use qubit_datatype::InvalidValueReason;
+
+    use super::ConfigError;
+
+    #[test]
+    fn context_accessors_cover_empty_and_indexed_cases() {
+        let no_candidates = ConfigError::PropertyCandidatesNotFound { paths: Vec::new() };
+        assert_eq!(no_candidates.path(), None);
+
+        let multiple_unknown = ConfigError::UnknownProperties {
+            paths: vec!["first".to_string(), "second".to_string()],
+        };
+        assert_eq!(multiple_unknown.path(), None);
+
+        let indexed_parse = ConfigError::SourceParseError {
+            source_id: "memory:test".to_string(),
+            path: None,
+            source_index: Some(2),
+            message: "invalid element at source index 2".to_string(),
+        };
+        assert_eq!(indexed_parse.path(), None);
+        assert_eq!(indexed_parse.source_index(), Some(2));
+
+        let invalid_value = ConfigError::from_data_conversion_error(
+            "value",
+            DataConversionError::invalid(DataType::String, DataType::Bool, InvalidValueReason::InvalidBoolean),
+        );
+        assert_eq!(invalid_value.source_index(), None);
+    }
+}

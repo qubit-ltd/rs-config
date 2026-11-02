@@ -359,3 +359,17 @@ impl Config {
         self.properties.keys().cloned().collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Config;
+
+    #[test]
+    fn len_reports_the_number_of_properties() {
+        let mut config = Config::new();
+        assert_eq!(config.len(), 0);
+        config.set("server.port", 8080).unwrap();
+        config.set("server.host", "localhost").unwrap();
+        assert_eq!(config.len(), 2);
+    }
+}
