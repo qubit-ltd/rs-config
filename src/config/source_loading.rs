@@ -154,7 +154,15 @@ impl Config {
     /// Returns [`crate::ConfigError::SourceIoError`] if the file cannot be
     /// read, [`crate::ConfigError::SourceParseError`] if the TOML cannot be
     /// parsed, or another [`crate::ConfigError`] if setting a loaded
-    /// property fails.
+    /// property fails. Returns [`crate::ConfigError::SourceLimitExceeded`] if
+    /// loading exceeds an input-byte, node, assignment, semantic-depth,
+    /// parser-token, or parser-depth limit.
+    ///
+    /// This convenience method always uses
+    /// [`crate::source::SourceLimits::default`]. To customize limits, configure
+    /// the file and limits through [`TomlConfigSource::builder`] and
+    /// [`crate::source::SourceLimitsBuilder`], then load the source with
+    /// [`Self::from_source`] or [`Self::merge_properties_from_source`].
     #[cfg(feature = "toml")]
     #[inline]
     pub fn from_toml_file<P: AsRef<Path>>(path: P) -> ConfigResult<Self> {
@@ -177,7 +185,15 @@ impl Config {
     /// Returns [`crate::ConfigError::SourceIoError`] if the file cannot be
     /// read, [`crate::ConfigError::SourceParseError`] if the YAML cannot be
     /// parsed, or another [`crate::ConfigError`] if setting a loaded
-    /// property fails.
+    /// property fails. Returns [`crate::ConfigError::SourceLimitExceeded`] if
+    /// loading exceeds an input-byte, node, assignment, semantic-depth,
+    /// parser-token, or parser-depth limit.
+    ///
+    /// This convenience method always uses
+    /// [`crate::source::SourceLimits::default`]. To customize limits, configure
+    /// the file and limits through [`YamlConfigSource::builder`] and
+    /// [`crate::source::SourceLimitsBuilder`], then load the source with
+    /// [`Self::from_source`] or [`Self::merge_properties_from_source`].
     #[cfg(feature = "yaml")]
     #[inline]
     pub fn from_yaml_file<P: AsRef<Path>>(path: P) -> ConfigResult<Self> {
@@ -199,7 +215,14 @@ impl Config {
     ///
     /// Returns [`crate::ConfigError::SourceIoError`] if the file cannot be
     /// read, or another [`crate::ConfigError`] if setting a loaded property
-    /// fails.
+    /// fails. Returns [`crate::ConfigError::SourceLimitExceeded`] if loading
+    /// exceeds an input-byte, node, assignment, or semantic-depth limit.
+    ///
+    /// This convenience method always uses
+    /// [`crate::source::SourceLimits::default`]. To customize limits, configure
+    /// the file and limits through [`PropertiesConfigSource::builder`] and
+    /// [`crate::source::SourceLimitsBuilder`], then load the source with
+    /// [`Self::from_source`] or [`Self::merge_properties_from_source`].
     #[inline]
     pub fn from_properties_file<P: AsRef<Path>>(path: P) -> ConfigResult<Self> {
         let source = PropertiesConfigSource::from_file(path);
@@ -221,7 +244,15 @@ impl Config {
     /// Returns [`crate::ConfigError::SourceIoError`] if the file cannot be
     /// read, [`crate::ConfigError::SourceParseError`] if dotenv parsing
     /// fails, or another [`crate::ConfigError`] if setting a loaded
-    /// property fails.
+    /// property fails. Returns [`crate::ConfigError::SourceLimitExceeded`] if
+    /// loading exceeds an input-byte, node, assignment, or semantic-depth
+    /// limit.
+    ///
+    /// This convenience method always uses
+    /// [`crate::source::SourceLimits::default`]. To customize limits, configure
+    /// the file and limits through [`EnvFileConfigSource::builder`] and
+    /// [`crate::source::SourceLimitsBuilder`], then load the source with
+    /// [`Self::from_source`] or [`Self::merge_properties_from_source`].
     #[cfg(feature = "env-file")]
     #[inline]
     pub fn from_env_file<P: AsRef<Path>>(path: P) -> ConfigResult<Self> {
