@@ -14,6 +14,7 @@ use std::time::Duration;
 use qubit_config::Config;
 use qubit_config::ConfigDeserializeOptions;
 use qubit_config::UnknownFieldPolicy;
+use qubit_config::conversion::ConfigSerdeExt;
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -117,4 +118,80 @@ fn structured_deserialization_corpus_seeds_reach_their_expected_shapes() {
         assert_eq!(interpolated.unsigned, None);
         assert_eq!(interpolated.timeout, None);
     }
+}
+
+#[test]
+fn structured_deserialization_accepts_equivalent_exact_and_dotted_shapes() {
+    let expected_value = serde_json::json!({
+        "signed": -7,
+        "unsigned": 42,
+        "timeout": {"secs": 2, "nanos": 3},
+        "mode": "Fast",
+        "label": "sample",
+    });
+    let expected_typed: TypedConfig =
+        serde_json::from_value(expected_value.clone()).expect("typed expected value should deserialize");
+
+    let mut dotted = Config::new();
+    dotted.set("case.signed", -7_i64).expect("set signed value");
+    dotted.set("case.unsigned", 42_u64).expect("set unsigned value");
+    dotted
+        .set("case.timeout", expected_value["timeout"].clone())
+        .expect("set timeout object");
+    dotted.set("case.mode", "Fast").expect("set mode value");
+    dotted.set("case.label", "sample").expect("set label value");
+
+    let mut root = Config::new();
+    root.set("signed", -7_i64).expect("set root signed value");
+    root.set("unsigned", 42_u64).expect("set root unsigned value");
+    root.set("timeout", expected_value["timeout"].clone())
+        .expect("set root timeout object");
+    root.set("mode", "Fast").expect("set root mode value");
+    root.set("label", "sample").expect("set root label value");
+
+    let mut exact = Config::new();
+    exact
+        .set("case", expected_value.clone())
+        .expect("set exact structured property");
+
+    assert_eq!(
+        dotted.deserialize::<Value>("case").expect("read dotted shape"),
+        expected_value,
+    );
+    assert_eq!(
+        dotted
+            .section("case")
+            .expect("select dotted section")
+            .deserialize::<Value>("")
+            .expect("read dotted section"),
+        expected_value,
+    );
+    assert_eq!(
+        dotted
+            .deserialize_with::<Value>("case", options(true))
+            .expect("read interpolated dotted shape"),
+        expected_value,
+    );
+    assert_eq!(root.deserialize::<Value>("").expect("read root fields"), expected_value,);
+    assert_eq!(
+        root.deserialize_with::<Value>("", options(true))
+            .expect("read interpolated root fields"),
+        expected_value,
+    );
+    assert_eq!(
+        dotted
+            .deserialize_with::<TypedConfig>("case", options(false))
+            .expect("read typed dotted shape"),
+        expected_typed,
+    );
+    assert_eq!(
+        exact.deserialize::<Value>("case").expect("read exact property"),
+        expected_value,
+    );
+    assert_eq!(
+        exact
+            .deserialize_with::<TypedConfig>("case", options(false))
+            .expect("read typed exact property"),
+        expected_typed,
+    );
 }
