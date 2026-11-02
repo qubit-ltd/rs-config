@@ -12,8 +12,6 @@
 //! value succeeds. Typed-float errors are replaced with safe summaries; only
 //! errors recorded by this seed's checked callbacks are retained.
 
-use std::collections::HashSet;
-
 use qubit_budget::json::JsonContainerKind;
 use qubit_budget::json::JsonMeasurement;
 use qubit_budget::json::JsonResource;
@@ -283,7 +281,6 @@ impl<'de, 'transaction, 'budget> Visitor<'de> for AccountingUniqueJsonValueSeed<
             .try_enter_container(JsonContainerKind::Map, self.depth)
             .map_err(A::Error::custom)?;
         let mut values = Map::new();
-        let mut seen = HashSet::new();
         let mut entries = 0_usize;
         while let Some(key) = map.next_key::<String>()? {
             let Some(next) = entries.checked_add(1) else {
@@ -292,7 +289,7 @@ impl<'de, 'transaction, 'budget> Visitor<'de> for AccountingUniqueJsonValueSeed<
             self.transaction
                 .check_container_count(JsonContainerKind::Map, next)
                 .map_err(A::Error::custom)?;
-            if !seen.insert(key.clone()) {
+            if values.contains_key(&key) {
                 return Err(A::Error::custom("duplicate JSON object key"));
             }
             self.transaction

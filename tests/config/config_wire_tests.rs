@@ -1419,6 +1419,32 @@ fn test_ordinary_deserialize_rejects_duplicate_property_map_keys() {
     );
 }
 
+#[test]
+fn ordinary_duplicate_key_is_rejected_before_its_value() {
+    let input = r#"{"description":null,"description":[}"#;
+    let error = from_str::<Config>(input).unwrap_err();
+    assert!(error.to_string().contains("duplicate JSON object key"));
+}
+
+#[test]
+fn nested_duplicate_key_is_rejected_and_sibling_keys_are_independent() {
+    let input = r#"{"properties":{},"read_options":{"k":1,"k":[}}"#;
+    let error = from_str::<Config>(input).unwrap_err();
+    assert!(error.to_string().contains("duplicate JSON object key"));
+
+    let input = r#"{"properties":{},"read_options":{"a":{"k":1},"b":{"k":2}}}"#;
+    drop(from_str::<Config>(input).expect("same key in separate objects is valid"));
+}
+
+#[test]
+fn key_budget_error_precedes_unread_value_syntax_error() {
+    let length = usize::try_from(ConfigWireLimits::DEFAULT_MAX_KEY_BYTES).unwrap() + 1;
+    let key = "x".repeat(length);
+    let input = format!(r#"{{"properties":{{}},"read_options":{{"{key}":[}}"#);
+    let error = from_str::<Config>(&input).unwrap_err();
+    assert!(error.to_string().contains("KeyBytes"));
+}
+
 /// Verifies matching map/property names are still rejected when the common
 /// name is not a canonical dotted key.
 #[test]
