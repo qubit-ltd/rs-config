@@ -16,7 +16,11 @@ cargo tree -i qubit-config@0.14.0
 cargo tree -i qubit-config@0.15.0
 ```
 
-请把 selector 替换为 lockfile 中实际出现的完整版本。依赖图中不存在该版本时，命令会报告找不到匹配 package；这本身不表示依赖冲突。本地 workspace 中，`rs-ioc` 和 `rs-websocket` 要求 `qubit-config` `^0.14`；`rs-http`、`rs-web`、`rs-mime` 和 `rs-magika` 的 dev-dependency 要求 `0.15`。根 crate 使用 `qubit-value` `0.13`。`^0.14` 不会自动接受 `0.15`，两个版本公开的 `Config` 或 `ConfigReader` 类型也彼此不同，不能跨版本传递。优先使用已对齐到 `0.15` 的下游 crate。如果尚无可用版本，请保留兼容的依赖组合，或另开经授权的任务迁移下游；不要使用违反依赖约束的 `patch` 强行统一版本。
+2026-11-02 核对的本地清单中，`rs-ioc` 将 `qubit-config` `^0.14` 声明为可选依赖；`rs-http`、`rs-web`、`rs-websocket`、`rs-mime` 的普通依赖指向本地 `0.15` crate，其中部分为可选依赖。`rs-magika` 另有指向相同路径和版本的开发依赖。这是本地清单快照，不代表下游已发布版本的依赖状态。
+
+本 crate 使用 `qubit-value` `0.13`。
+
+`^0.14` 不会自动接受 `0.15`，两个版本公开的 `Config` 或 `ConfigReader` 类型也彼此不同，不能跨版本传递。依赖图命令中的 selector 应替换为 lockfile 中实际出现的完整版本。优先使用已对齐到 `0.15` 的下游 crate。如果尚无可用版本，请保留兼容的依赖组合，或另开经授权的任务迁移下游；不要使用违反依赖约束的 `patch` 强行统一版本。
 
 ## 手册目标与读者
 
@@ -615,8 +619,8 @@ let maximum = reader.get_optional::<usize>("max_connections")?;
 let fallback = reader.get_or("max_connections", 1024_usize)?;
 ```
 
-`rs-websocket` 当前依赖 `qubit-config` 0.14，使用这些 API 前必须先升级到包含新 API
-的版本。本节是迁移示例，不表示本轮修改了下游仓库。
+这些示例使用 `qubit-config` 0.15 中提供的 API。仍使用 0.14 的调用方在跨 crate
+边界传递配置类型前，应先对齐依赖版本。
 
 V1 和旧版持久化都不保存运行时默认 `ReadPolicy`。带限制的 JSON 解码和普通 Serde
 反序列化都会恢复为 `ReadPolicy::default()`。`Config` 相等性只比较持久化数据，因此

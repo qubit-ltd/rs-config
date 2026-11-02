@@ -16,7 +16,11 @@ cargo tree -i qubit-config@0.14.0
 cargo tree -i qubit-config@0.15.0
 ```
 
-Replace the selectors with the exact versions shown by the lockfile. A selector for a version absent from the graph reports that no matching package was found; that does not itself indicate a dependency conflict. In the local workspace, `rs-ioc` and `rs-websocket` require `qubit-config` `^0.14`; `rs-http`, `rs-web`, `rs-mime`, and the `rs-magika` dev-dependency require `0.15`. The root crate uses `qubit-value` `0.13`. A `^0.14` constraint does not automatically admit `0.15`, and public `Config` or `ConfigReader` types from the two versions are distinct and cannot be passed across those version boundaries. Prefer downstream crates already aligned to `0.15`. If no usable version is available, retain a compatible dependency combination or handle downstream migration as a separately authorized task; do not use a `patch` that violates dependency constraints to force version unification.
+Local manifests checked on 2026-11-02: `rs-ioc` declares an optional `qubit-config` dependency on `^0.14`. The normal dependencies of `rs-http`, `rs-web`, `rs-websocket`, and `rs-mime` point to the local `0.15` crate; some are optional. `rs-magika` declares a development dependency on the same path and version. This is a local manifest snapshot, not a statement about published downstream releases.
+
+This crate uses `qubit-value` `0.13`.
+
+A `^0.14` constraint does not automatically admit `0.15`, and public `Config` or `ConfigReader` types from the two versions are distinct and cannot be passed across those version boundaries. Replace dependency-tree selectors with the exact versions shown by the lockfile. Prefer downstream crates already aligned to `0.15`. If no usable version is available, retain a compatible dependency combination or handle downstream migration as a separately authorized task; do not use a `patch` that violates dependency constraints to force version unification.
 
 ## Purpose and Audience
 
@@ -688,9 +692,9 @@ let maximum = reader.get_optional::<usize>("max_connections")?;
 let fallback = reader.get_or("max_connections", 1024_usize)?;
 ```
 
-`rs-websocket` currently depends on `qubit-config` 0.14 and must first upgrade
-that dependency to a release containing these APIs. This guide describes a
-migration pattern; it does not imply that downstream repositories are changed.
+These examples use APIs available in `qubit-config` 0.15. Callers still using
+0.14 must first align their dependency versions before passing configuration
+types across crate boundaries.
 
 Neither V1 nor legacy persistence stores the runtime default `ReadPolicy`.
 Both bounded JSON decoding and ordinary Serde deserialization restore
