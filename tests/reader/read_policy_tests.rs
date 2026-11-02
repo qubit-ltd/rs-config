@@ -10,6 +10,10 @@
 use qubit_config::Config;
 use qubit_config::ConfigError;
 use qubit_config::ConfigReader;
+use qubit_config::ConfigResult;
+use qubit_config::Property;
+use qubit_config::conversion::ConfigParseContext;
+use qubit_config::conversion::FromConfig;
 use qubit_config::options::InterpolationSources;
 use qubit_config::options::ReadPolicy;
 use qubit_config::options::ReadPolicyBuilder;
@@ -26,6 +30,173 @@ use qubit_datatype::NumericConversionLimits;
 use qubit_datatype::NumericConversionPolicy;
 use qubit_datatype::StringConversionPolicy;
 use qubit_datatype::SuffixlessDurationPolicy;
+
+thread_local! {
+    static RSC204_CONVERSION_CALLS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[derive(Debug)]
+struct Rsc204CountedString;
+
+impl FromConfig for Rsc204CountedString {
+    fn from_config(property: &Property, context: &ConfigParseContext<'_>) -> ConfigResult<Self> {
+        RSC204_CONVERSION_CALLS.with(|calls| calls.set(calls.get() + 1));
+        String::from_config(property, context).map(|_| Self)
+    }
+}
+
+fn reset_rsc204_conversion_calls() {
+    RSC204_CONVERSION_CALLS.with(|calls| calls.set(0));
+}
+
+fn rsc204_conversion_calls() -> usize {
+    RSC204_CONVERSION_CALLS.with(std::cell::Cell::get)
+}
+
+fn rsc204_policy(input_limit: u64) -> ReadPolicy {
+    ReadPolicy::builder()
+        .blank_string_policy(BlankStringPolicy::TreatAsMissing)
+        .conversion_limits(
+            ConversionLimits::builder()
+                .operation_limits(
+                    qubit_datatype::ConversionOperationLimits::builder()
+                        .max_input_bytes(input_limit)
+                        .build(),
+                )
+                .build(),
+        )
+        .build()
+}
+
+#[test]
+fn test_rsc204_blank_scalar_precheck_skips_target_conversion_and_budget() {
+    for value in ["", "                ", "\u{2003}"] {
+        for input_limit in [0, 1, value.len() as u64] {
+            let mut config = Config::new();
+            config.set("value", value).unwrap();
+            let policy = rsc204_policy(input_limit);
+            let reader = config.read_with(&policy);
+            reset_rsc204_conversion_calls();
+            assert!(reader.get_optional::<Rsc204CountedString>("value").unwrap().is_none());
+            assert_eq!(rsc204_conversion_calls(), 0);
+            reset_rsc204_conversion_calls();
+            let error = reader.get::<Rsc204CountedString>("value").unwrap_err();
+            assert_eq!(error.kind(), qubit_config::ConfigErrorKind::PropertyHasNoValue);
+            assert_eq!(error.path(), Some("value"));
+            assert_eq!(rsc204_conversion_calls(), 0);
+            assert_eq!(reader.get_or::<String>("value", "fallback").unwrap(), "fallback");
+        }
+    }
+
+    let mut config = Config::new();
+    config.set("value", "x").unwrap();
+    let policy = rsc204_policy(0);
+    let reader = config.read_with(&policy);
+    reset_rsc204_conversion_calls();
+    let error = reader
+        .get_optional::<Rsc204CountedString>("value")
+        .expect_err("non-empty input must be admitted before conversion");
+    assert_eq!(rsc204_conversion_calls(), 1);
+    assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Conversion);
+    assert!(matches!(
+        error,
+        ConfigError::ConversionError { key, source, .. }
+            if key == "value"
+                && source.resource() == Some(qubit_datatype::ConversionResource::InputBytes)
+    ));
+
+    let policy = rsc204_policy(1);
+    let reader = config.read_with(&policy);
+    reset_rsc204_conversion_calls();
+    assert!(reader.get_optional::<Rsc204CountedString>("value").is_ok());
+    assert_eq!(rsc204_conversion_calls(), 1);
+}
+
+#[test]
+fn test_rsc204_blank_alias_is_skipped_before_nonempty_candidate_conversion() {
+    for (input_limit, should_succeed) in [(0, false), (1, true)] {
+        let mut config = Config::new();
+        config.set("primary", " \t").unwrap();
+        config.set("secondary", "x").unwrap();
+        let policy = rsc204_policy(input_limit);
+        let reader = config.read_with(&policy);
+        reset_rsc204_conversion_calls();
+        let result = reader.get_optional_any::<Rsc204CountedString>(["primary", "secondary"]);
+        if should_succeed {
+            assert!(result.unwrap().is_some());
+        } else {
+            let error = result.expect_err("secondary input exceeds the conversion budget");
+            assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Conversion);
+            assert_eq!(error.path(), Some("secondary"));
+            assert!(matches!(
+                error,
+                ConfigError::ConversionError {
+                    key,
+                    source_index: None,
+                    source,
+                } if key == "secondary"
+                    && source.resource() == Some(qubit_datatype::ConversionResource::InputBytes)
+            ));
+        }
+        assert_eq!(
+            rsc204_conversion_calls(),
+            1,
+            "only the non-empty candidate should enter FromConfig",
+        );
+        let result = reader.get_any_or::<String>(["primary", "secondary"], "fallback");
+        if should_succeed {
+            assert_eq!(result.unwrap(), "x");
+        } else {
+            let error = result.expect_err("secondary input exceeds the conversion budget");
+            assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Conversion);
+            assert_eq!(error.path(), Some("secondary"));
+            assert!(matches!(
+                error,
+                ConfigError::ConversionError {
+                    key,
+                    source_index: None,
+                    source,
+                } if key == "secondary"
+                    && source.resource() == Some(qubit_datatype::ConversionResource::InputBytes)
+            ));
+        }
+    }
+
+    let mut config = Config::new();
+    config.set("items", vec![" "]).unwrap();
+    for input_limit in [0, 1] {
+        let policy = rsc204_policy(input_limit);
+        let reader = config.read_with(&policy);
+        let error = reader.get_optional::<Vec<String>>("items").unwrap_err();
+        assert_eq!(error.path(), Some("items"));
+        if input_limit == 0 {
+            assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Conversion);
+            assert!(matches!(
+                error,
+                ConfigError::ConversionError {
+                    key,
+                    source_index: Some(0),
+                    source,
+                } if key == "items"
+                    && source.resource() == Some(qubit_datatype::ConversionResource::InputBytes)
+            ));
+        } else {
+            assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Value);
+            assert!(matches!(
+                error,
+                ConfigError::ValueError {
+                    key,
+                    source: qubit_value::ValueError::Missing(missing),
+                } if key == "items" && missing.source_index() == Some(0)
+            ));
+        }
+    }
+    let mut config = Config::new();
+    config.set("items", Vec::<String>::new()).unwrap();
+    let policy = rsc204_policy(0);
+    let reader = config.read_with(&policy);
+    assert_eq!(reader.get_optional::<Vec<String>>("items").unwrap(), Some(Vec::new()));
+}
 
 #[test]
 fn test_global_env_friendly_options_parse_comma_separated_list() {

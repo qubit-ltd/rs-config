@@ -467,6 +467,99 @@ fn test_interpolated_collection_blank_policy_error_stops_candidate_fallback() {
 }
 
 #[test]
+fn test_rsc204_interpolated_blank_precheck_keeps_interpolation_budget_separate() {
+    for (raw, input_limit) in [(" \t", 0), ("${blank}", 0), ("${blank}", 1), ("${blank}", 3)] {
+        let mut config = Config::builder()
+            .default_read_policy(
+                ReadPolicy::builder()
+                    .blank_string_policy(BlankStringPolicy::TreatAsMissing)
+                    .max_interpolation_expansions(1)
+                    .conversion_limits(
+                        qubit_datatype::ConversionLimits::builder()
+                            .operation_limits(
+                                qubit_datatype::ConversionOperationLimits::builder()
+                                    .max_input_bytes(input_limit)
+                                    .build(),
+                            )
+                            .build(),
+                    )
+                    .build(),
+            )
+            .build();
+        config.set("blank", "\u{2003}").unwrap();
+        config.set("value", raw).unwrap();
+        assert_eq!(config.get_optional_interpolated::<String>("value").unwrap(), None);
+    }
+
+    let mut config = Config::builder()
+        .default_read_policy(
+            ReadPolicy::builder()
+                .blank_string_policy(BlankStringPolicy::TreatAsMissing)
+                .max_interpolation_expansions(0)
+                .conversion_limits(
+                    qubit_datatype::ConversionLimits::builder()
+                        .operation_limits(
+                            qubit_datatype::ConversionOperationLimits::builder()
+                                .max_input_bytes(0)
+                                .build(),
+                        )
+                        .build(),
+                )
+                .build(),
+        )
+        .build();
+    config.set("blank", " ").unwrap();
+    config.set("value", "${blank}").unwrap();
+    assert!(matches!(
+        config.get_optional_interpolated::<String>("value"),
+        Err(ConfigError::SubstitutionExpansionLimitExceeded { max_expansions: 0, .. })
+    ));
+}
+
+#[test]
+fn test_rsc204_interpolated_blank_candidate_skips_to_nonempty_alias() {
+    for (input_limit, should_succeed) in [(0, false), (1, true)] {
+        let limits = qubit_datatype::ConversionLimits::builder()
+            .operation_limits(
+                qubit_datatype::ConversionOperationLimits::builder()
+                    .max_input_bytes(input_limit)
+                    .build(),
+            )
+            .build();
+        let policy = ReadPolicy::builder()
+            .blank_string_policy(BlankStringPolicy::TreatAsMissing)
+            .conversion_limits(limits)
+            .build();
+        let mut config = Config::builder().default_read_policy(policy).build();
+        config.set("blank", "\u{2003}").unwrap();
+        config.set("primary", "${blank}").unwrap();
+        config.set("secondary", "x").unwrap();
+
+        let optional = config.get_optional_any_interpolated::<String>(["primary", "secondary"]);
+        let defaulted = config.get_any_interpolated_or::<String>(["primary", "secondary"], "fallback");
+        if should_succeed {
+            assert_eq!(optional.unwrap().as_deref(), Some("x"));
+            assert_eq!(defaulted.unwrap(), "x");
+        } else {
+            for result in [optional, defaulted.map(Some)] {
+                let error = result.expect_err("secondary non-empty input exceeds the conversion budget");
+                assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Conversion);
+                assert_eq!(error.path(), Some("secondary"));
+                assert!(matches!(
+                    error,
+                    ConfigError::ConversionError {
+                        key,
+                        source_index: None,
+                        source,
+                    } if key == "secondary"
+                        && source.resource() == Some(qubit_datatype::ConversionResource::InputBytes)
+                ));
+            }
+        }
+    }
+}
+
+#[test]
 fn test_get_optional_interpolated_and_or_handle_missing_values() {
     let config = Config::new();
 

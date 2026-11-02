@@ -1985,6 +1985,63 @@ fn test_tuple_lengths_and_collection_missing_are_not_silently_ignored() {
 }
 
 #[test]
+fn test_rsc204_structured_blank_field_still_requires_complete_input_admission() {
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct OptionalField {
+        value: Option<String>,
+    }
+
+    fn policy(input_limit: u64) -> ReadPolicy {
+        ReadPolicy::builder()
+            .blank_string_policy(BlankStringPolicy::TreatAsMissing)
+            .conversion_limits(
+                ConversionLimits::builder()
+                    .operation_limits(
+                        ConversionOperationLimits::builder()
+                            .max_input_bytes(input_limit)
+                            .build(),
+                    )
+                    .build(),
+            )
+            .build()
+    }
+
+    for input_limit in [0, 1, 6] {
+        let mut exact = Config::new();
+        exact.set_default_read_policy(policy(input_limit));
+        exact.set("case", serde_json::json!({"value": " "})).unwrap();
+        let exact_result = exact.deserialize::<OptionalField>("case");
+
+        let mut subtree = Config::new();
+        subtree.set_default_read_policy(policy(input_limit));
+        subtree.set("case.value", " ").unwrap();
+        let subtree_result = subtree.deserialize::<OptionalField>("case");
+
+        if input_limit < 6 {
+            for result in [exact_result, subtree_result] {
+                let error = result.expect_err("complete structured input must be admitted first");
+                assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Value);
+                assert_eq!(error.path(), Some("case.value"));
+                assert!(matches!(
+                    &error,
+                    ConfigError::ValueError { source, .. }
+                        if matches!(
+                            source,
+                            qubit_value::ValueError::JsonProjectionLimit { source, .. }
+                                if source.resource() == &qubit_datatype::ConversionResource::InputBytes
+                        )
+                ));
+            }
+        } else {
+            let error = exact_result.expect_err("blank exact structured member reports missing conversion");
+            assert!(error.value_missing().is_some());
+            assert_eq!(error.path(), Some("case.value"));
+            assert_eq!(subtree_result.unwrap(), OptionalField { value: None });
+        }
+    }
+}
+
+#[test]
 fn tuple_diagnostics_report_known_native_and_scalar_lengths() -> ConfigResult<()> {
     #[derive(Debug, Deserialize)]
     #[allow(dead_code)]
