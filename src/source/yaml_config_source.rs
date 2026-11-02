@@ -160,18 +160,8 @@ impl ConfigSource for YamlConfigSource {
         let label = self.source_id();
         let content = self.input.read_to_string("YAML", session)?;
         let (has_value_tokens, value) = with_yaml_admission(&label, &content, session, || {
-            if content.trim().is_empty() {
-                return Ok(None);
-            }
-            from_str::<YamlValue>(&content)
-                .map(Some)
-                .map_err(|error| yaml_parse_error(&label, &error))
+            from_str::<YamlValue>(&content).map_err(|error| yaml_parse_error(&label, &error))
         })?;
-
-        let Some(value) = value else {
-            context.replace_layer(config);
-            return Ok(());
-        };
 
         if matches!(&value, YamlValue::Null) && !has_value_tokens {
             context.replace_layer(config);

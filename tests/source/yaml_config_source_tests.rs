@@ -46,6 +46,38 @@ fn yaml_label_applies_to_success_and_parse_errors() {
 }
 
 #[test]
+fn yaml_unicode_whitespace_root_scalars_are_rejected() {
+    for scalar in ["\u{00a0}", "\u{2003}"] {
+        for input in [
+            scalar.to_owned(),
+            format!("---\n{scalar}\n"),
+            format!("---\n{scalar}\n...\n"),
+        ] {
+            let source = YamlConfigSource::builder().content(input).label("unicode-root").build();
+            let error = source.load().expect_err("scalar root must fail");
+            assert_eq!(error.kind(), ConfigErrorKind::Parse);
+            assert_eq!(error.source_id(), Some("unicode-root"));
+            assert_eq!(error.path(), Some(""));
+            let mut target = Config::new();
+            target.set("existing", "kept").unwrap();
+            let before = target.clone();
+            assert!(target.merge_properties_from_source(&source).is_err());
+            assert_eq!(target, before);
+        }
+    }
+}
+
+#[test]
+fn yaml_mapping_preserves_unicode_whitespace_values() {
+    for value in ["\u{00a0}", "\u{2003}"] {
+        let source = YamlConfigSource::builder()
+            .content(format!("value: \"{value}\""))
+            .build();
+        assert_eq!(source.load().unwrap().get::<String>("value").unwrap(), value);
+    }
+}
+
+#[test]
 fn test_yaml_numeric_sequence_reports_first_incompatible_item() {
     for content in [
         "values: [1, -1, 2.5]",
