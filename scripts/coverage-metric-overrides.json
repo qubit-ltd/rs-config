@@ -6,14 +6,14 @@
         "functions": 73.17073170731707,
         "regions": 85.84558823529412
       },
-      "reason": "The regenerated full default-feature report includes TOML parser admission, safe diagnostic regressions, and RSC-201 label/error-attribution tests. Remaining gaps are defensive Config write-error fallbacks and backend callbacks deliberately not invoked when token/depth admission rejects parsing; these are outside normal business branch selection. Retain the existing measured floors and pin the current source hash.",
+      "reason": "The regenerated full default-feature report includes TOML parser admission, the RSC-402 string/datetime helper contract test, safe diagnostic regressions, and RSC-201 label/error-attribution tests. Remaining gaps are defensive Config write-error fallbacks and backend callbacks deliberately not invoked when token/depth admission rejects parsing; these are outside normal business branch selection. Retain the existing measured floors and pin the current source hash.",
       "evidence": {
-        "generated_at": "2026-11-02T06:02:26Z",
+        "generated_at": "2026-11-02T09:39:59Z",
         "cargo_llvm_cov": "cargo-llvm-cov 0.8.6",
         "rust_llvm": "rustc 1.94.0 (4a4ef493e 2026-03-02), LLVM 21.1.8",
         "command": "./scripts/check-project-coverage.sh",
-        "source_baseline": "implementation worktree based on ca26bea903c1016d0cf5ce0d21d9ba5401d12de5; final RSC-301 through RSC-304 changes were included in this report",
-        "source_sha256": "2d4bfc674e0fbb1e8389b418708f785138bc2aa9d2d864c8473108421e428206",
+        "source_baseline": "implementation worktree based on HEAD 18f005079bdfb90b0e8ab58cd57a519efe786d2f; RSC-401 and RSC-402 changes were included in this report",
+        "source_sha256": "c16348586be0cade89ed73392c932e3b98492bfe4dc9a2f928f34aabea6b07db",
         "metrics": {
           "functions": {
             "covered": 31,
@@ -21,14 +21,14 @@
             "percent": 73.80952380952381
           },
           "lines": {
-            "covered": 255,
-            "count": 273,
-            "percent": 93.4065934065934
+            "covered": 263,
+            "count": 281,
+            "percent": 93.59430604982207
           },
           "regions": {
-            "covered": 469,
-            "count": 546,
-            "percent": 85.8974358974359
+            "covered": 478,
+            "count": 554,
+            "percent": 86.28158844765343
           }
         }
       }
@@ -39,12 +39,12 @@
       },
       "reason": "The regenerated full default-feature report includes YAML pre-backend scanner/depth admission, safe diagnostic regressions, and RSC-201 label/error-attribution tests. Remaining gaps are defensive nested-sequence and backend/scanner fallback paths; observable token/depth limits, supported scalar conversions, aliases, and redaction are covered. Retain the existing measured function floor and pin the current source hash.",
       "evidence": {
-        "generated_at": "2026-11-02T06:02:26Z",
+        "generated_at": "2026-11-02T09:39:59Z",
         "cargo_llvm_cov": "cargo-llvm-cov 0.8.6",
         "rust_llvm": "rustc 1.94.0 (4a4ef493e 2026-03-02), LLVM 21.1.8",
         "command": "./scripts/check-project-coverage.sh",
-        "source_baseline": "implementation worktree based on ca26bea903c1016d0cf5ce0d21d9ba5401d12de5; final RSC-301 through RSC-304 changes were included in this report",
-        "source_sha256": "ac248dc49754188f2bf90bf7e9dea81a20235e696de956baf4adb5fd24076cd8",
+        "source_baseline": "implementation worktree based on HEAD 18f005079bdfb90b0e8ab58cd57a519efe786d2f; RSC-401 and RSC-402 changes were included in this report",
+        "source_sha256": "427bad58a644c068bbb626786597956f10b92e4a5b13a6f5303a56e20fc271e9",
         "metrics": {
           "functions": {
             "covered": 39,
@@ -52,14 +52,14 @@
             "percent": 81.25
           },
           "lines": {
-            "covered": 305,
-            "count": 321,
-            "percent": 95.01557632398755
+            "covered": 296,
+            "count": 315,
+            "percent": 93.96825396825396
           },
           "regions": {
-            "covered": 574,
-            "count": 634,
-            "percent": 90.53627760252367
+            "covered": 556,
+            "count": 617,
+            "percent": 90.11345218800648
           }
         }
       }

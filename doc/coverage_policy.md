@@ -52,23 +52,23 @@ their normal rules are strict (`>`); functions at exactly 95% meet their normal
 rule (`>=`) and do not count as an active exception.
 
 The sidecar stores per-file evidence. The exact measured source baseline is
-`implementation worktree based on ca26bea903c1016d0cf5ce0d21d9ba5401d12de5; final RSC-301 through RSC-304 changes were included in this report`.
-The pinned TOML source SHA-256 is `2d4bfc674e0fbb1e8389b418708f785138bc2aa9d2d864c8473108421e428206`;
-the YAML source SHA-256 is `ac248dc49754188f2bf90bf7e9dea81a20235e696de956baf4adb5fd24076cd8`.
+`implementation worktree based on HEAD 18f005079bdfb90b0e8ab58cd57a519efe786d2f; RSC-401 and RSC-402 changes were included in this report`.
+The pinned TOML source SHA-256 is `c16348586be0cade89ed73392c932e3b98492bfe4dc9a2f928f34aabea6b07db`;
+the YAML source SHA-256 is `427bad58a644c068bbb626786597956f10b92e4a5b13a6f5303a56e20fc271e9`.
 TOML and YAML were measured together at
-`2026-11-02T06:02:26Z` with `cargo-llvm-cov 0.8.6`, Rust 1.94.0, and LLVM
+`2026-11-02T09:39:59Z` with `cargo-llvm-cov 0.8.6`, Rust 1.94.0, and LLVM
 21.1.8, using `./scripts/check-project-coverage.sh`. The measured task worktree
-was based on HEAD `ca26bea903c1016d0cf5ce0d21d9ba5401d12de5` and included the final
-RSC-301 through RSC-304 changes. The source SHA-256 values are
-pinned separately in the sidecar. TOML's exact lower bounds reflect defensive
-Config write-error paths and backend callbacks that must remain uncalled when
-parser admission rejects input. YAML retains a function-only lower bound; its
-lines and regions meet the normal thresholds.
+was based on HEAD `18f005079bdfb90b0e8ab58cd57a519efe786d2f` and included the
+RSC-401 and RSC-402 changes. The source SHA-256 values are pinned separately
+in the sidecar. TOML's exact lower bounds reflect defensive Config write-error
+paths and backend callbacks that must remain uncalled when parser admission
+rejects input. YAML retains a function-only lower bound; its lines and regions
+meet the normal thresholds.
 
 | File | Functions | Lines | Regions | Active minimums |
 | --- | ---: | ---: | ---: | --- |
-| `src/source/toml_config_source.rs` | 73.81% (31/42) | 93.41% (255/273) | 85.90% (469/546) | functions >= 73.17073170731707; regions >= 85.84558823529412 |
-| `src/source/yaml_config_source.rs` | 81.25% (39/48) | 95.02% (305/321) | 90.54% (574/634) | functions >= 80.85106382978722 |
+| `src/source/toml_config_source.rs` | 73.81% (31/42) | 93.59% (263/281) | 86.28% (478/554) | functions >= 73.17073170731707; regions >= 85.84558823529412 |
+| `src/source/yaml_config_source.rs` | 81.25% (39/48) | 93.97% (296/315) | 90.11% (556/617) | functions >= 80.85106382978722 |
 
 The sidecar records full-precision measured percentages and covered/count
 counters for all three metrics per overridden file. Only displayed percentages

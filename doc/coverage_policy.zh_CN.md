@@ -44,20 +44,20 @@ regions 必须高于 85%。sidecar 下限只应用于明确列出的指标，并
 在普通阈值的精确等号处，lines 和 regions 仍须使用 override，因为其普通规则是严格大于（`>`）；
 functions 正好为 95% 时已满足普通规则（`>=`），不计为活跃例外。
 
-完整测量源码基线为 `implementation worktree based on ca26bea903c1016d0cf5ce0d21d9ba5401d12de5; final RSC-301 through RSC-304 changes were included in this report`。
-固定的 TOML 源码 SHA-256 为 `2d4bfc674e0fbb1e8389b418708f785138bc2aa9d2d864c8473108421e428206`；
-YAML 源码 SHA-256 为 `ac248dc49754188f2bf90bf7e9dea81a20235e696de956baf4adb5fd24076cd8`。
-TOML 和 YAML 在 `2026-11-02T06:02:26Z` 使用 `cargo-llvm-cov 0.8.6`、Rust 1.94.0、LLVM 21.1.8，
+完整测量源码基线为 `implementation worktree based on HEAD 18f005079bdfb90b0e8ab58cd57a519efe786d2f; RSC-401 and RSC-402 changes were included in this report`。
+固定的 TOML 源码 SHA-256 为 `c16348586be0cade89ed73392c932e3b98492bfe4dc9a2f928f34aabea6b07db`；
+YAML 源码 SHA-256 为 `427bad58a644c068bbb626786597956f10b92e4a5b13a6f5303a56e20fc271e9`。
+TOML 和 YAML 在 `2026-11-02T09:39:59Z` 使用 `cargo-llvm-cov 0.8.6`、Rust 1.94.0、LLVM 21.1.8，
 通过 `./scripts/check-project-coverage.sh` 一起测量。测量任务工作树基于 HEAD
-`ca26bea903c1016d0cf5ce0d21d9ba5401d12de5`，并包含最终 RSC-301 至 RSC-304 修改。
+`18f005079bdfb90b0e8ab58cd57a519efe786d2f`，并包含 RSC-401 和 RSC-402 修改。
 各源码 SHA-256 分别固定在 sidecar 中。TOML 精确下限反映防御性的 Config 写入错误处理，
 以及用于证明解析准入拒绝输入时 backend 不会被调用的回调。YAML 仅保留 functions 下限，
 其 lines 和 regions 达到正常门槛。
 
 | 文件 | Functions | Lines | Regions | 生效下限 |
 | --- | ---: | ---: | ---: | --- |
-| `src/source/toml_config_source.rs` | 73.81% (31/42) | 93.41% (255/273) | 85.90% (469/546) | functions >= 73.17073170731707; regions >= 85.84558823529412 |
-| `src/source/yaml_config_source.rs` | 81.25% (39/48) | 95.02% (305/321) | 90.54% (574/634) | functions >= 80.85106382978722 |
+| `src/source/toml_config_source.rs` | 73.81% (31/42) | 93.59% (263/281) | 86.28% (478/554) | functions >= 73.17073170731707; regions >= 85.84558823529412 |
+| `src/source/yaml_config_source.rs` | 81.25% (39/48) | 93.97% (296/315) | 90.11% (556/617) | functions >= 80.85106382978722 |
 
 sidecar 为每个有 override 的文件记录三项指标的完整精度百分比及 covered/count。仅展示百分比保留两位小数，
 生效下限按 JSON 数值及 `>=` 判断；达到正常门槛的指标不设置 override。此前移除的六个旧例外继续保持移除：
