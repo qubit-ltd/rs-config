@@ -378,6 +378,29 @@ fn formatting_limits(limits: &ConversionLimits) -> ConversionLimits {
         .build()
 }
 
+/// Admits the complete selected logical input before the target visitor runs.
+///
+/// Every call creates fresh input and structure budgets, independent of the
+/// leaf conversion session. A nonempty overlay selects replacement text at
+/// its source locations; all other values remain borrowed from the input.
+/// The current preparation flow calls this function before building overlays,
+/// so this pass admits the original input. Interpolation admits expanded
+/// input separately with its own counters, including ignored fields.
+/// This function does not modify the prepared tree or retain budget state.
+///
+/// # Parameters
+///
+/// * `prepared` - Complete selected input and any already prepared overlays.
+/// * `options` - Read policy supplying operation and structured-input limits.
+///
+/// # Returns
+///
+/// `Ok(())` when every visited value fits the applicable admission limits.
+///
+/// # Errors
+///
+/// Returns an input-budget, representation, or rendering conversion error,
+/// retaining the diagnostic path and original collection index when known.
 pub(super) fn admit_input(prepared: &PreparedConfigRead<'_>, options: &ReadPolicy) -> ConfigResult<()> {
     let mut budget = PreparedInputBudget::new(options);
     traversal::walk(prepared, !prepared.overlays.is_empty(), |visit| {
