@@ -158,7 +158,21 @@ impl ReadPolicyBuilder {
         self
     }
 
-    /// Sets the blank string conversion policy.
+    /// Sets only the blank-string setting of the current string conversion
+    /// policy, preserving its other settings. A later
+    /// [`string_policy`](Self::string_policy) call replaces the complete
+    /// string policy, including this setting.
+    ///
+    /// # Parameters
+    ///
+    /// * `policy` - The blank-string handling policy to use.
+    ///
+    /// # Returns
+    ///
+    /// This builder with the updated blank-string setting.
+    ///
+    /// See [`string_policy`](Self::string_policy) for replacing the complete
+    /// string conversion policy.
     pub fn blank_string_policy(mut self, policy: BlankStringPolicy) -> Self {
         self.conversion_policy = self
             .conversion_policy
@@ -168,13 +182,67 @@ impl ReadPolicyBuilder {
         self
     }
 
-    /// Sets the empty collection item policy.
+    /// Sets only the empty-item setting of the current collection conversion
+    /// policy, preserving its other settings. A later
+    /// [`collection_policy`](Self::collection_policy) call replaces the
+    /// complete collection policy, including this setting.
+    ///
+    /// # Parameters
+    ///
+    /// * `policy` - The policy for handling empty collection items.
+    ///
+    /// # Returns
+    ///
+    /// This builder with the updated empty-item setting.
+    ///
+    /// See [`collection_policy`](Self::collection_policy) for replacing the
+    /// complete collection conversion policy.
     pub fn empty_item_policy(mut self, policy: EmptyItemPolicy) -> Self {
         self.conversion_policy = self.conversion_policy.into_builder().empty_item_policy(policy).build();
         self
     }
 
-    /// Sets the string conversion policy.
+    /// Replaces the complete string conversion policy, including its
+    /// blank-string setting. A later
+    /// [`blank_string_policy`](Self::blank_string_policy) call changes only
+    /// that setting.
+    ///
+    /// # Parameters
+    ///
+    /// * `policy` - The complete string conversion policy to use.
+    ///
+    /// # Returns
+    ///
+    /// This builder with the replacement string conversion policy.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use qubit_config::ReadPolicy;
+    /// use qubit_datatype::BlankStringPolicy;
+    /// use qubit_datatype::StringConversionPolicy;
+    ///
+    /// let complete = StringConversionPolicy::builder()
+    ///     .blank_string_policy(BlankStringPolicy::Reject)
+    ///     .build();
+    /// let replaced = ReadPolicy::builder()
+    ///     .blank_string_policy(BlankStringPolicy::TreatAsMissing)
+    ///     .string_policy(complete.clone())
+    ///     .build();
+    /// assert_eq!(replaced.conversion_policy().string(), &complete);
+    ///
+    /// let adjusted = ReadPolicy::builder()
+    ///     .string_policy(complete)
+    ///     .blank_string_policy(BlankStringPolicy::TreatAsMissing)
+    ///     .build();
+    /// assert_eq!(
+    ///     adjusted.conversion_policy().string().blank_string_policy(),
+    ///     BlankStringPolicy::TreatAsMissing,
+    /// );
+    /// ```
+    ///
+    /// See [`blank_string_policy`](Self::blank_string_policy) for changing only
+    /// the blank-string setting.
     pub fn string_policy(mut self, policy: StringConversionPolicy) -> Self {
         self.conversion_policy = self.conversion_policy.into_builder().string_policy(policy).build();
         self
@@ -186,7 +254,47 @@ impl ReadPolicyBuilder {
         self
     }
 
-    /// Sets the collection conversion policy.
+    /// Replaces the complete collection conversion policy, including its
+    /// empty-item setting. A later
+    /// [`empty_item_policy`](Self::empty_item_policy) call changes only that
+    /// setting.
+    ///
+    /// # Parameters
+    ///
+    /// * `policy` - The complete collection conversion policy to use.
+    ///
+    /// # Returns
+    ///
+    /// This builder with the replacement collection conversion policy.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use qubit_config::ReadPolicy;
+    /// use qubit_datatype::CollectionConversionPolicy;
+    /// use qubit_datatype::EmptyItemPolicy;
+    ///
+    /// let complete = CollectionConversionPolicy::builder()
+    ///     .empty_item_policy(EmptyItemPolicy::Reject)
+    ///     .build();
+    /// let replaced = ReadPolicy::builder()
+    ///     .empty_item_policy(EmptyItemPolicy::Skip)
+    ///     .collection_policy(complete.clone())
+    ///     .build();
+    /// assert_eq!(replaced.conversion_policy().collection(), &complete);
+    ///
+    /// let adjusted = ReadPolicy::builder()
+    ///     .collection_policy(complete)
+    ///     .empty_item_policy(EmptyItemPolicy::Skip)
+    ///     .build();
+    /// assert_eq!(
+    ///     adjusted.conversion_policy().collection().empty_item_policy(),
+    ///     EmptyItemPolicy::Skip,
+    /// );
+    /// ```
+    ///
+    /// See [`empty_item_policy`](Self::empty_item_policy) for changing only the
+    /// empty-item setting.
     pub fn collection_policy(mut self, policy: CollectionConversionPolicy) -> Self {
         self.conversion_policy = self.conversion_policy.into_builder().collection_policy(policy).build();
         self
