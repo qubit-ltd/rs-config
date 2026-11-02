@@ -90,13 +90,14 @@ pub struct YamlConfigSource {
 ///
 /// # Parameters
 ///
-/// * `path` - Path of the YAML file being parsed.
+/// * `label` - Diagnostic source identifier, which may be a custom label or a
+///   default file/content identifier rather than a filesystem path.
 /// * `error` - YAML parser error used only for its public location.
 ///
 /// # Returns
 ///
-/// A source-aware [`ConfigError`] containing only file and public location
-/// context.
+/// A source-aware [`ConfigError`] containing the diagnostic source
+/// identifier and an available public location, without parser input details.
 fn yaml_parse_error(label: &str, error: &YamlError) -> ConfigError {
     let message = match error.location() {
         Some(location) => format!(

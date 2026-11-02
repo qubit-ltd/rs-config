@@ -21,6 +21,28 @@ use thiserror::Error;
 use crate::ConfigWireLimitKind;
 
 /// Error returned by bounded configuration JSON wire encoding.
+///
+/// # Examples
+///
+/// ```rust
+/// use qubit_config::Config;
+/// use qubit_config::ConfigWireEncodeError;
+/// use qubit_config::ConfigWireLimitKind;
+/// use qubit_config::ConfigWireLimits;
+///
+/// let mut config = Config::new();
+/// config.set("server.port", 8080_u16).unwrap();
+/// let limits = ConfigWireLimits::builder().max_properties(0).build();
+/// let error = config.encode_json_vec_with_limits(limits).unwrap_err();
+/// assert!(matches!(
+///     error,
+///     ConfigWireEncodeError::LimitExceeded {
+///         kind: ConfigWireLimitKind::Properties,
+///         value: 1,
+///         maximum: 0,
+///     }
+/// ));
+/// ```
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum ConfigWireEncodeError {

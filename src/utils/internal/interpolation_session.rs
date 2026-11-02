@@ -16,9 +16,14 @@ use crate::options::ReadPolicy;
 
 /// Resource limits shared by every scalar expanded during one logical read.
 pub(crate) struct InterpolationSession {
+    /// Placeholder expansions accumulated across one logical read.
     expansions: ResourceBudget<InterpolationResource, usize>,
+    /// A point limit checked for each intermediate or final expanded value;
+    /// output sizes are not accumulated across different values here.
     output: ResourceLimit<InterpolationResource, usize>,
+    /// Expansion limit retained for error diagnostics.
     max_expansions: usize,
+    /// Output-byte limit retained for diagnostics and caller admission checks.
     max_output_bytes: usize,
 }
 
@@ -59,6 +64,7 @@ impl InterpolationSession {
             })
     }
 
+    /// Returns the byte limit for each expanded value.
     pub(crate) const fn max_output_bytes(&self) -> usize {
         self.max_output_bytes
     }

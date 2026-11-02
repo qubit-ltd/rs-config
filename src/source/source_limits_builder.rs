@@ -16,6 +16,22 @@ use super::DEFAULT_MAX_SOURCE_PROPERTIES;
 use super::SourceLimits;
 
 /// Builder for [`SourceLimits`].
+///
+/// # Examples
+///
+/// ```rust
+/// use qubit_config::source::ConfigSource;
+/// use qubit_config::source::PropertiesConfigSource;
+/// use qubit_config::source::SourceLimits;
+///
+/// let limits = SourceLimits::builder().max_properties(1).build();
+/// let source = PropertiesConfigSource::builder()
+///     .content("server.port=8080")
+///     .limits(limits)
+///     .build();
+/// let config = source.load().unwrap();
+/// assert_eq!(config.get::<u16>("server.port").unwrap(), 8080);
+/// ```
 #[must_use = "use the returned value"]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SourceLimitsBuilder {

@@ -23,9 +23,16 @@ use crate::ConfigResult;
 /// budget. Each cumulative charge is checked against all scopes before any
 /// scope is changed.
 pub(crate) struct SourceLoadSession<'a> {
+    /// Diagnostic identity of the source currently being charged.
+    /// This may differ from the ancestor scope that rejects a charge.
     source_id: String,
+    /// Owned budget for this source's local scope.
     local: SourceLoadBudget,
+    /// Diagnostic identities corresponding one-to-one with `ancestors`.
     ancestor_ids: Vec<String>,
+    /// Borrowed ancestor budgets, ordered to match `ancestor_ids`.
+    /// A child preserves this order and appends its parent's local budget.
+    /// Each cumulative charge checks all scopes before changing any of them.
     ancestors: Vec<&'a mut SourceLoadBudget>,
 }
 impl SourceLoadSession<'static> {
@@ -42,6 +49,8 @@ impl SourceLoadSession<'static> {
 }
 
 impl<'a> SourceLoadSession<'a> {
+    /// Borrows the identity of the charged source, not necessarily the
+    /// identity of the budget scope that rejected a charge.
     #[inline]
     pub(in crate::source) fn source_id(&self) -> &str {
         &self.source_id

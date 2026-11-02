@@ -110,14 +110,15 @@ fn toml_error_location(content: &str, error: &TomlError) -> Option<(usize, usize
 ///
 /// # Parameters
 ///
-/// * `path` - Path of the TOML file being parsed.
+/// * `label` - Diagnostic source identifier, which may be a custom label or a
+///   default file/content identifier rather than a filesystem path.
 /// * `content` - TOML source used only to calculate line and column.
 /// * `error` - TOML parser error supplying a source-independent message.
 ///
 /// # Returns
 ///
-/// A source-aware [`ConfigError`] containing safe path, message, and location
-/// context.
+/// A source-aware [`ConfigError`] containing the diagnostic source
+/// identifier, a source-independent message, and an available location.
 fn toml_parse_error(label: &str, content: &str, error: &TomlError) -> ConfigError {
     let message = match toml_error_location(content, error) {
         Some((line, column)) => format!(

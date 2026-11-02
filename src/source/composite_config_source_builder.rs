@@ -14,6 +14,21 @@ use super::SourceLimits;
 ///
 /// Create it with [`CompositeConfigSource::builder`] to add sources and set
 /// aggregate [`SourceLimits`] before loading.
+///
+/// # Examples
+///
+/// ```rust
+/// use qubit_config::source::CompositeConfigSource;
+/// use qubit_config::source::ConfigSource;
+/// use qubit_config::source::PropertiesConfigSource;
+///
+/// let source = CompositeConfigSource::builder()
+///     .add_source(PropertiesConfigSource::from_content("server.port=8080"))
+///     .add_source(PropertiesConfigSource::from_content("server.port=9090"))
+///     .build();
+/// let config = source.load().unwrap();
+/// assert_eq!(config.get::<u16>("server.port").unwrap(), 9090);
+/// ```
 #[must_use = "use the returned value"]
 pub struct CompositeConfigSourceBuilder {
     /// Sources to apply in insertion order.
