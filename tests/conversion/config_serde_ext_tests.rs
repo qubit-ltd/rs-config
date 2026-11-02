@@ -339,12 +339,6 @@ fn structured_interpolation_fallback_and_disabled_mode_match_both_shapes() {
     }
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
-struct ScalarStringSettings {
-    enabled: String,
-    attempts: String,
-}
-
 /// Deserializes retry settings from any supported configuration reader.
 fn read_retry<R>(reader: &R) -> ConfigResult<RetrySettings>
 where
@@ -1011,27 +1005,45 @@ fn test_scalar_string_sequence_preserves_admitted_item_errors() {
 }
 
 #[test]
-fn test_scalar_boolean_and_number_to_string_charge_output() {
-    let limits = ConversionLimits::builder()
-        .operation_limits(
-            ConversionOperationLimits::builder()
-                .max_items(2)
-                .max_output_bytes(0)
-                .build(),
-        )
-        .build();
-    let policy = ReadPolicy::builder().conversion_limits(limits).build();
-    let mut config = Config::new();
-    config.set_default_read_policy(policy.clone());
-    config.set("enabled", true).expect("enabled should be stored");
-    config.set("attempts", 3_u16).expect("attempts should be stored");
+fn test_scalar_boolean_to_string_charges_output_bytes() {
+    for maximum in [3_u64, 4] {
+        let limits = ConversionLimits::builder()
+            .operation_limits(ConversionOperationLimits::builder().max_output_bytes(maximum).build())
+            .build();
+        let mut config = Config::new();
+        config.set_default_read_policy(ReadPolicy::builder().conversion_limits(limits).build());
+        config.set("enabled", true).expect("store boolean");
+        let result = config.deserialize::<String>("enabled");
+        if maximum == 3 {
+            let error = result.expect_err("four output bytes must exceed three");
+            assert_eq!(error.kind(), ConfigErrorKind::Conversion);
+            assert_eq!(error.path(), Some("enabled"));
+            assert!(error.to_string().contains("OutputBytes"));
+        } else {
+            assert_eq!(result.expect("exact output limit must succeed"), "true");
+        }
+    }
+}
 
-    let error = config
-        .read_with(&policy)
-        .deserialize::<ScalarStringSettings>("")
-        .expect_err("scalar boolean and number conversions must charge output bytes");
-
-    assert!(error.to_string().contains("OutputBytes"));
+#[test]
+fn test_scalar_number_to_string_charges_output_bytes() {
+    for maximum in [0_u64, 1] {
+        let limits = ConversionLimits::builder()
+            .operation_limits(ConversionOperationLimits::builder().max_output_bytes(maximum).build())
+            .build();
+        let mut config = Config::new();
+        config.set_default_read_policy(ReadPolicy::builder().conversion_limits(limits).build());
+        config.set("attempts", 3_u16).expect("store number");
+        let result = config.deserialize::<String>("attempts");
+        if maximum == 0 {
+            let error = result.expect_err("one output byte must exceed zero");
+            assert_eq!(error.kind(), ConfigErrorKind::Conversion);
+            assert_eq!(error.path(), Some("attempts"));
+            assert!(error.to_string().contains("OutputBytes"));
+        } else {
+            assert_eq!(result.expect("exact output limit must succeed"), "3");
+        }
+    }
 }
 
 /// Intermediate JSON capacity does not grant final String output capacity.

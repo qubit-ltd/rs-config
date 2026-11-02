@@ -651,7 +651,7 @@ mod test_env_edge_cases {
     fn test_env_config_options_apply_each_key_transform_independently() {
         if !run_with_env(
             "test_env_edge_cases::test_env_config_options_apply_each_key_transform_independently",
-            &[("OPTTEST_Mixed_Key", "value")],
+            &[("OPTTEST_Mixed_Key", "value"), ("OPTTEST_Mixed__Key", "nested")],
         ) {
             return;
         }
@@ -675,7 +675,11 @@ mod test_env_edge_cases {
                 .build(),
         );
         merge_source(&mut config, &source).unwrap();
-        assert!(config.contains("OPTTEST_Mixed_Key").unwrap());
+        assert_eq!(config.get::<String>("OPTTEST_Mixed_Key").unwrap(), "value");
+        assert_eq!(config.get::<String>("OPTTEST_Mixed.Key").unwrap(), "nested");
+        assert!(!config.contains("OPTTEST_Mixed__Key").unwrap());
+        assert!(!config.contains("Mixed.Key").unwrap());
+        assert!(!config.contains("opttest_mixed.key").unwrap());
 
         let mut config = Config::new();
         let source =
