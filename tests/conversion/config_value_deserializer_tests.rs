@@ -40,6 +40,40 @@ use serde::de::MapAccess;
 use serde::de::SeqAccess;
 use serde::de::Visitor;
 
+#[test]
+fn test_nested_object_properties_merge_json_and_string_map_leaves() {
+    for use_map in [false, true] {
+        let mut config = Config::new();
+        config
+            .set("tree.parent", serde_json::json!({"nested": {"left": "one"}}))
+            .unwrap();
+        if use_map {
+            config
+                .set(
+                    "tree.parent.nested",
+                    HashMap::from([("right".to_owned(), "two".to_owned())]),
+                )
+                .unwrap();
+        } else {
+            config
+                .set("tree.parent.nested", serde_json::json!({"right": "two"}))
+                .unwrap();
+        }
+        let value = config.deserialize::<serde_json::Value>("tree").unwrap();
+        assert_eq!(
+            value,
+            serde_json::json!({"parent": {"nested": {"left": "one", "right": "two"}}})
+        );
+    }
+    let mut config = Config::new();
+    config
+        .set("tree.map", HashMap::from([("left".to_owned(), "one".to_owned())]))
+        .unwrap();
+    config.set("tree.map.right", "two").unwrap();
+    let value = config.deserialize::<serde_json::Value>("tree").unwrap();
+    assert_eq!(value, serde_json::json!({"map": {"left": "one", "right": "two"}}));
+}
+
 #[derive(Debug, serde::Deserialize)]
 struct PathInner {}
 

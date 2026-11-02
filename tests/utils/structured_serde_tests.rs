@@ -272,7 +272,7 @@ fn test_deserialize_string_map_multi() {
     map2.insert("k2".to_string(), "v2".to_string());
     let config = config_with_mv("x.val", MultiValues::StringMap(vec![map1, map2]));
     let s: AnyStruct = config.deserialize("x").unwrap();
-    assert!(s.val.is_array());
+    assert_eq!(s.val, serde_json::json!([{"k1": "v1"}, {"k2": "v2"}]));
 }
 
 #[test]
@@ -289,7 +289,7 @@ fn test_deserialize_json_multi() {
     let j2 = serde_json::json!(2);
     let config = config_with_mv("x.val", MultiValues::Json(vec![j1, j2]));
     let s: AnyStruct = config.deserialize("x").unwrap();
-    assert!(s.val.is_array());
+    assert_eq!(s.val, serde_json::json!([1, 2]));
 }
 
 #[test]
@@ -302,10 +302,16 @@ fn test_deserialize_char() {
 #[cfg(feature = "num-bigint")]
 #[test]
 fn test_deserialize_big_integer() {
-    let big = BigInt::from(12345678901234567i64);
-    let config = config_with_value("x.val", Value::BigInteger(big));
-    let s: AnyStruct = config.deserialize("x").unwrap();
-    assert!(s.val.is_string());
+    for expected in [
+        "12345678901234567",
+        "123456789012345678901234567890",
+        "-123456789012345678901234567890",
+    ] {
+        let big = BigInt::parse_bytes(expected.as_bytes(), 10).unwrap();
+        let config = config_with_value("x.val", Value::BigInteger(big));
+        let s: AnyStruct = config.deserialize("x").unwrap();
+        assert_eq!(s.val, serde_json::json!(expected));
+    }
 }
 
 #[cfg(feature = "bigdecimal")]
@@ -314,16 +320,21 @@ fn test_deserialize_big_decimal() {
     let dec = BigDecimal::from_str("3.14159265358979").unwrap();
     let config = config_with_value("x.val", Value::BigDecimal(dec));
     let s: AnyStruct = config.deserialize("x").unwrap();
-    assert!(s.val.is_string());
+    assert_eq!(s.val, serde_json::json!("3.14159265358979"));
 }
 
 #[cfg(feature = "chrono")]
 #[test]
 fn test_deserialize_datetime() {
-    let dt = NaiveDateTime::parse_from_str("2026-04-09 12:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
-    let config = config_with_value("x.val", Value::DateTime(dt));
-    let s: AnyStruct = config.deserialize("x").unwrap();
-    assert!(s.val.is_string());
+    for (input, expected) in [
+        ("2026-04-09 12:00:00", "2026-04-09T12:00:00"),
+        ("2026-04-09 12:00:00.123", "2026-04-09T12:00:00.123"),
+    ] {
+        let dt = NaiveDateTime::parse_from_str(input, "%Y-%m-%d %H:%M:%S%.f").unwrap();
+        let config = config_with_value("x.val", Value::DateTime(dt));
+        let s: AnyStruct = config.deserialize("x").unwrap();
+        assert_eq!(s.val, serde_json::json!(expected));
+    }
 }
 
 #[cfg(feature = "chrono")]
@@ -332,39 +343,54 @@ fn test_deserialize_date() {
     let d = NaiveDate::from_ymd_opt(2026, 4, 9).unwrap();
     let config = config_with_value("x.val", Value::Date(d));
     let s: AnyStruct = config.deserialize("x").unwrap();
-    assert!(s.val.is_string());
+    assert_eq!(s.val, serde_json::json!("2026-04-09"));
 }
 
 #[cfg(feature = "chrono")]
 #[test]
 fn test_deserialize_time() {
-    let t = NaiveTime::from_hms_opt(12, 0, 0).unwrap();
-    let config = config_with_value("x.val", Value::Time(t));
-    let s: AnyStruct = config.deserialize("x").unwrap();
-    assert!(s.val.is_string());
+    for (millis, expected) in [(0, "12:00:00"), (123, "12:00:00.123")] {
+        let time = NaiveTime::from_hms_milli_opt(12, 0, 0, millis).unwrap();
+        let config = config_with_value("x.val", Value::Time(time));
+        let s: AnyStruct = config.deserialize("x").unwrap();
+        assert_eq!(s.val, serde_json::json!(expected));
+    }
 }
 
 #[cfg(feature = "chrono")]
 #[test]
 fn test_deserialize_instant() {
-    let instant: DateTime<Utc> = DateTime::parse_from_rfc3339("2026-04-09T12:00:00Z").unwrap().into();
-    let config = config_with_value("x.val", Value::Instant(instant));
-    let s: AnyStruct = config.deserialize("x").unwrap();
-    assert!(s.val.is_string());
+    for (input, expected) in [
+        ("2026-04-09T12:00:00Z", "2026-04-09T12:00:00+00:00"),
+        ("2026-04-09T12:00:00.123Z", "2026-04-09T12:00:00.123+00:00"),
+    ] {
+        let instant: DateTime<Utc> = DateTime::parse_from_rfc3339(input).unwrap().into();
+        let config = config_with_value("x.val", Value::Instant(instant));
+        let s: AnyStruct = config.deserialize("x").unwrap();
+        assert_eq!(s.val, serde_json::json!(expected));
+    }
 }
 
 #[test]
 fn test_deserialize_int128() {
-    let config = config_with_value("x.val", Value::Int128(42i128));
-    let s: AnyStruct = config.deserialize("x").unwrap();
-    assert!(s.val.is_string());
+    for (value, expected) in [
+        (42_i128, "42"),
+        (i128::MIN, "-170141183460469231731687303715884105728"),
+        (i128::MAX, "170141183460469231731687303715884105727"),
+    ] {
+        let config = config_with_value("x.val", Value::Int128(value));
+        let s: AnyStruct = config.deserialize("x").unwrap();
+        assert_eq!(s.val, serde_json::json!(expected));
+    }
 }
 
 #[test]
 fn test_deserialize_uint128() {
-    let config = config_with_value("x.val", Value::UInt128(42u128));
-    let s: AnyStruct = config.deserialize("x").unwrap();
-    assert!(s.val.is_string());
+    for (value, expected) in [(42_u128, "42"), (u128::MAX, "340282366920938463463374607431768211455")] {
+        let config = config_with_value("x.val", Value::UInt128(value));
+        let s: AnyStruct = config.deserialize("x").unwrap();
+        assert_eq!(s.val, serde_json::json!(expected));
+    }
 }
 
 #[test]

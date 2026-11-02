@@ -37,41 +37,6 @@ fn diagnostic_paths_encode_each_original_segment_unambiguously() {
 }
 
 #[test]
-fn nested_object_properties_merge_json_and_string_map_leaves() {
-    use std::collections::HashMap;
-    for use_map in [false, true] {
-        let mut config = Config::new();
-        config
-            .set("tree.parent", serde_json::json!({"nested": {"left": "one"}}))
-            .unwrap();
-        if use_map {
-            config
-                .set(
-                    "tree.parent.nested",
-                    HashMap::from([("right".to_owned(), "two".to_owned())]),
-                )
-                .unwrap();
-        } else {
-            config
-                .set("tree.parent.nested", serde_json::json!({"right": "two"}))
-                .unwrap();
-        }
-        let value: serde_json::Value = super::deserialize_from_reader(&config, "tree", false, false).unwrap();
-        assert_eq!(
-            value,
-            serde_json::json!({"parent": {"nested": {"left": "one", "right": "two"}}})
-        );
-    }
-    let mut config = Config::new();
-    config
-        .set("tree.map", HashMap::from([("left".to_owned(), "one".to_owned())]))
-        .unwrap();
-    config.set("tree.map.right", "two").unwrap();
-    let value: serde_json::Value = super::deserialize_from_reader(&config, "tree", false, false).unwrap();
-    assert_eq!(value, serde_json::json!({"map": {"left": "one", "right": "two"}}));
-}
-
-#[test]
 fn source_text_and_rendered_number_budgets_fail_before_visiting() {
     let mut config = Config::new();
     config.set("text", "secret").unwrap();
