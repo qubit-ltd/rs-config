@@ -11,6 +11,7 @@ use std::path::PathBuf;
 
 use qubit_config::Config;
 use qubit_config::ConfigError;
+use qubit_config::ConfigErrorKind;
 use qubit_config::ConfigResult;
 use qubit_config::source::ConfigSource;
 use qubit_config::source::PropertiesConfigSource;
@@ -37,6 +38,73 @@ fn properties_builder_default_loads_configured_content() {
         .build();
 
     assert_eq!(source.load().unwrap().get::<String>("covered").unwrap(), "value");
+}
+
+#[test]
+fn named_properties_source_keeps_label_across_input_changes_and_clone() {
+    let source = PropertiesConfigSource::builder()
+        .label("first")
+        .content("a=1")
+        .label("deployment")
+        .file("unused.properties")
+        .content("a=1")
+        .build();
+    assert_eq!(source.source_id(), "deployment");
+    assert_eq!(source.clone().source_id(), "deployment");
+
+    let default = PropertiesConfigSource::builder().label("").content("a=1").build();
+    assert_eq!(default.source_id(), "properties:<memory>");
+    let file = PropertiesConfigSource::builder().file("named.properties").build();
+    assert_eq!(file.source_id(), "named.properties");
+}
+
+#[test]
+fn named_properties_source_attributes_io_errors_to_label() {
+    let source = PropertiesConfigSource::builder()
+        .label("missing-config")
+        .file("this-file-does-not-exist-rsc201.properties")
+        .build();
+    let error = source.load().expect_err("the selected file is absent");
+    assert_eq!(error.kind(), ConfigErrorKind::Io);
+    assert_eq!(error.source_id(), Some("missing-config"));
+
+    let directory = tempfile::tempdir().expect("temporary directory should be created");
+    let path = directory.path().join("invalid-utf8.properties");
+    std::fs::write(&path, [0xff]).expect("invalid UTF-8 bytes should be written");
+    let source = PropertiesConfigSource::builder()
+        .label("invalid-utf8-config")
+        .file(path)
+        .build();
+    let error = source.load().expect_err("invalid UTF-8 should fail");
+    assert_eq!(error.kind(), ConfigErrorKind::Io);
+    assert_eq!(error.source_id(), Some("invalid-utf8-config"));
+}
+
+#[test]
+fn named_properties_parse_errors_keep_label() {
+    let source = PropertiesConfigSource::builder()
+        .label("bad-defaults")
+        .content("bad..key=value")
+        .build();
+    let error = source.load().expect_err("non-canonical key should fail");
+    assert_eq!(error.source_id(), Some("bad-defaults"));
+}
+
+#[test]
+fn named_properties_final_conflict_keeps_target_unchanged() {
+    let mut target = Config::new();
+    target.set("port", 1_u16).unwrap();
+    target.set_final("port", true).unwrap();
+    let before = target.clone();
+    let source = PropertiesConfigSource::builder()
+        .label("deployment")
+        .content("port=2")
+        .build();
+    let error = target.merge_properties_from_source(&source).unwrap_err();
+    assert_eq!(error.kind(), ConfigErrorKind::PropertyIsFinal);
+    assert_eq!(error.source_id(), Some("deployment"));
+    assert_eq!(error.path(), Some("port"));
+    assert_eq!(target, before);
 }
 
 // ============================================================================

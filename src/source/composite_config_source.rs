@@ -66,6 +66,8 @@ pub struct CompositeConfigSource {
     sources: Vec<Box<dyn ConfigSource>>,
     /// Aggregate limits applied to the composite load.
     limits: SourceLimits,
+    /// Optional diagnostic label for this composite.
+    label: Option<String>,
 }
 
 impl CompositeConfigSource {
@@ -135,7 +137,9 @@ impl Default for CompositeConfigSource {
 
 impl ConfigSource for CompositeConfigSource {
     fn source_id(&self) -> String {
-        "composite configuration source".to_string()
+        self.label
+            .clone()
+            .unwrap_or_else(|| "composite configuration source".to_string())
     }
 
     fn limits(&self) -> SourceLimits {

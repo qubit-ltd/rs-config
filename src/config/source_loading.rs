@@ -67,7 +67,13 @@ impl Config {
     /// # Errors
     ///
     /// Returns [`crate::ConfigError`] if a matching environment key or value is
-    /// not valid Unicode, or if setting a loaded property fails.
+    /// not valid Unicode, or if a loaded key/value exceeds the default source
+    /// byte, node, assignment, or depth limits, or if a key is invalid
+    /// ([`crate::ConfigError::SourceParseError`]). This convenience method
+    /// always uses [`crate::source::SourceLimits::default`]. To customize
+    /// limits, build an [`EnvConfigSource`] with [`EnvConfigSource::builder`]
+    /// and [`crate::source::SourceLimitsBuilder`], then load it with
+    /// [`Self::from_source`] or [`Self::merge_properties_from_source`].
     #[inline]
     pub fn from_env() -> ConfigResult<Self> {
         let source = EnvConfigSource::new();
@@ -91,7 +97,14 @@ impl Config {
     /// # Errors
     ///
     /// Returns [`crate::ConfigError`] if a matching environment key or value is
-    /// not valid Unicode, or if setting a loaded property fails.
+    /// not valid Unicode, or if a loaded key/value exceeds the default source
+    /// byte, node, assignment, or depth limits, or if normalized names conflict
+    /// ([`crate::ConfigError::KeyConflict`]). Invalid normalized keys are
+    /// rejected as source parse errors. This convenience method always uses
+    /// [`crate::source::SourceLimits::default`]. To customize limits, build an
+    /// [`EnvConfigSource`] with [`EnvConfigSource::builder`] and
+    /// [`crate::source::SourceLimitsBuilder`], then load it with
+    /// [`Self::from_source`] or [`Self::merge_properties_from_source`].
     #[inline]
     pub fn from_env_prefix(prefix: &str) -> ConfigResult<Self> {
         let source = EnvConfigSource::from_prefix(prefix);
@@ -112,7 +125,14 @@ impl Config {
     /// # Errors
     ///
     /// Returns [`crate::ConfigError`] if a matching environment key or value is
-    /// not valid Unicode, or if setting a loaded property fails.
+    /// not valid Unicode, a transformed key is invalid
+    /// ([`crate::ConfigError::SourceParseError`]), loading exceeds a source
+    /// limit, or enabled normalization maps distinct names to the same key
+    /// ([`crate::ConfigError::KeyConflict`]). This convenience method always
+    /// uses [`crate::source::SourceLimits::default`]. To customize limits,
+    /// build an [`EnvConfigSource`] with [`EnvConfigSource::builder`] and
+    /// [`crate::source::SourceLimitsBuilder`], then load it with
+    /// [`Self::from_source`] or [`Self::merge_properties_from_source`].
     #[inline]
     pub fn from_env_options(options: EnvConfigOptions) -> ConfigResult<Self> {
         let source = EnvConfigSource::from_options(options);

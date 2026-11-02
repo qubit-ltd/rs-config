@@ -83,6 +83,8 @@ pub struct TomlConfigSource {
     input: SourceInput,
     /// Resource limits applied while loading.
     limits: SourceLimits,
+    /// Optional diagnostic label for this source.
+    label: Option<String>,
 }
 
 /// Computes a one-based TOML error location from a parser span.
@@ -153,7 +155,7 @@ impl TomlConfigSource {
 
 impl ConfigSource for TomlConfigSource {
     fn source_id(&self) -> String {
-        self.input.label("TOML")
+        self.label.clone().unwrap_or_else(|| self.input.label("TOML"))
     }
 
     fn limits(&self) -> SourceLimits {
@@ -163,7 +165,7 @@ impl ConfigSource for TomlConfigSource {
     fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
         let mut config = Config::new();
         let session = context.session_mut();
-        let label = self.input.label("TOML");
+        let label = self.source_id();
         let content = self.input.read_to_string("TOML", session)?;
 
         let table: TomlTable = with_toml_admission(&label, &content, session, || {

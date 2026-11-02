@@ -14,12 +14,34 @@ use std::process::Command;
 
 use qubit_config::Config;
 use qubit_config::ConfigError;
+use qubit_config::ConfigErrorKind;
 use qubit_config::ConfigResult;
 use qubit_config::source::ConfigSource;
 use qubit_config::source::EnvFileConfigSource;
 use qubit_config::source::EnvFileConfigSourceBuilder;
 use qubit_config::source::SourceLimitKind;
 use qubit_config::source::SourceLimits;
+
+#[test]
+fn env_file_label_applies_to_success_and_invalid_keys() {
+    let source = EnvFileConfigSource::builder()
+        .content("VALUE=one")
+        .label("service")
+        .build();
+    assert_eq!(source.source_id(), "service");
+    assert_eq!(source.load().unwrap().get::<String>("VALUE").unwrap(), "one");
+
+    let source = EnvFileConfigSource::builder()
+        .label("service")
+        .content("bad..key=value")
+        .build();
+    let error = source.load().expect_err("invalid dotenv key should fail");
+    assert_eq!(error.source_id(), Some("service"));
+    assert!(matches!(
+        error.kind(),
+        ConfigErrorKind::InvalidKey | ConfigErrorKind::Parse
+    ));
+}
 
 #[test]
 fn test_env_file_comment_does_not_change_substitution_state() {

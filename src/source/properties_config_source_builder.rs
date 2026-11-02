@@ -19,6 +19,8 @@ pub struct PropertiesConfigSourceBuilder {
     input: SourceInput,
     /// Resource limits for the source load.
     limits: SourceLimits,
+    /// Optional diagnostic label for this source.
+    label: Option<String>,
 }
 
 impl PropertiesConfigSourceBuilder {
@@ -27,12 +29,26 @@ impl PropertiesConfigSourceBuilder {
         Self {
             input: SourceInput::Content(String::new()),
             limits: SourceLimits::default(),
+            label: None,
         }
     }
 
     /// Sets in-memory properties content.
     pub fn content(mut self, content: impl Into<String>) -> Self {
         self.input = SourceInput::Content(content.into());
+        self
+    }
+
+    /// Sets a content-free diagnostic label for this source.
+    ///
+    /// A non-empty label is used verbatim as the source identifier in errors
+    /// and budget diagnostics, including for file-backed input. An empty
+    /// label restores the default identifier. The last call wins, and the
+    /// label is preserved when the input is changed. Labels need not be
+    /// unique. Do not include secrets in labels.
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        let label = label.into();
+        self.label = if label.is_empty() { None } else { Some(label) };
         self
     }
 
@@ -53,6 +69,7 @@ impl PropertiesConfigSourceBuilder {
         PropertiesConfigSource {
             input: self.input,
             limits: self.limits,
+            label: self.label,
         }
     }
 }

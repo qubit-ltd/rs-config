@@ -56,12 +56,12 @@ impl SourceInput {
         format: &str,
         session: &mut SourceLoadSession<'_>,
     ) -> ConfigResult<Cow<'_, str>> {
-        let label = self.label(format);
+        let label = session.source_id().to_owned();
         match self {
             Self::File(path) => {
                 let file = File::open(path).map_err(|error| {
                     ConfigError::source_io_error(
-                        path.display().to_string(),
+                        label.clone(),
                         std::io::Error::new(
                             error.kind(),
                             format!("Failed to open {format} file '{}': {error}", path.display()),
@@ -105,7 +105,7 @@ fn read_file_bytes(
             Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
             Err(error) => {
                 return Err(ConfigError::source_io_error(
-                    path.display().to_string(),
+                    session.source_id().to_owned(),
                     std::io::Error::new(
                         error.kind(),
                         format!("Failed to read {format} file '{}': {error}", path.display()),

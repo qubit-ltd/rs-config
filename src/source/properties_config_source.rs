@@ -81,6 +81,8 @@ pub struct PropertiesConfigSource {
     input: SourceInput,
     /// Resource limits applied while loading.
     limits: SourceLimits,
+    /// Optional diagnostic label for this source.
+    label: Option<String>,
 }
 
 impl PropertiesConfigSource {
@@ -104,7 +106,7 @@ impl PropertiesConfigSource {
         Self::builder().content(content).build()
     }
 
-    /// Parses a `.properties` format string into key-value pairs
+    /// Parses a `.properties` format string into ordered key-value pairs.
     ///
     /// # Parameters
     ///
@@ -112,12 +114,35 @@ impl PropertiesConfigSource {
     ///
     /// # Returns
     ///
-    /// Returns a vector of `(key, value)` pairs
+    /// Returns all parsed `(key, value)` pairs in input order. No partial
+    /// result is returned if parsing, key validation, or a default source
+    /// limit fails. Malformed or incomplete `\u` escapes are preserved
+    /// verbatim; valid surrogate pairs decode to one Unicode scalar.
+    ///
+    /// Input UTF-8 bytes are admitted before parsing. Each parsed assignment
+    /// is checked against node, assignment, and semantic-depth limits.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::ConfigError::SourceLimitExceeded`] when an input,
+    /// node, assignment, or depth limit is exceeded, or
+    /// [`crate::ConfigError::SourceParseError`] for a non-canonical key.
     pub fn parse_content(content: &str) -> ConfigResult<Vec<(String, String)>> {
         Self::parse_content_with_limits(content, SourceLimits::default())
     }
 
     /// Parses properties text under explicit source limits.
+    ///
+    /// Input UTF-8 bytes are admitted before parsing. Every parsed assignment
+    /// is then checked against node, assignment, and semantic-depth limits.
+    /// The returned pairs preserve input order; an error returns no partial
+    /// result. Malformed or incomplete `\u` escapes are preserved verbatim.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::ConfigError::SourceLimitExceeded`] when an input,
+    /// node, assignment, or depth limit is exceeded, or
+    /// [`crate::ConfigError::SourceParseError`] for a non-canonical key.
     pub fn parse_content_with_limits(content: &str, limits: SourceLimits) -> ConfigResult<Vec<(String, String)>> {
         Self::parse_content_with_source(content, limits, "properties:<memory>")
     }
@@ -430,7 +455,7 @@ fn decode_surrogate_pair(high: u32, low: u32) -> Option<char> {
 
 impl ConfigSource for PropertiesConfigSource {
     fn source_id(&self) -> String {
-        self.input.label("properties")
+        self.label.clone().unwrap_or_else(|| self.input.label("properties"))
     }
 
     fn limits(&self) -> SourceLimits {
@@ -440,7 +465,7 @@ impl ConfigSource for PropertiesConfigSource {
     fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
         let mut config = Config::new();
         let session = context.session_mut();
-        let source_id = self.input.label("properties");
+        let source_id = self.source_id();
         let content = self.input.read_to_string("properties", session)?;
         let properties = Self::parse_content_with_session(&content, &source_id, session)?;
         for (key, value) in properties {

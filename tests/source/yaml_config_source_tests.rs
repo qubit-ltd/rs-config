@@ -35,6 +35,17 @@ fn merge_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<
 }
 
 #[test]
+fn yaml_label_applies_to_success_and_parse_errors() {
+    let source = YamlConfigSource::builder().content("value: 1").label("service").build();
+    assert_eq!(source.source_id(), "service");
+    assert_eq!(source.load().unwrap().get::<i64>("value").unwrap(), 1);
+
+    let source = YamlConfigSource::builder().label("service").content("value: [").build();
+    let error = source.load().expect_err("malformed YAML should fail");
+    assert_eq!(error.source_id(), Some("service"));
+}
+
+#[test]
 fn test_yaml_numeric_sequence_reports_first_incompatible_item() {
     for content in [
         "values: [1, -1, 2.5]",

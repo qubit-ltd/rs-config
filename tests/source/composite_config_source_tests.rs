@@ -17,6 +17,7 @@ use std::sync::atomic::Ordering;
 
 use qubit_config::Config;
 use qubit_config::ConfigError;
+use qubit_config::ConfigErrorKind;
 use qubit_config::ConfigResult;
 use qubit_config::source::CompositeConfigSource;
 use qubit_config::source::CompositeConfigSourceBuilder;
@@ -40,6 +41,59 @@ fn fixture(name: &str) -> PathBuf {
 
 fn load_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<()> {
     config.merge_properties_from_source(source)
+}
+
+#[test]
+fn composite_label_propagates_to_nested_budget_attribution() {
+    let cases = [(4, 8, 3, "inner"), (8, 5, 3, "outer"), (8, 8, 2, "leaf-b")];
+    for (inner_bytes, outer_bytes, leaf_bytes, expected_budget) in cases {
+        let leaf_limits = SourceLimits::builder().max_input_bytes(leaf_bytes).build();
+        let inner = CompositeConfigSource::builder()
+            .label("inner")
+            .limits(SourceLimits::builder().max_input_bytes(inner_bytes).build())
+            .add_source(PropertiesConfigSource::builder().label("leaf-a").content("a=1").build())
+            .add_source(
+                PropertiesConfigSource::builder()
+                    .label("leaf-b")
+                    .content("b=2")
+                    .limits(leaf_limits)
+                    .build(),
+            )
+            .build();
+        let outer = CompositeConfigSource::builder()
+            .label("outer")
+            .limits(SourceLimits::builder().max_input_bytes(outer_bytes).build())
+            .add_source(inner)
+            .build();
+        let error = outer
+            .load()
+            .expect_err("one active input-byte budget should reject leaf-b");
+        assert_eq!(error.kind(), ConfigErrorKind::SourceLimitExceeded);
+        assert_eq!(error.source_id(), Some("leaf-b"));
+        assert_eq!(error.source_budget_id(), Some(expected_budget));
+    }
+}
+
+#[test]
+fn named_composite_final_conflict_reports_incoming_source_and_keeps_target() {
+    let mut target = Config::new();
+    target.set("port", 1_u16).unwrap();
+    target.set_final("port", true).unwrap();
+    let before = target.clone();
+    let source = CompositeConfigSource::builder()
+        .label("deployment")
+        .add_source(
+            PropertiesConfigSource::builder()
+                .label("leaf")
+                .content("port=2")
+                .build(),
+        )
+        .build();
+    let error = target.merge_properties_from_source(&source).unwrap_err();
+    assert_eq!(error.kind(), ConfigErrorKind::PropertyIsFinal);
+    assert_eq!(error.source_id(), Some("deployment"));
+    assert_eq!(error.path(), Some("port"));
+    assert_eq!(target, before);
 }
 
 struct CountingSource {

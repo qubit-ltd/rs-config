@@ -82,6 +82,8 @@ pub use yaml_config_source_builder::YamlConfigSourceBuilder;
 pub struct YamlConfigSource {
     input: SourceInput,
     limits: SourceLimits,
+    /// Optional diagnostic label for this source.
+    label: Option<String>,
 }
 
 /// Builds a YAML parse error without formatting parser-owned input details.
@@ -144,7 +146,7 @@ fn with_yaml_admission<T>(
 
 impl ConfigSource for YamlConfigSource {
     fn source_id(&self) -> String {
-        self.input.label("YAML")
+        self.label.clone().unwrap_or_else(|| self.input.label("YAML"))
     }
 
     fn limits(&self) -> SourceLimits {
@@ -154,7 +156,7 @@ impl ConfigSource for YamlConfigSource {
     fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
         let mut config = Config::new();
         let session = context.session_mut();
-        let label = self.input.label("YAML");
+        let label = self.source_id();
         let content = self.input.read_to_string("YAML", session)?;
         let (has_value_tokens, value) = with_yaml_admission(&label, &content, session, || {
             if content.trim().is_empty() {

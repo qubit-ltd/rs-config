@@ -20,6 +20,8 @@ pub struct CompositeConfigSourceBuilder {
     sources: Vec<Box<dyn ConfigSource>>,
     /// Aggregate limits for the completed composite.
     limits: SourceLimits,
+    /// Optional diagnostic label for this composite.
+    label: Option<String>,
 }
 
 impl CompositeConfigSourceBuilder {
@@ -28,12 +30,25 @@ impl CompositeConfigSourceBuilder {
         Self {
             sources: Vec::new(),
             limits: SourceLimits::default(),
+            label: None,
         }
     }
 
     /// Adds a source to the composite in application order.
     pub fn add_source<S: ConfigSource + 'static>(mut self, source: S) -> Self {
         self.sources.push(Box::new(source));
+        self
+    }
+
+    /// Sets a content-free diagnostic label for this composite source.
+    ///
+    /// A non-empty label is used verbatim as the source identifier in errors
+    /// and aggregate budget diagnostics. An empty label restores the default
+    /// identifier. The last call wins. Labels need not be unique. Do not
+    /// include secrets in labels.
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        let label = label.into();
+        self.label = if label.is_empty() { None } else { Some(label) };
         self
     }
 
@@ -48,6 +63,7 @@ impl CompositeConfigSourceBuilder {
         CompositeConfigSource {
             sources: self.sources,
             limits: self.limits,
+            label: self.label,
         }
     }
 }

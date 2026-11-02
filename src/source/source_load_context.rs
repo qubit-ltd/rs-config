@@ -125,7 +125,22 @@ impl<'a> SourceLoadContext<'a> {
         self.session.consume_sources(amount)
     }
 
-    /// Sets one output property after validating and charging the assignment.
+    /// Sets one output property after checking its semantic depth and charging
+    /// one node and one assignment.
+    ///
+    /// Checks run in this order: semantic depth, node charge, assignment
+    /// charge, then key and final-property validation and the write. A rejected
+    /// operation does not undo charges accepted before a later check fails,
+    /// including the node charge if the assignment charge is rejected. The
+    /// executor discards the source layer when loading fails. This is not one
+    /// atomic budget transaction across all dimensions.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::ConfigError::SourceLimitExceeded`] when the depth,
+    /// node, or assignment limit rejects the operation;
+    /// [`crate::ConfigError::SourceInvalidKey`] for an invalid key; or
+    /// [`crate::ConfigError::PropertyIsFinal`] when the property is final.
     pub fn set<S>(&mut self, name: impl AsRef<str>, values: S) -> ConfigResult<()>
     where
         S: Into<ValueContainer>,
@@ -140,7 +155,21 @@ impl<'a> SourceLoadContext<'a> {
             .map_err(|error| error.with_assignment_source(&source_id))
     }
 
-    /// Sets an explicitly typed null value after charging the assignment.
+    /// Sets an explicitly typed null value after checking its semantic depth
+    /// and charging one node and one assignment.
+    ///
+    /// Checks run in this order: semantic depth, node charge, assignment
+    /// charge, then key and final-property validation and the write. Charges
+    /// accepted before a later check fails, including the node charge if the
+    /// assignment charge is rejected, are not rolled back. The executor
+    /// discards the source layer if loading fails.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::ConfigError::SourceLimitExceeded`] when the depth,
+    /// node, or assignment limit rejects the operation;
+    /// [`crate::ConfigError::SourceInvalidKey`] for an invalid key; or
+    /// [`crate::ConfigError::PropertyIsFinal`] when the property is final.
     pub fn set_null(&mut self, name: impl AsRef<str>, data_type: DataType) -> ConfigResult<()> {
         let name = name.as_ref();
         self.session.check_depth(name.split('.').count())?;

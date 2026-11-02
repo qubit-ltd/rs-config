@@ -17,6 +17,8 @@ use super::YamlConfigSource;
 pub struct YamlConfigSourceBuilder {
     input: SourceInput,
     limits: SourceLimits,
+    /// Optional diagnostic label for this source.
+    label: Option<String>,
 }
 
 impl YamlConfigSourceBuilder {
@@ -28,6 +30,7 @@ impl YamlConfigSourceBuilder {
         Self {
             input: SourceInput::Content(String::new()),
             limits: SourceLimits::default(),
+            label: None,
         }
     }
 
@@ -38,6 +41,19 @@ impl YamlConfigSourceBuilder {
     /// limit errors are reported through [`crate::source::ConfigSource`].
     pub fn content(mut self, content: impl Into<String>) -> Self {
         self.input = SourceInput::Content(content.into());
+        self
+    }
+
+    /// Sets a content-free diagnostic label for this source.
+    ///
+    /// A non-empty label is used verbatim as the source identifier in errors
+    /// and budget diagnostics, including for file-backed input. An empty
+    /// label restores the default identifier. The last call wins, and the
+    /// label is preserved when the input is changed. Labels need not be
+    /// unique. Do not include secrets in labels.
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        let label = label.into();
+        self.label = if label.is_empty() { None } else { Some(label) };
         self
     }
 
@@ -69,6 +85,7 @@ impl YamlConfigSourceBuilder {
         YamlConfigSource {
             input: self.input,
             limits: self.limits,
+            label: self.label,
         }
     }
 }

@@ -56,6 +56,8 @@ pub struct EnvFileConfigSource {
     input: SourceInput,
     /// Resource limits applied while loading.
     limits: SourceLimits,
+    /// Optional diagnostic label for this source.
+    label: Option<String>,
 }
 
 /// Maps a dotenv parser error without exposing the offending assignment.
@@ -285,7 +287,7 @@ impl EnvFileConfigSource {
 
 impl ConfigSource for EnvFileConfigSource {
     fn source_id(&self) -> String {
-        self.input.label(".env")
+        self.label.clone().unwrap_or_else(|| self.input.label(".env"))
     }
 
     fn limits(&self) -> SourceLimits {
@@ -295,7 +297,7 @@ impl ConfigSource for EnvFileConfigSource {
     fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
         let mut config = Config::new();
         let session = context.session_mut();
-        let label = self.input.label(".env");
+        let label = self.source_id();
         let content = self.input.read_to_string(".env", session)?;
         let content = escape_dotenv_substitutions(&content);
         let iter = dotenvy::from_read_iter(content.as_bytes());
