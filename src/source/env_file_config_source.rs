@@ -163,7 +163,9 @@ fn escape_dotenv_substitutions_in_line(content: &str) -> String {
         if character == '\n' {
             escaped_content.push(character);
             comment = false;
-            in_value = strong_quote || weak_quote;
+            // The outer scanner owns logical assignment boundaries. A physical
+            // newline inside this record must not reset the value phase, even
+            // when value parsing and logical-line quote states have diverged.
             line_has_non_whitespace = false;
             previous_was_whitespace = false;
             escaped = false;

@@ -228,6 +228,76 @@ fn test_env_file_comment_does_not_change_substitution_state() {
     }
 }
 
+#[test]
+fn test_env_file_multiline_quote_boundary_preserves_placeholders() {
+    const CHILD: &str = "RS_CONFIG_RSC401_CHILD";
+    const SENTINEL: &str = "RSC401SENTINEL";
+
+    if std::env::var_os(CHILD).is_some() {
+        let directory = tempfile::tempdir().expect("temporary directory should be created");
+        let path = directory.path().join("multiline.env");
+        for placeholder in [format!("${SENTINEL}"), format!("${{{SENTINEL}}}")] {
+            for newline in ["\n", "\r\n"] {
+                for trailing_newline in [false, true] {
+                    for source_assignment in [false, true] {
+                        let mut input = if source_assignment {
+                            format!("{SENTINEL}=source-value{newline}")
+                        } else {
+                            String::new()
+                        };
+                        input.push_str(&format!("VALUE='a\\'{newline}{placeholder}'\\'"));
+                        if trailing_newline {
+                            input.push_str(&format!("{newline}NEXT={placeholder}{newline}"));
+                        }
+                        let expected = format!("a\\{newline}{placeholder}\\");
+                        std::fs::write(&path, &input).expect("temporary dotenv file should be written");
+                        let memory = EnvFileConfigSource::from_content(input.clone());
+                        let configs = [
+                            memory.load().expect("dotenv content should load"),
+                            Config::from_source(&memory).expect("dotenv source should load"),
+                            EnvFileConfigSource::from_file(&path)
+                                .load()
+                                .expect("dotenv file should load"),
+                            Config::from_env_file(&path).expect("dotenv file should load"),
+                        ];
+                        for config in configs {
+                            assert_eq!(
+                                config.get::<String>("VALUE").unwrap(),
+                                expected,
+                                "unexpected literal value for {input:?}"
+                            );
+                            if trailing_newline {
+                                assert_eq!(config.get::<String>("NEXT").unwrap(), placeholder);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return;
+    }
+
+    for value in [None, Some("first-process-value"), Some("second-process-value")] {
+        let mut command = Command::new(std::env::current_exe().expect("test executable path"));
+        command
+            .arg("--exact")
+            .arg("test_env_file_multiline_quote_boundary_preserves_placeholders")
+            .env_clear()
+            .env(CHILD, "1");
+        if let Some(value) = value {
+            command.env(SENTINEL, value);
+        }
+        if let Some(profile) = std::env::var_os("LLVM_PROFILE_FILE") {
+            command.env("LLVM_PROFILE_FILE", profile);
+        }
+        let output = command.output().expect("child test process should start");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stdout.contains("running 1 test"), "{stdout}\n{stderr}");
+        assert!(output.status.success(), "{stdout}\n{stderr}");
+    }
+}
+
 fn run_with_environment(name: &str, key: &str) -> bool {
     const CHILD: &str = "RS_CONFIG_ENV_FILE_PROCESS_ENV_CHILD";
     if std::env::var_os(CHILD).is_some() {
