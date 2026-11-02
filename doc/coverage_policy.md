@@ -52,14 +52,14 @@ their normal rules are strict (`>`); functions at exactly 95% meet their normal
 rule (`>=`) and do not count as an active exception.
 
 The sidecar stores per-file evidence. The exact measured source baseline is
-`task worktree based on c8bd18f82f7189a8a6638cb441733e4d170f6407; RSC-201 source labels and source-id propagation were included in this report`.
-The pinned TOML source SHA-256 is `fe9e1febe3bd7f5a4121802f39868f1df36e5bb35cef79a516443560e2e7c2c9`;
-the YAML source SHA-256 is `4c2ef991bc399c38b4c9c28ee56254571595d42e0bf906591349eb4c460e9577`.
+`implementation worktree based on ca26bea903c1016d0cf5ce0d21d9ba5401d12de5; final RSC-301 through RSC-304 changes were included in this report`.
+The pinned TOML source SHA-256 is `2d4bfc674e0fbb1e8389b418708f785138bc2aa9d2d864c8473108421e428206`;
+the YAML source SHA-256 is `ac248dc49754188f2bf90bf7e9dea81a20235e696de956baf4adb5fd24076cd8`.
 TOML and YAML were measured together at
-`2026-11-02T00:37:50Z` with `cargo-llvm-cov 0.8.6`, Rust 1.94.0, and LLVM
+`2026-11-02T06:02:26Z` with `cargo-llvm-cov 0.8.6`, Rust 1.94.0, and LLVM
 21.1.8, using `./scripts/check-project-coverage.sh`. The measured task worktree
-was based on HEAD `c8bd18f82f7189a8a6638cb441733e4d170f6407` and included
-RSC-201 source labels and source-id propagation. The source SHA-256 values are
+was based on HEAD `ca26bea903c1016d0cf5ce0d21d9ba5401d12de5` and included the final
+RSC-301 through RSC-304 changes. The source SHA-256 values are
 pinned separately in the sidecar. TOML's exact lower bounds reflect defensive
 Config write-error paths and backend callbacks that must remain uncalled when
 parser admission rejects input. YAML retains a function-only lower bound; its
@@ -68,7 +68,7 @@ lines and regions meet the normal thresholds.
 | File | Functions | Lines | Regions | Active minimums |
 | --- | ---: | ---: | ---: | --- |
 | `src/source/toml_config_source.rs` | 73.81% (31/42) | 93.41% (255/273) | 85.90% (469/546) | functions >= 73.17073170731707; regions >= 85.84558823529412 |
-| `src/source/yaml_config_source.rs` | 81.25% (39/48) | 95.14% (313/329) | 90.70% (585/645) | functions >= 80.85106382978722 |
+| `src/source/yaml_config_source.rs` | 81.25% (39/48) | 95.02% (305/321) | 90.54% (574/634) | functions >= 80.85106382978722 |
 
 The sidecar records full-precision measured percentages and covered/count
 counters for all three metrics per overridden file. Only displayed percentages

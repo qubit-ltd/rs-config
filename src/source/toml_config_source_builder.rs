@@ -69,11 +69,18 @@ impl TomlConfigSourceBuilder {
         self
     }
 
-    /// Replaces the limits used for input admission and flattening.
+    /// Replaces the limits used for input admission, parser admission, and
+    /// flattening.
     ///
-    /// Input bytes are admitted before parsing. Node, assignment, and depth
-    /// limits are checked while flattening the already materialized syntax
-    /// tree; they do not protect parser allocation or recursion.
+    /// Input bytes, lexer tokens, and conservative parser nesting depth are
+    /// admitted before the backend builds its value tree. Node, assignment,
+    /// and semantic output-depth limits are checked while flattening that tree.
+    /// Parser depth is distinct from semantic depth; parser limits do not
+    /// guarantee a strict allocation or CPU ceiling.
+    ///
+    /// See [`SourceLimits`],
+    /// [`SourceLimitsBuilder::max_parser_tokens`](crate::source::SourceLimitsBuilder::max_parser_tokens),
+    /// and [`SourceLimitsBuilder::max_parser_nesting_depth`](crate::source::SourceLimitsBuilder::max_parser_nesting_depth).
     pub const fn limits(mut self, limits: SourceLimits) -> Self {
         self.limits = limits;
         self
