@@ -923,12 +923,20 @@ fn deserialize_enum_reports_invalid_shapes() -> ConfigResult<()> {
         "case.value",
         Property::new(
             "case.value",
-            MultiValues::Json(vec![serde_json::json!({
+            QubitValue::Json(serde_json::json!({
                 "Unit": { "extra": true }
-            })]),
+            })),
         )?,
     )?;
-    assert!(bad_unit_payload.deserialize::<OneField<Tagged>>("case").is_err());
+    let error = bad_unit_payload
+        .deserialize::<OneField<Tagged>>("case")
+        .expect_err("a unit variant must reject a nonempty payload");
+    assert_eq!(error.path(), Some("case.value.Unit"));
+    assert!(matches!(
+        error,
+        ConfigError::DeserializeError { ref message, .. }
+            if message.contains("shape: unit")
+    ));
 
     let mut missing_newtype = Config::new();
     missing_newtype.set("case.value", "Code")?;

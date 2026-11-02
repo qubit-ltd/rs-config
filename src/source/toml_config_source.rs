@@ -402,7 +402,8 @@ where
         .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))
 }
 
-/// Converts TOML scalar values to strings and writes them as one property.
+/// Converts a homogeneous string/datetime TOML array and writes it as one
+/// property.
 ///
 /// # Parameters
 ///
@@ -416,8 +417,10 @@ where
 ///
 /// # Errors
 ///
-/// Returns an error when `arr` contains a nested structure or when the
-/// configuration rejects the write.
+/// Returns an error when `arr` contains a value outside the string/datetime
+/// category or when the configuration rejects the write. The caller validates
+/// the complete array category before conversion; the per-value check remains
+/// defensive.
 fn set_toml_string_array(source_id: &str, prefix: &str, arr: &[TomlValue], config: &mut Config) -> ConfigResult<()> {
     let values = arr
         .iter()
@@ -433,15 +436,15 @@ fn all_toml_values_match(values: &[TomlValue], predicate: impl Fn(&TomlValue) ->
     values.iter().all(predicate)
 }
 
-/// Converts a homogeneous TOML string or datetime scalar to text.
+/// Converts a TOML string or datetime scalar to text.
+///
+/// The caller validates the complete array category before calling this helper.
+/// Other values are rejected defensively.
 fn toml_scalar_to_string(value: &TomlValue, key: &str) -> ConfigResult<String> {
     match value {
         TomlValue::String(s) => Ok(s.clone()),
-        TomlValue::Integer(i) => Ok(i.to_string()),
-        TomlValue::Float(f) => Ok(f.to_string()),
-        TomlValue::Boolean(b) => Ok(b.to_string()),
         TomlValue::Datetime(dt) => Ok(dt.to_string()),
-        TomlValue::Array(_) | TomlValue::Table(_) => {
+        _ => {
             let key = if key.is_empty() { "<root>" } else { key };
             Err(ConfigError::ParseError(format!(
                 "Unsupported nested TOML structure at key '{}'",
@@ -455,6 +458,7 @@ fn toml_scalar_to_string(value: &TomlValue, key: &str) -> ConfigResult<String> {
 mod admission_tests {
     use std::cell::Cell;
 
+    use super::TomlValue;
     use super::toml_error_location;
     use super::toml_parse_error;
     use super::toml_scalar_to_string;
@@ -465,24 +469,41 @@ mod admission_tests {
     use crate::source::source_load_session::SourceLoadSession;
 
     #[test]
-    fn scalar_conversion_covers_each_supported_toml_scalar() {
+    fn string_conversion_accepts_only_string_datetime_values() {
         let datetime = "1979-05-27T07:32:00Z"
             .parse::<toml::value::Datetime>()
             .expect("the test datetime is valid");
-        let values = [
-            (toml::Value::String("value".to_owned()), "value"),
-            (toml::Value::Integer(42), "42"),
-            (toml::Value::Float(1.5), "1.5"),
-            (toml::Value::Boolean(true), "true"),
-            (toml::Value::Datetime(datetime), "1979-05-27T07:32:00Z"),
-        ];
-        for (value, expected) in values {
+        for (value, expected) in [
+            (TomlValue::String("value".to_owned()), "value"),
+            (TomlValue::Datetime(datetime), "1979-05-27T07:32:00Z"),
+        ] {
             assert_eq!(
-                toml_scalar_to_string(&value, "value").expect("a supported scalar converts"),
+                toml_scalar_to_string(&value, "value").expect("supported values convert"),
                 expected
             );
         }
-        assert!(toml_scalar_to_string(&toml::Value::Array(Vec::new()), "nested").is_err());
+
+        let unsupported = [
+            TomlValue::Integer(42),
+            TomlValue::Float(1.5),
+            TomlValue::Boolean(true),
+            TomlValue::Array(Vec::new()),
+            TomlValue::Table(toml::Table::new()),
+        ];
+
+        for value in unsupported {
+            assert!(matches!(
+                toml_scalar_to_string(&value, "value"),
+                Err(ConfigError::ParseError(message))
+                    if message == "Unsupported nested TOML structure at key 'value'"
+            ));
+        }
+
+        assert!(matches!(
+            toml_scalar_to_string(&TomlValue::Integer(42), ""),
+            Err(ConfigError::ParseError(message))
+                if message == "Unsupported nested TOML structure at key '<root>'"
+        ));
     }
 
     #[test]

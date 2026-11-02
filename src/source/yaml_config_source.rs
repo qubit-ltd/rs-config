@@ -440,7 +440,7 @@ where
         .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))
 }
 
-/// Converts YAML scalar values to strings and writes them as one property.
+/// Converts a homogeneous YAML string sequence and writes it as one property.
 ///
 /// # Parameters
 ///
@@ -454,8 +454,9 @@ where
 ///
 /// # Errors
 ///
-/// Returns an error when `seq` contains a nested structure or when the
-/// configuration rejects the write.
+/// Returns an error when `seq` contains a non-string value or when the
+/// configuration rejects the write. The caller validates the complete
+/// sequence category before conversion; the per-value check remains defensive.
 fn set_yaml_string_sequence(source_id: &str, prefix: &str, seq: &[YamlValue], config: &mut Config) -> ConfigResult<()> {
     let values = seq
         .iter()
@@ -476,18 +477,14 @@ fn yaml_key_to_string(value: &YamlValue) -> ConfigResult<String> {
     }
 }
 
-/// Converts a YAML scalar value to a string for a homogeneous string
-/// sequence.
+/// Converts a YAML string value to text.
 ///
-/// Nested structures are rejected to avoid silently converting them to empty
-/// strings.
+/// The caller validates the complete sequence category before calling this
+/// helper. Other values are rejected defensively.
 fn yaml_scalar_to_string(value: &YamlValue, key: &str) -> ConfigResult<String> {
     match value {
         YamlValue::String(s) => Ok(s.clone()),
-        YamlValue::Number(n) => Ok(n.to_string()),
-        YamlValue::Bool(b) => Ok(b.to_string()),
-        YamlValue::Null => Ok(String::new()),
-        YamlValue::Sequence(_) | YamlValue::Mapping(_) | YamlValue::Tagged(_) => Err(ConfigError::ParseError(format!(
+        _ => Err(ConfigError::ParseError(format!(
             "Unsupported nested YAML structure at key '{key}'",
         ))),
     }
@@ -515,29 +512,23 @@ mod admission_tests {
     use super::same_yaml_scalar_kind;
     use super::with_yaml_admission;
     use super::yaml_parse_error;
-    use super::yaml_scalar_to_string;
     use crate::ConfigError;
     use crate::source::SourceLimitKind;
     use crate::source::SourceLimits;
     use crate::source::source_load_session::SourceLoadSession;
 
     #[test]
-    fn scalar_conversion_and_category_checks_cover_yaml_scalar_variants() {
+    fn yaml_scalar_categories_remain_distinct() {
         let number = YamlValue::Number(serde_norway::Number::from(7));
-        for (value, expected) in [
-            (YamlValue::String("text".to_owned()), "text"),
-            (number, "7"),
-            (YamlValue::Bool(true), "true"),
-            (YamlValue::Null, ""),
+        for value in [
+            YamlValue::String("text".to_owned()),
+            number,
+            YamlValue::Bool(true),
+            YamlValue::Null,
         ] {
-            assert_eq!(
-                yaml_scalar_to_string(&value, "value").expect("a scalar converts"),
-                expected
-            );
             assert!(same_yaml_scalar_kind(&value, &value));
         }
         assert!(!same_yaml_scalar_kind(&YamlValue::Null, &YamlValue::Bool(false)));
-        assert!(yaml_scalar_to_string(&YamlValue::Sequence(Vec::new()), "nested").is_err());
     }
 
     #[test]
