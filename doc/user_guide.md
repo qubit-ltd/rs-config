@@ -1017,7 +1017,7 @@ Read `budget_error()` and use `source_budget_id()` to identify the local or aggr
 
 ### A merge changed nothing
 
-Check the source result independently with `source.load()`, then inspect its keys. A failed source load or failed transactional merge leaves the target unchanged. A final target property also rejects a later override.
+Check the source result independently with `Config::from_source(&source)`, then inspect its keys. This uses the same library-managed loading path as merging, even when a custom source overrides `load()`. A failed source load or failed transactional merge leaves the target unchanged. A final target property also rejects a later override.
 
 ## Limitations and Best Practices
 
