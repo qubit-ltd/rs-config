@@ -195,3 +195,115 @@ fn structured_deserialization_accepts_equivalent_exact_and_dotted_shapes() {
         expected_typed,
     );
 }
+
+#[test]
+fn typed_semantic_cases_match_all_read_shapes() {
+    let cases = [
+        (
+            serde_json::json!({"signed": i128::MIN.to_string(), "unsigned": u128::MAX.to_string()}),
+            TypedConfig {
+                signed: Some(i128::MIN),
+                unsigned: Some(u128::MAX),
+                timeout: None,
+                mode: None,
+                label: None,
+            },
+        ),
+        (
+            serde_json::json!({"signed": (i128::from(i64::MIN) - 1).to_string(), "unsigned": (u128::from(u64::MAX) + 1).to_string()}),
+            TypedConfig {
+                signed: Some(i128::from(i64::MIN) - 1),
+                unsigned: Some(u128::from(u64::MAX) + 1),
+                timeout: None,
+                mode: None,
+                label: None,
+            },
+        ),
+        (
+            serde_json::json!({"signed": (i128::from(i64::MAX) + 1).to_string(), "unsigned": u64::MAX.to_string()}),
+            TypedConfig {
+                signed: Some(i128::from(i64::MAX) + 1),
+                unsigned: Some(u128::from(u64::MAX)),
+                timeout: None,
+                mode: None,
+                label: None,
+            },
+        ),
+        (
+            serde_json::json!({"mode": {"Labeled": "text"}}),
+            TypedConfig {
+                signed: None,
+                unsigned: None,
+                timeout: None,
+                mode: Some(Mode::Labeled(Label("text".to_owned()))),
+                label: None,
+            },
+        ),
+        (
+            serde_json::json!({"mode": {"Record": {"value": 0}}}),
+            TypedConfig {
+                signed: None,
+                unsigned: None,
+                timeout: None,
+                mode: Some(Mode::Record { value: Some(0) }),
+                label: None,
+            },
+        ),
+        (
+            serde_json::json!({"mode": {"Record": {"value": null}}}),
+            TypedConfig {
+                signed: None,
+                unsigned: None,
+                timeout: None,
+                mode: Some(Mode::Record { value: None }),
+                label: None,
+            },
+        ),
+        (
+            serde_json::json!({"signed": null, "unsigned": "0", "mode": "Fast"}),
+            TypedConfig {
+                signed: None,
+                unsigned: Some(0),
+                timeout: None,
+                mode: Some(Mode::Fast),
+                label: None,
+            },
+        ),
+    ];
+    for (object, expected) in cases {
+        let mut dotted = Config::new();
+        let mut root = Config::new();
+        for (key, value) in object.as_object().expect("case object") {
+            dotted.set(format!("case.{key}"), value.clone()).unwrap();
+            root.set(key, value.clone()).unwrap();
+        }
+        let mut exact = Config::new();
+        exact.set("case", object).unwrap();
+        if dotted.get::<Value>("case").is_err() {
+            dotted.set("case.timeout", Value::Null).unwrap();
+        }
+        for interpolate in [false, true] {
+            let read_options = options(interpolate);
+            assert_eq!(
+                dotted.deserialize_with::<TypedConfig>("case", read_options).unwrap(),
+                expected
+            );
+            assert_eq!(
+                dotted
+                    .section("case")
+                    .unwrap()
+                    .deserialize_with::<TypedConfig>("", read_options)
+                    .unwrap(),
+                expected
+            );
+            assert_eq!(
+                root.deserialize_with::<TypedConfig>("", read_options).unwrap(),
+                expected
+            );
+            assert_eq!(
+                exact.deserialize_with::<TypedConfig>("case", read_options).unwrap(),
+                expected
+            );
+        }
+    }
+}

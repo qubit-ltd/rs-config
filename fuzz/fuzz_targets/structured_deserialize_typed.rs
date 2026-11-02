@@ -19,6 +19,7 @@ use qubit_config::ConfigDeserializeOptions;
 use qubit_config::UnknownFieldPolicy;
 use qubit_config::conversion::ConfigSerdeExt;
 use serde::Deserialize;
+use serde_json::Map;
 use serde_json::Value;
 
 const MAX_INPUT_BYTES: usize = 64 * 1024;
@@ -43,45 +44,104 @@ enum Mode {
     Record { value: Option<u8> },
 }
 
-fn generated_case(data: &[u8]) -> (Value, Config, Config, Config) {
-    let seed = data.first().copied().unwrap_or(0);
-    let signed = i64::from(seed) - 128;
-    let unsigned = u64::from(seed);
-    let mode = if seed % 2 == 0 { "Fast" } else { "Slow" };
+fn generated_case(data: &[u8]) -> (TypedConfig, Config, Config, Config) {
+    let signed_cases = [
+        i128::MIN,
+        i128::from(i64::MIN) - 1,
+        i128::from(i64::MIN),
+        -1,
+        0,
+        i128::from(i64::MAX),
+        i128::from(i64::MAX) + 1,
+        i128::MAX,
+    ];
+    let unsigned_cases = [0, 1, u128::from(u64::MAX), u128::from(u64::MAX) + 1, u128::MAX];
+    let signed = signed_cases[usize::from(data.first().copied().unwrap_or(0)) % signed_cases.len()];
+    let unsigned = unsigned_cases[usize::from(data.get(1).copied().unwrap_or(0)) % unsigned_cases.len()];
     let label: String = data.iter().take(16).map(|byte| char::from(b'a' + byte % 26)).collect();
-    let expected = serde_json::json!({
-        "signed": signed,
-        "unsigned": unsigned,
-        "timeout": {"secs": unsigned, "nanos": 0},
-        "mode": mode,
-        "label": label,
-    });
+    let mut expected = TypedConfig {
+        signed: None,
+        unsigned: None,
+        timeout: None,
+        mode: None,
+        label: None,
+    };
+    let mut fields = Map::new();
+    let states = [8_usize, 9, 10, 11, 12].map(|index| data.get(index).copied().unwrap_or(0) % 3);
+    if states[0] == 0 {
+        expected.signed = Some(signed);
+        fields.insert("signed".into(), Value::String(signed.to_string()));
+    } else if states[0] == 1 {
+        fields.insert("signed".into(), Value::Null);
+    }
+    if states[1] == 0 {
+        expected.unsigned = Some(unsigned);
+        fields.insert("unsigned".into(), Value::String(unsigned.to_string()));
+    } else if states[1] == 1 {
+        fields.insert("unsigned".into(), Value::Null);
+    }
+    let duration = Duration::new(
+        u64::from(data.get(4).copied().unwrap_or(0)),
+        u32::from(data.get(5).copied().unwrap_or(0)),
+    );
+    if states[2] == 0 {
+        expected.timeout = Some(duration);
+        fields.insert(
+            "timeout".into(),
+            serde_json::json!({"secs": duration.as_secs(), "nanos": duration.subsec_nanos()}),
+        );
+    } else if states[2] == 1 {
+        fields.insert("timeout".into(), Value::Null);
+    }
+    if states[3] == 0 {
+        let (value, typed) = match data.get(2).copied().unwrap_or(0) % 4 {
+            0 => (serde_json::json!("Fast"), Mode::Fast),
+            1 => (serde_json::json!("Slow"), Mode::Slow),
+            2 => (
+                serde_json::json!({"Labeled": label}),
+                Mode::Labeled(Label(label.clone())),
+            ),
+            _ => {
+                let raw = data.get(3).copied().unwrap_or(0);
+                let value = if raw % 2 == 0 { Some(raw) } else { None };
+                (serde_json::json!({"Record": {"value": value}}), Mode::Record { value })
+            }
+        };
+        fields.insert("mode".into(), value);
+        expected.mode = Some(typed);
+    } else if states[3] == 1 {
+        fields.insert("mode".into(), Value::Null);
+    }
+    if states[4] == 0 {
+        expected.label = Some(Label(label.clone()));
+        fields.insert("label".into(), Value::String(label));
+    } else if states[4] == 1 {
+        fields.insert("label".into(), Value::Null);
+    }
+    if fields.is_empty() {
+        fields.insert("timeout".into(), Value::Null);
+    }
+    let object = Value::Object(fields);
 
     let mut dotted = Config::new();
-    dotted.set("case.signed", signed).expect("set signed value");
-    dotted.set("case.unsigned", unsigned).expect("set unsigned value");
-    dotted
-        .set("case.timeout", expected["timeout"].clone())
-        .expect("set timeout object");
-    dotted.set("case.mode", mode).expect("set mode value");
-    dotted.set("case.label", label.as_str()).expect("set label value");
+    for (key, value) in object.as_object().expect("generated object") {
+        dotted
+            .set(format!("case.{key}"), value.clone())
+            .expect("set dotted field");
+    }
 
     let mut root = Config::new();
-    root.set("signed", signed).expect("set root signed value");
-    root.set("unsigned", unsigned).expect("set root unsigned value");
-    root.set("timeout", expected["timeout"].clone())
-        .expect("set root timeout object");
-    root.set("mode", mode).expect("set root mode value");
-    root.set("label", label.as_str()).expect("set root label value");
+    for (key, value) in object.as_object().expect("generated object") {
+        root.set(key, value.clone()).expect("set root field");
+    }
 
     let mut exact = Config::new();
-    exact.set("case", expected.clone()).expect("set exact case object");
+    exact.set("case", object).expect("set exact case object");
     (expected, dotted, root, exact)
 }
 
 fn assert_generated_semantics(data: &[u8]) {
-    let (expected_value, dotted, root, exact) = generated_case(data);
-    let expected: TypedConfig = serde_json::from_value(expected_value).expect("build typed expectation");
+    let (expected, dotted, root, exact) = generated_case(data);
     for interpolate in [false, true] {
         let options = ConfigDeserializeOptions {
             interpolate,
