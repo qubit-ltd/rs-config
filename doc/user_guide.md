@@ -540,6 +540,12 @@ reader paths and Wire JSON Pointers keep their own formats. Consumers that
 compare special-key diagnostic strings should update those comparisons; config
 keys and lookup behavior are unchanged.
 
+Map key deserialization failures also identify the failing member. For example,
+a rejected key `80` at the root reports `80` rather than an empty path, and a
+rejected member under `tree` reports `tree.key` rather than `tree`. Update
+assertions that compare these diagnostic paths. This does not add automatic
+numeric map key conversion.
+
 Interpolation scope follows the selected storage shape. When `prefix` selects
 dotted child properties, lookup starts in that selected subtree. When it
 selects an exact structured property such as a JSON object, lookup starts in

@@ -1101,13 +1101,50 @@ fn map_key_boundary_preserves_numeric_names_as_strings() -> ConfigResult<()> {
 }
 
 #[test]
-fn map_key_boundary_rejects_numeric_target_at_root_path() -> ConfigResult<()> {
+fn map_key_boundary_rejects_numeric_target_at_member_path() -> ConfigResult<()> {
     let mut config = Config::new();
     config.set("80", 8080_u16)?;
     let error = config
         .deserialize::<HashMap<u32, u16>>("")
         .expect_err("source member names are offered to the key deserializer as strings");
-    assert_eq!(error.path(), Some(""));
+    assert_eq!(error.path(), Some("80"));
+    Ok(())
+}
+
+#[test]
+fn map_key_errors_preserve_section_and_special_member_paths() -> ConfigResult<()> {
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    struct RejectedKey;
+
+    impl<'de> Deserialize<'de> for RejectedKey {
+        fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+            let _ = String::deserialize(deserializer)?;
+            Err(serde::de::Error::custom("private-key-parser-detail"))
+        }
+    }
+
+    let mut config = Config::new();
+    config.set("service.tree.key", 1_u16)?;
+    let section = config.section("service")?;
+    let error = section.deserialize::<HashMap<RejectedKey, u16>>("tree").unwrap_err();
+    assert_eq!(error.path(), Some("service.tree.key"));
+    assert!(matches!(&error, ConfigError::DeserializeError { .. }));
+    assert!(!error.to_string().contains("private-key-parser-detail"));
+
+    for (key, expected) in [
+        ("a.b", r#"payload["a.b"]"#),
+        ("", r#"payload[""]"#),
+        ("a[b]", r#"payload["a[b]"]"#),
+        ("line\nbreak", r#"payload["line\nbreak"]"#),
+    ] {
+        let mut object = serde_json::Map::new();
+        object.insert(key.to_owned(), serde_json::json!(1));
+        config.set("payload", serde_json::Value::Object(object))?;
+        let error = config.deserialize::<HashMap<RejectedKey, u16>>("payload").unwrap_err();
+        assert_eq!(error.path(), Some(expected));
+        assert!(matches!(&error, ConfigError::DeserializeError { .. }));
+        assert!(!error.to_string().contains("private-key-parser-detail"));
+    }
     Ok(())
 }
 
@@ -2281,7 +2318,7 @@ fn test_invalid_map_keys_and_enum_payloads_preserve_paths() {
     config.set("tree.key", "value").unwrap();
     let error =
         deserialize_with_options::<std::collections::BTreeMap<u32, String>>(&config, "tree", false, false).unwrap_err();
-    assert_eq!(error.path(), Some("tree"));
+    assert_eq!(error.path(), Some("tree.key"));
     for (value, path) in [
         (serde_json::json!({"Unknown": null}), "mode.Unknown"),
         (serde_json::json!({"Count": "secret-invalid"}), "mode.Count"),

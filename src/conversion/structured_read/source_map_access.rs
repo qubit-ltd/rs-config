@@ -26,7 +26,8 @@ use crate::config_deserialize_error::ConfigDeserializeError;
 ///
 /// Serde requires each key to be followed by its value before another key is
 /// requested. The pending entry enforces that ordering while all values share
-/// one conversion session.
+/// one conversion session. Key and value deserialization failures use the
+/// member's diagnostic path.
 pub(super) struct SourceMapAccess<'tree, 'policy, 'session> {
     /// Prepared read view used to resolve source values.
     context: ReadContext<'tree>,
@@ -80,7 +81,7 @@ impl<'de, 'tree, 'policy: 'tree> MapAccess<'de> for SourceMapAccess<'tree, 'poli
         self.pending = Some((key, value, origin));
         seed.deserialize(StrDeserializer::<ConfigDeserializeError>::new(key))
             .map(Some)
-            .map_err(|error| error.with_path(self.path.clone()))
+            .map_err(|error| error.with_path(super::path::child_key(&self.path, key)))
     }
 
     fn next_value_seed<V: DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value, Self::Error> {
