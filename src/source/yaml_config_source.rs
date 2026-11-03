@@ -80,7 +80,13 @@ pub use yaml_config_source_builder::YamlConfigSourceBuilder;
 /// ```
 #[derive(Debug, Clone)]
 pub struct YamlConfigSource {
+    /// Owns either the file path to read at load time or the in-memory YAML
+    /// text retained by this source. In-memory content is borrowed during
+    /// parsing; file contents are read into an owned buffer.
     input: SourceInput,
+    /// Per-source limits applied during input reading, token admission, and
+    /// flattening. Active aggregate parent limits are enforced by the load
+    /// context's session alongside these local limits.
     limits: SourceLimits,
     /// Optional diagnostic label for this source.
     label: Option<String>,

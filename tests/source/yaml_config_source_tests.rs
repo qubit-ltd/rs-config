@@ -22,6 +22,7 @@ use qubit_config::source::SourceLimits;
 use qubit_config::source::YamlConfigSource;
 use qubit_config::source::YamlConfigSourceBuilder;
 use qubit_value::MultiValues;
+use yaml_rust2::scanner::Scanner;
 
 fn fixture(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -338,6 +339,88 @@ fn test_yaml_parser_depth_limit() {
         .load()
         .expect("indentless block sequence remains nested under its mapping");
     assert_eq!(indentless.get_list::<String>("items").unwrap(), ["one", "two"]);
+}
+
+#[test]
+fn yaml_parser_token_budget_matches_scanner_boundaries_for_generated_mappings() {
+    for width in 1..=16 {
+        let content = (0..width).map(|i| format!("k{i}: 1\n")).collect::<String>();
+        let mut scanner = Scanner::new(content.chars());
+        let mut token_count = 0;
+        while scanner
+            .next_token()
+            .expect("generated YAML must scan without errors")
+            .is_some()
+        {
+            token_count += 1;
+        }
+
+        let accepted = YamlConfigSource::builder()
+            .content(content.clone())
+            .limits(SourceLimits::builder().max_parser_tokens(token_count).build())
+            .build()
+            .load()
+            .expect("scanner token count should be admitted");
+        assert_eq!(accepted.len(), width);
+        for i in 0..width {
+            assert_eq!(accepted.get::<i64>(&format!("k{i}")).unwrap(), 1);
+        }
+
+        let error = YamlConfigSource::builder()
+            .content(content)
+            .limits(SourceLimits::builder().max_parser_tokens(token_count - 1).build())
+            .build()
+            .load()
+            .expect_err("one fewer parser token should be rejected");
+        assert!(
+            matches!(
+                error,
+                ConfigError::SourceLimitExceeded {
+                    kind: SourceLimitKind::ParserTokenCount,
+                    limit,
+                    ..
+                } if limit == token_count - 1
+            ),
+            "width={width}, tokens={token_count}: {error:?}"
+        );
+    }
+}
+
+#[test]
+fn yaml_parser_nesting_budget_matches_generated_mapping_boundaries() {
+    for depth in 1..=8 {
+        let mut content = "leaf: 1".to_owned();
+        for _ in 0..depth {
+            content = format!("k: {{{content}}}");
+        }
+        let path = format!("{}.leaf", vec!["k"; depth].join("."));
+
+        let accepted = YamlConfigSource::builder()
+            .content(content.clone())
+            .limits(SourceLimits::builder().max_parser_nesting_depth(depth).build())
+            .build()
+            .load()
+            .expect("exact parser nesting depth should be admitted");
+        assert_eq!(accepted.get::<i64>(&path).unwrap(), 1);
+
+        let error = YamlConfigSource::builder()
+            .content(content)
+            .limits(SourceLimits::builder().max_parser_nesting_depth(depth - 1).build())
+            .build()
+            .load()
+            .expect_err("one fewer nesting level should be rejected");
+        assert!(
+            matches!(
+                error,
+                ConfigError::SourceLimitExceeded {
+                    kind: SourceLimitKind::ParserNestingDepth,
+                    limit,
+                    ..
+                } if limit == depth - 1
+            ),
+            "depth={depth}: {error:?}"
+        );
+    }
 }
 
 #[test]

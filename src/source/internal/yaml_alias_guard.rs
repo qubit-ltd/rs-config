@@ -90,13 +90,33 @@ pub(in crate::source) fn inspect_yaml_tokens(
     Ok(has_value_tokens)
 }
 
+/// Identifies an open YAML collection that must be paired with its closing
+/// token.
+///
+/// Block mappings and block sequences share [`Block`](Self::Block), because
+/// both are closed by `BlockEnd`. Flow mappings and sequences retain distinct
+/// variants so their respective closing tokens can be checked.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum CollectionFrame {
+    /// An open block mapping or block sequence, closed by `BlockEnd`.
     Block,
+    /// An open flow mapping, closed by `FlowMappingEnd`.
     FlowMapping,
+    /// An open flow sequence, closed by `FlowSequenceEnd`.
     FlowSequence,
 }
 
+/// Checks and records one collection opening in the current YAML stream.
+///
+/// `frames` contains the still-open ancestors, so its length is the depth of
+/// the collection being opened: the root collection has depth zero. The
+/// depth limit is checked before the new frame is pushed; if admission fails,
+/// `frames` is unchanged.
+///
+/// # Errors
+///
+/// Returns the session's parser-depth limit error, augmented with `label`,
+/// when this depth exceeds a local or aggregate parser-depth limit.
 fn admit_collection_depth(
     label: &str,
     session: &SourceLoadSession<'_>,
@@ -112,6 +132,17 @@ fn admit_collection_depth(
     Ok(())
 }
 
+/// Removes and validates the most recently opened collection.
+///
+/// The top frame is popped before its kind is checked. An empty stack or a
+/// mismatched closing token returns the same sanitized YAML syntax diagnostic;
+/// on a mismatch, the popped frame is not restored. Callers discard the
+/// scanner's collection context after either error.
+///
+/// # Errors
+///
+/// Returns [`invalid_collection_end`] when no collection is open or the most
+/// recent opening does not match the closing token.
 fn close_collection(
     label: &str,
     frames: &mut Vec<CollectionFrame>,
@@ -126,6 +157,10 @@ fn close_collection(
     Ok(())
 }
 
+/// Creates the fixed diagnostic used for an invalid collection close.
+///
+/// The message contains the source label and generic syntax classification,
+/// but never includes the closing token or parser-owned text.
 fn invalid_collection_end(label: &str) -> ConfigError {
     ConfigError::source_parse_error(
         label,

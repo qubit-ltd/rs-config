@@ -16,7 +16,7 @@ cargo tree -i qubit-config@0.14.0
 cargo tree -i qubit-config@0.15.0
 ```
 
-Local manifests checked on 2026-11-02: `rs-ioc` declares an optional `qubit-config` dependency on `^0.14`. The normal dependencies of `rs-http`, `rs-web`, `rs-websocket`, and `rs-mime` point to the local `0.15` crate; some are optional. `rs-magika` declares a development dependency on the same path and version. This is a local manifest snapshot, not a statement about published downstream releases.
+Local manifests checked on 2026-11-03: `rs-ioc` declares an optional `qubit-config` dependency on the local `0.15` crate. The normal dependencies of `rs-http`, `rs-web`, `rs-websocket`, and `rs-mime` point to the local `0.15` crate; some are optional. `rs-magika` declares a development dependency on the same path and version. This is a local manifest snapshot, not a statement about published downstream releases.
 
 This crate uses `qubit-value` `0.13`.
 

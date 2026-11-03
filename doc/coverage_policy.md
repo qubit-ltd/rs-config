@@ -51,16 +51,18 @@ At the exact normal threshold, lines and regions still need an override because
 their normal rules are strict (`>`); functions at exactly 95% meet their normal
 rule (`>=`) and do not count as an active exception.
 
-The sidecar stores per-file evidence. The exact measured source baseline is
-`implementation worktree based on HEAD 18f005079bdfb90b0e8ab58cd57a519efe786d2f; RSC-401 and RSC-402 changes were included in this report`.
+The sidecar stores per-file evidence. YAML evidence was regenerated from the
+task worktree based on HEAD `d234f018d54326bd416d7f511a8b7486b9f0b34c`, with the
+RSC-502 parser-budget boundary tests and RSC-503 Rustdoc changes included.
 The pinned TOML source SHA-256 is `c16348586be0cade89ed73392c932e3b98492bfe4dc9a2f928f34aabea6b07db`;
-the YAML source SHA-256 is `427bad58a644c068bbb626786597956f10b92e4a5b13a6f5303a56e20fc271e9`.
-TOML and YAML were measured together at
-`2026-11-02T09:39:59Z` with `cargo-llvm-cov 0.8.6`, Rust 1.94.0, and LLVM
-21.1.8, using `./scripts/check-project-coverage.sh`. The measured task worktree
-was based on HEAD `18f005079bdfb90b0e8ab58cd57a519efe786d2f` and included the
-RSC-401 and RSC-402 changes. The source SHA-256 values are pinned separately
-in the sidecar. TOML's exact lower bounds reflect defensive Config write-error
+the refreshed YAML source SHA-256 is `092131b28ea895a41d8dd0027b018e75d5bd5f043f556aba820e238d0cc46fa3`.
+TOML evidence baseline: `implementation worktree based on HEAD 18f005079bdfb90b0e8ab58cd57a519efe786d2f; RSC-401 and RSC-402 changes were included in this report`.
+YAML evidence baseline: `task worktree based on HEAD d234f018d54326bd416d7f511a8b7486b9f0b34c; RSC-502 parser-budget boundary tests and RSC-503 Rustdoc changes were included in this report`.
+YAML was measured at `2026-11-03T02:26:01Z` with `cargo-llvm-cov 0.8.6`, Rust
+1.94.0, and LLVM 21.1.8, using `./scripts/check-project-coverage.sh`. TOML
+evidence remains from `2026-11-02T09:39:59Z` with `cargo-llvm-cov 0.8.6` and
+the same Rust and LLVM versions; its source hash and metrics are unchanged.
+TOML's exact lower bounds reflect defensive Config write-error
 paths and backend callbacks that must remain uncalled when parser admission
 rejects input. YAML retains a function-only lower bound; its lines and regions
 meet the normal thresholds.

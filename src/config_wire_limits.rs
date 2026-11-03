@@ -216,6 +216,8 @@ mod tests {
             .max_property_key_bytes(23)
             .build();
         let rebuilt = ConfigWireLimits::builder_from(&original).build();
+        assert_eq!(rebuilt.max_properties(), 17);
+        assert_eq!(rebuilt.max_property_key_bytes(), 23);
         assert_eq!(rebuilt.properties_limit().maximum(), 17);
         assert_eq!(rebuilt.property_key_bytes_limit().maximum(), 23);
 

@@ -209,6 +209,7 @@ impl From<ConversionPolicy> for ReadPolicy {
 
 #[cfg(test)]
 mod tests {
+    use qubit_datatype::ConversionLimits;
     use qubit_datatype::ConversionPolicy;
 
     use super::ReadPolicy;
@@ -218,6 +219,8 @@ mod tests {
         let policy = ReadPolicy::default();
         let conversion_policy: &ConversionPolicy = policy.as_ref();
         assert_eq!(conversion_policy, policy.conversion_policy());
+        let conversion_limits: &ConversionLimits = policy.as_ref();
+        assert_eq!(conversion_limits, policy.conversion_limits());
 
         let converted = ReadPolicy::from(ConversionPolicy::env_friendly());
         assert_eq!(converted.conversion_policy(), &ConversionPolicy::env_friendly());

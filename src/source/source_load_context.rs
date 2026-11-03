@@ -68,7 +68,12 @@ use crate::ConfigResult;
 /// Parser-token charges are distinct from semantic node charges. A failed
 /// operation does not undo charges accepted by earlier operations.
 pub struct SourceLoadContext<'a> {
+    /// Owns this source's local budget and borrows active ancestor budgets so
+    /// cumulative charges are checked and committed across all scopes.
     session: SourceLoadSession<'a>,
+    /// Holds only this source's output properties until its load succeeds;
+    /// failed source loads discard this layer, while completed child layers
+    /// can be merged into the parent layer.
     layer: Config,
 }
 

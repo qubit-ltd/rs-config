@@ -37,14 +37,14 @@
       "minimums": {
         "functions": 80.85106382978722
       },
-      "reason": "The regenerated full default-feature report includes YAML pre-backend scanner/depth admission, safe diagnostic regressions, and RSC-201 label/error-attribution tests. Remaining gaps are defensive nested-sequence and backend/scanner fallback paths; observable token/depth limits, supported scalar conversions, aliases, and redaction are covered. Retain the existing measured function floor and pin the current source hash.",
+      "reason": "The regenerated full default-feature report includes YAML pre-backend scanner/depth admission, generated parser-token and nesting boundary tests, RSC-201 label/error-attribution tests, and the RSC-503 Rustdoc-only source update. Remaining gaps are defensive nested-sequence and backend/scanner fallback paths; observable token/depth limits, supported scalar conversions, aliases, and redaction are covered. Retain the existing measured function floor and pin the current source hash.",
       "evidence": {
-        "generated_at": "2026-11-02T09:39:59Z",
+        "generated_at": "2026-11-03T02:26:01Z",
         "cargo_llvm_cov": "cargo-llvm-cov 0.8.6",
         "rust_llvm": "rustc 1.94.0 (4a4ef493e 2026-03-02), LLVM 21.1.8",
         "command": "./scripts/check-project-coverage.sh",
-        "source_baseline": "implementation worktree based on HEAD 18f005079bdfb90b0e8ab58cd57a519efe786d2f; RSC-401 and RSC-402 changes were included in this report",
-        "source_sha256": "427bad58a644c068bbb626786597956f10b92e4a5b13a6f5303a56e20fc271e9",
+        "source_baseline": "task worktree based on HEAD d234f018d54326bd416d7f511a8b7486b9f0b34c; RSC-502 parser-budget boundary tests and RSC-503 Rustdoc changes were included in this report",
+        "source_sha256": "092131b28ea895a41d8dd0027b018e75d5bd5f043f556aba820e238d0cc46fa3",
         "metrics": {
           "functions": {
             "covered": 39,

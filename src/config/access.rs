@@ -372,4 +372,13 @@ mod tests {
         config.set("server.host", "localhost").unwrap();
         assert_eq!(config.len(), 2);
     }
+
+    #[test]
+    fn section_if_present_reports_visible_descendants() {
+        let mut config = Config::new();
+        config.set("server.port", 8080).unwrap();
+
+        assert!(config.section_if_present("server").unwrap().is_some());
+        assert!(config.section_if_present("missing").unwrap().is_none());
+    }
 }

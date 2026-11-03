@@ -16,7 +16,7 @@ cargo tree -i qubit-config@0.14.0
 cargo tree -i qubit-config@0.15.0
 ```
 
-2026-11-02 核对的本地清单中，`rs-ioc` 将 `qubit-config` `^0.14` 声明为可选依赖；`rs-http`、`rs-web`、`rs-websocket`、`rs-mime` 的普通依赖指向本地 `0.15` crate，其中部分为可选依赖。`rs-magika` 另有指向相同路径和版本的开发依赖。这是本地清单快照，不代表下游已发布版本的依赖状态。
+2026-11-03 核对的本地清单中，`rs-ioc` 将本地 `0.15` crate 声明为可选的普通依赖；`rs-http`、`rs-web`、`rs-websocket`、`rs-mime` 的普通依赖也指向本地 `0.15` crate，其中部分为可选依赖。`rs-magika` 则将相同路径和版本声明为开发依赖。这是本地清单快照，不代表下游已发布版本的依赖状态。
 
 本 crate 使用 `qubit-value` `0.13`。
 

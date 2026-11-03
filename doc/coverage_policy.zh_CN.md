@@ -44,13 +44,16 @@ regions 必须高于 85%。sidecar 下限只应用于明确列出的指标，并
 在普通阈值的精确等号处，lines 和 regions 仍须使用 override，因为其普通规则是严格大于（`>`）；
 functions 正好为 95% 时已满足普通规则（`>=`），不计为活跃例外。
 
-完整测量源码基线为 `implementation worktree based on HEAD 18f005079bdfb90b0e8ab58cd57a519efe786d2f; RSC-401 and RSC-402 changes were included in this report`。
+YAML 证据在基于 HEAD `d234f018d54326bd416d7f511a8b7486b9f0b34c` 的任务 worktree 中重新生成，
+报告包含 RSC-502 parser-budget 边界测试和 RSC-503 Rustdoc 修改。
 固定的 TOML 源码 SHA-256 为 `c16348586be0cade89ed73392c932e3b98492bfe4dc9a2f928f34aabea6b07db`；
-YAML 源码 SHA-256 为 `427bad58a644c068bbb626786597956f10b92e4a5b13a6f5303a56e20fc271e9`。
-TOML 和 YAML 在 `2026-11-02T09:39:59Z` 使用 `cargo-llvm-cov 0.8.6`、Rust 1.94.0、LLVM 21.1.8，
-通过 `./scripts/check-project-coverage.sh` 一起测量。测量任务工作树基于 HEAD
-`18f005079bdfb90b0e8ab58cd57a519efe786d2f`，并包含 RSC-401 和 RSC-402 修改。
-各源码 SHA-256 分别固定在 sidecar 中。TOML 精确下限反映防御性的 Config 写入错误处理，
+更新后的 YAML 源码 SHA-256 为 `092131b28ea895a41d8dd0027b018e75d5bd5f043f556aba820e238d0cc46fa3`。
+TOML 证据基线：`implementation worktree based on HEAD 18f005079bdfb90b0e8ab58cd57a519efe786d2f; RSC-401 and RSC-402 changes were included in this report`。
+YAML 证据基线：`task worktree based on HEAD d234f018d54326bd416d7f511a8b7486b9f0b34c; RSC-502 parser-budget boundary tests and RSC-503 Rustdoc changes were included in this report`。
+YAML 在 `2026-11-03T02:26:01Z` 使用 `cargo-llvm-cov 0.8.6`、Rust 1.94.0、LLVM 21.1.8，
+通过 `./scripts/check-project-coverage.sh` 测量。TOML 证据仍来自 `2026-11-02T09:39:59Z`，
+使用 `cargo-llvm-cov 0.8.6` 和相同 Rust、LLVM 版本；其源码哈希和指标未变化。各源码 SHA-256
+分别固定在 sidecar 中。TOML 精确下限反映防御性的 Config 写入错误处理，
 以及用于证明解析准入拒绝输入时 backend 不会被调用的回调。YAML 仅保留 functions 下限，
 其 lines 和 regions 达到正常门槛。
 
