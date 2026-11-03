@@ -116,6 +116,12 @@ impl Config {
     /// # Returns
     ///
     /// `true` when at least one descendant key belongs to the section.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::ConfigError::InvalidPath`] when a non-empty `path`
+    /// begins or ends with `.`, or contains an empty dotted segment.
+    /// An empty path is valid. See [`crate::ConfigPath`] for path rules.
     #[inline]
     pub fn contains_section(&self, path: &str) -> ConfigResult<bool> {
         ensure_config_path(path)?;
