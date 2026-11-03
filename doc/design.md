@@ -372,9 +372,10 @@ schema DSL. Error enums are non-exhaustive; downstream logic should branch on
 ### Migration Notes
 
 See the user guide's [qubit-config 0.14 migration steps](user_guide.md#migrating-from-qubit-config-014)
-before upgrading downstream crates. The current workspace has downstream
-version constraints on both sides of this release; cross-version public
-`Config` and `ConfigReader` types cannot be passed between them.
+before upgrading downstream crates. A dependency graph may contain both 0.14
+and 0.15. Public `Config` and `ConfigReader` types from different versions
+cannot be passed across those boundaries. For the dated local manifest
+snapshot, see the [migration section of the user guide](user_guide.md#migrating-from-qubit-config-014).
 
 Check TOML/YAML mapping member names for empty or invalid dotted keys during
 upgrade. Such input is now rejected as a source parse error before recursion;

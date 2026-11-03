@@ -48,7 +48,10 @@ use crate::utils;
 ///
 /// # Examples
 ///
-/// ```rust
+/// This example reads the current process environment. It is compiled but not
+/// run automatically; use a controlled environment for deterministic results.
+///
+/// ```rust,no_run
 /// use qubit_config::source::{EnvConfigSource, ConfigSource};
 /// use qubit_config::Config;
 ///

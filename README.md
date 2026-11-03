@@ -238,35 +238,13 @@ schema roles, including when `serde_json/arbitrary_precision` is unified.
 Arbitrary JSON-domain numbers still follow generic Serde event behavior; use
 the dedicated JSON helpers when their JSON number semantics must be preserved.
 
-Built-in sources load through `SourceLoadContext` and the crate-owned executor.
-Custom `ConfigSource` implementations must write through the context (for
-example, `context.set(...)`) and explicitly report input bytes or parser nodes
-before doing work. This is the boundary that lets rs-config enforce local and
-composite aggregate budgets atomically for input bytes, assignments, parsed
-nodes, child-source count, and nesting depth; unreported external I/O or parser
-work cannot be inferred from the final layer. TOML and YAML now apply separate
-parser-token and parser-depth limits before entering their AST backends. The
-defaults are 1,048,576 parser tokens and parser depth 128; applications can
-configure them with `SourceLimitsBuilder::max_parser_tokens` and
-`max_parser_nesting_depth`. Parser tokens are cumulative across a source and
-its enclosing composites; parser depth is checked per input from root depth
-zero. Existing node, assignment, and semantic output-depth checks still run
-while flattening. The admission limits bound work passed to the backend, but do
-not promise a strict RSS or CPU ceiling, and a single large token can still be
-allocated by a scanner. YAML
-also rejects anchor and alias tokens before AST construction; scanner errors
-fail closed, while quoted, commented, and block-scalar text is not treated as
-such a token. `.env`
-loading preserves `$NAME` and `${NAME}` literally instead of expanding process
-environment variables; use explicit interpolated reads when substitution is
-intended. Customize `SourceLimits` only when the input boundary is understood.
-Custom sources can mark a written property final with `SourceLoadContext::set_final`
-so later sources cannot override it; see the user guide for an example.
-Library-managed entry points such as `Config::from_source` and
-`merge_properties_from_source` always use the executor and call `load_into`,
-even when a source overrides `load`. Direct calls to an override remain the
-implementation's responsibility. Move behavior needed by managed loading into
-`load_into`.
+Built-in sources use the controlled loading context and apply local and aggregate resource limits.
+Custom sources must report external work before doing it, since the framework cannot infer it from
+the finished layer. TOML and YAML apply parser admission checks before AST construction; YAML
+rejects anchor and alias tokens. `.env` loading preserves variable placeholders literally, final
+properties cannot be overridden, and library-managed loading calls `load_into`. Source limits do
+not promise a strict RSS or CPU ceiling. See the [source loading guide](doc/user_guide.md#load-and-merge-sources),
+[source limit guide](doc/user_guide.md#configure-source-limits), and [design details](doc/design.md#source-pipeline).
 
 It does not silently interpolate values during ordinary reads, expand process-environment placeholders while loading `.env` files, use defaults to hide a present but invalid value, permit third-party `ConfigReader` implementations, or support `dyn ConfigReader`: the trait is sealed and its generic methods make it non-object-safe. Detailed path rules, source failure behavior, structured deserialization, custom conversion, and troubleshooting are covered in the user guide; current component boundaries and compatibility commitments are recorded in the design document.
 

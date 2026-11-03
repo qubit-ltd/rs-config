@@ -224,24 +224,11 @@ JSON 词法 token，因此不可信 JSON 还必须通过 `Config::decode_json_sl
 `serde_json/arbitrary_precision` 也一样。任意 JSON 领域数字仍遵循通用 Serde 事件语义；需要保留
 JSON 数字语义时应使用专用 JSON helper。
 
-所有内置 source 都通过 `SourceLoadContext` 和 crate-owned executor 加载。自定义
-`ConfigSource` 必须通过 context（例如 `context.set(...)`）写入输出，并在执行外部
-I/O 或 parser 工作前主动报告输入字节和解析节点；最终 layer 无法反推出未报告的
-工作量。通过 context 的输入字节、assignment、解析节点、子 source 数量和嵌套深度
-会同时检查 source 局部预算与 composite 聚合预算，任一预算拒绝时不会只扣减其中一层。
-TOML 和 YAML 现在会在 AST backend 前分别执行 parser token 与 parser depth 限制，默认值分别为
-1,048,576 个 token 和 128 层；可通过 `SourceLimitsBuilder::max_parser_tokens` 与
-`max_parser_nesting_depth` 配置。Parser token 会在单个 source 及其所有外层 composite 间累计；
-parser depth 对每个输入单独检查，根深度为 0。原有 node、assignment 和语义输出深度仍在 flatten
-阶段检查。这些准入预算限制传给 backend 的解析工作量，但不承诺严格 RSS 或 CPU 上限；scanner
-仍可能先为单个大 token 分配内存。
-YAML 还会在 AST 构建前拒绝 anchor 和 alias token；scanner 错误直接失败，引号、注释和块标量
-文本不会被视为这类 token。`.env` 加载会保留 `$NAME` 和 `${NAME}` 字面量，不展开进程环境变量；
-需要替换时应显式使用 interpolated 读取。只有明确了解输入边界时才应放宽 `SourceLimits`。
-自定义 source 可用 `SourceLoadContext::set_final` 锁定已写入的 property，避免后续来源覆盖；使用示例见用户指南。
-`Config::from_source` 和 `merge_properties_from_source` 等库管理入口始终使用该 executor 并调用
-`load_into`，即使配置源覆盖了 `load` 也一样。直接调用覆盖方法由实现者负责；需要由库管理入口
-执行的自定义逻辑应迁入 `load_into`。
+内置配置源通过受控上下文加载，同时执行本地和复合来源的资源限制。自定义来源必须在执行外部工作前
+主动报告，因为框架无法从最终配置层推断遗漏的工作量。TOML 和 YAML 会在构建 AST 前执行解析准入检查；
+YAML 会拒绝 anchor 和 alias token。`.env` 加载保留变量占位符字面值，final 属性不会被覆盖，库管理的加载入口
+会调用 `load_into`。来源限制不保证严格的 RSS 或 CPU 上限。详见[来源加载指南](doc/user_guide.zh_CN.md#加载和合并配置源)、
+[来源限制指南](doc/user_guide.zh_CN.md#配置源限制)和[设计专题](doc/design.zh_CN.md#资源预算)。
 
 本库不会在普通读取时静默执行插值，不会在加载 `.env` 文件时展开进程环境占位符，也不会用默认值掩盖已存在但无效的值。`ConfigReader` 是封闭（sealed）trait，不能由第三方实现；它包含泛型方法，因此不支持 `dyn ConfigReader`。路径规则、配置源失败行为、结构化反序列化、自定义转换和排障细节请参阅用户手册；当前组件边界与兼容承诺记录在设计说明中。
 

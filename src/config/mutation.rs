@@ -123,7 +123,11 @@ impl Config {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// This example reads the current process environment. It is compiled but
+    /// not run automatically; use a controlled environment for
+    /// deterministic results.
+    ///
+    /// ```rust,no_run
     /// # #[cfg(feature = "toml")]
     /// # {
     /// use qubit_config::Config;
