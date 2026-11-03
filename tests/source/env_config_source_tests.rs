@@ -48,7 +48,7 @@ fn run_with_env(name: &str, values: &[(&str, &str)]) -> bool {
     false
 }
 
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 fn run_with_os_env(name: &str, values: &[(std::ffi::OsString, std::ffi::OsString)]) -> bool {
     const CHILD: &str = "QUBIT_ENV_CONFIG_TEST_CHILD";
     if std::env::var_os(CHILD).is_some() {
@@ -220,7 +220,7 @@ mod test_env_config_source {
     use super::Redactor;
     use super::merge_source;
     use super::run_with_env;
-    #[cfg(unix)]
+    #[cfg(any(unix, windows))]
     use super::run_with_os_env;
 
     /// Verifies the default environment policy redacts an ordinary UTF-8
@@ -517,6 +517,72 @@ mod test_env_config_source {
         assert!(!debug.contains(INJECTION_MARKER));
         assert!(!debug.contains('\n'));
         assert!(!debug.contains('\r'));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_windows_non_unicode_key_prefix_behavior_through_public_api() {
+        use std::ffi::OsString;
+        use std::os::windows::ffi::OsStringExt;
+
+        const CHILD: &str = "QUBIT_ENV_CONFIG_TEST_CHILD";
+        const SECRET: &str = "WINDOWS_ENV_KEY_PUBLIC_SECRET";
+        let mut key_units = "APP_".encode_utf16().collect::<Vec<_>>();
+        key_units.push(0xD800);
+        key_units.extend(SECRET.encode_utf16());
+        let key = OsString::from_wide(&key_units);
+        assert!(key.to_str().is_none());
+
+        if std::env::var_os(CHILD).is_none() {
+            assert!(!run_with_os_env(
+                "test_env_config_source::test_windows_non_unicode_key_prefix_behavior_through_public_api",
+                &[(key, OsString::from("ordinary value"))],
+            ));
+            return;
+        }
+
+        let actual = std::env::var_os(&key)
+            .expect("child environment must retain native key units");
+        assert_eq!(actual.encode_wide().collect::<Vec<_>>(), key_units);
+
+        let error = Config::from_env_prefix("APP_")
+            .expect_err("matching invalid Unicode key must fail through Config API");
+        assert!(matches!(
+            &error,
+            ConfigError::SourceParseError { source_id, .. } if source_id == "process environment"
+        ));
+        let rendered = format!("{error} {error:?}");
+        assert!(rendered.contains("<redacted>"));
+        assert!(!rendered.contains(SECRET));
+
+        assert!(EnvConfigSource::from_prefix("OTHER_")
+            .load()
+            .expect("unrelated prefix should skip the invalid key")
+            .is_empty());
+        assert!(EnvConfigSource::from_prefix("")
+            .load()
+            .expect_err("empty prefix matches invalid key")
+            .to_string()
+            .contains("<redacted>"));
+        assert!(EnvConfigSource::new()
+            .load()
+            .expect_err("no-prefix source includes invalid key")
+            .to_string()
+            .contains("<redacted>"));
+
+        let explicit =
+            EnvConfigSource::from_options(EnvConfigOptions::builder().prefix("APP_").build());
+        let mut target = Config::new();
+        target.set("existing", "old").unwrap();
+        let before = target.clone();
+        let merge_error = merge_source(&mut target, &explicit)
+            .expect_err("explicit options must retain prefix matching behavior");
+        assert!(matches!(
+            &merge_error,
+            ConfigError::SourceParseError { source_id, .. } if source_id == "process environment"
+        ));
+        assert_eq!(target, before, "failed source merge must be transactional");
+        assert!(!format!("{merge_error} {merge_error:?}").contains(SECRET));
     }
 
     #[test]

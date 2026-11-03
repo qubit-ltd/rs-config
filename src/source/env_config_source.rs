@@ -186,9 +186,9 @@ impl EnvConfigSource {
     ///
     /// # Returns
     ///
-    /// `true` if the key starts with `prefix`. On Unix, non-Unicode keys are
-    /// compared as bytes so unrelated invalid keys can still be skipped by a
-    /// prefixed source.
+    /// `true` if the key starts with `prefix`. Non-Unicode keys are compared
+    /// using native units (raw bytes on Unix and UTF-16 code units on Windows)
+    /// so unrelated invalid keys can still be skipped by a prefixed source.
     fn env_key_matches_prefix(key: &OsStr, prefix: &str) -> bool {
         key.to_str().map_or_else(
             || Self::non_unicode_env_key_matches_prefix(key, prefix),
@@ -205,8 +205,9 @@ impl EnvConfigSource {
     ///
     /// # Returns
     ///
-    /// `true` on Unix when the raw key bytes start with the UTF-8 prefix bytes;
-    /// `false` on platforms where raw environment bytes are unavailable.
+    /// `true` when the native key units start with the prefix's native units:
+    /// raw bytes on Unix and UTF-16 code units on Windows. Prefix matching is
+    /// case-sensitive on every platform.
     #[cfg(unix)]
     fn non_unicode_env_key_matches_prefix(key: &OsStr, prefix: &str) -> bool {
         use std::os::unix::ffi::OsStrExt;
@@ -218,14 +219,39 @@ impl EnvConfigSource {
     ///
     /// # Parameters
     ///
+    /// * `key` - Non-Unicode environment variable key.
+    /// * `prefix` - UTF-8 prefix configured on this source.
+    ///
+    /// # Returns
+    ///
+    /// `true` when UTF-16 code units match the prefix without converting the
+    /// key to Unicode. Prefix exhaustion matches, while early key exhaustion
+    /// or a differing code unit rejects.
+    #[cfg(windows)]
+    fn non_unicode_env_key_matches_prefix(key: &OsStr, prefix: &str) -> bool {
+        use std::os::windows::ffi::OsStrExt;
+
+        let mut key_units = key.encode_wide();
+        for prefix_unit in prefix.encode_utf16() {
+            if key_units.next() != Some(prefix_unit) {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// Checks a non-Unicode environment key against a UTF-8 prefix.
+    ///
+    /// # Parameters
+    ///
     /// * `_key` - Non-Unicode environment variable key.
     /// * `_prefix` - UTF-8 prefix configured on this source.
     ///
     /// # Returns
     ///
-    /// Always `false` on non-Unix platforms because raw environment bytes are
-    /// not available through the standard library.
-    #[cfg(not(unix))]
+    /// Always `false` on platforms where native environment key units cannot
+    /// be inspected without conversion.
+    #[cfg(not(any(unix, windows)))]
     fn non_unicode_env_key_matches_prefix(_key: &OsStr, _prefix: &str) -> bool {
         false
     }
@@ -370,3 +396,6 @@ impl EnvConfigSource {
 
 #[cfg(test)]
 mod permutation_tests;
+
+#[cfg(test)]
+mod env_key_tests;
