@@ -854,7 +854,10 @@ fn deserialize_unknown_enum_redacts_secret_value() -> ConfigResult<()> {
     match error {
         ConfigError::DeserializeError {
             message, source: None, ..
-        } => assert_eq!(message, "configuration value does not match the requested type",),
+        } => assert_eq!(
+            message,
+            "unknown configuration variant; expected one of: [\"Fast\",\"Slow\"]",
+        ),
         other => panic!("expected redacted deserialization error: {other}"),
     }
     Ok(())

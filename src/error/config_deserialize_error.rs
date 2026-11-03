@@ -113,6 +113,15 @@ impl de::Error for ConfigDeserializeError {
         }
     }
 
+    /// Creates a safe summary for an unknown schema enum variant.
+    fn unknown_variant(_variant: &str, expected: &'static [&'static str]) -> Self {
+        let expected = serde_json::to_string(expected).expect("serializing variant names cannot fail");
+        Self::Message {
+            message: format!("unknown configuration variant; expected one of: {expected}"),
+            path: None,
+        }
+    }
+
     /// Creates a safe summary for an invalid sequence or tuple length.
     fn invalid_length(len: usize, _expected: &dyn de::Expected) -> Self {
         Self::Message {

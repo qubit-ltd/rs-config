@@ -60,6 +60,24 @@ struct RequiredControlField {
     line_break: String,
 }
 
+#[derive(Debug, Deserialize, PartialEq)]
+enum DiagnosticMode {
+    Fast,
+    Safe,
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+struct DiagnosticModeField {
+    mode: DiagnosticMode,
+}
+
+#[derive(Debug, Deserialize)]
+enum ControlCharacterMode {
+    #[serde(rename = "line\nbreak")]
+    LineBreak,
+}
+
 #[derive(Debug)]
 struct CustomSecretError;
 
@@ -74,6 +92,18 @@ impl<'de> Deserialize<'de> for CustomSecretError {
 
 #[derive(Debug)]
 struct InvalidTypeSecretError;
+
+#[derive(Debug)]
+struct EmptyVariantSecretError;
+
+impl<'de> Deserialize<'de> for EmptyVariantSecretError {
+    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Err(de::Error::unknown_variant("rejected-secret-canary", &[]))
+    }
+}
 
 impl<'de> Deserialize<'de> for InvalidTypeSecretError {
     fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
@@ -303,6 +333,62 @@ fn test_custom_and_invalid_type_errors_do_not_expose_secret_text() {
         ConfigError::DeserializeError { message, source: None, .. }
             if message == "configuration value has an invalid type"
     ));
+}
+
+#[test]
+fn unknown_enum_variant_retains_safe_candidates() {
+    let mut config = Config::new();
+    config.set("app.mode", "rejected-secret-canary").unwrap();
+    let error = config.deserialize::<DiagnosticMode>("app.mode").unwrap_err();
+    assert_eq!(error.kind(), ConfigErrorKind::Deserialize);
+    assert_eq!(error.path(), Some("app.mode"));
+    let candidates = serde_json::to_string(&["Fast", "Safe"]).unwrap();
+    assert!(
+        matches!(&error, ConfigError::DeserializeError { message, source: None, .. }
+        if message == &format!("unknown configuration variant; expected one of: {candidates}"))
+    );
+    let mut cause: Option<&dyn Error> = Some(&error);
+    while let Some(current) = cause {
+        assert!(!current.to_string().contains("rejected-secret-canary"));
+        assert!(!format!("{current:?}").contains("rejected-secret-canary"));
+        cause = current.source();
+    }
+    config.set("app.mode", "Safe").unwrap();
+    assert_eq!(
+        config.deserialize::<DiagnosticMode>("app.mode").unwrap(),
+        DiagnosticMode::Safe
+    );
+}
+
+#[test]
+fn unknown_nested_enum_variant_keeps_leaf_path() {
+    let mut config = Config::new();
+    config.set("app.mode", "invalid").unwrap();
+    let error = config.deserialize::<DiagnosticModeField>("app").unwrap_err();
+    assert_eq!(error.kind(), ConfigErrorKind::Deserialize);
+    assert_eq!(error.path(), Some("app.mode"));
+}
+
+#[test]
+fn unknown_enum_variant_json_escapes_schema_candidate() {
+    let mut config = Config::new();
+    config.set("app.mode", "invalid").unwrap();
+    let error = config.deserialize::<ControlCharacterMode>("app.mode").unwrap_err();
+    assert!(matches!(&error, ConfigError::DeserializeError { message, .. }
+        if message.contains(r#""line\nbreak""#) && !message.contains("line\nbreak")));
+}
+
+#[test]
+fn unknown_enum_variant_with_empty_candidates_is_safe() {
+    let mut config = Config::new();
+    config.set("app.mode", "rejected-secret-canary").unwrap();
+    let error = config.deserialize::<EmptyVariantSecretError>("app.mode").unwrap_err();
+    assert!(
+        matches!(&error, ConfigError::DeserializeError { message, source: None, .. }
+        if message == "unknown configuration variant; expected one of: []")
+    );
+    assert!(!error.to_string().contains("rejected-secret-canary"));
+    assert!(!format!("{error:?}").contains("rejected-secret-canary"));
 }
 
 #[test]

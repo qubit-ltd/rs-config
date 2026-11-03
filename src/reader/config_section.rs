@@ -78,6 +78,11 @@ impl<'a> ConfigSection<'a> {
     /// # Returns
     ///
     /// A section borrowing the same root configuration.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::ConfigError::InvalidPath`] when `path` is not
+    /// canonical.
     #[inline]
     pub fn section(&self, path: &str) -> ConfigResult<ConfigSection<'a>> {
         ensure_config_path(path)?;
