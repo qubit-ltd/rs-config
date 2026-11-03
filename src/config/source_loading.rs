@@ -84,7 +84,13 @@ impl Config {
     ///
     /// Only variables starting with `prefix` are loaded. The prefix is
     /// stripped, the remaining key is lowercased, and double underscores are
-    /// converted to dots while single underscores are preserved.
+    /// converted to dots while single underscores are preserved. Unicode
+    /// names use a case-sensitive string prefix comparison. Non-Unicode names
+    /// use native-unit prefix matching on Unix (raw bytes) and Windows
+    /// (UTF-16 code units), so matching names are rejected as parse errors
+    /// while unrelated names are skipped. Other platforms retain a fallback
+    /// that skips non-Unicode names because the standard library does not
+    /// expose their native units for prefix matching.
     ///
     /// # Parameters
     ///

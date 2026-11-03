@@ -894,6 +894,8 @@ a valid port is a separate business validation decision.
 
 For example, `APP_DATABASE__MAX_CONNECTIONS` becomes `database.max_connections`. Use `EnvConfigOptions` when only some transformations are wanted. If two distinct environment names collapse to the same normalized key, loading returns `KeyConflict` rather than selecting one silently. The error reports the conflicting environment names in lexicographic order, so its diagnostics do not depend on the operating system's environment-variable iteration order.
 
+Prefix matching remains case-sensitive for Unicode names. On Unix, non-Unicode names are checked against the prefix as raw bytes; on Windows, they are checked as UTF-16 code units. A matching non-Unicode name is rejected with a redacted parse error, while an unrelated one is skipped. Other platforms cannot inspect native name units through the standard library and skip non-Unicode names for prefixed loading. If a Windows deployment has a malformed name under the configured prefix, correct that name or choose a prefix that excludes it.
+
 TOML and YAML sources flatten mappings into dotted properties. They accept scalars,
 empty sequences, and homogeneous scalar sequences of strings, booleans, or values
 within the same existing numeric category. TOML strings and date/time values may
