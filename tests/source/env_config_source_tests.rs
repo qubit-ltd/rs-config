@@ -541,12 +541,11 @@ mod test_env_config_source {
             return;
         }
 
-        let actual = std::env::var_os(&key)
-            .expect("child environment must retain native key units");
+        let actual = std::env::var_os(&key).expect("child environment must retain native key units");
         assert_eq!(actual.encode_wide().collect::<Vec<_>>(), key_units);
 
-        let error = Config::from_env_prefix("APP_")
-            .expect_err("matching invalid Unicode key must fail through Config API");
+        let error =
+            Config::from_env_prefix("APP_").expect_err("matching invalid Unicode key must fail through Config API");
         assert!(matches!(
             &error,
             ConfigError::SourceParseError { source_id, .. } if source_id == "process environment"
@@ -555,28 +554,33 @@ mod test_env_config_source {
         assert!(rendered.contains("<redacted>"));
         assert!(!rendered.contains(SECRET));
 
-        assert!(EnvConfigSource::from_prefix("OTHER_")
-            .load()
-            .expect("unrelated prefix should skip the invalid key")
-            .is_empty());
-        assert!(EnvConfigSource::from_prefix("")
-            .load()
-            .expect_err("empty prefix matches invalid key")
-            .to_string()
-            .contains("<redacted>"));
-        assert!(EnvConfigSource::new()
-            .load()
-            .expect_err("no-prefix source includes invalid key")
-            .to_string()
-            .contains("<redacted>"));
+        assert!(
+            EnvConfigSource::from_prefix("OTHER_")
+                .load()
+                .expect("unrelated prefix should skip the invalid key")
+                .is_empty()
+        );
+        assert!(
+            EnvConfigSource::from_prefix("")
+                .load()
+                .expect_err("empty prefix matches invalid key")
+                .to_string()
+                .contains("<redacted>")
+        );
+        assert!(
+            EnvConfigSource::new()
+                .load()
+                .expect_err("no-prefix source includes invalid key")
+                .to_string()
+                .contains("<redacted>")
+        );
 
-        let explicit =
-            EnvConfigSource::from_options(EnvConfigOptions::builder().prefix("APP_").build());
+        let explicit = EnvConfigSource::from_options(EnvConfigOptions::builder().prefix("APP_").build());
         let mut target = Config::new();
         target.set("existing", "old").unwrap();
         let before = target.clone();
-        let merge_error = merge_source(&mut target, &explicit)
-            .expect_err("explicit options must retain prefix matching behavior");
+        let merge_error =
+            merge_source(&mut target, &explicit).expect_err("explicit options must retain prefix matching behavior");
         assert!(matches!(
             &merge_error,
             ConfigError::SourceParseError { source_id, .. } if source_id == "process environment"
