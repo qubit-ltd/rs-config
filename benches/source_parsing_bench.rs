@@ -9,11 +9,14 @@
 
 use std::hint::black_box;
 
+use criterion::BatchSize;
 use criterion::BenchmarkId;
 use criterion::Criterion;
 use criterion::criterion_group;
 use criterion::criterion_main;
+use qubit_config::Config;
 use qubit_config::ConfigSource;
+use qubit_config::source::CompositeConfigSource;
 #[cfg(feature = "env-file")]
 use qubit_config::source::EnvFileConfigSource;
 use qubit_config::source::PropertiesConfigSource;
@@ -119,5 +122,123 @@ fn benchmark_continuation_backslashes(criterion: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, benchmark_source_parsing, benchmark_continuation_backslashes);
+fn config_with_properties(property_count: usize, key_prefix: &str, value_prefix: &str) -> Config {
+    let content = (0..property_count)
+        .map(|index| format!("{key_prefix}{index}={value_prefix}{index}\n"))
+        .collect::<String>();
+    PropertiesConfigSource::from_content(content)
+        .load()
+        .expect("prepared properties should load")
+}
+
+fn benchmark_config_merge(criterion: &mut Criterion) {
+    let mut group = criterion.benchmark_group("config_merge");
+    for target_size in [1_024_usize, 16_384] {
+        for incoming_size in [1_usize, 32, 1_024] {
+            for overlap in [false, true] {
+                let target = config_with_properties(target_size, "target.key_", "old_");
+                let incoming = if overlap {
+                    config_with_properties(incoming_size, "target.key_", "new_")
+                } else {
+                    config_with_properties(incoming_size, "incoming.key_", "new_")
+                };
+                let expected_size = if overlap {
+                    target_size
+                } else {
+                    target_size + incoming_size
+                };
+                let checked = {
+                    let mut merged = target.clone();
+                    merged
+                        .merge_properties(incoming.clone())
+                        .expect("prepared merge should succeed");
+                    merged
+                };
+                assert_eq!(checked.len(), expected_size);
+                assert_eq!(
+                    checked
+                        .get::<String>(if overlap { "target.key_0" } else { "incoming.key_0" })
+                        .unwrap(),
+                    "new_0"
+                );
+
+                let id = format!(
+                    "target_{target_size}/incoming_{incoming_size}/{}",
+                    if overlap { "overlap" } else { "disjoint" }
+                );
+                group.bench_function(BenchmarkId::new("merge", id), |bencher| {
+                    bencher.iter_batched(
+                        || (target.clone(), incoming.clone()),
+                        |(mut target, incoming)| {
+                            target.merge_properties(incoming).unwrap();
+                            black_box(target)
+                        },
+                        BatchSize::SmallInput,
+                    );
+                });
+            }
+        }
+    }
+    group.finish();
+}
+
+fn benchmark_composite_layers(criterion: &mut Criterion) {
+    let mut group = criterion.benchmark_group("composite_layers");
+    for layer_count in [1_usize, 8, 64] {
+        for overlap in [false, true] {
+            let mut composite = CompositeConfigSource::new();
+            for layer in 0..layer_count {
+                let content = (0..32_usize)
+                    .map(|assignment| {
+                        let key = if overlap {
+                            format!("service.endpoint_{assignment}")
+                        } else {
+                            format!("service.layer_{layer}_endpoint_{assignment}")
+                        };
+                        format!("{key}=layer_{layer}_{assignment}\n")
+                    })
+                    .collect::<String>();
+                composite.add(PropertiesConfigSource::from_content(content));
+            }
+
+            let loaded = composite.load().expect("prepared composite should load");
+            let expected_size = if overlap { 32 } else { layer_count * 32 };
+            assert_eq!(loaded.len(), expected_size);
+            let expected_key = if overlap {
+                "service.endpoint_0".to_string()
+            } else {
+                format!("service.layer_{}_endpoint_0", layer_count - 1)
+            };
+            assert_eq!(
+                loaded.get::<String>(&expected_key).unwrap(),
+                format!("layer_{}_0", layer_count - 1)
+            );
+            if !overlap {
+                assert_eq!(
+                    loaded
+                        .get::<String>(&format!("service.layer_{}_endpoint_31", layer_count - 1))
+                        .unwrap(),
+                    format!("layer_{}_31", layer_count - 1)
+                );
+            }
+
+            let id = format!(
+                "layers_{layer_count}/{}",
+                if overlap { "same_keys" } else { "disjoint" }
+            );
+            group.bench_function(BenchmarkId::new("load", id), |bencher| {
+                bencher.iter(|| black_box(composite.load().unwrap()));
+            });
+        }
+    }
+    group.finish();
+}
+
+criterion_group!(
+    benches,
+    benchmark_source_parsing,
+    benchmark_continuation_backslashes,
+    benchmark_config_merge,
+    benchmark_composite_layers
+);
 criterion_main!(benches);
