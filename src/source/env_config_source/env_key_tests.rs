@@ -53,7 +53,7 @@ fn matching_invalid_windows_key_errors_with_redacted_source_context() {
     let source = EnvConfigSource::from_prefix("APP_");
     let mut context = SourceLoadContext::new("process environment".to_owned(), SourceLimits::default());
     let error = source
-        .load_environment_entries([(key, OsString::from("ordinary value"))], &mut context)
+        .load_environment_entries([(key, OsString::from(SECRET_VALUE))], &mut context)
         .expect_err("matching invalid Unicode key must fail");
     assert!(error.to_string().contains("process environment"));
     assert!(error.to_string().contains("<redacted>"));

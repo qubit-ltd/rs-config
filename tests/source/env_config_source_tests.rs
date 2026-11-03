@@ -536,7 +536,7 @@ mod test_env_config_source {
         if std::env::var_os(CHILD).is_none() {
             assert!(!run_with_os_env(
                 "test_env_config_source::test_windows_non_unicode_key_prefix_behavior_through_public_api",
-                &[(key, OsString::from("ordinary value"))],
+                &[(key, OsString::from(SECRET))],
             ));
             return;
         }
