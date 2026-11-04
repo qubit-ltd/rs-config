@@ -112,10 +112,12 @@ class RequiredGuideExamplesTests(unittest.TestCase):
                 ))
                 path.write_text(CHECKER.COPYRIGHT_HEADER + code, encoding="utf-8")
 
-    def test_manual_resource_probe_is_not_a_documented_example(self) -> None:
-        (self.root / "examples/config_source_resource_probe.rs").write_text(
-            "fn main() {}\n", encoding="utf-8"
-        )
+    def test_manual_resource_probes_are_not_documented_examples(self) -> None:
+        for example in (
+            "config_source_resource_probe.rs",
+            "config_composite_resource_probe.rs",
+        ):
+            (self.root / "examples" / example).write_text("fn main() {}\n", encoding="utf-8")
         self.assertEqual(CHECKER.check_examples(), [])
 
 

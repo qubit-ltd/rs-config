@@ -25,7 +25,10 @@ EXAMPLE_DOCS = {
     "config_read_policy": ("doc/user_guide.md", "doc/user_guide.zh_CN.md"),
     "config_structured_guide": ("doc/user_guide.md", "doc/user_guide.zh_CN.md"),
 }
-NON_DOCUMENTED_EXAMPLES = {"config_source_resource_probe.rs"}
+NON_DOCUMENTED_EXAMPLES = {
+    "config_source_resource_probe.rs",
+    "config_composite_resource_probe.rs",
+}
 DOCUMENTS = tuple(dict.fromkeys(path for paths in EXAMPLE_DOCS.values() for path in paths))
 MARKER_PATTERN = re.compile(r"^<!-- example: (.*?) -->$")
 EXAMPLE_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")

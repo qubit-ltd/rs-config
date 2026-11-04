@@ -2,18 +2,26 @@
 //    Copyright (c) 2025 - 2026 Haixing Hu.
 //
 //    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 //! Isolated resource probe for composite source chains and wide trees.
 
 use std::env;
-use std::process::{Child, Command, ExitCode};
+use std::process::Child;
+use std::process::Command;
+use std::process::ExitCode;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+use std::time::Instant;
 
-use qubit_config::source::{
-    CompositeConfigSource, ConfigSource, PropertiesConfigSource, SourceLimits, SourceLoadContext,
-};
-use qubit_config::{ConfigError, ConfigResult};
+use qubit_config::ConfigError;
+use qubit_config::ConfigResult;
+use qubit_config::source::CompositeConfigSource;
+use qubit_config::source::ConfigSource;
+use qubit_config::source::PropertiesConfigSource;
+use qubit_config::source::SourceLimits;
+use qubit_config::source::SourceLoadContext;
 
 const TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -28,7 +36,9 @@ fn limits(profile: &str) -> Result<SourceLimits, &'static str> {
 
 fn parse(args: &[String]) -> Result<(String, usize, String, bool), &'static str> {
     if args.len() < 6 || args.len() > 7 {
-        return Err("usage: config_composite_resource_probe --shape chain|wide --depth N --limits default|raised|unbounded [--child]");
+        return Err(
+            "usage: config_composite_resource_probe --shape chain|wide --depth N --limits default|raised|unbounded [--child]",
+        );
     }
     let mut shape = None;
     let mut depth = None;
@@ -80,11 +90,7 @@ impl ConfigSource for CompositeLayer {
     }
 }
 
-fn make_source(
-    shape: &str,
-    depth: usize,
-    profile: &str,
-) -> Result<CompositeConfigSource, &'static str> {
+fn make_source(shape: &str, depth: usize, profile: &str) -> Result<CompositeConfigSource, &'static str> {
     let policy = limits(profile)?;
     if shape == "chain" {
         let mut source = CompositeConfigSource::builder()
@@ -198,10 +204,7 @@ fn main() -> ExitCode {
     let args = env::args().skip(1).collect::<Vec<_>>();
     match parse(&args) {
         Ok((shape, depth, profile, child)) => {
-            println!(
-                "shape={shape} depth={depth} edges={}",
-                depth.saturating_add(1)
-            );
+            println!("shape={shape} depth={depth} edges={}", depth.saturating_add(1));
             if child {
                 child_run(&shape, depth, &profile)
             } else {

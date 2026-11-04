@@ -13,8 +13,8 @@ use std::process::Command;
 use std::time::Duration;
 
 use qubit_config::Config;
-use qubit_config::ConfigErrorKind;
 use qubit_config::ConfigError;
+use qubit_config::ConfigErrorKind;
 use qubit_config::ConfigReader;
 use qubit_config::options::InterpolationSources;
 use qubit_config::options::ReadPolicy;
@@ -443,10 +443,7 @@ fn websocket_style_validation_precedes_optional_size_reads() {
     let error = ws
         .ensure_known_keys(&["inbound_bytes"], &[])
         .expect_err("unknown key should be rejected before reading values");
-    assert_eq!(
-        error.unknown_property_paths().unwrap(),
-        ["ws.unknown"]
-    );
+    assert_eq!(error.unknown_property_paths().unwrap(), ["ws.unknown"]);
 }
 
 #[test]
