@@ -51,26 +51,23 @@ At the exact normal threshold, lines and regions still need an override because
 their normal rules are strict (`>`); functions at exactly 95% meet their normal
 rule (`>=`) and do not count as an active exception.
 
-The sidecar stores per-file evidence. YAML evidence was regenerated from the
-task worktree based on HEAD `d234f018d54326bd416d7f511a8b7486b9f0b34c`, with the
-RSC-502 parser-budget boundary tests and RSC-503 Rustdoc changes included.
-The pinned TOML source SHA-256 is `c16348586be0cade89ed73392c932e3b98492bfe4dc9a2f928f34aabea6b07db`;
-the refreshed YAML source SHA-256 is `092131b28ea895a41d8dd0027b018e75d5bd5f043f556aba820e238d0cc46fa3`.
-TOML evidence baseline: `implementation worktree based on HEAD 18f005079bdfb90b0e8ab58cd57a519efe786d2f; RSC-401 and RSC-402 changes were included in this report`.
-YAML evidence baseline: `task worktree based on HEAD d234f018d54326bd416d7f511a8b7486b9f0b34c; RSC-502 parser-budget boundary tests and RSC-503 Rustdoc changes were included in this report`.
-YAML was measured at `2026-11-03T02:26:01Z` with `cargo-llvm-cov 0.8.6`, Rust
-1.94.0, and LLVM 21.1.8, using `./scripts/check-project-coverage.sh`. TOML
-evidence remains from `2026-11-02T09:39:59Z` with `cargo-llvm-cov 0.8.6` and
-the same Rust and LLVM versions; its source hash and metrics are unchanged.
-TOML's exact lower bounds reflect defensive Config write-error
-paths and backend callbacks that must remain uncalled when parser admission
-rejects input. YAML retains a function-only lower bound; its lines and regions
-meet the normal thresholds.
+The sidecar stores per-file evidence. Both files were measured at
+`2026-11-04T07:00:24Z` with `cargo-llvm-cov 0.9.1`, Rust 1.94.0, and LLVM
+21.1.8, using `./scripts/check-project-coverage.sh`. The evidence baseline is
+`task worktree based on HEAD 1ba1bb90d75ec7ffef130f2097481c6f1df3cefc after the authorized align-ci formatting pass, including the RSC-20261104-R01 TOML write-error regression`. The TOML source SHA-256 is
+`69fd53039b5e919f1effd5781461d1f27a6434a1d92e2cea784fae388c5e43d9`; the
+YAML source SHA-256 is
+`092131b28ea895a41d8dd0027b018e75d5bd5f043f556aba820e238d0cc46fa3`.
+The TOML regression exercises scalar, datetime, empty-array, typed-array, and
+string/datetime-array writes against final properties, checking that errors
+retain the property key and leave the prior value unchanged. TOML and YAML
+retain function-only lower bounds; their lines and regions meet the normal
+thresholds.
 
 | File | Functions | Lines | Regions | Active minimums |
 | --- | ---: | ---: | ---: | --- |
-| `src/source/toml_config_source.rs` | 73.81% (31/42) | 93.59% (263/281) | 86.28% (478/554) | functions >= 73.17073170731707; regions >= 85.84558823529412 |
-| `src/source/yaml_config_source.rs` | 81.25% (39/48) | 93.97% (296/315) | 90.11% (556/617) | functions >= 80.85106382978722 |
+| `src/source/toml_config_source.rs` | 93.02% (40/43) | 96.83% (305/315) | 94.17% (582/618) | functions >= 93.02325581395348 |
+| `src/source/yaml_config_source.rs` | 81.25% (39/48) | 93.97% (296/315) | 90.11% (556/617) | functions >= 81.25 |
 
 The sidecar records full-precision measured percentages and covered/count
 counters for all three metrics per overridden file. Only displayed percentages

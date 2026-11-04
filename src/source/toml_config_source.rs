@@ -563,3 +563,56 @@ mod admission_tests {
         ));
     }
 }
+
+#[cfg(test)]
+mod mapped_write_errors_tests {
+    use std::collections::HashSet;
+
+    use super::TomlValue;
+    use super::flatten_toml_value;
+    use crate::Config;
+    use crate::ConfigError;
+    use crate::source::SourceLimits;
+    use crate::source::source_load_session::SourceLoadSession;
+
+    #[test]
+    fn final_property_write_errors_keep_key_for_every_value_kind() {
+        let datetime = "1979-05-27T07:32:00Z"
+            .parse::<toml::value::Datetime>()
+            .expect("the test datetime is valid");
+        let cases = [
+            ("string", TomlValue::String("new".to_owned())),
+            ("integer", TomlValue::Integer(42)),
+            ("float", TomlValue::Float(1.5)),
+            ("boolean", TomlValue::Boolean(true)),
+            ("datetime", TomlValue::Datetime(datetime)),
+            ("empty_array", TomlValue::Array(Vec::new())),
+            ("integer_array", TomlValue::Array(vec![TomlValue::Integer(1)])),
+            ("float_array", TomlValue::Array(vec![TomlValue::Float(1.5)])),
+            ("boolean_array", TomlValue::Array(vec![TomlValue::Boolean(true)])),
+            (
+                "string_array",
+                TomlValue::Array(vec![TomlValue::String("new".to_owned()), TomlValue::Datetime(datetime)]),
+            ),
+        ];
+
+        for (key, value) in cases {
+            let mut config = Config::new();
+            config.set(key, "original").expect("initial value is valid");
+            config
+                .set_final(key, true)
+                .expect("the test property can be made final");
+            let mut seen = HashSet::new();
+            let mut session = SourceLoadSession::new("TOML:test", SourceLimits::default());
+
+            let error = flatten_toml_value("TOML:test", key, &value, &mut config, &mut seen, &mut session, 0)
+                .expect_err("writing a final property must fail");
+
+            assert!(matches!(
+                error,
+                ConfigError::PropertyIsFinal(ref error_key) if error_key == key
+            ));
+            assert_eq!(config.get::<String>(key).unwrap(), "original");
+        }
+    }
+}

@@ -3,47 +3,46 @@
   "files": {
     "src/source/toml_config_source.rs": {
       "minimums": {
-        "functions": 73.17073170731707,
-        "regions": 85.84558823529412
+        "functions": 93.02325581395348
       },
-      "reason": "The regenerated full default-feature report includes TOML parser admission, the RSC-402 string/datetime helper contract test, safe diagnostic regressions, and RSC-201 label/error-attribution tests. Remaining gaps are defensive Config write-error fallbacks and backend callbacks deliberately not invoked when token/depth admission rejects parsing; these are outside normal business branch selection. Retain the existing measured floors and pin the current source hash.",
+      "reason": "A focused in-module regression exercises string, integer, float, boolean, datetime, empty-array, typed-array, and string/datetime-array writes against final properties, checking the reported key and that failed writes preserve the original value. The remaining function gap is confined to parser fallback or defensive paths that accepted TOML input cannot select. Lines and regions meet their normal thresholds, so functions is the only retained minimum and is pinned at this fresh measured floor.",
       "evidence": {
-        "generated_at": "2026-11-02T09:39:59Z",
-        "cargo_llvm_cov": "cargo-llvm-cov 0.8.6",
+        "generated_at": "2026-11-04T07:00:24Z",
+        "cargo_llvm_cov": "cargo-llvm-cov 0.9.1",
         "rust_llvm": "rustc 1.94.0 (4a4ef493e 2026-03-02), LLVM 21.1.8",
         "command": "./scripts/check-project-coverage.sh",
-        "source_baseline": "implementation worktree based on HEAD 18f005079bdfb90b0e8ab58cd57a519efe786d2f; RSC-401 and RSC-402 changes were included in this report",
-        "source_sha256": "c16348586be0cade89ed73392c932e3b98492bfe4dc9a2f928f34aabea6b07db",
+        "source_baseline": "task worktree based on HEAD 1ba1bb90d75ec7ffef130f2097481c6f1df3cefc after the authorized align-ci formatting pass, including the RSC-20261104-R01 TOML write-error regression",
+        "source_sha256": "69fd53039b5e919f1effd5781461d1f27a6434a1d92e2cea784fae388c5e43d9",
         "metrics": {
           "functions": {
-            "covered": 31,
-            "count": 42,
-            "percent": 73.80952380952381
+            "covered": 40,
+            "count": 43,
+            "percent": 93.02325581395348
           },
           "lines": {
-            "covered": 263,
-            "count": 281,
-            "percent": 93.59430604982207
+            "covered": 305,
+            "count": 315,
+            "percent": 96.82539682539682
           },
           "regions": {
-            "covered": 478,
-            "count": 554,
-            "percent": 86.28158844765343
+            "covered": 582,
+            "count": 618,
+            "percent": 94.1747572815534
           }
         }
       }
     },
     "src/source/yaml_config_source.rs": {
       "minimums": {
-        "functions": 80.85106382978722
+        "functions": 81.25
       },
-      "reason": "The regenerated full default-feature report includes YAML pre-backend scanner/depth admission, generated parser-token and nesting boundary tests, RSC-201 label/error-attribution tests, and the RSC-503 Rustdoc-only source update. Remaining gaps are defensive nested-sequence and backend/scanner fallback paths; observable token/depth limits, supported scalar conversions, aliases, and redaction are covered. Retain the existing measured function floor and pin the current source hash.",
+      "reason": "The refreshed full default-feature report includes the YAML pre-backend scanner/depth admission, generated parser-token and nesting boundary tests, and RSC-201 label/error-attribution tests. Remaining function gaps are defensive nested-sequence and backend/scanner fallback paths; observable token/depth limits, supported scalar conversions, aliases, and redaction are covered. Lines and regions meet normal thresholds, so functions is the only retained minimum and is pinned at this fresh measured floor.",
       "evidence": {
-        "generated_at": "2026-11-03T02:26:01Z",
-        "cargo_llvm_cov": "cargo-llvm-cov 0.8.6",
+        "generated_at": "2026-11-04T07:00:24Z",
+        "cargo_llvm_cov": "cargo-llvm-cov 0.9.1",
         "rust_llvm": "rustc 1.94.0 (4a4ef493e 2026-03-02), LLVM 21.1.8",
         "command": "./scripts/check-project-coverage.sh",
-        "source_baseline": "task worktree based on HEAD d234f018d54326bd416d7f511a8b7486b9f0b34c; RSC-502 parser-budget boundary tests and RSC-503 Rustdoc changes were included in this report",
+        "source_baseline": "task worktree based on HEAD 1ba1bb90d75ec7ffef130f2097481c6f1df3cefc after the authorized align-ci formatting pass, including the RSC-20261104-R01 TOML write-error regression",
         "source_sha256": "092131b28ea895a41d8dd0027b018e75d5bd5f043f556aba820e238d0cc46fa3",
         "metrics": {
           "functions": {
