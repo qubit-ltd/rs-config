@@ -9,11 +9,12 @@
 
 use qubit_budget::BudgetError;
 use qubit_budget::InsufficientBudgetError;
+use std::sync::Arc;
 
-use super::SourceLimitKind;
-use super::SourceLimits;
 use super::internal::cumulative_dimension::CumulativeDimension;
 use super::internal::source_load_budget::SourceLoadBudget;
+use super::SourceLimitKind;
+use super::SourceLimits;
 use crate::ConfigError;
 use crate::ConfigResult;
 
@@ -23,13 +24,14 @@ use crate::ConfigResult;
 /// budget. Each cumulative charge is checked against all scopes before any
 /// scope is changed.
 pub(crate) struct SourceLoadSession<'a> {
-    /// Diagnostic identity of the source currently being charged.
-    /// This may differ from the ancestor scope that rejects a charge.
-    source_id: String,
+    /// Shared diagnostic identity of the source currently being charged.
+    /// Child sessions share this text while copying ancestor slots. This may
+    /// differ from the ancestor scope that rejects a charge.
+    source_id: Arc<str>,
     /// Owned budget for this source's local scope.
     local: SourceLoadBudget,
-    /// Diagnostic identities corresponding one-to-one with `ancestors`.
-    ancestor_ids: Vec<String>,
+    /// Shared diagnostic identities corresponding one-to-one with `ancestors`.
+    ancestor_ids: Vec<Arc<str>>,
     /// Borrowed ancestor budgets, ordered to match `ancestor_ids`.
     /// A child preserves this order and appends its parent's local budget.
     /// Each cumulative charge checks all scopes before changing any of them.
@@ -40,7 +42,7 @@ impl SourceLoadSession<'static> {
     #[doc(hidden)]
     pub fn new(source_id: impl Into<String>, limits: SourceLimits) -> Self {
         Self {
-            source_id: source_id.into(),
+            source_id: Arc::<str>::from(source_id.into()),
             local: SourceLoadBudget::new(limits),
             ancestor_ids: Vec::new(),
             ancestors: Vec::new(),
@@ -53,7 +55,7 @@ impl<'a> SourceLoadSession<'a> {
     /// identity of the budget scope that rejected a charge.
     #[inline]
     pub(in crate::source) fn source_id(&self) -> &str {
-        &self.source_id
+        self.source_id.as_ref()
     }
 
     /// Creates a child session that also charges every budget in this session.
@@ -70,9 +72,9 @@ impl<'a> SourceLoadSession<'a> {
             .collect::<Vec<_>>();
         ancestors.push(&mut self.local);
         let mut ancestor_ids = self.ancestor_ids.clone();
-        ancestor_ids.push(self.source_id.clone());
+        ancestor_ids.push(Arc::clone(&self.source_id));
         SourceLoadSession {
-            source_id: source_id.into(),
+            source_id: Arc::<str>::from(source_id.into()),
             local: SourceLoadBudget::new(limits),
             ancestor_ids,
             ancestors,
@@ -108,44 +110,54 @@ impl<'a> SourceLoadSession<'a> {
     /// Checks a root-relative depth against every active budget scope.
     pub fn check_depth(&self, depth: usize) -> ConfigResult<()> {
         for (index, budget) in self.ancestors.iter().enumerate() {
-            budget
-                .depth
-                .check(depth)
-                .map_err(|source| self.limit_error(self.ancestor_ids[index].clone(), source.into()))?;
+            budget.depth.check(depth).map_err(|source| {
+                self.limit_error(self.ancestor_ids[index].as_ref(), source.into())
+            })?;
         }
         self.local
             .depth
             .check(depth)
-            .map_err(|source| self.limit_error(self.source_id.clone(), source.into()))
+            .map_err(|source| self.limit_error(self.source_id.as_ref(), source.into()))
     }
 
     /// Checks one input's parser depth against each ancestor and this source.
     pub fn check_parser_depth(&self, depth: usize) -> ConfigResult<()> {
         for (index, budget) in self.ancestors.iter().enumerate() {
-            budget
-                .parser_depth
-                .check(depth)
-                .map_err(|source| self.limit_error(self.ancestor_ids[index].clone(), source.into()))?;
+            budget.parser_depth.check(depth).map_err(|source| {
+                self.limit_error(self.ancestor_ids[index].as_ref(), source.into())
+            })?;
         }
         self.local
             .parser_depth
             .check(depth)
-            .map_err(|source| self.limit_error(self.source_id.clone(), source.into()))
+            .map_err(|source| self.limit_error(self.source_id.as_ref(), source.into()))
     }
 
     /// Atomically consumes one cumulative resource across all active scopes.
-    fn consume_cumulative(&mut self, dimension: CumulativeDimension, amount: usize) -> ConfigResult<()> {
+    fn consume_cumulative(
+        &mut self,
+        dimension: CumulativeDimension,
+        amount: usize,
+    ) -> ConfigResult<()> {
         for (index, budget) in self.ancestors.iter().enumerate() {
             if let Err(source) = dimension.get(budget).check_available(amount) {
                 let budget_id = self
                     .ancestor_ids
                     .get(index)
-                    .map_or(self.source_id.as_str(), String::as_str);
-                return Err(Self::cumulative_limit_error(&self.source_id, budget_id, source));
+                    .map_or(self.source_id.as_ref(), Arc::as_ref);
+                return Err(Self::cumulative_limit_error(
+                    self.source_id.as_ref(),
+                    budget_id,
+                    source,
+                ));
             }
         }
         if let Err(source) = dimension.get(&self.local).check_available(amount) {
-            return Err(Self::cumulative_limit_error(&self.source_id, &self.source_id, source));
+            return Err(Self::cumulative_limit_error(
+                self.source_id.as_ref(),
+                self.source_id.as_ref(),
+                source,
+            ));
         }
 
         for budget in &mut self.ancestors {
@@ -172,7 +184,11 @@ impl<'a> SourceLoadSession<'a> {
     }
 
     /// Wraps a point-limit failure with source and budget scope context.
-    fn limit_error(&self, budget_id: String, source: BudgetError<SourceLimitKind, usize>) -> ConfigError {
+    fn limit_error(
+        &self,
+        budget_id: &str,
+        source: BudgetError<SourceLimitKind, usize>,
+    ) -> ConfigError {
         let limit = source.configured_limit();
         let observed_at_least = match &source {
             BudgetError::LimitExceeded { observed, .. } => observed.lower_bound(),
@@ -184,12 +200,36 @@ impl<'a> SourceLoadSession<'a> {
             } => (*limit - *remaining).saturating_add(*requested),
         };
         ConfigError::SourceLimitExceeded {
-            source_id: self.source_id.clone(),
-            budget_id,
+            source_id: self.source_id.as_ref().to_owned(),
+            budget_id: budget_id.to_owned(),
             kind: *source.resource(),
             limit,
             observed_at_least,
             source,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SourceLimits;
+    use super::SourceLoadSession;
+
+    #[test]
+    fn child_shares_ancestor_label_storage() {
+        use std::sync::Arc;
+
+        let mut root = SourceLoadSession::new("root-配置源", SourceLimits::default());
+        let root_id = Arc::clone(&root.source_id);
+        {
+            let mut child = root.child("child-配置源", SourceLimits::default());
+            assert!(Arc::ptr_eq(&root_id, &child.ancestor_ids[0]));
+            let child_id = Arc::clone(&child.source_id);
+            let grandchild = child.child("leaf", SourceLimits::default());
+            assert!(Arc::ptr_eq(&root_id, &grandchild.ancestor_ids[0]));
+            assert!(Arc::ptr_eq(&child_id, &grandchild.ancestor_ids[1]));
+        }
+        assert_eq!(root.source_id(), "root-配置源");
+        root.consume_input_bytes(1).unwrap();
     }
 }
