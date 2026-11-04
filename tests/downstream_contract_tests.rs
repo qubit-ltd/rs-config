@@ -7,11 +7,14 @@
 // =============================================================================
 //! Contract tests for the reader combinations used by `rs-http` and `rs-mime`.
 
+use std::error::Error as StdError;
+use std::fmt;
 use std::process::Command;
 use std::time::Duration;
 
 use qubit_config::Config;
 use qubit_config::ConfigErrorKind;
+use qubit_config::ConfigError;
 use qubit_config::ConfigReader;
 use qubit_config::options::InterpolationSources;
 use qubit_config::options::ReadPolicy;
@@ -20,6 +23,49 @@ use qubit_datatype::CollectionConversionPolicy;
 use qubit_datatype::ConversionPolicy;
 use qubit_datatype::DataType;
 use qubit_datatype::DurationConversionPolicy;
+use serde::Deserialize;
+
+#[derive(Debug, Deserialize, PartialEq, Eq)]
+struct IocServerConfig {
+    host: String,
+    port: u16,
+    #[serde(default = "default_ioc_enabled")]
+    enabled: bool,
+}
+
+fn default_ioc_enabled() -> bool {
+    true
+}
+
+#[derive(Debug)]
+struct IocConfigError(ConfigError);
+
+impl fmt::Display for IocConfigError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(formatter)
+    }
+}
+
+impl StdError for IocConfigError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        Some(&self.0)
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+struct ObservableIocConfig {
+    host: String,
+    port: u16,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[allow(dead_code)]
+struct ClosedIocConfig {
+    host: String,
+    port: u16,
+}
 
 fn run_with_env(name: &str, values: &[(&str, &str)]) -> bool {
     const CHILD: &str = "QUBIT_DOWNSTREAM_CONTRACT_CHILD";
@@ -305,4 +351,117 @@ fn rs_http_config_error_mappings_receive_stable_source_kinds() {
     assert_eq!(no_value.kind(), ConfigErrorKind::Value);
     assert!(no_value.value_missing().unwrap().is_unset());
     assert_eq!(no_value.path(), Some("http.base_url"));
+}
+
+#[test]
+fn ioc_style_structured_read_preserves_defaults_and_error_source() {
+    let mut config = Config::new();
+    config.set("app.server.host", "localhost").unwrap();
+    config.set("app.server.port", "8080").unwrap();
+
+    let server = config.deserialize::<IocServerConfig>("app.server").unwrap();
+    assert_eq!(
+        server,
+        IocServerConfig {
+            host: "localhost".to_owned(),
+            port: 8080,
+            enabled: true,
+        }
+    );
+
+    config.set("app.server.port", "not-a-port").unwrap();
+    let error = config
+        .deserialize::<IocServerConfig>("app.server")
+        .expect_err("invalid port should fail structured conversion");
+    assert_eq!(error.kind(), ConfigErrorKind::Conversion);
+    assert_eq!(error.path(), Some("app.server.port"));
+
+    let wrapped = IocConfigError(error);
+    let source = wrapped.source().expect("wrapper should retain ConfigError");
+    assert!(source.downcast_ref::<ConfigError>().is_some());
+}
+
+#[test]
+fn ioc_style_structured_read_reports_observable_unknown_fields() {
+    let mut config = Config::new();
+    config.set("app.server.host", "localhost").unwrap();
+    config.set("app.server.port", "8080").unwrap();
+    config.set("app.server.zeta", "unused").unwrap();
+    config.set("app.server.alpha", "unused").unwrap();
+
+    let error = config
+        .deserialize::<ObservableIocConfig>("app.server")
+        .expect_err("ordinary struct should reject observable unknown fields");
+    assert_eq!(
+        error.unknown_property_paths().unwrap(),
+        ["app.server.alpha", "app.server.zeta"]
+    );
+
+    assert!(config.deserialize::<ClosedIocConfig>("app.server").is_err());
+}
+
+#[test]
+fn websocket_style_validation_precedes_optional_size_reads() {
+    let mut config = Config::new();
+    config.set("ws", "disabled").unwrap();
+    config.set("ws2.inbound_bytes", "77").unwrap();
+    assert!(config.section_if_present("ws").unwrap().is_none());
+
+    config.set("ws.inbound_bytes", "0").unwrap();
+    let ws = config.section_if_present("ws").unwrap().unwrap();
+    ws.ensure_known_keys(&["inbound_bytes"], &[]).unwrap();
+    assert_eq!(ws.get_optional::<usize>("inbound_bytes").unwrap(), Some(0));
+
+    config.remove("ws.inbound_bytes").unwrap();
+    config.set("ws.outbound_bytes", "2048").unwrap();
+    let ws = config.section_if_present("ws").unwrap().unwrap();
+    ws.ensure_known_keys(&["inbound_bytes", "outbound_bytes"], &[]).unwrap();
+    assert_eq!(ws.get_optional::<usize>("inbound_bytes").unwrap(), None);
+
+    config.remove("ws.outbound_bytes").unwrap();
+    config.set("ws.inbound_bytes", "4096").unwrap();
+    assert_eq!(
+        config
+            .section("ws")
+            .unwrap()
+            .get_optional::<usize>("inbound_bytes")
+            .unwrap(),
+        Some(4096)
+    );
+
+    config.set("ws.inbound_bytes", "invalid").unwrap();
+    let error = config
+        .section("ws")
+        .unwrap()
+        .get_optional::<usize>("inbound_bytes")
+        .unwrap_err();
+    assert_eq!(error.kind(), ConfigErrorKind::Conversion);
+    assert_eq!(error.path(), Some("ws.inbound_bytes"));
+
+    config.set("ws.unknown", "unused").unwrap();
+    let ws = config.section("ws").unwrap();
+    let error = ws
+        .ensure_known_keys(&["inbound_bytes"], &[])
+        .expect_err("unknown key should be rejected before reading values");
+    assert_eq!(
+        error.unknown_property_paths().unwrap(),
+        ["ws.unknown"]
+    );
+}
+
+#[test]
+fn usize_reads_cover_target_width_boundaries() {
+    let mut config = Config::new();
+    config.set("limits.count", usize::MAX.to_string()).unwrap();
+    assert_eq!(config.get::<usize>("limits.count").unwrap(), usize::MAX);
+
+    #[cfg(target_pointer_width = "32")]
+    {
+        config.set("limits.count", "4294967296").unwrap();
+        let error = config
+            .get::<usize>("limits.count")
+            .expect_err("value beyond 32-bit usize should fail");
+        assert_eq!(error.kind(), ConfigErrorKind::Conversion);
+        assert_eq!(error.path(), Some("limits.count"));
+    }
 }
