@@ -61,9 +61,7 @@ fn parse(args: &[String]) -> Result<(String, usize, String, Option<usize>, bool)
                 i += 2;
             }
             "--label-bytes" if i + 1 < args.len() => {
-                let bytes = args[i + 1]
-                    .parse::<usize>()
-                    .map_err(|_| "invalid label bytes")?;
+                let bytes = args[i + 1].parse::<usize>().map_err(|_| "invalid label bytes")?;
                 if !(1..=4096).contains(&bytes) {
                     return Err("invalid label bytes");
                 }
@@ -242,10 +240,7 @@ fn main() -> ExitCode {
     let args = env::args().skip(1).collect::<Vec<_>>();
     match parse(&args) {
         Ok((shape, depth, profile, label_bytes, child)) => {
-            println!(
-                "shape={shape} depth={depth} edges={}",
-                depth.saturating_add(1)
-            );
+            println!("shape={shape} depth={depth} edges={}", depth.saturating_add(1));
             if child {
                 child_run(&shape, depth, &profile, label_bytes)
             } else {
@@ -261,7 +256,9 @@ fn main() -> ExitCode {
 
 #[cfg(test)]
 mod tests {
-    use super::{child_args, composite_label, parse};
+    use super::child_args;
+    use super::composite_label;
+    use super::parse;
 
     fn base_args() -> Vec<String> {
         ["--shape", "chain", "--depth", "1", "--limits", "default"]
