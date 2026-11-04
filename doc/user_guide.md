@@ -376,10 +376,18 @@ charged, and admitted input still incurs AST cost.
 Comment-only and otherwise value-free single YAML documents load as empty
 layers. Explicit root `null` and `~` remain invalid configuration roots.
 TOML and YAML also reject empty or invalid dotted mapping member keys before
-recursing; valid empty tables and mappings remain supported. When environment
-normalization produces conflicts, diagnostics select the group with the
-smallest normalized key and then the two smallest original names, provided the
-input is valid and fits the source budget.
+recursing; valid empty tables and mappings parse successfully but produce no
+property and do not preserve section presence. For example, YAML `server: {}`
+and TOML `[server]` both load without properties: `contains_section("server")`
+is false and `section_if_present("server")` returns `None`. Calling
+`section("server")` still creates an empty read-only view. An empty sequence,
+by contrast, remains an explicit property. Merging an empty mapping or table
+does not clear existing descendants, and a caller requiring the `server`
+subtree still sees a source containing only an empty object as missing. Use an
+empty sequence to clear a collection. When environment normalization produces
+conflicts, diagnostics select the group with the smallest normalized key and
+then the two smallest original names, provided the input is valid and fits the
+source budget.
 The following canonical example loads a baseline, applies explicit deployment overrides,
 and checks an invalid override. It uses an isolated prefix in subprocesses for self-validation;
 production applications can choose a prefix that fits their environment:

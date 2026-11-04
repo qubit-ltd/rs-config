@@ -345,8 +345,13 @@ assert!(matches!(source.load(), Err(ConfigError::SourcePropertyIsFinal { .. })))
 
 仅含注释或其他无值 token 的单个 YAML 文档会加载为空配置层；显式根 `null` 和 `~` 仍不是有效配置根。
 TOML 和 YAML 也会在递归处理值之前拒绝空的或无效的点分 mapping 成员键；合法的空 table
-和 mapping 仍然可用。环境变量名称规范化后发生冲突时，只要输入有效且符合配置源预算，
-诊断会稳定选择规范化键最小的冲突组及其中原始名称最小的两项。
+和 mapping 可以成功解析，但不会生成 property，也不会保留 section 的存在性。例如 YAML
+`server: {}` 和 TOML `[server]` 都会加载为空配置：`contains_section("server")` 为 false，
+`section_if_present("server")` 返回 `None`；调用 `section("server")` 仍可创建空的只读视图。
+空序列则不同，它仍是显式存在的 property。合并空 mapping 或 table 不会清除已有后代配置；
+要求 `server` 子树的调用方仍会把仅含空对象的来源视为缺失。需要清空集合时使用空序列。
+环境变量名称规范化后发生冲突时，只要输入有效且符合配置源预算，诊断会稳定选择规范化键最小的
+冲突组及其中原始名称最小的两项。
 
 
 下面的规范示例加载基础配置、应用明确的部署覆盖，并检查非法覆盖。它在子进程中使用

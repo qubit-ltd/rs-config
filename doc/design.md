@@ -76,7 +76,15 @@ existing property final through `SourceLoadContext::set_final`; this updates
 metadata without charging assignment budgets again and preserves the existing
 one-way final-property rule during later merges.
 TOML and YAML reject empty or otherwise invalid mapping member keys before
-recursing into their values; valid empty tables and mappings remain accepted.
+recursing into their values. Valid empty tables and mappings parse
+successfully but produce no property and preserve no section presence: YAML
+`server: {}` and TOML `[server]` both leave `contains_section("server")`
+false and make `section_if_present("server")` return `None`. The ordinary
+`section("server")` call can still create an empty read-only view. Empty
+sequences remain explicit properties. Merging an empty mapping or table does
+not clear existing descendants, and callers requiring the `server` subtree
+still treat a source containing only an empty object as missing. Use an empty
+sequence to clear a collection.
 Properties physical lines use LF, CRLF, or CR terminators. Only ASCII space,
 tab, and form feed are formatting whitespace; Unicode whitespace in keys and
 values is preserved. Comment-only and otherwise value-free single YAML

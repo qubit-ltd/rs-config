@@ -60,8 +60,12 @@ TOML 和 YAML 会在构建 backend AST 前准入 parser token 并检查 parser d
 AST 根深度为 0；每个 mapping 值和 sequence 元素增加一层，空 sequence 不增加元素深度。
 自定义来源可通过 `SourceLoadContext::set_final` 将已有配置项标记为 final；它只修改元数据，
 不重复扣减赋值预算，并在后续合并中遵循既有的单向 final 属性规则。
-TOML 和 YAML 会在递归处理值之前拒绝空的或其他无效 mapping 成员键；合法的空 table
-和 mapping 仍然可用。环境变量规范化冲突会按排序结果检查：选择规范化键最小的冲突组，
+TOML 和 YAML 会在递归处理值之前拒绝空的或其他无效 mapping 成员键。合法的空 table 和
+mapping 可以成功解析，但不会生成 property，也不会保留 section 的存在性：YAML `server: {}`
+和 TOML `[server]` 都使 `contains_section("server")` 为 false，且
+`section_if_present("server")` 返回 `None`；普通的 `section("server")` 调用仍可创建空的只读视图。
+空序列仍是显式 property。合并空 mapping 或 table 不会清除已有后代配置；要求 `server` 子树的调用方
+仍会把仅含空对象的来源视为缺失。需要清空集合时使用空序列。环境变量规范化冲突会按排序结果检查：选择规范化键最小的冲突组，
 再选择其中原始名称最小的两个名称。对于有效且符合配置源预算的输入，该诊断结果稳定。
 properties 物理行以 LF、CRLF 或 CR 结束。格式空白仅包含 ASCII 空格、TAB 和换页符；键和值中的
 Unicode 空白会原样保留。仅含注释或其他无值 token 的单个 YAML 文档会加载为空层，显式根 null
