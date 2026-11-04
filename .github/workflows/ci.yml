@@ -44,3 +44,46 @@ jobs:
 
       - name: Check per-file coverage
         run: python3 -B scripts/check-coverage-files.py artifacts/coverage/coverage.json --config .infra/coverage/coverage.json
+
+  config-32bit:
+    name: Config 32-bit contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: rs-config
+    env:
+      CARGO_TARGET_DIR: target/i686-contracts
+      CARGO_TARGET_I686_UNKNOWN_LINUX_GNU_LINKER: gcc
+      CARGO_TARGET_I686_UNKNOWN_LINUX_GNU_RUSTFLAGS: -C link-arg=-m32
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          path: rs-config
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          repository: qubit-ltd/rs-redact
+          ref: a9b9d767d33b80541a743e19ce1e39afb3c0c29f
+          path: rs-redact
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          repository: qubit-ltd/rs-value
+          ref: 0ae2aecdc02df7940be1d7101e112f9edb004376
+          path: rs-value
+      - name: Install 32-bit build environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes gcc-multilib libc6-dev-i386
+          rustup toolchain install 1.94.0 --profile minimal
+          rustup target add --toolchain 1.94.0 i686-unknown-linux-gnu
+          rustc +1.94.0 --print cfg --target i686-unknown-linux-gnu
+      - name: Default-feature contracts
+        run: >-
+          cargo +1.94.0 test --locked --target i686-unknown-linux-gnu
+          --test from_config_tests --test downstream_contract_tests
+      - name: All-feature contracts
+        run: >-
+          cargo +1.94.0 test --locked --target i686-unknown-linux-gnu
+          --all-features --test from_config_tests --test downstream_contract_tests
