@@ -453,6 +453,8 @@ impl<'de, 'tree, 'policy: 'tree> de::Deserializer<'de> for SourceDeserializer<'t
     typed!(deserialize_string, visit_string, String);
 
     fn deserialize_bytes<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+        // Serde bytes follow String conversion and UTF-8 encoding; numeric
+        // sequences are handled separately by deserialize_seq.
         visitor.visit_byte_buf(self.convert::<String>()?.into_bytes())
     }
     fn deserialize_byte_buf<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {

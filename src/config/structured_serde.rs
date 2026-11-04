@@ -35,6 +35,10 @@ impl Config {
     /// deserializing. Use [`Self::deserialize_with`] for explicit alternatives.
     /// Rich Rust targets must request a supported Serde shape; universal round
     /// trips are not promised.
+    /// Targets requesting Serde's bytes or byte-buffer methods use the
+    /// configured conversion to `String`, then receive its UTF-8 bytes.
+    /// Ordinary `Vec<u8>` instead requests a numeric sequence; no Base64 or
+    /// hexadecimal decoding is implied.
     ///
     /// # Errors
     ///

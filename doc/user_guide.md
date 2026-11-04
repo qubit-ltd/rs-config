@@ -493,6 +493,9 @@ Source loading and merging are transactional at the public boundary: a source is
 ```rust
 use qubit_config::Config;
 use serde::Deserialize;
+use serde::de;
+use serde::de::Deserializer;
+use serde::de::Visitor;
 
 #[derive(Debug, Deserialize, PartialEq)]
 struct Server {
@@ -500,17 +503,66 @@ struct Server {
     port: u16,
 }
 
+#[derive(Debug, PartialEq)]
+struct Bytes(Vec<u8>);
+
+impl<'de> Deserialize<'de> for Bytes {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct BytesVisitor;
+
+        impl Visitor<'_> for BytesVisitor {
+            type Value = Bytes;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("bytes")
+            }
+
+            fn visit_byte_buf<E>(self, value: Vec<u8>) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(Bytes(value))
+            }
+        }
+
+        deserializer.deserialize_bytes(BytesVisitor)
+    }
+}
+
 fn main() -> Result<(), qubit_config::ConfigError> {
     let mut config = Config::new();
     config.set("server.host", "localhost")?;
     config.set("server.port", 8080)?;
+    config.set("numbers", vec![65_u8, 66_u8])?;
+    config.set("text", "AB")?;
 
     let server: Server = config.deserialize("server")?;
     assert_eq!(server.host, "localhost");
     assert_eq!(server.port, 8080);
+
+    let numbers: Vec<u8> = config.deserialize("numbers")?;
+    assert_eq!(numbers, vec![65_u8, 66_u8]);
+
+    let bytes: Bytes = config.deserialize("text")?;
+    assert_eq!(bytes.0, b"AB");
     Ok(())
 }
 ```
+
+`Vec<u8>` requests a Serde sequence, so a numeric sequence such as
+`[65, 66]` maps to `[65, 66]`. A target requesting `deserialize_bytes` or
+`deserialize_byte_buf` follows the configured conversion to `String` and then
+receives that string's UTF-8 bytes. This does not imply Base64 or hexadecimal
+decoding: the text `"4142"` becomes the UTF-8 bytes for those four characters,
+not `[0x41, 0x42]`. A bytes wrapper such as `serde_bytes::ByteBuf` follows the
+bytes interface and therefore has a different input contract from `Vec<u8>`.
+The compatibility check with `serde_bytes` 0.11.19 confirmed that `ByteBuf`
+accepts the tested strings as UTF-8 bytes and rejects both a stored numeric
+sequence and an exact JSON array; use ordinary `Vec<u8>` when numeric sequence
+input is intended.
 
 Import `ConfigSerdeExt` when calling `deserialize` or `deserialize_with` through
 a generic `ConfigReader` or section. `deserialize(prefix)` is equivalent to

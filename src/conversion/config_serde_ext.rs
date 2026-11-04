@@ -115,6 +115,9 @@ pub trait ConfigSerdeExt: ConfigReader {
     /// application must reject those keys; that produces a sanitized Serde
     /// deserialization error rather than a guaranteed `UnknownProperties`
     /// error with sorted paths.
+    /// Targets requesting Serde bytes receive UTF-8 bytes from the selected
+    /// value's configured conversion to `String`; `Vec<u8>` requests a numeric
+    /// sequence instead. No Base64 or hexadecimal decoding is implied.
     ///
     /// # Parameters
     ///
@@ -140,6 +143,8 @@ pub trait ConfigSerdeExt: ConfigReader {
     /// Conversion policy and resource limits come from this reader's
     /// ReadPolicy. Only actual String leaves interpolate; rich values keep
     /// their own types.
+    /// Serde bytes and byte-buffer requests convert the selected value to
+    /// `String` and use its UTF-8 bytes, while `Vec<u8>` uses sequence input.
     ///
     /// Interpolation scope depends on the selected shape. When `prefix`
     /// selects dotted child keys, lookup starts in that selected subtree.

@@ -147,6 +147,9 @@ schema 时，应使用闭合的嵌套 struct，或在反序列化前按应用 sc
 报告的结构不匹配才会转换为已脱敏的 `DeserializeError`。投影遵循 Serde 的 JSON
 风格数据模型，不承诺覆盖 `ConfigReader::get` 为富类型提供的所有原生转换形态。
 对象成员名会以字符串交给 Serde 的 key deserializer；数字 map key 需要应用显式解析。
+请求 `deserialize_bytes` 或 `deserialize_byte_buf` 的目标会按配置的转换规则将选中值转换为
+`String`，再取得其 UTF-8 字节。普通 `Vec<u8>` 则请求数值序列；不会隐式执行 Base64 或
+十六进制解码。第三方字节包装类型也走 bytes 接口，而非 sequence 接口。
 结构化读取的诊断路径对普通成员名保留点分形式；含 `.`, `[`, `]`, `"`, `\\` 或控制字符的
 成员名使用 JSON 字符串转义的方括号段。例如字面成员 `a.b` 显示为 `payload["a.b"]`，
 嵌套成员仍显示为 `payload.a.b`；数组位置仍显示为 `[index]`。选中的配置根路径中特殊段也

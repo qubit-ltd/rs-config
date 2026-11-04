@@ -2279,6 +2279,57 @@ fn test_byte_visitors_receive_utf8_from_string_compatible_scalars() {
         Bytes("中文".as_bytes().to_vec())
     );
 }
+
+#[test]
+fn byte_targets_distinguish_string_bytes_from_numeric_sequences() -> ConfigResult<()> {
+    let mut config = Config::new();
+    config.set("text_ascii", "AB")?;
+    config.set("text_chinese", "中文")?;
+    config.set("byte_vec", vec![65_u8, 66_u8])?;
+    config.set("json_array", serde_json::json!([65, 66]))?;
+
+    // Both bytes entry points convert a string-compatible scalar to UTF-8 bytes.
+    assert_eq!(
+        config.deserialize::<BytesOnly>("text_ascii")?,
+        BytesOnly(b"AB".to_vec())
+    );
+    assert_eq!(
+        config.deserialize::<ByteBufOnly>("text_ascii")?,
+        ByteBufOnly(b"AB".to_vec())
+    );
+    assert_eq!(
+        config.deserialize::<BytesOnly>("text_chinese")?,
+        BytesOnly("中文".as_bytes().to_vec())
+    );
+    assert_eq!(
+        config.deserialize::<ByteBufOnly>("text_chinese")?,
+        ByteBufOnly("中文".as_bytes().to_vec())
+    );
+
+    // Ordinary Vec<u8> uses sequence deserialization for both sequence sources.
+    for key in ["byte_vec", "json_array"] {
+        assert_eq!(config.deserialize::<Vec<u8>>(key)?, vec![65, 66], "{key}");
+        let bytes_error = config
+            .deserialize::<BytesOnly>(key)
+            .expect_err("bytes visitor must reject numeric sequence input");
+        assert_eq!(bytes_error.path(), Some(key));
+        let byte_buf_error = config
+            .deserialize::<ByteBufOnly>(key)
+            .expect_err("byte-buffer visitor must reject numeric sequence input");
+        assert_eq!(byte_buf_error.path(), Some(key));
+    }
+
+    // A string is not implicitly treated as a numeric sequence by Vec<u8>.
+    for key in ["text_ascii", "text_chinese"] {
+        let error = config
+            .deserialize::<Vec<u8>>(key)
+            .expect_err("Vec<u8> must request a numeric sequence");
+        let expected_path = format!("{key}[0]");
+        assert_eq!(error.path(), Some(expected_path.as_str()));
+    }
+    Ok(())
+}
+
 #[test]
 fn test_map_value_requested_before_key_returns_an_error() {
     #[derive(Debug)]

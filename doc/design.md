@@ -188,6 +188,11 @@ The projection follows Serde's JSON-like data model and does not promise every
 native rich-value conversion shape supported by `ConfigReader::get`.
 Object member names are exposed to Serde's key deserializer as strings; numeric
 map keys require explicit parsing by the application.
+Targets requesting `deserialize_bytes` or `deserialize_byte_buf` convert the
+selected value to `String` under the configured conversion rules and receive
+its UTF-8 bytes. Ordinary `Vec<u8>` requests a numeric sequence instead; no
+Base64 or hexadecimal decoding is implied, and third-party bytes wrappers
+follow the bytes interface rather than the sequence interface.
 
 Structured-read diagnostic paths keep ordinary member names in dotted form.
 Names containing `.`, `[`, `]`, `"`, `\\`, or control characters use a

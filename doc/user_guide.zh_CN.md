@@ -458,6 +458,9 @@ fn main() -> Result<(), qubit_config::ConfigError> {
 ```rust
 use qubit_config::Config;
 use serde::Deserialize;
+use serde::de;
+use serde::de::Deserializer;
+use serde::de::Visitor;
 
 #[derive(Debug, Deserialize, PartialEq)]
 struct Server {
@@ -465,17 +468,62 @@ struct Server {
     port: u16,
 }
 
+#[derive(Debug, PartialEq)]
+struct Bytes(Vec<u8>);
+
+impl<'de> Deserialize<'de> for Bytes {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct BytesVisitor;
+
+        impl Visitor<'_> for BytesVisitor {
+            type Value = Bytes;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("bytes")
+            }
+
+            fn visit_byte_buf<E>(self, value: Vec<u8>) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(Bytes(value))
+            }
+        }
+
+        deserializer.deserialize_bytes(BytesVisitor)
+    }
+}
+
 fn main() -> Result<(), qubit_config::ConfigError> {
     let mut config = Config::new();
     config.set("server.host", "localhost")?;
     config.set("server.port", 8080)?;
+    config.set("numbers", vec![65_u8, 66_u8])?;
+    config.set("text", "AB")?;
 
     let server: Server = config.deserialize("server")?;
     assert_eq!(server.host, "localhost");
     assert_eq!(server.port, 8080);
+
+    let numbers: Vec<u8> = config.deserialize("numbers")?;
+    assert_eq!(numbers, vec![65_u8, 66_u8]);
+
+    let bytes: Bytes = config.deserialize("text")?;
+    assert_eq!(bytes.0, b"AB");
     Ok(())
 }
 ```
+
+`Vec<u8>` 请求 Serde sequence，因此数值序列 `[65, 66]` 会映射为 `[65, 66]`。
+请求 `deserialize_bytes` 或 `deserialize_byte_buf` 的目标则遵循配置到 `String` 的现有转换，
+再取得该字符串的 UTF-8 字节。这不会隐式执行 Base64 或十六进制解码：文本 `"4142"`
+得到的是这四个字符的 UTF-8 字节，而不是 `[0x41, 0x42]`。`serde_bytes::ByteBuf` 等字节包装
+类型走 bytes 接口，因此与 `Vec<u8>` 具有不同的输入契约。针对 `serde_bytes` 0.11.19 的
+兼容性核查确认，`ByteBuf` 可将已测试的字符串读取为 UTF-8 字节，但不接受已存储的数值序列
+或精确 JSON 数组；需要数值序列输入时应使用普通 `Vec<u8>`。
 
 通过泛型 `ConfigReader` 或 section 调用 `deserialize` 或 `deserialize_with` 时，导入
 `ConfigSerdeExt`。`deserialize(prefix)` 等价于
