@@ -314,7 +314,7 @@ and preserves the other decode limits; `json_decode` replaces the whole profile.
 
 ### TOML/YAML parser resource limits
 
-The [2026-11-01 measurement report](resource-probe-20261101T042738659Z-7be245fc.md)
+The [2026-11-01 measurement report](https://github.com/qubit-ltd/rs-config/blob/main/doc/resource-probe-20261101T042738659Z-7be245fc.md)
 contains the complete matrix and raw process records. It reproduced a YAML
 allocation abort for an 8 MiB, 4.19-million-element wide sequence under a 1 GiB
 address-space cap, with roughly 613 MiB maximum RSS; lowering node/depth limits
@@ -341,7 +341,7 @@ cargo run --locked --example config_source_resource_probe --features formats -- 
 ```
 
 The follow-up acceptance record is kept in
-[`resource-probe-20261101T124404Z-rsc101.md`](resource-probe-20261101T124404Z-rsc101.md).
+[`resource-probe-20261101T124404Z-rsc101.md`](https://github.com/qubit-ltd/rs-config/blob/main/doc/resource-probe-20261101T124404Z-rsc101.md).
 The probe reports the actual error dimension and process RSS; a passing result
 is specific to the recorded toolchain, machine, input, and limits.
 

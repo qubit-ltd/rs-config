@@ -19,6 +19,14 @@ REQUIRED_RESOURCES = (
     "tests/data/fuzz_corpus/structured_deserialize_typed/typed-record.json",
     "tests/data/fuzz_corpus/structured_deserialize_typed/typed-labeled-interpolation.json",
 )
+REQUIRED_DOCS = (
+    "doc/user_guide.md",
+    "doc/user_guide.zh_CN.md",
+    "doc/design.md",
+    "doc/design.zh_CN.md",
+    "doc/coverage_policy.md",
+    "doc/coverage_policy.zh_CN.md",
+)
 PACKAGE_LIST_COMMAND = ("cargo", "package", "--list", "--allow-dirty")
 Runner = Callable[..., subprocess.CompletedProcess[str]]
 
@@ -43,11 +51,18 @@ def check_package_resources(runner: Runner = subprocess.run) -> list[str]:
         return [message]
 
     packaged_paths = set(result.stdout.splitlines())
-    return [
+    errors = [
         f"required package resource is missing: {path}"
-        for path in REQUIRED_RESOURCES
+        for path in REQUIRED_RESOURCES + REQUIRED_DOCS
         if path not in packaged_paths
     ]
+    allowed_docs = set(REQUIRED_DOCS)
+    errors.extend(
+        f"unexpected package document: {path}"
+        for path in packaged_paths
+        if path.startswith("doc/") and path not in allowed_docs
+    )
+    return sorted(errors)
 
 
 def main() -> int:
@@ -57,7 +72,10 @@ def main() -> int:
             print(f"error: {error}", file=sys.stderr)
         return 1
 
-    print(f"checked {len(REQUIRED_RESOURCES)} required package resources")
+    print(
+        f"checked {len(REQUIRED_RESOURCES)} required package resources and "
+        f"{len(REQUIRED_DOCS)} required package documents"
+    )
     return 0
 
 

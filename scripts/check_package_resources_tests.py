@@ -28,7 +28,14 @@ def load_checker():
 class PackageResourceCheckerTests(unittest.TestCase):
     def setUp(self) -> None:
         self.checker = load_checker()
-        self.paths = self.checker.REQUIRED_RESOURCES
+        self.paths = self.checker.REQUIRED_RESOURCES + (
+            "doc/user_guide.md",
+            "doc/user_guide.zh_CN.md",
+            "doc/design.md",
+            "doc/design.zh_CN.md",
+            "doc/coverage_policy.md",
+            "doc/coverage_policy.zh_CN.md",
+        )
 
     def runner_for(self, paths: tuple[str, ...]) -> Mock:
         return Mock(return_value=subprocess.CompletedProcess(
@@ -58,6 +65,22 @@ class PackageResourceCheckerTests(unittest.TestCase):
                 included_paths = tuple(path for path in self.paths if path != missing_path)
                 errors = self.checker.check_package_resources(self.runner_for(included_paths))
                 self.assertEqual(errors, [f"required package resource is missing: {missing_path}"])
+
+    def test_rejects_unapproved_document_paths(self) -> None:
+        required_paths = self.paths
+        for extra_path in (
+            "doc/resource-probe-old.md",
+            "doc/measurements.tar.gz",
+            "doc/design-session.md",
+        ):
+            with self.subTest(path=extra_path):
+                errors = self.checker.check_package_resources(
+                    self.runner_for(required_paths + (extra_path,))
+                )
+                self.assertEqual(
+                    errors,
+                    [f"unexpected package document: {extra_path}"],
+                )
 
     def test_cargo_failure_is_reported(self) -> None:
         runner = Mock(return_value=subprocess.CompletedProcess(

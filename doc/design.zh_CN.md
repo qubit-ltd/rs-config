@@ -228,7 +228,7 @@ array/inline container 深度；它不等同于语义 `max_nesting_depth`。原�
 
 ### TOML/YAML 解析器资源限制
 
-完整矩阵与原始进程记录见 [2026-11-01 测量报告](resource-probe-20261101T042738659Z-7be245fc.md)。
+完整矩阵与原始进程记录见 [2026-11-01 测量报告](https://github.com/qubit-ltd/rs-config/blob/main/doc/resource-probe-20261101T042738659Z-7be245fc.md)。
 报告在 1 GiB 地址空间上限下复现 YAML 8 MiB、419 万元素宽序列的分配中止，最大 RSS 约
 613 MiB；降低节点/深度预算也未阻止失败。按源码调用顺序，失败发生在
 `serde_norway::from_str` 内、展平之前，但探针无法区分 scanner 与 parser 的具体分配点。
@@ -247,7 +247,7 @@ cargo run --locked --example config_source_resource_probe --features formats -- 
 ```
 
 后续验收记录见
-[`resource-probe-20261101T124404Z-rsc101.md`](resource-probe-20261101T124404Z-rsc101.md)。
+[`resource-probe-20261101T124404Z-rsc101.md`](https://github.com/qubit-ltd/rs-config/blob/main/doc/resource-probe-20261101T124404Z-rsc101.md)。
 探针报告实际错误维度和进程 RSS；通过结果仅适用于记录的工具链、机器、输入与限额。
 
 ## Feature 边界
