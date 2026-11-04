@@ -3,6 +3,10 @@
     { "path": "src/conversion/structured_read/preparation_tests.rs", "reason": "test-only module excluded from production builds" },
     { "path": "src/conversion/structured_read/visitor_tests.rs", "reason": "test-only module excluded from production builds" },
     { "path": "src/source/env_config_source/permutation_tests.rs", "reason": "test-only module excluded from production builds" },
+    {
+      "path": "src/source/env_config_source/env_key_tests.rs",
+      "reason": "Windows-only tests are not executable on the Linux coverage target"
+    },
     { "path": "src/config/internal/config_serde_repr.rs", "reason": "Serde data declarations only" },
     { "path": "src/config/internal/config_wire_v1.rs", "reason": "Wire data declarations only" },
     { "path": "src/constants.rs", "reason": "constant declarations only" },
