@@ -59,16 +59,8 @@ impl SourceInput {
         let label = session.source_id().to_owned();
         match self {
             Self::File(path) => {
-                let file = File::open(path).map_err(|error| {
-                    ConfigError::source_io_error(
-                        label.clone(),
-                        std::io::Error::new(
-                            error.kind(),
-                            format!("Failed to open {format} file '{}': {error}", path.display()),
-                        ),
-                    )
-                })?;
-                let bytes = read_file_bytes(file, session, path, format)?;
+                let file = File::open(path).map_err(|error| ConfigError::source_io_error(label.clone(), error))?;
+                let bytes = read_file_bytes(file, session)?;
                 String::from_utf8(bytes).map(Cow::Owned).map_err(|error| {
                     ConfigError::source_io_error(
                         label.clone(),
@@ -91,12 +83,7 @@ impl SourceInput {
 /// budget charge succeeds. A read may therefore consume one chunk beyond the
 /// remaining budget before that charge is rejected; the result vector is not
 /// extended with the rejected chunk.
-fn read_file_bytes(
-    mut reader: impl Read,
-    session: &mut SourceLoadSession<'_>,
-    path: &std::path::Path,
-    format: &str,
-) -> ConfigResult<Vec<u8>> {
+fn read_file_bytes(mut reader: impl Read, session: &mut SourceLoadSession<'_>) -> ConfigResult<Vec<u8>> {
     let mut bytes = Vec::new();
     let mut chunk = [0_u8; 8 * 1024];
     loop {
@@ -104,13 +91,7 @@ fn read_file_bytes(
             Ok(count) => count,
             Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
             Err(error) => {
-                return Err(ConfigError::source_io_error(
-                    session.source_id().to_owned(),
-                    std::io::Error::new(
-                        error.kind(),
-                        format!("Failed to read {format} file '{}': {error}", path.display()),
-                    ),
-                ));
+                return Err(ConfigError::source_io_error(session.source_id().to_owned(), error));
             }
         };
         if count == 0 {
@@ -125,17 +106,44 @@ fn read_file_bytes(
 #[cfg(test)]
 mod tests {
     use std::collections::VecDeque;
+    use std::fmt::Display;
+    use std::fmt::Formatter;
+    use std::fs::File;
     use std::io::Cursor;
     use std::io::Error;
     use std::io::ErrorKind;
     use std::io::Read;
-    use std::path::Path;
+    use std::path::PathBuf;
 
     use super::read_file_bytes;
     use crate::ConfigError;
     use crate::SourceLimitKind;
     use crate::source::SourceLimits;
+    use crate::source::source_input::SourceInput;
     use crate::source::source_load_session::SourceLoadSession;
+
+    struct FailingReader(Option<Error>);
+
+    impl Read for FailingReader {
+        fn read(&mut self, _output: &mut [u8]) -> std::io::Result<usize> {
+            Err(self.0.take().expect("one read is expected"))
+        }
+    }
+
+    #[derive(Debug)]
+    struct InnerFailure(Error);
+
+    impl Display for InnerFailure {
+        fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+            formatter.write_str("injected reader failure")
+        }
+    }
+
+    impl std::error::Error for InnerFailure {
+        fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+            Some(&self.0)
+        }
+    }
 
     struct InterruptedOnce {
         pending: bool,
@@ -177,7 +185,7 @@ mod tests {
         };
         let limits = SourceLimits::builder().max_input_bytes(4).build();
         let mut session = SourceLoadSession::new("input-test", limits);
-        let bytes = read_file_bytes(reader, &mut session, Path::new("input-test"), "properties")
+        let bytes = read_file_bytes(reader, &mut session)
             .expect("an interrupted read should be retried without charging input");
 
         assert_eq!(bytes, b"a=1\n");
@@ -195,8 +203,8 @@ mod tests {
         };
         let limits = SourceLimits::builder().max_input_bytes(4).build();
         let mut session = SourceLoadSession::new("input-test", limits);
-        let bytes = read_file_bytes(reader, &mut session, Path::new("input-test"), "properties")
-            .expect("interruptions after partial reads should not charge bytes");
+        let bytes =
+            read_file_bytes(reader, &mut session).expect("interruptions after partial reads should not charge bytes");
 
         assert_eq!(bytes, b"a=1\n");
     }
@@ -205,13 +213,8 @@ mod tests {
     fn input_over_limit_still_reports_the_rejected_chunk() {
         let limits = SourceLimits::builder().max_input_bytes(3).build();
         let mut session = SourceLoadSession::new("input-test", limits);
-        let error = read_file_bytes(
-            Cursor::new(b"a=1\n".to_vec()),
-            &mut session,
-            Path::new("input-test"),
-            "properties",
-        )
-        .expect_err("the full read exceeds the byte allowance");
+        let error = read_file_bytes(Cursor::new(b"a=1\n".to_vec()), &mut session)
+            .expect_err("the full read exceeds the byte allowance");
 
         assert!(matches!(
             error,
@@ -226,24 +229,62 @@ mod tests {
     }
 
     #[test]
-    fn permanent_reader_errors_keep_the_original_kind_and_source() {
-        struct BrokenReader;
-
-        impl Read for BrokenReader {
-            fn read(&mut self, _output: &mut [u8]) -> std::io::Result<usize> {
-                Err(Error::other("reader failure"))
-            }
-        }
-
+    fn file_open_errors_keep_the_original_os_code_and_source_id() {
+        let directory = tempfile::tempdir().expect("temporary directory should be created");
+        let path = directory.path().join("missing.properties");
+        let original_error = File::open(&path).expect_err("the test path should not exist");
+        let input = SourceInput::File(PathBuf::from(&path));
         let mut session = SourceLoadSession::new("input-test", SourceLimits::default());
-        let error = read_file_bytes(BrokenReader, &mut session, Path::new("input-test"), "properties")
-            .expect_err("permanent I/O errors are returned");
 
-        assert!(matches!(error, ConfigError::SourceIoError { .. }));
+        let error = input
+            .read_to_string("properties", &mut session)
+            .expect_err("opening the missing file should fail");
+
         assert_eq!(error.source_id(), Some("input-test"));
         let io_error = std::error::Error::source(&error)
-            .and_then(|source| source.downcast_ref::<std::io::Error>())
+            .and_then(|source| source.downcast_ref::<Error>())
             .expect("source I/O error should retain its underlying io::Error");
-        assert_eq!(io_error.kind(), ErrorKind::Other);
+        assert_eq!(io_error.kind(), original_error.kind());
+        assert_eq!(io_error.raw_os_error(), original_error.raw_os_error());
+        assert!(io_error.raw_os_error().is_some());
+    }
+
+    #[test]
+    fn permanent_reader_os_errors_keep_the_original_os_code() {
+        let mut session = SourceLoadSession::new("input-test", SourceLimits::default());
+        let error = read_file_bytes(FailingReader(Some(Error::from_raw_os_error(12345))), &mut session)
+            .expect_err("permanent I/O errors are returned");
+
+        assert_eq!(error.source_id(), Some("input-test"));
+        let io_error = std::error::Error::source(&error)
+            .and_then(|source| source.downcast_ref::<Error>())
+            .expect("source I/O error should retain its underlying io::Error");
+        assert_eq!(io_error.raw_os_error(), Some(12345));
+    }
+
+    #[test]
+    fn permanent_reader_errors_keep_custom_error_and_source_chain() {
+        let mut session = SourceLoadSession::new("input-test", SourceLimits::default());
+        let error = read_file_bytes(
+            FailingReader(Some(Error::other(InnerFailure(Error::from_raw_os_error(12345))))),
+            &mut session,
+        )
+        .expect_err("permanent I/O errors are returned");
+
+        assert_eq!(error.source_id(), Some("input-test"));
+        let io_error = std::error::Error::source(&error)
+            .and_then(|source| source.downcast_ref::<Error>())
+            .expect("source I/O error should retain its underlying io::Error");
+        let inner = io_error
+            .get_ref()
+            .and_then(|source| source.downcast_ref::<InnerFailure>())
+            .expect("the custom error stored in io::Error should be preserved");
+        assert_eq!(inner.0.raw_os_error(), Some(12345));
+        assert_eq!(
+            std::error::Error::source(inner)
+                .and_then(|source| source.downcast_ref::<Error>())
+                .and_then(Error::raw_os_error),
+            Some(12345),
+        );
     }
 }
