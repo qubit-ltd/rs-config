@@ -34,15 +34,16 @@ fn limits(profile: &str) -> Result<SourceLimits, &'static str> {
     }
 }
 
-fn parse(args: &[String]) -> Result<(String, usize, String, bool), &'static str> {
-    if args.len() < 6 || args.len() > 7 {
+fn parse(args: &[String]) -> Result<(String, usize, String, Option<usize>, bool), &'static str> {
+    if args.len() < 6 || args.len() > 9 {
         return Err(
-            "usage: config_composite_resource_probe --shape chain|wide --depth N --limits default|raised|unbounded [--child]",
+            "usage: config_composite_resource_probe --shape chain|wide --depth N --limits default|raised|unbounded [--label-bytes 1..=4096] [--child]",
         );
     }
     let mut shape = None;
     let mut depth = None;
     let mut profile = None;
+    let mut label_bytes = None;
     let mut child = false;
     let mut i = 0;
     while i < args.len() {
@@ -59,6 +60,16 @@ fn parse(args: &[String]) -> Result<(String, usize, String, bool), &'static str>
                 profile = Some(args[i + 1].clone());
                 i += 2;
             }
+            "--label-bytes" if i + 1 < args.len() => {
+                let bytes = args[i + 1]
+                    .parse::<usize>()
+                    .map_err(|_| "invalid label bytes")?;
+                if !(1..=4096).contains(&bytes) {
+                    return Err("invalid label bytes");
+                }
+                label_bytes = Some(bytes);
+                i += 2;
+            }
             "--child" => {
                 child = true;
                 i += 1;
@@ -73,7 +84,16 @@ fn parse(args: &[String]) -> Result<(String, usize, String, bool), &'static str>
     let depth = depth.ok_or("missing depth")?;
     let profile = profile.ok_or("missing limit profile")?;
     let _ = limits(&profile)?;
-    Ok((shape, depth, profile, child))
+    Ok((shape, depth, profile, label_bytes, child))
+}
+
+/// Creates a fixed-width ASCII label whose suffix identifies its layer.
+fn composite_label(index: usize, bytes: usize) -> String {
+    let suffix = index.to_string();
+    let mut label = "L".repeat(bytes);
+    let used = suffix.len().min(bytes);
+    label.replace_range(bytes - used.., &suffix[suffix.len() - used..]);
+    label
 }
 
 struct CompositeLayer(CompositeConfigSource);
@@ -90,23 +110,32 @@ impl ConfigSource for CompositeLayer {
     }
 }
 
-fn make_source(shape: &str, depth: usize, profile: &str) -> Result<CompositeConfigSource, &'static str> {
+fn make_source(
+    shape: &str,
+    depth: usize,
+    profile: &str,
+    label_bytes: Option<usize>,
+) -> Result<CompositeConfigSource, &'static str> {
     let policy = limits(profile)?;
     if shape == "chain" {
         let mut source = CompositeConfigSource::builder()
             .limits(policy)
             .add_source(PropertiesConfigSource::from_content("a=1"))
             .build();
-        for _ in 0..depth {
-            source = CompositeConfigSource::builder()
-                .limits(policy)
-                .add_source(CompositeLayer(source))
-                .build();
+        for index in 0..depth {
+            let mut builder = CompositeConfigSource::builder().limits(policy);
+            if let Some(bytes) = label_bytes {
+                builder = builder.label(composite_label(index, bytes));
+            }
+            source = builder.add_source(CompositeLayer(source)).build();
         }
         Ok(source)
     } else {
         let count = depth.checked_add(1).ok_or("depth overflow")?;
         let mut builder = CompositeConfigSource::builder().limits(policy);
+        if let Some(bytes) = label_bytes {
+            builder = builder.label(composite_label(0, bytes));
+        }
         for _ in 0..count {
             builder = builder.add_source(PropertiesConfigSource::from_content("a=1"));
         }
@@ -120,9 +149,9 @@ fn phase(message: &str) {
     let _ = std::io::stdout().flush();
 }
 
-fn child_run(shape: &str, depth: usize, profile: &str) -> ExitCode {
+fn child_run(shape: &str, depth: usize, profile: &str, label_bytes: Option<usize>) -> ExitCode {
     phase("constructing");
-    let source = match make_source(shape, depth, profile) {
+    let source = match make_source(shape, depth, profile, label_bytes) {
         Ok(source) => source,
         Err(error) => {
             eprintln!("construct_error={error}");
@@ -166,17 +195,26 @@ fn wait_child(child: &mut Child) -> Result<std::process::ExitStatus, &'static st
     }
 }
 
-fn parent_run(shape: &str, depth: usize, profile: &str) -> ExitCode {
+/// Builds the arguments that the parent passes to its probe child.
+fn child_args(shape: &str, depth: usize, profile: &str, label_bytes: Option<usize>) -> Vec<String> {
+    let mut args = vec![
+        "--shape".to_owned(),
+        shape.to_owned(),
+        "--depth".to_owned(),
+        depth.to_string(),
+        "--limits".to_owned(),
+        profile.to_owned(),
+    ];
+    if let Some(bytes) = label_bytes {
+        args.extend(["--label-bytes".to_owned(), bytes.to_string()]);
+    }
+    args.push("--child".to_owned());
+    args
+}
+
+fn parent_run(shape: &str, depth: usize, profile: &str, label_bytes: Option<usize>) -> ExitCode {
     let mut command = Command::new(env::current_exe().expect("executable path"));
-    command.args([
-        "--shape",
-        shape,
-        "--depth",
-        &depth.to_string(),
-        "--limits",
-        profile,
-        "--child",
-    ]);
+    command.args(child_args(shape, depth, profile, label_bytes));
     let mut child = match command.spawn() {
         Ok(child) => child,
         Err(error) => {
@@ -203,17 +241,66 @@ fn parent_run(shape: &str, depth: usize, profile: &str) -> ExitCode {
 fn main() -> ExitCode {
     let args = env::args().skip(1).collect::<Vec<_>>();
     match parse(&args) {
-        Ok((shape, depth, profile, child)) => {
-            println!("shape={shape} depth={depth} edges={}", depth.saturating_add(1));
+        Ok((shape, depth, profile, label_bytes, child)) => {
+            println!(
+                "shape={shape} depth={depth} edges={}",
+                depth.saturating_add(1)
+            );
             if child {
-                child_run(&shape, depth, &profile)
+                child_run(&shape, depth, &profile, label_bytes)
             } else {
-                parent_run(&shape, depth, &profile)
+                parent_run(&shape, depth, &profile, label_bytes)
             }
         }
         Err(error) => {
             eprintln!("{error}");
             ExitCode::from(2)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{child_args, composite_label, parse};
+
+    fn base_args() -> Vec<String> {
+        ["--shape", "chain", "--depth", "1", "--limits", "default"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect()
+    }
+
+    #[test]
+    fn label_bytes_is_optional_and_validated() {
+        assert_eq!(parse(&base_args()).unwrap().3, None);
+        let mut args = base_args();
+        args.extend(["--label-bytes".into(), "1024".into()]);
+        assert_eq!(parse(&args).unwrap().3, Some(1024));
+        for invalid in ["0", "4097", "nope"] {
+            let mut args = base_args();
+            args.extend(["--label-bytes".into(), invalid.into()]);
+            assert!(parse(&args).is_err());
+        }
+        let mut args = base_args();
+        args.push("--label-bytes".into());
+        assert!(parse(&args).is_err());
+    }
+
+    #[test]
+    fn label_bytes_survives_parent_child_argument_forwarding() {
+        let mut parent_args = base_args();
+        parent_args.extend(["--label-bytes".into(), "1024".into()]);
+        let (_, _, _, label_bytes, _) = parse(&parent_args).unwrap();
+        assert_eq!(label_bytes, Some(1024));
+        let args = child_args("chain", 1, "default", label_bytes);
+        let (_, _, _, child_label_bytes, is_child) = parse(&args).unwrap();
+        assert_eq!(child_label_bytes, Some(1024));
+        assert!(is_child);
+    }
+
+    #[test]
+    fn long_labels_have_exact_width_and_distinguish_layers() {
+        assert_eq!(composite_label(12, 1024).len(), 1024);
+        assert_ne!(composite_label(12, 1024), composite_label(13, 1024));
     }
 }
