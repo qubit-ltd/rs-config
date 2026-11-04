@@ -94,8 +94,10 @@ impl ReadPolicyBuilder {
 
     /// Sets the maximum depth of an active placeholder-reference chain.
     ///
-    /// The limit counts references followed recursively while resolving a
-    /// value, not the number of fields in a read. Zero still allows plain
+    /// The limit counts references followed while resolving a value, not the
+    /// number of fields in a read. Expansion uses heap-backed frames instead
+    /// of one Rust call frame per reference; active frame storage grows with
+    /// the current reference chain. Zero still allows plain
     /// text without placeholders, but rejects a placeholder reference; it
     /// does not mean unlimited depth. Exceeding the limit produces
     /// [`crate::ConfigError::SubstitutionDepthExceeded`]. The default is 64,

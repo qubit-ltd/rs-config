@@ -6,6 +6,7 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+use super::internal::InterpolationFrame;
 use super::internal::InterpolationSession;
 use super::map_value_error;
 use crate::ConfigError;
@@ -34,7 +35,8 @@ pub(crate) fn substitute_variables_with_fallback<P: ConfigReader + ?Sized, F: Co
     })
 }
 
-/// Replaces variables in `value` by repeatedly applying `resolve`.
+/// Iteratively replaces variables in `value` using heap-owned interpolation
+/// frames.
 fn substitute_variables_by(
     value: &str,
     options: &ReadPolicy,
@@ -42,59 +44,95 @@ fn substitute_variables_by(
     session: &mut InterpolationSession,
     mut resolve: impl FnMut(&str) -> ConfigResult<String>,
 ) -> ConfigResult<String> {
-    let mut stack = Vec::new();
-    substitute_variables_recursive(value, options, path, &mut stack, session, &mut resolve)
-}
-
-/// Recursively expands variables while tracking the active variable chain.
-fn substitute_variables_recursive(
-    value: &str,
-    options: &ReadPolicy,
-    path: &str,
-    stack: &mut Vec<String>,
-    session: &mut InterpolationSession,
-    resolve: &mut impl FnMut(&str) -> ConfigResult<String>,
-) -> ConfigResult<String> {
     let max_depth = options.max_interpolation_depth();
     let max_output_bytes = session.max_output_bytes();
     if value.is_empty() || find_next_variable(value, 0).is_none() {
         session.check_output(value.len(), path)?;
         return Ok(value.to_string());
     }
-    if stack.len() >= max_depth {
-        return Err(ConfigError::SubstitutionDepthExceeded {
-            path: path.to_string(),
-            max_depth,
-        });
-    }
+    let mut active_variables: Vec<String> = Vec::new();
+    let mut frames = vec![InterpolationFrame::new(value.to_string(), None)];
 
-    let mut result = String::with_capacity(value.len().min(max_output_bytes));
-    let mut last_end = 0;
-    let mut search_from = 0;
-    while let Some((match_start, match_end, var_name)) = find_next_variable(value, search_from) {
-        push_substitution_fragment(&mut result, &value[last_end..match_start], session, path)?;
-
-        if let Some(index) = stack.iter().position(|name| name == var_name) {
-            let mut chain = stack[index..].to_vec();
-            chain.push(var_name.to_string());
-            return Err(ConfigError::SubstitutionCycle {
-                path: path.to_string(),
-                chain,
-            });
+    loop {
+        if !frames.last().expect("root interpolation frame remains present").entered {
+            let is_plain_text = {
+                let frame = frames.last().expect("root interpolation frame remains present");
+                frame.text.is_empty() || find_next_variable(&frame.text, 0).is_none()
+            };
+            if is_plain_text {
+                let completed = frames.pop().expect("plain interpolation frame exists");
+                session.check_output(completed.text.len(), path)?;
+                if let Some(expected_variable) = completed.entering_variable.as_deref() {
+                    let popped_variable = active_variables.pop();
+                    debug_assert_eq!(popped_variable.as_deref(), Some(expected_variable));
+                }
+                if let Some(parent) = frames.last_mut() {
+                    push_substitution_fragment(&mut parent.output, &completed.text, session, path)?;
+                    continue;
+                }
+                return Ok(completed.text);
+            }
+            if active_variables.len() >= max_depth {
+                return Err(ConfigError::SubstitutionDepthExceeded {
+                    path: path.to_string(),
+                    max_depth,
+                });
+            }
+            let frame = frames.last_mut().expect("root interpolation frame remains present");
+            frame.output = String::with_capacity(frame.text.len().min(max_output_bytes));
+            frame.entered = true;
+            continue;
         }
 
-        session.consume_expansion(path)?;
+        let next_variable = {
+            let frame = frames.last().expect("entered interpolation frame remains present");
+            find_next_variable(&frame.text, frame.search_from).map(|(start, end, name)| (start, end, name.to_string()))
+        };
+        if let Some((match_start, match_end, variable_name)) = next_variable {
+            {
+                let frame = frames.last_mut().expect("entered interpolation frame remains present");
+                push_substitution_fragment(
+                    &mut frame.output,
+                    &frame.text[frame.last_end..match_start],
+                    session,
+                    path,
+                )?;
+            }
 
-        stack.push(var_name.to_string());
-        let raw_value = resolve(var_name)?;
-        let expanded = substitute_variables_recursive(&raw_value, options, path, stack, session, resolve)?;
-        stack.pop();
-        push_substitution_fragment(&mut result, &expanded, session, path)?;
-        last_end = match_end;
-        search_from = match_end;
+            if let Some(index) = active_variables.iter().position(|name| name == &variable_name) {
+                let mut chain = active_variables[index..].to_vec();
+                chain.push(variable_name);
+                return Err(ConfigError::SubstitutionCycle {
+                    path: path.to_string(),
+                    chain,
+                });
+            }
+
+            session.consume_expansion(path)?;
+            active_variables.push(variable_name.clone());
+            let raw_value = resolve(&variable_name)?;
+            let frame = frames.last_mut().expect("parent interpolation frame remains present");
+            frame.last_end = match_end;
+            frame.search_from = match_end;
+            frames.push(InterpolationFrame::new(raw_value, Some(variable_name)));
+            continue;
+        }
+
+        {
+            let frame = frames.last_mut().expect("entered interpolation frame remains present");
+            push_substitution_fragment(&mut frame.output, &frame.text[frame.last_end..], session, path)?;
+        }
+        let completed = frames.pop().expect("completed interpolation frame exists");
+        if let Some(expected_variable) = completed.entering_variable {
+            let popped_variable = active_variables.pop();
+            debug_assert_eq!(popped_variable.as_deref(), Some(expected_variable.as_str()));
+        }
+        if let Some(parent) = frames.last_mut() {
+            push_substitution_fragment(&mut parent.output, &completed.output, session, path)?;
+        } else {
+            return Ok(completed.output);
+        }
     }
-    push_substitution_fragment(&mut result, &value[last_end..], session, path)?;
-    Ok(result)
 }
 
 /// Finds the next non-empty `${name}` placeholder in `value`.

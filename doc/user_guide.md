@@ -878,6 +878,7 @@ fn main() {
 ```
 
 Treat configuration that can select environment-variable names as trusted input. The default interpolation limits are a reference-chain depth of 64, 4,096 placeholder expansions per read, and 1 MiB of UTF-8 output. `ReadPolicy::builder()` can change each dimension; failures are reported as structured `ConfigError` categories.
+Interpolation follows references with explicit heap-backed frames instead of one Rust call frame per reference. Frame storage grows with the active reference chain. The existing depth, expansion, and output-byte limits still apply; they do not promise strict process-memory or CPU ceilings.
 Saved overlays can also be admitted against cumulative aggregate budgets. A single parsed text input still has its own single-value limit; when cumulative admission is enabled, a budget error may take precedence over a later parse error.
 Expansion count is shared across a logical read, including candidate-key
 search and fields a structured visitor later ignores. Depth applies to the

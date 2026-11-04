@@ -28,6 +28,7 @@ EXAMPLE_DOCS = {
 NON_DOCUMENTED_EXAMPLES = {
     "config_source_resource_probe.rs",
     "config_composite_resource_probe.rs",
+    "config_interpolation_resource_probe.rs",  # Manual isolated resource probe.
 }
 DOCUMENTS = tuple(dict.fromkeys(path for paths in EXAMPLE_DOCS.values() for path in paths))
 MARKER_PATTERN = re.compile(r"^<!-- example: (.*?) -->$")

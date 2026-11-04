@@ -154,6 +154,11 @@ rejected from the scanner token stream before AST construction; scanner errors
 fail closed, while quoted, commented, and block-scalar text is not treated as
 anchor or alias tokens.
 
+Interpolation follows references with explicit heap-backed frames instead of
+one Rust call frame per reference. Frame storage grows with the active
+reference chain. The existing depth, expansion, and output-byte limits still
+apply; they do not promise strict process-memory or CPU ceilings.
+
 Expansion counts accumulate across one logical read, including candidate-key
 search and fields later ignored by a structured visitor. Depth is measured along
 the current reference chain, and the output-byte limit applies to each expanded

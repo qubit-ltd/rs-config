@@ -7,9 +7,11 @@
 // =============================================================================
 //! Private utility implementation types.
 
+mod interpolation_frame;
 /// Resource dimensions charged while resolving interpolation.
 mod interpolation_resource;
 mod interpolation_session;
 
+pub(super) use interpolation_frame::InterpolationFrame;
 pub(super) use interpolation_resource::InterpolationResource;
 pub(crate) use interpolation_session::InterpolationSession;

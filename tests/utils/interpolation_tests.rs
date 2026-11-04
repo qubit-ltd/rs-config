@@ -265,6 +265,52 @@ fn test_get_string_substitution_depth_at_limit_succeeds() {
 }
 
 #[test]
+fn test_get_string_default_and_raised_depth_boundaries() {
+    let make_chain = |references: usize| {
+        let mut config = Config::new();
+        config.set("entry", "${v0}").unwrap();
+        for index in 0..references {
+            let value = if index + 1 < references {
+                format!("${{v{}}}", index + 1)
+            } else {
+                "done".to_string()
+            };
+            config.set(format!("v{index}"), value).unwrap();
+        }
+        config
+    };
+
+    for references in [63, 64] {
+        let config = make_chain(references);
+        assert_eq!(config.get_interpolated::<String>("entry").unwrap(), "done");
+    }
+    let config = make_chain(65);
+    assert!(matches!(
+        config.get_interpolated::<String>("entry"),
+        Err(ConfigError::SubstitutionDepthExceeded {
+            path,
+            max_depth: 64,
+        }) if path == "entry"
+    ));
+
+    for references in [256, 257] {
+        let mut config = make_chain(references);
+        crate::set_max_interpolation_depth(&mut config, 256);
+        if references == 256 {
+            assert_eq!(config.get_interpolated::<String>("entry").unwrap(), "done");
+        } else {
+            assert!(matches!(
+                config.get_interpolated::<String>("entry"),
+                Err(ConfigError::SubstitutionDepthExceeded {
+                    path,
+                    max_depth: 256,
+                }) if path == "entry"
+            ));
+        }
+    }
+}
+
+#[test]
 fn test_get_string_substitution_output_limit_counts_utf8_bytes() {
     let mut config = Config::new();
     config.set_default_read_policy(ReadPolicy::builder().max_interpolation_output_bytes(2).build());
