@@ -53,6 +53,17 @@ fn test_env_file_inline_comment_preserves_following_assignment() {
 }
 
 #[test]
+fn test_env_file_full_line_comment_quote_does_not_affect_inline_comment() {
+    let source = EnvFileConfigSource::from_content("# \"dangling\nA=ok  # '\nB=${HOME}\n");
+    let config = source
+        .load()
+        .expect("full-line comment quotes must not change later line boundaries");
+
+    assert_eq!(config.get::<String>("A").unwrap(), "ok");
+    assert_eq!(config.get::<String>("B").unwrap(), "${HOME}");
+}
+
+#[test]
 fn test_env_file_comment_does_not_change_substitution_state() {
     const CHILD_MODE: &str = "RS_CONFIG_ENV_FILE_COMMENT_TEST_CHILD";
     const SENTINEL: &str = "RS_CONFIG_ENV_FILE_COMMENT_TEST_SENTINEL";

@@ -111,8 +111,16 @@ fn strip_dotenv_inline_comments(content: &str) -> String {
     let mut normalized = String::with_capacity(content.len());
     let mut state = DotenvLineState::Complete;
     let mut in_comment = false;
+    let mut physical_line_start = 0;
 
-    for character in content.chars() {
+    for (index, character) in content.char_indices() {
+        if index == physical_line_start
+            && state == DotenvLineState::Complete
+            && is_dotenv_full_comment_line(content, index)
+        {
+            state = DotenvLineState::Comment;
+        }
+
         if !in_comment && state == DotenvLineState::WhiteSpace && character == '#' {
             in_comment = true;
         }
@@ -123,6 +131,7 @@ fn strip_dotenv_inline_comments(content: &str) -> String {
         state.advance(character);
         if character == '\n' {
             in_comment = false;
+            physical_line_start = index + character.len_utf8();
         }
     }
     normalized
