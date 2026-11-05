@@ -103,6 +103,10 @@ fn map_dotenv_error(label: &str, error: dotenvy::Error) -> ConfigError {
 /// comment boundary. Removing comment quotes and escapes before either pass
 /// prevents them from changing scanner state. Parser-local offsets afterward
 /// refer to normalized input and are not original-file coordinates.
+///
+/// # Parameters
+///
+/// * `content` - Original `.env` text whose recognized inline comments should be removed.
 fn strip_dotenv_inline_comments(content: &str) -> String {
     let mut normalized = String::with_capacity(content.len());
     let mut state = DotenvLineState::Complete;

@@ -108,7 +108,7 @@ mod tests {
     }
 
     #[test]
-    fn keeps_consecutive_whitespace_at_comment_boundary() {
+    fn test_keeps_consecutive_whitespace_at_comment_boundary() {
         let mut state = DotenvLineState::WhiteSpace;
         state.advance(' ');
         assert_eq!(state, DotenvLineState::WhiteSpace);

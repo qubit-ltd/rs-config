@@ -44,11 +44,9 @@ fn env_file_label_applies_to_success_and_invalid_keys() {
 }
 
 #[test]
-fn env_file_inline_comment_preserves_following_assignment() {
+fn test_env_file_inline_comment_preserves_following_assignment() {
     let source = EnvFileConfigSource::from_content("A=ok  # '\nB=${HOME}\n");
-    let config = source
-        .load()
-        .expect("inline comments must not change line boundaries");
+    let config = source.load().expect("inline comments must not change line boundaries");
 
     assert_eq!(config.get::<String>("A").unwrap(), "ok");
     assert_eq!(config.get::<String>("B").unwrap(), "${HOME}");
@@ -120,10 +118,7 @@ fn test_env_file_comment_does_not_change_substitution_state() {
             placeholder
         );
         let cases = [
-            (
-                format!("A=ok # dangling '\nVALUE={placeholder}\n"),
-                placeholder.clone(),
-            ),
+            (format!("A=ok # dangling '\nVALUE={placeholder}\n"), placeholder.clone()),
             (
                 format!("A=ok  # dangling '\nVALUE={placeholder}\n"),
                 placeholder.clone(),
