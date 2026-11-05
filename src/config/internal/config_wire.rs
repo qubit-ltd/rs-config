@@ -19,12 +19,36 @@ use super::ConfigWireV1;
 /// Accepted persisted `Config` wire representations.
 pub(in crate::config) enum ConfigWire {
     /// The explicit, stable V1 persistence format.
-    V1(ConfigWireV1),
+    V1(
+        /// Versioned representation with an explicit schema version.
+        ConfigWireV1,
+    ),
     /// The unversioned format emitted before the V1 persistence contract.
-    Legacy(ConfigSerdeRepr),
+    Legacy(
+        /// Legacy representation accepting the historical read options.
+        ConfigSerdeRepr,
+    ),
 }
 
 impl<'de> Deserialize<'de> for ConfigWire {
+    /// Deserializes an accepted wire representation under the default limits.
+    ///
+    /// # Parameters
+    ///
+    /// * `deserializer` - Source deserializer for a persisted configuration.
+    ///
+    /// # Returns
+    ///
+    /// The decoded V1 or legacy representation.
+    ///
+    /// # Errors
+    ///
+    /// Returns the source deserialization error or a validation error for an
+    /// invalid wire representation.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `D` - Deserializer implementation used for the persisted input.
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -37,6 +61,20 @@ impl<'de> Deserialize<'de> for ConfigWire {
 
 impl ConfigWire {
     /// Selects the versioned or legacy contract after common field decoding.
+    ///
+    /// # Parameters
+    ///
+    /// * `fields` - Shared fields decoded from the persisted configuration.
+    ///
+    /// # Returns
+    ///
+    /// The V1 contract when a version is present, or the legacy contract when
+    /// it is absent.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when a versioned document contains the legacy-only
+    /// `read_options` field.
     pub(super) fn from_fields(fields: ConfigWireFields) -> Result<Self, String> {
         Ok(match fields.version.0 {
             Some(version) => {

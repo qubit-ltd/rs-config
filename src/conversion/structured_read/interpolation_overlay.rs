@@ -36,6 +36,15 @@ use crate::utils::InterpolationSession;
 /// only changed strings are allocated. The dotted read path is used for
 /// diagnostics, while each overlay key retains the originating property-table
 /// index and nested key/index segments.
+///
+/// # Type Parameters
+///
+/// * `R` - Reader used for primary and fallback variable lookups.
+///
+/// # Parameters
+///
+/// * `prepared` - Bounded projection whose string leaves are traversed.
+/// * `primary` - Active reader and policy for interpolation.
 pub(super) fn interpolate<R: ConfigReader + ?Sized>(
     prepared: &PreparedConfigRead<'_>,
     primary: &R,
@@ -44,7 +53,7 @@ pub(super) fn interpolate<R: ConfigReader + ?Sized>(
     let options = primary.read_policy();
     let fallback = root_config(primary);
     let mut session = InterpolationSession::new(options);
-    let mut budget = super::input_budget::PreparedInputBudget::new(options);
+    let mut budget = super::prepared_input_budget::PreparedInputBudget::new(options);
     traversal::walk(prepared, true, |visit| {
         let Some(text) = visit.value.string() else {
             return budget.admit_visit(visit, None);
@@ -83,6 +92,12 @@ pub(super) fn interpolate<R: ConfigReader + ?Sized>(
 
 /// Missing scalar properties are classified after complete source admission.
 /// Strings nested in JSON, maps, or collections keep their original positions.
+///
+/// # Parameters
+///
+/// * `prepared` - Mutable projection whose root scalar nodes may be classified.
+/// * `options` - String policy used to classify normalized optional values.
+/// * `exact` - Whether the projection represents a single exact property.
 pub(super) fn classify_missing(
     prepared: &mut PreparedConfigRead<'_>,
     options: &ReadPolicy,

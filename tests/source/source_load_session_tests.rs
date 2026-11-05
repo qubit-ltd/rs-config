@@ -180,7 +180,7 @@ impl ConfigSource for PartialLayerFailureSource {
 }
 
 #[test]
-fn source_load_session_charges_local_and_ancestor_budgets_atomically() {
+fn test_source_load_session_charges_local_and_ancestor_budgets_atomically() {
     let mut aggregate = CompositeConfigSource::builder()
         .limits(SourceLimits::builder().max_input_bytes(3).build())
         .build();
@@ -244,7 +244,7 @@ fn test_direct_config_set_invalid_key_has_no_source_id() {
 }
 
 #[test]
-fn source_load_session_reports_outermost_failing_budget_first() {
+fn test_source_load_session_reports_outermost_failing_budget_first() {
     let mut aggregate = CompositeConfigSource::builder()
         .limits(SourceLimits::builder().max_input_bytes(1).build())
         .build();
@@ -258,7 +258,7 @@ fn source_load_session_reports_outermost_failing_budget_first() {
 }
 
 #[test]
-fn source_load_session_failed_local_charge_leaves_every_scope_unchanged() {
+fn test_source_load_session_failed_local_charge_leaves_every_scope_unchanged() {
     let mut aggregate = CompositeConfigSource::builder()
         .limits(SourceLimits::builder().max_input_bytes(2).build())
         .build();
@@ -270,7 +270,7 @@ fn source_load_session_failed_local_charge_leaves_every_scope_unchanged() {
 }
 
 #[test]
-fn source_load_failure_discards_partial_layer_before_merge() {
+fn test_source_load_failure_discards_partial_layer_before_merge() {
     let mut config = Config::new();
     config.set("existing", "kept").unwrap();
 
@@ -296,7 +296,7 @@ fn test_assignment_budget_failure_keeps_source_limit_error() {
 }
 
 #[test]
-fn source_load_context_exposes_node_charges_and_typed_nulls() {
+fn test_source_load_context_exposes_node_charges_and_typed_nulls() {
     let config = NodeAndNullSource.load().unwrap();
 
     assert!(config.is_unset("optional.value").unwrap());

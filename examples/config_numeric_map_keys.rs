@@ -6,6 +6,8 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+//! Shows numeric map-key conversion and rejection of normalized duplicates.
+
 use std::collections::BTreeMap;
 
 use qubit_config::Config;
@@ -22,6 +24,7 @@ fn numeric_ports(named: BTreeMap<String, u16>) -> Result<BTreeMap<u16, u16>, Box
     Ok(ports)
 }
 
+/// Reads numeric port keys and verifies that 80 and 080 collide.
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut config = Config::new();
     config.set("ports.80", 8080_u16)?;

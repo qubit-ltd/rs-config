@@ -32,6 +32,14 @@ pub(super) struct ScalarSeqAccess<'tree, 'policy, 'session> {
 
 impl<'tree, 'policy: 'tree, 'session> ScalarSeqAccess<'tree, 'policy, 'session> {
     /// Creates sequence access after admitting the scalar source.
+    ///
+    /// # Parameters
+    ///
+    /// * `context` - Prepared read state used to deserialize each admitted
+    ///   item.
+    /// * `text` - Scalar source whose items are consumed lazily.
+    /// * `path` - Diagnostic path of the source sequence.
+    /// * `session` - Shared conversion budget charged as items are admitted.
     pub(super) fn new(
         context: ReadContext<'tree>,
         text: &'tree str,
@@ -66,7 +74,19 @@ impl<'tree, 'policy: 'tree, 'session> ScalarSeqAccess<'tree, 'policy, 'session> 
 }
 
 impl<'de, 'tree, 'policy: 'tree> SeqAccess<'de> for ScalarSeqAccess<'tree, 'policy, '_> {
+    /// Deserialization error retaining the source path and item index.
     type Error = ConfigDeserializeError;
+
+    /// Deserializes the next admitted scalar and preserves its indexed path
+    /// when conversion fails.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Serde seed type that converts the next admitted scalar.
+    ///
+    /// # Parameters
+    ///
+    /// * `seed` - Visitor that constructs the requested output from the item.
     fn next_element_seed<T: DeserializeSeed<'de>>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error> {
         let Some(item) = self.source.next_item() else {
             return Ok(None);

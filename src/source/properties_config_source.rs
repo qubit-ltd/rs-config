@@ -75,6 +75,7 @@ pub use properties_config_source_builder::PropertiesConfigSourceBuilder;
 /// let value = config.get::<String>("server.port").unwrap();
 /// assert_eq!(value, "8080");
 /// ```
+#[must_use = "use the returned value"]
 #[derive(Debug, Clone)]
 pub struct PropertiesConfigSource {
     /// File or in-memory content to load.
@@ -87,21 +88,43 @@ pub struct PropertiesConfigSource {
 
 impl PropertiesConfigSource {
     /// Creates a builder initialized with empty in-memory content.
+    ///
+    /// # Returns
+    ///
+    /// A builder ready to configure the source input and limits.
+    #[inline]
     pub fn builder() -> PropertiesConfigSourceBuilder {
         PropertiesConfigSourceBuilder::new()
     }
 
-    /// Creates a new `PropertiesConfigSource` from a file path
+    /// Creates a new `PropertiesConfigSource` from a file path.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `P` - A path-like value that can be borrowed as a filesystem path.
     ///
     /// # Parameters
     ///
-    /// * `path` - Path to the `.properties` file
+    /// * `path` - Path to the `.properties` file.
+    ///
+    /// # Returns
+    ///
+    /// A source configured to load the specified file.
     #[inline]
     pub fn from_file<P: AsRef<Path>>(path: P) -> Self {
         Self::builder().file(path).build()
     }
 
     /// Creates a properties source backed by in-memory text.
+    ///
+    /// # Parameters
+    ///
+    /// * `content` - Properties text to parse when the source is loaded.
+    ///
+    /// # Returns
+    ///
+    /// A source configured to load the supplied text.
+    #[inline]
     pub fn from_content(content: impl Into<String>) -> Self {
         Self::builder().content(content).build()
     }
@@ -127,6 +150,7 @@ impl PropertiesConfigSource {
     /// Returns [`crate::ConfigError::SourceLimitExceeded`] when an input,
     /// node, assignment, or depth limit is exceeded, or
     /// [`crate::ConfigError::SourceParseError`] for a non-canonical key.
+    #[inline]
     pub fn parse_content(content: &str) -> ConfigResult<Vec<(String, String)>> {
         Self::parse_content_with_limits(content, SourceLimits::default())
     }
@@ -138,16 +162,41 @@ impl PropertiesConfigSource {
     /// The returned pairs preserve input order; an error returns no partial
     /// result. Malformed or incomplete `\u` escapes are preserved verbatim.
     ///
+    /// # Parameters
+    ///
+    /// * `content` - Properties text to parse.
+    /// * `limits` - Resource limits applied before and during parsing.
+    ///
+    /// # Returns
+    ///
+    /// Parsed key-value pairs in input order.
+    ///
     /// # Errors
     ///
     /// Returns [`crate::ConfigError::SourceLimitExceeded`] when an input,
     /// node, assignment, or depth limit is exceeded, or
     /// [`crate::ConfigError::SourceParseError`] for a non-canonical key.
+    #[inline]
     pub fn parse_content_with_limits(content: &str, limits: SourceLimits) -> ConfigResult<Vec<(String, String)>> {
         Self::parse_content_with_source(content, limits, "properties:<memory>")
     }
 
-    /// Parses properties text using an explicit source identifier.
+    /// Parses properties text using an explicit source identifier for
+    /// diagnostics.
+    ///
+    /// # Parameters
+    ///
+    /// * `content` - Properties text to parse.
+    /// * `limits` - Resource limits applied before and during parsing.
+    /// * `source_id` - Identifier attached to parse and limit errors.
+    ///
+    /// # Returns
+    ///
+    /// Parsed key-value pairs in input order.
+    ///
+    /// # Errors
+    ///
+    /// Returns an input, node, assignment, depth, or key validation error.
     fn parse_content_with_source(
         content: &str,
         limits: SourceLimits,
@@ -159,6 +208,20 @@ impl PropertiesConfigSource {
     }
 
     /// Parses properties text through an existing load session.
+    ///
+    /// # Parameters
+    ///
+    /// * `content` - Properties text to parse.
+    /// * `source_id` - Identifier attached to parse and limit errors.
+    /// * `session` - Existing source-load budgets to charge while parsing.
+    ///
+    /// # Returns
+    ///
+    /// Parsed key-value pairs in input order.
+    ///
+    /// # Errors
+    ///
+    /// Returns an input, node, assignment, depth, or key validation error.
     fn parse_content_with_session(
         content: &str,
         source_id: &str,
@@ -207,6 +270,15 @@ impl PropertiesConfigSource {
 
 /// Borrows physical lines while preserving empty lines and treating CRLF as
 /// one terminator. Empty input and a final terminator add no synthetic line.
+///
+/// # Parameters
+///
+/// * `remaining` - Properties text whose physical lines are traversed.
+///
+/// # Returns
+///
+/// An iterator over borrowed physical lines without a synthetic trailing line.
+#[inline]
 fn properties_natural_lines(mut remaining: &str) -> impl Iterator<Item = &str> {
     from_fn(move || {
         if remaining.is_empty() {
@@ -225,6 +297,16 @@ fn properties_natural_lines(mut remaining: &str) -> impl Iterator<Item = &str> {
 }
 
 /// Parses a single `key=value`, `key: value`, or `key value` line.
+///
+/// # Parameters
+///
+/// * `line` - One trimmed properties line.
+///
+/// # Returns
+///
+/// The borrowed key and value split at the first unescaped separator. If a
+/// non-empty line has no separator, the whole line is the key and the value is
+/// empty. Returns `None` only when `line` is empty after trimming.
 fn parse_key_value(line: &str) -> Option<(&str, &str)> {
     let line = line.trim_start_matches(is_properties_whitespace);
 
@@ -292,6 +374,11 @@ fn char_at(line: &str, index: usize) -> Option<(char, usize)> {
 ///
 /// The first byte index at or after `start` that is not whitespace, or the end
 /// of `line`.
+///
+/// # Panics
+///
+/// Panics if `start` is past the end of `line` or is not a UTF-8 character
+/// boundary.
 fn skip_properties_whitespace(line: &str, start: usize) -> usize {
     for (offset, ch) in line[start..].char_indices() {
         if !is_properties_whitespace(ch) {
@@ -301,6 +388,15 @@ fn skip_properties_whitespace(line: &str, start: usize) -> usize {
     line.len()
 }
 
+/// Identifies the whitespace characters used by Java properties separators.
+///
+/// # Parameters
+///
+/// * `ch` - The character to classify.
+///
+/// # Returns
+///
+/// `true` for space, tab, or form feed; otherwise, `false`.
 #[inline]
 fn is_properties_whitespace(ch: char) -> bool {
     matches!(ch, ' ' | '\t' | '\u{000c}')
@@ -317,6 +413,10 @@ fn is_properties_whitespace(ch: char) -> bool {
 /// # Returns
 ///
 /// `true` when the separator is escaped and must not split the key/value.
+///
+/// # Panics
+///
+/// Panics if `sep_pos` is past the end of `line`.
 #[inline]
 fn is_escaped_separator(line: &str, sep_pos: usize) -> bool {
     let slash_count = line.as_bytes()[..sep_pos]
@@ -359,6 +459,18 @@ fn count_trailing_backslashes(line: &str) -> usize {
 }
 
 /// Processes Java properties escape sequences in a string.
+///
+/// Valid Unicode escapes decode UTF-16 code units and valid surrogate pairs;
+/// malformed Unicode escapes are preserved verbatim, while unknown escapes
+/// discard the leading backslash.
+///
+/// # Parameters
+///
+/// * `s` - The properties key or value to unescape.
+///
+/// # Returns
+///
+/// An owned string with valid escapes decoded.
 fn unescape_properties(s: &str) -> String {
     let mut result = String::with_capacity(s.len());
     let mut chars = s.chars().peekable();
@@ -413,6 +525,17 @@ fn unescape_properties(s: &str) -> String {
 }
 
 /// Decodes a Java properties `\uXXXX` escape, including UTF-16 surrogate pairs.
+///
+/// # Parameters
+///
+/// * `code` - The decoded UTF-16 code unit.
+/// * `chars` - Remaining escape input, advanced when a valid surrogate pair is
+///   consumed.
+///
+/// # Returns
+///
+/// The decoded Unicode scalar, or `None` for a lone surrogate or invalid
+/// scalar.
 fn decode_unicode_escape(code: u32, chars: &mut Peekable<Chars<'_>>) -> Option<char> {
     if is_high_surrogate(code) {
         let mut lookahead = chars.clone();
@@ -436,32 +559,71 @@ fn decode_unicode_escape(code: u32, chars: &mut Peekable<Chars<'_>>) -> Option<c
 }
 
 /// Returns whether `code` is a UTF-16 high surrogate.
+///
+/// # Parameters
+///
+/// * `code` - The UTF-16 code unit to classify.
+///
+/// # Returns
+///
+/// `true` when `code` is in the high-surrogate range.
 #[inline]
 fn is_high_surrogate(code: u32) -> bool {
     (0xD800..=0xDBFF).contains(&code)
 }
 
 /// Returns whether `code` is a UTF-16 low surrogate.
+///
+/// # Parameters
+///
+/// * `code` - The UTF-16 code unit to classify.
+///
+/// # Returns
+///
+/// `true` when `code` is in the low-surrogate range.
 #[inline]
 fn is_low_surrogate(code: u32) -> bool {
     (0xDC00..=0xDFFF).contains(&code)
 }
 
 /// Decodes a UTF-16 surrogate pair to a Unicode scalar value.
+///
+/// # Parameters
+///
+/// * `high` - The leading code unit; it must be a high surrogate.
+/// * `low` - The following code unit; it must be a low surrogate.
+///
+/// # Returns
+///
+/// The Unicode scalar represented by the pair.
+///
+/// # Panics
+///
+/// Panics if either code unit is outside its corresponding surrogate range.
+#[inline]
 fn decode_surrogate_pair(high: u32, low: u32) -> Option<char> {
     let scalar = 0x10000 + ((high - 0xD800) << 10) + (low - 0xDC00);
     char::from_u32(scalar)
 }
 
 impl ConfigSource for PropertiesConfigSource {
+    /// Returns the stable identifier used to report this source during loading.
     fn source_id(&self) -> String {
         self.label.clone().unwrap_or_else(|| self.input.label("properties"))
     }
 
+    /// Returns the resource limits applied to one load of this source.
+    #[inline]
     fn limits(&self) -> SourceLimits {
         self.limits
     }
 
+    /// Loads source data into the executor-provided context.
+    ///
+    /// # Parameters
+    ///
+    /// * `context` - Context for charging resource use and writing the source
+    ///   layer.
     fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
         let mut config = Config::new();
         let session = context.session_mut();

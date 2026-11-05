@@ -34,6 +34,14 @@ pub(in crate::config) struct AccountingConfigWireSeed {
 
 impl AccountingConfigWireSeed {
     /// Creates a seed that budgets decoded Serde events.
+    ///
+    /// # Parameters
+    ///
+    /// * `limits` - Shared JSON and configuration-specific decode limits.
+    ///
+    /// # Returns
+    ///
+    /// A seed that applies these limits while reading one persisted config.
     pub(in crate::config) const fn new(limits: ConfigWireLimits) -> Self {
         Self { limits }
     }
@@ -41,6 +49,19 @@ impl AccountingConfigWireSeed {
 
 impl AccountingConfigWireSeed {
     /// Checks the configuration-specific property dimensions.
+    ///
+    /// # Parameters
+    ///
+    /// * `count` - Number of decoded properties.
+    /// * `keys` - Property names whose encoded byte lengths must be admitted.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the count and every key fit their configured limits.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first exceeded configuration-specific property limit.
     fn check_properties<'a>(
         &self,
         count: usize,
@@ -68,6 +89,19 @@ impl AccountingConfigWireSeed {
     }
 
     /// Checks property dimensions before typed Property materialization.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - Parsed JSON value containing an optional properties object.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when property limits pass or the value has no properties
+    /// object.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first exceeded property count or key-byte limit.
     fn check_value(&self, value: &Value) -> Result<(), ConfigWireDecodeError> {
         let Some(properties) = value
             .as_object()
@@ -81,6 +115,25 @@ impl AccountingConfigWireSeed {
 
     /// Checks domain limits before constructing typed properties from a wire
     /// value.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - Parsed JSON value to admit and convert to a wire contract.
+    ///
+    /// # Returns
+    ///
+    /// The outer result is always `Ok`; its inner result is the decoded wire
+    /// contract or a configuration decode error.
+    ///
+    /// # Errors
+    ///
+    /// The inner result contains property-limit, field-decoding, or invalid
+    /// wire-version errors. The generic outer error type is retained for the
+    /// `DeserializeSeed` call site's type inference.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `E` - Serde error type used for the outer deserialization result.
     pub(super) fn decode_value<E>(&self, value: Value) -> Result<Result<ConfigWire, ConfigWireDecodeError>, E>
     where
         E: DeError,
@@ -97,8 +150,28 @@ impl AccountingConfigWireSeed {
 }
 
 impl<'de> DeserializeSeed<'de> for AccountingConfigWireSeed {
+    /// The decoded wire contract or its configuration-specific validation
+    /// error.
     type Value = Result<ConfigWire, ConfigWireDecodeError>;
 
+    /// Deserializes one wire value while charging JSON and domain limits.
+    ///
+    /// # Parameters
+    ///
+    /// * `deserializer` - Serde source for one persisted configuration.
+    ///
+    /// # Returns
+    ///
+    /// The decoded wire result after the budget transaction commits.
+    ///
+    /// # Errors
+    ///
+    /// Returns the deserializer or budget-transaction error outside the inner
+    /// result; domain and wire validation errors are carried inside it.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `D` - Deserializer implementation reading the persisted wire value.
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: Deserializer<'de>,

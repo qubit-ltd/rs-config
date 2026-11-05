@@ -1420,14 +1420,14 @@ fn test_ordinary_deserialize_rejects_duplicate_property_map_keys() {
 }
 
 #[test]
-fn ordinary_duplicate_key_is_rejected_before_its_value() {
+fn test_ordinary_duplicate_key_is_rejected_before_its_value() {
     let input = r#"{"description":null,"description":[}"#;
     let error = from_str::<Config>(input).unwrap_err();
     assert!(error.to_string().contains("duplicate JSON object key"));
 }
 
 #[test]
-fn nested_duplicate_key_is_rejected_and_sibling_keys_are_independent() {
+fn test_nested_duplicate_key_is_rejected_and_sibling_keys_are_independent() {
     let input = r#"{"properties":{},"read_options":{"k":1,"k":[}}"#;
     let error = from_str::<Config>(input).unwrap_err();
     assert!(error.to_string().contains("duplicate JSON object key"));
@@ -1437,7 +1437,7 @@ fn nested_duplicate_key_is_rejected_and_sibling_keys_are_independent() {
 }
 
 #[test]
-fn key_budget_error_precedes_unread_value_syntax_error() {
+fn test_key_budget_error_precedes_unread_value_syntax_error() {
     let length = usize::try_from(ConfigWireLimits::DEFAULT_MAX_KEY_BYTES).unwrap() + 1;
     let key = "x".repeat(length);
     let input = format!(r#"{{"properties":{{}},"read_options":{{"{key}":[}}"#);

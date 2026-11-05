@@ -36,7 +36,7 @@ fn merge_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<
 }
 
 #[test]
-fn yaml_label_applies_to_success_and_parse_errors() {
+fn test_yaml_label_applies_to_success_and_parse_errors() {
     let source = YamlConfigSource::builder().content("value: 1").label("service").build();
     assert_eq!(source.source_id(), "service");
     assert_eq!(source.load().unwrap().get::<i64>("value").unwrap(), 1);
@@ -47,7 +47,7 @@ fn yaml_label_applies_to_success_and_parse_errors() {
 }
 
 #[test]
-fn yaml_unicode_whitespace_root_scalars_are_rejected() {
+fn test_yaml_unicode_whitespace_root_scalars_are_rejected() {
     for scalar in ["\u{00a0}", "\u{2003}"] {
         for input in [
             scalar.to_owned(),
@@ -69,7 +69,7 @@ fn yaml_unicode_whitespace_root_scalars_are_rejected() {
 }
 
 #[test]
-fn yaml_mapping_preserves_unicode_whitespace_values() {
+fn test_yaml_mapping_preserves_unicode_whitespace_values() {
     for value in ["\u{00a0}", "\u{2003}"] {
         let source = YamlConfigSource::builder()
             .content(format!("value: \"{value}\""))
@@ -109,7 +109,7 @@ fn test_yaml_numeric_sequences_keep_valid_signed_and_unsigned_prefixes() {
 }
 
 #[test]
-fn yaml_mapping_members_are_validated_before_recursion() {
+fn test_yaml_mapping_members_are_validated_before_recursion() {
     let cases = [
         ("\"\": {port: 8080}", ""),
         ("\"\": {}", ""),
@@ -134,7 +134,7 @@ fn yaml_mapping_members_are_validated_before_recursion() {
 }
 
 #[test]
-fn yaml_empty_mappings_remain_valid() {
+fn test_yaml_empty_mappings_remain_valid() {
     let root = YamlConfigSource::from_content("{}")
         .load()
         .expect("empty YAML mapping should load");
@@ -147,7 +147,7 @@ fn yaml_empty_mappings_remain_valid() {
 }
 
 #[test]
-fn yaml_quoted_dotted_member_remains_valid() {
+fn test_yaml_quoted_dotted_member_remains_valid() {
     let config = YamlConfigSource::from_content("\"server.port\": 8080")
         .load()
         .expect("quoted dotted member should preserve flattening behavior");
@@ -156,7 +156,7 @@ fn yaml_quoted_dotted_member_remains_valid() {
 }
 
 #[test]
-fn yaml_double_quoted_marker_characters_remain_scalar_text() {
+fn test_yaml_double_quoted_marker_characters_remain_scalar_text() {
     let text = "* & # : \" ' marker text";
     let quoted = serde_json::to_string(text).expect("marker text should serialize");
     let safe = YamlConfigSource::from_content(format!("message: {quoted}\n"))
@@ -166,7 +166,7 @@ fn yaml_double_quoted_marker_characters_remain_scalar_text() {
 }
 
 #[test]
-fn yaml_builder_default_loads_configured_content() {
+fn test_yaml_builder_default_loads_configured_content() {
     let builder_default: fn() -> YamlConfigSourceBuilder = Default::default;
     let source = std::hint::black_box(builder_default)()
         .content("covered: value\n")
@@ -342,7 +342,7 @@ fn test_yaml_parser_depth_limit() {
 }
 
 #[test]
-fn yaml_parser_token_budget_matches_scanner_boundaries_for_generated_mappings() {
+fn test_yaml_parser_token_budget_matches_scanner_boundaries_for_generated_mappings() {
     for width in 1..=16 {
         let content = (0..width).map(|i| format!("k{i}: 1\n")).collect::<String>();
         let mut scanner = Scanner::new(content.chars());
@@ -387,7 +387,7 @@ fn yaml_parser_token_budget_matches_scanner_boundaries_for_generated_mappings() 
 }
 
 #[test]
-fn yaml_parser_nesting_budget_matches_generated_mapping_boundaries() {
+fn test_yaml_parser_nesting_budget_matches_generated_mapping_boundaries() {
     for depth in 1..=8 {
         let mut content = "leaf: 1".to_owned();
         for _ in 0..depth {
@@ -1204,7 +1204,7 @@ locked_strings:
     }
 
     #[test]
-    fn yaml_semantically_empty_single_documents_load_empty_layers() {
+    fn test_yaml_semantically_empty_single_documents_load_empty_layers() {
         for input in ["", " \n", "# comment\n", "---\n", "---\n# comment\n...\n"] {
             let config = YamlConfigSource::from_content(input)
                 .load()
@@ -1214,7 +1214,7 @@ locked_strings:
     }
 
     #[test]
-    fn yaml_empty_documents_preserve_source_entry_and_zero_node_limits() {
+    fn test_yaml_empty_documents_preserve_source_entry_and_zero_node_limits() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("comment-only.yaml");
         std::fs::write(&path, "# comment\n").unwrap();
@@ -1228,7 +1228,7 @@ locked_strings:
     }
 
     #[test]
-    fn yaml_root_null_scalars_and_sequences_remain_rejected() {
+    fn test_yaml_root_null_scalars_and_sequences_remain_rejected() {
         for input in ["null", "~", "'null'", "[]", "!!str null"] {
             let error = YamlConfigSource::from_content(input)
                 .load()
@@ -1241,7 +1241,7 @@ locked_strings:
     }
 
     #[test]
-    fn yaml_multiple_documents_remain_rejected_with_source_context() {
+    fn test_yaml_multiple_documents_remain_rejected_with_source_context() {
         let error = YamlConfigSource::from_content("---\nfirst: 1\n---\nsecond: 2\n")
             .load()
             .expect_err("multiple YAML documents are not supported");

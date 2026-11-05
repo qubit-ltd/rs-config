@@ -29,10 +29,36 @@
 /// ```
 pub trait ConfigNames {
     /// Invokes `operation` with this argument as a string slice list.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `R` - Result type returned by `operation`.
+    ///
+    /// # Parameters
+    ///
+    /// * `operation` - Closure invoked with the candidate names in order.
+    ///
+    /// # Returns
+    ///
+    /// The value returned by `operation`.
     fn with_config_names<R>(self, operation: impl FnOnce(&[&str]) -> R) -> R;
 }
 
 impl ConfigNames for &[&str] {
+    /// Runs the operation with this borrowed name slice.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `R` - Result type returned by the operation.
+    ///
+    /// # Parameters
+    ///
+    /// * `self` - Candidate names in lookup order.
+    /// * `operation` - Closure invoked with the candidate names.
+    ///
+    /// # Returns
+    ///
+    /// The value returned by `operation`.
     #[inline]
     fn with_config_names<R>(self, operation: impl FnOnce(&[&str]) -> R) -> R {
         operation(self)
@@ -40,6 +66,20 @@ impl ConfigNames for &[&str] {
 }
 
 impl<const N: usize> ConfigNames for [&str; N] {
+    /// Runs the operation with this owned fixed-size name array.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `R` - Result type returned by the operation.
+    ///
+    /// # Parameters
+    ///
+    /// * `self` - Candidate names in lookup order.
+    /// * `operation` - Closure invoked with the candidate names.
+    ///
+    /// # Returns
+    ///
+    /// The value returned by `operation`.
     #[inline]
     fn with_config_names<R>(self, operation: impl FnOnce(&[&str]) -> R) -> R {
         operation(&self)
@@ -47,6 +87,20 @@ impl<const N: usize> ConfigNames for [&str; N] {
 }
 
 impl<const N: usize> ConfigNames for &[&str; N] {
+    /// Runs the operation with this borrowed fixed-size name array.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `R` - Result type returned by the operation.
+    ///
+    /// # Parameters
+    ///
+    /// * `self` - Candidate names in lookup order.
+    /// * `operation` - Closure invoked with the candidate names.
+    ///
+    /// # Returns
+    ///
+    /// The value returned by `operation`.
     #[inline]
     fn with_config_names<R>(self, operation: impl FnOnce(&[&str]) -> R) -> R {
         operation(self.as_slice())
@@ -54,6 +108,20 @@ impl<const N: usize> ConfigNames for &[&str; N] {
 }
 
 impl ConfigNames for Vec<&str> {
+    /// Runs the operation with this owned string-slice vector.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `R` - Result type returned by the operation.
+    ///
+    /// # Parameters
+    ///
+    /// * `self` - Candidate names in lookup order.
+    /// * `operation` - Closure invoked with the candidate names.
+    ///
+    /// # Returns
+    ///
+    /// The value returned by `operation`.
     #[inline]
     fn with_config_names<R>(self, operation: impl FnOnce(&[&str]) -> R) -> R {
         operation(self.as_slice())
@@ -61,6 +129,20 @@ impl ConfigNames for Vec<&str> {
 }
 
 impl ConfigNames for &Vec<&str> {
+    /// Runs the operation with this borrowed string-slice vector.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `R` - Result type returned by the operation.
+    ///
+    /// # Parameters
+    ///
+    /// * `self` - Candidate names in lookup order.
+    /// * `operation` - Closure invoked with the candidate names.
+    ///
+    /// # Returns
+    ///
+    /// The value returned by `operation`.
     #[inline]
     fn with_config_names<R>(self, operation: impl FnOnce(&[&str]) -> R) -> R {
         operation(self.as_slice())
@@ -68,6 +150,20 @@ impl ConfigNames for &Vec<&str> {
 }
 
 impl ConfigNames for &[String] {
+    /// Converts the strings to borrowed names and runs the operation.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `R` - Result type returned by the operation.
+    ///
+    /// # Parameters
+    ///
+    /// * `self` - Candidate strings in lookup order.
+    /// * `operation` - Closure invoked with the borrowed names.
+    ///
+    /// # Returns
+    ///
+    /// The value returned by `operation`.
     #[inline]
     fn with_config_names<R>(self, operation: impl FnOnce(&[&str]) -> R) -> R {
         let names: Vec<&str> = self.iter().map(String::as_str).collect();
@@ -76,6 +172,20 @@ impl ConfigNames for &[String] {
 }
 
 impl<const N: usize> ConfigNames for [String; N] {
+    /// Converts the strings to borrowed names and runs the operation.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `R` - Result type returned by the operation.
+    ///
+    /// # Parameters
+    ///
+    /// * `self` - Candidate strings in lookup order.
+    /// * `operation` - Closure invoked with the borrowed names.
+    ///
+    /// # Returns
+    ///
+    /// The value returned by `operation`.
     #[inline]
     fn with_config_names<R>(self, operation: impl FnOnce(&[&str]) -> R) -> R {
         let names: Vec<&str> = self.iter().map(String::as_str).collect();
@@ -84,6 +194,20 @@ impl<const N: usize> ConfigNames for [String; N] {
 }
 
 impl<const N: usize> ConfigNames for &[String; N] {
+    /// Converts the strings to borrowed names and runs the operation.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `R` - Result type returned by the operation.
+    ///
+    /// # Parameters
+    ///
+    /// * `self` - Candidate strings in lookup order.
+    /// * `operation` - Closure invoked with the borrowed names.
+    ///
+    /// # Returns
+    ///
+    /// The value returned by `operation`.
     #[inline]
     fn with_config_names<R>(self, operation: impl FnOnce(&[&str]) -> R) -> R {
         let names: Vec<&str> = self.iter().map(String::as_str).collect();
@@ -92,6 +216,20 @@ impl<const N: usize> ConfigNames for &[String; N] {
 }
 
 impl ConfigNames for Vec<String> {
+    /// Converts the strings to borrowed names and runs the operation.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `R` - Result type returned by the operation.
+    ///
+    /// # Parameters
+    ///
+    /// * `self` - Candidate strings in lookup order.
+    /// * `operation` - Closure invoked with the borrowed names.
+    ///
+    /// # Returns
+    ///
+    /// The value returned by `operation`.
     #[inline]
     fn with_config_names<R>(self, operation: impl FnOnce(&[&str]) -> R) -> R {
         let names: Vec<&str> = self.iter().map(String::as_str).collect();
@@ -100,6 +238,20 @@ impl ConfigNames for Vec<String> {
 }
 
 impl ConfigNames for &Vec<String> {
+    /// Converts the strings to borrowed names and runs the operation.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `R` - Result type returned by the operation.
+    ///
+    /// # Parameters
+    ///
+    /// * `self` - Candidate strings in lookup order.
+    /// * `operation` - Closure invoked with the borrowed names.
+    ///
+    /// # Returns
+    ///
+    /// The value returned by `operation`.
     #[inline]
     fn with_config_names<R>(self, operation: impl FnOnce(&[&str]) -> R) -> R {
         let names: Vec<&str> = self.iter().map(String::as_str).collect();

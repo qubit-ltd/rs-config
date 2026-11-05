@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-// Tests for canonical configuration keys and paths.
+//! Tests canonical configuration keys, paths, and their public API contracts.
 
 use qubit_config::Config;
 use qubit_config::ConfigError;
@@ -41,7 +41,7 @@ fn test_config_key_rejects_malformed_names_without_normalizing() {
 }
 
 #[test]
-fn config_path_allows_only_the_empty_root_exception() {
+fn test_config_path_allows_only_the_empty_root_exception() {
     assert_eq!(ConfigPath::parse("").unwrap().as_str(), "");
     assert!(ConfigPath::parse("server.port").is_ok());
     assert!(matches!(
@@ -54,7 +54,7 @@ fn config_path_allows_only_the_empty_root_exception() {
 }
 
 #[test]
-fn path_sensitive_lookups_reject_malformed_keys() {
+fn test_path_sensitive_lookups_reject_malformed_keys() {
     let mut config = Config::new();
     assert!(matches!(
         config.get_property("bad..key"),
@@ -79,14 +79,14 @@ fn path_sensitive_lookups_reject_malformed_keys() {
 }
 
 #[test]
-fn sections_reject_malformed_paths_and_preserve_the_root() {
+fn test_sections_reject_malformed_paths_and_preserve_the_root() {
     let config = Config::new();
     assert!(matches!(config.section(".http"), Err(ConfigError::InvalidPath { .. })));
     assert_eq!(config.section("").unwrap().path(), "");
 }
 
 #[test]
-fn nested_sections_validate_before_joining_paths() {
+fn test_nested_sections_validate_before_joining_paths() {
     let config = Config::new();
     let http = config.section("http").unwrap();
     let proxy = http.section("proxy").unwrap();
@@ -99,7 +99,7 @@ fn nested_sections_validate_before_joining_paths() {
 }
 
 #[test]
-fn multi_key_reads_validate_every_candidate_before_lookup() {
+fn test_multi_key_reads_validate_every_candidate_before_lookup() {
     let mut config = Config::new();
     config.set("present", 7u8).unwrap();
 
@@ -110,14 +110,14 @@ fn multi_key_reads_validate_every_candidate_before_lookup() {
 }
 
 #[test]
-fn writes_and_removals_share_the_canonical_key_contract() {
+fn test_writes_and_removals_share_the_canonical_key_contract() {
     let mut config = Config::new();
     assert!(matches!(config.set(".bad", 1u8), Err(ConfigError::InvalidKey { .. })));
     assert!(matches!(config.remove("bad."), Err(ConfigError::InvalidKey { .. })));
 }
 
 #[test]
-fn config_paths_preserve_unicode_and_accept_deep_valid_paths() {
+fn test_config_paths_preserve_unicode_and_accept_deep_valid_paths() {
     let deep_path = (0..64).map(|index| format!("层{index}")).collect::<Vec<_>>().join(".");
     let parsed = ConfigPath::parse(&deep_path).unwrap();
 
@@ -127,7 +127,7 @@ fn config_paths_preserve_unicode_and_accept_deep_valid_paths() {
 }
 
 #[test]
-fn config_path_rejects_each_separator_boundary_with_the_specific_violation() {
+fn test_config_path_rejects_each_separator_boundary_with_the_specific_violation() {
     for (path, violation) in [
         (".server", ConfigPathViolation::LeadingSeparator),
         ("server.", ConfigPathViolation::TrailingSeparator),
@@ -142,7 +142,7 @@ fn config_path_rejects_each_separator_boundary_with_the_specific_violation() {
 }
 
 #[test]
-fn config_path_violations_have_stable_value_free_messages() {
+fn test_config_path_violations_have_stable_value_free_messages() {
     assert_eq!(ConfigPathViolation::Empty.to_string(), "the key is empty");
     assert_eq!(
         ConfigPathViolation::LeadingSeparator.to_string(),
@@ -159,7 +159,7 @@ fn config_path_violations_have_stable_value_free_messages() {
 }
 
 #[test]
-fn prefix_queries_use_section_boundaries_and_do_not_match_siblings() {
+fn test_prefix_queries_use_section_boundaries_and_do_not_match_siblings() {
     let mut config = Config::new();
     config.set("http.host", "localhost").unwrap();
     config.set("httpish.host", "not-http").unwrap();
@@ -172,7 +172,7 @@ fn prefix_queries_use_section_boundaries_and_do_not_match_siblings() {
 }
 
 #[test]
-fn root_and_nested_paths_keep_empty_path_semantics_explicit() {
+fn test_root_and_nested_paths_keep_empty_path_semantics_explicit() {
     let mut config = Config::new();
     assert!(!config.contains_section("").unwrap());
     config.set("deep.value", 1_i32).unwrap();
@@ -187,7 +187,7 @@ fn root_and_nested_paths_keep_empty_path_semantics_explicit() {
 }
 
 #[test]
-fn path_error_retains_the_rejected_text() {
+fn test_path_error_retains_the_rejected_text() {
     let error = ConfigPath::parse("a..b").unwrap_err();
     assert!(matches!(
         error,
@@ -197,7 +197,7 @@ fn path_error_retains_the_rejected_text() {
 }
 
 #[test]
-fn key_and_path_wrapper_traits_preserve_the_validated_text() {
+fn test_key_and_path_wrapper_traits_preserve_the_validated_text() {
     let key: ConfigKey = serde_json::from_str("\"server.port\"").unwrap();
     let key_as_str: for<'a> fn(&'a ConfigKey) -> &'a str = ConfigKey::as_str;
     let key_as_ref: for<'a> fn(&'a ConfigKey) -> &'a str = <ConfigKey as AsRef<str>>::as_ref;
@@ -214,7 +214,7 @@ fn key_and_path_wrapper_traits_preserve_the_validated_text() {
 }
 
 #[test]
-fn key_and_path_deserialization_enforce_their_distinct_empty_rules() {
+fn test_key_and_path_deserialization_enforce_their_distinct_empty_rules() {
     let root: ConfigPath = serde_json::from_str("\"\"").unwrap();
     assert_eq!(root.as_str(), "");
 

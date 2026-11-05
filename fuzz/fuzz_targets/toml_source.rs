@@ -14,6 +14,7 @@ use qubit_config::source::ConfigSource;
 use qubit_config::source::SourceLimits;
 use qubit_config::source::TomlConfigSource;
 
+/// Caps text decoding before TOML parser work begins.
 const MAX_INPUT_BYTES: usize = 64 * 1024;
 
 fuzz_target!(|data: &[u8]| {

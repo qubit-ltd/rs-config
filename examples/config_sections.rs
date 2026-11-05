@@ -6,9 +6,12 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+//! Demonstrates navigating nested configuration sections with readers.
+
 use qubit_config::Config;
 use qubit_config::ConfigReader;
 
+/// Reads a nested TLS setting through successive section views.
 fn main() -> Result<(), qubit_config::ConfigError> {
     let mut config = Config::new();
     config.set("server.tls.enabled", true)?;

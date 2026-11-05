@@ -5,7 +5,10 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+//! Tests interpolation behavior, resource bounds, environment sources, and
+//! errors.
 
+use std::env;
 use std::process::Command;
 use std::time::Duration;
 
@@ -17,10 +20,13 @@ use qubit_datatype::ConversionLimits;
 use qubit_datatype::ConversionOperationLimits;
 use qubit_datatype::DurationConversionPolicy;
 use qubit_datatype::DurationUnit;
+use serde_json::Value as JsonValue;
 
 use crate::Config;
 use crate::ConfigError;
 use crate::ReadPolicy;
+use crate::set_max_interpolation_depth;
+use crate::with_environment_fallback;
 
 #[test]
 fn test_interpolation_reference_honors_duration_output_unit() {
@@ -50,7 +56,7 @@ fn test_interpolation_reference_honors_duration_output_unit() {
         interpolate: true,
         unknown_fields: UnknownFieldPolicy::Ignore,
     };
-    let structured: serde_json::Value = view.deserialize_with("server", options).unwrap();
+    let structured: JsonValue = view.deserialize_with("server", options).unwrap();
     assert_eq!(structured["alias"], "2500µs");
     assert_eq!(structured["root_alias"], "3500µs");
 
@@ -234,7 +240,7 @@ fn test_get_string_rejects_oversized_final_concatenation() {
 #[test]
 fn test_get_string_substitution_depth_exceeded() {
     let mut config = Config::new();
-    crate::set_max_interpolation_depth(&mut config, 5);
+    set_max_interpolation_depth(&mut config, 5);
     config.set("a", "${b}").unwrap();
     config.set("b", "${c}").unwrap();
     config.set("c", "${d}").unwrap();
@@ -257,7 +263,7 @@ fn test_get_string_substitution_depth_exceeded() {
 #[test]
 fn test_get_string_substitution_depth_at_limit_succeeds() {
     let mut config = Config::new();
-    crate::set_max_interpolation_depth(&mut config, 2);
+    set_max_interpolation_depth(&mut config, 2);
     config.set("first", "${second}").unwrap();
     config.set("second", "done").unwrap();
 
@@ -295,7 +301,7 @@ fn test_get_string_default_and_raised_depth_boundaries() {
 
     for references in [256, 257] {
         let mut config = make_chain(references);
-        crate::set_max_interpolation_depth(&mut config, 256);
+        set_max_interpolation_depth(&mut config, 256);
         if references == 256 {
             assert_eq!(config.get_interpolated::<String>("entry").unwrap(), "done");
         } else {
@@ -335,7 +341,7 @@ fn test_get_string_uses_environment_fallback() {
         return;
     }
     let mut config = Config::new();
-    config.set_default_read_policy(crate::with_environment_fallback(ReadPolicy::default()));
+    config.set_default_read_policy(with_environment_fallback(ReadPolicy::default()));
     config.set("value", "Value: ${QUBIT_CONFIG_TEST_ENV_VAR}").unwrap();
 
     let result = config.get_interpolated::<String>("value");
@@ -375,7 +381,7 @@ fn test_get_string_empty_string_succeeds() {
 #[test]
 fn test_get_string_zero_depth_without_placeholders_succeeds() {
     let mut config = Config::new();
-    crate::set_max_interpolation_depth(&mut config, 0);
+    set_max_interpolation_depth(&mut config, 0);
     config.set("plain", "plain text").unwrap();
 
     assert_eq!(config.get_interpolated::<String>("plain").unwrap(), "plain text");
@@ -468,7 +474,7 @@ fn test_get_string_uses_config_and_environment_sources() {
         return;
     }
     let mut config = Config::new();
-    config.set_default_read_policy(crate::with_environment_fallback(ReadPolicy::default()));
+    config.set_default_read_policy(with_environment_fallback(ReadPolicy::default()));
     config.set("CONFIG_SOURCE", "from_config").unwrap();
     config
         .set("combined", "${CONFIG_SOURCE} and ${QUBIT_CONFIG_TEST_ENV_SOURCE}")
@@ -488,7 +494,7 @@ fn test_get_string_config_value_has_priority_over_environment() {
         return;
     }
     let mut config = Config::new();
-    config.set_default_read_policy(crate::with_environment_fallback(ReadPolicy::default()));
+    config.set_default_read_policy(with_environment_fallback(ReadPolicy::default()));
     config.set("QUBIT_CONFIG_TEST_SHARED_VAR", "from_config").unwrap();
     config.set("value", "${QUBIT_CONFIG_TEST_SHARED_VAR}").unwrap();
 
@@ -506,7 +512,7 @@ fn test_get_string_converts_config_value_instead_of_environment() {
         return;
     }
     let mut config = Config::new();
-    config.set_default_read_policy(crate::with_environment_fallback(ReadPolicy::default()));
+    config.set_default_read_policy(with_environment_fallback(ReadPolicy::default()));
     config.set("QUBIT_CONFIG_TEST_STRICT_VAR", 8080i32).unwrap();
     config.set("value", "${QUBIT_CONFIG_TEST_STRICT_VAR}").unwrap();
 
@@ -525,7 +531,7 @@ fn test_get_string_environment_fallback_reports_missing_env_var() {
     }
 
     let mut config = Config::new();
-    config.set_default_read_policy(crate::with_environment_fallback(ReadPolicy::default()));
+    config.set_default_read_policy(with_environment_fallback(ReadPolicy::default()));
     config
         .set("value", "${QUBIT_CONFIG_TEST_ENV_MISSING_FOR_FALLBACK}")
         .unwrap();
@@ -598,19 +604,20 @@ fn test_interpolation_reports_fixed_budget_error_categories() {
     ));
 }
 
+/// Runs one named test in a child with a controlled process environment.
 fn run_with_environment(name: &str, values: &[(&str, &str)]) -> bool {
     const CHILD: &str = "QUBIT_CONFIG_INTERPOLATION_TEST_CHILD";
-    if std::env::var_os(CHILD).is_some() {
+    if env::var_os(CHILD).is_some() {
         return true;
     }
-    let mut command = Command::new(std::env::current_exe().expect("test executable path"));
+    let mut command = Command::new(env::current_exe().expect("test executable path"));
     command
         .arg("--exact")
         .arg(name)
         .arg("--nocapture")
         .env_clear()
         .env(CHILD, "1");
-    if let Some(profile) = std::env::var_os("LLVM_PROFILE_FILE") {
+    if let Some(profile) = env::var_os("LLVM_PROFILE_FILE") {
         command.env("LLVM_PROFILE_FILE", profile);
     }
     for (key, value) in values {

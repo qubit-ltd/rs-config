@@ -136,6 +136,10 @@ pub struct Config {
 
 impl PartialEq for Config {
     /// Compares only the persisted configuration data.
+    ///
+    /// # Parameters
+    ///
+    /// * `other` - Configuration whose persisted fields are compared.
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.description == other.description && self.properties == other.properties
@@ -144,6 +148,15 @@ impl PartialEq for Config {
 
 impl Serialize for Config {
     /// Serializes this configuration through the stable V1 persistence format.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `S` - Serde serializer that receives the persisted representation.
+    ///
+    /// # Parameters
+    ///
+    /// * `self` - Configuration whose stable wire fields are serialized.
+    /// * `serializer` - Destination serializer for the configuration.
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -160,6 +173,14 @@ impl<'de> Deserialize<'de> for Config {
     /// deserializer does not expose its original bytes or lexical tokens, so
     /// this implementation cannot enforce the raw-input limit. Use
     /// [`Config::decode_json_slice`] for untrusted JSON bytes.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `D` - Deserializer supplying the persisted configuration value.
+    ///
+    /// # Parameters
+    ///
+    /// * `deserializer` - Source of the V1 or legacy wire representation.
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -169,6 +190,7 @@ impl<'de> Deserialize<'de> for Config {
 }
 
 impl TryFrom<ConfigSerdeRepr> for Config {
+    /// Error returned when the wire fields violate configuration invariants.
     type Error = String;
 
     /// Builds a configuration only when every map key matches its property.
@@ -195,9 +217,14 @@ impl TryFrom<ConfigSerdeRepr> for Config {
 }
 
 impl TryFrom<ConfigWireV1> for Config {
+    /// Error returned when the wire version or property names are invalid.
     type Error = String;
 
     /// Builds a configuration from the stable V1 persistence format.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - V1 wire value to validate and convert.
     ///
     /// # Errors
     ///
@@ -212,6 +239,7 @@ impl TryFrom<ConfigWireV1> for Config {
 }
 
 impl TryFrom<ConfigWire> for Config {
+    /// Error returned when the selected wire representation is invalid.
     type Error = String;
 
     /// Builds a configuration from any accepted persisted representation.
@@ -219,6 +247,10 @@ impl TryFrom<ConfigWire> for Config {
     /// # Errors
     ///
     /// Returns the validation failure for the selected wire representation.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - Accepted V1 or legacy wire representation to convert.
     fn try_from(value: ConfigWire) -> Result<Self, Self::Error> {
         match value {
             ConfigWire::V1(value) => Self::try_from(value),
@@ -228,6 +260,25 @@ impl TryFrom<ConfigWire> for Config {
 }
 
 impl Config {
+    /// Creates a new empty configuration.
+    ///
+    /// # Returns
+    ///
+    /// A configuration with no properties and the default direct-read policy.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use qubit_config::Config;
+    ///
+    /// let config = Config::new();
+    /// assert!(config.is_empty());
+    /// ```
+    #[inline]
+    pub fn new() -> Self {
+        Self::builder().build()
+    }
+
     /// Creates a builder initialized with an empty configuration.
     #[inline]
     pub fn builder() -> ConfigBuilder {
@@ -350,7 +401,11 @@ impl Config {
         Ok(config)
     }
 
-    /// Checks configuration-specific limits for an encoding operation.
+    /// Checks property count and key sizes against the encoding limits.
+    ///
+    /// # Parameters
+    ///
+    /// * `limits` - Configuration-specific ceilings for encoded properties.
     fn check_config_limits_encode(&self, limits: ConfigWireLimits) -> Result<(), ConfigWireEncodeError> {
         let property_count = u64::try_from(self.properties.len()).expect("property count must fit in u64");
         limits
@@ -374,7 +429,12 @@ impl Config {
         Ok(())
     }
 
-    /// Validates shared fields decoded from an accepted persisted wire format.
+    /// Builds a runtime configuration after validating shared wire fields.
+    ///
+    /// # Parameters
+    ///
+    /// * `description` - Optional persisted description to retain.
+    /// * `properties` - Properties keyed by their persisted names.
     fn from_wire_parts(description: Option<String>, properties: BTreeMap<String, Property>) -> Result<Self, String> {
         if let Some((key, violation)) = properties
             .keys()
@@ -407,24 +467,6 @@ impl Config {
             default_read_policy: Transient::new(ReadPolicy::default()),
         })
     }
-    /// Creates a new empty configuration
-    ///
-    /// # Returns
-    ///
-    /// Returns a new configuration instance
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use qubit_config::Config;
-    ///
-    /// let mut config = Config::new();
-    /// assert!(config.is_empty());
-    /// ```
-    #[inline]
-    pub fn new() -> Self {
-        Self::builder().build()
-    }
 }
 
 impl Default for Config {
@@ -449,6 +491,10 @@ impl Default for Config {
 }
 
 /// Maps a budget-aware JSON decode failure to the configuration wire error.
+///
+/// # Parameters
+///
+/// * `error` - JSON adapter failure carrying its source category and location.
 fn map_decode_json_error(error: JsonDecodeError<JsonResource, u64>) -> ConfigWireDecodeError {
     let message = error.to_string();
     match error.into_source() {
@@ -470,6 +516,10 @@ fn map_decode_json_error(error: JsonDecodeError<JsonResource, u64>) -> ConfigWir
 }
 
 /// Maps a budget-aware JSON encode failure to the configuration wire error.
+///
+/// # Parameters
+///
+/// * `error` - JSON adapter failure carrying its budget or serialization cause.
 fn map_encode_json_error(error: JsonEncodeError<JsonResource, u64>) -> ConfigWireEncodeError {
     error.into()
 }

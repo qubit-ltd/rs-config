@@ -16,6 +16,7 @@ use std::borrow::Cow;
 use super::super::source_location::SourceLocation;
 use super::child_iter::ChildIter;
 
+/// Ancestor state retained by the iterative depth-first read traversal.
 pub(crate) struct Frame<'a> {
     /// Remaining children of this ancestor in the iterative depth-first walk.
     pub(crate) children: ChildIter<'a>,

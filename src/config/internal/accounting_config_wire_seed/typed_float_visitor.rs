@@ -13,9 +13,29 @@ use serde::de::Visitor;
 
 use super::AccountingUniqueJsonValueSeed;
 
+/// Safe fallback diagnostic used when a native float parser fails early.
 const INVALID_NATIVE_FLOAT: &str = "invalid native floating-point wire value";
 
 /// Invokes a typed float deserializer while replacing untrusted early errors.
+///
+/// # Parameters
+///
+/// * `deserializer` - Source for one native floating-point wire value.
+/// * `seed` - Accounting seed that validates and charges numeric callbacks.
+/// * `float32` - Whether the source must use the native `f32` deserializer.
+///
+/// # Type Parameters
+///
+/// * `D` - Deserializer implementation providing the floating-point value.
+///
+/// # Returns
+///
+/// The accounting seed's JSON number representation.
+///
+/// # Errors
+///
+/// Returns a checked callback's safe diagnostic or a generic float error when
+/// the underlying deserializer fails before a checked callback runs.
 fn deserialize<'de, D>(
     deserializer: D,
     seed: AccountingUniqueJsonValueSeed<'_, '_>,
@@ -44,6 +64,23 @@ where
 }
 
 /// Calls the native Float32 deserializer with a bounded error bridge.
+///
+/// # Parameters
+///
+/// * `deserializer` - Source for one native single-precision value.
+/// * `seed` - Accounting seed for numeric conversion and resource charges.
+///
+/// # Returns
+///
+/// The admitted JSON number value.
+///
+/// # Errors
+///
+/// Returns a safe callback diagnostic or the generic native-float error.
+///
+/// # Type Parameters
+///
+/// * `D` - Deserializer implementation providing a single-precision value.
 pub(super) fn deserialize_f32<'de, D>(
     deserializer: D,
     seed: AccountingUniqueJsonValueSeed<'_, '_>,
@@ -55,6 +92,23 @@ where
 }
 
 /// Calls the native Float64 deserializer with a bounded error bridge.
+///
+/// # Parameters
+///
+/// * `deserializer` - Source for one native double-precision value.
+/// * `seed` - Accounting seed for numeric conversion and resource charges.
+///
+/// # Returns
+///
+/// The admitted JSON number value.
+///
+/// # Errors
+///
+/// Returns a safe callback diagnostic or the generic native-float error.
+///
+/// # Type Parameters
+///
+/// * `D` - Deserializer implementation providing a double-precision value.
 pub(super) fn deserialize_f64<'de, D>(
     deserializer: D,
     seed: AccountingUniqueJsonValueSeed<'_, '_>,
@@ -76,12 +130,27 @@ struct TypedFloatVisitor<'safe, 'transaction, 'budget> {
 }
 
 impl<'de, 'safe, 'transaction, 'budget> Visitor<'de> for TypedFloatVisitor<'safe, 'transaction, 'budget> {
+    /// A JSON numeric value admitted by the accounting seed.
     type Value = serde_json::Value;
 
+    /// Describes the native floating-point input accepted by this visitor.
+    ///
+    /// # Parameters
+    ///
+    /// * `formatter` - Destination for the expected input description.
     fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str("a native JSON floating-point value")
     }
 
+    /// Forwards a native single-precision value to the checked accounting seed.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `E` - Serde error type used by the numeric callback.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - Native single-precision value received from Serde.
     fn visit_f32<E>(self, value: f32) -> Result<Self::Value, E>
     where
         E: DeError,
@@ -89,6 +158,15 @@ impl<'de, 'safe, 'transaction, 'budget> Visitor<'de> for TypedFloatVisitor<'safe
         self.forward(|seed| seed.visit_f32::<E>(value))
     }
 
+    /// Forwards a native double-precision value to the checked accounting seed.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `E` - Serde error type used by the numeric callback.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - Native double-precision value received from Serde.
     fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E>
     where
         E: DeError,
@@ -96,6 +174,16 @@ impl<'de, 'safe, 'transaction, 'budget> Visitor<'de> for TypedFloatVisitor<'safe
         self.forward(|seed| seed.visit_f64::<E>(value))
     }
 
+    /// Forwards a signed 64-bit number through the same checked accounting
+    /// path.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `E` - Serde error type used by the numeric callback.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - Signed integer value received from Serde.
     fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
     where
         E: DeError,
@@ -103,6 +191,16 @@ impl<'de, 'safe, 'transaction, 'budget> Visitor<'de> for TypedFloatVisitor<'safe
         self.forward(|seed| seed.visit_i64::<E>(value))
     }
 
+    /// Forwards a signed 128-bit number and preserves checked conversion
+    /// errors.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `E` - Serde error type used by the numeric callback.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - Signed integer value received from Serde.
     fn visit_i128<E>(self, value: i128) -> Result<Self::Value, E>
     where
         E: DeError,
@@ -110,6 +208,15 @@ impl<'de, 'safe, 'transaction, 'budget> Visitor<'de> for TypedFloatVisitor<'safe
         self.forward(|seed| seed.visit_i128::<E>(value))
     }
 
+    /// Forwards an unsigned 64-bit number through the checked seed.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `E` - Serde error type used by the numeric callback.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - Unsigned integer value received from Serde.
     fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
     where
         E: DeError,
@@ -117,6 +224,16 @@ impl<'de, 'safe, 'transaction, 'budget> Visitor<'de> for TypedFloatVisitor<'safe
         self.forward(|seed| seed.visit_u64::<E>(value))
     }
 
+    /// Forwards an unsigned 128-bit number and preserves checked conversion
+    /// errors.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `E` - Serde error type used by the numeric callback.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - Unsigned integer value received from Serde.
     fn visit_u128<E>(self, value: u128) -> Result<Self::Value, E>
     where
         E: DeError,
@@ -128,6 +245,17 @@ impl<'de, 'safe, 'transaction, 'budget> Visitor<'de> for TypedFloatVisitor<'safe
 impl<'safe, 'transaction, 'budget> TypedFloatVisitor<'safe, 'transaction, 'budget> {
     /// Records only errors originating from the accounting seed's numeric
     /// callbacks.
+    ///
+    /// Arbitrary errors returned by the deserializer do not pass through this
+    /// adapter and therefore cannot be stored as diagnostics.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `E` - Error type returned by the checked seed callback.
+    ///
+    /// # Parameters
+    ///
+    /// * `callback` - Numeric seed operation whose safe error may be retained.
     fn forward<E>(
         self,
         callback: impl FnOnce(AccountingUniqueJsonValueSeed<'transaction, 'budget>) -> Result<serde_json::Value, E>,
@@ -164,7 +292,7 @@ mod tests {
     use crate::config::internal::wire_read_role::WireReadRole;
 
     #[test]
-    fn preserves_safe_number_budget_error_from_numeric_callback() {
+    fn test_preserves_safe_number_budget_error_from_numeric_callback() {
         let mut config = Config::new();
         config.set("ratio", 1.25_f64).unwrap();
         let bytes = serde_json::to_vec(&config).unwrap();
@@ -180,11 +308,11 @@ mod tests {
 
         assert!(error.to_string().contains("NumberBytes"), "unexpected error: {error}");
         assert!(error.to_string().contains("exactly 4"), "unexpected charge: {error}");
-        assert!(!error.to_string().contains("invalid native floating-point wire value"));
+        assert!(!error.to_string().contains(INVALID_NATIVE_FLOAT));
     }
 
     #[test]
-    fn decodes_float32_roles_and_redacts_pre_callback_errors() {
+    fn test_decodes_float32_roles_and_redacts_pre_callback_errors() {
         let mut config = Config::new();
         config.set("ratio", 1.25_f32).unwrap();
         let mut wire = serde_json::to_value(config).unwrap();
@@ -209,7 +337,7 @@ mod tests {
     }
 
     #[test]
-    fn forwards_every_supported_numeric_event_to_the_accounting_seed() {
+    fn test_forwards_every_supported_numeric_event_to_the_accounting_seed() {
         macro_rules! visit {
             ($method:ident, $value:expr) => {{
                 let limits = JsonDecodeLimits::default();
@@ -241,7 +369,7 @@ mod tests {
     }
 
     #[test]
-    fn forwards_conversion_failures_as_safe_diagnostics() {
+    fn test_forwards_conversion_failures_as_safe_diagnostics() {
         let limits = JsonDecodeLimits::default();
         let mut budget = JsonValueBudget::new(*limits.value_limits());
         let mut transaction = budget.transaction();

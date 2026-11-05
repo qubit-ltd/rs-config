@@ -26,6 +26,7 @@ use qubit_datatype::DurationConversionPolicy;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize, PartialEq, Eq)]
+/// Fixture used to model a downstream reader contract.
 struct IocServerConfig {
     host: String,
     port: u16,
@@ -33,11 +34,13 @@ struct IocServerConfig {
     enabled: bool,
 }
 
+/// Supplies the default enabled state for the IOC contract fixture.
 fn default_ioc_enabled() -> bool {
     true
 }
 
 #[derive(Debug)]
+/// Fixture used to model a downstream reader contract.
 struct IocConfigError(ConfigError);
 
 impl fmt::Display for IocConfigError {
@@ -54,6 +57,7 @@ impl StdError for IocConfigError {
 
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)]
+/// Fixture used to model a downstream reader contract.
 struct ObservableIocConfig {
     host: String,
     port: u16,
@@ -62,11 +66,13 @@ struct ObservableIocConfig {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[allow(dead_code)]
+/// Fixture used to model a downstream reader contract.
 struct ClosedIocConfig {
     host: String,
     port: u16,
 }
 
+/// Runs one exact child test with an isolated process environment.
 fn run_with_env(name: &str, values: &[(&str, &str)]) -> bool {
     const CHILD: &str = "QUBIT_DOWNSTREAM_CONTRACT_CHILD";
     if std::env::var_os(CHILD).is_some() {
@@ -94,7 +100,7 @@ fn run_with_env(name: &str, values: &[(&str, &str)]) -> bool {
 }
 
 #[test]
-fn http_style_section_reads_optional_and_interpolated_values() {
+fn test_http_style_section_reads_optional_and_interpolated_values() {
     let mut config = Config::new();
     config.set("http.host", "api.example.test").unwrap();
     config.set("http.base_url", "https://${host}/v1").unwrap();
@@ -124,7 +130,7 @@ fn http_style_section_reads_optional_and_interpolated_values() {
 }
 
 #[test]
-fn http_style_prefix_iteration_reads_default_headers_in_a_section() {
+fn test_http_style_prefix_iteration_reads_default_headers_in_a_section() {
     let mut config = Config::new();
     config.set("http.token", "secret-token").unwrap();
     config
@@ -159,7 +165,7 @@ fn http_style_prefix_iteration_reads_default_headers_in_a_section() {
 }
 
 #[test]
-fn mime_style_multi_key_interpolated_lookup_honors_priority_and_default() {
+fn test_mime_style_multi_key_interpolated_lookup_honors_priority_and_default() {
     let mut config = Config::new();
     config.set("selector", "repository").unwrap();
     config.set("mime.detector.default", "${selector}").unwrap();
@@ -200,7 +206,7 @@ fn mime_style_multi_key_interpolated_lookup_honors_priority_and_default() {
 }
 
 #[test]
-fn mime_style_read_policies_cover_list_mapping_and_duration_values() {
+fn test_mime_style_read_policies_cover_list_mapping_and_duration_values() {
     let mut config = Config::new();
     config.set("mime.detector.fallbacks", "file;repository").unwrap();
     config
@@ -275,10 +281,10 @@ fn mime_style_read_policies_cover_list_mapping_and_duration_values() {
 }
 
 #[test]
-fn read_with_allows_explicit_environment_interpolation_for_downstream_readers() {
+fn test_read_with_allows_explicit_environment_interpolation_for_downstream_readers() {
     const ENV_NAME: &str = "QUBIT_RS_CONFIG_DOWNSTREAM_ENV";
     if !run_with_env(
-        "read_with_allows_explicit_environment_interpolation_for_downstream_readers",
+        "test_read_with_allows_explicit_environment_interpolation_for_downstream_readers",
         &[(ENV_NAME, "Bearer environment-token")],
     ) {
         return;
@@ -307,11 +313,11 @@ fn read_with_allows_explicit_environment_interpolation_for_downstream_readers() 
 }
 
 #[test]
-fn mime_style_env_config_options_load_prefixed_keys_without_normalization() {
+fn test_mime_style_env_config_options_load_prefixed_keys_without_normalization() {
     let matching = "QUBIT_RS_CONFIG_DOWNSTREAM_OPTION";
     let unrelated = "RS_CONFIG_DOWNSTREAM_UNRELATED";
     if !run_with_env(
-        "mime_style_env_config_options_load_prefixed_keys_without_normalization",
+        "test_mime_style_env_config_options_load_prefixed_keys_without_normalization",
         &[(matching, "repository"), (unrelated, "must-not-load")],
     ) {
         return;
@@ -327,7 +333,7 @@ fn mime_style_env_config_options_load_prefixed_keys_without_normalization() {
 }
 
 #[test]
-fn rs_http_config_error_mappings_receive_stable_source_kinds() {
+fn test_rs_http_config_error_mappings_receive_stable_source_kinds() {
     let mut config = Config::new();
     config.set("http.retry.max_attempts", "three").unwrap();
     config.set("http.max_redirects", "not-a-number").unwrap();
@@ -354,7 +360,7 @@ fn rs_http_config_error_mappings_receive_stable_source_kinds() {
 }
 
 #[test]
-fn ioc_style_structured_read_preserves_defaults_and_error_source() {
+fn test_ioc_style_structured_read_preserves_defaults_and_error_source() {
     let mut config = Config::new();
     config.set("app.server.host", "localhost").unwrap();
     config.set("app.server.port", "8080").unwrap();
@@ -382,7 +388,7 @@ fn ioc_style_structured_read_preserves_defaults_and_error_source() {
 }
 
 #[test]
-fn ioc_style_structured_read_reports_observable_unknown_fields() {
+fn test_ioc_style_structured_read_reports_observable_unknown_fields() {
     let mut config = Config::new();
     config.set("app.server.host", "localhost").unwrap();
     config.set("app.server.port", "8080").unwrap();
@@ -401,7 +407,7 @@ fn ioc_style_structured_read_reports_observable_unknown_fields() {
 }
 
 #[test]
-fn websocket_style_validation_precedes_optional_size_reads() {
+fn test_websocket_style_validation_precedes_optional_size_reads() {
     let mut config = Config::new();
     config.set("ws", "disabled").unwrap();
     config.set("ws2.inbound_bytes", "77").unwrap();
@@ -447,7 +453,7 @@ fn websocket_style_validation_precedes_optional_size_reads() {
 }
 
 #[test]
-fn usize_reads_cover_target_width_boundaries() {
+fn test_usize_reads_cover_target_width_boundaries() {
     let mut config = Config::new();
     config.set("limits.count", usize::MAX.to_string()).unwrap();
     assert_eq!(config.get::<usize>("limits.count").unwrap(), usize::MAX);

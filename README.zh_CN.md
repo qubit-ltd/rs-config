@@ -47,8 +47,11 @@ qubit-config = { version = "0.15", features = ["full"] }
 
 <!-- example: config_quickstart -->
 ```rust
+//! Shows basic configuration writes and typed reads with a default value.
+
 use qubit_config::Config;
 
+/// Reads required server fields and supplies a fallback timeout.
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut config = Config::new();
     config.set("server.host", "localhost")?;
@@ -72,20 +75,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 <!-- example: config_sources -->
 ```rust
+//! Demonstrates merging property and environment configuration sources.
+
 use qubit_config::Config;
 use qubit_config::ConfigReader;
 use qubit_config::source::CompositeConfigSource;
 use qubit_config::source::EnvConfigSource;
 use qubit_config::source::PropertiesConfigSource;
 
+/// Loads and prints a server endpoint from layered configuration sources.
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (host, port) = load_server_config()?;
     println!("server listening at {host}:{port}");
     Ok(())
 }
 
-// These sources are part of the default feature set, so this example compiles
-// both with default features and with `--all-features`.
+/// Merges property defaults with environment overrides and reads server fields.
 fn load_server_config() -> Result<(String, u16), Box<dyn std::error::Error>> {
     let mut sources = CompositeConfigSource::new();
     sources.add(PropertiesConfigSource::from_content(
@@ -111,6 +116,8 @@ fn load_server_config() -> Result<(String, u16), Box<dyn std::error::Error>> {
 
 <!-- example: config_structured -->
 ```rust
+//! Demonstrates bounded structured reads and unknown-field policy choices.
+
 use qubit_config::Config;
 use qubit_config::ConfigDeserializeOptions;
 use qubit_config::ConfigError;
@@ -120,12 +127,16 @@ use qubit_datatype::ConversionLimits;
 use qubit_datatype::ConversionOperationLimits;
 use serde::Deserialize;
 
+/// Fields selected from the database section in this structured-read example.
 #[derive(Debug, Deserialize, PartialEq)]
 struct Database {
+    /// Database host name.
     host: String,
+    /// Database service port.
     port: u16,
 }
 
+/// Compares strict and lenient reads under a conversion input budget.
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let operation = ConversionOperationLimits::builder().max_input_bytes(128).build();
     let conversion = ConversionLimits::builder().operation_limits(operation).build();

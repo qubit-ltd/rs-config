@@ -12,6 +12,7 @@ use qubit_datatype::ConversionSession;
 
 use super::traversal::ReadView;
 
+/// Source form used by the deserializer for one target conversion.
 pub(super) enum ConversionInput<'tree, 'policy, 'session> {
     /// A prepared value borrowed from the tree and its live conversion session.
     ///
@@ -28,5 +29,8 @@ pub(super) enum ConversionInput<'tree, 'policy, 'session> {
     ///
     /// Its session and source index travel with the item; it must not be
     /// admitted again as fresh collection text or split into more items.
-    Admitted(AdmittedScalarItem<'session, 'policy, 'tree>),
+    Admitted(
+        /// Scalar item already charged by its collection's admission session.
+        AdmittedScalarItem<'session, 'policy, 'tree>,
+    ),
 }

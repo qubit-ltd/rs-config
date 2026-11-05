@@ -56,7 +56,7 @@ fn test_default_read_policy_is_transient_and_preserved_by_mutations() {
 }
 
 #[test]
-fn config_builder_default_builds_the_same_empty_configuration() {
+fn test_config_builder_default_builds_the_same_empty_configuration() {
     let default_builder: fn() -> ConfigBuilder = Default::default;
     let config = std::hint::black_box(default_builder)().build();
 
@@ -124,6 +124,25 @@ fn test_config_splits_scalar_text_but_preserves_collection_items() {
 }
 
 // ============================================================================
+
+#[test]
+fn test_len_reports_the_number_of_properties() {
+    let mut config = Config::new();
+    assert_eq!(config.len(), 0);
+    config.set("server.port", 8080).unwrap();
+    config.set("server.host", "localhost").unwrap();
+    assert_eq!(config.len(), 2);
+}
+
+#[test]
+fn test_section_if_present_reports_visible_descendants() {
+    let mut config = Config::new();
+    config.set("server.port", 8080).unwrap();
+
+    assert!(config.section_if_present("server").unwrap().is_some());
+    assert!(config.section_if_present("missing").unwrap().is_none());
+}
+
 // Constructor Tests
 // ============================================================================
 

@@ -16,12 +16,15 @@ use qubit_config::source::SourceLimitKind;
 use qubit_config::source::SourceLimits;
 use qubit_config::source::YamlConfigSource;
 
+/// Caps raw input before generated YAML and parser work begins.
 const MAX_INPUT_BYTES: usize = 64 * 1024;
 
+/// Encodes a bounded byte prefix as hexadecimal for a safe YAML anchor name.
 fn hex_prefix(data: &[u8]) -> String {
     data.iter().take(64).map(|byte| format!("{byte:02x}")).collect()
 }
 
+/// Maps a bounded byte prefix to characters that exercise YAML marker handling.
 fn marker_text(data: &[u8]) -> String {
     const CHARACTERS: &[u8] = b"*&#:\"' \\";
 

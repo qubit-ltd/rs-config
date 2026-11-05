@@ -20,18 +20,27 @@ use serde::Deserialize;
 
 /// Bounds interpolation source length before configuration allocation.
 const MAX_INPUT_BYTES: usize = 32 * 1024;
+/// Caps the number of reference values constructed from one fuzz input.
 const MAX_GRAPH_NODES: usize = 16;
+/// Caps each reference value before it enters the configuration.
 const MAX_VALUE_BYTES: usize = 1024;
 
+/// Describes a bounded graph of values and interpolation resource limits.
 #[derive(Deserialize)]
 struct ReferenceGraph {
+    /// Candidate values that can refer to one another during interpolation.
     values: Vec<String>,
+    /// Selects the entry whose interpolated output is checked.
     entry: usize,
+    /// Requested interpolation depth, capped by the read policy.
     depth: usize,
+    /// Requested expansion count, capped by the read policy.
     expansions: usize,
+    /// Requested output byte limit, capped by the read policy.
     output_bytes: usize,
 }
 
+/// Exercises direct and scoped interpolation for a bounded reference graph.
 fn fuzz_reference_graph(graph: ReferenceGraph) {
     if graph.values.is_empty()
         || graph.values.len() > MAX_GRAPH_NODES
@@ -82,6 +91,7 @@ fn fuzz_reference_graph(graph: ReferenceGraph) {
     }
 }
 
+/// Checks every string nested in a structured result against its byte limit.
 fn assert_structured_strings_within_limit(value: &serde_json::Value, limit: usize) {
     let mut pending = vec![value];
     while let Some(value) = pending.pop() {

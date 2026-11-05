@@ -8,6 +8,8 @@
 //! Safe classification and path capture for persisted configuration fields.
 
 use serde_json::Value;
+use serde_path_to_error::Path;
+use serde_path_to_error::Segment;
 
 use super::ConfigWireFields;
 use crate::ConfigWireDecodeError;
@@ -15,6 +17,16 @@ use crate::ConfigWireRepresentationErrorKind;
 
 /// Checks the stable envelope and property metadata, then decodes the full
 /// representation while retaining a safe JSON Pointer for nested failures.
+///
+/// # Parameters
+/// - `value`: The admitted JSON value containing envelope and property fields.
+///
+/// # Returns
+/// The decoded wire fields, or a safe representation error with a JSON Pointer.
+///
+/// # Errors
+/// Returns an error when the envelope or property metadata has an invalid
+/// shape, or when deserialization rejects a nested representation.
 pub(in crate::config) fn decode_fields(value: Value) -> Result<ConfigWireFields, ConfigWireDecodeError> {
     check_wire_shape(&value)?;
     serde_path_to_error::deserialize(value).map_err(|error| ConfigWireDecodeError::Representation {
@@ -25,6 +37,11 @@ pub(in crate::config) fn decode_fields(value: Value) -> Result<ConfigWireFields,
 
 /// Checks only the envelope and Property metadata described by the wire
 /// contract. Nested values remain owned by their existing value decoder.
+///
+/// # Parameters
+///
+/// * `value` - Admitted JSON value whose envelope and property fields are
+///   checked without inspecting nested payloads.
 fn check_wire_shape(value: &Value) -> Result<(), ConfigWireDecodeError> {
     let Some(envelope) = value.as_object() else {
         return Err(representation("", ConfigWireRepresentationErrorKind::InvalidType));
@@ -123,26 +140,40 @@ fn check_wire_shape(value: &Value) -> Result<(), ConfigWireDecodeError> {
 }
 
 /// Encodes Serde's path segments as an RFC 6901 JSON Pointer.
-fn wire_pointer(path: &serde_path_to_error::Path) -> String {
+///
+/// # Parameters
+///
+/// * `path` - Serde path identifying the rejected wire field.
+fn wire_pointer(path: &Path) -> String {
     let mut pointer = String::new();
     for segment in path {
         match segment {
-            serde_path_to_error::Segment::Map { key } => pointer = pointer_child(&pointer, key),
-            serde_path_to_error::Segment::Seq { index } => pointer = pointer_child(&pointer, &index.to_string()),
-            serde_path_to_error::Segment::Enum { variant } => pointer = pointer_child(&pointer, variant),
-            serde_path_to_error::Segment::Unknown => break,
+            Segment::Map { key } => pointer = pointer_child(&pointer, key),
+            Segment::Seq { index } => pointer = pointer_child(&pointer, &index.to_string()),
+            Segment::Enum { variant } => pointer = pointer_child(&pointer, variant),
+            Segment::Unknown => break,
         }
     }
     pointer
 }
 
 /// Appends one escaped JSON Pointer segment.
+///
+/// # Parameters
+///
+/// * `parent` - Existing JSON Pointer prefix.
+/// * `segment` - Raw path segment to escape and append.
 fn pointer_child(parent: &str, segment: &str) -> String {
     let escaped = segment.replace('~', "~0").replace('/', "~1");
     format!("{parent}/{escaped}")
 }
 
 /// Builds a representation error without retaining rejected input values.
+///
+/// # Parameters
+///
+/// * `path` - JSON Pointer locating the wire-contract violation.
+/// * `reason` - Safe classification of the rejected value or field.
 fn representation(path: &str, reason: ConfigWireRepresentationErrorKind) -> ConfigWireDecodeError {
     ConfigWireDecodeError::Representation {
         path: path.to_owned(),
@@ -159,7 +190,7 @@ mod tests {
     use crate::ConfigWireRepresentationErrorKind as Kind;
 
     #[test]
-    fn classifies_invalid_wire_shapes_at_their_contract_paths() {
+    fn test_classifies_invalid_wire_shapes_at_their_contract_paths() {
         let cases = [
             (json!(null), "", Kind::InvalidType),
             (json!({"unexpected": 1}), "", Kind::UnknownField),

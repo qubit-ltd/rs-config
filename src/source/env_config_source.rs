@@ -52,16 +52,14 @@ use crate::utils;
 /// run automatically; use a controlled environment for deterministic results.
 ///
 /// ```rust,no_run
-/// use qubit_config::source::{EnvConfigSource, ConfigSource};
-/// use qubit_config::Config;
-///
-/// // Load all env vars
-/// let source = EnvConfigSource::new();
+/// use qubit_config::ConfigReader;
+/// use qubit_config::source::{ConfigSource, EnvConfigSource};
 ///
 /// // Load only vars with prefix "APP_", strip prefix and normalize key
 /// let source = EnvConfigSource::from_prefix("APP_");
-///
-/// let config = source.load().unwrap();
+/// let config = source.load()?;
+/// assert!(config.get::<String>("app_name").is_ok());
+/// # Ok::<(), qubit_config::ConfigError>(())
 /// ```
 #[derive(Debug, Clone)]
 pub struct EnvConfigSource {
@@ -73,6 +71,10 @@ pub struct EnvConfigSource {
 
 impl EnvConfigSource {
     /// Creates a builder initialized with default environment options.
+    ///
+    /// # Returns
+    ///
+    /// A builder with default key selection and normalization.
     #[inline]
     pub fn builder() -> EnvConfigSourceBuilder {
         EnvConfigSourceBuilder::new()
@@ -189,6 +191,7 @@ impl EnvConfigSource {
     /// `true` if the key starts with `prefix`. Non-Unicode keys are compared
     /// using native units (raw bytes on Unix and UTF-16 code units on Windows)
     /// so unrelated invalid keys can still be skipped by a prefixed source.
+    #[inline]
     fn env_key_matches_prefix(key: &OsStr, prefix: &str) -> bool {
         key.to_str().map_or_else(
             || Self::non_unicode_env_key_matches_prefix(key, prefix),
@@ -312,6 +315,7 @@ impl EnvConfigSource {
 }
 
 impl Default for EnvConfigSource {
+    /// Creates the default value for this type.
     #[inline]
     fn default() -> Self {
         Self::new()
@@ -319,20 +323,55 @@ impl Default for EnvConfigSource {
 }
 
 impl ConfigSource for EnvConfigSource {
+    /// Returns the stable identifier used to report this source during loading.
+    #[inline]
     fn source_id(&self) -> String {
         "process environment".to_string()
     }
 
+    /// Returns the resource limits applied to one load of this source.
+    #[inline]
     fn limits(&self) -> SourceLimits {
         self.limits
     }
 
+    /// Loads source data into the executor-provided context.
+    ///
+    /// # Parameters
+    ///
+    /// * `context` - Context for charging resource use and writing the source
+    ///   layer.
     fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
         self.load_environment_entries(std::env::vars_os(), context)
     }
 }
 
 impl EnvConfigSource {
+    /// Loads matching environment entries into one independent source layer.
+    ///
+    /// Entries are filtered by prefix, converted from native strings, charged
+    /// against the load budget, normalized, and sorted before collisions are
+    /// checked. Sorting makes conflict diagnostics independent of iteration
+    /// order. The output layer is replaced only after all entries are valid.
+    ///
+    /// # Parameters
+    ///
+    /// * `entries` - The environment key/value pairs to inspect.
+    /// * `context` - The load context that owns accounting and the output
+    ///   layer.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` after replacing the context's output layer.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if an entry is not valid Unicode, violates key
+    /// constraints or resource limits, or conflicts with another normalized
+    /// key.
+    /// # Type Parameters
+    ///
+    /// * `I` - Type converted from the selected configuration property.
     fn load_environment_entries<I>(&self, entries: I, context: &mut SourceLoadContext<'_>) -> ConfigResult<()>
     where
         I: IntoIterator<Item = (OsString, OsString)>,

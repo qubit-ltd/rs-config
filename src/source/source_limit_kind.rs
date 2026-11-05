@@ -56,6 +56,10 @@ pub enum SourceLimitKind {
 }
 
 impl Display for SourceLimitKind {
+    /// Formats this limit kind as a concise diagnostic label.
+    /// # Parameters
+    ///
+    /// * `formatter` - Formatter receiving the human-readable limit label.
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::InputBytes => formatter.write_str("input bytes"),

@@ -52,12 +52,34 @@ use crate::ConfigResult;
 /// ```
 pub trait ConfigSource {
     /// Returns the stable identifier used for loading diagnostics.
+    ///
+    /// # Returns
+    ///
+    /// A stable source identifier.
     fn source_id(&self) -> String;
 
     /// Returns the local resource limits for one load.
+    ///
+    /// # Returns
+    ///
+    /// The limits applied to this source during one load.
     fn limits(&self) -> SourceLimits;
 
     /// Loads source data into the context-owned independent layer.
+    ///
+    /// # Parameters
+    ///
+    /// * `context` - The executor-owned context for reporting input use and
+    ///   writing this source's independent output layer.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the source is loaded successfully.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when parsing, resource accounting, or writing the
+    ///   source data fails.
     fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()>;
 
     /// Loads one independent configuration layer through the standard
@@ -67,12 +89,28 @@ pub trait ConfigSource {
     /// through that executor and do not dispatch to an override of this
     /// method. An implementation that overrides `load` is responsible for
     /// behavior of direct calls to that override.
+    ///
+    /// # Returns
+    ///
+    /// The configuration layer produced by this source.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if source loading or resource accounting fails.
+    #[inline]
     fn load(&self) -> ConfigResult<Config> {
         load_source(self)
     }
 }
 
 /// Executes a source with a fresh local budget and output layer.
+/// # Type Parameters
+///
+/// * `S` - Source type whose configuration data is loaded.
+///
+/// # Parameters
+///
+/// * `source` - Source value or input being processed.
 pub(crate) fn load_source<S>(source: &S) -> ConfigResult<Config>
 where
     S: ConfigSource + ?Sized,

@@ -33,23 +33,55 @@ pub(super) type NodeId = usize;
 #[derive(Debug)]
 pub(crate) enum ReadNode<'a> {
     /// Native scalar value.
-    Scalar(ValueRef<'a>),
+    Scalar(
+        /// Borrowed or copied primitive value from the source.
+        ValueRef<'a>,
+    ),
     /// Native homogeneous collection.
-    Collection(MultiValuesRef<'a>),
+    Collection(
+        /// Borrowed collection payload supplied by the source.
+        MultiValuesRef<'a>,
+    ),
     /// Borrowed JSON value.
-    Json(&'a serde_json::Value),
+    Json(
+        /// JSON value retained from the original input.
+        &'a serde_json::Value,
+    ),
     /// Borrowed string-keyed map.
-    StringMap(&'a HashMap<String, String>),
+    StringMap(
+        /// String map retained from the original input.
+        &'a HashMap<String, String>,
+    ),
     /// Indexed object children.
-    Object(BTreeMap<String, NodeId>),
+    Object(
+        /// Sorted child-name to prepared-node index mapping.
+        BTreeMap<String, NodeId>,
+    ),
     /// Borrowed or owned text leaf.
-    Text(Cow<'a, str>),
+    Text(
+        /// Source text, owned only when an interpolation overlay changes it.
+        Cow<'a, str>,
+    ),
     /// Missing value with its original type information.
-    Missing(ValueMissing),
+    Missing(
+        /// Metadata used to retain the source value's missing type.
+        ValueMissing,
+    ),
 }
 
 impl<'a> ReadNode<'a> {
     /// Natural structural kind for value-free conflict diagnostics.
+    ///
+    /// # Parameters
+    ///
+    /// - `self`: arena node whose structural kind is classified.
+    ///
+    /// # Returns
+    ///
+    /// Returns `null`, `array`, `object`, `boolean`, `number`, or `string` to
+    /// describe the node without serializing or copying its payload.
+    #[must_use]
+    #[inline]
     pub(super) fn kind(&self) -> &'static str {
         match self {
             Self::Missing(_) | Self::Json(serde_json::Value::Null) => "null",
@@ -74,6 +106,18 @@ impl<'a> ReadNode<'a> {
     }
 
     /// Separates source shape without copying any payload.
+    ///
+    /// # Parameters
+    ///
+    /// - `value`: source container borrowed for the lifetime of the prepared
+    ///   read.
+    ///
+    /// # Returns
+    ///
+    /// Returns a node that borrows source payloads, converting unset
+    /// collections to their missing-value representation.
+    #[must_use]
+    #[inline]
     pub(super) fn from_container(value: &'a ValueContainer) -> Self {
         match value {
             ValueContainer::Scalar(value) => Self::from_scalar(value.view()),
@@ -87,6 +131,17 @@ impl<'a> ReadNode<'a> {
     }
 
     /// Converts a scalar reference into the corresponding arena node.
+    ///
+    /// # Parameters
+    ///
+    /// - `value`: scalar view whose borrowed data remains tied to `'a`.
+    ///
+    /// # Returns
+    ///
+    /// Returns a matching scalar, JSON, string-map, or missing-value node
+    /// without copying borrowed payloads.
+    #[must_use]
+    #[inline]
     pub(super) fn from_scalar(value: ValueRef<'a>) -> Self {
         match value {
             ValueRef::Json(value) => Self::Json(value),

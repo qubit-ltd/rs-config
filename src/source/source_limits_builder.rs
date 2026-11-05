@@ -32,7 +32,7 @@ use super::SourceLimits;
 /// let config = source.load().unwrap();
 /// assert_eq!(config.get::<u16>("server.port").unwrap(), 8080);
 /// ```
-#[must_use = "use the returned value"]
+#[must_use = "configure the source limits and call build"]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SourceLimitsBuilder {
     /// Maximum input bytes accepted from one source.
@@ -53,6 +53,10 @@ pub struct SourceLimitsBuilder {
 
 impl SourceLimitsBuilder {
     /// Creates a builder initialized with [`SourceLimits::default`].
+    ///
+    /// # Returns
+    ///
+    /// A builder initialized with the default source limits.
     #[inline]
     pub const fn new() -> Self {
         Self {
@@ -67,6 +71,14 @@ impl SourceLimitsBuilder {
     }
 
     /// Sets the maximum accepted input byte length.
+    ///
+    /// # Parameters
+    ///
+    /// * `maximum` - Maximum number of bytes accepted from one source.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     #[inline]
     pub const fn max_input_bytes(mut self, maximum: usize) -> Self {
         self.max_input_bytes = maximum;
@@ -74,6 +86,14 @@ impl SourceLimitsBuilder {
     }
 
     /// Sets the maximum number of emitted properties.
+    ///
+    /// # Parameters
+    ///
+    /// * `maximum` - Maximum number of properties emitted by one source.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     #[inline]
     pub const fn max_properties(mut self, maximum: usize) -> Self {
         self.max_properties = maximum;
@@ -81,6 +101,14 @@ impl SourceLimitsBuilder {
     }
 
     /// Sets the maximum number of parsed structural nodes.
+    ///
+    /// # Parameters
+    ///
+    /// * `maximum` - Maximum number of structural nodes parsed by one source.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     #[inline]
     pub const fn max_nodes(mut self, maximum: usize) -> Self {
         self.max_nodes = maximum;
@@ -88,6 +116,14 @@ impl SourceLimitsBuilder {
     }
 
     /// Sets the maximum number of child sources in a composite.
+    ///
+    /// # Parameters
+    ///
+    /// * `maximum` - Maximum number of child sources in one composite source.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     #[inline]
     pub const fn max_sources(mut self, maximum: usize) -> Self {
         self.max_sources = maximum;
@@ -95,6 +131,14 @@ impl SourceLimitsBuilder {
     }
 
     /// Sets the maximum structured nesting depth.
+    ///
+    /// # Parameters
+    ///
+    /// * `maximum` - Maximum nesting depth accepted for structured input.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     #[inline]
     pub const fn max_nesting_depth(mut self, maximum: usize) -> Self {
         self.max_nesting_depth = maximum;
@@ -103,6 +147,14 @@ impl SourceLimitsBuilder {
 
     /// Sets the maximum parser tokens accepted by this source and its
     /// ancestors.
+    ///
+    /// # Parameters
+    ///
+    /// * `maximum` - Maximum parser tokens accepted across this source chain.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     #[inline]
     pub const fn max_parser_tokens(mut self, maximum: usize) -> Self {
         self.max_parser_tokens = maximum;
@@ -111,6 +163,15 @@ impl SourceLimitsBuilder {
 
     /// Sets the maximum parser nesting depth for one input, with root depth
     /// zero.
+    ///
+    /// # Parameters
+    ///
+    /// * `maximum` - Maximum parser nesting depth, where the root is depth
+    ///   zero.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     #[inline]
     pub const fn max_parser_nesting_depth(mut self, maximum: usize) -> Self {
         self.max_parser_nesting_depth = maximum;
@@ -118,6 +179,10 @@ impl SourceLimitsBuilder {
     }
 
     /// Builds the configured source limits.
+    ///
+    /// # Returns
+    ///
+    /// The source limits configured by this builder.
     #[inline]
     pub const fn build(self) -> SourceLimits {
         SourceLimits {
@@ -133,6 +198,7 @@ impl SourceLimitsBuilder {
 }
 
 impl Default for SourceLimitsBuilder {
+    /// Creates the default value for this type.
     fn default() -> Self {
         Self::new()
     }

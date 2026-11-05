@@ -115,6 +115,10 @@ pub trait FromConfig: Sized {
 /// # Returns
 ///
 /// The converted value, or a [`crate::ConfigError`] with key context.
+///
+/// # Type Parameters
+///
+/// * `T` - Target type supported by the configured value conversion policy.
 fn convert_first<T>(property: &Property, ctx: &ConfigParseContext<'_>) -> ConfigResult<T>
 where
     T: DataConversionTarget,
@@ -209,6 +213,10 @@ fn substituted_values<'a>(
 ///
 /// Returns a substitution error or a conversion error containing the original
 /// collection index and configuration key.
+///
+/// # Type Parameters
+///
+/// * `T` - Element type supported by the configured value conversion policy.
 fn convert_interpolated_string_collection<T>(values: &[String], ctx: &ConfigParseContext<'_>) -> ConfigResult<Vec<T>>
 where
     T: DataConversionTarget,
@@ -279,6 +287,15 @@ impl FromConfig for usize {
     /// For a collection, only the first item is converted; an out-of-range
     /// error records index zero. Errors from the delegated `u128` conversion,
     /// including interpolation and conversion-budget errors, are preserved.
+    ///
+    /// # Parameters
+    ///
+    /// * `property` - Property selected by the reader.
+    /// * `ctx` - Key, options, and substitution context.
+    ///
+    /// # Returns
+    ///
+    /// The converted integer when it fits in `usize`.
     ///
     /// # Errors
     ///

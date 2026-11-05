@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+
 // Tests for configurable read parsing behavior.
 
 use qubit_config::Config;
@@ -32,9 +33,11 @@ use qubit_datatype::StringConversionPolicy;
 use qubit_datatype::SuffixlessDurationPolicy;
 
 thread_local! {
+    /// Counts target conversions in the RSC204 blank-value regression tests.
     static RSC204_CONVERSION_CALLS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
+/// Conversion target that records each call to verify blank inputs are skipped.
 #[derive(Debug)]
 struct Rsc204CountedString;
 
@@ -45,14 +48,17 @@ impl FromConfig for Rsc204CountedString {
     }
 }
 
+/// Resets the per-thread conversion counter before an assertion scenario.
 fn reset_rsc204_conversion_calls() {
     RSC204_CONVERSION_CALLS.with(|calls| calls.set(0));
 }
 
+/// Returns the number of conversions observed in the current thread.
 fn rsc204_conversion_calls() -> usize {
     RSC204_CONVERSION_CALLS.with(std::cell::Cell::get)
 }
 
+/// Builds a policy with blank strings treated as missing and a byte budget.
 fn rsc204_policy(input_limit: u64) -> ReadPolicy {
     ReadPolicy::builder()
         .blank_string_policy(BlankStringPolicy::TreatAsMissing)
@@ -420,6 +426,18 @@ fn test_from_and_as_ref_preserve_conversion_policy_and_limits() {
 }
 
 #[test]
+fn test_conversion_traits_preserve_policy_values() {
+    let policy = ReadPolicy::default();
+    let conversion_policy: &ConversionPolicy = policy.as_ref();
+    assert_eq!(conversion_policy, policy.conversion_policy());
+    let conversion_limits: &ConversionLimits = policy.as_ref();
+    assert_eq!(conversion_limits, policy.conversion_limits());
+
+    let converted = ReadPolicy::from(ConversionPolicy::env_friendly());
+    assert_eq!(converted.conversion_policy(), &ConversionPolicy::env_friendly());
+}
+
+#[test]
 fn test_config_serialization_excludes_read_policy() {
     let mut config = Config::new();
     config
@@ -610,7 +628,7 @@ fn test_read_policy_override_combines_conversion_and_interpolation_limits() {
 }
 
 #[test]
-fn read_policy_defaults_limits_and_borrowed_limits_are_callable_as_functions() {
+fn test_read_policy_defaults_limits_and_borrowed_limits_are_callable_as_functions() {
     let interpolation_default: fn() -> InterpolationSources = Default::default;
     assert_eq!(
         std::hint::black_box(interpolation_default)(),

@@ -27,6 +27,10 @@ pub(in crate::config) struct ConfigWireV1Ref<'a> {
 
 impl<'a> From<&'a Config> for ConfigWireV1Ref<'a> {
     /// Projects a runtime config into its stable V1 persistence format.
+    ///
+    /// # Parameters
+    ///
+    /// * `config` - Configuration whose stable fields are borrowed.
     #[inline]
     fn from(config: &'a Config) -> Self {
         Self {

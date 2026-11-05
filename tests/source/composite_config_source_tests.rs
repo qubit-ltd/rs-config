@@ -44,7 +44,7 @@ fn load_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<(
 }
 
 #[test]
-fn composite_label_propagates_to_nested_budget_attribution() {
+fn test_composite_label_propagates_to_nested_budget_attribution() {
     let cases = [(4, 8, 3, "inner"), (8, 5, 3, "outer"), (8, 8, 2, "leaf-b")];
     for (inner_bytes, outer_bytes, leaf_bytes, expected_budget) in cases {
         let leaf_limits = SourceLimits::builder().max_input_bytes(leaf_bytes).build();
@@ -75,7 +75,7 @@ fn composite_label_propagates_to_nested_budget_attribution() {
 }
 
 #[test]
-fn named_composite_final_conflict_reports_incoming_source_and_keeps_target() {
+fn test_named_composite_final_conflict_reports_incoming_source_and_keeps_target() {
     let mut target = Config::new();
     target.set("port", 1_u16).unwrap();
     target.set_final("port", true).unwrap();
@@ -180,7 +180,7 @@ fn run_with_env(name: &str, key: &str, value: &str) -> bool {
 }
 
 #[test]
-fn composite_builder_default_and_consuming_add_source_preserve_order() {
+fn test_composite_builder_default_and_consuming_add_source_preserve_order() {
     let default_builder: fn() -> CompositeConfigSourceBuilder = Default::default;
     let builder = std::hint::black_box(default_builder)();
     let composite = std::hint::black_box(CompositeConfigSourceBuilder::add_source::<PropertiesConfigSource>)(

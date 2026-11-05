@@ -94,7 +94,7 @@ impl<'a> ConfigParseContext<'a> {
     ///
     /// The root-relative configuration key.
     #[inline(always)]
-    #[must_use = "use the returned value"]
+    #[must_use = "inspect the key associated with this parse"]
     pub fn key(&self) -> &str {
         self.key
     }
@@ -105,14 +105,14 @@ impl<'a> ConfigParseContext<'a> {
     ///
     /// Read policy selected by the reader.
     #[inline(always)]
-    #[must_use = "use the returned value"]
+    #[must_use = "inspect the read policy active for this parse"]
     pub fn options(&self) -> &ReadPolicy {
         self.options
     }
 
     /// Reports whether string values are interpolated before conversion.
     #[inline(always)]
-    #[must_use = "use the returned value"]
+    #[must_use = "check whether string interpolation is enabled for this parse"]
     pub const fn interpolates(&self) -> bool {
         self.interpolate
     }
@@ -152,10 +152,20 @@ impl<'a> ConfigParseContext<'a> {
     /// Gets scalar text, reusing the prepared value only when its raw input
     /// matches.
     ///
+    /// # Returns
+    ///
+    /// Borrowed input text when interpolation is disabled or a matching
+    /// prepared value exists; otherwise, owned substituted text.
+    ///
     /// # Errors
     ///
     /// Returns a substitution error when the input needs interpolation and
     /// substitution fails.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - Raw string to return or interpolate using this read's
+    ///   prepared scalar cache and substitution session.
     pub(crate) fn scalar_text<'s>(&'s self, value: &'s str) -> ConfigResult<Cow<'s, str>> {
         if !self.interpolate {
             return Ok(Cow::Borrowed(value));
@@ -170,6 +180,16 @@ impl<'a> ConfigParseContext<'a> {
 
     /// Borrows the current scalar's original or prepared text when it is a
     /// string.
+    ///
+    /// # Returns
+    ///
+    /// `Some` with the borrowed scalar text when one is prepared, or `None`
+    /// when the current property has no scalar text.
+    ///
+    /// # Errors
+    ///
+    /// Returns the configured substitution error if preparing the scalar text
+    /// fails.
     pub(crate) fn prepared_scalar_text(&self) -> ConfigResult<Option<&str>> {
         self.prepared_scalar
             .as_ref()

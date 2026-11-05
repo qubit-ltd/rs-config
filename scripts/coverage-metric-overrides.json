@@ -7,12 +7,12 @@
       },
       "reason": "A focused in-module regression exercises string, integer, float, boolean, datetime, empty-array, typed-array, and string/datetime-array writes against final properties, checking the reported key and that failed writes preserve the original value. The remaining function gap is confined to parser fallback or defensive paths that accepted TOML input cannot select. Lines and regions meet their normal thresholds, so functions is the only retained minimum and is pinned at this fresh measured floor.",
       "evidence": {
-        "generated_at": "2026-11-04T07:00:24Z",
+        "generated_at": "2026-11-05T21:02:16Z",
         "cargo_llvm_cov": "cargo-llvm-cov 0.9.1",
         "rust_llvm": "rustc 1.94.0 (4a4ef493e 2026-03-02), LLVM 21.1.8",
         "command": "./scripts/check-project-coverage.sh",
-        "source_baseline": "task worktree based on HEAD 1ba1bb90d75ec7ffef130f2097481c6f1df3cefc after the authorized align-ci formatting pass, including the RSC-20261104-R01 TOML write-error regression",
-        "source_sha256": "69fd53039b5e919f1effd5781461d1f27a6434a1d92e2cea784fae388c5e43d9",
+        "source_baseline": "task/rsc301-implementation worktree based on HEAD 9c9830622823a5acdcc0be528e30b6a1bf8c774d after the RSC-301 changes and authorized full-repository style remediation; this fresh coverage run includes documentation and module-layout changes.",
+        "source_sha256": "9fcd312c9ddaff386e02fd1614c09052788ac1eade1dee7b83eacf7d829e299e",
         "metrics": {
           "functions": {
             "covered": 40,
@@ -38,12 +38,12 @@
       },
       "reason": "The refreshed full default-feature report includes the YAML pre-backend scanner/depth admission, generated parser-token and nesting boundary tests, and RSC-201 label/error-attribution tests. Remaining function gaps are defensive nested-sequence and backend/scanner fallback paths; observable token/depth limits, supported scalar conversions, aliases, and redaction are covered. Lines and regions meet normal thresholds, so functions is the only retained minimum and is pinned at this fresh measured floor.",
       "evidence": {
-        "generated_at": "2026-11-04T07:00:24Z",
+        "generated_at": "2026-11-05T21:02:16Z",
         "cargo_llvm_cov": "cargo-llvm-cov 0.9.1",
         "rust_llvm": "rustc 1.94.0 (4a4ef493e 2026-03-02), LLVM 21.1.8",
         "command": "./scripts/check-project-coverage.sh",
-        "source_baseline": "task worktree based on HEAD 1ba1bb90d75ec7ffef130f2097481c6f1df3cefc after the authorized align-ci formatting pass, including the RSC-20261104-R01 TOML write-error regression",
-        "source_sha256": "092131b28ea895a41d8dd0027b018e75d5bd5f043f556aba820e238d0cc46fa3",
+        "source_baseline": "task/rsc301-implementation worktree based on HEAD 9c9830622823a5acdcc0be528e30b6a1bf8c774d after the RSC-301 changes and authorized full-repository style remediation; this fresh coverage run includes documentation and module-layout changes.",
+        "source_sha256": "95627224898ab08b73c0b3073c9a226b45f7a2892a588ca334388d3fc3f0204e",
         "metrics": {
           "functions": {
             "covered": 39,

@@ -24,6 +24,11 @@ pub(crate) struct CountingWriter {
 }
 
 impl fmt::Write for CountingWriter {
+    /// Charges the UTF-8 bytes before accepting the formatted chunk.
+    ///
+    /// # Parameters
+    ///
+    /// * `text` - Formatted text whose UTF-8 byte length is charged.
     fn write_str(&mut self, text: &str) -> fmt::Result {
         self.budget.try_consume_usize(text.len()).map_err(|error| {
             self.error = Some(error);

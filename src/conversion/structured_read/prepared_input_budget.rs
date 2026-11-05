@@ -57,6 +57,10 @@ impl<'a> PreparedInputBudget<'a> {
     /// These budgets admit the complete prepared input before target
     /// conversion; they are separate from the leaf `ConversionSession` used
     /// while parsing individual values.
+    ///
+    /// # Parameters
+    ///
+    /// * `options` - Read policy that supplies the independent resource limits.
     pub(super) fn new(options: &'a ReadPolicy) -> Self {
         let limits = options.conversion_limits();
         let value_limits = (*limits.structured().value())
@@ -79,10 +83,86 @@ impl<'a> PreparedInputBudget<'a> {
         }
     }
 
+    /// Admits the input, key, and value represented by one traversal visit.
+    ///
+    /// The structure budget covers the logical JSON shape. The separate input
+    /// budget counts UTF-8 text bytes; an overlay override counts its owned
+    /// text as input. Neither budget is the leaf target-conversion session.
+    ///
+    /// The optional text override is owned overlay content and is charged as
+    /// input text. This admission is independent from conversion work later
+    /// performed by a target parser.
+    ///
+    /// # Parameters
+    ///
+    /// * `visit` - Current value, key, path, and source-position metadata.
+    /// * `text_override` - Optional owned overlay text charged as input text.
+    pub(super) fn admit_visit(&mut self, visit: &Visit<'_>, text_override: Option<&str>) -> ConfigResult<()> {
+        if let Some(key) = visit.key {
+            self.input(key, visit)?;
+            self.admit(JsonMeasurement::Key { bytes: key.len() }, visit)?;
+        }
+        if let Some(text) = text_override {
+            return self.text(text, visit);
+        }
+        match visit.value {
+            ReadView::Scalar(value) => self.scalar(value, visit),
+            ReadView::Text(value) => self.text(value, visit),
+            ReadView::Missing(_) | ReadView::Json(serde_json::Value::Null) => {
+                self.admit(JsonMeasurement::Null { depth: visit.depth }, visit)
+            }
+            ReadView::Json(serde_json::Value::Bool(_)) => {
+                self.admit(JsonMeasurement::Boolean { depth: visit.depth }, visit)
+            }
+            ReadView::Json(serde_json::Value::String(value)) => self.text(value, visit),
+            ReadView::Json(serde_json::Value::Number(value)) => self.display(value, true, visit),
+            ReadView::Collection(values) => self.admit(
+                JsonMeasurement::Array {
+                    depth: visit.depth,
+                    items: values.len(),
+                },
+                visit,
+            ),
+            ReadView::Json(serde_json::Value::Array(values)) => self.admit(
+                JsonMeasurement::Array {
+                    depth: visit.depth,
+                    items: values.len(),
+                },
+                visit,
+            ),
+            ReadView::Json(serde_json::Value::Object(values)) => self.admit(
+                JsonMeasurement::Object {
+                    depth: visit.depth,
+                    entries: values.len(),
+                },
+                visit,
+            ),
+            ReadView::Object(values) => self.admit(
+                JsonMeasurement::Object {
+                    depth: visit.depth,
+                    entries: values.len(),
+                },
+                visit,
+            ),
+            ReadView::StringMap(values) => self.admit(
+                JsonMeasurement::Object {
+                    depth: visit.depth,
+                    entries: values.len(),
+                },
+                visit,
+            ),
+        }
+    }
+
     /// Admits one JSON shape measurement as a structure-budget transaction.
     ///
     /// A failed measurement does not commit its structural charge. Previously
     /// committed input-byte charges remain consumed.
+    ///
+    /// # Parameters
+    ///
+    /// * `measurement` - JSON shape or payload charge for the current value.
+    /// * `visit` - Source metadata used to attach path and index on rejection.
     fn admit(&mut self, measurement: JsonMeasurement, visit: &Visit<'_>) -> ConfigResult<()> {
         let mut transaction = self.structure.transaction();
         transaction
@@ -93,6 +173,11 @@ impl<'a> PreparedInputBudget<'a> {
 
     /// Charges the UTF-8 byte length of source text to the independent input
     /// budget.
+    ///
+    /// # Parameters
+    ///
+    /// * `text` - UTF-8 source text whose bytes are charged.
+    /// * `visit` - Source metadata used to report a rejected charge.
     fn input(&mut self, text: &str, visit: &Visit<'_>) -> ConfigResult<()> {
         self.input
             .try_consume_usize(text.len())
@@ -100,6 +185,11 @@ impl<'a> PreparedInputBudget<'a> {
     }
 
     /// Charges text bytes and admits the text's JSON string shape.
+    ///
+    /// # Parameters
+    ///
+    /// * `text` - UTF-8 text charged to both budgets.
+    /// * `visit` - Source metadata used for depth and diagnostic context.
     fn text(&mut self, text: &str, visit: &Visit<'_>) -> ConfigResult<()> {
         self.input(text, visit)?;
         self.admit(
@@ -112,6 +202,12 @@ impl<'a> PreparedInputBudget<'a> {
     }
 
     /// Counts formatted text without producing a complete intermediate copy.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - Displayable scalar rendered into the bounded counting sink.
+    /// * `number` - Whether the rendered representation is a JSON number.
+    /// * `visit` - Source metadata used for depth and error reporting.
     fn display(&mut self, value: &impl Display, number: bool, visit: &Visit<'_>) -> ConfigResult<()> {
         let probe = if number {
             JsonMeasurement::Number {
@@ -174,6 +270,11 @@ impl<'a> PreparedInputBudget<'a> {
 
     /// Converts a stored scalar shape into its corresponding JSON budget
     /// measurement.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - Native scalar whose representation is charged.
+    /// * `visit` - Source metadata used to charge depth and report errors.
     fn scalar(&mut self, value: ValueRef<'_>, visit: &Visit<'_>) -> ConfigResult<()> {
         match value {
             ValueRef::Unset(_) => self.admit(JsonMeasurement::Null { depth: visit.depth }, visit),
@@ -251,75 +352,13 @@ impl<'a> PreparedInputBudget<'a> {
             )),
         }
     }
-
-    /// Admits the input, key, and value represented by one traversal visit.
-    ///
-    /// The structure budget covers the logical JSON shape. The separate input
-    /// budget counts UTF-8 text bytes; an overlay override counts its owned
-    /// text as input. Neither budget is the leaf target-conversion session.
-    ///
-    /// The optional text override is owned overlay content and is charged as
-    /// input text. This admission is independent from conversion work later
-    /// performed by a target parser.
-    pub(super) fn admit_visit(&mut self, visit: &Visit<'_>, text_override: Option<&str>) -> ConfigResult<()> {
-        if let Some(key) = visit.key {
-            self.input(key, visit)?;
-            self.admit(JsonMeasurement::Key { bytes: key.len() }, visit)?;
-        }
-        if let Some(text) = text_override {
-            return self.text(text, visit);
-        }
-        match visit.value {
-            ReadView::Scalar(value) => self.scalar(value, visit),
-            ReadView::Text(value) => self.text(value, visit),
-            ReadView::Missing(_) | ReadView::Json(serde_json::Value::Null) => {
-                self.admit(JsonMeasurement::Null { depth: visit.depth }, visit)
-            }
-            ReadView::Json(serde_json::Value::Bool(_)) => {
-                self.admit(JsonMeasurement::Boolean { depth: visit.depth }, visit)
-            }
-            ReadView::Json(serde_json::Value::String(value)) => self.text(value, visit),
-            ReadView::Json(serde_json::Value::Number(value)) => self.display(value, true, visit),
-            ReadView::Collection(values) => self.admit(
-                JsonMeasurement::Array {
-                    depth: visit.depth,
-                    items: values.len(),
-                },
-                visit,
-            ),
-            ReadView::Json(serde_json::Value::Array(values)) => self.admit(
-                JsonMeasurement::Array {
-                    depth: visit.depth,
-                    items: values.len(),
-                },
-                visit,
-            ),
-            ReadView::Json(serde_json::Value::Object(values)) => self.admit(
-                JsonMeasurement::Object {
-                    depth: visit.depth,
-                    entries: values.len(),
-                },
-                visit,
-            ),
-            ReadView::Object(values) => self.admit(
-                JsonMeasurement::Object {
-                    depth: visit.depth,
-                    entries: values.len(),
-                },
-                visit,
-            ),
-            ReadView::StringMap(values) => self.admit(
-                JsonMeasurement::Object {
-                    depth: visit.depth,
-                    entries: values.len(),
-                },
-                visit,
-            ),
-        }
-    }
 }
 
 /// Determines the source value type used to describe a projection error.
+///
+/// # Parameters
+///
+/// * `visit` - Traversal metadata containing the current borrowed value.
 fn data_type(visit: &Visit<'_>) -> DataType {
     match visit.value {
         ReadView::Scalar(value) => DataConverter::from(value).data_type(),
@@ -332,6 +371,11 @@ fn data_type(visit: &Visit<'_>) -> DataType {
 }
 
 /// Adds the visited key and source index to a measured budget error.
+///
+/// # Parameters
+///
+/// * `visit` - Current traversal location for the failed resource charge.
+/// * `source` - Budget failure describing the rejected resource measurement.
 fn budget_error(visit: &Visit<'_>, source: MeasuredBudgetError<ConversionResource, u64>) -> ConfigError {
     ConfigError::from((
         visit.path.as_ref(),
@@ -344,6 +388,11 @@ fn budget_error(visit: &Visit<'_>, source: MeasuredBudgetError<ConversionResourc
 }
 
 /// Builds a value-conversion error with the visited key and source index.
+///
+/// # Parameters
+///
+/// * `visit` - Current source location and optional outer collection index.
+/// * `reason` - Invalid representation category for the converted scalar.
 fn conversion_error(visit: &Visit<'_>, reason: InvalidValueReason) -> ConfigError {
     source_error(
         visit,
@@ -352,6 +401,11 @@ fn conversion_error(visit: &Visit<'_>, reason: InvalidValueReason) -> ConfigErro
 }
 
 /// Wraps a conversion failure with its key and optional collection index.
+///
+/// # Parameters
+///
+/// * `visit` - Current source location and optional outer collection index.
+/// * `source` - Underlying scalar conversion failure.
 fn source_error(visit: &Visit<'_>, source: DataConversionError) -> ConfigError {
     match visit.source_index() {
         Some(source_index) => ConfigError::from((
@@ -365,6 +419,10 @@ fn source_error(visit: &Visit<'_>, source: DataConversionError) -> ConfigError {
 /// Rich natural-input rendering consumes the input allowance, not the final
 /// target's output allowance. Both remain bounded by their real resource
 /// domain.
+///
+/// # Parameters
+///
+/// * `limits` - Conversion limits whose payload and text bounds are applied.
 fn formatting_limits(limits: &ConversionLimits) -> ConversionLimits {
     limits
         .clone()
@@ -432,7 +490,7 @@ mod tests {
     }
 
     #[test]
-    fn formatting_failure_becomes_a_conversion_error() {
+    fn test_formatting_failure_becomes_a_conversion_error() {
         let options = ReadPolicy::builder().build();
         let visit = Visit {
             value: ReadView::Text("value"),

@@ -173,6 +173,8 @@ impl SourceLimits {
 }
 
 impl Default for SourceLimits {
+    /// Creates the default value for this type.
+    #[inline]
     fn default() -> Self {
         Self::builder().build()
     }

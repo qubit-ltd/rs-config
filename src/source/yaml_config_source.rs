@@ -124,23 +124,68 @@ impl YamlConfigSource {
     /// # Parameters
     ///
     /// * `path` - Path to the YAML file
+    ///
+    /// # Type Parameters
+    ///
+    /// * `P` - Path-like type accepted by `AsRef<Path>`.
+    ///
+    /// # Returns
+    ///
+    /// A YAML source that reads from the given file path.
     #[inline]
     pub fn from_file<P: AsRef<Path>>(path: P) -> Self {
         Self::builder().file(path).build()
     }
 
     /// Creates a YAML source backed by in-memory text.
+    ///
+    /// # Parameters
+    ///
+    /// * `content` - YAML document text to parse when the source loads.
+    ///
+    /// # Returns
+    ///
+    /// A YAML source that reads the supplied in-memory content.
+    #[inline]
     pub fn from_content(content: impl Into<String>) -> Self {
         Self::builder().content(content).build()
     }
 
     /// Creates a builder for a YAML source.
+    ///
+    /// # Returns
+    ///
+    /// A builder initialized with the YAML source defaults.
+    #[inline]
     pub fn builder() -> YamlConfigSourceBuilder {
         YamlConfigSourceBuilder::new()
     }
 }
 
 /// Runs the YAML backend only after scanner admission succeeds.
+///
+/// Scanner admission charges parser tokens and verifies collection depth before
+/// the backend is invoked. The returned flag distinguishes an input containing
+/// value tokens from an empty/comment-only document, whose backend value may be
+/// indistinguishable from an explicit YAML null.
+///
+/// # Parameters
+///
+/// * `label` - Source identifier attached to admission and parse errors.
+/// * `content` - YAML text scanned before backend parsing.
+/// * `session` - Source accounting session charged by the scanner.
+/// * `backend` - Parser operation invoked only after successful admission.
+///
+/// # Returns
+///
+/// A flag indicating whether value tokens were present and the backend result.
+///
+/// # Errors
+///
+/// Returns a scanner admission error or the backend's parse error.
+/// # Type Parameters
+///
+/// * `T` - Type converted from the selected configuration property.
 fn with_yaml_admission<T>(
     label: &str,
     content: &str,
@@ -152,14 +197,23 @@ fn with_yaml_admission<T>(
 }
 
 impl ConfigSource for YamlConfigSource {
+    /// Returns the stable identifier used to report this source during loading.
     fn source_id(&self) -> String {
         self.label.clone().unwrap_or_else(|| self.input.label("YAML"))
     }
 
+    /// Returns the resource limits applied to one load of this source.
+    #[inline]
     fn limits(&self) -> SourceLimits {
         self.limits
     }
 
+    /// Loads source data into the executor-provided context.
+    ///
+    /// # Parameters
+    ///
+    /// * `context` - Context for charging resource use and writing the source
+    ///   layer.
     fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
         let mut config = Config::new();
         let session = context.session_mut();
@@ -191,6 +245,25 @@ impl ConfigSource for YamlConfigSource {
 /// - Booleans → bool
 /// - Strings → String
 /// - Null → unset property (`is_unset` returns true)
+///
+/// # Parameters
+///
+/// * `source_id` - Source identifier attached to key and write errors.
+/// * `prefix` - Current flattened path, empty for the root value.
+/// * `value` - YAML value to recursively flatten.
+/// * `config` - Configuration receiving the flattened properties.
+/// * `seen` - Set used to reject duplicate flattened keys.
+/// * `budget` - Session charged for node, property and depth limits.
+/// * `depth` - Current YAML tree depth, with the root at zero.
+///
+/// # Returns
+///
+/// `Ok(())` after the value and all descendants have been flattened.
+///
+/// # Errors
+///
+/// Returns an error when a source limit, key validation, duplicate-key check,
+/// unsupported YAML shape, or configuration write fails.
 pub(crate) fn flatten_yaml_value(
     source_id: &str,
     prefix: &str,
@@ -283,6 +356,21 @@ pub(crate) fn flatten_yaml_value(
 }
 
 /// Records one flattened YAML property and enforces the property-count limit.
+///
+/// # Parameters
+///
+/// * `source_id` - Source identifier attached to duplicate-key errors.
+/// * `seen` - Set of flattened keys already written.
+/// * `key` - Flattened property key to record.
+/// * `budget` - Session charged for one emitted property.
+///
+/// # Returns
+///
+/// `Ok(())` when the key is unique and the property budget accepts it.
+///
+/// # Errors
+///
+/// Returns an error for a duplicate key or exceeded property limit.
 fn ensure_yaml_property(
     source_id: &str,
     seen: &mut HashSet<String>,
@@ -307,6 +395,7 @@ fn ensure_yaml_property(
 ///
 /// # Parameters
 ///
+/// * `source_id` - Source identifier attached to parse errors.
 /// * `prefix` - Flattened configuration path receiving the sequence values.
 /// * `seq` - YAML sequence to flatten.
 /// * `config` - Configuration mutated with the flattened values.
@@ -418,6 +507,7 @@ fn flatten_yaml_sequence(source_id: &str, prefix: &str, seq: &[YamlValue], confi
 ///
 /// # Parameters
 ///
+/// * `source_id` - Source identifier attached to write errors.
 /// * `prefix` - Flattened configuration path receiving the values.
 /// * `seq` - Homogeneous YAML scalar sequence.
 /// * `config` - Configuration mutated with the collected values.
@@ -430,6 +520,9 @@ fn flatten_yaml_sequence(source_id: &str, prefix: &str, seq: &[YamlValue], confi
 /// # Errors
 ///
 /// Returns an error when the configuration rejects the write.
+/// # Type Parameters
+///
+/// * `T` - Type converted from the selected configuration property.
 fn set_yaml_sequence_values<T>(
     source_id: &str,
     prefix: &str,
@@ -450,6 +543,7 @@ where
 ///
 /// # Parameters
 ///
+/// * `source_id` - Source identifier attached to write errors.
 /// * `prefix` - Flattened configuration path receiving the values.
 /// * `seq` - YAML scalar sequence to convert.
 /// * `config` - Configuration mutated with the converted values.
@@ -476,6 +570,18 @@ fn set_yaml_string_sequence(source_id: &str, prefix: &str, seq: &[YamlValue], co
 /// Converts a YAML mapping key to a string.
 ///
 /// Only string keys are accepted to avoid silently changing the key schema.
+///
+/// # Parameters
+///
+/// * `value` - YAML value used as a mapping key.
+///
+/// # Returns
+///
+/// The mapping key as an owned string.
+///
+/// # Errors
+///
+/// Returns a parse error if the key is not a YAML string.
 fn yaml_key_to_string(value: &YamlValue) -> ConfigResult<String> {
     match value {
         YamlValue::String(s) => Ok(s.clone()),
@@ -487,6 +593,19 @@ fn yaml_key_to_string(value: &YamlValue) -> ConfigResult<String> {
 ///
 /// The caller validates the complete sequence category before calling this
 /// helper. Other values are rejected defensively.
+///
+/// # Parameters
+///
+/// * `value` - YAML string value to convert.
+/// * `key` - Flattened path included in an unsupported-value error.
+///
+/// # Returns
+///
+/// The string value as an owned string.
+///
+/// # Errors
+///
+/// Returns a parse error if the value is not a YAML string.
 fn yaml_scalar_to_string(value: &YamlValue, key: &str) -> ConfigResult<String> {
     match value {
         YamlValue::String(s) => Ok(s.clone()),
@@ -498,6 +617,16 @@ fn yaml_scalar_to_string(value: &YamlValue, key: &str) -> ConfigResult<String> {
 
 /// Reports whether two YAML scalar values share the same successful conversion
 /// category, matching the common representation accepted for a whole sequence.
+///
+/// # Parameters
+///
+/// * `first` - Value that defines the scalar category.
+/// * `other` - Value to compare with `first`.
+///
+/// # Returns
+///
+/// `true` when both values share a supported scalar category.
+#[inline]
 fn same_yaml_scalar_kind(first: &YamlValue, other: &YamlValue) -> bool {
     match (first, other) {
         (YamlValue::Null, YamlValue::Null)
@@ -524,7 +653,7 @@ mod admission_tests {
     use crate::source::source_load_session::SourceLoadSession;
 
     #[test]
-    fn yaml_scalar_categories_remain_distinct() {
+    fn test_yaml_scalar_categories_remain_distinct() {
         let number = YamlValue::Number(serde_norway::Number::from(7));
         for value in [
             YamlValue::String("text".to_owned()),
@@ -538,7 +667,7 @@ mod admission_tests {
     }
 
     #[test]
-    fn backend_parse_error_fallback_keeps_safe_location() {
+    fn test_backend_parse_error_fallback_keeps_safe_location() {
         let error = serde_norway::from_str::<YamlValue>("value: [\"parser-secret\"")
             .expect_err("the backend input is intentionally malformed");
         let error = yaml_parse_error("YAML:<memory>", &error);
@@ -548,7 +677,7 @@ mod admission_tests {
     }
 
     #[test]
-    fn backend_is_not_called_when_token_admission_fails() {
+    fn test_backend_is_not_called_when_token_admission_fails() {
         let called = Cell::new(false);
         let mut session = SourceLoadSession::new("YAML:<memory>", SourceLimits::builder().max_parser_tokens(0).build());
 
@@ -569,7 +698,7 @@ mod admission_tests {
     }
 
     #[test]
-    fn backend_is_not_called_when_depth_admission_fails() {
+    fn test_backend_is_not_called_when_depth_admission_fails() {
         let called = Cell::new(false);
         let mut session = SourceLoadSession::new(
             "YAML:<memory>",

@@ -64,7 +64,7 @@ impl<'a> ConfigPropertyMut<'a> {
     ///
     /// The guarded property.
     #[inline]
-    #[must_use = "use the returned value"]
+    #[must_use = "inspect the guarded property"]
     pub fn as_property(&self) -> &Property {
         self.property
     }
@@ -157,6 +157,7 @@ impl<'a> ConfigPropertyMut<'a> {
     ///
     /// Returns [`ConfigError::PropertyIsFinal`] if the property has already
     /// been marked final.
+    #[inline]
     pub fn set<S>(&mut self, values: S) -> ConfigResult<()>
     where
         S: Into<ValueContainer>,
@@ -184,6 +185,7 @@ impl<'a> ConfigPropertyMut<'a> {
     ///
     /// Returns [`ConfigError::PropertyIsFinal`] if the property has already
     /// been marked final, or a converted value error if appending fails.
+    #[inline]
     pub fn add<S>(&mut self, values: S) -> ConfigResult<()>
     where
         S: Into<ValueContainer>,
@@ -230,6 +232,7 @@ impl<'a> ConfigPropertyMut<'a> {
 }
 
 impl Deref for ConfigPropertyMut<'_> {
+    /// Guarded property exposed for immutable access.
     type Target = Property;
 
     /// Dereferences to the guarded property for read-only access.

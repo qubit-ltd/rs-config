@@ -101,6 +101,14 @@ pub struct Property {
 
 impl Debug for Property {
     /// Formats property metadata while redacting the stored value.
+    ///
+    /// # Parameters
+    ///
+    /// * `formatter` - Destination for the redacted property representation.
+    ///
+    /// # Returns
+    ///
+    /// Formatting success or the destination's formatting error.
     #[inline]
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter
@@ -121,6 +129,18 @@ impl Debug for Property {
 
 impl Serialize for Property {
     /// Serializes a property through the explicit V1 value envelope.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `S` - Serde serializer implementation.
+    ///
+    /// # Parameters
+    ///
+    /// * `serializer` - Serializer receiving the property representation.
+    ///
+    /// # Returns
+    ///
+    /// The serializer's success value or serialization error.
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -138,6 +158,18 @@ impl Serialize for Property {
 
 impl<'de> Deserialize<'de> for Property {
     /// Deserializes a property with an explicit V1 value envelope.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `D` - Serde deserializer implementation.
+    ///
+    /// # Parameters
+    ///
+    /// * `deserializer` - Deserializer supplying the property representation.
+    ///
+    /// # Returns
+    ///
+    /// The decoded property or deserialization error.
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -229,7 +261,7 @@ impl Property {
     ///
     /// # Type Parameters
     ///
-    /// * `T` - Strict target type.
+    /// * `T` - Strict target type accepted by the value conversion traits.
     ///
     /// # Returns
     ///
@@ -248,6 +280,16 @@ impl Property {
     }
 
     /// Strictly borrows the scalar value or first collection item.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Borrowed target type supported by both scalar and collection
+    ///   conversions.
+    ///
+    /// # Parameters
+    ///
+    /// * `self` - Property whose first value is borrowed for the conversion.
+    /// * `'a` - Lifetime shared by the property borrow and returned reference.
     #[inline(always)]
     #[must_use = "use the returned value"]
     pub fn get_ref<'a, T: ?Sized>(&'a self) -> ValueResult<&'a T>
@@ -274,7 +316,7 @@ impl Property {
     ///
     /// # Parameters
     ///
-    /// * `value` - New property value
+    /// * `value` - New scalar or collection value to replace the stored data.
     #[inline(always)]
     pub fn set_value(&mut self, value: impl Into<ValueContainer>) {
         self.value = value.into();
@@ -295,7 +337,7 @@ impl Property {
     ///
     /// # Parameters
     ///
-    /// * `description` - Property description
+    /// * `description` - Optional replacement text; `None` clears the metadata.
     #[inline]
     pub fn set_description(&mut self, description: Option<String>) {
         self.description = description;
@@ -319,6 +361,9 @@ impl Property {
     /// # Parameters
     ///
     /// * `is_final` - Whether this is final
+    ///
+    /// `true` marks this property final for Config-managed writes; `false`
+    /// clears that metadata.
     #[inline(always)]
     pub fn set_final(&mut self, is_final: bool) {
         self.is_final = is_final;
@@ -370,6 +415,7 @@ impl Property {
 }
 
 impl Deref for Property {
+    /// Value storage exposed through immutable dereferencing.
     type Target = ValueContainer;
 
     /// Dereferences to [`ValueContainer`].
@@ -398,7 +444,7 @@ mod tests {
     use super::Property;
 
     #[test]
-    fn len_and_deref_observe_the_same_stored_value() {
+    fn test_len_and_deref_observe_the_same_stored_value() {
         let property = Property::new("coverage.property", "value").unwrap();
         let dereferenced = property.deref();
 

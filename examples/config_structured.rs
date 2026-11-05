@@ -6,6 +6,8 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+//! Demonstrates bounded structured reads and unknown-field policy choices.
+
 use qubit_config::Config;
 use qubit_config::ConfigDeserializeOptions;
 use qubit_config::ConfigError;
@@ -15,12 +17,16 @@ use qubit_datatype::ConversionLimits;
 use qubit_datatype::ConversionOperationLimits;
 use serde::Deserialize;
 
+/// Fields selected from the database section in this structured-read example.
 #[derive(Debug, Deserialize, PartialEq)]
 struct Database {
+    /// Database host name.
     host: String,
+    /// Database service port.
     port: u16,
 }
 
+/// Compares strict and lenient reads under a conversion input budget.
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let operation = ConversionOperationLimits::builder().max_input_bytes(128).build();
     let conversion = ConversionLimits::builder().operation_limits(operation).build();

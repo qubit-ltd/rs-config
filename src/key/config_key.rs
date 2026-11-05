@@ -40,10 +40,13 @@ use crate::config_path::validate_config_key;
 /// assert_eq!(selected, 8080);
 /// # Ok::<(), qubit_config::ConfigError>(())
 /// ```
-#[must_use = "use the returned value"]
+#[must_use = "retain or inspect the parsed configuration key"]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
 #[serde(transparent)]
-pub struct ConfigKey(String);
+pub struct ConfigKey(
+    /// Validated dotted property key text.
+    String,
+);
 
 impl ConfigKey {
     /// Parses a canonical, non-empty configuration property key.
@@ -71,7 +74,7 @@ impl ConfigKey {
 
     /// Borrows the canonical key text.
     #[inline(always)]
-    #[must_use = "use the returned value"]
+    #[must_use = "inspect the canonical key text"]
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -85,6 +88,18 @@ impl ConfigKey {
 
 impl<'de> Deserialize<'de> for ConfigKey {
     /// Deserializes and validates a canonical property key.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `D` - Serde deserializer implementation.
+    ///
+    /// # Parameters
+    ///
+    /// * `deserializer` - Serde deserializer supplying the key string.
+    ///
+    /// # Returns
+    ///
+    /// The validated key, or the deserializer's error.
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -96,6 +111,14 @@ impl<'de> Deserialize<'de> for ConfigKey {
 
 impl Display for ConfigKey {
     /// Formats the canonical key text.
+    ///
+    /// # Parameters
+    ///
+    /// * `formatter` - Destination for the key text.
+    ///
+    /// # Returns
+    ///
+    /// Formatting success or the destination's formatting error.
     #[inline]
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         formatter.write_str(&self.0)
@@ -115,7 +138,7 @@ mod tests {
     use super::ConfigKey;
 
     #[test]
-    fn deserialize_validates_and_preserves_key_text() {
+    fn test_deserialize_validates_and_preserves_key_text() {
         let key: ConfigKey = serde_json::from_str("\"server.port\"").unwrap();
         assert_eq!(key.as_str(), "server.port");
         assert_eq!(key.as_ref(), "server.port");

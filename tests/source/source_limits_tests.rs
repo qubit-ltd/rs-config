@@ -43,7 +43,7 @@ impl ConfigSource for InputAccountingSource {
 }
 
 #[test]
-fn source_context_charges_local_and_aggregate_budgets_atomically() {
+fn test_source_context_charges_local_and_aggregate_budgets_atomically() {
     let mut composite = CompositeConfigSource::builder()
         .limits(SourceLimits::builder().max_input_bytes(3).build())
         .build();
@@ -60,7 +60,7 @@ fn source_context_charges_local_and_aggregate_budgets_atomically() {
 }
 
 #[test]
-fn source_limits_are_bounded_by_default_and_can_be_unbounded() {
+fn test_source_limits_are_bounded_by_default_and_can_be_unbounded() {
     let limits = SourceLimits::builder().build();
     assert_eq!(SourceLimits::default(), limits);
     assert_eq!(SourceLimitsBuilder::default(), SourceLimits::builder());
@@ -113,7 +113,7 @@ fn test_parser_limits_defaults_and_serde_compatibility() {
 }
 
 #[test]
-fn source_limit_kinds_have_stable_display_names() {
+fn test_source_limit_kinds_have_stable_display_names() {
     assert_eq!(SourceLimitKind::InputBytes.to_string(), "input bytes");
     assert_eq!(SourceLimitKind::PropertyCount.to_string(), "property count");
     assert_eq!(SourceLimitKind::NodeCount.to_string(), "node count");
@@ -124,7 +124,7 @@ fn source_limit_kinds_have_stable_display_names() {
 }
 
 #[test]
-fn source_budget_failed_charge_preserves_remaining_capacity() {
+fn test_source_budget_failed_charge_preserves_remaining_capacity() {
     let source = InputAccountingSource { amount: 6 };
     assert!(matches!(
         source.load(),
@@ -140,7 +140,7 @@ fn source_budget_failed_charge_preserves_remaining_capacity() {
 /// Verifies an exact nesting-depth boundary is accepted before the next level
 /// is rejected with the configured source-limit facts.
 #[test]
-fn source_budget_nesting_depth_accepts_limit_and_rejects_next_level() {
+fn test_source_budget_nesting_depth_accepts_limit_and_rejects_next_level() {
     let source = PropertiesConfigSource::builder()
         .content("a=1\n")
         .limits(SourceLimits::builder().max_nesting_depth(0).build())
@@ -157,7 +157,7 @@ fn source_budget_nesting_depth_accepts_limit_and_rejects_next_level() {
 
 #[cfg(feature = "toml")]
 #[test]
-fn toml_source_node_limit_failure_is_transactional() {
+fn test_toml_source_node_limit_failure_is_transactional() {
     let source = TomlConfigSource::builder()
         .content("items = [0, 0, 0, 0]\n")
         .limits(SourceLimits::builder().max_nodes(2).build())
@@ -182,7 +182,7 @@ fn toml_source_node_limit_failure_is_transactional() {
 
 #[cfg(feature = "yaml")]
 #[test]
-fn yaml_source_depth_limit_failure_is_transactional() {
+fn test_yaml_source_depth_limit_failure_is_transactional() {
     let source = YamlConfigSource::builder()
         .content("items:\n  nested:\n    leaf: 0\n")
         .limits(SourceLimits::builder().max_nesting_depth(2).build())
@@ -206,7 +206,7 @@ fn yaml_source_depth_limit_failure_is_transactional() {
 }
 
 #[test]
-fn properties_source_rejects_oversized_input_transactionally() {
+fn test_properties_source_rejects_oversized_input_transactionally() {
     let source = PropertiesConfigSource::builder()
         .content("a=1\n")
         .limits(SourceLimits::builder().max_input_bytes(3).build())
@@ -230,7 +230,7 @@ fn properties_source_rejects_oversized_input_transactionally() {
 }
 
 #[test]
-fn properties_file_source_reports_file_identity_for_limits() {
+fn test_properties_file_source_reports_file_identity_for_limits() {
     let dir = tempfile::tempdir().expect("temporary directory should exist");
     let path = dir.path().join("limited.properties");
     std::fs::write(&path, "a=1\n").expect("properties file should be written");
@@ -250,7 +250,7 @@ fn properties_file_source_reports_file_identity_for_limits() {
 }
 
 #[test]
-fn properties_source_counts_duplicate_assignments() {
+fn test_properties_source_counts_duplicate_assignments() {
     let source = PropertiesConfigSource::builder()
         .content("same=1\nsame=2\n")
         .limits(SourceLimits::builder().max_properties(1).build())
@@ -269,7 +269,7 @@ fn properties_source_counts_duplicate_assignments() {
 
 /// Verifies a property-budget failure leaves the target configuration intact.
 #[test]
-fn properties_source_property_budget_failure_is_transactional() {
+fn test_properties_source_property_budget_failure_is_transactional() {
     let source = PropertiesConfigSource::builder()
         .content("first=1\nsecond=2\n")
         .limits(SourceLimits::builder().max_properties(1).build())
@@ -300,7 +300,7 @@ fn properties_source_property_budget_failure_is_transactional() {
 }
 
 #[test]
-fn properties_source_rejects_invalid_keys_and_excessive_key_depth() {
+fn test_properties_source_rejects_invalid_keys_and_excessive_key_depth() {
     assert!(matches!(
         PropertiesConfigSource::from_content("bad..key=1\n").load(),
         Err(ConfigError::SourceParseError {
@@ -328,7 +328,7 @@ fn properties_source_rejects_invalid_keys_and_excessive_key_depth() {
 
 #[cfg(feature = "env-file")]
 #[test]
-fn env_file_memory_source_enforces_property_budget() {
+fn test_env_file_memory_source_enforces_property_budget() {
     let source = EnvFileConfigSource::builder()
         .content("FIRST=1\nSECOND=2\n")
         .limits(SourceLimits::builder().max_properties(1).build())
@@ -346,7 +346,7 @@ fn env_file_memory_source_enforces_property_budget() {
 
 #[cfg(feature = "toml")]
 #[test]
-fn toml_source_rejects_excessive_nesting_depth() {
+fn test_toml_source_rejects_excessive_nesting_depth() {
     let source = TomlConfigSource::builder()
         .content("[server]\nport = 8080\n")
         .limits(SourceLimits::builder().max_nesting_depth(1).build())
@@ -364,7 +364,7 @@ fn toml_source_rejects_excessive_nesting_depth() {
 
 #[cfg(feature = "yaml")]
 #[test]
-fn yaml_source_rejects_excessive_nesting_depth() {
+fn test_yaml_source_rejects_excessive_nesting_depth() {
     let source = YamlConfigSource::builder()
         .content("server:\n  port: 8080\n")
         .limits(SourceLimits::builder().max_nesting_depth(1).build())
@@ -428,7 +428,7 @@ fn test_yaml_sequence_element_depth_boundary() {
 
 #[cfg(feature = "toml")]
 #[test]
-fn toml_sequence_depth_checks_elements_and_dotted_paths() {
+fn test_toml_sequence_depth_checks_elements_and_dotted_paths() {
     let cases = [
         ("[a]\nb=[1]", 3, true),
         ("[a]\nb=[1]", 2, false),
@@ -449,7 +449,7 @@ fn toml_sequence_depth_checks_elements_and_dotted_paths() {
 
 #[cfg(feature = "yaml")]
 #[test]
-fn yaml_sequence_depth_checks_elements_and_dotted_paths() {
+fn test_yaml_sequence_depth_checks_elements_and_dotted_paths() {
     let cases = [
         ("a:\n  b: [1]", 3, true),
         ("a:\n  b: [1]", 2, false),
@@ -470,7 +470,7 @@ fn yaml_sequence_depth_checks_elements_and_dotted_paths() {
 
 #[cfg(feature = "toml")]
 #[test]
-fn toml_sequence_element_depth_checks_composite_ancestors_transactionally() {
+fn test_toml_sequence_element_depth_checks_composite_ancestors_transactionally() {
     let source = TomlConfigSource::builder()
         .content("a=[1]")
         .limits(SourceLimits::builder().max_nesting_depth(2).build())
@@ -513,7 +513,7 @@ fn toml_sequence_element_depth_checks_composite_ancestors_transactionally() {
 
 #[cfg(feature = "yaml")]
 #[test]
-fn yaml_sequence_element_depth_checks_composite_ancestors_transactionally() {
+fn test_yaml_sequence_element_depth_checks_composite_ancestors_transactionally() {
     let source = YamlConfigSource::builder()
         .content("a: [1]")
         .limits(SourceLimits::builder().max_nesting_depth(2).build())

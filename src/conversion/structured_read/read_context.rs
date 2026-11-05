@@ -15,6 +15,10 @@ use std::cell::RefCell;
 
 use super::prepared_read::PreparedConfigRead;
 
+/// Borrowed state shared by the direct Serde visitors for one structured read.
+///
+/// The tree and any collected unknown source paths are tied to the input
+/// lifetime, so visitor values cannot outlive the prepared data they inspect.
 #[derive(Clone, Copy)]
 pub(super) struct ReadContext<'tree> {
     /// Prepared tree and source metadata shared by visitors.
@@ -26,6 +30,11 @@ pub(super) struct ReadContext<'tree> {
 impl ReadContext<'_> {
     /// Reports whether source locations are needed for interpolation
     /// diagnostics.
+    ///
+    /// # Returns
+    ///
+    /// Returns `true` when interpolation overlays exist in the prepared tree.
+    #[inline]
     pub(super) fn needs_locations(self) -> bool {
         !self.prepared.overlays.is_empty()
     }

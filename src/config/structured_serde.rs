@@ -40,6 +40,18 @@ impl Config {
     /// Ordinary `Vec<u8>` instead requests a numeric sequence; no Base64 or
     /// hexadecimal decoding is implied.
     ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Owned target type that implements [`DeserializeOwned`].
+    ///
+    /// # Parameters
+    ///
+    /// * `prefix` - Exact configuration key or subtree prefix to deserialize.
+    ///
+    /// # Returns
+    ///
+    /// The owned target value produced from the selected property or subtree.
+    ///
     /// # Errors
     ///
     /// Returns structured lookup, conversion, budget, conflict, unknown-field,
@@ -60,6 +72,19 @@ impl Config {
     /// see every field buffered by flatten structs, untagged enums, or custom
     /// `Deserialize` code.
     /// Conversion policy and limits remain those of this config's ReadPolicy.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Owned target type that implements [`DeserializeOwned`].
+    ///
+    /// # Parameters
+    ///
+    /// * `prefix` - Exact configuration key or subtree prefix to deserialize.
+    /// * `options` - Per-read interpolation and unknown-field options.
+    ///
+    /// # Returns
+    ///
+    /// The owned target value produced from the selected property or subtree.
     ///
     /// # Errors
     ///

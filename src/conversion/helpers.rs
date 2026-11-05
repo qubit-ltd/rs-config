@@ -21,6 +21,10 @@ use crate::utils;
 use crate::utils::InterpolationSession;
 
 /// Returns the property's scalar string when it has string scalar shape.
+///
+/// # Parameters
+///
+/// * `property` - Property whose scalar value is inspected without conversion.
 pub(crate) fn first_scalar_string(property: &Property) -> Option<&str> {
     property.value().as_scalar().and_then(|value| match value.view() {
         ValueRef::String(value) => Some(value),
@@ -29,6 +33,11 @@ pub(crate) fn first_scalar_string(property: &Property) -> Option<&str> {
 }
 
 /// Checks missingness for a non-interpolated property.
+///
+/// # Parameters
+///
+/// * `property` - Property whose unset or normalized-empty state is checked.
+/// * `options` - Read policy supplying optional-string normalization rules.
 pub(crate) fn is_effectively_missing(property: &Property, options: &ReadPolicy) -> bool {
     property.is_unset()
         || first_scalar_string(property)
@@ -36,6 +45,18 @@ pub(crate) fn is_effectively_missing(property: &Property, options: &ReadPolicy) 
 }
 
 /// Parses a property through a context created for the selected reader.
+///
+/// # Type Parameters
+///
+/// * `R` - Reader that supplies property lookup and interpolation sources.
+/// * `T` - Parsed output type implementing [`FromConfig`].
+///
+/// # Parameters
+///
+/// * `reader` - Reader used to resolve interpolation references.
+/// * `name` - Canonical key associated with the property.
+/// * `property` - Property value to parse.
+/// * `options` - Runtime policy for interpolation and conversion.
 pub(crate) fn parse_property_from_reader<R, T>(
     reader: &R,
     name: &str,
@@ -54,6 +75,21 @@ where
 
 /// Runs one read using a shared interpolation session and a property-local
 /// scalar cache.
+///
+/// # Type Parameters
+///
+/// * `R` - Reader used to resolve referenced configuration values.
+/// * `T` - Result type produced by the read callback.
+///
+/// # Parameters
+///
+/// * `reader` - Active reader, including any section-relative lookup scope.
+/// * `name` - Canonical key identifying the current property.
+/// * `property` - Property being read and whose scalar text may be cached.
+/// * `options` - Policy controlling substitution and conversion.
+/// * `interpolate` - Whether this read should substitute string values.
+/// * `session` - Shared interpolation state for this logical read.
+/// * `read` - Callback that converts the property using the prepared context.
 pub(crate) fn with_property_read_context<R, T>(
     reader: &R,
     name: &str,
@@ -85,6 +121,11 @@ where
 }
 
 /// Checks missingness from the same prepared scalar the converter will use.
+///
+/// # Parameters
+///
+/// * `property` - Property whose unset state is checked before text handling.
+/// * `context` - Prepared context supplying normalized/interpolated text.
 pub(crate) fn is_effectively_missing_with_context(
     property: &Property,
     context: &ConfigParseContext<'_>,

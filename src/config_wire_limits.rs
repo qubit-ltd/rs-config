@@ -55,7 +55,7 @@ pub use config_wire_limits_builder::ConfigWireLimitsBuilder;
 /// }
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-#[must_use = "use the returned value"]
+#[must_use = "apply these configuration wire limits"]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ConfigWireLimits {
     /// Limits for JSON decoding.
@@ -75,12 +75,24 @@ impl ConfigWireLimits {
     pub const DEFAULT_MAX_PROPERTY_KEY_BYTES: u64 = 256;
 
     /// Creates a builder initialized with the default wire limits.
+    ///
+    /// # Returns
+    ///
+    /// A builder initialized with the default wire limits.
     #[inline]
     pub fn builder() -> ConfigWireLimitsBuilder {
         ConfigWireLimitsBuilder::new()
     }
 
     /// Creates a builder initialized from existing wire limits.
+    ///
+    /// # Parameters
+    ///
+    /// * `limits` - Existing limits whose values initialize the builder.
+    ///
+    /// # Returns
+    ///
+    /// A builder initialized from `limits`.
     #[inline]
     pub fn builder_from(limits: &Self) -> ConfigWireLimitsBuilder {
         ConfigWireLimitsBuilder {
@@ -92,6 +104,16 @@ impl ConfigWireLimits {
     }
 
     /// Creates configuration limits from an already configured JSON limit set.
+    ///
+    /// # Parameters
+    ///
+    /// * `json_decode` - JSON input limits to preserve.
+    /// * `json_encode` - JSON output limits to preserve.
+    ///
+    /// # Returns
+    ///
+    /// Configuration limits using these JSON profiles and default property
+    /// limits.
     #[inline(always)]
     pub const fn from_json(
         json_decode: JsonDecodeLimits<JsonResource, u64>,
@@ -109,43 +131,76 @@ impl ConfigWireLimits {
     }
 
     /// Returns the JSON decoding limits.
+    ///
+    /// # Returns
+    ///
+    /// The JSON input limits stored in this profile.
+    #[must_use = "apply the JSON decoding limits"]
     #[inline(always)]
     pub const fn json_decode(self) -> JsonDecodeLimits<JsonResource, u64> {
         self.json_decode
     }
 
     /// Returns the JSON encoding limits.
+    ///
+    /// # Returns
+    ///
+    /// The JSON output limits stored in this profile.
+    #[must_use = "apply the JSON encoding limits"]
     #[inline(always)]
     pub const fn json_encode(self) -> JsonEncodeLimits<JsonResource, u64> {
         self.json_encode
     }
 
     /// Returns the maximum number of persisted properties.
-    #[must_use = "use the returned value"]
+    ///
+    /// # Returns
+    ///
+    /// The maximum property count enforced by this profile.
+    #[must_use = "check the maximum persisted property count"]
     #[inline(always)]
     pub const fn max_properties(self) -> u64 {
         self.properties.maximum()
     }
 
     /// Returns the maximum UTF-8 bytes in one property key.
-    #[must_use = "use the returned value"]
+    ///
+    /// # Returns
+    ///
+    /// The maximum UTF-8 byte length enforced for each property key.
+    #[must_use = "check the maximum property-key byte length"]
     #[inline(always)]
     pub const fn max_property_key_bytes(self) -> u64 {
         self.property_key_bytes.maximum()
     }
 
     /// Returns the complete property-count point limit.
+    ///
+    /// # Returns
+    ///
+    /// The resource limit used to enforce the maximum property count.
+    #[must_use = "apply the property-count limit"]
     pub(crate) const fn properties_limit(&self) -> &ResourceLimit<ConfigWireLimitKind, u64> {
         &self.properties
     }
 
     /// Returns the complete property-key byte point limit.
+    ///
+    /// # Returns
+    ///
+    /// The resource limit used to enforce the maximum property-key byte length.
+    #[must_use = "apply the property-key byte limit"]
     pub(crate) const fn property_key_bytes_limit(&self) -> &ResourceLimit<ConfigWireLimitKind, u64> {
         &self.property_key_bytes
     }
 }
 
 impl Default for ConfigWireLimits {
+    /// Creates the default set of configuration wire limits.
+    ///
+    /// # Returns
+    ///
+    /// Limits initialized from the documented defaults.
     #[inline(always)]
     fn default() -> Self {
         Self::builder().build()
@@ -175,6 +230,10 @@ impl ConfigWireLimits {
     pub const DEFAULT_MAX_PAYLOAD_BYTES: u64 = 1_048_576;
 
     /// Builds the direction-independent JSON value profile.
+    ///
+    /// # Returns
+    ///
+    /// The shared value limits for depth, nodes, and collection payload sizes.
     fn default_json_value_limits() -> JsonValueLimits<JsonResource, u64> {
         JsonValueLimits::<JsonResource, u64>::builder()
             .max_depth(Self::DEFAULT_MAX_DEPTH)
@@ -189,6 +248,14 @@ impl ConfigWireLimits {
     }
 
     /// Builds the JSON decoding profile used by configuration wire input.
+    ///
+    /// # Parameters
+    ///
+    /// * `max_input_bytes` - Maximum number of bytes admitted from the input.
+    ///
+    /// # Returns
+    ///
+    /// The decoding profile with the input-byte and shared value limits.
     fn default_json_decode_limits(max_input_bytes: u64) -> JsonDecodeLimits<JsonResource, u64> {
         JsonDecodeLimits::builder()
             .max_input_bytes(max_input_bytes)
@@ -197,6 +264,14 @@ impl ConfigWireLimits {
     }
 
     /// Builds the JSON encoding profile used by configuration wire output.
+    ///
+    /// # Parameters
+    ///
+    /// * `max_output_bytes` - Maximum number of bytes emitted to the output.
+    ///
+    /// # Returns
+    ///
+    /// The encoding profile with the output-byte and shared value limits.
     fn default_json_encode_limits(max_output_bytes: u64) -> JsonEncodeLimits<JsonResource, u64> {
         JsonEncodeLimits::builder()
             .max_output_bytes(max_output_bytes)
@@ -210,7 +285,7 @@ mod tests {
     use super::ConfigWireLimits;
 
     #[test]
-    fn private_limit_accessors_are_exercised() {
+    fn test_private_limit_accessors_are_exercised() {
         let original = ConfigWireLimits::builder()
             .max_properties(17)
             .max_property_key_bytes(23)

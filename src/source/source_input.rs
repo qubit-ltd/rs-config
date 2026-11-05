@@ -17,15 +17,33 @@ use crate::ConfigError;
 use crate::ConfigResult;
 
 /// Input backing one built-in text configuration source.
+#[must_use = "store the selected input in a source builder"]
 #[derive(Clone)]
 pub(crate) enum SourceInput {
-    /// File-backed source.
-    File(PathBuf),
-    /// In-memory source.
-    Content(String),
+    /// Reads and decodes a filesystem-backed source as UTF-8 text.
+    ///
+    /// The path is opened when the source is loaded, and the resulting bytes
+    /// are charged against the active input budget.
+    File(
+        /// Filesystem location read when the source is loaded.
+        PathBuf,
+    ),
+    /// Uses owned source text without filesystem I/O.
+    ///
+    /// Its UTF-8 byte length is charged against the active input budget before
+    /// the text is returned.
+    Content(
+        /// Owned source text supplied by the caller.
+        String,
+    ),
 }
 
 impl std::fmt::Debug for SourceInput {
+    /// Formats the input kind without revealing in-memory source contents.
+    ///
+    /// # Parameters
+    ///
+    /// * `formatter` - Destination buffer for the redacted debug structure.
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::File(path) => formatter.debug_tuple("File").field(path).finish(),
@@ -39,7 +57,18 @@ impl std::fmt::Debug for SourceInput {
 }
 
 impl SourceInput {
-    /// Returns a stable, content-free source label.
+    /// Returns a stable source label without exposing in-memory content.
+    ///
+    /// File-backed input uses its displayed path; in-memory input uses the
+    /// supplied format name followed by `:<memory>`.
+    ///
+    /// # Parameters
+    ///
+    /// * `format` - Format name used to identify in-memory input.
+    ///
+    /// # Returns
+    ///
+    /// A content-free source identifier suitable for diagnostics.
     pub(crate) fn label(&self, format: &str) -> String {
         match self {
             Self::File(path) => path.display().to_string(),
@@ -50,7 +79,23 @@ impl SourceInput {
     /// Reads and validates one UTF-8 source document.
     ///
     /// In-memory content is returned by reference after its byte budget is
-    /// checked; file content is decoded into an owned string.
+    /// checked; file content is read, charged, and decoded into an owned
+    /// string. Invalid UTF-8 and filesystem failures are reported as source
+    /// I/O errors.
+    ///
+    /// # Parameters
+    ///
+    /// * `format` - Format name included in invalid UTF-8 diagnostics.
+    /// * `session` - Source-load budgets charged for the input bytes.
+    ///
+    /// # Returns
+    ///
+    /// A borrowed string for in-memory content or owned UTF-8 text for files.
+    ///
+    /// # Errors
+    ///
+    /// Returns a source limit error when input bytes exceed the budget, or a
+    /// source I/O error when opening, reading, or decoding the file fails.
     pub(crate) fn read_to_string(
         &self,
         format: &str,
@@ -83,6 +128,20 @@ impl SourceInput {
 /// budget charge succeeds. A read may therefore consume one chunk beyond the
 /// remaining budget before that charge is rejected; the result vector is not
 /// extended with the rejected chunk.
+///
+/// # Parameters
+///
+/// * `reader` - Byte reader for the source file.
+/// * `session` - Source-load budget charged before each chunk is appended.
+///
+/// # Returns
+///
+/// All bytes read before EOF when every chunk is admitted.
+///
+/// # Errors
+///
+/// Returns a source limit error for a rejected chunk or a source I/O error
+/// when a non-interrupted read fails.
 fn read_file_bytes(mut reader: impl Read, session: &mut SourceLoadSession<'_>) -> ConfigResult<Vec<u8>> {
     let mut bytes = Vec::new();
     let mut chunk = [0_u8; 8 * 1024];
@@ -108,18 +167,15 @@ mod tests {
     use std::collections::VecDeque;
     use std::fmt::Display;
     use std::fmt::Formatter;
-    use std::fs::File;
     use std::io::Cursor;
     use std::io::Error;
     use std::io::ErrorKind;
     use std::io::Read;
-    use std::path::PathBuf;
 
     use super::read_file_bytes;
     use crate::ConfigError;
     use crate::SourceLimitKind;
     use crate::source::SourceLimits;
-    use crate::source::source_input::SourceInput;
     use crate::source::source_load_session::SourceLoadSession;
 
     struct FailingReader(Option<Error>);
@@ -178,7 +234,7 @@ mod tests {
     }
 
     #[test]
-    fn retries_interrupted_reads_without_double_charging() {
+    fn test_retries_interrupted_reads_without_double_charging() {
         let reader = InterruptedOnce {
             pending: true,
             inner: Cursor::new(b"a=1\n".to_vec()),
@@ -192,7 +248,7 @@ mod tests {
     }
 
     #[test]
-    fn retries_multiple_interruptions_after_partial_reads() {
+    fn test_retries_multiple_interruptions_after_partial_reads() {
         let reader = ScriptedReader {
             steps: VecDeque::from([
                 Err(ErrorKind::Interrupted),
@@ -210,7 +266,7 @@ mod tests {
     }
 
     #[test]
-    fn input_over_limit_still_reports_the_rejected_chunk() {
+    fn test_input_over_limit_still_reports_the_rejected_chunk() {
         let limits = SourceLimits::builder().max_input_bytes(3).build();
         let mut session = SourceLoadSession::new("input-test", limits);
         let error = read_file_bytes(Cursor::new(b"a=1\n".to_vec()), &mut session)
@@ -229,28 +285,7 @@ mod tests {
     }
 
     #[test]
-    fn file_open_errors_keep_the_original_os_code_and_source_id() {
-        let directory = tempfile::tempdir().expect("temporary directory should be created");
-        let path = directory.path().join("missing.properties");
-        let original_error = File::open(&path).expect_err("the test path should not exist");
-        let input = SourceInput::File(PathBuf::from(&path));
-        let mut session = SourceLoadSession::new("input-test", SourceLimits::default());
-
-        let error = input
-            .read_to_string("properties", &mut session)
-            .expect_err("opening the missing file should fail");
-
-        assert_eq!(error.source_id(), Some("input-test"));
-        let io_error = std::error::Error::source(&error)
-            .and_then(|source| source.downcast_ref::<Error>())
-            .expect("source I/O error should retain its underlying io::Error");
-        assert_eq!(io_error.kind(), original_error.kind());
-        assert_eq!(io_error.raw_os_error(), original_error.raw_os_error());
-        assert!(io_error.raw_os_error().is_some());
-    }
-
-    #[test]
-    fn permanent_reader_os_errors_keep_the_original_os_code() {
+    fn test_permanent_reader_os_errors_keep_the_original_os_code() {
         let mut session = SourceLoadSession::new("input-test", SourceLimits::default());
         let error = read_file_bytes(FailingReader(Some(Error::from_raw_os_error(12345))), &mut session)
             .expect_err("permanent I/O errors are returned");
@@ -263,7 +298,7 @@ mod tests {
     }
 
     #[test]
-    fn permanent_reader_errors_keep_custom_error_and_source_chain() {
+    fn test_permanent_reader_errors_keep_custom_error_and_source_chain() {
         let mut session = SourceLoadSession::new("input-test", SourceLimits::default());
         let error = read_file_bytes(
             FailingReader(Some(Error::other(InnerFailure(Error::from_raw_os_error(12345))))),

@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-// Focused tests for public configuration errors.
+//! Focused tests for public configuration errors.
 
 use qubit_config::ConfigError;
 use qubit_config::ConfigErrorKind;
@@ -108,7 +108,7 @@ fn test_config_value_error_fallback_retains_key_and_source() {
 }
 
 #[test]
-fn config_error_optional_context_accessors_are_callable_as_functions() {
+fn test_config_error_optional_context_accessors_are_callable_as_functions() {
     let candidates = ConfigError::PropertyCandidatesNotFound {
         paths: vec!["primary".to_string(), "fallback".to_string()],
     };
@@ -153,4 +153,30 @@ fn test_error_accessors_retain_missing_value_source_and_conflict_context() {
         incoming: "string".to_string(),
     };
     assert_eq!(conflict.source_id(), Some("memory:defaults"));
+}
+
+#[test]
+fn test_context_accessors_cover_empty_and_indexed_cases() {
+    let no_candidates = ConfigError::PropertyCandidatesNotFound { paths: Vec::new() };
+    assert_eq!(no_candidates.path(), None);
+
+    let multiple_unknown = ConfigError::UnknownProperties {
+        paths: vec!["first".to_string(), "second".to_string()],
+    };
+    assert_eq!(multiple_unknown.path(), None);
+
+    let indexed_parse = ConfigError::SourceParseError {
+        source_id: "memory:test".to_string(),
+        path: None,
+        source_index: Some(2),
+        message: "invalid element at source index 2".to_string(),
+    };
+    assert_eq!(indexed_parse.path(), None);
+    assert_eq!(indexed_parse.source_index(), Some(2));
+
+    let invalid_value = ConfigError::from_data_conversion_error(
+        "value",
+        DataConversionError::invalid(DataType::String, DataType::Bool, InvalidValueReason::InvalidBoolean),
+    );
+    assert_eq!(invalid_value.source_index(), None);
 }

@@ -135,6 +135,12 @@ impl Config {
     ///
     /// The exact typed value on success, or a [`crate::ConfigError`] on
     /// failure.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::ConfigError::InvalidKey`] for an invalid name,
+    /// [`crate::ConfigError::PropertyNotFound`] when the property is absent,
+    /// or [`crate::ConfigError::TypeMismatch`] when its stored type differs.
     pub fn get_strict<T>(&self, name: impl AsRef<str>) -> ConfigResult<T>
     where
         T: StrictValueRead,
@@ -164,6 +170,11 @@ impl Config {
     ///
     /// Returns the configuration value or default value. Conversion errors are
     /// returned instead of being hidden by the default.
+    ///
+    /// # Errors
+    ///
+    /// Returns an invalid-key or conversion error for a configured value that
+    /// cannot be read as `T`.
     ///
     /// # Examples
     ///
@@ -218,6 +229,10 @@ impl Config {
     /// A concrete empty collection is present and stops the candidate search.
     /// Conversion errors are returned without trying later candidates.
     ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Target type supported by [`FromConfig`].
+    ///
     /// # Parameters
     ///
     /// * `names` - Candidate keys checked in priority order.
@@ -226,6 +241,11 @@ impl Config {
     ///
     /// Parsed value from the first candidate not effectively missing under the
     /// active read policy.
+    ///
+    /// # Errors
+    ///
+    /// Returns a missing-value or conversion error when no candidate can be
+    /// read as `T`.
     pub fn get_any<T>(&self, names: impl ConfigNames) -> ConfigResult<T>
     where
         T: FromConfig,
@@ -266,6 +286,10 @@ impl Config {
 
     /// Gets an optional value from the first configured key.
     ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Target type supported by [`FromConfig`].
+    ///
     /// # Parameters
     ///
     /// * `names` - Candidate keys checked in priority order.
@@ -273,6 +297,11 @@ impl Config {
     /// # Returns
     ///
     /// `Ok(None)` when every key is absent or effectively missing.
+    ///
+    /// # Errors
+    ///
+    /// Returns a conversion error when a configured candidate cannot be read
+    /// as `T`.
     pub fn get_optional_any<T>(&self, names: impl ConfigNames) -> ConfigResult<Option<T>>
     where
         T: FromConfig,
@@ -310,6 +339,10 @@ impl Config {
 
     /// Gets the first configured value from `names`, or `default` when absent.
     ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Target type supported by [`FromConfig`].
+    ///
     /// # Parameters
     ///
     /// * `names` - Candidate keys checked in priority order.
@@ -319,6 +352,11 @@ impl Config {
     /// # Returns
     ///
     /// Parsed value or `default`; conversion errors are returned.
+    ///
+    /// # Errors
+    ///
+    /// Returns a conversion or value-access error instead of hiding it behind
+    /// `default`.
     pub fn get_any_or<T>(&self, names: impl ConfigNames, default: impl IntoValueDefault<T>) -> ConfigResult<T>
     where
         T: FromConfig,
@@ -378,7 +416,12 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// Returns a list of values on success, or an error on failure
+    /// Returns a list of values on success, or an error on failure.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the property is absent or effectively missing, or
+    /// when any stored element cannot be converted to `T`.
     ///
     /// # Examples
     ///
@@ -420,6 +463,13 @@ impl Config {
     /// A vector of exact typed values on success, or a [`crate::ConfigError`]
     /// when the property is absent, unset, or has a different stored type. A
     /// concrete empty collection returns an empty vector.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::ConfigError::InvalidKey`] for an invalid name,
+    /// [`crate::ConfigError::PropertyNotFound`] when the property is absent, or
+    /// [`crate::ConfigError::TypeMismatch`] when a stored value has another
+    /// type.
     ///
     /// # Examples
     ///
@@ -463,6 +513,11 @@ impl Config {
     /// # Returns
     ///
     /// `true` only when the property exists and its value container is unset.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::ConfigError::InvalidKey`] when `name` is not a valid
+    /// configuration key.
     ///
     /// # Examples
     ///
@@ -605,36 +660,59 @@ impl Config {
     }
 }
 impl ConfigReader for Config {
+    /// Returns the policy used by direct reads on this configuration.
     #[inline]
     fn read_policy(&self) -> &ReadPolicy {
         Config::default_read_policy(self)
     }
 
+    /// Looks up a property by its canonical name.
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Canonical property name to look up.
     #[inline]
     fn get_property(&self, name: impl AsRef<str>) -> ConfigResult<Option<&Property>> {
         Config::get_property(self, name)
     }
 
+    /// Returns the number of properties stored in this configuration.
     #[inline]
     fn len(&self) -> usize {
         Config::len(self)
     }
 
+    /// Checks whether this configuration contains no properties.
     #[inline]
     fn is_empty(&self) -> bool {
         Config::is_empty(self)
     }
 
+    /// Returns owned canonical names for all stored properties.
     #[inline]
     fn keys(&self) -> Vec<String> {
         Config::keys(self)
     }
 
+    /// Checks whether a canonical property name is present.
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Canonical property name to check.
     #[inline]
     fn contains(&self, name: impl AsRef<str>) -> ConfigResult<bool> {
         Config::contains(self, name)
     }
 
+    /// Reads a property using strict value conversion.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Strict target type supported by the stored value.
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Canonical property name whose value is read.
     #[inline]
     fn get_strict<T>(&self, name: impl AsRef<str>) -> ConfigResult<T>
     where
@@ -643,6 +721,15 @@ impl ConfigReader for Config {
         Config::get_strict(self, name)
     }
 
+    /// Reads each property value as a list using strict conversion.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Strict element type supported by each stored value.
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Canonical property name whose values are read.
     #[inline]
     fn get_list_strict<T>(&self, name: impl AsRef<str>) -> ConfigResult<Vec<T>>
     where
@@ -651,26 +738,47 @@ impl ConfigReader for Config {
         Config::get_list_strict(self, name)
     }
 
+    /// Checks whether any property name starts with the supplied prefix.
+    ///
+    /// # Parameters
+    ///
+    /// * `prefix` - Name prefix to search for among stored properties.
     #[inline]
     fn contains_key_prefix(&self, prefix: &str) -> bool {
         Config::contains_key_prefix(self, prefix)
     }
 
+    /// Checks whether the path has visible descendant properties.
+    ///
+    /// # Parameters
+    ///
+    /// * `path` - Canonical section path to check.
     #[inline]
     fn contains_section(&self, path: &str) -> ConfigResult<bool> {
         Config::contains_section(self, path)
     }
 
+    /// Iterates over properties whose names start with the supplied prefix.
+    ///
+    /// # Parameters
+    ///
+    /// * `prefix` - Name prefix used to select yielded properties.
     #[inline]
     fn iter_prefix<'a>(&'a self, prefix: &'a str) -> impl Iterator<Item = (&'a str, &'a Property)> + 'a {
         Config::iter_prefix(self, prefix)
     }
 
+    /// Iterates over every property in canonical name order.
     #[inline]
     fn iter<'a>(&'a self) -> impl Iterator<Item = (&'a str, &'a Property)> + 'a {
         Config::iter(self)
     }
 
+    /// Creates a read-only section rooted at the supplied canonical path.
+    ///
+    /// # Parameters
+    ///
+    /// * `path` - Canonical root-relative section path.
     #[inline]
     fn section(&self, path: &str) -> ConfigResult<ConfigSection<'_>> {
         Config::section(self, path)

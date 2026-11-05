@@ -38,10 +38,13 @@ use crate::ConfigResult;
 /// let error = ConfigPath::parse("server..port").unwrap_err();
 /// assert_eq!(error.kind(), qubit_config::ConfigErrorKind::InvalidPath);
 /// ```
-#[must_use = "use the returned value"]
+#[must_use = "retain or inspect the parsed configuration path"]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
 #[serde(transparent)]
-pub struct ConfigPath(String);
+pub struct ConfigPath(
+    /// Validated dotted configuration path text.
+    String,
+);
 
 impl ConfigPath {
     /// Parses a canonical configuration path.
@@ -69,7 +72,7 @@ impl ConfigPath {
 
     /// Borrows the canonical path text.
     #[inline]
-    #[must_use = "use the returned value"]
+    #[must_use = "inspect the canonical path text"]
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -83,6 +86,18 @@ impl ConfigPath {
 
 impl<'de> Deserialize<'de> for ConfigPath {
     /// Deserializes and validates a canonical configuration path.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `D` - Serde deserializer implementation.
+    ///
+    /// # Parameters
+    ///
+    /// * `deserializer` - Serde deserializer supplying the path string.
+    ///
+    /// # Returns
+    ///
+    /// The validated path, or the deserializer's error.
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -94,6 +109,14 @@ impl<'de> Deserialize<'de> for ConfigPath {
 
 impl Display for ConfigPath {
     /// Formats the canonical path text.
+    ///
+    /// # Parameters
+    ///
+    /// * `formatter` - Destination for the path text.
+    ///
+    /// # Returns
+    ///
+    /// Formatting success or the destination's formatting error.
     #[inline]
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         formatter.write_str(&self.0)
@@ -109,6 +132,10 @@ impl AsRef<str> for ConfigPath {
 }
 
 /// Validates a non-empty configuration property key without allocation.
+///
+/// # Parameters
+///
+/// * `value` - Candidate property key whose dotted segments must be non-empty.
 pub(crate) fn validate_config_key(value: &str) -> Result<(), ConfigPathViolation> {
     if value.is_empty() {
         Err(ConfigPathViolation::Empty)
@@ -118,6 +145,10 @@ pub(crate) fn validate_config_key(value: &str) -> Result<(), ConfigPathViolation
 }
 
 /// Validates a property key and preserves the rejected input in the error.
+///
+/// # Parameters
+///
+/// * `value` - Candidate property key to validate and retain in any error.
 pub(crate) fn ensure_config_key(value: &str) -> ConfigResult<()> {
     validate_config_key(value).map_err(|violation| ConfigError::InvalidKey {
         key: value.to_string(),
@@ -128,6 +159,10 @@ pub(crate) fn ensure_config_key(value: &str) -> ConfigResult<()> {
 /// Validates a configuration path without allocation.
 ///
 /// The empty path is accepted as the root scope.
+///
+/// # Parameters
+///
+/// * `value` - Candidate dotted section path; empty means the root scope.
 pub(crate) fn validate_config_path(value: &str) -> Result<(), ConfigPathViolation> {
     if value.is_empty() {
         Ok(())
@@ -137,6 +172,10 @@ pub(crate) fn validate_config_path(value: &str) -> Result<(), ConfigPathViolatio
 }
 
 /// Validates a section path and preserves the rejected input in the error.
+///
+/// # Parameters
+///
+/// * `value` - Candidate section path to validate and retain in any error.
 pub(crate) fn ensure_config_path(value: &str) -> ConfigResult<()> {
     validate_config_path(value).map_err(|violation| ConfigError::InvalidPath {
         path: value.to_string(),
@@ -145,6 +184,10 @@ pub(crate) fn ensure_config_path(value: &str) -> ConfigResult<()> {
 }
 
 /// Validates a non-empty dotted key or path.
+///
+/// # Parameters
+///
+/// * `value` - Non-empty dotted text to check for empty or boundary segments.
 fn validate_non_empty_path(value: &str) -> Result<(), ConfigPathViolation> {
     if value.starts_with('.') {
         Err(ConfigPathViolation::LeadingSeparator)

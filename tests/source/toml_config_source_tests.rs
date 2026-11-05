@@ -32,7 +32,7 @@ fn merge_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<
 }
 
 #[test]
-fn toml_label_applies_to_success_and_parse_errors() {
+fn test_toml_label_applies_to_success_and_parse_errors() {
     let source = TomlConfigSource::builder()
         .content("value = 1")
         .label("service")
@@ -49,7 +49,7 @@ fn toml_label_applies_to_success_and_parse_errors() {
 }
 
 #[test]
-fn toml_mapping_members_are_validated_before_recursion() {
+fn test_toml_mapping_members_are_validated_before_recursion() {
     let cases = [
         ("\"\" = { port = 8080 }", ""),
         ("\"\" = {}", ""),
@@ -74,7 +74,7 @@ fn toml_mapping_members_are_validated_before_recursion() {
 }
 
 #[test]
-fn toml_empty_mappings_remain_valid() {
+fn test_toml_empty_mappings_remain_valid() {
     let root = TomlConfigSource::from_content("")
         .load()
         .expect("empty TOML document should load");
@@ -87,7 +87,7 @@ fn toml_empty_mappings_remain_valid() {
 }
 
 #[test]
-fn toml_quoted_dotted_member_remains_valid() {
+fn test_toml_quoted_dotted_member_remains_valid() {
     let config = TomlConfigSource::from_content("\"server.port\" = 8080")
         .load()
         .expect("quoted dotted member should preserve flattening behavior");
@@ -356,7 +356,7 @@ fn test_toml_parser_syntax_error_does_not_expose_input() {
 }
 
 #[test]
-fn toml_builder_default_loads_configured_content() {
+fn test_toml_builder_default_loads_configured_content() {
     let builder_default: fn() -> TomlConfigSourceBuilder = Default::default;
     let source = std::hint::black_box(builder_default)()
         .content("covered = \"value\"\n")

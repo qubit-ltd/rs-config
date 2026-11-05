@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-// Crate root re-exports (`lib.rs`) smoke test.
+//! Smoke tests for crate-root public API reachability and README examples.
 
 use qubit_config::Config;
 use qubit_config::conversion::FromConfig;
@@ -17,12 +17,12 @@ const README: &str = include_str!("../README.md");
 const README_ZH_CN: &str = include_str!("../README.zh_CN.md");
 
 #[test]
-fn crate_public_api_is_reachable() {
+fn test_crate_public_api_is_reachable() {
     let _ = Config::new();
 }
 
 #[test]
-fn crate_public_modules_are_reachable() {
+fn test_crate_public_modules_are_reachable() {
     fn assert_from_config<T: FromConfig>() {}
 
     assert_from_config::<u16>();
@@ -33,7 +33,7 @@ fn crate_public_modules_are_reachable() {
 
 /// Verifies both README files use current and process-safe examples.
 #[test]
-fn readmes_use_current_dependency_and_safe_examples() {
+fn test_readmes_use_current_dependency_and_safe_examples() {
     for readme in [README, README_ZH_CN] {
         assert!(readme.contains("qubit-datatype = { version = \"0.15\""));
         assert!(readme.contains(".deserialize::<Database>(\"db\")"));

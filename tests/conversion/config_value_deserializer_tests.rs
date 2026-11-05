@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-// Integration tests for the custom serde deserializer.
+//! Integration tests for the custom Serde deserializer.
 
 use std::collections::HashMap;
 use std::fmt;
@@ -75,19 +75,23 @@ fn test_nested_object_properties_merge_json_and_string_map_leaves() {
 }
 
 #[derive(Debug, serde::Deserialize)]
+/// Serde fixture used to exercise custom deserialization behavior.
 struct PathInner {}
 
 #[derive(Debug, serde::Deserialize)]
 #[allow(dead_code)]
+/// Serde fixture used to exercise custom deserialization behavior.
 struct PathOuter {
     a: PathInner,
 }
 
 #[derive(Debug, serde::Deserialize)]
+/// Serde fixture used to exercise custom deserialization behavior.
 struct PathEmpty {}
 
 #[derive(Debug, serde::Deserialize)]
 #[allow(dead_code)]
+/// Serde fixture used to exercise custom deserialization behavior.
 struct PathBadNumber {
     #[serde(rename = "bad.key")]
     value: u8,
@@ -95,12 +99,14 @@ struct PathBadNumber {
 
 #[derive(Debug, serde::Deserialize)]
 #[allow(dead_code)]
+/// Serde fixture used to exercise custom deserialization behavior.
 struct PathWithItems {
     items: Vec<PathInner>,
 }
 
 #[derive(Debug, serde::Deserialize)]
 #[allow(dead_code)]
+/// Serde fixture used to exercise custom deserialization behavior.
 struct PathExpectedNested {
     #[serde(rename = "bad.key")]
     nested: PathInner,
@@ -297,6 +303,7 @@ fn test_scalar_list_visitor_can_stop_before_tail_limit() -> ConfigResult<()> {
 
 /// Test-only consumer that intentionally ignores every element after the first.
 #[derive(Debug, PartialEq)]
+/// Serde fixture used to exercise custom deserialization behavior.
 struct FirstScalarItem(u8);
 
 impl<'de> Deserialize<'de> for FirstScalarItem {
@@ -330,6 +337,7 @@ impl<'de> Deserialize<'de> for FirstScalarItem {
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+/// Serde fixture used to exercise custom deserialization behavior.
 struct SignedScalars {
     i8_value: i8,
     i16_value: i16,
@@ -338,6 +346,7 @@ struct SignedScalars {
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+/// Serde fixture used to exercise custom deserialization behavior.
 struct UnsignedScalars {
     u8_value: u8,
     u16_value: u16,
@@ -346,18 +355,21 @@ struct UnsignedScalars {
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+/// Serde fixture used to exercise custom deserialization behavior.
 struct WideIntegers {
     signed: i128,
     unsigned: u128,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+/// Serde fixture used to exercise custom deserialization behavior.
 struct FloatScalars {
     f32_value: f32,
     f64_value: f64,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+/// Serde fixture used to exercise custom deserialization behavior.
 struct DerivedShapes {
     unit_value: (),
     unit_struct: UnitStruct,
@@ -370,27 +382,33 @@ struct DerivedShapes {
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+/// Serde fixture used to exercise custom deserialization behavior.
 struct UnitStruct;
 
 #[derive(Debug, Deserialize, PartialEq)]
+/// Serde fixture used to exercise custom deserialization behavior.
 struct Newtype(u16);
 
 #[derive(Debug, Deserialize, PartialEq)]
+/// Serde fixture used to exercise custom deserialization behavior.
 struct Pair(u8, u8);
 
 #[derive(Debug, Deserialize, PartialEq)]
+/// Serde fixture used to exercise custom deserialization behavior.
 struct Endpoint {
     host: String,
     port: u16,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+/// Serde fixture used to exercise custom deserialization behavior.
 struct TypedCollections {
     servers: Vec<Endpoint>,
     named: HashMap<String, Endpoint>,
 }
 
 #[derive(Debug, PartialEq, Default)]
+/// Serde fixture used to exercise custom deserialization behavior.
 enum Presence {
     #[default]
     Missing,
@@ -431,18 +449,21 @@ impl<'de> Deserialize<'de> for Presence {
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+/// Serde fixture used to exercise custom deserialization behavior.
 struct OptionalValue {
     #[serde(default)]
     value: Presence,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+/// Serde fixture used to exercise custom deserialization behavior.
 enum Mode {
     Fast,
     Slow,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+/// Serde fixture used to exercise custom deserialization behavior.
 enum Tagged {
     Unit,
     Code(u16),
@@ -451,6 +472,7 @@ enum Tagged {
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+/// Serde fixture used to exercise custom deserialization behavior.
 struct DirectEntryPoints {
     string_from_bool: String,
     string_from_number: String,
@@ -467,6 +489,7 @@ struct DirectEntryPoints {
 }
 
 #[derive(Debug, PartialEq)]
+/// Serde fixture used to exercise custom deserialization behavior.
 struct StrOnly(String);
 
 impl<'de> Deserialize<'de> for StrOnly {
@@ -496,6 +519,7 @@ impl<'de> Deserialize<'de> for StrOnly {
 }
 
 #[derive(Debug, PartialEq)]
+/// Serde fixture used to exercise custom deserialization behavior.
 struct BytesOnly(Vec<u8>);
 
 impl<'de> Deserialize<'de> for BytesOnly {
@@ -525,6 +549,7 @@ impl<'de> Deserialize<'de> for BytesOnly {
 }
 
 #[derive(Debug, PartialEq)]
+/// Serde fixture used to exercise custom deserialization behavior.
 struct ByteBufOnly(Vec<u8>);
 
 impl<'de> Deserialize<'de> for ByteBufOnly {
@@ -554,6 +579,7 @@ impl<'de> Deserialize<'de> for ByteBufOnly {
 }
 
 #[derive(Debug, PartialEq)]
+/// Serde fixture used to exercise custom deserialization behavior.
 struct IdentifierOnly(String);
 
 impl<'de> Deserialize<'de> for IdentifierOnly {
@@ -590,12 +616,14 @@ impl<'de> Deserialize<'de> for IdentifierOnly {
 }
 
 #[derive(Debug, Deserialize)]
+/// Serde fixture used to exercise custom deserialization behavior.
 struct OneField<T> {
     #[allow(dead_code)]
     value: T,
 }
 
 #[derive(Debug, PartialEq)]
+/// Serde fixture used to exercise custom deserialization behavior.
 struct StringErrorProbe;
 
 impl<'de> Deserialize<'de> for StringErrorProbe {
@@ -615,7 +643,7 @@ impl<'de> Deserialize<'de> for StringErrorProbe {
 }
 
 #[test]
-fn deserialize_signed_scalars_from_strings_and_numbers() -> ConfigResult<()> {
+fn test_deserialize_signed_scalars_from_strings_and_numbers() -> ConfigResult<()> {
     let mut config = Config::new();
     config.set("signed.i8_value", "8")?;
     config.set("signed.i16_value", 16i16)?;
@@ -637,7 +665,7 @@ fn deserialize_signed_scalars_from_strings_and_numbers() -> ConfigResult<()> {
 }
 
 #[test]
-fn deserialize_unsigned_scalars_from_strings_and_numbers() -> ConfigResult<()> {
+fn test_deserialize_unsigned_scalars_from_strings_and_numbers() -> ConfigResult<()> {
     let mut config = Config::new();
     config.set("unsigned.u8_value", 8u8)?;
     config.set("unsigned.u16_value", "16")?;
@@ -721,7 +749,7 @@ fn test_deserialize_u128_rejects_overflow() -> ConfigResult<()> {
 }
 
 #[test]
-fn deserialize_float_scalars_from_strings_and_numbers() -> ConfigResult<()> {
+fn test_deserialize_float_scalars_from_strings_and_numbers() -> ConfigResult<()> {
     let mut config = Config::new();
     config.set("floats.f32_value", "1.5")?;
     config.set("floats.f64_value", 2.5f64)?;
@@ -739,7 +767,7 @@ fn deserialize_float_scalars_from_strings_and_numbers() -> ConfigResult<()> {
 }
 
 #[test]
-fn deserialize_numeric_scalars_cover_number_and_string_paths() -> ConfigResult<()> {
+fn test_deserialize_numeric_scalars_cover_number_and_string_paths() -> ConfigResult<()> {
     let mut config = Config::new();
     config.set("i8_number.value", 8i8)?;
     config.set("i16_string.value", "16")?;
@@ -766,7 +794,7 @@ fn deserialize_numeric_scalars_cover_number_and_string_paths() -> ConfigResult<(
 }
 
 #[test]
-fn deserialize_derived_shapes() -> ConfigResult<()> {
+fn test_deserialize_derived_shapes() -> ConfigResult<()> {
     let mut config = Config::new();
     config.set_null("shapes.unit_value", DataType::String)?;
     config.set_null("shapes.unit_struct", DataType::String)?;
@@ -803,7 +831,7 @@ fn deserialize_derived_shapes() -> ConfigResult<()> {
 }
 
 #[test]
-fn deserialize_enum_string_uses_config_read_policy() -> ConfigResult<()> {
+fn test_deserialize_enum_string_uses_config_read_policy() -> ConfigResult<()> {
     let mut config = Config::new();
     config.set_default_read_policy(ReadPolicy::env_friendly());
     config.set("mode.value", " Fast ")?;
@@ -816,7 +844,7 @@ fn deserialize_enum_string_uses_config_read_policy() -> ConfigResult<()> {
 
 /// Test character conversion errors never expose the configuration value.
 #[test]
-fn deserialize_char_redacts_secret_value() -> ConfigResult<()> {
+fn test_deserialize_char_redacts_secret_value() -> ConfigResult<()> {
     const SECRET: &str = "TOP_SECRET_CHAR_MARKER";
     let mut config = Config::new();
     config.set("secret.value", SECRET)?;
@@ -840,7 +868,7 @@ fn deserialize_char_redacts_secret_value() -> ConfigResult<()> {
 
 /// Test unknown enum diagnostics never expose the configuration value.
 #[test]
-fn deserialize_unknown_enum_redacts_secret_value() -> ConfigResult<()> {
+fn test_deserialize_unknown_enum_redacts_secret_value() -> ConfigResult<()> {
     const SECRET: &str = "TOP_SECRET_ENUM_MARKER";
     let mut config = Config::new();
     config.set("secret.value", SECRET)?;
@@ -864,7 +892,7 @@ fn deserialize_unknown_enum_redacts_secret_value() -> ConfigResult<()> {
 }
 
 #[test]
-fn deserialize_externally_tagged_enum_variants() -> ConfigResult<()> {
+fn test_deserialize_externally_tagged_enum_variants() -> ConfigResult<()> {
     let mut unit_config = Config::new();
     unit_config.set_null("case.value.Unit", DataType::String)?;
     let unit = unit_config.deserialize::<OneField<Tagged>>("case")?;
@@ -896,7 +924,7 @@ fn deserialize_externally_tagged_enum_variants() -> ConfigResult<()> {
 }
 
 #[test]
-fn deserialize_enum_reports_invalid_shapes() -> ConfigResult<()> {
+fn test_deserialize_enum_reports_invalid_shapes() -> ConfigResult<()> {
     let mut empty_object = Config::new();
     empty_object.insert_property(
         "case.value",
@@ -956,7 +984,7 @@ fn deserialize_enum_reports_invalid_shapes() -> ConfigResult<()> {
 }
 
 #[test]
-fn deserialize_direct_scalar_entry_points() -> ConfigResult<()> {
+fn test_deserialize_direct_scalar_entry_points() -> ConfigResult<()> {
     let mut config = Config::new();
     config.set("direct.string_from_bool", true)?;
     config.set("direct.string_from_number", 123i32)?;
@@ -989,7 +1017,7 @@ fn deserialize_direct_scalar_entry_points() -> ConfigResult<()> {
 }
 
 #[test]
-fn deserialize_scalar_lists_cover_admitted_serde_entry_points() -> ConfigResult<()> {
+fn test_deserialize_scalar_lists_cover_admitted_serde_entry_points() -> ConfigResult<()> {
     let mut config = Config::new();
     config.set_default_read_policy(ReadPolicy::env_friendly());
     config.set("strings.value", "alpha,beta")?;
@@ -1053,7 +1081,7 @@ fn deserialize_scalar_lists_cover_admitted_serde_entry_points() -> ConfigResult<
 }
 
 #[test]
-fn deserialize_sequence_and_root_map_entry_points() -> ConfigResult<()> {
+fn test_deserialize_sequence_and_root_map_entry_points() -> ConfigResult<()> {
     #[derive(Debug, Deserialize, PartialEq)]
     struct SequenceFields {
         vec_u8: Vec<u8>,
@@ -1092,7 +1120,7 @@ fn deserialize_sequence_and_root_map_entry_points() -> ConfigResult<()> {
 }
 
 #[test]
-fn map_key_boundary_preserves_numeric_names_as_strings() -> ConfigResult<()> {
+fn test_map_key_boundary_preserves_numeric_names_as_strings() -> ConfigResult<()> {
     let mut config = Config::new();
     config.set("80", 8080_u16)?;
     let values: HashMap<String, u16> = config.deserialize("")?;
@@ -1101,7 +1129,7 @@ fn map_key_boundary_preserves_numeric_names_as_strings() -> ConfigResult<()> {
 }
 
 #[test]
-fn map_key_boundary_rejects_numeric_target_at_member_path() -> ConfigResult<()> {
+fn test_map_key_boundary_rejects_numeric_target_at_member_path() -> ConfigResult<()> {
     let mut config = Config::new();
     config.set("80", 8080_u16)?;
     let error = config
@@ -1112,7 +1140,7 @@ fn map_key_boundary_rejects_numeric_target_at_member_path() -> ConfigResult<()> 
 }
 
 #[test]
-fn map_key_errors_preserve_section_and_special_member_paths() -> ConfigResult<()> {
+fn test_map_key_errors_preserve_section_and_special_member_paths() -> ConfigResult<()> {
     #[derive(Debug, PartialEq, Eq, Hash)]
     struct RejectedKey;
 
@@ -1149,7 +1177,7 @@ fn map_key_errors_preserve_section_and_special_member_paths() -> ConfigResult<()
 }
 
 #[test]
-fn map_key_boundary_allows_explicit_parse_and_propagates_parse_errors() -> ConfigResult<()> {
+fn test_map_key_boundary_allows_explicit_parse_and_propagates_parse_errors() -> ConfigResult<()> {
     let mut config = Config::new();
     config.set("80", 8080_u16)?;
     let values: HashMap<String, u16> = config.deserialize("")?;
@@ -1171,7 +1199,7 @@ fn map_key_boundary_allows_explicit_parse_and_propagates_parse_errors() -> Confi
 }
 
 #[test]
-fn deserialize_typed_vectors_and_maps_preserves_nested_shapes() -> ConfigResult<()> {
+fn test_deserialize_typed_vectors_and_maps_preserves_nested_shapes() -> ConfigResult<()> {
     let mut config = Config::new();
     config.insert_property(
         "collections.servers",
@@ -1237,7 +1265,7 @@ fn deserialize_typed_vectors_and_maps_preserves_nested_shapes() -> ConfigResult<
 }
 
 #[test]
-fn deserialize_distinguishes_null_from_missing_field() -> ConfigResult<()> {
+fn test_deserialize_distinguishes_null_from_missing_field() -> ConfigResult<()> {
     let mut null_config = Config::new();
     null_config.set_null("null.value", DataType::String)?;
     assert_eq!(
@@ -1267,7 +1295,7 @@ fn deserialize_distinguishes_null_from_missing_field() -> ConfigResult<()> {
 }
 
 #[test]
-fn deserialize_unknown_scalar_shape_returns_type_error() -> ConfigResult<()> {
+fn test_deserialize_unknown_scalar_shape_returns_type_error() -> ConfigResult<()> {
     let mut config = Config::new();
     config.set("value", vec![true])?;
 
@@ -1280,7 +1308,7 @@ fn deserialize_unknown_scalar_shape_returns_type_error() -> ConfigResult<()> {
 }
 
 #[test]
-fn deserialize_one_field_success_for_error_only_types() -> ConfigResult<()> {
+fn test_deserialize_one_field_success_for_error_only_types() -> ConfigResult<()> {
     let mut config = Config::new();
     config.set("string.value", "text")?;
     config.set("bool.value", true)?;
@@ -1332,7 +1360,7 @@ fn deserialize_one_field_success_for_error_only_types() -> ConfigResult<()> {
 }
 
 #[test]
-fn deserialize_struct_error_paths_for_success_only_types() {
+fn test_deserialize_struct_error_paths_for_success_only_types() {
     let config = Config::new();
 
     assert!(config.deserialize::<SignedScalars>("missing").is_err());
@@ -1343,7 +1371,7 @@ fn deserialize_struct_error_paths_for_success_only_types() {
 }
 
 #[test]
-fn deserialize_scalar_error_branches() -> ConfigResult<()> {
+fn test_deserialize_scalar_error_branches() -> ConfigResult<()> {
     let mut config = Config::new();
     config.set_null("null_string.value", DataType::String)?;
     config.set("array_string.value", vec![1u8, 2u8])?;
@@ -1448,7 +1476,7 @@ fn deserialize_scalar_error_branches() -> ConfigResult<()> {
 }
 
 #[test]
-fn deserialize_read_option_error_branches() -> ConfigResult<()> {
+fn test_deserialize_read_option_error_branches() -> ConfigResult<()> {
     let mut blank_config = Config::new();
     blank_config.set_default_read_policy(
         ReadPolicy::builder()
@@ -1490,7 +1518,7 @@ fn deserialize_read_option_error_branches() -> ConfigResult<()> {
 }
 
 #[test]
-fn deserialize_json_string_conversion_errors_use_config_read_policy() -> ConfigResult<()> {
+fn test_deserialize_json_string_conversion_errors_use_config_read_policy() -> ConfigResult<()> {
     let mut config = Config::new();
     config.set_default_read_policy(
         ReadPolicy::builder()
@@ -1542,7 +1570,7 @@ fn deserialize_json_string_conversion_errors_use_config_read_policy() -> ConfigR
 }
 
 #[test]
-fn deserialize_error_wrapper_formats_message_and_config_sources() -> ConfigResult<()> {
+fn test_deserialize_error_wrapper_formats_message_and_config_sources() -> ConfigResult<()> {
     let mut config_error = Config::new();
     config_error.set_default_read_policy(
         ReadPolicy::builder()
@@ -1562,7 +1590,7 @@ fn deserialize_error_wrapper_formats_message_and_config_sources() -> ConfigResul
 }
 
 #[test]
-fn interpolation_admission_stops_before_later_bad_reference() -> ConfigResult<()> {
+fn test_interpolation_admission_stops_before_later_bad_reference() -> ConfigResult<()> {
     let mut config = Config::new();
     let secret = "x".repeat(800);
     config.set("blob", secret.as_str())?;
@@ -1594,7 +1622,7 @@ fn interpolation_admission_stops_before_later_bad_reference() -> ConfigResult<()
 }
 
 #[test]
-fn interpolation_admission_charges_unchanged_text_after_a_changed_value() -> ConfigResult<()> {
+fn test_interpolation_admission_charges_unchanged_text_after_a_changed_value() -> ConfigResult<()> {
     let mut config = Config::new();
     config.set("blob", "x".repeat(800))?;
     config.set("tree.a", "${blob}")?;
@@ -1623,7 +1651,7 @@ fn interpolation_admission_charges_unchanged_text_after_a_changed_value() -> Con
 }
 
 #[test]
-fn interpolation_admission_visits_non_string_scalar_before_expansion() -> ConfigResult<()> {
+fn test_interpolation_admission_visits_non_string_scalar_before_expansion() -> ConfigResult<()> {
     let mut scalar = Config::new();
     scalar.set("tree.flag", 12_345_678_901_234_567_890_u64)?;
     scalar.set("blob", "x".repeat(800))?;
@@ -1650,7 +1678,7 @@ fn interpolation_admission_visits_non_string_scalar_before_expansion() -> Config
 }
 
 #[test]
-fn interpolation_admission_visits_container_before_expansion() -> ConfigResult<()> {
+fn test_interpolation_admission_visits_container_before_expansion() -> ConfigResult<()> {
     let mut container = Config::new();
     container.insert_property(
         "tree.flag",
@@ -1662,7 +1690,7 @@ fn interpolation_admission_visits_container_before_expansion() -> ConfigResult<(
 }
 
 #[test]
-fn interpolation_admission_charges_long_key_before_expansion() -> ConfigResult<()> {
+fn test_interpolation_admission_charges_long_key_before_expansion() -> ConfigResult<()> {
     let mut key = Config::new();
     key.set(format!("tree.{}", "k".repeat(12)), true)?;
     let error = interpolation_admission_with_prior_value(&mut key, "tree")?;
@@ -1670,6 +1698,7 @@ fn interpolation_admission_charges_long_key_before_expansion() -> ConfigResult<(
     Ok(())
 }
 
+/// Builds an interpolation error after admitting an earlier configured value.
 fn interpolation_admission_with_prior_value(config: &mut Config, prefix: &str) -> ConfigResult<ConfigError> {
     config.set("blob", "x".repeat(800))?;
     config.set("tree.value", "${blob}")?;
@@ -1689,7 +1718,7 @@ fn interpolation_admission_with_prior_value(config: &mut Config, prefix: &str) -
 }
 
 #[test]
-fn interpolation_admission_precedes_later_bad_reference_for_both_unknown_policies() -> ConfigResult<()> {
+fn test_interpolation_admission_precedes_later_bad_reference_for_both_unknown_policies() -> ConfigResult<()> {
     for unknown_fields in [UnknownFieldPolicy::Reject, UnknownFieldPolicy::Ignore] {
         let mut config = Config::new();
         let secret = "x".repeat(800);
@@ -1722,27 +1751,27 @@ fn interpolation_admission_precedes_later_bad_reference_for_both_unknown_policie
 }
 
 #[test]
-fn interpolation_admission_payload_limit_accepts_1602_bytes() -> ConfigResult<()> {
+fn test_interpolation_admission_payload_limit_accepts_1602_bytes() -> ConfigResult<()> {
     interpolation_admission_boundary(true, 1602)
 }
 
 #[test]
-fn interpolation_admission_payload_limit_rejects_1601_bytes() -> ConfigResult<()> {
+fn test_interpolation_admission_payload_limit_rejects_1601_bytes() -> ConfigResult<()> {
     interpolation_admission_boundary(true, 1601)
 }
 
 #[test]
-fn interpolation_admission_input_limit_accepts_1602_bytes() -> ConfigResult<()> {
+fn test_interpolation_admission_input_limit_accepts_1602_bytes() -> ConfigResult<()> {
     interpolation_admission_boundary(false, 1602)
 }
 
 #[test]
-fn interpolation_admission_input_limit_rejects_1601_bytes() -> ConfigResult<()> {
+fn test_interpolation_admission_input_limit_rejects_1601_bytes() -> ConfigResult<()> {
     interpolation_admission_boundary(false, 1601)
 }
 
 #[test]
-fn interpolation_admission_original_input_precedes_bad_reference() -> ConfigResult<()> {
+fn test_interpolation_admission_original_input_precedes_bad_reference() -> ConfigResult<()> {
     let mut config = Config::new();
     config.set("tree.value", "${missing}")?;
     let limits = ConversionLimits::builder()
@@ -1763,6 +1792,7 @@ fn interpolation_admission_original_input_precedes_bad_reference() -> ConfigResu
     Ok(())
 }
 
+/// Exercises one payload or input byte boundary for interpolation admission.
 fn interpolation_admission_boundary(payload: bool, limit: u64) -> ConfigResult<()> {
     let mut config = Config::new();
     config.set("blob", "x".repeat(800))?;
@@ -1794,10 +1824,12 @@ fn interpolation_admission_boundary(payload: bool, limit: u64) -> ConfigResult<(
     Ok(())
 }
 
+/// Applies conversion limits while preserving the remaining read policy.
 fn with_limits(config: &mut Config, limits: ConversionLimits) {
     config.set_default_read_policy(ReadPolicy::builder().conversion_limits(limits).build());
 }
 
+/// Deserializes a value with explicit interpolation and unknown-field settings.
 fn deserialize_with_options<T: for<'de> Deserialize<'de>>(
     config: &Config,
     prefix: &str,
@@ -2124,7 +2156,7 @@ fn test_rsc204_structured_blank_field_still_requires_complete_input_admission() 
 }
 
 #[test]
-fn tuple_diagnostics_report_known_native_and_scalar_lengths() -> ConfigResult<()> {
+fn test_tuple_diagnostics_report_known_native_and_scalar_lengths() -> ConfigResult<()> {
     #[derive(Debug, Deserialize)]
     #[allow(dead_code)]
     struct RequiredPair {
@@ -2166,7 +2198,7 @@ fn tuple_diagnostics_report_known_native_and_scalar_lengths() -> ConfigResult<()
 }
 
 #[test]
-fn map_and_sequence_shape_errors_describe_expected_shape() -> ConfigResult<()> {
+fn test_map_and_sequence_shape_errors_describe_expected_shape() -> ConfigResult<()> {
     let mut config = Config::new();
     config.set("value", true)?;
     let map_error = config
@@ -2281,7 +2313,7 @@ fn test_byte_visitors_receive_utf8_from_string_compatible_scalars() {
 }
 
 #[test]
-fn byte_targets_distinguish_string_bytes_from_numeric_sequences() -> ConfigResult<()> {
+fn test_byte_targets_distinguish_string_bytes_from_numeric_sequences() -> ConfigResult<()> {
     let mut config = Config::new();
     config.set("text_ascii", "AB")?;
     config.set("text_chinese", "中文")?;
@@ -2483,4 +2515,430 @@ fn test_collection_budget_failure_retains_source_index_without_payload() {
     assert_eq!(error.source_index(), Some(1));
     assert_eq!(error.path(), Some("items[1]"));
     assert!(!error.to_string().contains("secret payload"));
+}
+
+#[test]
+fn test_preparation_source_and_rendered_number_budgets_are_public_errors() {
+    let mut config = Config::new();
+    config.set("text", "secret").unwrap();
+    with_limits(
+        &mut config,
+        ConversionLimits::builder()
+            .operation_limits(ConversionOperationLimits::builder().max_input_bytes(5).build())
+            .build(),
+    );
+    let error = config.deserialize::<serde_json::Value>("text").unwrap_err();
+    assert_eq!(error.path(), Some("text"));
+    assert!(!error.to_string().contains("secret"));
+
+    config.set("number", 12345_i32).unwrap();
+    with_limits(
+        &mut config,
+        ConversionLimits::builder()
+            .structured_limits(StructuredConversionLimits::builder().max_text_bytes(4).build())
+            .build(),
+    );
+    let error = config.deserialize::<serde_json::Value>("number").unwrap_err();
+    assert_eq!(error.path(), Some("number"));
+}
+
+#[cfg(all(feature = "num-bigint", feature = "bigdecimal"))]
+#[test]
+fn test_preparation_rich_numeric_limits_are_observable_through_deserialize() {
+    use bigdecimal::BigDecimal;
+    use num_bigint::BigInt;
+    use qubit_datatype::NumericConversionLimits;
+
+    let mut config = Config::new();
+    config.set("integer", BigInt::from(1000)).unwrap();
+    config.set("decimal", "1e100".parse::<BigDecimal>().unwrap()).unwrap();
+    with_limits(
+        &mut config,
+        ConversionLimits::builder()
+            .numeric_limits(
+                NumericConversionLimits::builder()
+                    .max_big_integer_digits(2)
+                    .max_big_decimal_scale_magnitude(2)
+                    .build(),
+            )
+            .build(),
+    );
+    for name in ["integer", "decimal"] {
+        let error = config.deserialize::<serde_json::Value>(name).unwrap_err();
+        assert_eq!(error.path(), Some(name));
+        assert!(matches!(error, ConfigError::ValueError { .. }));
+    }
+}
+
+#[test]
+fn test_preparation_admits_unconsumed_fields_and_utf8_payload_bytes() {
+    let mut config = Config::new();
+    config.set("tree.used", 1_i32).unwrap();
+    config.set("tree.ignored", "界".repeat(100)).unwrap();
+    with_limits(
+        &mut config,
+        ConversionLimits::builder()
+            .operation_limits(
+                ConversionOperationLimits::builder()
+                    .max_structured_payload_bytes(310)
+                    .build(),
+            )
+            .build(),
+    );
+    assert!(config.deserialize::<serde_json::Value>("tree").is_err());
+    with_limits(
+        &mut config,
+        ConversionLimits::builder()
+            .operation_limits(
+                ConversionOperationLimits::builder()
+                    .max_structured_payload_bytes(312)
+                    .build(),
+            )
+            .build(),
+    );
+    assert!(config.deserialize::<serde_json::Value>("tree").is_ok());
+}
+
+#[test]
+fn test_preparation_admits_json_and_string_map_inputs() {
+    let mut config = Config::new();
+    config.set("json", serde_json::json!({"nested": ["payload"]})).unwrap();
+    config
+        .set("map", HashMap::from([("key".to_owned(), "payload".to_owned())]))
+        .unwrap();
+    with_limits(
+        &mut config,
+        ConversionLimits::builder()
+            .operation_limits(
+                ConversionOperationLimits::builder()
+                    .max_structured_payload_bytes(9)
+                    .build(),
+            )
+            .build(),
+    );
+    assert!(config.deserialize::<serde_json::Value>("json").is_err());
+    assert!(config.deserialize::<HashMap<String, String>>("map").is_err());
+}
+
+#[test]
+fn test_preparation_deserializer_preserves_json_categories_and_enum_errors() {
+    #[derive(Debug, Deserialize, PartialEq)]
+    enum Choice {
+        First,
+        Second,
+    }
+
+    let source = serde_json::json!({
+        "signed": -17,
+        "unsigned": u64::MAX,
+        "fraction": 1.25,
+        "text": "borrowed",
+        "flag": true,
+    });
+    let mut config = Config::new();
+    config.set("value", source.clone()).unwrap();
+    assert_eq!(config.deserialize::<serde_json::Value>("value").unwrap(), source);
+
+    config
+        .set("choice", serde_json::json!({"First": null, "Second": null}))
+        .unwrap();
+    let error = config.deserialize::<Choice>("choice").unwrap_err();
+    assert_eq!(error.path(), Some("choice"));
+
+    config
+        .set("map", HashMap::from([("text".to_owned(), "borrowed".to_owned())]))
+        .unwrap();
+    assert_eq!(
+        config.deserialize::<HashMap<String, String>>("map").unwrap(),
+        HashMap::from([("text".to_owned(), "borrowed".to_owned())])
+    );
+}
+
+#[test]
+fn test_preparation_duration_text_uses_public_reader_boundary() {
+    let mut config = Config::new();
+    config.set("duration", std::time::Duration::from_secs(3)).unwrap();
+    assert!(config.deserialize::<String>("duration").is_ok());
+}
+
+#[test]
+fn test_preparation_missing_scalar_and_collection_errors_are_public() {
+    let mut config = Config::new();
+    config.set_null("scalar", DataType::Int32).unwrap();
+    assert!(config.deserialize::<String>("scalar").is_err());
+    config
+        .set("collection", MultiValues::new_unset(DataType::String))
+        .unwrap();
+    assert!(config.deserialize::<String>("collection").is_err());
+    config.set_default_read_policy(
+        ReadPolicy::builder()
+            .blank_string_policy(BlankStringPolicy::TreatAsMissing)
+            .build(),
+    );
+    config.set("blank", " ").unwrap();
+    assert!(config.deserialize::<String>("blank").is_err());
+}
+
+#[test]
+fn test_preparation_map_keys_remain_literal_while_values_interpolate() {
+    let mut config = Config::new();
+    config.set("target", "expanded").unwrap();
+    config
+        .set("map", HashMap::from([("${absent}".to_owned(), "${target}".to_owned())]))
+        .unwrap();
+    let result = config
+        .deserialize_with::<HashMap<String, String>>(
+            "map",
+            ConfigDeserializeOptions {
+                interpolate: true,
+                unknown_fields: UnknownFieldPolicy::Ignore,
+            },
+        )
+        .unwrap();
+    assert_eq!(result, HashMap::from([("${absent}".to_owned(), "expanded".to_owned())]));
+}
+
+#[cfg(feature = "url")]
+#[test]
+fn test_preparation_rich_url_is_not_an_interpolation_source() {
+    let url = url::Url::parse("custom:${absent}").unwrap();
+    let mut config = Config::new();
+    config.set("url", url.clone()).unwrap();
+    let result = config
+        .deserialize_with::<url::Url>(
+            "url",
+            ConfigDeserializeOptions {
+                interpolate: true,
+                unknown_fields: UnknownFieldPolicy::Ignore,
+            },
+        )
+        .unwrap();
+    assert_eq!(result, url);
+}
+
+#[test]
+fn test_preparation_structure_bounds_are_visible_through_deserialize() {
+    let mut config = Config::new();
+    config.set("tree.a", true).unwrap();
+    config.set("tree.b", false).unwrap();
+    config.set("values", vec![1_i32, 2]).unwrap();
+    for (limit, succeeds) in [(0, false), (1, false), (2, true)] {
+        with_limits(
+            &mut config,
+            ConversionLimits::builder()
+                .structured_limits(
+                    StructuredConversionLimits::builder()
+                        .max_map_entries(limit)
+                        .max_sequence_items(limit)
+                        .build(),
+                )
+                .build(),
+        );
+        assert_eq!(config.deserialize::<serde_json::Value>("tree").is_ok(), succeeds);
+        assert_eq!(config.deserialize::<serde_json::Value>("values").is_ok(), succeeds);
+    }
+}
+
+#[test]
+fn test_preparation_prefix_selection_uses_public_deserializer() {
+    let mut config = Config::new();
+    config.set("tree.a", 1_i32).unwrap();
+    config.set("tree2.b", 2_i32).unwrap();
+    config.set("tree_extra.c", 3_i32).unwrap();
+    config.set("other", 4_i32).unwrap();
+    assert_eq!(
+        config.deserialize::<serde_json::Value>("").unwrap(),
+        serde_json::json!({
+            "other": 4,
+            "tree": {"a": 1},
+            "tree2": {"b": 2},
+            "tree_extra": {"c": 3}
+        })
+    );
+    assert_eq!(
+        config.deserialize::<serde_json::Value>("tree").unwrap(),
+        serde_json::json!({"a": 1})
+    );
+    assert_eq!(
+        config.deserialize::<serde_json::Value>("missing").unwrap(),
+        serde_json::json!({})
+    );
+}
+
+#[test]
+fn test_preparation_section_selection_honors_unicode_prefix_and_policy() {
+    let mut config = Config::new();
+    config.set("配置.子项", 1_i32).unwrap();
+    config.set("配置.兄弟", 2_i32).unwrap();
+    let section = config.section("配置").unwrap();
+    assert_eq!(
+        section.deserialize::<serde_json::Value>("").unwrap(),
+        serde_json::json!({"兄弟": 2, "子项": 1})
+    );
+    let policy = ReadPolicy::builder()
+        .conversion_limits(
+            ConversionLimits::builder()
+                .structured_limits(StructuredConversionLimits::builder().max_map_entries(1).build())
+                .build(),
+        )
+        .build();
+    let section = section.read_with(&policy);
+    let error = section.deserialize::<serde_json::Value>("").unwrap_err();
+    assert_eq!(error.path(), Some("配置.子项"));
+}
+
+#[test]
+fn test_preparation_exact_prefix_conflict_is_reported_publicly() {
+    let mut config = Config::new();
+    config.set("tree", serde_json::json!({"nested": true})).unwrap();
+    config.set("tree.child", 1_i32).unwrap();
+    let error = config.deserialize::<serde_json::Value>("tree").unwrap_err();
+    assert_eq!(error.path(), Some("tree"));
+}
+
+#[test]
+fn test_preparation_key_budgets_are_enforced_before_indexing() {
+    let mut config = Config::new();
+    config.set("tree.abc", true).unwrap();
+    config.set("tree.def", false).unwrap();
+    for (limit, succeeds) in [(0, false), (2, false), (5, false), (6, true)] {
+        with_limits(
+            &mut config,
+            ConversionLimits::builder()
+                .operation_limits(
+                    ConversionOperationLimits::builder()
+                        .max_structured_payload_bytes(limit)
+                        .build(),
+                )
+                .build(),
+        );
+        assert_eq!(config.deserialize::<serde_json::Value>("tree").is_ok(), succeeds);
+    }
+}
+
+#[test]
+fn test_preparation_input_byte_budget_rejects_before_public_read() {
+    let mut config = Config::new();
+    config.set("tree.key", true).unwrap();
+    with_limits(
+        &mut config,
+        ConversionLimits::builder()
+            .operation_limits(ConversionOperationLimits::builder().max_input_bytes(0).build())
+            .build(),
+    );
+    let error = config.deserialize::<serde_json::Value>("tree").unwrap_err();
+    assert_eq!(error.path(), Some("tree.key"));
+}
+
+#[test]
+fn test_preparation_depth_limit_keeps_full_public_error_path() {
+    let mut config = Config::new();
+    config.set("alpha.beta.gamma", true).unwrap();
+    with_limits(
+        &mut config,
+        ConversionLimits::builder()
+            .structured_limits(StructuredConversionLimits::builder().max_depth(1).build())
+            .build(),
+    );
+    let error = config.deserialize::<serde_json::Value>("").unwrap_err();
+    assert_eq!(error.path(), Some("alpha.beta.gamma"));
+}
+
+#[test]
+fn test_preparation_dotted_subtree_is_selected_through_public_api() {
+    let mut config = Config::new();
+    config.set("service.database.port", 5432_i32).unwrap();
+    config.set("service.database.host", "localhost").unwrap();
+    assert_eq!(
+        config.deserialize::<serde_json::Value>("service.database").unwrap(),
+        serde_json::json!({"host": "localhost", "port": 5432})
+    );
+}
+
+#[test]
+fn test_preparation_exact_property_and_descendant_conflict_is_public() {
+    for reverse in [false, true] {
+        let mut config = Config::new();
+        if reverse {
+            config.set("server.port", 8080_i32).unwrap();
+        }
+        config.set("server", serde_json::json!({"host": "localhost"})).unwrap();
+        if !reverse {
+            config.set("server.port", 8080_i32).unwrap();
+        }
+        let error = config.deserialize::<serde_json::Value>("server").unwrap_err();
+        assert_eq!(error.path(), Some("server"));
+    }
+}
+
+#[test]
+fn test_preparation_scalar_parent_rejects_nested_public_properties() {
+    let mut config = Config::new();
+    config.set("server", 8080_i32).unwrap();
+    config.set("server.port", 8081_i32).unwrap();
+    let error = config.deserialize::<serde_json::Value>("").unwrap_err();
+    assert_eq!(error.path(), Some("server"));
+}
+
+#[test]
+fn test_preparation_overlapping_objects_merge_and_duplicates_fail() {
+    let mut config = Config::new();
+    config
+        .set("server.options", serde_json::json!({"nested": {"left": 1}}))
+        .unwrap();
+    config.set("server.options.nested.right", 2_i32).unwrap();
+    assert_eq!(
+        config.deserialize::<serde_json::Value>("server").unwrap(),
+        serde_json::json!({"options": {"nested": {"left": 1, "right": 2}}})
+    );
+    config.set("server.options.nested.left", 3_i32).unwrap();
+    assert!(config.deserialize::<serde_json::Value>("server").is_err());
+}
+
+#[test]
+fn test_preparation_interpolation_uses_selected_scope_publicly() {
+    let mut config = Config::new();
+    config.set("host", "root").unwrap();
+    config.set("server.host", "local").unwrap();
+    config.set("server.endpoint", "${host}").unwrap();
+    config.set("server.literal", "x".repeat(65536)).unwrap();
+    let result = config
+        .deserialize_with::<serde_json::Value>(
+            "server",
+            ConfigDeserializeOptions {
+                interpolate: true,
+                unknown_fields: UnknownFieldPolicy::Ignore,
+            },
+        )
+        .unwrap();
+    assert_eq!(result["host"], "local");
+    assert_eq!(result["endpoint"], "local");
+    assert_eq!(result["literal"].as_str().unwrap().len(), 65536);
+}
+
+#[test]
+fn test_preparation_interpolation_budget_checks_before_and_after_expansion() {
+    let mut config = Config::new();
+    config.set("v", "0123456789").unwrap();
+    config.set("text", "${v}").unwrap();
+    for (limit, succeeds) in [(4, false), (10, true)] {
+        with_limits(
+            &mut config,
+            ConversionLimits::builder()
+                .operation_limits(
+                    ConversionOperationLimits::builder()
+                        .max_structured_payload_bytes(limit)
+                        .build(),
+                )
+                .build(),
+        );
+        let result = config.deserialize_with::<String>(
+            "text",
+            ConfigDeserializeOptions {
+                interpolate: true,
+                unknown_fields: UnknownFieldPolicy::Ignore,
+            },
+        );
+        assert_eq!(result.is_ok(), succeeds);
+    }
 }

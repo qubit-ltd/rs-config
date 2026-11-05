@@ -24,6 +24,12 @@ pub(crate) struct PreparedScalar<'a> {
 
 impl<'a> PreparedScalar<'a> {
     /// Creates a prepared scalar that borrows its original text.
+    ///
+    /// # Parameters
+    ///
+    /// * `raw` - Source text retained for reads that do not interpolate.
+    #[must_use]
+    #[inline]
     pub(crate) fn new(raw: &'a str) -> Self {
         Self {
             raw,
@@ -35,6 +41,11 @@ impl<'a> PreparedScalar<'a> {
     ///
     /// When interpolation is enabled, successful substitutions are cached;
     /// failures leave the cache empty and may be retried on a later call.
+    ///
+    /// # Parameters
+    ///
+    /// * `interpolate` - Whether to resolve placeholders in the source text.
+    /// * `substitute` - Operation that expands the source text when requested.
     pub(crate) fn text(
         &self,
         interpolate: bool,
@@ -54,6 +65,12 @@ impl<'a> PreparedScalar<'a> {
     /// Returns whether `value` has the same contents as the original text.
     ///
     /// This compares string contents, not pointer identity.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - Candidate text to compare with the original source.
+    #[must_use]
+    #[inline]
     pub(crate) fn is_raw(&self, value: &str) -> bool {
         self.raw == value
     }
@@ -68,7 +85,7 @@ mod tests {
     use crate::ConfigResult;
 
     #[test]
-    fn successful_scalar_preparation_runs_once() {
+    fn test_successful_scalar_preparation_runs_once() {
         let scalar = PreparedScalar::new("${value}");
         let calls = Cell::new(0);
         let substitute = |_: &str| -> ConfigResult<String> {
@@ -82,7 +99,7 @@ mod tests {
     }
 
     #[test]
-    fn failed_scalar_preparation_is_not_cached() {
+    fn test_failed_scalar_preparation_is_not_cached() {
         let scalar = PreparedScalar::new("${value}");
         let calls = Cell::new(0);
         let substitute = |_: &str| -> ConfigResult<String> {

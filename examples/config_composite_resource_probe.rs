@@ -25,6 +25,7 @@ use qubit_config::source::SourceLoadContext;
 
 const TIMEOUT: Duration = Duration::from_secs(30);
 
+/// Selects a source-limit policy from the probe profile name.
 fn limits(profile: &str) -> Result<SourceLimits, &'static str> {
     match profile {
         "default" => Ok(SourceLimits::default()),
@@ -34,6 +35,7 @@ fn limits(profile: &str) -> Result<SourceLimits, &'static str> {
     }
 }
 
+/// Parses and validates the probe command-line arguments.
 fn parse(args: &[String]) -> Result<(String, usize, String, Option<usize>, bool), &'static str> {
     if args.len() < 6 || args.len() > 9 {
         return Err(
@@ -94,6 +96,7 @@ fn composite_label(index: usize, bytes: usize) -> String {
     label
 }
 
+/// Adapts a composite source so it can be nested as one child source.
 struct CompositeLayer(CompositeConfigSource);
 
 impl ConfigSource for CompositeLayer {
@@ -108,6 +111,7 @@ impl ConfigSource for CompositeLayer {
     }
 }
 
+/// Builds a chain or wide composite source under the selected limits.
 fn make_source(
     shape: &str,
     depth: usize,
@@ -141,12 +145,14 @@ fn make_source(
     }
 }
 
+/// Emits a flushed lifecycle marker that the parent probe can observe.
 fn phase(message: &str) {
     println!("stage={message}");
     use std::io::Write;
     let _ = std::io::stdout().flush();
 }
 
+/// Runs source construction, load, and destruction in the isolated child.
 fn child_run(shape: &str, depth: usize, profile: &str, label_bytes: Option<usize>) -> ExitCode {
     phase("constructing");
     let source = match make_source(shape, depth, profile, label_bytes) {
@@ -178,6 +184,7 @@ fn child_run(shape: &str, depth: usize, profile: &str, label_bytes: Option<usize
     }
 }
 
+/// Waits for the probe child and kills it if the fixed timeout expires.
 fn wait_child(child: &mut Child) -> Result<std::process::ExitStatus, &'static str> {
     let started = Instant::now();
     loop {
@@ -210,6 +217,7 @@ fn child_args(shape: &str, depth: usize, profile: &str, label_bytes: Option<usiz
     args
 }
 
+/// Spawns the isolated probe child and maps its result to an exit code.
 fn parent_run(shape: &str, depth: usize, profile: &str, label_bytes: Option<usize>) -> ExitCode {
     let mut command = Command::new(env::current_exe().expect("executable path"));
     command.args(child_args(shape, depth, profile, label_bytes));
@@ -236,6 +244,7 @@ fn parent_run(shape: &str, depth: usize, profile: &str, label_bytes: Option<usiz
     }
 }
 
+/// Dispatches this probe as a child worker or as its supervising parent.
 fn main() -> ExitCode {
     let args = env::args().skip(1).collect::<Vec<_>>();
     match parse(&args) {
@@ -268,7 +277,7 @@ mod tests {
     }
 
     #[test]
-    fn label_bytes_is_optional_and_validated() {
+    fn test_label_bytes_is_optional_and_validated() {
         assert_eq!(parse(&base_args()).unwrap().3, None);
         let mut args = base_args();
         args.extend(["--label-bytes".into(), "1024".into()]);
@@ -284,7 +293,7 @@ mod tests {
     }
 
     #[test]
-    fn label_bytes_survives_parent_child_argument_forwarding() {
+    fn test_label_bytes_survives_parent_child_argument_forwarding() {
         let mut parent_args = base_args();
         parent_args.extend(["--label-bytes".into(), "1024".into()]);
         let (_, _, _, label_bytes, _) = parse(&parent_args).unwrap();
@@ -296,7 +305,7 @@ mod tests {
     }
 
     #[test]
-    fn long_labels_have_exact_width_and_distinguish_layers() {
+    fn test_long_labels_have_exact_width_and_distinguish_layers() {
         assert_eq!(composite_label(12, 1024).len(), 1024);
         assert_ne!(composite_label(12, 1024), composite_label(13, 1024));
     }

@@ -9,9 +9,12 @@
 use yaml_rust2::scanner::Scanner;
 use yaml_rust2::scanner::TokenType;
 
+use self::collection_frame::CollectionFrame;
 use crate::ConfigError;
 use crate::ConfigResult;
 use crate::source::source_load_session::SourceLoadSession;
+
+mod collection_frame;
 
 /// Scans YAML syntax tokens, rejecting anchors and aliases before the value
 /// backend builds an AST and reporting whether the stream contains a value.
@@ -19,6 +22,22 @@ use crate::source::source_load_session::SourceLoadSession;
 /// Scanner errors and unsupported tokens produce fixed, source-aware
 /// diagnostics. Parser-owned text and token payloads are never included in an
 /// error.
+///
+/// # Parameters
+///
+/// * `label` - The source label used in parser diagnostics.
+/// * `content` - The YAML document whose tokens are inspected.
+/// * `session` - The source-load budgets for parser tokens and nesting depth.
+///
+/// # Returns
+///
+/// `true` when the stream contains value tokens, including explicit nulls and
+/// empty collections; otherwise, `false`.
+///
+/// # Errors
+///
+/// Returns a sanitized syntax error for scanner errors, unsupported anchors
+/// or aliases, mismatched collection closers, or exceeded source limits.
 pub(in crate::source) fn inspect_yaml_tokens(
     label: &str,
     content: &str,
@@ -90,28 +109,23 @@ pub(in crate::source) fn inspect_yaml_tokens(
     Ok(has_value_tokens)
 }
 
-/// Identifies an open YAML collection that must be paired with its closing
-/// token.
-///
-/// Block mappings and block sequences share [`Block`](Self::Block), because
-/// both are closed by `BlockEnd`. Flow mappings and sequences retain distinct
-/// variants so their respective closing tokens can be checked.
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum CollectionFrame {
-    /// An open block mapping or block sequence, closed by `BlockEnd`.
-    Block,
-    /// An open flow mapping, closed by `FlowMappingEnd`.
-    FlowMapping,
-    /// An open flow sequence, closed by `FlowSequenceEnd`.
-    FlowSequence,
-}
-
 /// Checks and records one collection opening in the current YAML stream.
 ///
 /// `frames` contains the still-open ancestors, so its length is the depth of
 /// the collection being opened: the root collection has depth zero. The
 /// depth limit is checked before the new frame is pushed; if admission fails,
 /// `frames` is unchanged.
+///
+/// # Parameters
+///
+/// * `label` - The source label for a depth-limit error.
+/// * `session` - The active source-load depth budget.
+/// * `frames` - The open collection ancestors; updated after admission.
+/// * `frame` - The collection kind to push when admitted.
+///
+/// # Returns
+///
+/// `Ok(())` after the frame is pushed.
 ///
 /// # Errors
 ///
@@ -139,6 +153,16 @@ fn admit_collection_depth(
 /// on a mismatch, the popped frame is not restored. Callers discard the
 /// scanner's collection context after either error.
 ///
+/// # Parameters
+///
+/// * `label` - The source label included in a syntax diagnostic.
+/// * `frames` - The open collection stack, whose top entry is removed.
+/// * `matches` - Predicate that accepts the expected closing collection kind.
+///
+/// # Returns
+///
+/// `Ok(())` when the popped frame matches the closing token.
+///
 /// # Errors
 ///
 /// Returns [`invalid_collection_end`] when no collection is open or the most
@@ -161,6 +185,14 @@ fn close_collection(
 ///
 /// The message contains the source label and generic syntax classification,
 /// but never includes the closing token or parser-owned text.
+///
+/// # Parameters
+///
+/// * `label` - The source label to include in the diagnostic.
+///
+/// # Returns
+///
+/// A generic YAML syntax error that does not expose parser-owned text.
 fn invalid_collection_end(label: &str) -> ConfigError {
     ConfigError::source_parse_error(
         label,
@@ -172,64 +204,10 @@ fn invalid_collection_end(label: &str) -> ConfigError {
 mod tests {
     use super::CollectionFrame;
     use super::close_collection;
-    use super::inspect_yaml_tokens;
-    use crate::source::SourceLimits;
-    use crate::source::source_load_session::SourceLoadSession;
-
-    fn session() -> SourceLoadSession<'static> {
-        SourceLoadSession::new("memory", SourceLimits::unbounded())
-    }
     use crate::ConfigError;
 
     #[test]
-    fn accepts_yaml_without_anchor_tokens() {
-        assert!(
-            inspect_yaml_tokens("memory", "value: '*literal'\nquoted: \"&text\"\n", &mut session())
-                .expect("quoted anchor-like text is ordinary scalar content")
-        );
-    }
-
-    #[test]
-    fn rejects_alias_tokens_with_source_position() {
-        let error = inspect_yaml_tokens("memory", "base: &secret value\ncopy: *secret\n", &mut session())
-            .expect_err("an alias token must be rejected before parsing values");
-
-        assert!(matches!(error, ConfigError::SourceParseError { .. }));
-        assert!(error.to_string().contains("line 1, column 7"));
-        assert!(error.to_string().contains("anchors and aliases are not supported"));
-        assert!(!error.to_string().contains("secret"));
-    }
-
-    #[test]
-    fn redacts_scanner_syntax_errors() {
-        const SECRET: &str = "YAML_SCANNER_SECRET";
-        let error = inspect_yaml_tokens("memory", &format!("value: \"{SECRET}\n"), &mut session())
-            .expect_err("an unterminated quoted scalar is invalid YAML");
-
-        assert!(matches!(error, ConfigError::SourceParseError { .. }));
-        assert!(error.to_string().contains("invalid YAML syntax"));
-        assert!(!error.to_string().contains(SECRET));
-        assert!(!format!("{error:?}").contains(SECRET));
-    }
-
-    #[test]
-    fn reports_whether_a_document_contains_value_tokens() {
-        for input in ["", " \n", "# comment\n", "---\n", "---\n# comment\n...\n"] {
-            assert!(
-                !inspect_yaml_tokens("memory", input, &mut session()).unwrap(),
-                "input={input:?}"
-            );
-        }
-        for input in ["null", "[]", "{}"] {
-            assert!(
-                inspect_yaml_tokens("memory", input, &mut session()).unwrap(),
-                "input={input:?}"
-            );
-        }
-    }
-
-    #[test]
-    fn rejects_unbalanced_or_mismatched_collection_closes() {
+    fn test_rejects_unbalanced_or_mismatched_collection_closes() {
         let mut frames = Vec::new();
         let error = close_collection("memory", &mut frames, |_| true)
             .expect_err("a close token without an open collection is invalid");

@@ -16,8 +16,10 @@ use qubit_config::UnknownFieldPolicy;
 use qubit_config::conversion::ConfigSerdeExt;
 use serde_json::Value;
 
+/// Caps decoding and generated semantic work for each fuzz input.
 const MAX_INPUT_BYTES: usize = 64 * 1024;
 
+/// Builds equivalent dotted, root, and exact-object configurations from a seed.
 fn generated_case(data: &[u8]) -> (Value, Config, Config, Config) {
     let seed = data.first().copied().unwrap_or(0);
     let signed = i64::from(seed) - 128;
@@ -54,6 +56,7 @@ fn generated_case(data: &[u8]) -> (Value, Config, Config, Config) {
     (expected, dotted, root, exact)
 }
 
+/// Checks that equivalent generated layouts deserialize to the same value.
 fn assert_generated_semantics(data: &[u8]) {
     let (expected, dotted, root, exact) = generated_case(data);
     assert_eq!(dotted.deserialize::<Value>("case").expect("read dotted case"), expected);

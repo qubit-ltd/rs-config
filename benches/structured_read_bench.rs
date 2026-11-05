@@ -17,8 +17,10 @@ use qubit_config::Config;
 use qubit_config::ConfigSerdeExt;
 use serde::Deserialize;
 
+/// Deserializes only the port field for unknown-field policy benchmarks.
 #[derive(Debug, Deserialize)]
 struct Selected {
+    /// Port value selected from the server subtree.
     port: u16,
 }
 

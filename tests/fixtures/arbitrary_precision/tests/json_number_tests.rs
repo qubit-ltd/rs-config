@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+//! Tests for arbitrary-precision JSON number conversion and wire behavior.
 
 use qubit_config::Config;
 use qubit_config::ConfigErrorKind;
@@ -99,26 +100,28 @@ fn test_json_64_bit_boundaries_and_finite_float_are_preserved() {
 }
 
 #[test]
-fn ordinary_wire_rejects_out_of_range_u128_events() {
+fn test_ordinary_wire_rejects_out_of_range_u128_events() {
     use serde::de::value::Error;
     use serde::de::value::U128Deserializer;
 
     for value in [u128::from(u64::MAX) + 1, u128::MAX] {
         let error = <Config as Deserialize>::deserialize(U128Deserializer::<Error>::new(value)).unwrap_err();
-        assert!(error.to_string().contains("JSON integer is outside the supported 64-bit range"));
+        assert!(
+            error
+                .to_string()
+                .contains("JSON integer is outside the supported 64-bit range")
+        );
     }
     let error = <Config as Deserialize>::deserialize(U128Deserializer::<Error>::new(u128::from(u64::MAX))).unwrap_err();
     assert!(!error.to_string().contains("outside the supported 64-bit range"));
 }
 
 #[test]
-fn native_float_wire_roundtrip_is_feature_independent() {
+fn test_native_float_wire_roundtrip_is_feature_independent() {
     let mut config = Config::new();
     config.set("ratio", 1.25_f64).unwrap();
     config.set("ratio32", f32::MAX).unwrap();
-    config
-        .set("ratios", vec![0.0_f64, -0.0_f64, 1.25_f64])
-        .unwrap();
+    config.set("ratios", vec![0.0_f64, -0.0_f64, 1.25_f64]).unwrap();
     config
         .set("ratios32", vec![0.0_f32, -0.0_f32, f32::MIN_POSITIVE])
         .unwrap();
@@ -139,7 +142,7 @@ fn native_float_wire_roundtrip_is_feature_independent() {
 }
 
 #[test]
-fn ordinary_float_wire_errors_redact_input() {
+fn test_ordinary_float_wire_errors_redact_input() {
     let mut config = Config::new();
     config.set("ratio", 1.25_f64).unwrap();
     let mut wire = serde_json::to_value(&config).unwrap();
@@ -165,16 +168,10 @@ fn test_json_wide_natural_projection_obeys_output_budget() {
     for text in ["18446744073709551617", "-9223372036854775809"] {
         for maximum in [0_u64, 19, 20] {
             let limits = ConversionLimits::builder()
-                .operation_limits(
-                    ConversionOperationLimits::builder()
-                        .max_output_bytes(maximum)
-                        .build(),
-                )
+                .operation_limits(ConversionOperationLimits::builder().max_output_bytes(maximum).build())
                 .build();
             let mut config = config_with_json("number", text);
-            config.set_default_read_policy(
-                ReadPolicy::builder().conversion_limits(limits).build(),
-            );
+            config.set_default_read_policy(ReadPolicy::builder().conversion_limits(limits).build());
             let result = config.deserialize::<serde_json::Value>("number");
             if maximum < 20 {
                 let error = result.expect_err("wide text must consume output bytes");
@@ -189,19 +186,13 @@ fn test_json_wide_natural_projection_obeys_output_budget() {
     }
 
     let limits = ConversionLimits::builder()
-        .operation_limits(
-            ConversionOperationLimits::builder()
-                .max_output_bytes(19)
-                .build(),
-        )
+        .operation_limits(ConversionOperationLimits::builder().max_output_bytes(19).build())
         .build();
     let mut unsigned = Config::new();
     unsigned
         .set("number", 18_446_744_073_709_551_617_u128)
         .expect("native unsigned integer should be set");
-    unsigned.set_default_read_policy(
-        ReadPolicy::builder().conversion_limits(limits.clone()).build(),
-    );
+    unsigned.set_default_read_policy(ReadPolicy::builder().conversion_limits(limits.clone()).build());
     let error = unsigned
         .deserialize::<serde_json::Value>("number")
         .expect_err("native unsigned wide text must consume output bytes");
@@ -222,18 +213,10 @@ fn test_json_wide_natural_projection_obeys_output_budget() {
     assert!(error.to_string().contains("OutputBytes"));
 
     let zero_output = ConversionLimits::builder()
-        .operation_limits(
-            ConversionOperationLimits::builder()
-                .max_output_bytes(0)
-                .build(),
-        )
+        .operation_limits(ConversionOperationLimits::builder().max_output_bytes(0).build())
         .build();
     let mut typed_unsigned = config_with_json("number", "18446744073709551617");
-    typed_unsigned.set_default_read_policy(
-        ReadPolicy::builder()
-            .conversion_limits(zero_output.clone())
-            .build(),
-    );
+    typed_unsigned.set_default_read_policy(ReadPolicy::builder().conversion_limits(zero_output.clone()).build());
     assert_eq!(
         typed_unsigned.deserialize::<u128>("number").unwrap(),
         18_446_744_073_709_551_617_u128
@@ -252,11 +235,7 @@ fn test_json_wide_natural_projection_shares_output_budget() {
     let text = "[18446744073709551617,18446744073709551617]";
     for maximum in [39_u64, 40] {
         let limits = ConversionLimits::builder()
-            .operation_limits(
-                ConversionOperationLimits::builder()
-                    .max_output_bytes(maximum)
-                    .build(),
-            )
+            .operation_limits(ConversionOperationLimits::builder().max_output_bytes(maximum).build())
             .build();
         let mut config = config_with_json("numbers", text);
         config.set_default_read_policy(ReadPolicy::builder().conversion_limits(limits).build());

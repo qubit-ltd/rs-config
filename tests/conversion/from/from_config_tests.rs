@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-// Tests for typed `FromConfig` parsing behavior.
+//! Tests for typed `FromConfig` parsing behavior.
 
 #[cfg(any(feature = "bigdecimal", feature = "num-bigint"))]
 use std::str::FromStr;
@@ -34,6 +34,8 @@ use qubit_datatype::InvalidValueReason;
 use qubit_datatype::NumericConversionPolicy;
 
 #[derive(Debug, PartialEq)]
+/// Custom conversion fixture that observes interpolation state in its parse
+/// context.
 struct ContextAware(String);
 
 impl FromConfig for ContextAware {
@@ -323,6 +325,7 @@ fn test_interpolated_string_output_limit_preserves_property_path() {
 }
 
 #[derive(Debug, PartialEq)]
+/// Fixture that delegates numeric parsing to a replacement property.
 struct ReplacementNumber(u16);
 
 impl FromConfig for ReplacementNumber {
@@ -333,6 +336,7 @@ impl FromConfig for ReplacementNumber {
 }
 
 #[derive(Debug, PartialEq)]
+/// Fixture that delegates scalar conversion to a replacement collection.
 struct ReplacementCollection(u16);
 
 impl FromConfig for ReplacementCollection {
@@ -343,6 +347,8 @@ impl FromConfig for ReplacementCollection {
 }
 
 #[derive(Debug, PartialEq)]
+/// Fixture that delegates string parsing and interpolation to a replacement
+/// property.
 struct ReplacementString(String);
 
 impl FromConfig for ReplacementString {
@@ -353,6 +359,7 @@ impl FromConfig for ReplacementString {
 }
 
 #[derive(Debug, PartialEq)]
+/// Fixture that reads the first string from a replacement collection.
 struct ReplacementStringCollection(String);
 
 impl FromConfig for ReplacementStringCollection {

@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-// Tests for public behavior produced by configuration deserialization errors.
+//! Tests for public behavior produced by configuration deserialization errors.
 
 use std::error::Error;
 use std::fmt;
@@ -25,42 +25,49 @@ use serde::de::Unexpected;
 
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)]
+/// Serde fixture used to verify safe configuration error reporting.
 struct RequiredString {
     value: String,
 }
 
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)]
+/// Serde fixture used to verify safe configuration error reporting.
 struct RequiredItems {
     items: Vec<RequiredString>,
 }
 
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)]
+/// Serde fixture used to verify safe configuration error reporting.
 struct RequiredHost {
     host: String,
 }
 
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)]
+/// Serde fixture used to verify safe configuration error reporting.
 struct RequiredNestedHost {
     nested: RequiredHost,
 }
 
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)]
+/// Serde fixture used to verify safe configuration error reporting.
 struct RequiredPair {
     pair: (i32, i32),
 }
 
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)]
+/// Serde fixture used to verify safe configuration error reporting.
 struct RequiredControlField {
     #[serde(rename = "line\nbreak")]
     line_break: String,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+/// Serde fixture used to verify safe configuration error reporting.
 enum DiagnosticMode {
     Fast,
     Safe,
@@ -68,17 +75,20 @@ enum DiagnosticMode {
 
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)]
+/// Serde fixture used to verify safe configuration error reporting.
 struct DiagnosticModeField {
     mode: DiagnosticMode,
 }
 
 #[derive(Debug, Deserialize)]
+/// Serde fixture used to verify safe configuration error reporting.
 enum ControlCharacterMode {
     #[serde(rename = "line\nbreak")]
     LineBreak,
 }
 
 #[derive(Debug)]
+/// Serde fixture used to verify safe configuration error reporting.
 struct CustomSecretError;
 
 impl<'de> Deserialize<'de> for CustomSecretError {
@@ -91,9 +101,11 @@ impl<'de> Deserialize<'de> for CustomSecretError {
 }
 
 #[derive(Debug)]
+/// Serde fixture used to verify safe configuration error reporting.
 struct InvalidTypeSecretError;
 
 #[derive(Debug)]
+/// Serde fixture used to verify safe configuration error reporting.
 struct EmptyVariantSecretError;
 
 impl<'de> Deserialize<'de> for EmptyVariantSecretError {
@@ -336,7 +348,7 @@ fn test_custom_and_invalid_type_errors_do_not_expose_secret_text() {
 }
 
 #[test]
-fn unknown_enum_variant_retains_safe_candidates() {
+fn test_unknown_enum_variant_retains_safe_candidates() {
     let mut config = Config::new();
     config.set("app.mode", "rejected-secret-canary").unwrap();
     let error = config.deserialize::<DiagnosticMode>("app.mode").unwrap_err();
@@ -361,7 +373,7 @@ fn unknown_enum_variant_retains_safe_candidates() {
 }
 
 #[test]
-fn unknown_nested_enum_variant_keeps_leaf_path() {
+fn test_unknown_nested_enum_variant_keeps_leaf_path() {
     let mut config = Config::new();
     config.set("app.mode", "invalid").unwrap();
     let error = config.deserialize::<DiagnosticModeField>("app").unwrap_err();
@@ -370,7 +382,7 @@ fn unknown_nested_enum_variant_keeps_leaf_path() {
 }
 
 #[test]
-fn unknown_enum_variant_json_escapes_schema_candidate() {
+fn test_unknown_enum_variant_json_escapes_schema_candidate() {
     let mut config = Config::new();
     config.set("app.mode", "invalid").unwrap();
     let error = config.deserialize::<ControlCharacterMode>("app.mode").unwrap_err();
@@ -379,7 +391,7 @@ fn unknown_enum_variant_json_escapes_schema_candidate() {
 }
 
 #[test]
-fn unknown_enum_variant_with_empty_candidates_is_safe() {
+fn test_unknown_enum_variant_with_empty_candidates_is_safe() {
     let mut config = Config::new();
     config.set("app.mode", "rejected-secret-canary").unwrap();
     let error = config.deserialize::<EmptyVariantSecretError>("app.mode").unwrap_err();

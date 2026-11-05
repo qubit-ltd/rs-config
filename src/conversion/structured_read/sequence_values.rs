@@ -11,15 +11,28 @@ use qubit_value::MultiValuesRef;
 
 use super::traversal::ReadView;
 
+/// Borrowed sequence source extracted from a native collection or JSON array.
 pub(super) enum SequenceValues<'tree> {
     /// Native homogeneous collection.
-    Collection(MultiValuesRef<'tree>),
+    Collection(
+        /// Borrowed collection data and its scalar elements.
+        MultiValuesRef<'tree>,
+    ),
     /// Borrowed JSON array.
-    Json(&'tree [serde_json::Value]),
+    Json(
+        /// JSON elements retained from the source array.
+        &'tree [serde_json::Value],
+    ),
 }
 
 impl<'tree> SequenceValues<'tree> {
     /// Extracts sequence input, returning `None` for scalar input.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - Read view inspected for native collection or JSON-array
+    ///   shape.
+    #[inline]
     pub(super) fn from_view(value: ReadView<'tree>) -> Option<Self> {
         match value {
             ReadView::Collection(values) => Some(Self::Collection(values)),
@@ -28,6 +41,8 @@ impl<'tree> SequenceValues<'tree> {
         }
     }
     /// Returns the number of sequence elements.
+    #[must_use]
+    #[inline]
     pub(super) fn len(&self) -> usize {
         match self {
             Self::Collection(values) => values.len(),
@@ -35,6 +50,11 @@ impl<'tree> SequenceValues<'tree> {
         }
     }
     /// Returns the element at `index`, if present.
+    ///
+    /// # Parameters
+    ///
+    /// * `index` - Zero-based sequence position to inspect.
+    #[inline]
     pub(super) fn get(&self, index: usize) -> Option<ReadView<'tree>> {
         match self {
             Self::Collection(values) => values.get(index).map(ReadView::from_scalar),

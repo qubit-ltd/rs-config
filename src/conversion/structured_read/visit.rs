@@ -41,6 +41,12 @@ pub(super) struct Visit<'a> {
 
 impl Visit<'_> {
     /// Returns the retained outer source index used in conversion diagnostics.
+    ///
+    /// # Returns
+    ///
+    /// Returns the first array index on this visit's path, or `None` when no
+    /// array index has been encountered.
+    #[inline]
     pub(super) fn source_index(&self) -> Option<usize> {
         self.original_index
     }

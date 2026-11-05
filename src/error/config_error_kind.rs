@@ -27,7 +27,7 @@
 /// assert_eq!(category, "missing");
 /// ```
 #[non_exhaustive]
-#[must_use = "use the returned value"]
+#[must_use = "inspect the configuration error category"]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ConfigErrorKind {
     /// A property key is not a canonical dotted key.

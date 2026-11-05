@@ -8,6 +8,7 @@
 //! Schema roles used to read native floating-point values from the Config wire.
 
 /// Identifies wire positions that can request typed native float decoding.
+#[must_use = "wire decoding must use the selected schema role"]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum WireReadRole {
     /// An ordinary JSON location with no recognized wire-schema context.
@@ -47,6 +48,13 @@ impl WireReadRole {
     /// Unrecognized keys and keys outside the wire schema fall back to
     /// [`Self::General`], so ordinary JSON numbers do not acquire typed-float
     /// semantics.
+    ///
+    /// # Parameters
+    /// - `key`: The key of the child member in the current object.
+    ///
+    /// # Returns
+    /// The schema role for that child, or [`Self::General`] for an unrecognized
+    /// key.
     pub(super) fn child_for_key(self, key: &str) -> Self {
         match (self, key) {
             (Self::ConfigRoot, "properties") => Self::Properties,
@@ -67,6 +75,9 @@ impl WireReadRole {
     ///
     /// Only recognized Float32 and Float64 sequence roles retain a typed
     /// element role; every other sequence falls back to [`Self::General`].
+    ///
+    /// # Returns
+    /// The schema role to apply to each element of the sequence.
     pub(super) fn sequence_element(self) -> Self {
         match self {
             Self::Float32Sequence => Self::Float32,

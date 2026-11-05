@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+
 use super::EnvConfigOptionsBuilder;
 
 /// Options controlling environment-variable key selection and normalization.
@@ -12,7 +13,7 @@ use super::EnvConfigOptionsBuilder;
 /// # Examples
 ///
 /// ```rust
-/// use qubit_config::source::{EnvConfigOptions, EnvConfigSource};
+/// use qubit_config::source::{ConfigSource, EnvConfigOptions, EnvConfigSource};
 ///
 /// let options = EnvConfigOptions::builder()
 ///     .prefix("APP_")
@@ -21,7 +22,7 @@ use super::EnvConfigOptionsBuilder;
 ///     .lowercase_keys()
 ///     .build();
 /// let source = EnvConfigSource::from_options(options);
-/// # let _ = source;
+/// assert_eq!(source.source_id(), "process environment");
 /// ```
 #[must_use = "use the returned value"]
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -45,6 +46,7 @@ impl EnvConfigOptions {
 }
 
 impl Default for EnvConfigOptions {
+    /// Creates the default value for this type.
     fn default() -> Self {
         Self::builder().build()
     }

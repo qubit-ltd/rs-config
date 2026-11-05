@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+
 use super::EnvConfigOptions;
 use super::EnvConfigSource;
 use super::SourceLimits;
@@ -20,6 +21,11 @@ pub struct EnvConfigSourceBuilder {
 
 impl EnvConfigSourceBuilder {
     /// Creates a builder with default options and limits.
+    ///
+    /// # Returns
+    ///
+    /// A builder with default key options and resource limits.
+    #[inline]
     pub fn new() -> Self {
         Self {
             options: EnvConfigOptions::default(),
@@ -28,18 +34,42 @@ impl EnvConfigSourceBuilder {
     }
 
     /// Sets environment key transformation options.
+    ///
+    /// # Parameters
+    ///
+    /// * `options` - The key selection and normalization options.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
+    #[inline]
     pub fn options(mut self, options: EnvConfigOptions) -> Self {
         self.options = options;
         self
     }
 
     /// Sets source resource limits.
+    ///
+    /// # Parameters
+    ///
+    /// * `limits` - The limits applied to one environment scan.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
+    /// Returns the resource limits applied to one load of this source.
+    #[inline]
     pub fn limits(mut self, limits: SourceLimits) -> Self {
         self.limits = limits;
         self
     }
 
     /// Builds the configured environment source.
+    ///
+    /// # Returns
+    ///
+    /// An environment source with the configured options and limits.
+    #[inline]
     pub fn build(self) -> EnvConfigSource {
         EnvConfigSource {
             options: self.options,
@@ -49,6 +79,8 @@ impl EnvConfigSourceBuilder {
 }
 
 impl Default for EnvConfigSourceBuilder {
+    /// Creates the default value for this type.
+    #[inline]
     fn default() -> Self {
         Self::new()
     }

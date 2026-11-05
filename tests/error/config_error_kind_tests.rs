@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-// Tests for stable configuration error classification and context.
+//! Tests for stable configuration error classification and context.
 
 use qubit_config::ConfigError;
 use qubit_config::ConfigErrorKind;

@@ -49,7 +49,6 @@
 
 mod composite_config_source;
 mod config_source;
-pub(crate) use config_source::load_source;
 mod env_config_options;
 mod env_config_options_builder;
 mod env_config_source;
@@ -71,6 +70,7 @@ mod yaml_config_source;
 pub use composite_config_source::CompositeConfigSource;
 pub use composite_config_source::CompositeConfigSourceBuilder;
 pub use config_source::ConfigSource;
+pub(crate) use config_source::load_source;
 pub use env_config_options::EnvConfigOptions;
 pub use env_config_options_builder::EnvConfigOptionsBuilder;
 pub use env_config_source::EnvConfigSource;

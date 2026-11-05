@@ -227,7 +227,7 @@ fn test_section_relative_keys_cannot_escape_or_be_reinterpreted_as_absolute() {
 }
 
 #[test]
-fn section_path_and_presence_accessors_are_callable_as_functions() {
+fn test_section_path_and_presence_accessors_are_callable_as_functions() {
     let mut config = Config::new();
     config.set("service.child.value", true).unwrap();
     let section = config.section("service").unwrap();

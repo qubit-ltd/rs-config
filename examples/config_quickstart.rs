@@ -6,8 +6,11 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+//! Shows basic configuration writes and typed reads with a default value.
+
 use qubit_config::Config;
 
+/// Reads required server fields and supplies a fallback timeout.
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut config = Config::new();
     config.set("server.host", "localhost")?;

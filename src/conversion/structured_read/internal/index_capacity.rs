@@ -20,6 +20,7 @@ use qubit_value::ValueError;
 use crate::ConfigError;
 use crate::ConfigResult;
 
+/// Independent resource budgets for the prepared structured-read index.
 pub(crate) struct IndexCapacity {
     /// Structure budget for the serialized map index.
     budget: JsonValueBudget<ConversionResource, u64>,
@@ -33,6 +34,11 @@ pub(crate) struct IndexCapacity {
 
 impl IndexCapacity {
     /// Creates independent structure and key budgets from conversion limits.
+    ///
+    /// # Parameters
+    ///
+    /// * `limits` - Conversion limits from which index resource ceilings are
+    ///   derived.
     pub(crate) fn new(limits: &ConversionLimits) -> Self {
         Self {
             budget: JsonValueBudget::new(
@@ -59,6 +65,11 @@ impl IndexCapacity {
     /// This transaction covers the structure budget only; it does not roll
     /// back key bytes already charged to the separate input and payload
     /// budgets.
+    ///
+    /// # Parameters
+    ///
+    /// * `measurement` - Structure or key charge to admit transactionally.
+    /// * `path` - Diagnostic path attached to a rejected charge.
     pub(crate) fn admit(&mut self, measurement: JsonMeasurement, path: &str) -> ConfigResult<()> {
         let mut transaction = self.budget.transaction();
         transaction
@@ -80,6 +91,11 @@ impl IndexCapacity {
     ///
     /// Charges are applied in sequence. If a later domain rejects the key,
     /// earlier accepted charges are not rolled back.
+    ///
+    /// # Parameters
+    ///
+    /// * `bytes` - Encoded byte length of the key being admitted.
+    /// * `path` - Diagnostic path attached to a rejected charge.
     pub(crate) fn key(&mut self, bytes: usize, path: &str) -> ConfigResult<()> {
         self.input_keys
             .try_consume_usize(bytes)
@@ -91,6 +107,11 @@ impl IndexCapacity {
     }
 
     /// Checks a map's entry count against the configured structured limit.
+    ///
+    /// # Parameters
+    ///
+    /// * `count` - Number of entries in the map being indexed.
+    /// * `path` - Diagnostic path attached to a rejected count.
     pub(crate) fn entries(&self, count: usize, path: &str) -> ConfigResult<()> {
         // Rust supports pointer widths up to 64 bits, so every `usize` fits in `u64`.
         let count = count as u64;
@@ -103,6 +124,11 @@ impl IndexCapacity {
 }
 
 /// Wraps an index budget failure with its configuration path.
+///
+/// # Parameters
+///
+/// * `path` - Diagnostic path associated with the rejected resource use.
+/// * `source` - Budget error containing the failed resource measurement.
 fn index_error(path: &str, source: MeasuredBudgetError<ConversionResource, u64>) -> ConfigError {
     ConfigError::from((
         path,

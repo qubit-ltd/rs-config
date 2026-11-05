@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+//! Tests for standard JSON number semantics and wire roundtrips.
 
 use qubit_config::Config;
 use serde_json::Value as JsonValue;
@@ -16,14 +17,18 @@ fn test_dependency_uses_standard_json_numbers() {
 }
 
 #[test]
-fn ordinary_wire_rejects_out_of_range_u128_events() {
+fn test_ordinary_wire_rejects_out_of_range_u128_events() {
     use serde::Deserialize;
     use serde::de::value::Error;
     use serde::de::value::U128Deserializer;
 
     for value in [u128::from(u64::MAX) + 1, u128::MAX] {
         let error = <Config as Deserialize>::deserialize(U128Deserializer::<Error>::new(value)).unwrap_err();
-        assert!(error.to_string().contains("JSON integer is outside the supported 64-bit range"));
+        assert!(
+            error
+                .to_string()
+                .contains("JSON integer is outside the supported 64-bit range")
+        );
     }
     let error = <Config as Deserialize>::deserialize(U128Deserializer::<Error>::new(u128::from(u64::MAX))).unwrap_err();
     assert!(!error.to_string().contains("outside the supported 64-bit range"));
@@ -59,13 +64,11 @@ fn test_ordinary_float_wire_errors_redact_input() {
 }
 
 #[test]
-fn native_float_wire_roundtrip_is_feature_independent() {
+fn test_native_float_wire_roundtrip_is_feature_independent() {
     let mut config = Config::new();
     config.set("ratio", 1.25_f64).unwrap();
     config.set("ratio32", f32::MAX).unwrap();
-    config
-        .set("ratios", vec![0.0_f64, -0.0_f64, 1.25_f64])
-        .unwrap();
+    config.set("ratios", vec![0.0_f64, -0.0_f64, 1.25_f64]).unwrap();
     config
         .set("ratios32", vec![0.0_f32, -0.0_f32, f32::MIN_POSITIVE])
         .unwrap();

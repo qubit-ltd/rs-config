@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-// Tests for guarded mutable property access.
+//! Tests guarded mutable property access and final-property enforcement.
 
 use qubit_config::Config;
 use qubit_config::ConfigError;

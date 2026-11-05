@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-// Tests for default value adapters used by configuration reads.
+//! Tests for default value adapters used by configuration reads.
 
 use qubit_config::Config;
 

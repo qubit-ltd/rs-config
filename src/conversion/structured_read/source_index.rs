@@ -22,6 +22,7 @@ use crate::Property;
 /// references borrow the original configuration for the prepared read's
 /// lifetime.
 #[derive(Debug)]
+#[must_use = "the source index must be retained for prepared reads"]
 pub(super) enum SourceIndex<'a> {
     /// One exact property is the complete input.
     Exact {
@@ -41,6 +42,7 @@ pub(super) enum SourceIndex<'a> {
 
 impl<'a> SourceIndex<'a> {
     /// Creates an empty subtree index.
+    #[inline]
     pub(super) fn tree() -> Self {
         Self::Tree {
             properties: Vec::new(),
@@ -49,6 +51,11 @@ impl<'a> SourceIndex<'a> {
     }
 
     /// Creates an index for one exact property.
+    ///
+    /// # Parameters
+    ///
+    /// * `property` - Source property addressed as the sole exact input.
+    #[inline]
     pub(super) fn exact(property: &'a Property) -> Self {
         Self::Exact {
             property,
@@ -63,11 +70,18 @@ impl<'a> SourceIndex<'a> {
     ///
     /// Exact indexes address only node and property index zero; subtree reads
     /// use the tree variant instead.
+    #[inline]
     pub(super) fn is_exact(&self) -> bool {
         matches!(self, Self::Exact { .. })
     }
 
     /// Returns the node's origin, or `None` for synthetic/out-of-range nodes.
+    ///
+    /// # Parameters
+    ///
+    /// * `id` - Prepared arena node whose original source location is
+    ///   requested.
+    #[inline]
     pub(super) fn origin(&self, id: NodeId) -> Option<&SourceLocation> {
         match self {
             Self::Exact { origin, .. } => (id == 0).then_some(origin),
@@ -76,6 +90,11 @@ impl<'a> SourceIndex<'a> {
     }
 
     /// Returns the source property at `index`, or `None` when out of range.
+    ///
+    /// # Parameters
+    ///
+    /// * `index` - Property-table position, distinct from an arena node ID.
+    #[inline]
     pub(super) fn property(&self, index: usize) -> Option<&'a Property> {
         match self {
             Self::Exact { property, .. } => (index == 0).then_some(*property),
@@ -87,6 +106,11 @@ impl<'a> SourceIndex<'a> {
     ///
     /// This is not the number of arena nodes; use the prepared node arena for
     /// that count.
+    ///
+    /// # Parameters
+    ///
+    /// * `self` - Source index whose property-table size is measured.
+    #[inline]
     pub(super) fn len(&self) -> usize {
         match self {
             Self::Exact { .. } => 1,
@@ -99,6 +123,10 @@ impl<'a> SourceIndex<'a> {
     /// Call this once, in arena-node insertion order, so a node ID addresses
     /// the matching origin slot. `None` records a synthetic node. This is
     /// valid only for [`Self::Tree`]; calling it on [`Self::Exact`] panics.
+    ///
+    /// # Parameters
+    ///
+    /// * `origin` - Optional source location corresponding to the next node.
     pub(super) fn push_origin(&mut self, origin: Option<SourceLocation>) {
         let Self::Tree { origins, .. } = self else {
             unreachable!("only subtree construction appends nodes")
@@ -111,6 +139,10 @@ impl<'a> SourceIndex<'a> {
     /// Property indexes address this table and are distinct from arena node
     /// IDs. Append properties in the order used by their source locations;
     /// this is valid only for [`Self::Tree`], and panics on [`Self::Exact`].
+    ///
+    /// # Parameters
+    ///
+    /// * `property` - Source property to append to the lookup table.
     pub(super) fn push_property(&mut self, property: &'a Property) {
         let Self::Tree { properties, .. } = self else {
             unreachable!("only subtree construction appends properties")

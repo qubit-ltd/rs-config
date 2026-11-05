@@ -18,11 +18,13 @@ use qubit_config::Config;
 use qubit_config::ConfigReader;
 
 #[derive(Clone, Copy, Default)]
+/// Tracks allocation count and total requested bytes on one test thread.
 struct AllocationCounts {
     count: usize,
     bytes: usize,
 }
 
+/// Global allocator wrapper that records allocations on the active test thread.
 struct CountingAllocator;
 
 static ALLOCATION_TEST_LOCK: Mutex<()> = Mutex::new(());
@@ -41,6 +43,7 @@ fn test_thread_allocations() -> usize {
     TEST_THREAD_ALLOCATIONS.with(|allocations| allocations.get().count)
 }
 
+/// Returns the allocated byte count observed on the current test thread.
 fn test_thread_allocation_bytes() -> usize {
     TEST_THREAD_ALLOCATIONS.with(|allocations| allocations.get().bytes)
 }

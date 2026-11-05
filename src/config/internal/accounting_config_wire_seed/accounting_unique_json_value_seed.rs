@@ -44,6 +44,11 @@ pub(super) struct AccountingUniqueJsonValueSeed<'transaction, 'budget> {
 
 impl<'transaction, 'budget> AccountingUniqueJsonValueSeed<'transaction, 'budget> {
     /// Creates a root seed using the supplied accounting transaction.
+    ///
+    /// # Parameters
+    ///
+    /// * `transaction` - Shared JSON budget transaction charged for decoded
+    ///   events.
     pub(super) fn new(transaction: &'transaction mut JsonValueTransaction<'budget, JsonResource, u64>) -> Self {
         Self {
             transaction,
@@ -54,6 +59,14 @@ impl<'transaction, 'budget> AccountingUniqueJsonValueSeed<'transaction, 'budget>
     }
 
     /// Creates a child seed at the next root-inclusive depth.
+    ///
+    /// The child inherits the shared accounting transaction and receives the
+    /// caller-selected schema role.
+    ///
+    /// # Parameters
+    ///
+    /// * `role` - Schema location used to choose decoding behavior for the
+    ///   child.
     fn child<'child>(&'child mut self, role: WireReadRole) -> AccountingUniqueJsonValueSeed<'child, 'budget> {
         AccountingUniqueJsonValueSeed {
             transaction: self.transaction,
@@ -65,6 +78,15 @@ impl<'transaction, 'budget> AccountingUniqueJsonValueSeed<'transaction, 'budget>
 
     /// Creates a child seed that checks a prospective container member before
     /// deserializing its value.
+    ///
+    /// The member count is checked before the child consumes any nested data.
+    ///
+    /// # Parameters
+    ///
+    /// * `kind` - Container kind whose next member is checked.
+    /// * `prospective` - Member count including the child about to be decoded.
+    /// * `role` - Schema location used to choose decoding behavior for the
+    ///   child.
     fn prospective_child<'child>(
         &'child mut self,
         kind: JsonContainerKind,
@@ -80,6 +102,16 @@ impl<'transaction, 'budget> AccountingUniqueJsonValueSeed<'transaction, 'budget>
     }
 
     /// Accounts a JSON number while retaining serde_json's representable range.
+    ///
+    /// The measured byte size uses the serialized number representation.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `E` - Serde error type used to report rejected number measurements.
+    ///
+    /// # Parameters
+    ///
+    /// * `number` - JSON number to account and retain in the output value.
     fn enter_number<E>(&mut self, number: Number) -> Result<Value, E>
     where
         E: DeError,
@@ -95,8 +127,21 @@ impl<'transaction, 'budget> AccountingUniqueJsonValueSeed<'transaction, 'budget>
 }
 
 impl<'de, 'transaction, 'budget> DeserializeSeed<'de> for AccountingUniqueJsonValueSeed<'transaction, 'budget> {
+    /// A fully materialized JSON value whose events have been admitted.
     type Value = Value;
 
+    /// Deserializes one value after checking any prospective container count.
+    ///
+    /// Float roles use option-aware decoding to preserve typed native floats;
+    /// other roles accept any JSON value.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `D` - Deserializer supplying the current JSON value.
+    ///
+    /// # Parameters
+    ///
+    /// * `deserializer` - Source of the value being admitted.
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: Deserializer<'de>,
@@ -114,12 +159,27 @@ impl<'de, 'transaction, 'budget> DeserializeSeed<'de> for AccountingUniqueJsonVa
 }
 
 impl<'de, 'transaction, 'budget> Visitor<'de> for AccountingUniqueJsonValueSeed<'transaction, 'budget> {
+    /// A JSON value built from uniquely keyed object members.
     type Value = Value;
 
+    /// Describes the JSON value shape accepted by this visitor.
+    ///
+    /// # Parameters
+    ///
+    /// * `formatter` - Output formatter receiving the expected-shape message.
     fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str("a JSON value with unique object keys")
     }
 
+    /// Charges one boolean event and returns its JSON representation.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `E` - Serde error type used to report budget rejection.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - Boolean supplied by the source deserializer.
     fn visit_bool<E>(self, value: bool) -> Result<Self::Value, E>
     where
         E: DeError,
@@ -130,6 +190,15 @@ impl<'de, 'transaction, 'budget> Visitor<'de> for AccountingUniqueJsonValueSeed<
         Ok(Value::Bool(value))
     }
 
+    /// Accounts a signed 64-bit integer using serde_json's number type.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `E` - Serde error type used to report budget rejection.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - Signed integer supplied by the source deserializer.
     fn visit_i64<E>(mut self, value: i64) -> Result<Self::Value, E>
     where
         E: DeError,
@@ -137,6 +206,15 @@ impl<'de, 'transaction, 'budget> Visitor<'de> for AccountingUniqueJsonValueSeed<
         self.enter_number(Number::from(value))
     }
 
+    /// Accounts an unsigned 64-bit integer using serde_json's number type.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `E` - Serde error type used to report budget rejection.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - Unsigned integer supplied by the source deserializer.
     fn visit_u64<E>(mut self, value: u64) -> Result<Self::Value, E>
     where
         E: DeError,
@@ -144,6 +222,16 @@ impl<'de, 'transaction, 'budget> Visitor<'de> for AccountingUniqueJsonValueSeed<
         self.enter_number(Number::from(value))
     }
 
+    /// Accounts a signed 128-bit input when it fits JSON's supported 64-bit
+    /// range.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `E` - Serde error type used for range and budget errors.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - Signed 128-bit integer supplied by the source.
     fn visit_i128<E>(mut self, value: i128) -> Result<Self::Value, E>
     where
         E: DeError,
@@ -158,6 +246,15 @@ impl<'de, 'transaction, 'budget> Visitor<'de> for AccountingUniqueJsonValueSeed<
         self.enter_number(number)
     }
 
+    /// Accounts an unsigned 128-bit input when it fits JSON's supported range.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `E` - Serde error type used for range and budget errors.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - Unsigned 128-bit integer supplied by the source.
     fn visit_u128<E>(mut self, value: u128) -> Result<Self::Value, E>
     where
         E: DeError,
@@ -167,6 +264,16 @@ impl<'de, 'transaction, 'budget> Visitor<'de> for AccountingUniqueJsonValueSeed<
         self.enter_number(Number::from(value))
     }
 
+    /// Accounts a finite double, rounding to `f32` when the schema marks that
+    /// role.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `E` - Serde error type used for numeric and budget errors.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - Double precision value supplied by the source.
     fn visit_f64<E>(mut self, value: f64) -> Result<Self::Value, E>
     where
         E: DeError,
@@ -180,6 +287,15 @@ impl<'de, 'transaction, 'budget> Visitor<'de> for AccountingUniqueJsonValueSeed<
         self.enter_number(number)
     }
 
+    /// Converts and accounts a finite native single-precision float.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `E` - Serde error type used for numeric and budget errors.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - Single precision value supplied by the source.
     fn visit_f32<E>(mut self, value: f32) -> Result<Self::Value, E>
     where
         E: DeError,
@@ -189,6 +305,15 @@ impl<'de, 'transaction, 'budget> Visitor<'de> for AccountingUniqueJsonValueSeed<
         self.enter_number(number)
     }
 
+    /// Charges the UTF-8 byte length and owns a borrowed string value.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `E` - Serde error type used to report budget rejection.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - Borrowed UTF-8 text supplied by the source.
     fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
     where
         E: DeError,
@@ -202,6 +327,15 @@ impl<'de, 'transaction, 'budget> Visitor<'de> for AccountingUniqueJsonValueSeed<
         Ok(Value::String(value.to_owned()))
     }
 
+    /// Charges the UTF-8 byte length and retains an owned string value.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `E` - Serde error type used to report budget rejection.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - Owned UTF-8 text supplied by the source.
     fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
     where
         E: DeError,
@@ -215,6 +349,11 @@ impl<'de, 'transaction, 'budget> Visitor<'de> for AccountingUniqueJsonValueSeed<
         Ok(Value::String(value))
     }
 
+    /// Charges and returns a JSON null value.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `E` - Serde error type used to report budget rejection.
     fn visit_none<E>(self) -> Result<Self::Value, E>
     where
         E: DeError,
@@ -225,6 +364,11 @@ impl<'de, 'transaction, 'budget> Visitor<'de> for AccountingUniqueJsonValueSeed<
         Ok(Value::Null)
     }
 
+    /// Treats a unit value as JSON null using the same accounting path.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `E` - Serde error type used to report budget rejection.
     fn visit_unit<E>(self) -> Result<Self::Value, E>
     where
         E: DeError,
@@ -232,6 +376,16 @@ impl<'de, 'transaction, 'budget> Visitor<'de> for AccountingUniqueJsonValueSeed<
         self.visit_none()
     }
 
+    /// Decodes a present option payload, using typed float visitors when
+    /// needed.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `D` - Deserializer supplying the option payload.
+    ///
+    /// # Parameters
+    ///
+    /// * `deserializer` - Source of the present option value.
     fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: Deserializer<'de>,
@@ -243,6 +397,15 @@ impl<'de, 'transaction, 'budget> Visitor<'de> for AccountingUniqueJsonValueSeed<
         }
     }
 
+    /// Unwraps a newtype wrapper and decodes its contained JSON value.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `D` - Deserializer supplying the wrapped value.
+    ///
+    /// # Parameters
+    ///
+    /// * `deserializer` - Source of the newtype's inner value.
     fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: Deserializer<'de>,
@@ -250,6 +413,15 @@ impl<'de, 'transaction, 'budget> Visitor<'de> for AccountingUniqueJsonValueSeed<
         deserializer.deserialize_any(self)
     }
 
+    /// Accounts an array and each prospective element before decoding it.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `A` - Serde sequence accessor for the source array.
+    ///
+    /// # Parameters
+    ///
+    /// * `sequence` - Source elements decoded under the shared budget.
     fn visit_seq<A>(mut self, mut sequence: A) -> Result<Self::Value, A::Error>
     where
         A: SeqAccess<'de>,
@@ -273,6 +445,17 @@ impl<'de, 'transaction, 'budget> Visitor<'de> for AccountingUniqueJsonValueSeed<
         Ok(Value::Array(values))
     }
 
+    /// Accounts an object, rejects duplicate keys, and decodes each value by
+    /// role.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `A` - Serde map accessor for the source object.
+    ///
+    /// # Parameters
+    ///
+    /// * `map` - Source entries whose keys and values are incrementally
+    ///   admitted.
     fn visit_map<A>(mut self, mut map: A) -> Result<Self::Value, A::Error>
     where
         A: MapAccess<'de>,

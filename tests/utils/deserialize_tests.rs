@@ -5,6 +5,8 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+//! Tests Config deserialization of typed values, policies, interpolation, and
+//! errors.
 
 use qubit_config::ConfigDeserializeOptions;
 use qubit_config::UnknownFieldPolicy;

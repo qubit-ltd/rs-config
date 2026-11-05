@@ -6,6 +6,7 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+#[cfg(feature = "toml")]
 use qubit_config::Config;
 use qubit_config::ConfigError;
 use qubit_config::SourceLimitKind;
@@ -22,13 +23,11 @@ use qubit_config::source::TomlConfigSource;
 use qubit_config::source::YamlConfigSource;
 
 #[test]
-fn properties_source_rejects_oversized_in_memory_input_before_loading() {
+fn test_properties_source_rejects_oversized_in_memory_input_before_loading() {
     let source = PropertiesConfigSource::builder()
         .content("key=abcd\n")
         .limits(SourceLimits::builder().max_input_bytes(3).build())
         .build();
-    let _config = Config::new();
-
     let error = source.load().expect_err("oversized in-memory input must be rejected");
     assert!(matches!(
         error,
@@ -42,7 +41,26 @@ fn properties_source_rejects_oversized_in_memory_input_before_loading() {
 }
 
 #[test]
-fn in_memory_source_debug_redacts_content_and_preserves_behavior() {
+fn test_file_open_errors_keep_the_original_os_code_and_source_id() {
+    let directory = tempfile::tempdir().expect("temporary directory should be created");
+    let path = directory.path().join("missing.properties");
+    let expected_source_id = path.to_string_lossy().into_owned();
+    let original_error = std::fs::File::open(&path).expect_err("the test path should not exist");
+    let source = PropertiesConfigSource::from_file(&path);
+
+    let error = source.load().expect_err("opening the missing file should fail");
+
+    assert_eq!(error.source_id(), Some(expected_source_id.as_str()));
+    let io_error = std::error::Error::source(&error)
+        .and_then(|source| source.downcast_ref::<std::io::Error>())
+        .expect("source I/O error should retain its underlying io::Error");
+    assert_eq!(io_error.kind(), original_error.kind());
+    assert_eq!(io_error.raw_os_error(), original_error.raw_os_error());
+    assert!(io_error.raw_os_error().is_some());
+}
+
+#[test]
+fn test_in_memory_source_debug_redacts_content_and_preserves_behavior() {
     const SECRET: &str = "SYNTHETIC_REVIEW_SECRET";
     let source = PropertiesConfigSource::from_content(format!("password={SECRET}"));
     let cloned = source.clone();
@@ -68,6 +86,16 @@ fn in_memory_source_debug_redacts_content_and_preserves_behavior() {
     assert!(format!("{file_source:?}").contains(path.to_str().unwrap()));
 }
 
+/// Checks that a source and its clone omit a secret from Debug output.
+///
+/// # Type Parameters
+///
+/// * `T` - A cloneable source type with a Debug representation.
+///
+/// # Parameters
+///
+/// * `source` - The source whose rendered value is checked.
+/// * `secret` - The text that must not appear in Debug output.
 #[cfg(any(feature = "env-file", feature = "toml", feature = "yaml"))]
 fn assert_redacted<T: std::fmt::Debug + Clone>(source: &T, secret: &str) {
     let cloned = source.clone();
@@ -79,7 +107,7 @@ fn assert_redacted<T: std::fmt::Debug + Clone>(source: &T, secret: &str) {
 }
 
 #[test]
-fn properties_dotted_key_depth_remains_the_reference_behavior() {
+fn test_properties_dotted_key_depth_remains_the_reference_behavior() {
     let source = PropertiesConfigSource::builder()
         .content("server.port=8080\n")
         .limits(SourceLimits::builder().max_nesting_depth(1).build())
@@ -251,7 +279,7 @@ fn test_yaml_dotted_member_respects_output_depth() {
 
 #[cfg(feature = "toml")]
 #[test]
-fn strict_composite_depth_rejection_is_transactional() {
+fn test_strict_composite_depth_rejection_is_transactional() {
     let mut composite = CompositeConfigSource::builder()
         .limits(SourceLimits::builder().max_nesting_depth(1).build())
         .build();

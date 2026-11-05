@@ -45,6 +45,7 @@ use crate::SourceLimitKind;
 /// # Ok::<(), ConfigError>(())
 /// ```
 #[non_exhaustive]
+#[must_use]
 #[derive(Debug, Error)]
 pub enum ConfigError {
     /// Configuration property key is not canonical.
@@ -324,14 +325,133 @@ pub enum ConfigError {
 }
 
 impl ConfigError {
-    pub(crate) fn with_assignment_source(self, source_id: &str) -> Self {
-        match self {
-            Self::InvalidKey { key, violation } => Self::SourceInvalidKey {
-                source_id: source_id.to_owned(),
-                key,
-                violation,
+    /// Maps a common data conversion error to a keyed configuration error.
+    ///
+    /// # Parameters
+    ///
+    /// * `key` - Configuration path associated with the conversion.
+    /// * `error` - Structured conversion failure to classify.
+    ///
+    /// # Returns
+    ///
+    /// A missing-value or conversion error retaining `key`.
+    #[inline]
+    pub fn from_data_conversion_error(key: &str, error: DataConversionError) -> Self {
+        if error.is_missing() {
+            Self::ValueError {
+                key: key.to_string(),
+                source: ValueError::from(error),
+            }
+        } else {
+            Self::ConversionError {
+                key: key.to_string(),
+                source_index: None,
+                source: error,
+            }
+        }
+    }
+
+    /// Creates an I/O error associated with a named configuration source.
+    ///
+    /// # Parameters
+    ///
+    /// - `source_id`: stable identifier or path for the configuration source.
+    /// - `source`: underlying operating-system I/O failure.
+    ///
+    /// # Returns
+    ///
+    /// Returns a source-aware I/O configuration error.
+    pub(crate) fn source_io_error(source_id: impl Into<String>, source: std::io::Error) -> Self {
+        Self::SourceIoError {
+            source_id: source_id.into(),
+            source,
+        }
+    }
+
+    /// Creates a parse error associated with a named configuration source.
+    ///
+    /// # Parameters
+    ///
+    /// - `source_id`: stable identifier or path for the configuration source.
+    /// - `message`: human-readable parse failure description.
+    ///
+    /// # Returns
+    ///
+    /// Returns a source-aware parse error without path or collection-index
+    /// context.
+    pub(crate) fn source_parse_error(source_id: impl Into<String>, message: impl Into<String>) -> Self {
+        Self::SourceParseError {
+            source_id: source_id.into(),
+            path: None,
+            source_index: None,
+            message: message.into(),
+        }
+    }
+
+    /// Creates a source-aware parse error with optional path and index context.
+    ///
+    /// # Parameters
+    ///
+    /// - `source_id`: stable identifier or path for the configuration source.
+    /// - `path`: optional source-relative configuration path.
+    /// - `source_index`: optional original collection index.
+    /// - `message`: human-readable parse failure description.
+    ///
+    /// # Returns
+    ///
+    /// Returns a parse error retaining the supplied source, path, and index
+    /// context while including present coordinates in its message.
+    pub(crate) fn source_parse_error_at(
+        source_id: impl Into<String>,
+        path: Option<String>,
+        source_index: Option<usize>,
+        message: impl Into<String>,
+    ) -> Self {
+        let mut message = message.into();
+        if let Some(path) = path.as_deref() {
+            message.push_str(&format!(" at path '{path}'"));
+        }
+        if let Some(index) = source_index {
+            message.push_str(&format!(" at source index {index}"));
+        }
+        Self::SourceParseError {
+            source_id: source_id.into(),
+            path,
+            source_index,
+            message,
+        }
+    }
+
+    /// Maps a value-layer error while retaining its list source index.
+    ///
+    /// # Parameters
+    ///
+    /// * `key` - Configuration path associated with the value operation.
+    /// * `error` - Value-layer error to classify.
+    ///
+    /// # Returns
+    ///
+    /// A configuration error retaining `key` and structured source context.
+    fn from_value_error(key: &str, error: ValueError) -> Self {
+        match error {
+            ValueError::TypeMismatch { expected, actual } => Self::TypeMismatch {
+                key: key.to_string(),
+                expected,
+                actual,
             },
-            error => error,
+            ValueError::Conversion(source) => Self::from_data_conversion_error(key, source),
+            ValueError::ListConversion(error) => {
+                let (source_index, source) = error.into_parts();
+                Self::ConversionError {
+                    key: key.to_string(),
+                    source_index: Some(source_index),
+                    source,
+                }
+            }
+            source => Self::ValueError {
+                key: key.to_string(),
+                source,
+            },
         }
     }
 
@@ -340,7 +460,6 @@ impl ConfigError {
     /// # Returns
     ///
     /// The category corresponding to the concrete error variant.
-    #[must_use = "use the returned value"]
     pub const fn kind(&self) -> ConfigErrorKind {
         match self {
             Self::InvalidKey { .. } | Self::SourceInvalidKey { .. } => ConfigErrorKind::InvalidKey,
@@ -380,7 +499,6 @@ impl ConfigError {
     ///
     /// `Some(path)` for errors tied to one configuration key, otherwise
     /// `None`.
-    #[must_use = "use the returned value"]
     pub fn path(&self) -> Option<&str> {
         match self {
             Self::InvalidKey { key: path, .. }
@@ -425,7 +543,6 @@ impl ConfigError {
     /// resource-limit, source-originated key-conflict, source assignment key,
     /// and final-property merge errors; otherwise `None`.
     #[inline]
-    #[must_use = "use the returned value"]
     pub fn source_id(&self) -> Option<&str> {
         match self {
             Self::SourceLimitExceeded { source_id, .. }
@@ -441,10 +558,143 @@ impl ConfigError {
         }
     }
 
+    /// Returns the local or aggregate budget identifier for a source limit
+    /// failure.
+    ///
+    /// # Returns
+    ///
+    /// Returns the budget identifier for a source-limit error, or `None` for
+    /// other error variants.
+    #[inline]
+    pub fn source_budget_id(&self) -> Option<&str> {
+        match self {
+            Self::SourceLimitExceeded { budget_id, .. } => Some(budget_id),
+            _ => None,
+        }
+    }
+
+    /// Returns the structured budget failure for a source limit error.
+    ///
+    /// # Returns
+    ///
+    /// Returns the borrowed budget failure for a source-limit error, or
+    /// `None` otherwise.
+    #[inline]
+    pub const fn budget_error(&self) -> Option<&BudgetError<SourceLimitKind, usize>> {
+        match self {
+            Self::SourceLimitExceeded { source, .. } => Some(source),
+            _ => None,
+        }
+    }
+
+    /// Returns missing candidate paths carried by a property lookup error.
+    ///
+    /// # Returns
+    ///
+    /// A one-element slice for [`Self::PropertyNotFound`], all ordered
+    /// candidates for [`Self::PropertyCandidatesNotFound`], or `None` for
+    /// other error kinds.
+    #[inline]
+    pub fn candidate_paths(&self) -> Option<&[String]> {
+        match self {
+            Self::PropertyNotFound(path) => Some(std::slice::from_ref(path)),
+            Self::PropertyCandidatesNotFound { paths } => Some(paths),
+            _ => None,
+        }
+    }
+
+    /// Returns unknown configuration paths found by strict deserialization.
+    ///
+    /// Special member names use JSON-quoted bracket segments; for example,
+    /// the literal key `a.b` is reported as `payload["a.b"]`, distinct from
+    /// the nested path `payload.a.b`. These strings are diagnostic paths, not
+    /// configuration lookup paths.
+    ///
+    /// # Returns
+    ///
+    /// Returns the unknown-property path list for `UnknownProperties`, or
+    /// `None` for other error variants.
+    #[inline]
+    pub fn unknown_property_paths(&self) -> Option<&[String]> {
+        match self {
+            Self::UnknownProperties { paths } => Some(paths),
+            _ => None,
+        }
+    }
+
+    /// Returns the failing collection element index when available.
+    ///
+    /// # Returns
+    ///
+    /// The original zero-based source index for collection conversion errors,
+    /// indexed substitution errors, source parse errors, and indexed value
+    /// errors when available; otherwise `None`.
+    #[inline(always)]
+    pub const fn source_index(&self) -> Option<usize> {
+        match self {
+            Self::ConversionError { source_index, .. }
+            | Self::PlatformIntegerOutOfRange { source_index, .. }
+            | Self::SourceParseError { source_index, .. } => *source_index,
+            Self::IndexedSubstitutionError { source_index, .. } => Some(*source_index),
+            Self::ValueError { source, .. } => match source {
+                ValueError::Missing(missing) => missing.source_index(),
+                ValueError::JsonProjectionLimit { source_index, .. } => *source_index,
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    /// Returns the original value-layer missing context, when available.
+    ///
+    /// # Returns
+    ///
+    /// Returns the borrowed missing-value details from a value error, or
+    /// `None` otherwise.
+    #[inline]
+    pub const fn value_missing(&self) -> Option<&ValueMissing> {
+        match self {
+            Self::ValueError { source, .. } => source.missing(),
+            _ => None,
+        }
+    }
+
+    /// Adds a source identifier to an invalid assignment-key error.
+    ///
+    /// Other error variants are returned unchanged.
+    ///
+    /// # Parameters
+    ///
+    /// - `source_id`: stable source identifier attached to an invalid key.
+    ///
+    /// # Returns
+    ///
+    /// Returns a source-aware key error for `InvalidKey`, or the original
+    /// variant for every other error.
+    pub(crate) fn with_assignment_source(self, source_id: &str) -> Self {
+        match self {
+            Self::InvalidKey { key, violation } => Self::SourceInvalidKey {
+                source_id: source_id.to_owned(),
+                key,
+                violation,
+            },
+            error => error,
+        }
+    }
+
     /// Adds the incoming source identifier to a final-property merge error.
     ///
     /// Other errors are returned unchanged so source-loading failures retain
     /// their original classification and context.
+    ///
+    /// # Parameters
+    ///
+    /// - `source_id`: stable identifier of the incoming configuration source.
+    ///
+    /// # Returns
+    ///
+    /// Returns `SourcePropertyIsFinal` for a final-property error and the
+    /// original error variant otherwise.
     pub(crate) fn with_merge_source(self, source_id: &str) -> Self {
         match self {
             Self::PropertyIsFinal(key) => Self::SourcePropertyIsFinal {
@@ -455,68 +705,21 @@ impl ConfigError {
         }
     }
 
-    /// Returns the local or aggregate budget identifier for a source limit
-    /// failure.
-    #[inline]
-    #[must_use = "use the returned value"]
-    pub fn source_budget_id(&self) -> Option<&str> {
-        match self {
-            Self::SourceLimitExceeded { budget_id, .. } => Some(budget_id),
-            _ => None,
-        }
-    }
-
-    /// Returns the structured budget failure for a source limit error.
-    #[inline]
-    #[must_use = "use the returned value"]
-    pub const fn budget_error(&self) -> Option<&BudgetError<SourceLimitKind, usize>> {
-        match self {
-            Self::SourceLimitExceeded { source, .. } => Some(source),
-            _ => None,
-        }
-    }
-
-    /// Creates an I/O error associated with a named configuration source.
-    pub(crate) fn source_io_error(source_id: impl Into<String>, source: std::io::Error) -> Self {
-        Self::SourceIoError {
-            source_id: source_id.into(),
-            source,
-        }
-    }
-
-    /// Creates a parse error associated with a named configuration source.
-    pub(crate) fn source_parse_error(source_id: impl Into<String>, message: impl Into<String>) -> Self {
-        Self::SourceParseError {
-            source_id: source_id.into(),
-            path: None,
-            source_index: None,
-            message: message.into(),
-        }
-    }
-
-    /// Creates a source-aware parse error with optional path and index context.
-    pub(crate) fn source_parse_error_at(
-        source_id: impl Into<String>,
-        path: Option<String>,
-        source_index: Option<usize>,
-        message: impl Into<String>,
-    ) -> Self {
-        let mut message = message.into();
-        if let Some(path) = path.as_deref() {
-            message.push_str(&format!(" at path '{path}'"));
-        }
-        if let Some(index) = source_index {
-            message.push_str(&format!(" at source index {index}"));
-        }
-        Self::SourceParseError {
-            source_id: source_id.into(),
-            path,
-            source_index,
-            message,
-        }
-    }
-
     /// Converts a source-originated structural error to a source-aware error.
+    ///
+    /// # Parameters
+    ///
+    /// - `source_id`: stable identifier or path for the source that produced
+    ///   the error.
+    /// - `path`: optional source-relative path for errors converted to parse
+    ///   errors.
+    /// - `source_index`: optional original collection index for converted parse
+    ///   errors.
+    ///
+    /// # Returns
+    ///
+    /// Returns a source-aware key conflict or parse error when applicable;
+    /// other error variants remain unchanged.
     pub(crate) fn with_source_context(
         self,
         source_id: &str,
@@ -541,130 +744,6 @@ impl ConfigError {
             error => error,
         }
     }
-
-    /// Returns missing candidate paths carried by a property lookup error.
-    ///
-    /// # Returns
-    ///
-    /// A one-element slice for [`Self::PropertyNotFound`], all ordered
-    /// candidates for [`Self::PropertyCandidatesNotFound`], or `None` for
-    /// other error kinds.
-    #[inline]
-    #[must_use = "use the returned value"]
-    pub fn candidate_paths(&self) -> Option<&[String]> {
-        match self {
-            Self::PropertyNotFound(path) => Some(std::slice::from_ref(path)),
-            Self::PropertyCandidatesNotFound { paths } => Some(paths),
-            _ => None,
-        }
-    }
-
-    /// Returns unknown configuration paths found by strict deserialization.
-    ///
-    /// Special member names use JSON-quoted bracket segments; for example,
-    /// the literal key `a.b` is reported as `payload["a.b"]`, distinct from
-    /// the nested path `payload.a.b`. These strings are diagnostic paths, not
-    /// configuration lookup paths.
-    #[must_use = "use the returned value"]
-    pub fn unknown_property_paths(&self) -> Option<&[String]> {
-        match self {
-            Self::UnknownProperties { paths } => Some(paths),
-            _ => None,
-        }
-    }
-
-    /// Returns the failing collection element index when available.
-    ///
-    /// # Returns
-    ///
-    /// The original zero-based source index for collection conversion errors,
-    /// indexed substitution errors, source parse errors, and indexed value
-    /// errors when available; otherwise `None`.
-    #[inline(always)]
-    #[must_use = "use the returned value"]
-    pub const fn source_index(&self) -> Option<usize> {
-        match self {
-            Self::ConversionError { source_index, .. }
-            | Self::PlatformIntegerOutOfRange { source_index, .. }
-            | Self::SourceParseError { source_index, .. } => *source_index,
-            Self::IndexedSubstitutionError { source_index, .. } => Some(*source_index),
-            Self::ValueError { source, .. } => match source {
-                ValueError::Missing(missing) => missing.source_index(),
-                ValueError::JsonProjectionLimit { source_index, .. } => *source_index,
-                _ => None,
-            },
-            _ => None,
-        }
-    }
-
-    /// Returns the original value-layer missing context, when available.
-    #[inline]
-    #[must_use]
-    pub const fn value_missing(&self) -> Option<&ValueMissing> {
-        match self {
-            Self::ValueError { source, .. } => source.missing(),
-            _ => None,
-        }
-    }
-
-    /// Maps a common data conversion error to a keyed configuration error.
-    ///
-    /// # Parameters
-    ///
-    /// * `key` - Configuration path associated with the conversion.
-    /// * `error` - Structured conversion failure to classify.
-    ///
-    /// # Returns
-    ///
-    /// A missing-value or conversion error retaining `key`.
-    #[inline]
-    pub fn from_data_conversion_error(key: &str, error: DataConversionError) -> Self {
-        if error.is_missing() {
-            Self::ValueError {
-                key: key.to_string(),
-                source: ValueError::from(error),
-            }
-        } else {
-            Self::ConversionError {
-                key: key.to_string(),
-                source_index: None,
-                source: error,
-            }
-        }
-    }
-
-    /// Maps a value-layer error while retaining its list source index.
-    ///
-    /// # Parameters
-    ///
-    /// * `key` - Configuration path associated with the value operation.
-    /// * `error` - Value-layer error to classify.
-    ///
-    /// # Returns
-    ///
-    /// A configuration error retaining `key` and structured source context.
-    fn from_value_error(key: &str, error: ValueError) -> Self {
-        match error {
-            ValueError::TypeMismatch { expected, actual } => Self::TypeMismatch {
-                key: key.to_string(),
-                expected,
-                actual,
-            },
-            ValueError::Conversion(source) => Self::from_data_conversion_error(key, source),
-            ValueError::ListConversion(error) => {
-                let (source_index, source) = error.into_parts();
-                Self::ConversionError {
-                    key: key.to_string(),
-                    source_index: Some(source_index),
-                    source,
-                }
-            }
-            source => Self::ValueError {
-                key: key.to_string(),
-                source,
-            },
-        }
-    }
 }
 
 impl From<(&str, ValueError)> for ConfigError {
@@ -686,6 +765,22 @@ impl From<(&str, ValueError)> for ConfigError {
 /// Result type for configuration operations.
 ///
 /// Used for operations that can return a [`ConfigError`].
+///
+/// # Type Parameters
+///
+/// - `T`: successful value returned by the configuration operation.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_config::{Config, ConfigResult};
+///
+/// fn read_port(config: &Config) -> ConfigResult<i32> {
+///     config.get("server.port")
+/// }
+///
+/// assert!(read_port(&Config::new()).is_err());
+/// ```
 pub type ConfigResult<T> = Result<T, ConfigError>;
 
 #[cfg(test)]
@@ -697,7 +792,7 @@ mod tests {
     use super::ConfigError;
 
     #[test]
-    fn context_accessors_cover_empty_and_indexed_cases() {
+    fn test_context_accessors_cover_empty_and_indexed_cases() {
         let no_candidates = ConfigError::PropertyCandidatesNotFound { paths: Vec::new() };
         assert_eq!(no_candidates.path(), None);
 

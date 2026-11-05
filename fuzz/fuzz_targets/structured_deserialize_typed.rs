@@ -22,28 +22,43 @@ use serde::Deserialize;
 use serde_json::Map;
 use serde_json::Value;
 
+/// Caps input decoding and generated semantic work per fuzz invocation.
 const MAX_INPUT_BYTES: usize = 64 * 1024;
 
+/// Represents typed fields exercised by the structured deserialization target.
 #[derive(Debug, Deserialize, PartialEq)]
 struct TypedConfig {
+    /// Optional signed integer, including values outside the usual machine
+    /// range.
     signed: Option<i128>,
+    /// Optional unsigned integer, including values beyond `u64`.
     unsigned: Option<u128>,
+    /// Optional duration deserialized from seconds and nanoseconds.
     timeout: Option<Duration>,
+    /// Optional enum covering unit, newtype, and record visitor shapes.
     mode: Option<Mode>,
+    /// Optional newtype string value.
     label: Option<Label>,
 }
 
+/// Newtype wrapper used to exercise Serde newtype visitors.
 #[derive(Debug, Deserialize, PartialEq)]
 struct Label(String);
 
+/// Enum variants exercise unit, newtype, and record deserialization forms.
 #[derive(Debug, Deserialize, PartialEq)]
 enum Mode {
+    /// Unit variant for a fixed mode.
     Fast,
+    /// Alternate unit variant.
     Slow,
+    /// Newtype variant containing a label.
     Labeled(Label),
+    /// Record variant with an optional byte field.
     Record { value: Option<u8> },
 }
 
+/// Builds equivalent typed fixtures with varied optional and boundary values.
 fn generated_case(data: &[u8]) -> (TypedConfig, Config, Config, Config) {
     let signed_cases = [
         i128::MIN,
@@ -140,6 +155,8 @@ fn generated_case(data: &[u8]) -> (TypedConfig, Config, Config, Config) {
     (expected, dotted, root, exact)
 }
 
+/// Verifies equivalent layouts deserialize identically with interpolation on
+/// and off.
 fn assert_generated_semantics(data: &[u8]) {
     let (expected, dotted, root, exact) = generated_case(data);
     for interpolate in [false, true] {

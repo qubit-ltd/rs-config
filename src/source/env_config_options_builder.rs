@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+
 use super::EnvConfigOptions;
 
 /// Builder for [`EnvConfigOptions`].
@@ -23,6 +24,10 @@ pub struct EnvConfigOptionsBuilder {
 
 impl EnvConfigOptionsBuilder {
     /// Creates a builder with no prefix filter or transformation.
+    ///
+    /// # Returns
+    ///
+    /// A builder with all transformations disabled.
     #[inline]
     pub const fn new() -> Self {
         Self {
@@ -34,6 +39,14 @@ impl EnvConfigOptionsBuilder {
     }
 
     /// Restricts loading to variables whose names start with `prefix`.
+    ///
+    /// # Parameters
+    ///
+    /// * `prefix` - The prefix required for environment variable names.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     #[inline]
     pub fn prefix(mut self, prefix: &str) -> Self {
         self.prefix = Some(prefix.to_string());
@@ -41,6 +54,10 @@ impl EnvConfigOptionsBuilder {
     }
 
     /// Removes the configured prefix from loaded keys.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     #[inline]
     pub const fn strip_prefix(mut self) -> Self {
         self.strip_prefix = true;
@@ -48,6 +65,10 @@ impl EnvConfigOptionsBuilder {
     }
 
     /// Converts double underscores in loaded keys to dots.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     #[inline]
     pub const fn double_underscores_to_dots(mut self) -> Self {
         self.double_underscores_to_dots = true;
@@ -55,6 +76,10 @@ impl EnvConfigOptionsBuilder {
     }
 
     /// Lowercases loaded keys.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     #[inline]
     pub const fn lowercase_keys(mut self) -> Self {
         self.lowercase_keys = true;
@@ -62,6 +87,10 @@ impl EnvConfigOptionsBuilder {
     }
 
     /// Builds the configured environment options.
+    ///
+    /// # Returns
+    ///
+    /// The options with the configured prefix and key transformations.
     #[inline]
     pub fn build(self) -> EnvConfigOptions {
         EnvConfigOptions {
@@ -75,6 +104,10 @@ impl EnvConfigOptionsBuilder {
 
 impl Default for EnvConfigOptionsBuilder {
     /// Creates environment options with no prefix filter or key transformation.
+    ///
+    /// # Returns
+    ///
+    /// The default options with filtering and transformations disabled.
     #[inline]
     fn default() -> Self {
         Self::new()

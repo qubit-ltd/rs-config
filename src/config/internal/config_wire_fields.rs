@@ -40,6 +40,23 @@ pub(in crate::config) struct ConfigWireFields {
 
 /// Records that `read_options` appeared while consuming its value without
 /// interpreting the legacy payload.
+///
+/// # Parameters
+///
+/// * `deserializer` - Deserializer positioned at the legacy field value.
+///
+/// # Returns
+///
+/// `Some(IgnoredAny)` when the field is present, including an explicit JSON
+/// `null`, so callers can distinguish presence from the field's default.
+///
+/// # Errors
+///
+/// Returns the deserializer error if it cannot consume the field value.
+///
+/// # Type Parameters
+///
+/// * `D` - Deserializer implementation positioned at the legacy field value.
 fn deserialize_present_read_options<'de, D>(deserializer: D) -> Result<Option<IgnoredAny>, D::Error>
 where
     D: Deserializer<'de>,

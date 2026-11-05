@@ -22,6 +22,19 @@ use crate::options::ReadPolicy;
 /// the fallback reader, then to environment variables only when the active
 /// read policy permits environment fallback. Type and conversion errors in the
 /// primary reader are returned directly.
+/// # Type Parameters
+///
+/// * `P` - Primary reader consulted for interpolation variables.
+/// * `F` - Fallback reader consulted when the primary reader has no value.
+///
+/// # Parameters
+///
+/// * `value` - Input value whose placeholders are being expanded.
+/// * `primary` - Reader checked first for referenced configuration values.
+/// * `fallback` - Fallback used when the primary lookup does not resolve.
+/// * `options` - Options that control source key selection and normalization.
+/// * `path` - Configuration path or filesystem path used by this operation.
+/// * `session` - Per-load context used to enforce shared source limits.
 pub(crate) fn substitute_variables_with_fallback<P: ConfigReader + ?Sized, F: ConfigReader + ?Sized>(
     value: &str,
     primary: &P,
@@ -37,6 +50,13 @@ pub(crate) fn substitute_variables_with_fallback<P: ConfigReader + ?Sized, F: Co
 
 /// Iteratively replaces variables in `value` using heap-owned interpolation
 /// frames.
+/// # Parameters
+///
+/// * `value` - Input value whose placeholders are being expanded.
+/// * `options` - Options that control source key selection and normalization.
+/// * `path` - Configuration path or filesystem path used by this operation.
+/// * `session` - Per-load context used to enforce shared source limits.
+/// * `resolve` - Callback that resolves one referenced variable.
 fn substitute_variables_by(
     value: &str,
     options: &ReadPolicy,
@@ -136,6 +156,10 @@ fn substitute_variables_by(
 }
 
 /// Finds the next non-empty `${name}` placeholder in `value`.
+/// # Parameters
+///
+/// * `value` - Input value whose placeholders are being expanded.
+/// * `search_from` - Byte offset where the next placeholder search begins.
 fn find_next_variable(value: &str, mut search_from: usize) -> Option<(usize, usize, &str)> {
     while let Some(relative_start) = value.get(search_from..)?.find("${") {
         let match_start = search_from + relative_start;
@@ -151,6 +175,13 @@ fn find_next_variable(value: &str, mut search_from: usize) -> Option<(usize, usi
 }
 
 /// Appends one substitution fragment after enforcing the output byte limit.
+/// # Parameters
+///
+/// * `result` - Result returned by the value conversion to classify
+///   missing-value errors.
+/// * `fragment` - Text fragment appended to the current interpolation output.
+/// * `session` - Per-load context used to enforce shared source limits.
+/// * `path` - Configuration path or filesystem path used by this operation.
 fn push_substitution_fragment(
     result: &mut String,
     fragment: &str,
@@ -169,6 +200,17 @@ fn push_substitution_fragment(
 }
 
 /// Finds the value of a variable.
+/// # Type Parameters
+///
+/// * `R` - Reader used to resolve the requested configuration values.
+///
+/// # Parameters
+///
+/// * `var_name` - Name parsed from the interpolation placeholder.
+/// * `config` - Configuration value or source configuration used by this
+///   operation.
+/// * `options` - Options that control source key selection and normalization.
+/// * `path` - Configuration path or filesystem path used by this operation.
 fn find_variable_value<R: ConfigReader + ?Sized>(
     var_name: &str,
     config: &R,
@@ -201,6 +243,18 @@ fn find_variable_value<R: ConfigReader + ?Sized>(
 }
 
 /// Finds a variable value from `primary`, then `fallback`.
+/// # Type Parameters
+///
+/// * `P` - Primary reader consulted for interpolation variables.
+/// * `F` - Fallback reader consulted when the primary reader has no value.
+///
+/// # Parameters
+///
+/// * `var_name` - Name parsed from the interpolation placeholder.
+/// * `primary` - Reader checked first for referenced configuration values.
+/// * `fallback` - Fallback used when the primary lookup does not resolve.
+/// * `options` - Options that control source key selection and normalization.
+/// * `path` - Configuration path or filesystem path used by this operation.
 fn find_variable_value_with_fallback<P: ConfigReader + ?Sized, F: ConfigReader + ?Sized>(
     var_name: &str,
     primary: &P,

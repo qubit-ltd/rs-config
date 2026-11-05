@@ -13,8 +13,17 @@
 //! segments.
 
 /// Typed segments keep a literal dotted JSON key distinct from nested keys.
+#[must_use]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum SourceSegment {
-    Key(String),
-    Index(usize),
+    /// Segment for one object key, kept literal even when it contains dots.
+    Key(
+        /// Original key text from the source value.
+        String,
+    ),
+    /// Segment for an array element in the original value tree.
+    Index(
+        /// Zero-based position of the element in its source array.
+        usize,
+    ),
 }

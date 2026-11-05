@@ -7,11 +7,7 @@
 // =============================================================================
 
 /// Default maximum recursion depth when resolving `${...}` variable references
-/// in strings.
-///
-/// # Returns
-///
-/// The numeric constant `64`.
+/// in strings; the limit is 64.
 pub const DEFAULT_MAX_SUBSTITUTION_DEPTH: usize = 64;
 
 /// Default maximum number of `${...}` placeholder resolutions in one read.

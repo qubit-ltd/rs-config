@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-// Tests for read helper behavior through public APIs.
+//! Tests for read helper behavior through public APIs.
 
 use qubit_config::Config;
 use qubit_config::ConfigError;

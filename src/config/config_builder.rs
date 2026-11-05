@@ -43,6 +43,10 @@ pub struct ConfigBuilder {
 
 impl ConfigBuilder {
     /// Creates a builder initialized with an empty configuration.
+    ///
+    /// # Returns
+    ///
+    /// A builder with no description and the default read policy.
     #[inline]
     pub fn new() -> Self {
         Self {
@@ -52,6 +56,14 @@ impl ConfigBuilder {
     }
 
     /// Sets the configuration description.
+    ///
+    /// # Parameters
+    ///
+    /// * `description` - Description to store in the built configuration.
+    ///
+    /// # Returns
+    ///
+    /// The builder with the supplied description.
     #[inline]
     pub fn description(mut self, description: &str) -> Self {
         self.description = Some(description.to_string());
@@ -59,6 +71,14 @@ impl ConfigBuilder {
     }
 
     /// Sets the default runtime read policy.
+    ///
+    /// # Parameters
+    ///
+    /// * `policy` - Policy to use for direct reads on the built configuration.
+    ///
+    /// # Returns
+    ///
+    /// The builder with the supplied default read policy.
     #[inline]
     pub fn default_read_policy(mut self, policy: ReadPolicy) -> Self {
         self.default_read_policy = policy;
@@ -66,6 +86,10 @@ impl ConfigBuilder {
     }
 
     /// Builds the configured empty configuration.
+    ///
+    /// # Returns
+    ///
+    /// An empty configuration with the builder's description and read policy.
     #[inline]
     pub fn build(self) -> Config {
         Config {
@@ -77,6 +101,11 @@ impl ConfigBuilder {
 }
 
 impl Default for ConfigBuilder {
+    /// Creates a builder with no description and the default read policy.
+    ///
+    /// # Returns
+    ///
+    /// The same initial builder as [`ConfigBuilder::new`].
     fn default() -> Self {
         Self::new()
     }

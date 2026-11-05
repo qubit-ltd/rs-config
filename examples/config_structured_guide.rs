@@ -6,18 +6,24 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+//! Demonstrates structured object, collection, and byte deserialization.
+
 use qubit_config::Config;
 use serde::Deserialize;
 use serde::de;
 use serde::de::Deserializer;
 use serde::de::Visitor;
 
+/// Server settings selected from a structured configuration section.
 #[derive(Debug, Deserialize, PartialEq)]
 struct Server {
+    /// Server host name.
     host: String,
+    /// TCP service port.
     port: u16,
 }
 
+/// Byte sequence deserialized from a string value using serde bytes.
 #[derive(Debug, PartialEq)]
 struct Bytes(Vec<u8>);
 
@@ -26,6 +32,7 @@ impl<'de> Deserialize<'de> for Bytes {
     where
         D: Deserializer<'de>,
     {
+        /// Accepts byte buffers produced by the configured deserializer.
         struct BytesVisitor;
 
         impl Visitor<'_> for BytesVisitor {
@@ -47,6 +54,7 @@ impl<'de> Deserialize<'de> for Bytes {
     }
 }
 
+/// Reads a server object, numeric vector, and text as bytes.
 fn main() -> Result<(), qubit_config::ConfigError> {
     let mut config = Config::new();
     config.set("server.host", "localhost")?;

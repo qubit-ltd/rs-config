@@ -29,7 +29,7 @@ use qubit_value::ValueContainer;
 use serde::Deserialize;
 
 #[test]
-fn utility_test_modules_are_registered() {
+fn test_utility_test_modules_are_registered() {
     assert!(Config::new().is_empty());
 }
 

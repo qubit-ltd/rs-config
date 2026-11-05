@@ -5,6 +5,8 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+//! Internal wire representations for owned deserialization and borrowed
+//! serialization.
 
 /// Owned property wire representation used during deserialization.
 mod property_wire_owned;

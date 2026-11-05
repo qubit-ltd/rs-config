@@ -39,7 +39,6 @@ impl Config {
     /// }
     /// ```
     #[inline]
-    #[must_use = "use the returned value"]
     pub fn iter(&self) -> impl Iterator<Item = (&str, &Property)> {
         self.properties.iter().map(|(k, v)| (k.as_str(), v))
     }
@@ -68,7 +67,6 @@ impl Config {
     /// assert_eq!(http_entries.len(), 2);
     /// ```
     #[inline]
-    #[must_use = "use the returned value"]
     pub fn iter_prefix<'a>(&'a self, prefix: &'a str) -> impl Iterator<Item = (&'a str, &'a Property)> {
         self.properties
             .range::<str, _>((Bound::Included(prefix), Bound::Unbounded))
@@ -98,7 +96,7 @@ impl Config {
     /// assert!(!config.contains_key_prefix("db."));
     /// ```
     #[inline]
-    #[must_use = "use the returned value"]
+    #[must_use = "check whether a matching configuration key exists"]
     pub fn contains_key_prefix(&self, prefix: &str) -> bool {
         self.iter_prefix(prefix).next().is_some()
     }

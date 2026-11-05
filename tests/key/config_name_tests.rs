@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-// Tests for configuration key argument adapters.
+//! Tests configuration key argument adapters and key text preservation.
 
 use qubit_config::Config;
 use qubit_config::ConfigError;
@@ -64,7 +64,7 @@ fn test_config_name_resolves_relative_to_section() {
 }
 
 #[test]
-fn config_name_accepts_owned_and_borrowed_config_keys_without_rewriting_unicode() {
+fn test_config_name_accepts_owned_and_borrowed_config_keys_without_rewriting_unicode() {
     let key = ConfigKey::parse("服务.端口").unwrap();
     let mut config = Config::new();
     config.set(key.as_str(), 8080_i32).unwrap();
@@ -75,7 +75,7 @@ fn config_name_accepts_owned_and_borrowed_config_keys_without_rewriting_unicode(
 }
 
 #[test]
-fn config_name_preserves_leading_and_trailing_spaces_as_literal_key_text() {
+fn test_config_name_preserves_leading_and_trailing_spaces_as_literal_key_text() {
     let key = " server.host ";
     let parsed = ConfigKey::parse(key).unwrap();
 
@@ -84,7 +84,7 @@ fn config_name_preserves_leading_and_trailing_spaces_as_literal_key_text() {
 }
 
 #[test]
-fn config_name_rejects_empty_keys_before_lookup() {
+fn test_config_name_rejects_empty_keys_before_lookup() {
     let config = Config::new();
     let error = config.contains(String::new()).unwrap_err();
 
@@ -95,4 +95,14 @@ fn config_name_rejects_empty_keys_before_lookup() {
             violation: ConfigPathViolation::Empty,
         } if key.is_empty()
     ));
+}
+
+#[test]
+fn test_deserialize_validates_and_preserves_key_text() {
+    let key: ConfigKey = serde_json::from_str("\"server.port\"").unwrap();
+    assert_eq!(key.as_str(), "server.port");
+    assert_eq!(key.as_ref(), "server.port");
+
+    let error = serde_json::from_str::<ConfigKey>("\"server..port\"").unwrap_err();
+    assert!(error.to_string().contains("empty segment"));
 }

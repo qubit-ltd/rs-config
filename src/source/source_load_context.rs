@@ -79,6 +79,15 @@ pub struct SourceLoadContext<'a> {
 
 impl SourceLoadContext<'static> {
     /// Creates a root context for one source load.
+    ///
+    /// # Parameters
+    ///
+    /// * `source_id` - Identifier attached to diagnostics from this source.
+    /// * `limits` - Resource limits enforced for this source.
+    ///
+    /// # Returns
+    ///
+    /// A context with an empty output layer and a fresh accounting session.
     pub(crate) fn new(source_id: String, limits: SourceLimits) -> Self {
         Self {
             session: SourceLoadSession::new(source_id, limits),
@@ -88,12 +97,64 @@ impl SourceLoadContext<'static> {
 }
 
 impl<'a> SourceLoadContext<'a> {
+    /// Checks parser depth for one input against this source and every
+    /// ancestor.
+    ///
+    /// The root depth is zero. Parser depth is checked independently per input
+    /// and is not accumulated across sibling sources.
+    ///
+    /// # Parameters
+    ///
+    /// * `depth` - Nesting depth of the input's parser structure.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the depth is within all active limits.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::ConfigError::SourceLimitExceeded`] if the depth exceeds
+    /// an active source or aggregate parser-depth limit; the error
+    /// identifies the rejecting scope.
+    #[inline]
+    pub fn check_parser_depth(&self, depth: usize) -> ConfigResult<()> {
+        self.session.check_parser_depth(depth)
+    }
+
     /// Charges input bytes to the current source and all aggregate ancestors.
+    ///
+    /// # Parameters
+    ///
+    /// * `amount` - Number of input bytes to charge.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the charge is accepted.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::ConfigError::SourceLimitExceeded`] if the charge
+    /// exceeds an active source or aggregate input-byte limit.
+    #[inline]
     pub fn consume_input_bytes(&mut self, amount: usize) -> ConfigResult<()> {
         self.session.consume_input_bytes(amount)
     }
 
     /// Charges parsed nodes to the current source and all aggregate ancestors.
+    ///
+    /// # Parameters
+    ///
+    /// * `amount` - Number of parsed nodes to charge.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the charge is accepted.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::ConfigError::SourceLimitExceeded`] if the charge
+    /// exceeds an active source or aggregate node limit.
+    #[inline]
     pub fn consume_nodes(&mut self, amount: usize) -> ConfigResult<()> {
         self.session.consume_nodes(amount)
     }
@@ -101,31 +162,39 @@ impl<'a> SourceLoadContext<'a> {
     /// Charges parser tokens before syntax-tree construction to this source and
     /// its ancestors.
     ///
+    /// # Parameters
+    ///
+    /// * `amount` - Number of parser tokens to charge.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the charge is accepted.
+    ///
     /// # Errors
     ///
     /// Returns [`crate::ConfigError::SourceLimitExceeded`] when this charge
     /// would exceed any active source or aggregate parser-token budget. A
     /// rejected charge changes no budget.
+    #[inline]
     pub fn consume_parser_tokens(&mut self, amount: usize) -> ConfigResult<()> {
         self.session.consume_parser_tokens(amount)
     }
 
-    /// Checks parser depth for one input against this source and every
-    /// ancestor.
+    /// Charges admitted child sources to the current source and ancestors.
     ///
-    /// The root depth is zero. Parser depth is checked independently per input
-    /// and is not accumulated across sibling sources.
+    /// # Parameters
+    ///
+    /// * `amount` - Number of child sources to charge.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the charge is accepted.
     ///
     /// # Errors
     ///
-    /// Returns [`crate::ConfigError::SourceLimitExceeded`] if the depth exceeds
-    /// an active source or aggregate parser-depth limit; the error
-    /// identifies the rejecting scope.
-    pub fn check_parser_depth(&self, depth: usize) -> ConfigResult<()> {
-        self.session.check_parser_depth(depth)
-    }
-
-    /// Charges admitted child sources to the current source and ancestors.
+    /// Returns [`crate::ConfigError::SourceLimitExceeded`] if the charge
+    /// exceeds an active source or aggregate source-count limit.
+    #[inline]
     pub fn consume_sources(&mut self, amount: usize) -> ConfigResult<()> {
         self.session.consume_sources(amount)
     }
@@ -146,6 +215,18 @@ impl<'a> SourceLoadContext<'a> {
     /// node, or assignment limit rejects the operation;
     /// [`crate::ConfigError::SourceInvalidKey`] for an invalid key; or
     /// [`crate::ConfigError::PropertyIsFinal`] when the property is final.
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Property key to write in this source's output layer.
+    /// * `values` - Value or values assigned to the key.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the property is written successfully.
+    /// # Type Parameters
+    ///
+    /// * `S` - Source type whose configuration data is loaded.
     pub fn set<S>(&mut self, name: impl AsRef<str>, values: S) -> ConfigResult<()>
     where
         S: Into<ValueContainer>,
@@ -175,6 +256,15 @@ impl<'a> SourceLoadContext<'a> {
     /// node, or assignment limit rejects the operation;
     /// [`crate::ConfigError::SourceInvalidKey`] for an invalid key; or
     /// [`crate::ConfigError::PropertyIsFinal`] when the property is final.
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Property key to write in this source's output layer.
+    /// * `data_type` - Type associated with the explicit null value.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the null property is written successfully.
     pub fn set_null(&mut self, name: impl AsRef<str>, data_type: DataType) -> ConfigResult<()> {
         let name = name.as_ref();
         self.session.check_depth(name.split('.').count())?;
@@ -217,6 +307,22 @@ impl<'a> SourceLoadContext<'a> {
     /// assert!(config.get_property("service.port")?.expect("property exists").is_final());
     /// # Ok::<(), qubit_config::ConfigError>(())
     /// ```
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Existing source-owned property key.
+    /// * `is_final` - Whether to lock the property's final marker.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the marker is set or cleared.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::ConfigError::PropertyNotFound`] for a missing property,
+    /// [`crate::ConfigError::SourceInvalidKey`] for an invalid name, or
+    /// [`crate::ConfigError::PropertyIsFinal`] when an already-final property
+    /// is unlocked.
     pub fn set_final(&mut self, name: impl AsRef<str>, is_final: bool) -> ConfigResult<()> {
         let source_id = self.session.source_id().to_owned();
         self.layer
@@ -225,21 +331,35 @@ impl<'a> SourceLoadContext<'a> {
     }
 
     /// Sets descriptive metadata on the source-owned layer.
+    ///
+    /// # Parameters
+    ///
+    /// * `description` - Description to attach to this source's output layer.
+    #[inline]
     pub fn set_description(&mut self, description: Option<String>) {
         self.layer.set_description(description);
     }
 
     /// Sets the default read policy on the source-owned layer.
+    ///
+    /// # Parameters
+    ///
+    /// * `policy` - Read policy to use when loading this source's output.
+    #[inline]
     pub fn set_default_read_policy(&mut self, policy: crate::options::ReadPolicy) {
         self.layer.set_default_read_policy(policy);
     }
 
-    /// Returns the completed source layer to the crate-owned executor.
-    pub(crate) fn finish(self) -> Config {
-        self.layer
-    }
-
     /// Creates a child context while retaining aggregate budget accounting.
+    ///
+    /// # Parameters
+    ///
+    /// * `source_id` - Identifier used in child-source diagnostics.
+    /// * `limits` - Local limits to apply to the child source.
+    ///
+    /// # Returns
+    ///
+    /// A child context sharing this source's aggregate budget chain.
     pub(crate) fn child<'child>(
         &'child mut self,
         source_id: String,
@@ -251,19 +371,53 @@ impl<'a> SourceLoadContext<'a> {
         }
     }
 
+    /// Borrows the legacy accounting session for built-in source parsers.
+    ///
+    /// # Returns
+    ///
+    /// Mutable access to this source's legacy accounting session.
+    #[inline]
+    pub(crate) fn session_mut(&mut self) -> &mut SourceLoadSession<'a> {
+        &mut self.session
+    }
+
+    /// Returns the completed source layer to the crate-owned executor.
+    ///
+    /// # Returns
+    ///
+    /// The properties accumulated by this source load.
+    #[inline]
+    pub(crate) fn finish(self) -> Config {
+        self.layer
+    }
+
     /// Merges a completed child layer into this context transactionally.
+    ///
+    /// # Parameters
+    ///
+    /// * `layer` - Completed child output to merge into this source layer.
+    /// * `source_id` - Child identifier used to annotate merge errors.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when all child properties are merged.
+    ///
+    /// # Errors
+    ///
+    /// Returns a configuration error annotated with `source_id` if property
+    /// merging fails; the operation leaves the parent layer unchanged.
     pub(crate) fn merge_layer(&mut self, layer: Config, source_id: &str) -> ConfigResult<()> {
         self.layer
             .merge_properties(layer)
             .map_err(|error| error.with_merge_source(source_id))
     }
 
-    /// Borrows the legacy accounting session for built-in source parsers.
-    pub(crate) fn session_mut(&mut self) -> &mut SourceLoadSession<'a> {
-        &mut self.session
-    }
-
     /// Replaces the layer produced by a built-in source parser.
+    ///
+    /// # Parameters
+    ///
+    /// * `layer` - Parsed output layer to store in this context.
+    #[inline]
     pub(crate) fn replace_layer(&mut self, layer: Config) {
         self.layer = layer;
     }

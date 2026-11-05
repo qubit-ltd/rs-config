@@ -6,6 +6,8 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+//! Probes interpolation depth and cycle handling on a bounded thread stack.
+
 use std::env;
 use std::process;
 use std::thread;
@@ -15,6 +17,7 @@ use qubit_config::ConfigError;
 use qubit_config::ConfigReader;
 use qubit_config::ReadPolicy;
 
+/// Runs the resource probe and reports argument or probe failures.
 fn main() {
     let arguments: Vec<String> = env::args().collect();
     if let Err(error) = run(&arguments) {
@@ -23,6 +26,7 @@ fn main() {
     }
 }
 
+/// Validates probe settings and runs interpolation on a sized thread stack.
 fn run(arguments: &[String]) -> Result<(), String> {
     if arguments.len() != 5 {
         return Err(
@@ -60,6 +64,7 @@ fn run(arguments: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+/// Builds a reference chain or cycle and checks the configured read result.
 fn probe(mode: &str, references: usize, depth_limit: usize) -> Result<(), String> {
     println!("phase=construct");
     let mut config = Config::new();

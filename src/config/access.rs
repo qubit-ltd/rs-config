@@ -30,23 +30,8 @@ impl Config {
     ///
     /// Returns the configuration description as Option
     #[inline]
-    #[must_use = "use the returned value"]
     pub fn description(&self) -> Option<&str> {
         self.description.as_deref()
-    }
-
-    /// Sets the configuration description
-    ///
-    /// # Parameters
-    ///
-    /// * `description` - Configuration description
-    ///
-    /// # Returns
-    ///
-    /// Nothing.
-    #[inline(always)]
-    pub fn set_description(&mut self, description: Option<String>) {
-        self.description = description;
     }
 
     /// Gets the default runtime read policy.
@@ -60,23 +45,16 @@ impl Config {
         self.default_read_policy.get()
     }
 
-    /// Sets the default runtime read policy.
+    /// Creates a read-only root view using `policy` without changing this
+    /// configuration's default policy.
     ///
     /// # Parameters
     ///
-    /// * `policy` - New default read policy.
+    /// * `policy` - Read policy used by the returned view for direct reads.
     ///
     /// # Returns
     ///
-    /// Mutable reference to this configuration for chaining.
-    #[inline(always)]
-    pub fn set_default_read_policy(&mut self, policy: ReadPolicy) -> &mut Self {
-        self.default_read_policy = Transient::new(policy);
-        self
-    }
-
-    /// Creates a read-only root view using `policy` without changing this
-    /// configuration's default policy.
+    /// A read-only root view that borrows this configuration and `policy`.
     #[inline]
     pub fn read_with<'a>(&'a self, policy: &'a ReadPolicy) -> ConfigSection<'a> {
         <Self as ConfigReader>::read_with(self, policy)
@@ -87,7 +65,7 @@ impl Config {
     /// Property names read through the returned section are interpreted
     /// strictly relative to its canonical path.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `path` - Canonical root-relative section path. An empty path
     ///   represents the root.
@@ -111,7 +89,7 @@ impl Config {
     /// returned section uses strict relative keys and this configuration's
     /// default read policy.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `path` - Canonical section path; an empty path checks the root.
     ///
@@ -208,6 +186,85 @@ impl Config {
         ensure_config_key(name)?;
         self.ensure_property_not_final(name)?;
         Ok(self.properties.get_mut(name).map(ConfigPropertyMut::new))
+    }
+
+    /// Gets the number of configuration items
+    ///
+    /// # Returns
+    ///
+    /// Returns the number of configuration items
+    #[inline(always)]
+    #[must_use = "use the returned value"]
+    pub fn len(&self) -> usize {
+        self.properties.len()
+    }
+
+    /// Checks if the configuration is empty
+    ///
+    /// # Returns
+    ///
+    /// Returns `true` if the configuration contains no items
+    #[inline(always)]
+    #[must_use = "use the returned value"]
+    pub fn is_empty(&self) -> bool {
+        self.properties.is_empty()
+    }
+
+    /// Gets all configuration item names
+    ///
+    /// # Returns
+    ///
+    /// Returns a Vec of configuration item names
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use qubit_config::Config;
+    ///
+    /// let mut config = Config::new();
+    /// config.set("port", 8080).unwrap();
+    /// config.set("host", "localhost").unwrap();
+    ///
+    /// let keys = config.keys();
+    /// assert_eq!(keys.len(), 2);
+    /// assert!(keys.contains(&"port".to_string()));
+    /// assert!(keys.contains(&"host".to_string()));
+    /// ```
+    #[inline]
+    #[must_use = "use the returned value"]
+    pub fn keys(&self) -> Vec<String> {
+        self.properties.keys().cloned().collect()
+    }
+
+    // Configuration mutation
+
+    /// Sets the configuration description
+    ///
+    /// # Parameters
+    ///
+    /// * `description` - Configuration description
+    ///
+    /// # Returns
+    ///
+    /// Nothing.
+    #[inline(always)]
+    pub fn set_description(&mut self, description: Option<String>) {
+        self.description = description;
+    }
+
+    /// Sets the default runtime read policy.
+    ///
+    /// # Parameters
+    ///
+    /// * `policy` - New default read policy.
+    ///
+    /// # Returns
+    ///
+    /// Mutable reference to this configuration for chaining.
+    #[inline(always)]
+    pub fn set_default_read_policy(&mut self, policy: ReadPolicy) -> &mut Self {
+        self.default_read_policy = Transient::new(policy);
+        self
     }
 
     /// Sets the final flag of an existing configuration item.
@@ -310,54 +367,6 @@ impl Config {
         self.properties.clear();
         Ok(())
     }
-
-    /// Gets the number of configuration items
-    ///
-    /// # Returns
-    ///
-    /// Returns the number of configuration items
-    #[inline(always)]
-    #[must_use = "use the returned value"]
-    pub fn len(&self) -> usize {
-        self.properties.len()
-    }
-
-    /// Checks if the configuration is empty
-    ///
-    /// # Returns
-    ///
-    /// Returns `true` if the configuration contains no items
-    #[inline(always)]
-    #[must_use = "use the returned value"]
-    pub fn is_empty(&self) -> bool {
-        self.properties.is_empty()
-    }
-
-    /// Gets all configuration item names
-    ///
-    /// # Returns
-    ///
-    /// Returns a Vec of configuration item names
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use qubit_config::Config;
-    ///
-    /// let mut config = Config::new();
-    /// config.set("port", 8080).unwrap();
-    /// config.set("host", "localhost").unwrap();
-    ///
-    /// let keys = config.keys();
-    /// assert_eq!(keys.len(), 2);
-    /// assert!(keys.contains(&"port".to_string()));
-    /// assert!(keys.contains(&"host".to_string()));
-    /// ```
-    #[inline]
-    #[must_use = "use the returned value"]
-    pub fn keys(&self) -> Vec<String> {
-        self.properties.keys().cloned().collect()
-    }
 }
 
 #[cfg(test)]
@@ -365,20 +374,11 @@ mod tests {
     use super::Config;
 
     #[test]
-    fn len_reports_the_number_of_properties() {
+    fn test_len_reports_the_number_of_properties() {
         let mut config = Config::new();
         assert_eq!(config.len(), 0);
         config.set("server.port", 8080).unwrap();
         config.set("server.host", "localhost").unwrap();
         assert_eq!(config.len(), 2);
-    }
-
-    #[test]
-    fn section_if_present_reports_visible_descendants() {
-        let mut config = Config::new();
-        config.set("server.port", 8080).unwrap();
-
-        assert!(config.section_if_present("server").unwrap().is_some());
-        assert!(config.section_if_present("missing").unwrap().is_none());
     }
 }

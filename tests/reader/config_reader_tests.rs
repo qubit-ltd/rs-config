@@ -36,7 +36,7 @@ mod test_config_reader_smoke {
     use super::create_test_config;
 
     #[test]
-    fn config_exposes_config_reader_string_api() {
+    fn test_config_exposes_config_reader_string_api() {
         let c = create_test_config();
         assert_eq!(ConfigReader::get::<String>(&c, "string_value").unwrap(), "test");
     }
@@ -297,7 +297,7 @@ mod test_config_reader_extended_surface {
     use super::DataType;
 
     #[test]
-    fn resolve_key_returns_root_relative_paths() {
+    fn test_resolve_key_returns_root_relative_paths() {
         let mut config = Config::new();
         config.set("http.proxy.host", "proxy").unwrap();
 
@@ -326,7 +326,7 @@ mod test_config_reader_extended_surface {
     }
 
     #[test]
-    fn get_property_len_keys_iter_get_or_is_unset_and_optional_string_empty() {
+    fn test_get_property_len_keys_iter_get_or_is_unset_and_optional_string_empty() {
         let mut config = Config::new();
         config.set("k", 1i32).unwrap();
         config.set_null("nullish", DataType::Int32).unwrap();
@@ -368,7 +368,7 @@ mod test_config_reader_extended_surface {
     }
 
     #[test]
-    fn section_len_keys_iter_get_property_and_is_unset() {
+    fn test_section_len_keys_iter_get_property_and_is_unset() {
         let mut config = Config::new();
         config.set("a.x", 1i32).unwrap();
         config.set("a.y", 2i32).unwrap();
@@ -966,7 +966,7 @@ fn test_independent_gets_do_not_share_conversion_usage() {
 }
 
 #[test]
-fn refactor_empty_collection_first_never_uses_a_default() {
+fn test_empty_collection_first_never_uses_a_default() {
     let mut config = Config::new();
     config.set("ports", Vec::<i32>::new()).unwrap();
     let error = config.get_or::<i32>("ports", 8080).unwrap_err();
@@ -975,7 +975,7 @@ fn refactor_empty_collection_first_never_uses_a_default() {
 }
 
 #[test]
-fn refactor_unset_conversion_keeps_value_error_source() {
+fn test_unset_conversion_keeps_value_error_source() {
     let mut config = Config::new();
     config.set_null("port", DataType::String).unwrap();
     let error = config.get::<i32>("port").unwrap_err();
@@ -991,7 +991,7 @@ fn refactor_unset_conversion_keeps_value_error_source() {
 }
 
 #[test]
-fn refactor_collection_missing_never_skips_to_default_or_next_candidate() {
+fn test_collection_missing_never_skips_to_default_or_next_candidate() {
     use qubit_config::options::ReadPolicy;
     use qubit_datatype::BlankStringPolicy;
     let mut config = Config::new();
@@ -1015,7 +1015,7 @@ fn refactor_collection_missing_never_skips_to_default_or_next_candidate() {
 }
 
 #[test]
-fn refactor_optional_reads_classify_custom_conversion_missing() {
+fn test_optional_reads_classify_custom_conversion_missing() {
     use qubit_config::ConfigError;
     use qubit_config::ConfigResult;
     use qubit_config::Property;

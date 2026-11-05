@@ -42,14 +42,18 @@ pub use env_file_config_source_builder::EnvFileConfigSourceBuilder;
 /// use qubit_config::source::{EnvFileConfigSource, ConfigSource};
 /// use qubit_config::Config;
 ///
-/// let temp_dir = tempfile::tempdir().unwrap();
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let temp_dir = tempfile::tempdir()?;
 /// let path = temp_dir.path().join(".env");
-/// std::fs::write(&path, "PORT=8080\n").unwrap();
+/// std::fs::write(&path, "PORT=8080\n")?;
 /// let source = EnvFileConfigSource::from_file(path);
-/// let config = source.load().unwrap();
-/// let port = config.get::<String>("PORT").unwrap();
+/// let config = source.load()?;
+/// let port = config.get::<String>("PORT")?;
 /// assert_eq!(port, "8080");
+/// # Ok(())
+/// # }
 /// ```
+#[must_use = "use the returned value"]
 #[derive(Debug, Clone)]
 pub struct EnvFileConfigSource {
     /// File or in-memory content to load.
@@ -146,6 +150,9 @@ fn strip_dotenv_inline_comments(content: &str) -> String {
 /// literal backslash behavior. Resetting value state only at logical-line
 /// boundaries prevents comment text from carrying quote state into the next
 /// assignment.
+/// # Parameters
+///
+/// * `content` - Input content being parsed.
 fn escape_dotenv_substitutions(content: &str) -> String {
     let mut escaped_content = String::with_capacity(content.len());
     let mut state = DotenvLineState::Complete;
@@ -177,6 +184,10 @@ fn escape_dotenv_substitutions(content: &str) -> String {
 }
 
 /// Returns whether the physical line beginning at `start` is a dotenv comment.
+/// # Parameters
+///
+/// * `content` - Input content being parsed.
+/// * `start` - Byte offset at which parsing begins.
 fn is_dotenv_full_comment_line(content: &str, start: usize) -> bool {
     let line_end = content[start..]
         .find('\n')
@@ -190,6 +201,9 @@ fn is_dotenv_full_comment_line(content: &str, start: usize) -> bool {
 /// separate logical-line scanner handles escaped quotes for boundary
 /// detection; this value state resets only after that scanner finds a line
 /// boundary.
+/// # Parameters
+///
+/// * `content` - Input content being parsed.
 fn escape_dotenv_substitutions_in_line(content: &str) -> String {
     let mut escaped_content = String::with_capacity(content.len());
     let mut strong_quote = false;
@@ -302,6 +316,9 @@ fn escape_dotenv_substitutions_in_line(content: &str) -> String {
 ///
 /// Dotenv's logical-line scanner treats horizontal/Unicode whitespace as a
 /// separator, but CR and LF terminate or participate in line parsing instead.
+/// # Parameters
+///
+/// * `character` - Value used to character during this operation.
 fn is_dotenv_comment_separator(character: char) -> bool {
     character.is_whitespace() && !matches!(character, '\r' | '\n')
 }
@@ -311,32 +328,62 @@ impl EnvFileConfigSource {
     ///
     /// # Parameters
     ///
-    /// * `path` - Path to the `.env` file
+    /// * `path` - Path to the `.env` file.
+    ///
+    /// # Returns
+    ///
+    /// A source that reads the specified file.
+    /// # Type Parameters
+    ///
+    /// * `P` - Path type that can be borrowed as a filesystem path.
     #[inline]
     pub fn from_file<P: AsRef<Path>>(path: P) -> Self {
         Self::builder().file(path).build()
     }
 
     /// Creates a dotenv source backed by in-memory text.
+    ///
+    /// # Parameters
+    ///
+    /// * `content` - The dotenv text to parse.
+    ///
+    /// # Returns
+    ///
+    /// A source that loads the supplied text.
+    #[inline]
     pub fn from_content(content: impl Into<String>) -> Self {
         Self::builder().content(content).build()
     }
 
     /// Creates a builder for a dotenv source.
+    ///
+    /// # Returns
+    ///
+    /// A builder with default limits and no source input.
+    #[inline]
     pub fn builder() -> EnvFileConfigSourceBuilder {
         EnvFileConfigSourceBuilder::new()
     }
 }
 
 impl ConfigSource for EnvFileConfigSource {
+    /// Returns the stable identifier used to report this source during loading.
     fn source_id(&self) -> String {
         self.label.clone().unwrap_or_else(|| self.input.label(".env"))
     }
 
+    /// Returns the resource limits applied to one load of this source.
+    #[inline]
     fn limits(&self) -> SourceLimits {
         self.limits
     }
 
+    /// Loads source data into the executor-provided context.
+    ///
+    /// # Parameters
+    ///
+    /// * `context` - Context for charging resource use and writing the source
+    ///   layer.
     fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
         let mut config = Config::new();
         let session = context.session_mut();

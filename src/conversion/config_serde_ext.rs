@@ -119,10 +119,18 @@ pub trait ConfigSerdeExt: ConfigReader {
     /// value's configured conversion to `String`; `Vec<u8>` requests a numeric
     /// sequence instead. No Base64 or hexadecimal decoding is implied.
     ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Owned target type that implements Serde deserialization.
+    ///
     /// # Parameters
     ///
     /// * `prefix` - Relative property or subtree path; empty selects this
     ///   scope.
+    ///
+    /// # Returns
+    ///
+    /// The deserialized target value when conversion succeeds.
     ///
     /// # Errors
     ///
@@ -153,11 +161,19 @@ pub trait ConfigSerdeExt: ConfigReader {
     /// not configuration keys. Existing root and permitted environment
     /// fallback still applies.
     ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Owned target type that implements Serde deserialization.
+    ///
     /// # Parameters
     ///
     /// * `prefix` - Relative property or subtree path; empty selects this
     ///   scope.
     /// * `options` - Per-read interpolation and unknown-field choices.
+    ///
+    /// # Returns
+    ///
+    /// The deserialized target value when conversion succeeds.
     ///
     /// # Errors
     ///

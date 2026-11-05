@@ -5,12 +5,12 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-// # Property Unit Tests
-//
-// Tests all public methods of the Property struct, including methods delegated
-// to ValueContainer.
+//! Tests all public Property methods, including methods delegated to
+//! ValueContainer.
 
+use std::hint::black_box;
 use std::ops::Deref;
+use std::ptr::eq as ptr_eq;
 #[cfg(feature = "bigdecimal")]
 use std::str::FromStr;
 
@@ -35,6 +35,9 @@ use qubit_value::Value;
 use qubit_value::ValueContainer;
 use qubit_value::ValueError;
 use qubit_value::ValueResult;
+use serde_json::Value as JsonValue;
+use serde_json::from_value;
+use serde_json::to_value;
 
 // ============================================================================
 // Property Basic Method Tests
@@ -68,11 +71,11 @@ fn test_property_new() {
 }
 
 #[test]
-fn property_accessors_remain_callable_through_the_public_api() {
+fn test_property_accessors_remain_callable_through_the_public_api() {
     let borrowed_property: &'static Property =
         Box::leak(Box::new(Property::new("coverage.borrowed", "value").unwrap()));
     let get_ref: fn(&'static Property) -> ValueResult<&'static str> = Property::get_ref::<'static, str>;
-    assert_eq!(std::hint::black_box(get_ref)(borrowed_property).unwrap(), "value");
+    assert_eq!(black_box(get_ref)(borrowed_property).unwrap(), "value");
 
     let mut property = Property::new("coverage.property", "value").unwrap();
     let value_mut: fn(&mut Property) -> &mut ValueContainer = Property::value_mut;
@@ -81,11 +84,11 @@ fn property_accessors_remain_callable_through_the_public_api() {
     let data_type: fn(&Property) -> DataType = Property::data_type;
     let len: fn(&Property) -> usize = Property::len;
 
-    std::hint::black_box(set_description)(&mut property, Some("covered".to_string()));
-    assert_eq!(std::hint::black_box(description)(&property), Some("covered"));
-    assert_eq!(std::hint::black_box(data_type)(&property), DataType::String);
-    assert_eq!(std::hint::black_box(len)(&property), 1);
-    std::hint::black_box(value_mut)(&mut property).unset();
+    black_box(set_description)(&mut property, Some("covered".to_string()));
+    assert_eq!(black_box(description)(&property), Some("covered"));
+    assert_eq!(black_box(data_type)(&property), DataType::String);
+    assert_eq!(black_box(len)(&property), 1);
+    black_box(value_mut)(&mut property).unset();
     assert!(property.is_unset());
 }
 
@@ -94,8 +97,8 @@ fn test_property_read_only_deref_matches_value() {
     let property = Property::new("coverage.property", "value").unwrap();
     let len: fn(&Property) -> usize = Property::len;
     let deref: for<'a> fn(&'a Property) -> &'a ValueContainer = <Property as Deref>::deref;
-    assert_eq!(std::hint::black_box(len)(&property), 1);
-    let value: &ValueContainer = std::hint::black_box(deref)(&property);
+    assert_eq!(black_box(len)(&property), 1);
+    let value: &ValueContainer = black_box(deref)(&property);
     assert_eq!(value, property.value());
 }
 
@@ -216,6 +219,15 @@ fn test_property_len() {
     prop.set_value(MultiValues::Int32(Vec::new()));
     assert_eq!(prop.len(), 0);
     assert!(!prop.is_unset());
+}
+
+#[test]
+fn test_len_and_deref_observe_the_same_stored_value() {
+    let property = Property::new("coverage.property", "value").unwrap();
+    let dereferenced = property.deref();
+
+    assert_eq!(property.len(), dereferenced.len());
+    assert!(ptr_eq(dereferenced, property.value()));
 }
 
 #[test]
@@ -1765,7 +1777,7 @@ fn test_property_partial_eq() {
 }
 
 #[test]
-fn property_names_cover_empty_separators_unicode_and_spaces() {
+fn test_property_names_cover_empty_separators_unicode_and_spaces() {
     for (name, violation) in [
         ("", ConfigPathViolation::Empty),
         (".name", ConfigPathViolation::LeadingSeparator),
@@ -1784,7 +1796,7 @@ fn property_names_cover_empty_separators_unicode_and_spaces() {
 }
 
 #[test]
-fn property_value_conversions_preserve_collections_and_report_type_errors() {
+fn test_property_value_conversions_preserve_collections_and_report_type_errors() {
     let mut property = Property::new("values", vec![1_i32, 2, 3]).unwrap();
     assert_eq!(property.get_list::<i32>().unwrap(), vec![1, 2, 3]);
     assert_eq!(property.get::<i32>().unwrap(), 1);
@@ -1799,7 +1811,7 @@ fn property_value_conversions_preserve_collections_and_report_type_errors() {
 }
 
 #[test]
-fn property_empty_collection_is_concrete_but_unset_value_reports_missing() {
+fn test_property_empty_collection_is_concrete_but_unset_value_reports_missing() {
     let empty = Property::new("empty", Vec::<i32>::new()).unwrap();
     assert_eq!(empty.len(), 0);
     assert!(!empty.is_unset());
@@ -1811,13 +1823,13 @@ fn property_empty_collection_is_concrete_but_unset_value_reports_missing() {
 }
 
 #[test]
-fn property_wire_roundtrip_preserves_unicode_metadata_and_values() {
+fn test_property_wire_roundtrip_preserves_unicode_metadata_and_values() {
     let mut property = Property::new("服务.端口", vec![8080_i32, 8081]).unwrap();
     property.set_description(Some("服务端口".to_owned()));
     property.set_final(true);
 
-    let encoded = serde_json::to_value(&property).unwrap();
-    let decoded: Property = serde_json::from_value(encoded).unwrap();
+    let encoded = to_value(&property).unwrap();
+    let decoded: Property = from_value(encoded).unwrap();
     assert_eq!(decoded.name(), "服务.端口");
     assert_eq!(decoded.description(), Some("服务端口"));
     assert!(decoded.is_final());
@@ -1825,20 +1837,20 @@ fn property_wire_roundtrip_preserves_unicode_metadata_and_values() {
 }
 
 #[test]
-fn property_wire_rejects_noncanonical_names() {
-    let mut encoded = serde_json::to_value(Property::new("valid", 1_i32).unwrap()).unwrap();
-    encoded["name"] = serde_json::Value::String("bad..name".to_owned());
+fn test_property_wire_rejects_noncanonical_names() {
+    let mut encoded = to_value(Property::new("valid", 1_i32).unwrap()).unwrap();
+    encoded["name"] = JsonValue::String("bad..name".to_owned());
 
-    let error = serde_json::from_value::<Property>(encoded).unwrap_err();
+    let error = from_value::<Property>(encoded).unwrap_err();
     assert!(error.to_string().contains("bad..name"));
 }
 
 #[test]
-fn property_wire_roundtrip_preserves_typed_unset_values() {
+fn test_property_wire_roundtrip_preserves_typed_unset_values() {
     let property = new_unset_int32_property("optional.limit");
 
-    let encoded = serde_json::to_value(&property).unwrap();
-    let decoded: Property = serde_json::from_value(encoded).unwrap();
+    let encoded = to_value(&property).unwrap();
+    let decoded: Property = from_value(encoded).unwrap();
 
     assert_eq!(decoded.name(), "optional.limit");
     assert!(decoded.is_unset());

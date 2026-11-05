@@ -99,6 +99,9 @@ impl CompositeConfigSource {
     /// # Returns
     ///
     /// `self` for method chaining.
+    /// # Type Parameters
+    ///
+    /// * `S` - Source type whose configuration data is loaded.
     #[inline]
     pub fn add<S: ConfigSource + 'static>(&mut self, source: S) -> &mut Self {
         self.sources.push(Box::new(source));
@@ -129,6 +132,7 @@ impl CompositeConfigSource {
 }
 
 impl Default for CompositeConfigSource {
+    /// Creates the default value for this type.
     #[inline]
     fn default() -> Self {
         Self::new()
@@ -136,16 +140,24 @@ impl Default for CompositeConfigSource {
 }
 
 impl ConfigSource for CompositeConfigSource {
+    /// Returns the stable identifier used to report this source during loading.
     fn source_id(&self) -> String {
         self.label
             .clone()
             .unwrap_or_else(|| "composite configuration source".to_string())
     }
 
+    /// Returns the resource limits applied to one load of this source.
     fn limits(&self) -> SourceLimits {
         self.limits
     }
 
+    /// Loads source data into the executor-provided context.
+    ///
+    /// # Parameters
+    ///
+    /// * `context` - Context for charging resource use and writing the source
+    ///   layer.
     fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
         for source in &self.sources {
             context.consume_sources(1)?;

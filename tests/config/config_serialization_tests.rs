@@ -210,6 +210,7 @@ mod test_toml_type_faithful {
     use super::Config;
     use super::ConfigError;
 
+    /// Loads TOML text from a temporary file through the public source API.
     fn load_toml(content: &str) -> Config {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("test.toml");
@@ -697,6 +698,8 @@ mod test_merge_properties_from_source {
     use super::Config;
     use super::ConfigError;
 
+    /// Resolves a named shared source fixture path.
+    /// Resolves a named shared source fixture path.
     fn fixture(name: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("tests")
@@ -807,6 +810,8 @@ mod test_source_backed_constructors {
             .join(name)
     }
 
+    /// Runs one exact child test with an isolated environment and reports
+    /// parent status.
     fn run_with_env(name: &str, values: &[(&str, &str)]) -> bool {
         const CHILD: &str = "QUBIT_CONFIG_CONSTRUCTOR_TEST_CHILD";
         if std::env::var_os(CHILD).is_some() {

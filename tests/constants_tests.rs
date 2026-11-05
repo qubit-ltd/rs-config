@@ -33,7 +33,7 @@ mod test_max_interpolation_depth {
 }
 
 #[test]
-fn read_policy_builder_round_trips_runtime_options() {
+fn test_read_policy_builder_round_trips_runtime_options() {
     use qubit_config::options::InterpolationSources;
     use qubit_datatype::ConversionLimits;
     use qubit_datatype::ConversionPolicy;

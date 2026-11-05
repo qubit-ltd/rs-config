@@ -29,6 +29,10 @@ pub(crate) struct InterpolationSession {
 
 impl InterpolationSession {
     /// Creates a session using the limits from one read policy.
+    /// # Parameters
+    ///
+    /// * `options` - Options that control source key selection and
+    ///   normalization.
     pub(crate) fn new(options: &ReadPolicy) -> Self {
         Self {
             expansions: ResourceBudget::new(
@@ -45,6 +49,9 @@ impl InterpolationSession {
     }
 
     /// Charges one parsed placeholder to this read.
+    /// # Parameters
+    ///
+    /// * `path` - Configuration path or filesystem path used by this operation.
     pub(crate) fn consume_expansion(&mut self, path: &str) -> ConfigResult<()> {
         self.expansions
             .try_consume(1)
@@ -55,6 +62,10 @@ impl InterpolationSession {
     }
 
     /// Checks an intermediate or final expanded value against its byte limit.
+    /// # Parameters
+    ///
+    /// * `bytes` - Number of output bytes to account for.
+    /// * `path` - Configuration path or filesystem path used by this operation.
     pub(crate) fn check_output(&self, bytes: usize, path: &str) -> ConfigResult<()> {
         self.output
             .check(bytes)
@@ -65,6 +76,7 @@ impl InterpolationSession {
     }
 
     /// Returns the byte limit for each expanded value.
+    #[inline]
     pub(crate) const fn max_output_bytes(&self) -> usize {
         self.max_output_bytes
     }

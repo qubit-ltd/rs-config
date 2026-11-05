@@ -30,7 +30,15 @@ pub(in crate::source) enum DotenvLineState {
 }
 
 impl DotenvLineState {
-    /// Advances the logical-line scanner by one character.
+    /// Updates the scanner state after consuming one character.
+    ///
+    /// A newline ends a comment state and returns the scanner to `Complete`.
+    /// Other characters transition according to the current quote, escape, or
+    /// whitespace state.
+    ///
+    /// # Parameters
+    ///
+    /// * `character` - The character consumed from the dotenv input.
     pub(in crate::source) fn advance(&mut self, character: char) {
         *self = match *self {
             Self::Complete => match character {
@@ -75,7 +83,7 @@ mod tests {
     use super::DotenvLineState;
 
     #[test]
-    fn advances_through_each_logical_line_state() {
+    fn test_advances_through_each_logical_line_state() {
         let cases = [
             (DotenvLineState::Complete, ' ', DotenvLineState::WhiteSpace),
             (DotenvLineState::Complete, '\r', DotenvLineState::Complete),

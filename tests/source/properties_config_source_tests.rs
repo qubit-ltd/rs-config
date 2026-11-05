@@ -31,7 +31,7 @@ fn merge_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<
 }
 
 #[test]
-fn properties_builder_default_loads_configured_content() {
+fn test_properties_builder_default_loads_configured_content() {
     let builder_default: fn() -> PropertiesConfigSourceBuilder = Default::default;
     let source = std::hint::black_box(builder_default)()
         .content("covered=value\n")
@@ -41,7 +41,7 @@ fn properties_builder_default_loads_configured_content() {
 }
 
 #[test]
-fn named_properties_source_keeps_label_across_input_changes_and_clone() {
+fn test_named_properties_source_keeps_label_across_input_changes_and_clone() {
     let source = PropertiesConfigSource::builder()
         .label("first")
         .content("a=1")
@@ -59,7 +59,7 @@ fn named_properties_source_keeps_label_across_input_changes_and_clone() {
 }
 
 #[test]
-fn named_properties_source_attributes_io_errors_to_label() {
+fn test_named_properties_source_attributes_io_errors_to_label() {
     let source = PropertiesConfigSource::builder()
         .label("missing-config")
         .file("this-file-does-not-exist-rsc201.properties")
@@ -81,7 +81,7 @@ fn named_properties_source_attributes_io_errors_to_label() {
 }
 
 #[test]
-fn named_properties_parse_errors_keep_label() {
+fn test_named_properties_parse_errors_keep_label() {
     let source = PropertiesConfigSource::builder()
         .label("bad-defaults")
         .content("bad..key=value")
@@ -91,7 +91,7 @@ fn named_properties_parse_errors_keep_label() {
 }
 
 #[test]
-fn named_properties_final_conflict_keeps_target_unchanged() {
+fn test_named_properties_final_conflict_keeps_target_unchanged() {
     let mut target = Config::new();
     target.set("port", 1_u16).unwrap();
     target.set_final("port", true).unwrap();
@@ -313,7 +313,7 @@ mod test_properties_config_source {
     }
 
     #[test]
-    fn properties_natural_lines_accept_cr_lf_and_crlf() {
+    fn test_properties_natural_lines_accept_cr_lf_and_crlf() {
         for input in ["a=1\rb=2", "a=1\nb=2", "a=1\r\nb=2", "a=1\rb=2\r\n"] {
             let pairs = PropertiesConfigSource::parse_content(input).unwrap();
             assert_eq!(
@@ -324,7 +324,7 @@ mod test_properties_config_source {
     }
 
     #[test]
-    fn properties_keep_unicode_whitespace_in_keys_and_values() {
+    fn test_properties_keep_unicode_whitespace_in_keys_and_values() {
         let pairs = PropertiesConfigSource::parse_content("a\u{00a0}b=\u{00a0}value\nx=\u{3000}text").unwrap();
         assert_eq!(
             pairs,
@@ -336,7 +336,7 @@ mod test_properties_config_source {
     }
 
     #[test]
-    fn properties_format_whitespace_and_continuations_are_ascii_only() {
+    fn test_properties_format_whitespace_and_continuations_are_ascii_only() {
         let pairs = PropertiesConfigSource::parse_content(
             "  a\t=\u{000c}value\r\nb=left\\\rright\r\nc=left\\\r\n\u{00a0}right\nd=left\\rright",
         )
@@ -354,7 +354,7 @@ mod test_properties_config_source {
     }
 
     #[test]
-    fn properties_source_load_preserves_unicode_whitespace() {
+    fn test_properties_source_load_preserves_unicode_whitespace() {
         let config = PropertiesConfigSource::from_content("a\u{00a0}b=\u{00a0}value\nx=\u{3000}text")
             .load()
             .unwrap();

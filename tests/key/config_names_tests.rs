@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-// Tests for configuration key list argument adapters.
+//! Tests configuration key list argument adapters and validation behavior.
 
 use qubit_config::Config;
 use qubit_config::ConfigError;
@@ -45,7 +45,7 @@ fn test_config_names_accepts_owned_string_lists() {
 }
 
 #[test]
-fn config_names_empty_inputs_have_distinct_optional_and_required_results() {
+fn test_config_names_empty_inputs_have_distinct_optional_and_required_results() {
     let config = Config::new();
     let empty: &[&str] = &[];
 
@@ -57,7 +57,7 @@ fn config_names_empty_inputs_have_distinct_optional_and_required_results() {
 }
 
 #[test]
-fn config_names_validate_every_candidate_before_searching() {
+fn test_config_names_validate_every_candidate_before_searching() {
     let mut config = Config::new();
     config.set("present", 7_i32).unwrap();
 
@@ -74,7 +74,7 @@ fn config_names_validate_every_candidate_before_searching() {
 }
 
 #[test]
-fn config_names_support_unicode_candidates_and_preserve_priority() {
+fn test_config_names_support_unicode_candidates_and_preserve_priority() {
     let mut config = Config::new();
     config.set("服务.备用", "fallback").unwrap();
 

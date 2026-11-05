@@ -21,7 +21,7 @@ fn key_with_units(units: &[u16]) -> OsString {
 }
 
 #[test]
-fn windows_prefix_matching_uses_native_units() {
+fn test_windows_prefix_matching_uses_native_units() {
     let invalid_key = key_with_units(&[b'A' as u16, b'P' as u16, b'P' as u16, b'_' as u16, 0xD800, b'X' as u16]);
     assert!(invalid_key.to_str().is_none());
 
@@ -42,7 +42,7 @@ fn windows_prefix_matching_uses_native_units() {
 }
 
 #[test]
-fn matching_invalid_windows_key_errors_with_redacted_source_context() {
+fn test_matching_invalid_windows_key_errors_with_redacted_source_context() {
     const SECRET_VALUE: &str = "WINDOWS_ENV_KEY_SECRET_VALUE";
     let mut units = "APP_".encode_utf16().collect::<Vec<_>>();
     units.push(0xD800);

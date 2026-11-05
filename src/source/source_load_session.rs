@@ -24,6 +24,7 @@ use crate::ConfigResult;
 /// A child session owns its local budget and temporarily borrows every parent
 /// budget. Each cumulative charge is checked against all scopes before any
 /// scope is changed.
+#[must_use = "use the session to account for source resource usage"]
 pub(crate) struct SourceLoadSession<'a> {
     /// Shared diagnostic identity of the source currently being charged.
     /// Child sessions share this text while copying ancestor slots. This may
@@ -40,6 +41,15 @@ pub(crate) struct SourceLoadSession<'a> {
 }
 impl SourceLoadSession<'static> {
     /// Creates a root source-loading session.
+    ///
+    /// # Parameters
+    ///
+    /// * `source_id` - Identifier associated with this source.
+    /// * `limits` - Local limits enforced for the source.
+    ///
+    /// # Returns
+    ///
+    /// A session with a fresh local budget and no aggregate ancestors.
     #[doc(hidden)]
     pub fn new(source_id: impl Into<String>, limits: SourceLimits) -> Self {
         Self {
@@ -52,14 +62,16 @@ impl SourceLoadSession<'static> {
 }
 
 impl<'a> SourceLoadSession<'a> {
-    /// Borrows the identity of the charged source, not necessarily the
-    /// identity of the budget scope that rejected a charge.
-    #[inline]
-    pub(in crate::source) fn source_id(&self) -> &str {
-        self.source_id.as_ref()
-    }
-
     /// Creates a child session that also charges every budget in this session.
+    ///
+    /// # Parameters
+    ///
+    /// * `source_id` - Identifier associated with the child source.
+    /// * `limits` - Local limits enforced for the child.
+    ///
+    /// # Returns
+    ///
+    /// A child session that charges its local budget and every ancestor budget.
     #[doc(hidden)]
     pub fn child<'child>(
         &'child mut self,
@@ -82,33 +94,20 @@ impl<'a> SourceLoadSession<'a> {
         }
     }
 
-    /// Charges raw input bytes to every active budget scope.
-    pub fn consume_input_bytes(&mut self, amount: usize) -> ConfigResult<()> {
-        self.consume_cumulative(CumulativeDimension::InputBytes, amount)
-    }
-
-    /// Charges emitted properties to every active budget scope.
-    pub fn consume_properties(&mut self, amount: usize) -> ConfigResult<()> {
-        self.consume_cumulative(CumulativeDimension::Properties, amount)
-    }
-
-    /// Charges parsed structural nodes to every active budget scope.
-    pub fn consume_nodes(&mut self, amount: usize) -> ConfigResult<()> {
-        self.consume_cumulative(CumulativeDimension::Nodes, amount)
-    }
-
-    /// Charges parser tokens atomically to this source and all aggregate
-    /// ancestors.
-    pub fn consume_parser_tokens(&mut self, amount: usize) -> ConfigResult<()> {
-        self.consume_cumulative(CumulativeDimension::ParserTokens, amount)
-    }
-
-    /// Charges admitted child sources to every active budget scope.
-    pub fn consume_sources(&mut self, amount: usize) -> ConfigResult<()> {
-        self.consume_cumulative(CumulativeDimension::Sources, amount)
-    }
-
     /// Checks a root-relative depth against every active budget scope.
+    ///
+    /// # Parameters
+    ///
+    /// * `depth` - Semantic nesting depth to check.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the depth is within every active limit.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::SourceLimitExceeded`] with the rejecting scope
+    /// when any active depth limit is exceeded.
     pub fn check_depth(&self, depth: usize) -> ConfigResult<()> {
         for (index, budget) in self.ancestors.iter().enumerate() {
             budget
@@ -123,6 +122,20 @@ impl<'a> SourceLoadSession<'a> {
     }
 
     /// Checks one input's parser depth against each ancestor and this source.
+    ///
+    /// # Parameters
+    ///
+    /// * `depth` - Parser nesting depth for the current input, with root depth
+    ///   zero.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the depth is within every active limit.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::SourceLimitExceeded`] with the rejecting scope
+    /// when any active parser-depth limit is exceeded.
     pub fn check_parser_depth(&self, depth: usize) -> ConfigResult<()> {
         for (index, budget) in self.ancestors.iter().enumerate() {
             budget
@@ -136,7 +149,113 @@ impl<'a> SourceLoadSession<'a> {
             .map_err(|source| self.limit_error(self.source_id.as_ref(), source.into()))
     }
 
+    /// Charges raw input bytes to every active budget scope.
+    ///
+    /// # Parameters
+    ///
+    /// * `amount` - Number of raw input bytes to charge.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when every active budget accepts the charge.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::SourceLimitExceeded`] with the rejecting scope
+    /// when an active input-byte limit is exceeded.
+    pub fn consume_input_bytes(&mut self, amount: usize) -> ConfigResult<()> {
+        self.consume_cumulative(CumulativeDimension::InputBytes, amount)
+    }
+
+    /// Charges emitted properties to every active budget scope.
+    ///
+    /// # Parameters
+    ///
+    /// * `amount` - Number of property assignments to charge.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when every active budget accepts the charge.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::SourceLimitExceeded`] with the rejecting scope
+    /// when an active property limit is exceeded.
+    pub fn consume_properties(&mut self, amount: usize) -> ConfigResult<()> {
+        self.consume_cumulative(CumulativeDimension::Properties, amount)
+    }
+
+    /// Charges parsed structural nodes to every active budget scope.
+    ///
+    /// # Parameters
+    ///
+    /// * `amount` - Number of parsed nodes to charge.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when every active budget accepts the charge.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::SourceLimitExceeded`] with the rejecting scope
+    /// when an active node limit is exceeded.
+    pub fn consume_nodes(&mut self, amount: usize) -> ConfigResult<()> {
+        self.consume_cumulative(CumulativeDimension::Nodes, amount)
+    }
+
+    /// Charges parser tokens atomically to this source and all aggregate
+    /// ancestors.
+    ///
+    /// # Parameters
+    ///
+    /// * `amount` - Number of parser tokens to charge.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when every active budget accepts the charge.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::SourceLimitExceeded`] with the rejecting scope
+    /// when an active parser-token limit is exceeded.
+    pub fn consume_parser_tokens(&mut self, amount: usize) -> ConfigResult<()> {
+        self.consume_cumulative(CumulativeDimension::ParserTokens, amount)
+    }
+
+    /// Charges admitted child sources to every active budget scope.
+    ///
+    /// # Parameters
+    ///
+    /// * `amount` - Number of child sources to charge.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when every active budget accepts the charge.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::SourceLimitExceeded`] with the rejecting scope
+    /// when an active source-count limit is exceeded.
+    pub fn consume_sources(&mut self, amount: usize) -> ConfigResult<()> {
+        self.consume_cumulative(CumulativeDimension::Sources, amount)
+    }
+
+    /// Borrows the identity of the charged source, not necessarily the
+    /// identity of the budget scope that rejected a charge.
+    ///
+    /// # Returns
+    ///
+    /// The identifier attached to errors originating from this source.
+    #[inline]
+    pub(in crate::source) fn source_id(&self) -> &str {
+        self.source_id.as_ref()
+    }
+
     /// Atomically consumes one cumulative resource across all active scopes.
+    /// # Parameters
+    ///
+    /// * `dimension` - Value used to dimension during this operation.
+    /// * `amount` - Value used to amount during this operation.
     fn consume_cumulative(&mut self, dimension: CumulativeDimension, amount: usize) -> ConfigResult<()> {
         for (index, budget) in self.ancestors.iter().enumerate() {
             if let Err(source) = dimension.get(budget).check_available(amount) {
@@ -163,6 +282,11 @@ impl<'a> SourceLoadSession<'a> {
     }
 
     /// Wraps a cumulative failure with source and budget scope context.
+    /// # Parameters
+    ///
+    /// * `source_id` - Value used to source id during this operation.
+    /// * `budget_id` - Value used to budget id during this operation.
+    /// * `source` - Source value or input being processed.
     fn cumulative_limit_error(
         source_id: &str,
         budget_id: &str,
@@ -179,6 +303,10 @@ impl<'a> SourceLoadSession<'a> {
     }
 
     /// Wraps a point-limit failure with source and budget scope context.
+    /// # Parameters
+    ///
+    /// * `budget_id` - Value used to budget id during this operation.
+    /// * `source` - Source value or input being processed.
     fn limit_error(&self, budget_id: &str, source: BudgetError<SourceLimitKind, usize>) -> ConfigError {
         let limit = source.configured_limit();
         let observed_at_least = match &source {
@@ -207,7 +335,7 @@ mod tests {
     use super::SourceLoadSession;
 
     #[test]
-    fn child_shares_ancestor_label_storage() {
+    fn test_child_shares_ancestor_label_storage() {
         use std::sync::Arc;
 
         let mut root = SourceLoadSession::new("root-配置源", SourceLimits::default());

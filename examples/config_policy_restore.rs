@@ -6,10 +6,14 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+//! Demonstrates that read policy is restored separately from serialized config
+//! data.
+
 use qubit_config::Config;
 use qubit_config::ConfigReader;
 use qubit_config::ReadPolicy;
 
+/// Restores a config and reapplies its original read policy explicitly.
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let policy = ReadPolicy::builder_from(&ReadPolicy::env_friendly())
         .max_interpolation_depth(7)

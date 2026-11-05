@@ -49,6 +49,21 @@ impl<'tree, 'policy, 'session> SourceSeqAccess<'tree, 'policy, 'session> {
     ///
     /// The outer source index is retained for yielded children; constructing
     /// the accessor does not convert or consume any elements.
+    ///
+    /// # Parameters
+    ///
+    /// - `context`: prepared input and source metadata shared with visitors.
+    /// - `values`: borrowed sequence values to expose lazily.
+    /// - `location`: containing source location for nested child origins.
+    /// - `path`: diagnostic path used for yielded element errors.
+    /// - `original_index`: outer source array index retained for diagnostics.
+    /// - `session`: shared conversion state used by yielded elements.
+    ///
+    /// # Returns
+    ///
+    /// Returns an accessor positioned before the first sequence element.
+    #[must_use]
+    #[inline]
     pub(super) fn new(
         context: ReadContext<'tree>,
         values: SequenceValues<'tree>,
@@ -70,7 +85,27 @@ impl<'tree, 'policy, 'session> SourceSeqAccess<'tree, 'policy, 'session> {
 }
 
 impl<'de, 'tree, 'policy: 'tree> SeqAccess<'de> for SourceSeqAccess<'tree, 'policy, '_> {
+    /// Deserialization error retaining source paths and outer sequence indexes.
     type Error = ConfigDeserializeError;
+
+    /// Deserializes the next element while retaining its source index.
+    ///
+    /// # Parameters
+    ///
+    /// - `seed`: Serde visitor that converts the borrowed element.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Seed that constructs the requested element from source data.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some(element)` when an element remains or `None` at the end.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the element cannot be deserialized; its diagnostic
+    /// path includes this sequence position.
     fn next_element_seed<T: DeserializeSeed<'de>>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error> {
         let Some(value) = self.values.get(self.index) else {
             return Ok(None);
@@ -89,6 +124,13 @@ impl<'de, 'tree, 'policy: 'tree> SeqAccess<'de> for SourceSeqAccess<'tree, 'poli
         .map(Some)
         .map_err(|error| error.with_path(path))
     }
+
+    /// Reports the number of elements not yet yielded by this accessor.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some` with the remaining element count.
+    #[inline]
     fn size_hint(&self) -> Option<usize> {
         Some(self.values.len() - self.index)
     }

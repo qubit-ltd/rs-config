@@ -20,6 +20,7 @@ use qubit_config::Config;
 
 const COLLECTION_SIZES: [usize; 3] = [32, 1_024, 16_384];
 
+/// Builds typed collection configurations for each benchmark size.
 fn collection_fixtures() -> Vec<(usize, Config)> {
     COLLECTION_SIZES
         .into_iter()
@@ -52,6 +53,7 @@ fn collection_fixtures() -> Vec<(usize, Config)> {
         .collect()
 }
 
+/// Benchmarks conversion of vectors and maps across collection sizes.
 fn benchmark_typed_collections(criterion: &mut Criterion) {
     let fixtures = collection_fixtures();
 

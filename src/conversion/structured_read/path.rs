@@ -10,6 +10,12 @@
 use std::fmt::Write;
 
 /// Appends one raw object key to an already formatted diagnostic parent.
+///
+/// # Parameters
+///
+/// * `parent` - Formatted parent path to retain as the output prefix.
+/// * `key` - Raw key to append, quoting it when delimiters would be ambiguous.
+#[must_use]
 pub(super) fn child_key(parent: &str, key: &str) -> String {
     let mut result = String::with_capacity(parent.len().saturating_add(key.len()).saturating_add(4));
     result.push_str(parent);
@@ -18,6 +24,11 @@ pub(super) fn child_key(parent: &str, key: &str) -> String {
 }
 
 /// Appends one raw object key to an already formatted diagnostic path.
+///
+/// # Parameters
+///
+/// * `path` - Mutable formatted path receiving the encoded key.
+/// * `key` - Raw key to append, quoting it when delimiters would be ambiguous.
 pub(super) fn append_key(path: &mut String, key: &str) {
     let quoted = key.is_empty()
         || key
@@ -38,6 +49,11 @@ pub(super) fn append_key(path: &mut String, key: &str) {
 
 /// Converts a canonical dotted configuration path into an unambiguous
 /// diagnostic path by encoding each original key segment exactly once.
+///
+/// # Parameters
+///
+/// * `path` - Canonical dotted path whose original key segments are encoded.
+#[must_use]
 pub(super) fn config_path(path: &str) -> String {
     if path.is_empty() {
         return String::new();
@@ -50,6 +66,12 @@ pub(super) fn config_path(path: &str) -> String {
 }
 
 /// Appends one array index to an already formatted diagnostic parent.
+///
+/// # Parameters
+///
+/// * `parent` - Formatted parent path to retain as the output prefix.
+/// * `index` - Zero-based source array position to append.
+#[must_use]
 pub(super) fn child_index(parent: &str, index: usize) -> String {
     let mut result = String::with_capacity(parent.len().saturating_add(2 + usize::MAX.ilog10() as usize + 1));
     result.push_str(parent);

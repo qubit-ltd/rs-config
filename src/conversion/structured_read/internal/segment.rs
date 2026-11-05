@@ -11,7 +11,16 @@
 //! diagnostics; they do not encode the typed source location used to identify
 //! interpolation overlays.
 
+/// One key or sequence position in a formatted diagnostic path.
 pub(crate) enum Segment<'a> {
-    Key(&'a str),
-    Index(usize),
+    /// Raw object key used to extend the logical diagnostic path.
+    Key(
+        /// Key text borrowed from the source object.
+        &'a str,
+    ),
+    /// Zero-based collection position used to extend the logical path.
+    Index(
+        /// Position of the element within its source collection.
+        usize,
+    ),
 }

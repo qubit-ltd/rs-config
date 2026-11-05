@@ -38,6 +38,7 @@ impl ConfigSource for InlineSource {
 
 struct MetadataSource;
 
+/// Distinguishes direct `load` output from context-managed source execution.
 struct OverrideLoadSource {
     limits: SourceLimits,
 }
@@ -62,6 +63,8 @@ impl ConfigSource for OverrideLoadSource {
     }
 }
 
+/// Succeeds through direct `load` but fails when executed through the source
+/// context.
 struct FailingLoadSource;
 
 impl ConfigSource for FailingLoadSource {
@@ -99,6 +102,7 @@ impl ConfigSource for MetadataSource {
     }
 }
 
+/// Exercises final-property validation, invalid keys, and budget enforcement.
 struct FinalSource {
     limits: SourceLimits,
 }

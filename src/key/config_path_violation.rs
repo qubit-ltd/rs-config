@@ -16,7 +16,7 @@ use serde::Serialize;
 
 /// Describes why a configuration key or path is not canonical.
 #[non_exhaustive]
-#[must_use = "use the returned value"]
+#[must_use = "handle the configuration path violation"]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ConfigPathViolation {
     /// A property key is empty.
@@ -31,6 +31,15 @@ pub enum ConfigPathViolation {
 
 impl Display for ConfigPathViolation {
     /// Formats a stable, value-free description of the violation.
+    ///
+    /// # Parameters
+    ///
+    /// * `formatter` - Destination for the violation description.
+    ///
+    /// # Returns
+    ///
+    /// Formatting success or the destination's formatting error.
+    #[inline]
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::Empty => formatter.write_str("the key is empty"),

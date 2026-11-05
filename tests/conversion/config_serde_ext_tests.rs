@@ -6,6 +6,9 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+//! Tests for ConfigSerdeExt structured deserialization and scoped
+//! interpolation.
+
 use std::collections::HashMap;
 
 use qubit_config::Config;
@@ -26,7 +29,7 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 #[test]
-fn deserialize_with_accepts_borrowed_prefix_and_explicit_options() {
+fn test_deserialize_with_accepts_borrowed_prefix_and_explicit_options() {
     use qubit_config::ConfigDeserializeOptions;
     use qubit_config::UnknownFieldPolicy;
     #[derive(Debug, Deserialize, PartialEq)]
@@ -106,6 +109,7 @@ fn test_interpolation_budget_counts_fields_ignored_by_serde() {
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+/// Serde fixture used to exercise structured deserialization behavior.
 struct RetrySettings {
     max_attempts: u32,
     enabled: bool,
@@ -113,7 +117,7 @@ struct RetrySettings {
 
 /// Both public entry points preserve the same default value and unknown path.
 #[test]
-fn deserialize_default_options_match_values_and_unknown_errors() {
+fn test_deserialize_default_options_match_values_and_unknown_errors() {
     let mut config = Config::new();
     config.set("app.label", "${other}").unwrap();
     let plain: LabelSettings = config.deserialize("app").unwrap();
@@ -136,7 +140,7 @@ fn deserialize_default_options_match_values_and_unknown_errors() {
 
 /// Interpolation and unknown-field choices remain independent in scoped reads.
 #[test]
-fn deserialize_options_cover_all_combinations_and_empty_section_prefix() {
+fn test_deserialize_options_cover_all_combinations_and_empty_section_prefix() {
     for interpolate in [false, true] {
         for unknown_fields in [UnknownFieldPolicy::Reject, UnknownFieldPolicy::Ignore] {
             let options = ConfigDeserializeOptions {
@@ -169,34 +173,40 @@ fn deserialize_options_cover_all_combinations_and_empty_section_prefix() {
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+/// Serde fixture used to exercise structured deserialization behavior.
 struct ServerSettings {
     host: String,
     port: u16,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+/// Serde fixture used to exercise structured deserialization behavior.
 struct EnvironmentSettings {
     enabled: bool,
     ports: Vec<u16>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+/// Serde fixture used to exercise structured deserialization behavior.
 struct RawSettings {
     max_attempts: String,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+/// Serde fixture used to exercise structured deserialization behavior.
 struct LabelSettings {
     label: String,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+/// Serde fixture used to exercise structured deserialization behavior.
 struct OptionalLabelSettings {
     #[serde(default)]
     label: Option<String>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+/// Serde fixture used to exercise structured deserialization behavior.
 struct StrictRetrySettings {
     #[serde(alias = "attempts")]
     max_attempts: u32,
@@ -205,11 +215,13 @@ struct StrictRetrySettings {
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+/// Serde fixture used to exercise structured deserialization behavior.
 struct NestedStrictSettings {
     retry: StrictRetrySettings,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+/// Serde fixture used to exercise structured deserialization behavior.
 struct OpenSettings {
     known: String,
     #[serde(flatten)]
@@ -217,11 +229,13 @@ struct OpenSettings {
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+/// Serde fixture used to exercise structured deserialization behavior.
 struct ServerPayload {
     port: u16,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+/// Serde fixture used to exercise structured deserialization behavior.
 struct FlattenedSettings {
     #[serde(flatten)]
     server: ServerPayload,
@@ -229,35 +243,41 @@ struct FlattenedSettings {
 
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(untagged)]
+/// Serde fixture used to exercise structured deserialization behavior.
 enum ServerChoice {
     Server { port: u16 },
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
+/// Serde fixture used to exercise structured deserialization behavior.
 struct ClosedServer {
     port: u16,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(untagged)]
+/// Serde fixture used to exercise structured deserialization behavior.
 enum ClosedServerChoice {
     Server(ClosedServer),
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+/// Serde fixture used to exercise structured deserialization behavior.
 struct StringPair {
     first: String,
     second: String,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+/// Serde fixture used to exercise structured deserialization behavior.
 struct ScopedInterpolationSettings {
     x: String,
     result: String,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+/// Serde fixture used to exercise structured deserialization behavior.
 struct StringPairResult {
     result: String,
 }
@@ -265,7 +285,7 @@ struct StringPairResult {
 /// Dotted children bind interpolation to their selected subtree; exact JSON
 /// object members remain values while lookup uses the calling reader's scope.
 #[test]
-fn structured_interpolation_distinguishes_subtree_and_exact_json_scope() {
+fn test_structured_interpolation_distinguishes_subtree_and_exact_json_scope() {
     let options = ConfigDeserializeOptions {
         interpolate: true,
         ..Default::default()
@@ -302,7 +322,7 @@ fn structured_interpolation_distinguishes_subtree_and_exact_json_scope() {
 /// Root fallback remains available, while disabled interpolation preserves
 /// the original leaf text in both storage shapes.
 #[test]
-fn structured_interpolation_fallback_and_disabled_mode_match_both_shapes() {
+fn test_structured_interpolation_fallback_and_disabled_mode_match_both_shapes() {
     let mut dotted = Config::new();
     dotted.set("x", "root").unwrap();
     dotted.set("retry.settings.result", "${x}").unwrap();
@@ -340,6 +360,7 @@ fn structured_interpolation_fallback_and_disabled_mode_match_both_shapes() {
 }
 
 /// Deserializes retry settings from any supported configuration reader.
+/// Reads retry settings through any compatible ConfigReader implementation.
 fn read_retry<R>(reader: &R) -> ConfigResult<RetrySettings>
 where
     R: ConfigReader + ?Sized,
@@ -681,6 +702,7 @@ fn test_deserialize_strict_supports_serde_alias_default_nested_map_and_flatten()
     assert_eq!(open.extra.get("extra"), Some(&serde_json::json!(true)));
 }
 
+/// Asserts strict deserialization reports the expected unknown source paths.
 fn assert_unknown_source_paths<T: DeserializeOwned>(input: Value, expected: &[&str]) {
     let mut config = Config::new();
     config.set("app.settings", input).unwrap();

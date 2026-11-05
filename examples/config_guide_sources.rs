@@ -6,6 +6,9 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+//! Demonstrates layered configuration sources with isolated environment
+//! overrides.
+
 use std::process::Command;
 
 use qubit_config::Config;
@@ -44,6 +47,7 @@ fn check_child(mode: &str) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Runs baseline, deployment override, and invalid environment scenarios.
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(mode) = std::env::args().nth(1) {
         return check_child(&mode);

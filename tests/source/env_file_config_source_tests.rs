@@ -23,7 +23,7 @@ use qubit_config::source::SourceLimitKind;
 use qubit_config::source::SourceLimits;
 
 #[test]
-fn env_file_label_applies_to_success_and_invalid_keys() {
+fn test_env_file_label_applies_to_success_and_invalid_keys() {
     let source = EnvFileConfigSource::builder()
         .content("VALUE=one")
         .label("service")
@@ -400,7 +400,7 @@ fn merge_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<
 }
 
 #[test]
-fn env_file_builder_default_loads_configured_content() {
+fn test_env_file_builder_default_loads_configured_content() {
     let builder_default: fn() -> EnvFileConfigSourceBuilder = Default::default;
     let source = std::hint::black_box(builder_default)()
         .content("COVERED=value\n")
@@ -637,7 +637,7 @@ mod test_env_file_edge_cases {
         let dir = tempfile::tempdir().unwrap();
         let source = EnvFileConfigSource::from_file(dir.path());
 
-        source
+        let _error = source
             .load()
             .expect_err("loading a directory as an .env file should fail");
     }

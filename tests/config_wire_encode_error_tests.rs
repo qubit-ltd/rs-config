@@ -58,7 +58,7 @@ impl Write for RejectingWriter {
 
 /// Verifies shared budget errors are exposed without a lossy conversion.
 #[test]
-fn config_wire_encode_error_exposes_budget_source() {
+fn test_config_wire_encode_error_exposes_budget_source() {
     let error = ConfigWireEncodeError::Budget(BudgetError::LimitExceeded {
         resource: JsonResource::OutputBytes,
         observed: Observation::Exact(17),
@@ -77,7 +77,7 @@ fn config_wire_encode_error_exposes_budget_source() {
 
 /// Verifies configuration conversion retains structured serialization errors.
 #[test]
-fn config_wire_encode_error_preserves_serialization_kind() {
+fn test_config_wire_encode_error_preserves_serialization_kind() {
     let mut encoder = JsonEncoder::with_limits(JsonEncodeLimits::<JsonResource, u64>::default());
     let source = encoder
         .to_vec(&u128::MAX)
@@ -96,7 +96,7 @@ fn config_wire_encode_error_preserves_serialization_kind() {
 /// Verifies syntax and buffered-writer sources use their dedicated
 /// configuration mapping policies.
 #[test]
-fn config_wire_encode_error_maps_syntax_and_writer_sources() {
+fn test_config_wire_encode_error_maps_syntax_and_writer_sources() {
     let mut raw_encoder = JsonEncoder::with_limits(JsonEncodeLimits::<JsonResource, u64>::default());
     let syntax = raw_encoder
         .to_vec(&InvalidRawValue)
@@ -120,7 +120,7 @@ fn config_wire_encode_error_maps_syntax_and_writer_sources() {
 
 /// Verifies the resource identity remains available to callers.
 #[test]
-fn config_wire_encode_error_preserves_budget_resource() {
+fn test_config_wire_encode_error_preserves_budget_resource() {
     let error = ConfigWireEncodeError::Budget(BudgetError::LimitExceeded {
         resource: JsonResource::Nodes,
         observed: Observation::Exact(9),
@@ -139,7 +139,7 @@ fn config_wire_encode_error_preserves_budget_resource() {
 
 /// Verifies configuration-specific limits remain distinct from JSON budgets.
 #[test]
-fn config_wire_encode_error_preserves_config_limit() {
+fn test_config_wire_encode_error_preserves_config_limit() {
     let error = ConfigWireEncodeError::LimitExceeded {
         kind: ConfigWireLimitKind::Properties,
         value: 5,
@@ -158,7 +158,7 @@ fn config_wire_encode_error_preserves_config_limit() {
 
 /// Verifies native JSON quantity failures remain distinct from budget limits.
 #[test]
-fn config_wire_encode_error_preserves_json_quantity_failure() {
+fn test_config_wire_encode_error_preserves_json_quantity_failure() {
     let source = QuantityConversionError::new(QuantityMeasurement::Usize(usize::MAX), "u64");
     let error = ConfigWireEncodeError::from(JsonEncodeError::from(MeasuredBudgetError::Quantity {
         resource: JsonResource::OutputBytes,

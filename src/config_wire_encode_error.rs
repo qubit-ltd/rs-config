@@ -44,15 +44,23 @@ use crate::ConfigWireLimitKind;
 /// ));
 /// ```
 #[derive(Debug, Error)]
+#[must_use]
 #[non_exhaustive]
 pub enum ConfigWireEncodeError {
     /// A runtime value cannot be represented by the V1 JSON wire format.
     #[error(transparent)]
-    Value(#[from] ValueWireEncodeError),
+    Value(
+        /// Runtime value encoding failure.
+        #[from]
+        ValueWireEncodeError,
+    ),
 
     /// A shared JSON resource limit was exceeded during serialization.
     #[error(transparent)]
-    Budget(BudgetError<JsonResource, u64>),
+    Budget(
+        /// Shared JSON resource budget failure.
+        BudgetError<JsonResource, u64>,
+    ),
     /// A native JSON measurement could not be represented by the budget
     /// quantity type.
     #[error("configuration wire resource quantity conversion failed for {resource:?}: {source}")]
@@ -89,25 +97,47 @@ pub enum ConfigWireEncodeError {
 
     /// The JSON adapter rejected invalid raw JSON syntax during serialization.
     #[error("invalid configuration JSON syntax: {0}")]
-    Syntax(#[from] JsonSyntaxError),
+    Syntax(
+        /// Syntax failure returned by the JSON adapter.
+        #[from]
+        JsonSyntaxError,
+    ),
 
     /// Strict JSON serialization failed after bounded preflight validation.
     #[error("failed to encode configuration JSON wire output: {0}")]
-    Json(#[from] JsonSerializationError),
+    Json(
+        /// Strict serialization failure.
+        #[from]
+        JsonSerializationError,
+    ),
 
     /// A future JSON adapter failure that has no dedicated configuration
     /// error variant yet.
     #[error("configuration JSON adapter failure: {0}")]
-    Adapter(String),
+    Adapter(
+        /// Safe adapter failure description.
+        String,
+    ),
 
     /// The runtime configuration violates a persisted wire invariant.
     #[error("invalid configuration wire value: {0}")]
-    InvalidConfig(String),
+    InvalidConfig(
+        /// Description of the violated configuration invariant.
+        String,
+    ),
 }
 
 impl From<JsonEncodeError<JsonResource, u64>> for ConfigWireEncodeError {
     /// Preserves the exact resource identity of a bounded JSON encoding
     /// failure.
+    ///
+    /// # Parameters
+    ///
+    /// * `error` - Bounded JSON encoding failure to classify.
+    ///
+    /// # Returns
+    ///
+    /// The corresponding configuration wire encoding error.
     #[inline]
     fn from(error: JsonEncodeError<JsonResource, u64>) -> Self {
         match error.into_source() {

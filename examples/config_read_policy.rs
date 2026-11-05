@@ -6,10 +6,14 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+//! Demonstrates per-read environment-friendly parsing without changing
+//! defaults.
+
 use qubit_config::Config;
 use qubit_config::ConfigReader;
 use qubit_config::options::ReadPolicy;
 
+/// Reads environment-style values with a temporary policy.
 fn main() -> Result<(), qubit_config::ConfigError> {
     let mut config = Config::new();
     config.set("HTTP_ENABLED", "yes")?;

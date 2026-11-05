@@ -41,6 +41,11 @@ pub struct CompositeConfigSourceBuilder {
 
 impl CompositeConfigSourceBuilder {
     /// Creates an empty composite source builder.
+    ///
+    /// # Returns
+    ///
+    /// A builder with no sources, default aggregate limits, and no label.
+    #[inline]
     pub fn new() -> Self {
         Self {
             sources: Vec::new(),
@@ -50,6 +55,17 @@ impl CompositeConfigSourceBuilder {
     }
 
     /// Adds a source to the composite in application order.
+    ///
+    /// # Parameters
+    ///
+    /// * `source` - The source to add.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
+    /// # Type Parameters
+    ///
+    /// * `S` - Source type whose configuration data is loaded.
     pub fn add_source<S: ConfigSource + 'static>(mut self, source: S) -> Self {
         self.sources.push(Box::new(source));
         self
@@ -61,6 +77,15 @@ impl CompositeConfigSourceBuilder {
     /// and aggregate budget diagnostics. An empty label restores the default
     /// identifier. The last call wins. Labels need not be unique. Do not
     /// include secrets in labels.
+    ///
+    /// # Parameters
+    ///
+    /// * `label` - The content-free diagnostic label. An empty value restores
+    ///   the default identifier.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     pub fn label(mut self, label: impl Into<String>) -> Self {
         let label = label.into();
         self.label = if label.is_empty() { None } else { Some(label) };
@@ -68,12 +93,27 @@ impl CompositeConfigSourceBuilder {
     }
 
     /// Sets aggregate resource limits for the complete composite load.
+    ///
+    /// # Parameters
+    ///
+    /// * `limits` - The aggregate resource limits to apply.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
+    /// Returns the resource limits applied to one load of this source.
+    #[inline]
     pub fn limits(mut self, limits: SourceLimits) -> Self {
         self.limits = limits;
         self
     }
 
     /// Builds the configured composite source.
+    ///
+    /// # Returns
+    ///
+    /// The composite source with the configured sources, limits, and label.
+    #[inline]
     pub fn build(self) -> CompositeConfigSource {
         CompositeConfigSource {
             sources: self.sources,
@@ -84,6 +124,7 @@ impl CompositeConfigSourceBuilder {
 }
 
 impl Default for CompositeConfigSourceBuilder {
+    /// Creates the default value for this type.
     fn default() -> Self {
         Self::new()
     }

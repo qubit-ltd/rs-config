@@ -138,31 +138,62 @@ impl TomlConfigSource {
     /// # Parameters
     ///
     /// * `path` - Path to the TOML file
+    ///
+    /// # Type Parameters
+    ///
+    /// * `P` - Path-like type accepted by `AsRef<Path>`.
+    ///
+    /// # Returns
+    ///
+    /// A TOML source that reads from the given file path.
     #[inline]
     pub fn from_file<P: AsRef<Path>>(path: P) -> Self {
         Self::builder().file(path).build()
     }
 
     /// Creates a TOML source backed by in-memory text.
+    ///
+    /// # Parameters
+    ///
+    /// * `content` - TOML document text to parse when the source loads.
+    ///
+    /// # Returns
+    ///
+    /// A TOML source that reads the supplied in-memory content.
+    #[inline]
     pub fn from_content(content: impl Into<String>) -> Self {
         Self::builder().content(content).build()
     }
 
     /// Creates a builder for a TOML source.
+    ///
+    /// # Returns
+    ///
+    /// A builder initialized with the TOML source defaults.
+    #[inline]
     pub fn builder() -> TomlConfigSourceBuilder {
         TomlConfigSourceBuilder::new()
     }
 }
 
 impl ConfigSource for TomlConfigSource {
+    /// Returns the stable identifier used to report this source during loading.
     fn source_id(&self) -> String {
         self.label.clone().unwrap_or_else(|| self.input.label("TOML"))
     }
 
+    /// Returns the resource limits applied to one load of this source.
+    #[inline]
     fn limits(&self) -> SourceLimits {
         self.limits
     }
 
+    /// Loads source data into the executor-provided context.
+    ///
+    /// # Parameters
+    ///
+    /// * `context` - Context for charging resource use and writing the source
+    ///   layer.
     fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
         let mut config = Config::new();
         let session = context.session_mut();
@@ -190,6 +221,25 @@ impl ConfigSource for TomlConfigSource {
 /// datetime values are stored as `String`; within arrays, they share one string
 /// category and may be mixed. Other array categories retain their native types
 /// and must be homogeneous.
+///
+/// # Parameters
+///
+/// * `source_id` - Source identifier attached to key and write errors.
+/// * `prefix` - Current flattened path, empty for the root value.
+/// * `value` - TOML value to recursively flatten.
+/// * `config` - Configuration receiving the flattened properties.
+/// * `seen` - Set used to reject duplicate flattened keys.
+/// * `budget` - Session used to charge node, property and depth limits.
+/// * `depth` - Current TOML tree depth, with the root at zero.
+///
+/// # Returns
+///
+/// `Ok(())` after the value and all descendants have been flattened.
+///
+/// # Errors
+///
+/// Returns an error when a source limit, key validation, duplicate-key check,
+/// or configuration write fails.
 pub(crate) fn flatten_toml_value(
     source_id: &str,
     prefix: &str,
@@ -269,6 +319,21 @@ pub(crate) fn flatten_toml_value(
 }
 
 /// Records one flattened TOML property and enforces the property-count limit.
+///
+/// # Parameters
+///
+/// * `source_id` - Source identifier attached to duplicate-key errors.
+/// * `seen` - Set of flattened keys already written.
+/// * `key` - Flattened property key to record.
+/// * `budget` - Session charged for one emitted property.
+///
+/// # Returns
+///
+/// `Ok(())` when the key is unique and the property budget accepts it.
+///
+/// # Errors
+///
+/// Returns an error for a duplicate key or exceeded property limit.
 fn ensure_toml_property(
     source_id: &str,
     seen: &mut HashSet<String>,
@@ -291,6 +356,7 @@ fn ensure_toml_property(
 ///
 /// # Parameters
 ///
+/// * `source_id` - Source identifier attached to parse errors.
 /// * `prefix` - Flattened configuration path receiving the array values.
 /// * `arr` - TOML array to flatten.
 /// * `config` - Configuration mutated with the flattened values.
@@ -358,6 +424,16 @@ fn flatten_toml_array(source_id: &str, prefix: &str, arr: &[TomlValue], config: 
 /// Reports whether two TOML values have the same supported scalar category.
 /// Strings and datetime values share a category; other scalar categories remain
 /// distinct.
+///
+/// # Parameters
+///
+/// * `first` - Value that defines the category.
+/// * `other` - Value to compare with the category of `first`.
+///
+/// # Returns
+///
+/// `true` when both values have the same supported scalar category.
+#[inline]
 fn same_toml_scalar_kind(first: &TomlValue, other: &TomlValue) -> bool {
     matches!(
         (first, other),
@@ -374,6 +450,7 @@ fn same_toml_scalar_kind(first: &TomlValue, other: &TomlValue) -> bool {
 ///
 /// # Parameters
 ///
+/// * `source_id` - Source identifier attached to write errors.
 /// * `prefix` - Flattened configuration path receiving the values.
 /// * `arr` - Homogeneous TOML scalar array.
 /// * `config` - Configuration mutated with the collected values.
@@ -386,6 +463,9 @@ fn same_toml_scalar_kind(first: &TomlValue, other: &TomlValue) -> bool {
 /// # Errors
 ///
 /// Returns an error when the configuration rejects the write.
+/// # Type Parameters
+///
+/// * `T` - Type converted from the selected configuration property.
 fn set_toml_array_values<T>(
     source_id: &str,
     prefix: &str,
@@ -407,6 +487,7 @@ where
 ///
 /// # Parameters
 ///
+/// * `source_id` - Source identifier attached to write errors.
 /// * `prefix` - Flattened configuration path receiving the values.
 /// * `arr` - TOML scalar array to convert.
 /// * `config` - Configuration mutated with the converted values.
@@ -432,6 +513,15 @@ fn set_toml_string_array(source_id: &str, prefix: &str, arr: &[TomlValue], confi
 }
 
 /// Tests whether all TOML values satisfy a scalar type predicate.
+///
+/// # Parameters
+///
+/// * `values` - TOML values to inspect.
+/// * `predicate` - Test applied to each value.
+///
+/// # Returns
+///
+/// `true` if every value satisfies `predicate`.
 fn all_toml_values_match(values: &[TomlValue], predicate: impl Fn(&TomlValue) -> bool) -> bool {
     values.iter().all(predicate)
 }
@@ -440,6 +530,19 @@ fn all_toml_values_match(values: &[TomlValue], predicate: impl Fn(&TomlValue) ->
 ///
 /// The caller validates the complete array category before calling this helper.
 /// Other values are rejected defensively.
+///
+/// # Parameters
+///
+/// * `value` - TOML string or datetime value to convert.
+/// * `key` - Flattened path included in an unsupported-value error.
+///
+/// # Returns
+///
+/// The value represented as a string.
+///
+/// # Errors
+///
+/// Returns a parse error when `value` is not a string or datetime.
 fn toml_scalar_to_string(value: &TomlValue, key: &str) -> ConfigResult<String> {
     match value {
         TomlValue::String(s) => Ok(s.clone()),
@@ -469,7 +572,7 @@ mod admission_tests {
     use crate::source::source_load_session::SourceLoadSession;
 
     #[test]
-    fn string_conversion_accepts_only_string_datetime_values() {
+    fn test_string_conversion_accepts_only_string_datetime_values() {
         let datetime = "1979-05-27T07:32:00Z"
             .parse::<toml::value::Datetime>()
             .expect("the test datetime is valid");
@@ -507,7 +610,7 @@ mod admission_tests {
     }
 
     #[test]
-    fn backend_parse_error_fallback_keeps_safe_location() {
+    fn test_backend_parse_error_fallback_keeps_safe_location() {
         let content = "name = \"parser-secret\"\nvalue = [";
         let error = content
             .parse::<toml::Table>()
@@ -521,7 +624,7 @@ mod admission_tests {
     }
 
     #[test]
-    fn backend_is_not_called_when_token_admission_fails() {
+    fn test_backend_is_not_called_when_token_admission_fails() {
         let mut session = SourceLoadSession::new("TOML:test", SourceLimits::builder().max_parser_tokens(2).build());
         let called = Cell::new(false);
         let error = with_toml_admission("TOML:test", "wide = [1, 2, 3]", &mut session, || {
@@ -541,7 +644,7 @@ mod admission_tests {
     }
 
     #[test]
-    fn backend_is_not_called_when_depth_admission_fails() {
+    fn test_backend_is_not_called_when_depth_admission_fails() {
         let mut session =
             SourceLoadSession::new("TOML:test", SourceLimits::builder().max_parser_nesting_depth(2).build());
         let called = Cell::new(false);
@@ -576,7 +679,7 @@ mod mapped_write_errors_tests {
     use crate::source::source_load_session::SourceLoadSession;
 
     #[test]
-    fn final_property_write_errors_keep_key_for_every_value_kind() {
+    fn test_final_property_write_errors_keep_key_for_every_value_kind() {
         let datetime = "1979-05-27T07:32:00Z"
             .parse::<toml::value::Datetime>()
             .expect("the test datetime is valid");

@@ -15,6 +15,8 @@ use criterion::criterion_main;
 use qubit_config::Config;
 use qubit_config::ReadPolicy;
 
+/// Holds one prepared configuration and lookup key for an interpolation
+/// workload.
 struct InterpolationFixture {
     name: &'static str,
     config: Config,
@@ -79,6 +81,7 @@ fn interpolation_fixtures() -> Vec<InterpolationFixture> {
     ]
 }
 
+/// Benchmarks interpolation across shallow, chained, and near-budget values.
 fn benchmark_interpolation(criterion: &mut Criterion) {
     let fixtures = interpolation_fixtures();
 

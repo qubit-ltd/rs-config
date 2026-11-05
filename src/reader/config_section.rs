@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+
 #![allow(private_bounds)]
 
 use std::borrow::Cow;
@@ -58,6 +59,10 @@ pub struct ConfigSection<'a> {
 /// Formats a section's path and effective read policy without exposing
 /// configuration data.
 impl fmt::Debug for ConfigSection<'_> {
+    /// Formats the section path and effective read policy for diagnostics.
+    /// # Parameters
+    ///
+    /// * `formatter` - Formatter receiving the section debug representation.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("ConfigSection")
@@ -68,6 +73,63 @@ impl fmt::Debug for ConfigSection<'_> {
 }
 
 impl<'a> ConfigSection<'a> {
+    /// Creates a section over `config` at `path`.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - Root configuration borrowed by the section.
+    /// * `path` - Canonical root-relative section path. An empty path
+    ///   represents the root.
+    ///
+    /// # Returns
+    ///
+    /// A newly created configuration section.
+    /// # Parameters
+    ///
+    /// * `config` - Configuration value or source configuration used by this
+    ///   operation.
+    /// * `path` - Configuration path or filesystem path used by this operation.
+    #[inline]
+    pub(crate) fn new(config: &'a Config, path: &str) -> ConfigResult<Self> {
+        Self::new_with_read_policy(config, path, None)
+    }
+
+    /// Creates a section with an optional borrowed read-policy override.
+    /// # Parameters
+    ///
+    /// * `config` - Configuration value or source configuration used by this
+    ///   operation.
+    /// * `path` - Configuration path or filesystem path used by this operation.
+    /// * `read_policy` - Value used to read policy during this operation.
+    #[inline]
+    fn new_with_read_policy(config: &'a Config, path: &str, read_policy: Option<&'a ReadPolicy>) -> ConfigResult<Self> {
+        ensure_config_path(path)?;
+        let path = path.to_string();
+        let child_prefix = if path.is_empty() {
+            None
+        } else {
+            Some(format!("{path}."))
+        };
+        Ok(Self {
+            config,
+            path,
+            child_prefix,
+            read_policy,
+        })
+    }
+
+    /// Returns this section's normalized root-relative path.
+    ///
+    /// # Returns
+    ///
+    /// The empty string for the root section, or a path without leading or
+    /// trailing `.` separators.
+    #[inline]
+    #[must_use = "use the returned value"]
+    pub fn path(&self) -> &str {
+        &self.path
+    }
+
     /// Creates a nested section below this section.
     ///
     /// # Arguments
@@ -83,6 +145,13 @@ impl<'a> ConfigSection<'a> {
     ///
     /// Returns [`crate::ConfigError::InvalidPath`] when `path` is not
     /// canonical.
+    /// # Parameters
+    ///
+    /// * `path` - Configuration path or filesystem path used by this operation.
+    ///
+    /// # Parameters
+    ///
+    /// * `path` - Path of the nested section relative to this section.
     #[inline]
     pub fn section(&self, path: &str) -> ConfigResult<ConfigSection<'a>> {
         ensure_config_path(path)?;
@@ -132,6 +201,9 @@ impl<'a> ConfigSection<'a> {
     ///
     /// Returns [`crate::ConfigError::InvalidPath`] when `path` is not
     /// canonical.
+    /// # Parameters
+    ///
+    /// * `path` - Configuration path or filesystem path used by this operation.
     #[inline]
     pub fn section_if_present(&self, path: &str) -> ConfigResult<Option<ConfigSection<'a>>> {
         let section = self.section(path)?;
@@ -140,66 +212,6 @@ impl<'a> ConfigSection<'a> {
         } else {
             Ok(Some(section))
         }
-    }
-
-    /// Creates a section over `config` at `path`.
-    ///
-    /// # Arguments
-    ///
-    /// * `config` - Root configuration borrowed by the section.
-    /// * `path` - Canonical root-relative section path. An empty path
-    ///   represents the root.
-    ///
-    /// # Returns
-    ///
-    /// A newly created configuration section.
-    #[inline]
-    pub(crate) fn new(config: &'a Config, path: &str) -> ConfigResult<Self> {
-        Self::new_with_read_policy(config, path, None)
-    }
-
-    /// Creates a section with an optional borrowed read-policy override.
-    #[inline]
-    fn new_with_read_policy(config: &'a Config, path: &str, read_policy: Option<&'a ReadPolicy>) -> ConfigResult<Self> {
-        ensure_config_path(path)?;
-        let path = path.to_string();
-        let child_prefix = if path.is_empty() {
-            None
-        } else {
-            Some(format!("{path}."))
-        };
-        Ok(Self {
-            config,
-            path,
-            child_prefix,
-            read_policy,
-        })
-    }
-
-    /// Applies a borrowed read-policy override to this view.
-    #[inline]
-    pub(crate) fn with_read_policy_override(mut self, policy: &'a ReadPolicy) -> Self {
-        self.read_policy = Some(policy);
-        self
-    }
-
-    /// Returns the root configuration backing this section.
-    #[inline(always)]
-    #[must_use = "use the returned value"]
-    pub(crate) fn root_config(&self) -> &'a Config {
-        self.config
-    }
-
-    /// Returns this section's normalized root-relative path.
-    ///
-    /// # Returns
-    ///
-    /// The empty string for the root section, or a path without leading or
-    /// trailing `.` separators.
-    #[inline]
-    #[must_use = "use the returned value"]
-    pub fn path(&self) -> &str {
-        &self.path
     }
 
     /// Returns this section with a borrowed read-policy override.
@@ -235,6 +247,9 @@ impl<'a> ConfigSection<'a> {
     /// # Returns
     ///
     /// `true` when a visible key starts with `prefix`.
+    /// # Parameters
+    ///
+    /// * `prefix` - Prefix matched against visible relative keys.
     #[inline(always)]
     #[must_use = "use the returned value"]
     pub fn contains_key_prefix(&self, prefix: &str) -> bool {
@@ -257,9 +272,29 @@ impl<'a> ConfigSection<'a> {
     /// Returns [`crate::ConfigError::InvalidPath`] when a non-empty `path`
     /// begins or ends with `.`, or contains an empty dotted segment.
     /// An empty path is valid. See [`crate::ConfigPath`] for path rules.
+    /// # Parameters
+    ///
+    /// * `path` - Relative path whose descendants are checked.
     #[inline]
     pub fn contains_section(&self, path: &str) -> ConfigResult<bool> {
         <Self as ConfigReader>::contains_section(self, path)
+    }
+
+    /// Returns the root configuration backing this section.
+    #[inline(always)]
+    #[must_use = "use the returned value"]
+    pub(crate) fn root_config(&self) -> &'a Config {
+        self.config
+    }
+
+    /// Applies a borrowed read-policy override to this view.
+    /// # Parameters
+    ///
+    /// * `policy` - Read policy applied while resolving the value.
+    #[inline]
+    pub(crate) fn with_read_policy_override(mut self, policy: &'a ReadPolicy) -> Self {
+        self.read_policy = Some(policy);
+        self
     }
 
     /// Resolves a relative property name to its root configuration key.
@@ -272,6 +307,9 @@ impl<'a> ConfigSection<'a> {
     ///
     /// A borrowed key for root or empty-name resolution, or an owned joined
     /// key for a non-root section property.
+    /// # Parameters
+    ///
+    /// * `name` - Configuration key or source name used by this operation.
     #[inline]
     fn resolve_key_cow<'b>(&'b self, name: &'b str) -> Cow<'b, str> {
         if self.path.is_empty() {
@@ -292,6 +330,9 @@ impl<'a> ConfigSection<'a> {
     /// # Returns
     ///
     /// The resolved key.
+    /// # Parameters
+    ///
+    /// * `name` - Configuration key or source name used by this operation.
     #[inline]
     fn visible_property_key<'b>(&'b self, name: &'b str) -> ConfigResult<Cow<'b, str>> {
         ensure_config_key(name)?;
@@ -318,40 +359,62 @@ impl<'a> ConfigSection<'a> {
 }
 
 impl<'a> ConfigReader for ConfigSection<'a> {
+    /// Returns the read policy active for this section.
     #[inline(always)]
     fn read_policy(&self) -> &ReadPolicy {
         self.read_policy.unwrap_or_else(|| self.config.default_read_policy())
     }
 
+    /// Returns the root-relative path that scopes this reader.
     #[inline(always)]
     fn scope_path(&self) -> &str {
         &self.path
     }
 
+    /// Looks up a property by a key relative to this section.
+    /// # Parameters
+    ///
+    /// * `name` - Property key relative to this section.
     fn get_property(&self, name: impl AsRef<str>) -> ConfigResult<Option<&Property>> {
         let name = name.as_ref();
         let key = self.visible_property_key(name)?;
         self.config.get_property(key.as_ref())
     }
 
+    /// Returns the number of properties visible in this section.
     fn len(&self) -> usize {
         self.visible_entries().count()
     }
 
+    /// Returns whether this section contains no visible properties.
     fn is_empty(&self) -> bool {
         self.visible_entries().next().is_none()
     }
 
+    /// Returns the visible property keys relative to this section.
     fn keys(&self) -> Vec<String> {
         self.visible_entries().map(|(key, _)| key.to_string()).collect()
     }
 
+    /// Returns whether a relative key resolves to a property.
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Relative property key to look up.
     fn contains(&self, name: impl AsRef<str>) -> ConfigResult<bool> {
         let name = name.as_ref();
         let key = self.visible_property_key(name)?;
         self.config.contains(key.as_ref())
     }
 
+    /// Reads the property value as its exact stored type.
+    /// # Type Parameters
+    ///
+    /// * `T` - Exact stored value type requested from the property.
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Property key relative to this section.
     fn get_strict<T>(&self, name: impl AsRef<str>) -> ConfigResult<T>
     where
         T: StrictValueRead,
@@ -361,6 +424,15 @@ impl<'a> ConfigReader for ConfigSection<'a> {
         self.config.get_strict(key.as_ref())
     }
 
+    /// Reads the property collection without converting its elements.
+    /// # Type Parameters
+    ///
+    /// * `T` - Exact stored element type requested from the property
+    ///   collection.
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Property key relative to this section.
     fn get_list_strict<T>(&self, name: impl AsRef<str>) -> ConfigResult<Vec<T>>
     where
         T: StrictValueRead,
@@ -370,10 +442,20 @@ impl<'a> ConfigReader for ConfigSection<'a> {
         self.config.get_list_strict(key.as_ref())
     }
 
+    /// Returns whether a visible key begins with the given prefix.
+    ///
+    /// # Parameters
+    ///
+    /// * `prefix` - Prefix matched against visible relative keys.
     fn contains_key_prefix(&self, prefix: &str) -> bool {
         self.iter_prefix(prefix).next().is_some()
     }
 
+    /// Returns whether the relative path has visible descendants.
+    ///
+    /// # Parameters
+    ///
+    /// * `path` - Relative section path to inspect.
     fn contains_section(&self, path: &str) -> ConfigResult<bool> {
         ensure_config_path(path)?;
         if path.is_empty() {
@@ -383,6 +465,10 @@ impl<'a> ConfigReader for ConfigSection<'a> {
         Ok(self.contains_key_prefix(&child_prefix))
     }
 
+    /// Iterates visible properties whose keys begin with the prefix.
+    /// # Parameters
+    ///
+    /// * `prefix` - Prefix matched against visible relative keys.
     fn iter_prefix<'b>(&'b self, prefix: &'b str) -> impl Iterator<Item = (&'b str, &'b Property)> + 'b {
         let child_prefix = self.child_prefix.as_deref().unwrap_or("");
         let full_prefix = format!("{child_prefix}{prefix}");
@@ -395,15 +481,26 @@ impl<'a> ConfigReader for ConfigSection<'a> {
             .map(move |(key, property)| (&key[child_prefix_len..], property))
     }
 
+    /// Iterates all properties visible in this section.
     fn iter<'b>(&'b self) -> impl Iterator<Item = (&'b str, &'b Property)> + 'b {
         self.visible_entries()
     }
 
+    /// Creates a nested section relative to this section.
+    ///
+    /// # Parameters
+    ///
+    /// * `path` - Relative path of the nested section.
     #[inline]
     fn section(&self, path: &str) -> ConfigResult<ConfigSection<'a>> {
         ConfigSection::section(self, path)
     }
 
+    /// Resolves a relative key to its full configuration path.
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Relative key to resolve.
     fn resolve_key(&self, name: impl AsRef<str>) -> ConfigResult<String> {
         let name = name.as_ref();
         ensure_config_path(name)?;

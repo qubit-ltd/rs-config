@@ -20,10 +20,12 @@ use qubit_config::source::SourceLimits;
 
 const USAGE: &str = "usage: config_source_resource_probe FORMAT SHAPE SIZE MAX_NODES MAX_DEPTH MODE\nFORMAT: toml | yaml; SHAPE: wide | deep; MODE: load | generate-only";
 
+/// Parses one numeric probe argument.
 fn parse_usize(value: &str) -> Result<usize, &'static str> {
     value.parse().map_err(|_| "invalid numeric argument")
 }
 
+/// Generates bounded wide or deeply nested TOML/YAML source content.
 fn generate(format: &str, shape: &str, size: usize) -> Result<String, &'static str> {
     if size == 0 {
         return Err("SIZE must be greater than zero");
@@ -84,6 +86,7 @@ fn generate(format: &str, shape: &str, size: usize) -> Result<String, &'static s
 }
 
 #[cfg(any(feature = "toml", feature = "yaml"))]
+/// Reports source-load outcomes and timing using stable probe labels.
 fn report_result(result: Result<qubit_config::Config, ConfigError>, elapsed: u128) -> ExitCode {
     match result {
         Ok(config) => {
@@ -114,6 +117,7 @@ fn report_result(result: Result<qubit_config::Config, ConfigError>, elapsed: u12
     }
 }
 
+/// Parses probe settings, generates input, and optionally loads it.
 fn run() -> Result<ExitCode, &'static str> {
     let args = env::args().skip(1).collect::<Vec<_>>();
     if args.len() != 6 {
@@ -182,6 +186,7 @@ fn run() -> Result<ExitCode, &'static str> {
     unreachable!("format validation and feature branches cover TOML and YAML")
 }
 
+/// Runs the resource probe and prints usage when arguments are invalid.
 fn main() -> ExitCode {
     match run() {
         Ok(code) => code,

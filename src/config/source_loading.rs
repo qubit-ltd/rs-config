@@ -147,6 +147,10 @@ impl Config {
 
     /// Creates a configuration from a TOML file.
     ///
+    /// # Type Parameters
+    ///
+    /// * `P` - Path-like type that implements [`AsRef<Path>`].
+    ///
     /// # Parameters
     ///
     /// * `path` - Path to the TOML file.
@@ -177,6 +181,10 @@ impl Config {
     }
 
     /// Creates a configuration from a YAML file.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `P` - Path-like type that implements [`AsRef<Path>`].
     ///
     /// # Parameters
     ///
@@ -209,6 +217,10 @@ impl Config {
 
     /// Creates a configuration from a Java `.properties` file.
     ///
+    /// # Type Parameters
+    ///
+    /// * `P` - Path-like type that implements [`AsRef<Path>`].
+    ///
     /// # Parameters
     ///
     /// * `path` - Path to the `.properties` file.
@@ -236,6 +248,10 @@ impl Config {
     }
 
     /// Creates a configuration from a `.env` file.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `P` - Path-like type that implements [`AsRef<Path>`].
     ///
     /// # Parameters
     ///

@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+//! Tests deep interpolation chains and cycles on a constrained thread stack.
 
 use std::process::Command;
 use std::process::Stdio;
@@ -38,14 +39,14 @@ const RLIMIT_CORE: i32 = 0;
 const RLIMIT_CORE: i32 = 4;
 
 #[test]
-fn interpolation_1024_deep_chain_fits_2mib_stack() {
-    run_isolated_probe("interpolation_1024_deep_chain_fits_2mib_stack", "chain");
+fn test_interpolation_1024_deep_chain_fits_2mib_stack() {
+    run_isolated_probe("test_interpolation_1024_deep_chain_fits_2mib_stack", "chain");
 }
 
 #[test]
-fn interpolation_1024_node_cycle_reports_closed_chain_on_2mib_stack() {
+fn test_interpolation_1024_node_cycle_reports_closed_chain_on_2mib_stack() {
     run_isolated_probe(
-        "interpolation_1024_node_cycle_reports_closed_chain_on_2mib_stack",
+        "test_interpolation_1024_node_cycle_reports_closed_chain_on_2mib_stack",
         "cycle",
     );
 }

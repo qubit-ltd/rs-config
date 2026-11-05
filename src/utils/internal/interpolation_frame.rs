@@ -24,6 +24,11 @@ pub(in crate::utils) struct InterpolationFrame {
 
 impl InterpolationFrame {
     /// Creates an unentered frame from an owned input string.
+    /// # Parameters
+    ///
+    /// * `text` - Text currently being expanded.
+    /// * `entering_variable` - Variable whose expansion created this frame, if
+    ///   any.
     pub(in crate::utils) fn new(text: String, entering_variable: Option<String>) -> Self {
         Self {
             text,

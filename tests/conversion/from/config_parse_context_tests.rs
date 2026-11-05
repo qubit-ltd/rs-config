@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-// Tests for parsing context behavior observable through typed reads.
+//! Tests for parsing context behavior observable through typed reads.
 
 use qubit_config::Config;
 use qubit_config::ConfigError;
@@ -17,6 +17,7 @@ use qubit_config::conversion::ConfigParseContext;
 use qubit_config::conversion::FromConfig;
 
 #[derive(Debug, PartialEq)]
+/// Test fixture whose scalar conversion observes the supplied read context.
 struct ServicePort(u16);
 
 impl FromConfig for ServicePort {

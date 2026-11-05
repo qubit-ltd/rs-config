@@ -59,6 +59,14 @@ impl<'a> PreparedConfigRead<'a> {
     ///
     /// Capacity rejection leaves both tables unchanged. The returned node ID
     /// indexes the arena and origin slot, not the source-property table.
+    ///
+    /// # Parameters
+    ///
+    /// * `node` - Prepared input node to append to the read arena.
+    /// * `origin` - Optional source location corresponding to the node.
+    /// * `depth` - Nesting depth charged to the structure budget.
+    /// * `capacity` - Shared limits and accounting state for this projection.
+    /// * `path` - Diagnostic path used if capacity admission fails.
     fn push(
         &mut self,
         node: ReadNode<'a>,
@@ -77,6 +85,13 @@ impl<'a> PreparedConfigRead<'a> {
 
     /// Expands only objects needed to merge dotted paths; untouched payloads
     /// remain borrowed JSON or map nodes.
+    ///
+    /// # Parameters
+    ///
+    /// * `id` - Arena node to expand into indexed object children.
+    /// * `depth` - Depth charged for newly indexed children.
+    /// * `capacity` - Shared limits and accounting state for this projection.
+    /// * `path` - Diagnostic path used if expansion exceeds a limit.
     fn expand_object(
         &mut self,
         id: NodeId,
@@ -129,6 +144,12 @@ impl<'a> PreparedConfigRead<'a> {
 
     /// Inserts one flattened property, merging object leaves and rejecting
     /// duplicate leaves or scalar/object conflicts.
+    ///
+    /// # Parameters
+    ///
+    /// * `key` - Canonical dotted key used to select the destination leaf.
+    /// * `property` - Source property whose value and origin are indexed.
+    /// * `capacity` - Shared limits and accounting state for this projection.
     fn insert_property(&mut self, key: &str, property: &'a Property, capacity: &mut IndexCapacity) -> ConfigResult<()> {
         let mut current = self.root;
         let mut depth = 1usize;
@@ -185,6 +206,16 @@ impl<'a> PreparedConfigRead<'a> {
 
     /// Iterative object merging rejects duplicate leaves rather than replacing
     /// whichever property happened to be visited first.
+    ///
+    /// # Parameters
+    ///
+    /// * `id` - Existing arena node receiving the incoming object children.
+    /// * `incoming` - Object-shaped source node to merge into the existing
+    ///   node.
+    /// * `origin` - Source location used to derive child origins.
+    /// * `depth` - Nesting depth charged for visited children.
+    /// * `capacity` - Shared limits and accounting state for this projection.
+    /// * `path` - Diagnostic path for shape conflicts and limit failures.
     fn merge_object(
         &mut self,
         id: NodeId,
@@ -237,6 +268,12 @@ impl<'a> PreparedConfigRead<'a> {
 
 /// Creates a path-specific error when an existing shape conflicts with an
 /// incoming shape or leaf.
+///
+/// # Parameters
+///
+/// * `path` - Diagnostic path where the incompatible values meet.
+/// * `existing` - Structural kind already present at the path.
+/// * `incoming` - Structural kind supplied by the new value.
 fn conflict(path: &str, existing: &str, incoming: &str) -> ConfigError {
     ConfigError::KeyConflict {
         source_id: None,
@@ -259,6 +296,30 @@ fn conflict(path: &str, existing: &str, incoming: &str) -> ConfigError {
 /// only the indexes and overlays needed for the read. Its arena `NodeId`s
 /// index projection nodes; property indexes remain a separate source-table
 /// domain.
+///
+/// # Parameters
+///
+/// - `reader`: supplies the source properties, selected read policy, and
+///   section lookup used while preparing the projection.
+/// - `prefix`: selects the configuration root; an empty prefix selects the full
+///   reader.
+/// - `interpolate`: controls whether interpolation overlays are prepared before
+///   missing values are classified.
+///
+/// # Type Parameters
+///
+/// * `R` - Reader supplying the selected properties, policy, and section views.
+///
+/// # Returns
+///
+/// Returns the bounded projection, borrowing source payloads where possible.
+/// The projection owns its arena indexes and any interpolation overlays.
+///
+/// # Panics
+///
+/// Panics if `iter_prefix` yields a key outside the requested prefix or a key
+/// that the reader can no longer resolve. Both conditions violate the
+/// `ConfigReader` iteration contract.
 ///
 /// # Errors
 ///
@@ -318,7 +379,7 @@ pub(super) fn prepare_read<'a, R: ConfigReader + ?Sized>(
             }
         }
     }
-    super::input_budget::admit_input(&prepared, reader.read_policy())?;
+    super::prepared_input_budget::admit_input(&prepared, reader.read_policy())?;
     let exact = prepared.sources.is_exact();
     if interpolate {
         prepared.overlays = if exact {

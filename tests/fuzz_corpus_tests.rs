@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-// # Structured deserialization fuzz corpus tests
+//! Tests structured deserialization against the fuzz corpus seeds.
 
 use std::fs;
 use std::path::PathBuf;
@@ -58,7 +58,7 @@ fn options(interpolate: bool) -> ConfigDeserializeOptions {
 }
 
 #[test]
-fn structured_deserialization_corpus_seeds_reach_their_expected_shapes() {
+fn test_structured_deserialization_corpus_seeds_reach_their_expected_shapes() {
     let targets = ["structured_deserialize", "structured_deserialize_typed"];
     let names = [
         "collections-nested.json",
@@ -121,7 +121,7 @@ fn structured_deserialization_corpus_seeds_reach_their_expected_shapes() {
 }
 
 #[test]
-fn structured_deserialization_accepts_equivalent_exact_and_dotted_shapes() {
+fn test_structured_deserialization_accepts_equivalent_exact_and_dotted_shapes() {
     let expected_value = serde_json::json!({
         "signed": -7,
         "unsigned": 42,
@@ -197,7 +197,7 @@ fn structured_deserialization_accepts_equivalent_exact_and_dotted_shapes() {
 }
 
 #[test]
-fn typed_semantic_cases_match_all_read_shapes() {
+fn test_typed_semantic_cases_match_all_read_shapes() {
     let cases = [
         (
             serde_json::json!({"signed": i128::MIN.to_string(), "unsigned": u128::MAX.to_string()}),

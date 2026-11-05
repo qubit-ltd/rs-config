@@ -31,6 +31,17 @@ impl SourceLocation {
     /// The property-table index is preserved. Segments remain distinct from
     /// dotted diagnostic paths, so a literal dot in a key is not interpreted
     /// as a path separator.
+    ///
+    /// # Parameters
+    ///
+    /// - `segment`: typed child key or array index to append to the nested
+    ///   value path.
+    ///
+    /// # Returns
+    ///
+    /// Returns a new location with the same property index and the appended
+    /// segment; the original location remains unchanged.
+    #[must_use]
     pub(super) fn child(&self, segment: SourceSegment) -> Self {
         let mut result = self.clone();
         result.segments.push(segment);

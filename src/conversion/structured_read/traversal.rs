@@ -18,6 +18,21 @@ pub(super) use super::read_view::ReadView;
 pub(super) use super::visit::Visit;
 use crate::ConfigResult;
 
+/// Creates a lazy child iterator for traversable node shapes.
+///
+/// Object, collection, JSON array/object, and string-map views produce an
+/// iterator; scalar and missing-value views have no children.
+///
+/// # Parameters
+///
+/// - `value`: borrowed node view whose child shape is inspected.
+/// - `prepared`: projection supplying the indexed children for object nodes.
+///
+/// # Returns
+///
+/// Returns a lazy child iterator for a traversable shape, or `None` for a
+/// scalar or missing value.
+#[inline]
 fn children<'a>(value: ReadView<'a>, prepared: &'a PreparedConfigRead<'a>) -> Option<ChildIter<'a>> {
     match value {
         ReadView::Object(values) => Some(ChildIter::Object {
@@ -34,6 +49,25 @@ fn children<'a>(value: ReadView<'a>, prepared: &'a PreparedConfigRead<'a>) -> Op
 
 /// Invokes admission before creating the next iterator frame. Only ancestor
 /// frames remain live, so a large array cannot allocate a queue of its leaves.
+///
+/// # Parameters
+///
+/// - `prepared`: bounded projection whose nodes are traversed from its root.
+/// - `track_locations`: whether source locations are retained for visits.
+/// - `visit`: callback invoked in depth-first order for each visited node.
+///
+/// # Returns
+///
+/// Returns `Ok(())` after all reachable nodes have been visited.
+///
+/// # Panics
+///
+/// Panics if location tracking is enabled but a child has no typed segment;
+/// that violates the child iterator's source-location invariant.
+///
+/// # Errors
+///
+/// Returns the first error produced by the visitor callback.
 pub(super) fn walk<'a>(
     prepared: &'a PreparedConfigRead<'_>,
     track_locations: bool,

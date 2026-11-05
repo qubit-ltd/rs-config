@@ -17,8 +17,6 @@ mod conversion_input;
 mod deserializer;
 #[path = "structured_read/source_enum_access.rs"]
 mod enum_access;
-#[path = "structured_read/input_budget.rs"]
-mod input_budget;
 #[path = "structured_read/internal/mod.rs"]
 mod internal;
 #[path = "structured_read/interpolation_overlay.rs"]
@@ -31,6 +29,8 @@ mod map_entries;
 mod node;
 #[path = "structured_read/path.rs"]
 mod path;
+#[path = "structured_read/prepared_input_budget.rs"]
+mod prepared_input_budget;
 #[path = "structured_read/prepared_config_read.rs"]
 mod prepared_read;
 #[path = "structured_read/read_context.rs"]
@@ -54,8 +54,37 @@ mod traversal;
 #[path = "structured_read/visit.rs"]
 mod visit;
 
-/// Prepares one borrowed input and shares a conversion session across all
-/// leaves.
+/// Prepares and deserializes the selected reader input with one shared
+/// conversion budget.
+///
+/// The prefix selects a property or subtree in the reader's visible scope.
+/// Preparation applies the requested interpolation policy and admits the
+/// complete selected input before Serde visits it. All converted leaves share
+/// one conversion session so collection limits apply across the full read.
+/// When `reject_unknown` is enabled, paths reported through Serde's ignored
+/// value callback are collected and returned as a sorted, deduplicated
+/// [`crate::ConfigError::UnknownProperties`] error after deserialization.
+/// Serde errors are mapped to configuration errors rooted at the selected
+/// diagnostic path.
+///
+/// # Type Parameters
+///
+/// * `T` - Owned target type that implements Serde deserialization.
+///
+/// # Parameters
+///
+/// * `reader` - Configuration reader that supplies values and read policy.
+/// * `prefix` - Reader-relative property or subtree path.
+/// * `interpolate` - Whether selected string leaves are interpolated.
+/// * `reject_unknown` - Whether ignored-field callbacks are reported.
+///
+/// # Returns
+///
+/// The deserialized target when preparation and conversion succeed.
+///
+/// # Errors
+///
+/// Returns preparation, conversion, Serde, or unknown-property errors.
 pub(crate) fn deserialize_from_reader<R, T>(
     reader: &R,
     prefix: &str,
@@ -94,9 +123,7 @@ where
 }
 
 #[cfg(test)]
-#[path = "structured_read/preparation_tests.rs"]
 mod preparation_tests;
 
 #[cfg(test)]
-#[path = "structured_read/visitor_tests.rs"]
 mod visitor_tests;

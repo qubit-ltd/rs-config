@@ -63,6 +63,10 @@ pub struct ReadPolicyBuilder {
 
 impl ReadPolicyBuilder {
     /// Creates a builder initialized with the default read policy.
+    ///
+    /// # Returns
+    ///
+    /// A builder with default conversion and interpolation settings.
     pub fn new() -> Self {
         Self {
             conversion_policy: ConversionPolicy::default(),
@@ -75,18 +79,45 @@ impl ReadPolicyBuilder {
     }
 
     /// Sets the data conversion policy.
+    ///
+    /// # Parameters
+    ///
+    /// * `policy` - Conversion semantics to use for typed reads.
+    ///
+    /// # Returns
+    ///
+    /// This builder with the conversion policy replaced.
+    #[inline]
     pub fn conversion_policy(mut self, policy: ConversionPolicy) -> Self {
         self.conversion_policy = policy;
         self
     }
 
     /// Sets the data conversion limits.
+    ///
+    /// # Parameters
+    ///
+    /// * `limits` - Resource budgets for conversion operations.
+    ///
+    /// # Returns
+    ///
+    /// This builder with the conversion limits replaced.
+    #[inline]
     pub fn conversion_limits(mut self, limits: ConversionLimits) -> Self {
         self.conversion_limits = limits;
         self
     }
 
     /// Sets the interpolation sources.
+    ///
+    /// # Parameters
+    ///
+    /// * `sources` - Lookup source order used by interpolated reads.
+    ///
+    /// # Returns
+    ///
+    /// This builder with the interpolation source selection updated.
+    #[inline]
     pub const fn interpolation_sources(mut self, sources: InterpolationSources) -> Self {
         self.interpolation_sources = sources;
         self
@@ -110,6 +141,7 @@ impl ReadPolicyBuilder {
     /// # Returns
     ///
     /// This builder with the updated depth limit.
+    #[inline]
     pub const fn max_interpolation_depth(mut self, maximum: usize) -> Self {
         self.max_interpolation_depth = maximum;
         self
@@ -133,6 +165,7 @@ impl ReadPolicyBuilder {
     /// # Returns
     ///
     /// This builder with the updated limit.
+    #[inline]
     pub const fn max_interpolation_expansions(mut self, maximum: usize) -> Self {
         self.max_interpolation_expansions = maximum;
         self
@@ -155,6 +188,7 @@ impl ReadPolicyBuilder {
     /// # Returns
     ///
     /// This builder with the updated output-size limit.
+    #[inline]
     pub const fn max_interpolation_output_bytes(mut self, maximum: usize) -> Self {
         self.max_interpolation_output_bytes = maximum;
         self
@@ -251,6 +285,14 @@ impl ReadPolicyBuilder {
     }
 
     /// Sets the Boolean conversion policy.
+    ///
+    /// # Parameters
+    ///
+    /// * `policy` - Boolean literal and parsing semantics to use.
+    ///
+    /// # Returns
+    ///
+    /// This builder with the Boolean conversion policy replaced.
     pub fn boolean_policy(mut self, policy: BooleanConversionPolicy) -> Self {
         self.conversion_policy = self.conversion_policy.into_builder().boolean_policy(policy).build();
         self
@@ -303,36 +345,81 @@ impl ReadPolicyBuilder {
     }
 
     /// Sets the collection conversion limits.
+    ///
+    /// # Parameters
+    ///
+    /// * `limits` - Resource budgets for collection conversions.
+    ///
+    /// # Returns
+    ///
+    /// This builder with the collection limits replaced.
     pub fn collection_limits(mut self, limits: CollectionConversionLimits) -> Self {
         self.conversion_limits = self.conversion_limits.into_builder().collection_limits(limits).build();
         self
     }
 
     /// Sets the duration conversion policy.
+    ///
+    /// # Parameters
+    ///
+    /// * `policy` - Duration parsing and formatting semantics to use.
+    ///
+    /// # Returns
+    ///
+    /// This builder with the duration conversion policy replaced.
     pub fn duration_policy(mut self, policy: DurationConversionPolicy) -> Self {
         self.conversion_policy = self.conversion_policy.into_builder().duration_policy(policy).build();
         self
     }
 
     /// Sets the duration conversion limits.
+    ///
+    /// # Parameters
+    ///
+    /// * `limits` - Resource budgets for duration conversions.
+    ///
+    /// # Returns
+    ///
+    /// This builder with the duration limits replaced.
     pub fn duration_limits(mut self, limits: DurationConversionLimits) -> Self {
         self.conversion_limits = self.conversion_limits.into_builder().duration_limits(limits).build();
         self
     }
 
     /// Sets the numeric conversion policy.
+    ///
+    /// # Parameters
+    ///
+    /// * `policy` - Numeric parsing and rounding semantics to use.
+    ///
+    /// # Returns
+    ///
+    /// This builder with the numeric conversion policy replaced.
     pub fn numeric_policy(mut self, policy: NumericConversionPolicy) -> Self {
         self.conversion_policy = self.conversion_policy.into_builder().numeric_policy(policy).build();
         self
     }
 
     /// Sets the numeric conversion limits.
+    ///
+    /// # Parameters
+    ///
+    /// * `limits` - Resource budgets for numeric conversions.
+    ///
+    /// # Returns
+    ///
+    /// This builder with the numeric limits replaced.
     pub fn numeric_limits(mut self, limits: NumericConversionLimits) -> Self {
         self.conversion_limits = self.conversion_limits.into_builder().numeric_limits(limits).build();
         self
     }
 
     /// Builds the configured read policy.
+    ///
+    /// # Returns
+    ///
+    /// The immutable read policy containing this builder's settings.
+    #[inline]
     pub fn build(self) -> ReadPolicy {
         ReadPolicy {
             conversion_policy: self.conversion_policy,
@@ -346,6 +433,7 @@ impl ReadPolicyBuilder {
 }
 
 impl Default for ReadPolicyBuilder {
+    /// Creates the default value for this type.
     fn default() -> Self {
         Self::new()
     }

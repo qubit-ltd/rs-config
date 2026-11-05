@@ -22,11 +22,20 @@ use super::traversal::ReadView;
 /// prepared-node origins are carried only when diagnostics may need them.
 pub(super) enum MapEntries<'tree> {
     /// Borrowed keys and child IDs from the prepared object's ordered index.
-    Object(std::collections::btree_map::Iter<'tree, String, NodeId>),
+    Object(
+        /// Key and child-node ID pairs from the prepared object.
+        std::collections::btree_map::Iter<'tree, String, NodeId>,
+    ),
     /// Borrowed entries from an input JSON object.
-    Json(serde_json::map::Iter<'tree>),
+    Json(
+        /// Key and value pairs borrowed from the input object.
+        serde_json::map::Iter<'tree>,
+    ),
     /// Borrowed key/value pairs from a string map.
-    StringMap(std::collections::hash_map::Iter<'tree, String, String>),
+    StringMap(
+        /// Key and value pairs borrowed from the input string map.
+        std::collections::hash_map::Iter<'tree, String, String>,
+    ),
 }
 
 impl<'tree> MapEntries<'tree> {
@@ -37,12 +46,26 @@ impl<'tree> MapEntries<'tree> {
     /// The iterator borrows keys and values from the input; prepared object
     /// entries retain their node IDs for looking up values and optional source
     /// locations.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - Read view to expose when it has a supported map shape.
     pub(super) fn new(value: ReadView<'tree>) -> Option<Self> {
         match value {
             ReadView::Object(values) => Some(Self::Object(values.iter())),
             ReadView::StringMap(values) => Some(Self::StringMap(values.iter())),
             ReadView::Json(serde_json::Value::Object(values)) => Some(Self::Json(values.iter())),
             _ => None,
+        }
+    }
+
+    /// Returns the number of entries not yet yielded by this iterator.
+    #[must_use]
+    pub(super) fn len(&self) -> usize {
+        match self {
+            Self::Object(values) => values.len(),
+            Self::Json(values) => values.len(),
+            Self::StringMap(values) => values.len(),
         }
     }
 
@@ -53,6 +76,11 @@ impl<'tree> MapEntries<'tree> {
     /// location only when diagnostics or missing-value recovery may use it;
     /// direct JSON and string-map entries have no prepared source location and
     /// return `None` for that component.
+    ///
+    /// # Parameters
+    ///
+    /// * `context` - Prepared read context used to resolve IDs and origins for
+    ///   indexed object entries.
     pub(super) fn next(
         &mut self,
         context: ReadContext<'tree>,
@@ -76,15 +104,6 @@ impl<'tree> MapEntries<'tree> {
             Self::StringMap(values) => values
                 .next()
                 .map(|(key, value)| (key.as_str(), ReadView::Text(value), None)),
-        }
-    }
-
-    /// Returns the number of entries not yet yielded by this iterator.
-    pub(super) fn len(&self) -> usize {
-        match self {
-            Self::Object(values) => values.len(),
-            Self::Json(values) => values.len(),
-            Self::StringMap(values) => values.len(),
         }
     }
 }

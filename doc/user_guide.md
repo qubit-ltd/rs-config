@@ -154,8 +154,11 @@ For a small in-memory configuration, the minimum setup is:
 
 <!-- example: config_guide_quickstart -->
 ```rust
+//! Shows the smallest Config write and typed-read workflow.
+
 use qubit_config::Config;
 
+/// Writes a server port and reads it back as an unsigned integer.
 fn main() -> Result<(), qubit_config::ConfigError> {
     let mut config = Config::new();
     config.set("server.port", 8080)?;
@@ -241,9 +244,12 @@ root-relative dotted configuration paths.
 
 <!-- example: config_sections -->
 ```rust
+//! Demonstrates navigating nested configuration sections with readers.
+
 use qubit_config::Config;
 use qubit_config::ConfigReader;
 
+/// Reads a nested TLS setting through successive section views.
 fn main() -> Result<(), qubit_config::ConfigError> {
     let mut config = Config::new();
     config.set("server.tls.enabled", true)?;
@@ -398,6 +404,9 @@ production applications can choose a prefix that fits their environment:
 
 <!-- example: config_guide_sources -->
 ```rust
+//! Demonstrates layered configuration sources with isolated environment
+//! overrides.
+
 use std::process::Command;
 
 use qubit_config::Config;
@@ -436,6 +445,7 @@ fn check_child(mode: &str) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Runs baseline, deployment override, and invalid environment scenarios.
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(mode) = std::env::args().nth(1) {
         return check_child(&mode);
@@ -495,18 +505,24 @@ Source loading and merging are transactional at the public boundary: a source is
 
 <!-- example: config_structured_guide -->
 ```rust
+//! Demonstrates structured object, collection, and byte deserialization.
+
 use qubit_config::Config;
 use serde::Deserialize;
 use serde::de;
 use serde::de::Deserializer;
 use serde::de::Visitor;
 
+/// Server settings selected from a structured configuration section.
 #[derive(Debug, Deserialize, PartialEq)]
 struct Server {
+    /// Server host name.
     host: String,
+    /// TCP service port.
     port: u16,
 }
 
+/// Byte sequence deserialized from a string value using serde bytes.
 #[derive(Debug, PartialEq)]
 struct Bytes(Vec<u8>);
 
@@ -515,6 +531,7 @@ impl<'de> Deserialize<'de> for Bytes {
     where
         D: Deserializer<'de>,
     {
+        /// Accepts byte buffers produced by the configured deserializer.
         struct BytesVisitor;
 
         impl Visitor<'_> for BytesVisitor {
@@ -536,6 +553,7 @@ impl<'de> Deserialize<'de> for Bytes {
     }
 }
 
+/// Reads a server object, numeric vector, and text as bytes.
 fn main() -> Result<(), qubit_config::ConfigError> {
     let mut config = Config::new();
     config.set("server.host", "localhost")?;
@@ -622,6 +640,8 @@ rejects distinct strings such as `080` and `80` that normalize to the same key:
 
 <!-- example: config_numeric_map_keys -->
 ```rust
+//! Shows numeric map-key conversion and rejection of normalized duplicates.
+
 use std::collections::BTreeMap;
 
 use qubit_config::Config;
@@ -638,6 +658,7 @@ fn numeric_ports(named: BTreeMap<String, u16>) -> Result<BTreeMap<u16, u16>, Box
     Ok(ports)
 }
 
+/// Reads numeric port keys and verifies that 80 and 080 collide.
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut config = Config::new();
     config.set("ports.80", 8080_u16)?;
@@ -775,10 +796,14 @@ view:
 
 <!-- example: config_policy_restore -->
 ```rust
+//! Demonstrates that read policy is restored separately from serialized config
+//! data.
+
 use qubit_config::Config;
 use qubit_config::ConfigReader;
 use qubit_config::ReadPolicy;
 
+/// Restores a config and reapplies its original read policy explicitly.
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let policy = ReadPolicy::builder_from(&ReadPolicy::env_friendly())
         .max_interpolation_depth(7)
@@ -804,10 +829,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 <!-- example: config_read_policy -->
 ```rust
+//! Demonstrates per-read environment-friendly parsing without changing
+//! defaults.
+
 use qubit_config::Config;
 use qubit_config::ConfigReader;
 use qubit_config::options::ReadPolicy;
 
+/// Reads environment-style values with a temporary policy.
 fn main() -> Result<(), qubit_config::ConfigError> {
     let mut config = Config::new();
     config.set("HTTP_ENABLED", "yes")?;
@@ -853,8 +882,12 @@ Ordinary `get` and `deserialize` calls preserve placeholders such as `${host}`. 
 
 <!-- example: config_interpolation -->
 ```rust
+//! Shows how interpolated reads expand references while raw reads preserve
+//! them.
+
 use qubit_config::Config;
 
+/// Reads one URL both literally and after resolving its host reference.
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut config = Config::new();
     config.set("host", "localhost")?;
@@ -907,6 +940,8 @@ scoped interpolated read resolves it relative to `server`.
 
 <!-- example: config_custom_target -->
 ```rust
+//! Demonstrates custom value conversion with interpolation and error context.
+
 use qubit_config::Config;
 use qubit_config::ConfigErrorKind;
 use qubit_config::ConfigReader;
@@ -915,6 +950,7 @@ use qubit_config::Property;
 use qubit_config::conversion::ConfigParseContext;
 use qubit_config::conversion::FromConfig;
 
+/// Wraps a service port parsed from a configuration property.
 #[derive(Debug, PartialEq)]
 struct ServicePort(u16);
 
@@ -924,6 +960,7 @@ impl FromConfig for ServicePort {
     }
 }
 
+/// Exercises custom conversion for direct, interpolated, and invalid values.
 fn main() -> ConfigResult<()> {
     let mut config = Config::new();
     config.set("server.port", "8080")?;

@@ -21,26 +21,54 @@ use qubit_value::ValueRef;
 use super::node::NodeId;
 use super::node::ReadNode;
 
+/// Borrowed view of a prepared node or a supported source value.
+#[must_use]
 #[derive(Clone, Copy)]
 pub(super) enum ReadView<'a> {
     /// Native scalar value.
-    Scalar(ValueRef<'a>),
+    Scalar(
+        /// Borrowed or copied primitive value from the source.
+        ValueRef<'a>,
+    ),
     /// Native homogeneous collection.
-    Collection(MultiValuesRef<'a>),
+    Collection(
+        /// Borrowed collection payload supplied by the source.
+        MultiValuesRef<'a>,
+    ),
     /// Borrowed JSON value.
-    Json(&'a serde_json::Value),
+    Json(
+        /// JSON value retained from the original input.
+        &'a serde_json::Value,
+    ),
     /// Borrowed string-keyed map.
-    StringMap(&'a HashMap<String, String>),
+    StringMap(
+        /// String map retained from the original input.
+        &'a HashMap<String, String>,
+    ),
     /// Indexed object children.
-    Object(&'a BTreeMap<String, NodeId>),
+    Object(
+        /// Sorted child-name to prepared-node index mapping.
+        &'a BTreeMap<String, NodeId>,
+    ),
     /// Text leaf.
-    Text(&'a str),
+    Text(
+        /// Borrowed source or overlay text.
+        &'a str,
+    ),
     /// Missing value metadata.
-    Missing(&'a ValueMissing),
+    Missing(
+        /// Original type metadata for a missing source value.
+        &'a ValueMissing,
+    ),
 }
 
 impl<'a> ReadView<'a> {
     /// Creates a borrowed view over one prepared node.
+    ///
+    /// # Parameters
+    ///
+    /// * `node` - Prepared arena node whose borrowed representation is exposed.
+    #[inline]
     pub(super) fn from_node(node: &'a ReadNode<'_>) -> Self {
         match node {
             ReadNode::Scalar(value) => Self::from_scalar(*value),
@@ -54,6 +82,11 @@ impl<'a> ReadView<'a> {
     }
 
     /// Creates a view over one native scalar.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - Scalar source, including JSON and string-map variants.
+    #[inline]
     pub(super) fn from_scalar(value: ValueRef<'a>) -> Self {
         match value {
             ValueRef::Json(value) => Self::Json(value),
@@ -63,6 +96,7 @@ impl<'a> ReadView<'a> {
     }
 
     /// Only actual string leaves participate in placeholder substitution.
+    #[inline]
     pub(super) fn string(self) -> Option<&'a str> {
         match self {
             Self::Scalar(ValueRef::String(value)) | Self::Text(value) => Some(value),

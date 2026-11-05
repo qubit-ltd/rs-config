@@ -26,7 +26,7 @@ fn entries(names: &[&str]) -> Vec<(OsString, OsString)> {
 }
 
 #[test]
-fn three_colliding_names_choose_same_pair_for_every_permutation() {
+fn test_three_colliding_names_choose_same_pair_for_every_permutation() {
     let names = ["REVIEW_FOO__BAR", "REVIEW_foo__bar", "REVIEW_foo.bar"];
     let permutations = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
 
@@ -54,7 +54,7 @@ fn three_colliding_names_choose_same_pair_for_every_permutation() {
 }
 
 #[test]
-fn conflict_selection_uses_smallest_normalized_key_and_redacts_values() {
+fn test_conflict_selection_uses_smallest_normalized_key_and_redacts_values() {
     let names = ["REVIEW_ZED__KEY", "REVIEW_zed.key", "REVIEW_FOO__BAR", "REVIEW_foo.bar"];
     let source = EnvConfigSource::from_prefix("REVIEW_");
 

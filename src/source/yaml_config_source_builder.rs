@@ -13,9 +13,22 @@ use super::SourceLimits;
 use super::YamlConfigSource;
 
 /// Builder for [`YamlConfigSource`].
-#[must_use = "use the returned value"]
+///
+/// # Examples
+///
+/// ```rust
+/// use qubit_config::source::{ConfigSource, YamlConfigSourceBuilder};
+///
+/// let source = YamlConfigSourceBuilder::new().content("server:\n  port: 8080\n").build();
+/// let config = source.load()?;
+/// assert_eq!(config.get::<i64>("server.port")?, 8080);
+/// # Ok::<(), qubit_config::ConfigError>(())
+/// ```
+#[must_use = "configure the YAML source and call build"]
 pub struct YamlConfigSourceBuilder {
+    /// Selected file or in-memory content.
     input: SourceInput,
+    /// Resource limits applied while loading the source.
     limits: SourceLimits,
     /// Optional diagnostic label for this source.
     label: Option<String>,
@@ -26,6 +39,10 @@ impl YamlConfigSourceBuilder {
     /// limits.
     ///
     /// The empty content is not parsed until the built source is loaded.
+    ///
+    /// # Returns
+    ///
+    /// A builder initialized with empty content and default limits.
     pub fn new() -> Self {
         Self {
             input: SourceInput::Content(String::new()),
@@ -39,6 +56,14 @@ impl YamlConfigSourceBuilder {
     /// The owned content replaces any file or content selected earlier. It is
     /// parsed only when the built source is loaded, when format and resource
     /// limit errors are reported through [`crate::source::ConfigSource`].
+    ///
+    /// # Parameters
+    ///
+    /// * `content` - YAML text to use as the source input.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     pub fn content(mut self, content: impl Into<String>) -> Self {
         self.input = SourceInput::Content(content.into());
         self
@@ -51,6 +76,15 @@ impl YamlConfigSourceBuilder {
     /// label restores the default identifier. The last call wins, and the
     /// label is preserved when the input is changed. Labels need not be
     /// unique. Do not include secrets in labels.
+    ///
+    /// # Parameters
+    ///
+    /// * `label` - Optional diagnostic label; an empty label restores the
+    ///   default.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     pub fn label(mut self, label: impl Into<String>) -> Self {
         let label = label.into();
         self.label = if label.is_empty() { None } else { Some(label) };
@@ -62,6 +96,18 @@ impl YamlConfigSourceBuilder {
     /// The path replaces any file or content selected earlier. The file is not
     /// opened until the built source is loaded, so I/O, format, and resource
     /// limit errors are reported by [`crate::source::ConfigSource`].
+    ///
+    /// # Type Parameters
+    ///
+    /// * `P` - Path-like type accepted by `AsRef<Path>`.
+    ///
+    /// # Parameters
+    ///
+    /// * `path` - YAML file path to use as the source input.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
     pub fn file<P: AsRef<Path>>(mut self, path: P) -> Self {
         self.input = SourceInput::File(path.as_ref().to_path_buf());
         self
@@ -79,6 +125,17 @@ impl YamlConfigSourceBuilder {
     /// See [`SourceLimits`],
     /// [`SourceLimitsBuilder::max_parser_tokens`](crate::source::SourceLimitsBuilder::max_parser_tokens),
     /// and [`SourceLimitsBuilder::max_parser_nesting_depth`](crate::source::SourceLimitsBuilder::max_parser_nesting_depth).
+    ///
+    /// # Parameters
+    ///
+    /// * `limits` - Limits to apply during input admission, parsing, and
+    ///   flattening.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder.
+    /// Returns the resource limits applied to one load of this source.
+    #[inline]
     pub const fn limits(mut self, limits: SourceLimits) -> Self {
         self.limits = limits;
         self
@@ -88,6 +145,11 @@ impl YamlConfigSourceBuilder {
     ///
     /// Input and limit failures remain deferred until the source is loaded
     /// through [`crate::source::ConfigSource`].
+    ///
+    /// # Returns
+    ///
+    /// The configured YAML source, without reading or parsing its input.
+    #[inline]
     pub fn build(self) -> YamlConfigSource {
         YamlConfigSource {
             input: self.input,
@@ -98,6 +160,8 @@ impl YamlConfigSourceBuilder {
 }
 
 impl Default for YamlConfigSourceBuilder {
+    /// Creates the default value for this type.
+    #[inline]
     fn default() -> Self {
         Self::new()
     }

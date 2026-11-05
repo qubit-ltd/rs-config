@@ -71,6 +71,9 @@ impl ReadPolicy {
     }
 
     /// Creates a builder initialized from an existing read policy.
+    /// # Parameters
+    ///
+    /// * `policy` - Read policy applied while resolving the value.
     #[inline]
     pub fn builder_from(policy: &Self) -> ReadPolicyBuilder {
         ReadPolicyBuilder {
@@ -201,6 +204,10 @@ impl AsRef<ConversionLimits> for ReadPolicy {
 
 impl From<ConversionPolicy> for ReadPolicy {
     /// Creates a read policy from a data conversion policy.
+    /// # Parameters
+    ///
+    /// * `conversion_policy` - Value used to conversion policy during this
+    ///   operation.
     #[inline]
     fn from(conversion_policy: ConversionPolicy) -> Self {
         Self::builder().conversion_policy(conversion_policy).build()
@@ -215,7 +222,7 @@ mod tests {
     use super::ReadPolicy;
 
     #[test]
-    fn conversion_traits_preserve_policy_values() {
+    fn test_conversion_traits_preserve_policy_values() {
         let policy = ReadPolicy::default();
         let conversion_policy: &ConversionPolicy = policy.as_ref();
         assert_eq!(conversion_policy, policy.conversion_policy());

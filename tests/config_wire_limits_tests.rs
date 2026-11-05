@@ -18,7 +18,7 @@ use qubit_config::ConfigWireLimits;
 use qubit_config::ConfigWireLimitsBuilder;
 
 #[test]
-fn config_wire_limits_preserve_configured_shared_budget() {
+fn test_config_wire_limits_preserve_configured_shared_budget() {
     let value = JsonValueLimits::builder()
         .structure_limits(
             StructureLimits::<JsonResource, u64>::builder()
@@ -46,7 +46,7 @@ fn config_wire_limits_preserve_configured_shared_budget() {
 }
 
 #[test]
-fn config_wire_limits_support_json_profiles_and_default_builder_overrides() {
+fn test_config_wire_limits_support_json_profiles_and_default_builder_overrides() {
     let decode = JsonDecodeLimits::builder().max_input_bytes(17).build();
     let encode = JsonEncodeLimits::builder().max_output_bytes(19).build();
     let from_json = ConfigWireLimits::from_json(decode, encode);
@@ -77,7 +77,7 @@ fn config_wire_limits_support_json_profiles_and_default_builder_overrides() {
 }
 
 #[test]
-fn config_wire_limits_builder_covers_every_json_budget_dimension() {
+fn test_config_wire_limits_builder_covers_every_json_budget_dimension() {
     let decode = JsonDecodeLimits::builder()
         .max_input_bytes(11)
         .max_depth(12)
@@ -173,7 +173,7 @@ fn test_input_override_preserves_other_wire_limits() {
 }
 
 #[test]
-fn config_wire_scalar_limit_getters_are_callable_as_functions() {
+fn test_config_wire_scalar_limit_getters_are_callable_as_functions() {
     let limits = ConfigWireLimits::builder()
         .max_properties(11)
         .max_property_key_bytes(12)
@@ -186,7 +186,7 @@ fn config_wire_scalar_limit_getters_are_callable_as_functions() {
 }
 
 #[test]
-fn config_wire_limit_constructors_are_callable_as_functions() {
+fn test_config_wire_limit_constructors_are_callable_as_functions() {
     let builder: fn() -> ConfigWireLimitsBuilder = ConfigWireLimits::builder;
     let builder_from: fn(&ConfigWireLimits) -> ConfigWireLimitsBuilder = ConfigWireLimits::builder_from;
     let from_json: fn(JsonDecodeLimits<JsonResource, u64>, JsonEncodeLimits<JsonResource, u64>) -> ConfigWireLimits =

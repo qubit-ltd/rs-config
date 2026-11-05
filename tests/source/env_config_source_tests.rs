@@ -22,6 +22,8 @@ use qubit_config::source::SourceLimits;
 use qubit_redact::RedactionCompletion;
 use qubit_redact::Redactor;
 
+/// Runs a child test with only the requested UTF-8 environment variables.
+/// Returns `true` in the child and `false` after spawning it in the parent.
 fn run_with_env(name: &str, values: &[(&str, &str)]) -> bool {
     const CHILD: &str = "QUBIT_ENV_CONFIG_TEST_CHILD";
     if std::env::var_os(CHILD).is_some() {
@@ -48,6 +50,9 @@ fn run_with_env(name: &str, values: &[(&str, &str)]) -> bool {
     false
 }
 
+/// Runs a child test with native OS environment strings, including non-Unicode
+/// values. Returns `true` in the child and `false` after spawning it in the
+/// parent.
 #[cfg(any(unix, windows))]
 fn run_with_os_env(name: &str, values: &[(std::ffi::OsString, std::ffi::OsString)]) -> bool {
     const CHILD: &str = "QUBIT_ENV_CONFIG_TEST_CHILD";
@@ -80,7 +85,7 @@ fn merge_source(config: &mut Config, source: &dyn ConfigSource) -> ConfigResult<
 }
 
 #[test]
-fn environment_builders_expose_default_and_limit_configuration() {
+fn test_environment_builders_expose_default_and_limit_configuration() {
     let options_default: fn() -> EnvConfigOptionsBuilder = Default::default;
     let source_default: fn() -> EnvConfigSourceBuilder = Default::default;
     let limits: fn(EnvConfigSourceBuilder, SourceLimits) -> EnvConfigSourceBuilder = EnvConfigSourceBuilder::limits;
@@ -97,7 +102,7 @@ fn environment_builders_expose_default_and_limit_configuration() {
 
 #[cfg(unix)]
 #[test]
-fn normalized_conflicts_are_stable_through_public_source_loading() {
+fn test_normalized_conflicts_are_stable_through_public_source_loading() {
     const CHILD_MODE: &str = "QUBIT_ENV_CONFLICT_CHILD";
     const PREFIX: &str = "QUBIT_ENV_CONFLICT_REVIEW_";
     const NAMES: [&str; 3] = [
@@ -135,7 +140,7 @@ fn normalized_conflicts_are_stable_through_public_source_loading() {
     let mut command = Command::new(std::env::current_exe().expect("test executable should be available"));
     command
         .arg("--exact")
-        .arg("normalized_conflicts_are_stable_through_public_source_loading")
+        .arg("test_normalized_conflicts_are_stable_through_public_source_loading")
         .env_clear()
         .env(CHILD_MODE, "1")
         .env(NAMES[0], "private-marker-a")
@@ -152,12 +157,12 @@ fn normalized_conflicts_are_stable_through_public_source_loading() {
 }
 
 #[test]
-fn env_source_limits_are_charged_once_and_merge_is_transactional() {
+fn test_env_source_limits_are_charged_once_and_merge_is_transactional() {
     const PREFIX: &str = "QUBIT_ENV_LIMIT_REVIEW_";
     const FIRST: &str = "QUBIT_ENV_LIMIT_REVIEW_FIRST";
     const SECOND: &str = "QUBIT_ENV_LIMIT_REVIEW_SECOND";
     if !run_with_env(
-        "env_source_limits_are_charged_once_and_merge_is_transactional",
+        "test_env_source_limits_are_charged_once_and_merge_is_transactional",
         &[(FIRST, "one"), (SECOND, "two")],
     ) {
         return;

@@ -24,10 +24,18 @@ impl Config {
     /// This is the core mutation operation and accepts scalar or collection
     /// values through type inference.
     ///
+    /// # Type Parameters
+    ///
+    /// * `S` - Input type converted into a [`ValueContainer`].
+    ///
     /// # Parameters
     ///
     /// * `name` - Configuration item name.
     /// * `values` - Scalar or collection accepted by [`ValueContainer`].
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the value is stored successfully.
     ///
     /// # Errors
     ///
@@ -121,6 +129,12 @@ impl Config {
     /// configuration remains unchanged and the relevant `ConfigError` is
     /// returned.
     ///
+    /// # Errors
+    ///
+    /// Returns the original source-loading error, or
+    /// [`ConfigError::SourcePropertyIsFinal`] when the loaded layer conflicts
+    /// with a final target property.
+    ///
     /// # Examples
     ///
     /// This example reads the current process environment. It is compiled but
@@ -206,6 +220,7 @@ impl Config {
         self.properties.append(&mut properties);
         Ok(())
     }
+
     /// Inserts or replaces a property using an explicit [`Property`] object.
     ///
     /// This method enforces two invariants:
@@ -278,8 +293,12 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// `Ok(&Property)` if the key exists, or [`ConfigError::PropertyNotFound`]
-    /// otherwise.
+    /// The property stored under `name`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::InvalidKey`] for an invalid name or
+    /// [`ConfigError::PropertyNotFound`] when no property exists.
     #[inline]
     pub(super) fn get_property_by_name(&self, name: &str) -> ConfigResult<&Property> {
         ensure_config_key(name)?;

@@ -27,6 +27,7 @@ use qubit_config::source::YamlConfigSource;
 
 const PROPERTY_COUNTS: [usize; 3] = [32, 1_024, 16_384];
 
+/// Builds properties-format input with the requested number of assignments.
 fn properties_content(property_count: usize) -> String {
     (0..property_count)
         .map(|index| format!("service.endpoint_{index}={index}\n"))
@@ -34,6 +35,7 @@ fn properties_content(property_count: usize) -> String {
 }
 
 #[cfg(feature = "env-file")]
+/// Builds environment-file input with the requested number of assignments.
 fn env_file_content(property_count: usize) -> String {
     (0..property_count)
         .map(|index| format!("SERVICE_ENDPOINT_{index}={index}\n"))
@@ -41,6 +43,7 @@ fn env_file_content(property_count: usize) -> String {
 }
 
 #[cfg(feature = "toml")]
+/// Builds TOML input with the requested number of assignments.
 fn toml_content(property_count: usize) -> String {
     (0..property_count)
         .map(|index| format!("service.endpoint_{index} = {index}\n"))
@@ -48,6 +51,7 @@ fn toml_content(property_count: usize) -> String {
 }
 
 #[cfg(feature = "yaml")]
+/// Builds YAML input with the requested number of assignments.
 fn yaml_content(property_count: usize) -> String {
     (0..property_count)
         .map(|index| format!("service.endpoint_{index}: {index}\n"))
@@ -80,6 +84,7 @@ fn source_fixtures(property_count: usize) -> Vec<(&'static str, Box<dyn ConfigSo
     fixtures
 }
 
+/// Benchmarks loading prepared source formats across configuration sizes.
 fn benchmark_source_parsing(criterion: &mut Criterion) {
     let fixtures = PROPERTY_COUNTS
         .into_iter()
@@ -108,6 +113,7 @@ fn benchmark_source_parsing(criterion: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmarks parsing properties values continued across physical lines.
 fn benchmark_continuation_backslashes(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("properties_continuation_backslashes");
     for count in [256_usize, 1_024, 4_096] {
@@ -122,6 +128,7 @@ fn benchmark_continuation_backslashes(criterion: &mut Criterion) {
     group.finish();
 }
 
+/// Loads a properties configuration with generated keys and values.
 fn config_with_properties(property_count: usize, key_prefix: &str, value_prefix: &str) -> Config {
     let content = (0..property_count)
         .map(|index| format!("{key_prefix}{index}={value_prefix}{index}\n"))
@@ -131,6 +138,7 @@ fn config_with_properties(property_count: usize, key_prefix: &str, value_prefix:
         .expect("prepared properties should load")
 }
 
+/// Benchmarks merging overlapping and disjoint configurations of varied sizes.
 fn benchmark_config_merge(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("config_merge");
     for target_size in [1_024_usize, 16_384] {
@@ -182,6 +190,7 @@ fn benchmark_config_merge(criterion: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmarks loading composite sources with overlapping or distinct keys.
 fn benchmark_composite_layers(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("composite_layers");
     for layer_count in [1_usize, 8, 64] {

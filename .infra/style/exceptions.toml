@@ -12,18 +12,8 @@ reason = "Wire fields and their version marker are private to the config wire de
 
 [[exceptions]]
 rule = "public-type-layout"
-path = "src/config/internal/config_wire_seed.rs"
-reason = "Wire seed variants share one private decoding boundary and must be constructed together."
-
-[[exceptions]]
-rule = "public-type-layout"
 path = "src/config_wire_limits.rs"
 reason = "Wire limit dimensions, limits, and decode errors form one bounded wire-format API."
-
-[[exceptions]]
-rule = "public-type-layout"
-path = "src/conversion/structured_read/input_budget.rs"
-reason = "Input budgeting and its counting writer share one admission boundary."
 
 [[exceptions]]
 rule = "public-type-layout"

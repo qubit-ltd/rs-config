@@ -28,12 +28,12 @@ fn exercise_selector_matrix(mut check: impl FnMut(&[u8])) {
 }
 
 #[test]
-fn properties_semantics_hold_for_fixed_selector_and_payload_matrix() {
+fn test_properties_semantics_hold_for_fixed_selector_and_payload_matrix() {
     exercise_selector_matrix(support::source_semantics::properties::check);
 }
 
 #[cfg(feature = "env-file")]
 #[test]
-fn dotenv_semantics_hold_for_fixed_selector_and_payload_matrix() {
+fn test_dotenv_semantics_hold_for_fixed_selector_and_payload_matrix() {
     exercise_selector_matrix(support::source_semantics::dotenv::check);
 }

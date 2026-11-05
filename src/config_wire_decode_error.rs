@@ -37,11 +37,15 @@ use crate::ConfigWireRepresentationErrorKind;
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 #[derive(Debug, Error)]
+#[must_use]
 #[non_exhaustive]
 pub enum ConfigWireDecodeError {
     /// A shared JSON resource limit was exceeded.
     #[error(transparent)]
-    Budget(BudgetError<JsonResource, u64>),
+    Budget(
+        /// Shared JSON resource budget failure.
+        BudgetError<JsonResource, u64>,
+    ),
     /// A native JSON measurement could not be represented by the budget
     /// quantity type.
     #[error("configuration wire resource quantity conversion failed for {resource:?}: {source}")]
@@ -54,7 +58,11 @@ pub enum ConfigWireDecodeError {
     },
     /// The JSON adapter rejected the input syntax before Serde decoding.
     #[error("invalid configuration JSON syntax: {0}")]
-    Syntax(#[from] JsonSyntaxError),
+    Syntax(
+        /// Syntax failure returned by the JSON adapter.
+        #[from]
+        JsonSyntaxError,
+    ),
     /// A native configuration-limit measurement could not fit `u64`.
     #[error("configuration wire {kind:?} quantity conversion failed: {source}")]
     LimitQuantity {
@@ -95,8 +103,14 @@ pub enum ConfigWireDecodeError {
     /// A future JSON adapter failure that has no dedicated configuration
     /// error variant yet.
     #[error("configuration JSON adapter failure: {0}")]
-    Adapter(String),
+    Adapter(
+        /// Safe adapter failure description.
+        String,
+    ),
     /// The decoded wire fields violate a configuration invariant.
     #[error("invalid configuration wire value: {0}")]
-    InvalidConfig(String),
+    InvalidConfig(
+        /// Description of the violated configuration invariant.
+        String,
+    ),
 }

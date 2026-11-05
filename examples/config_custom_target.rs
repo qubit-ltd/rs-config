@@ -6,6 +6,8 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+//! Demonstrates custom value conversion with interpolation and error context.
+
 use qubit_config::Config;
 use qubit_config::ConfigErrorKind;
 use qubit_config::ConfigReader;
@@ -14,6 +16,7 @@ use qubit_config::Property;
 use qubit_config::conversion::ConfigParseContext;
 use qubit_config::conversion::FromConfig;
 
+/// Wraps a service port parsed from a configuration property.
 #[derive(Debug, PartialEq)]
 struct ServicePort(u16);
 
@@ -23,6 +26,7 @@ impl FromConfig for ServicePort {
     }
 }
 
+/// Exercises custom conversion for direct, interpolated, and invalid values.
 fn main() -> ConfigResult<()> {
     let mut config = Config::new();
     config.set("server.port", "8080")?;

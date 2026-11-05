@@ -41,6 +41,7 @@ use crate::Property;
 use crate::ReadPolicy;
 use crate::Value;
 
+/// Captures a deserialized property as JSON for shape assertions.
 #[derive(Deserialize, Debug, PartialEq)]
 struct AnyStruct {
     val: serde_json::Value,

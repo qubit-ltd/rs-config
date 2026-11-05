@@ -49,6 +49,22 @@ pub(super) struct SourceMapAccess<'tree, 'policy, 'session> {
 impl<'tree, 'policy, 'session> SourceMapAccess<'tree, 'policy, 'session> {
     /// Creates map access with the source, path, index, and shared session
     /// needed to deserialize each key/value entry.
+    ///
+    /// # Parameters
+    ///
+    /// - `context`: prepared tree and source metadata shared with visitors.
+    /// - `entries`: borrowed entries exposed to the Serde map visitor.
+    /// - `location`: containing source location used to derive child origins.
+    /// - `path`: diagnostic path for this map.
+    /// - `original_index`: source collection index, when the map is nested in a
+    ///   collection.
+    /// - `session`: shared conversion state for all values in the map.
+    ///
+    /// # Returns
+    ///
+    /// Returns a map access value with no pending key/value pair.
+    #[must_use]
+    #[inline]
     pub(super) fn new(
         context: ReadContext<'tree>,
         entries: MapEntries<'tree>,
@@ -70,7 +86,27 @@ impl<'tree, 'policy, 'session> SourceMapAccess<'tree, 'policy, 'session> {
 }
 
 impl<'de, 'tree, 'policy: 'tree> MapAccess<'de> for SourceMapAccess<'tree, 'policy, '_> {
+    /// Deserialization error retaining the map member's source path.
     type Error = ConfigDeserializeError;
+
+    /// Deserializes the next key and stores its value until Serde requests it.
+    ///
+    /// # Parameters
+    ///
+    /// - `seed`: Serde visitor that converts the borrowed map key.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `K` - Seed that constructs the target map key from source text.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some(key)` when another entry exists or `None` at the end.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if a previous key still awaits its value or if the
+    /// seed cannot deserialize the current key.
     fn next_key_seed<K: DeserializeSeed<'de>>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error> {
         if self.pending.is_some() {
             return Err(type_error(&self.path, "a value for the previous key"));
@@ -84,6 +120,25 @@ impl<'de, 'tree, 'policy: 'tree> MapAccess<'de> for SourceMapAccess<'tree, 'poli
             .map_err(|error| error.with_path(super::path::child_key(&self.path, key)))
     }
 
+    /// Deserializes the value paired with the most recently returned key.
+    ///
+    /// # Parameters
+    ///
+    /// - `seed`: Serde visitor that converts the pending value using the shared
+    ///   conversion session.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `V` - Seed that constructs the target value from the pending entry.
+    ///
+    /// # Returns
+    ///
+    /// Returns the value produced by the seed.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if no key is pending or if value deserialization
+    /// fails; source paths are attached to the error.
     fn next_value_seed<V: DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value, Self::Error> {
         let (key, value, origin) = self
             .pending
@@ -102,6 +157,12 @@ impl<'de, 'tree, 'policy: 'tree> MapAccess<'de> for SourceMapAccess<'tree, 'poli
         .map_err(|error| error.with_path(path))
     }
 
+    /// Reports the number of entries remaining in the borrowed map view.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some` with the remaining entry count.
+    #[inline]
     fn size_hint(&self) -> Option<usize> {
         Some(self.entries.len())
     }
