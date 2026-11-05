@@ -106,7 +106,8 @@ fn map_dotenv_error(label: &str, error: dotenvy::Error) -> ConfigError {
 ///
 /// # Parameters
 ///
-/// * `content` - Original `.env` text whose recognized inline comments should be removed.
+/// * `content` - Original `.env` text whose recognized inline comments should
+///   be removed.
 fn strip_dotenv_inline_comments(content: &str) -> String {
     let mut normalized = String::with_capacity(content.len());
     let mut state = DotenvLineState::Complete;
