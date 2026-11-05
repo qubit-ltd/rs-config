@@ -97,6 +97,33 @@ fn map_dotenv_error(label: &str, error: dotenvy::Error) -> ConfigError {
     }
 }
 
+/// Removes recognized inline comment bodies while preserving line endings.
+///
+/// Both the local substitution scanner and dotenvy's value parser need the
+/// comment boundary. Removing comment quotes and escapes before either pass
+/// prevents them from changing scanner state. Parser-local offsets afterward
+/// refer to normalized input and are not original-file coordinates.
+fn strip_dotenv_inline_comments(content: &str) -> String {
+    let mut normalized = String::with_capacity(content.len());
+    let mut state = DotenvLineState::Complete;
+    let mut in_comment = false;
+
+    for character in content.chars() {
+        if !in_comment && state == DotenvLineState::WhiteSpace && character == '#' {
+            in_comment = true;
+        }
+
+        if !in_comment || matches!(character, '\r' | '\n') {
+            normalized.push(character);
+        }
+        state.advance(character);
+        if character == '\n' {
+            in_comment = false;
+        }
+    }
+    normalized
+}
+
 /// Protects substitutions independently within each dotenv logical line.
 ///
 /// Dotenv uses one scanner to find logical-line boundaries and another to
@@ -301,6 +328,7 @@ impl ConfigSource for EnvFileConfigSource {
         let session = context.session_mut();
         let label = self.source_id();
         let content = self.input.read_to_string(".env", session)?;
+        let content = strip_dotenv_inline_comments(&content);
         let content = escape_dotenv_substitutions(&content);
         let iter = dotenvy::from_read_iter(content.as_bytes());
 

@@ -44,6 +44,17 @@ fn env_file_label_applies_to_success_and_invalid_keys() {
 }
 
 #[test]
+fn env_file_inline_comment_preserves_following_assignment() {
+    let source = EnvFileConfigSource::from_content("A=ok  # '\nB=${HOME}\n");
+    let config = source
+        .load()
+        .expect("inline comments must not change line boundaries");
+
+    assert_eq!(config.get::<String>("A").unwrap(), "ok");
+    assert_eq!(config.get::<String>("B").unwrap(), "${HOME}");
+}
+
+#[test]
 fn test_env_file_comment_does_not_change_substitution_state() {
     const CHILD_MODE: &str = "RS_CONFIG_ENV_FILE_COMMENT_TEST_CHILD";
     const SENTINEL: &str = "RS_CONFIG_ENV_FILE_COMMENT_TEST_SENTINEL";
@@ -109,6 +120,34 @@ fn test_env_file_comment_does_not_change_substitution_state() {
             placeholder
         );
         let cases = [
+            (
+                format!("A=ok # dangling '\nVALUE={placeholder}\n"),
+                placeholder.clone(),
+            ),
+            (
+                format!("A=ok  # dangling '\nVALUE={placeholder}\n"),
+                placeholder.clone(),
+            ),
+            (
+                format!("A=ok   # dangling '\nVALUE={placeholder}\n"),
+                placeholder.clone(),
+            ),
+            (
+                format!("A=ok    # dangling '\nVALUE={placeholder}\n"),
+                placeholder.clone(),
+            ),
+            (
+                format!("A=ok\t# dangling '\nVALUE={placeholder}\n"),
+                placeholder.clone(),
+            ),
+            (
+                format!("A=ok \t# dangling '\nVALUE={placeholder}\n"),
+                placeholder.clone(),
+            ),
+            (
+                format!("A=ok\u{2003}# dangling '\nVALUE={placeholder}\n"),
+                placeholder.clone(),
+            ),
             (format!("A=#'\\''\nVALUE={placeholder}\n"), placeholder.clone()),
             (
                 format!("A=#'\\''\nVALUE={short_placeholder}\n"),
@@ -173,6 +212,27 @@ fn test_env_file_comment_does_not_change_substitution_state() {
                 expected,
                 "unexpected value for input {input:?}"
             );
+        }
+
+        for newline in ["\n", "\r\n"] {
+            for trailing_newline in [false, true] {
+                let mut input = format!("A=ok  # dangling '\\ {placeholder}{newline}VALUE={placeholder}");
+                if trailing_newline {
+                    input.push_str(newline);
+                }
+                let expected = input.clone();
+                let source = EnvFileConfigSource::from_content(input.clone());
+                let config = source.load().expect("normalized content should load");
+                assert_eq!(config.get::<String>("VALUE").unwrap(), placeholder);
+
+                let path = tempfile::tempdir().expect("temporary directory should be created");
+                let file = path.path().join("comments.env");
+                std::fs::write(&file, expected).expect("dotenv file should be written");
+                let config = EnvFileConfigSource::from_file(&file)
+                    .load()
+                    .expect("normalized file should load");
+                assert_eq!(config.get::<String>("VALUE").unwrap(), placeholder);
+            }
         }
 
         let multiline_then_placeholder =
@@ -610,6 +670,26 @@ mod test_env_file_edge_cases {
                 observed_at_least: 9,
                 ..
             })
+        ));
+    }
+
+    #[test]
+    fn test_env_file_counts_removed_comment_bytes_against_input_limit() {
+        let content = "VALUE=ok # comment text";
+        let limit = content.len() - 1;
+        let source = EnvFileConfigSource::builder()
+            .content(content)
+            .limits(SourceLimits::builder().max_input_bytes(limit).build())
+            .build();
+
+        assert!(matches!(
+            source.load(),
+            Err(ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::InputBytes,
+                limit: observed_limit,
+                observed_at_least,
+                ..
+            }) if observed_limit == limit && observed_at_least == content.len()
         ));
     }
 

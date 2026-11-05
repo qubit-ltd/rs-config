@@ -270,6 +270,9 @@ fn main() -> Result<(), qubit_config::ConfigError> {
 - 由 `env-file` feature 启用的 `EnvFileConfigSource`；
 - 按顺序合并其他配置源的 `CompositeConfigSource`。
 
+在 `.env` 输入中，一个或多个空白字符可将赋值与行尾 `#` 注释分隔开。
+注释中的引号、转义符或占位符不会影响下一条赋值；`$NAME` 和 `${NAME}` 仍保留为字面值。
+
 需要让诊断显示稳定来源名称时，可在 properties、TOML、YAML、`.env` 或组合配置源的
 builder 上调用 `label`。标签会原样成为来源标识，只用于诊断，不会写入配置或 Wire V1。
 标签不要求唯一；如果需要分辨具体预算层，请为嵌套来源分别命名。不要把凭据或其他秘密放进

@@ -318,6 +318,10 @@ Built-in sources include:
 - `EnvFileConfigSource`, behind `env-file`;
 - `CompositeConfigSource`, which merges other sources in order.
 
+In `.env` input, one or more whitespace characters may separate an assignment
+value from an inline `#` comment. Quotes, escapes, or placeholders in that
+comment do not affect the next assignment; `$NAME` and `${NAME}` remain literal.
+
 Use `label` on a properties, TOML, YAML, `.env`, or composite builder when
 diagnostics need a stable source name. The label becomes the source identifier
 as written; it is diagnostic metadata and is not stored in configuration or

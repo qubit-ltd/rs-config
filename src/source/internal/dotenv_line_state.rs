@@ -41,6 +41,7 @@ impl DotenvLineState {
                 _ => Self::Complete,
             },
             Self::WhiteSpace => match character {
+                value if value.is_whitespace() && !matches!(value, '\r' | '\n') => Self::WhiteSpace,
                 '#' => Self::Comment,
                 '\\' => Self::Escape,
                 '\'' => Self::StrongOpen,
@@ -104,5 +105,16 @@ mod tests {
         let mut comment = DotenvLineState::Comment;
         comment.advance('\n');
         assert_eq!(comment, DotenvLineState::Complete);
+    }
+
+    #[test]
+    fn keeps_consecutive_whitespace_at_comment_boundary() {
+        let mut state = DotenvLineState::WhiteSpace;
+        state.advance(' ');
+        assert_eq!(state, DotenvLineState::WhiteSpace);
+        state.advance('\t');
+        assert_eq!(state, DotenvLineState::WhiteSpace);
+        state.advance('#');
+        assert_eq!(state, DotenvLineState::Comment);
     }
 }
