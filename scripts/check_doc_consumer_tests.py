@@ -97,6 +97,41 @@ class TemporaryConsumerTests(unittest.TestCase):
             ):
                 self.assertTrue(CHECKER.compile_document_consumers(docs))
 
+    def test_missing_rust_example_marker_fails_before_cargo(self) -> None:
+        malformed = VALID_TOML + "\n```rust\n" + VALID_RUST + "```\n"
+        documents = {
+            "doc/user_guide.md": malformed,
+            "doc/user_guide.zh_CN.md": malformed,
+        }
+        for document in documents.values():
+            block, error = CHECKER._marked_block(
+                document, CHECKER.EXAMPLE_MARKER, "rust"
+            )
+            self.assertIsNone(block)
+            self.assertIn("found 0", error or "")
+        with patch.object(CHECKER.subprocess, "run") as run:
+            errors = CHECKER.compile_document_consumers(documents)
+        self.assertTrue(any("found 0" in error for error in errors))
+        run.assert_not_called()
+
+    def test_duplicate_rust_example_marker_fails_before_cargo(self) -> None:
+        duplicate = "\n<!-- example: config_error_diagnostics -->\n```rust\nfn main() {}\n```\n"
+        malformed = VALID_DOC + duplicate
+        documents = {
+            "doc/user_guide.md": malformed,
+            "doc/user_guide.zh_CN.md": malformed,
+        }
+        for document in documents.values():
+            block, error = CHECKER._marked_block(
+                document, CHECKER.EXAMPLE_MARKER, "rust"
+            )
+            self.assertIsNone(block)
+            self.assertIn("found 2", error or "")
+        with patch.object(CHECKER.subprocess, "run") as run:
+            errors = CHECKER.compile_document_consumers(documents)
+        self.assertTrue(any("found 2" in error for error in errors))
+        run.assert_not_called()
+
     def test_missing_source_fails(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
