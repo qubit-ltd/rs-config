@@ -24,6 +24,7 @@ EXAMPLE_DOCS = {
     "config_custom_target": ("doc/user_guide.md", "doc/user_guide.zh_CN.md"),
     "config_read_policy": ("doc/user_guide.md", "doc/user_guide.zh_CN.md"),
     "config_structured_guide": ("doc/user_guide.md", "doc/user_guide.zh_CN.md"),
+    "config_error_diagnostics": ("doc/user_guide.md", "doc/user_guide.zh_CN.md"),
 }
 NON_DOCUMENTED_EXAMPLES = {
     "config_source_resource_probe.rs",

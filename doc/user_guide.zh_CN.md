@@ -122,6 +122,15 @@ crate 要求 Rust `1.94` 或更高版本，并使用 edition `2024`。
 qubit-config = "0.15"
 ```
 
+<!-- consumer-dependencies: diagnostics -->
+```toml
+[dependencies]
+qubit-config = "0.15"
+qubit-datatype = { version = "0.15", default-features = false, features = ["converter"] }
+```
+
+诊断示例还会直接使用 `qubit-datatype`。请使这两个直接依赖的版本与 `qubit-config` 对齐，并声明应用代码使用的每个 crate：
+
 默认 feature 集为空。按需显式添加可选能力：
 
 ```toml
@@ -980,10 +989,16 @@ assert_eq!(error.path(), Some("server.port"));
 
 `Value` 表示值层错误。`value_missing()` 返回 `Some` 时会提供缺失值上下文；unset 标量就是其中一种情况。其他 `Value` 错误不能自动视为缺失。下面的辅助函数由应用自行定义，用于识别缺失值，同时保留转换失败；它不是库提供的新 API：
 
+此辅助函数使用[安装与最小配置](#安装与最小配置)中列出的直接依赖；请使这些依赖的版本与 `qubit-config` 对齐。
+
+<!-- example: config_error_diagnostics -->
 ```rust
+//! Distinguishes missing configuration values from conversion failures.
+
 use qubit_config::{Config, ConfigError, ConfigErrorKind};
 use qubit_datatype::DataType;
 
+/// Returns whether an error represents a missing configuration value.
 fn is_missing_value(error: &ConfigError) -> bool {
     match error.kind() {
         ConfigErrorKind::PropertyNotFound | ConfigErrorKind::PropertyHasNoValue => true,

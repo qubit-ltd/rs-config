@@ -124,6 +124,15 @@ The crate requires Rust `1.94` or newer and uses edition `2024`.
 qubit-config = "0.15"
 ```
 
+<!-- consumer-dependencies: diagnostics -->
+```toml
+[dependencies]
+qubit-config = "0.15"
+qubit-datatype = { version = "0.15", default-features = false, features = ["converter"] }
+```
+
+The diagnostics example also uses `qubit-datatype` directly. Keep both direct dependency versions aligned with `qubit-config` and declare every crate used by application code:
+
 The default feature set is empty. Add optional capabilities explicitly:
 
 ```toml
@@ -1107,14 +1116,16 @@ these cases have distinct outcomes:
 
 `Value` is a value-layer error category. When `value_missing()` returns `Some`,
 it provides the missing-value context; an unset scalar is one such case. Other
-`Value` errors are not automatically missing values. The following application
-helper classifies missing-value errors without swallowing conversion failures;
-`is_missing_value` is defined by the application, not provided by the library:
+`Value` errors are not automatically missing values. This helper uses the direct dependencies listed in [Installation](#installation-and-minimal-configuration); keep their versions aligned with `qubit-config`.
 
+<!-- example: config_error_diagnostics -->
 ```rust
+//! Distinguishes missing configuration values from conversion failures.
+
 use qubit_config::{Config, ConfigError, ConfigErrorKind};
 use qubit_datatype::DataType;
 
+/// Returns whether an error represents a missing configuration value.
 fn is_missing_value(error: &ConfigError) -> bool {
     match error.kind() {
         ConfigErrorKind::PropertyNotFound | ConfigErrorKind::PropertyHasNoValue => true,

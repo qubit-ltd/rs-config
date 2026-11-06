@@ -68,7 +68,7 @@ class RequiredGuideExamplesTests(unittest.TestCase):
     def test_new_guide_examples_are_required(self) -> None:
         for example_id in (
             "config_policy_restore", "config_numeric_map_keys", "config_guide_sources",
-            "config_custom_target", "config_read_policy", "config_structured_guide",
+            "config_custom_target", "config_read_policy", "config_structured_guide", "config_error_diagnostics",
         ):
             self.assertEqual(
                 CHECKER.EXAMPLE_DOCS[example_id],
