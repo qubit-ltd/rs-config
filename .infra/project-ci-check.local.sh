@@ -5,10 +5,13 @@ project_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 cd "$project_root"
 
 python3 -B scripts/check_downstream_adapters_tests.py
+python3 -B scripts/check_config_features_tests.py
+python3 -B scripts/check_doc_consumer_tests.py
 python3 -B scripts/check_coverage_files_tests.py
 python3 -B scripts/coverage_pipeline_tests.py
 python3 -B scripts/check-doc-examples.py
 python3 -B scripts/check_doc_examples_tests.py
+python3 -B scripts/check-doc-consumer.py
 cargo run --example config_policy_restore
 cargo run --example config_numeric_map_keys
 cargo run --example config_guide_sources
