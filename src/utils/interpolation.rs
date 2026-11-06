@@ -32,9 +32,10 @@ use crate::options::ReadPolicy;
 /// * `value` - Input value whose placeholders are being expanded.
 /// * `primary` - Reader checked first for referenced configuration values.
 /// * `fallback` - Fallback used when the primary lookup does not resolve.
-/// * `options` - Options that control source key selection and normalization.
+/// * `options` - Read policy controlling value conversion, interpolation
+///   sources, and resource limits.
 /// * `path` - Configuration path or filesystem path used by this operation.
-/// * `session` - Per-load context used to enforce shared source limits.
+/// * `session` - Interpolation budget session shared by one logical read.
 pub(crate) fn substitute_variables_with_fallback<P: ConfigReader + ?Sized, F: ConfigReader + ?Sized>(
     value: &str,
     primary: &P,
@@ -53,9 +54,10 @@ pub(crate) fn substitute_variables_with_fallback<P: ConfigReader + ?Sized, F: Co
 /// # Parameters
 ///
 /// * `value` - Input value whose placeholders are being expanded.
-/// * `options` - Options that control source key selection and normalization.
+/// * `options` - Read policy controlling value conversion, interpolation
+///   sources, and resource limits.
 /// * `path` - Configuration path or filesystem path used by this operation.
-/// * `session` - Per-load context used to enforce shared source limits.
+/// * `session` - Interpolation budget session shared by one logical read.
 /// * `resolve` - Callback that resolves one referenced variable.
 fn substitute_variables_by(
     value: &str,
@@ -177,11 +179,10 @@ fn find_next_variable(value: &str, mut search_from: usize) -> Option<(usize, usi
 /// Appends one substitution fragment after enforcing the output byte limit.
 /// # Parameters
 ///
-/// * `result` - Result returned by the value conversion to classify
-///   missing-value errors.
+/// * `result` - Mutable output buffer receiving the substitution fragment.
 /// * `fragment` - Text fragment appended to the current interpolation output.
-/// * `session` - Per-load context used to enforce shared source limits.
-/// * `path` - Configuration path or filesystem path used by this operation.
+/// * `session` - Interpolation budget session shared by one logical read.
+/// * `path` - Configuration path used for interpolation diagnostics.
 fn push_substitution_fragment(
     result: &mut String,
     fragment: &str,
@@ -209,7 +210,8 @@ fn push_substitution_fragment(
 /// * `var_name` - Name parsed from the interpolation placeholder.
 /// * `config` - Configuration value or source configuration used by this
 ///   operation.
-/// * `options` - Options that control source key selection and normalization.
+/// * `options` - Read policy controlling value conversion, interpolation
+///   sources, and resource limits.
 /// * `path` - Configuration path or filesystem path used by this operation.
 fn find_variable_value<R: ConfigReader + ?Sized>(
     var_name: &str,
@@ -253,7 +255,8 @@ fn find_variable_value<R: ConfigReader + ?Sized>(
 /// * `var_name` - Name parsed from the interpolation placeholder.
 /// * `primary` - Reader checked first for referenced configuration values.
 /// * `fallback` - Fallback used when the primary lookup does not resolve.
-/// * `options` - Options that control source key selection and normalization.
+/// * `options` - Read policy controlling value conversion, interpolation
+///   sources, and resource limits.
 /// * `path` - Configuration path or filesystem path used by this operation.
 fn find_variable_value_with_fallback<P: ConfigReader + ?Sized, F: ConfigReader + ?Sized>(
     var_name: &str,

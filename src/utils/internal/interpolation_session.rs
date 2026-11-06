@@ -31,8 +31,8 @@ impl InterpolationSession {
     /// Creates a session using the limits from one read policy.
     /// # Parameters
     ///
-    /// * `options` - Options that control source key selection and
-    ///   normalization.
+    /// * `options` - Read policy supplying the placeholder expansion limit and
+    ///   per-value output byte limit.
     pub(crate) fn new(options: &ReadPolicy) -> Self {
         Self {
             expansions: ResourceBudget::new(
