@@ -256,10 +256,6 @@ impl<'a> ConfigSection<'a> {
     /// Returns [`crate::ConfigError::InvalidPath`] when a non-empty `path`
     /// begins or ends with `.`, or contains an empty dotted segment.
     /// An empty path is valid. See [`crate::ConfigPath`] for path rules.
-    ///
-    /// # Parameters
-    ///
-    /// * `path` - Dotted section path relative to this section.
     #[inline]
     pub fn contains_section(&self, path: &str) -> ConfigResult<bool> {
         <Self as ConfigReader>::contains_section(self, path)
