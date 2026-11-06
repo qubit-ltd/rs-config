@@ -1,0 +1,20 @@
+[package]
+name = "qubit-config-downstream-adapters-fixture"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+qubit-config = { path = "../../../../rs-config", features = ["full"] }
+qubit-http = { path = "../../../../rs-http" }
+qubit-mime = { path = "../../../../rs-mime" }
+qubit-ioc = { path = "../../../../rs-ioc", default-features = false, features = ["config"] }
+qubit-websocket = { path = "../../../../rs-websocket", default-features = false, features = ["config"] }
+serde = { version = "^1.0", features = ["derive"] }
+qubit-spi = "^0.14"
+
+[patch.crates-io]
+qubit-config = { path = "../../../../rs-config" }
+tungstenite = { git = "https://github.com/qubit-ltd/tungstenite-rs", rev = "b24a4442be0247a71fe9ee4e520eb483ac1b2873" }

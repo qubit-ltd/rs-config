@@ -1,0 +1,15 @@
+# sibling repo<TAB>commit<TAB>repository URL
+# Update pins together with fixture Cargo.lock; regenerate it with cargo test --manifest-path tests/fixtures/downstream_adapters/Cargo.toml, then verify using scripts/check-downstream-adapters.sh.
+rs-command	f19ca48d114cb3223a079b043e4b49ef7c0b3c5d	https://github.com/qubit-ltd/rs-command.git
+rs-fs	6fc76f0b3dd0d7795d000c11cac749a3791402c2	https://github.com/qubit-ltd/rs-fs.git
+rs-fs-local	8998cb0c4d9a314e62e025a3e5adc36bf0bca301	https://github.com/qubit-ltd/rs-fs-local.git
+rs-fs-registry	6f4e8fcb9407152dffa9ff65b32fdf02f46bfc05	https://github.com/qubit-ltd/rs-fs-registry.git
+rs-fs-testkit	b9425fec4cd142826f95cede3715db57b82d8b08	https://github.com/qubit-ltd/rs-fs-testkit.git
+rs-http	a144cfcfd134f04e70596159a2ffd2ddb88ec490	https://github.com/qubit-ltd/rs-http.git
+rs-ioc	c4e2557fb8db37635b56f8cf94c482cac4aa8ba6	https://github.com/qubit-ltd/rs-ioc.git
+rs-json	b07f7f3a66f1de38c62839988c0afbeee08e4ebd	https://github.com/qubit-ltd/rs-json.git
+rs-local-files	f55f4706d157585e1ef751e8dcb384259244b5cb	https://github.com/qubit-ltd/rs-local-files.git
+rs-mime	73fe046cc52dc6c67e3a03257314456f2f14e187	https://github.com/qubit-ltd/rs-mime.git
+rs-redact	8d437767dcc0dd3085a8aaac6a27a34347c94807	https://github.com/qubit-ltd/rs-redact.git
+rs-value	6f5ae6e2acd592dcb07d30b232b84735e1cc592d	https://github.com/qubit-ltd/rs-value.git
+rs-websocket	1caed5cd57efd7237b14ee65d843f3ce05b1a282	https://github.com/qubit-ltd/rs-websocket.git

@@ -1,0 +1,36 @@
+name: Downstream adapter contracts
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  adapters:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Install pinned sibling path dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS=$'\t' read -r sibling revision repository; do
+            [[ -z "$sibling" || "$sibling" == \#* ]] && continue
+            destination="$GITHUB_WORKSPACE/../$sibling"
+            mkdir -p "$destination"
+            git -C "$destination" init -q
+            git -C "$destination" remote add origin "$repository"
+            git -C "$destination" fetch --quiet --depth=1 origin "$revision"
+            git -C "$destination" checkout --quiet --detach FETCH_HEAD
+            actual=$(git -C "$destination" rev-parse HEAD)
+            [[ "$actual" == "$revision" ]] || { echo "revision mismatch for $sibling: $actual" >&2; exit 1; }
+          done < scripts/downstream-adapters-revisions.tsv
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Run real adapter contracts
+        run: scripts/check-downstream-adapters.sh
