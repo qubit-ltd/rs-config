@@ -381,4 +381,16 @@ mod tests {
         config.set("server.host", "localhost").unwrap();
         assert_eq!(config.len(), 2);
     }
+
+    #[test]
+    fn test_set_description_updates_config_metadata() {
+        let mut config = Config::new();
+        let set_description = std::hint::black_box(Config::set_description);
+
+        set_description(&mut config, Some("service config".to_string()));
+        assert_eq!(config.description(), Some("service config"));
+
+        set_description(&mut config, None);
+        assert_eq!(config.description(), None);
+    }
 }
