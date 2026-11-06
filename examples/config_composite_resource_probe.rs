@@ -25,6 +25,16 @@ use qubit_config::source::SourceLoadContext;
 
 const TIMEOUT: Duration = Duration::from_secs(30);
 
+/// Parsed settings for one composite resource probe run.
+struct ProbeOptions {
+    shape: String,
+    depth: usize,
+    profile: String,
+    label_bytes: Option<usize>,
+    stack_bytes: Option<usize>,
+    child: bool,
+}
+
 /// Selects a source-limit policy from the probe profile name.
 fn limits(profile: &str) -> Result<SourceLimits, &'static str> {
     match profile {
@@ -36,16 +46,17 @@ fn limits(profile: &str) -> Result<SourceLimits, &'static str> {
 }
 
 /// Parses and validates the probe command-line arguments.
-fn parse(args: &[String]) -> Result<(String, usize, String, Option<usize>, bool), &'static str> {
-    if args.len() < 6 || args.len() > 9 {
+fn parse(args: &[String]) -> Result<ProbeOptions, &'static str> {
+    if args.len() < 6 || args.len() > 11 {
         return Err(
-            "usage: config_composite_resource_probe --shape chain|wide --depth N --limits default|raised|unbounded [--label-bytes 1..=4096] [--child]",
+            "usage: config_composite_resource_probe --shape chain|wide --depth N --limits default|raised|unbounded [--label-bytes 1..=4096] [--stack-bytes N] [--child]",
         );
     }
     let mut shape = None;
     let mut depth = None;
     let mut profile = None;
     let mut label_bytes = None;
+    let mut stack_bytes = None;
     let mut child = false;
     let mut i = 0;
     while i < args.len() {
@@ -70,6 +81,14 @@ fn parse(args: &[String]) -> Result<(String, usize, String, Option<usize>, bool)
                 label_bytes = Some(bytes);
                 i += 2;
             }
+            "--stack-bytes" if i + 1 < args.len() => {
+                let bytes = args[i + 1].parse::<usize>().map_err(|_| "invalid stack bytes")?;
+                if bytes == 0 {
+                    return Err("invalid stack bytes");
+                }
+                stack_bytes = Some(bytes);
+                i += 2;
+            }
             "--child" => {
                 child = true;
                 i += 1;
@@ -84,7 +103,14 @@ fn parse(args: &[String]) -> Result<(String, usize, String, Option<usize>, bool)
     let depth = depth.ok_or("missing depth")?;
     let profile = profile.ok_or("missing limit profile")?;
     let _ = limits(&profile)?;
-    Ok((shape, depth, profile, label_bytes, child))
+    Ok(ProbeOptions {
+        shape,
+        depth,
+        profile,
+        label_bytes,
+        stack_bytes,
+        child,
+    })
 }
 
 /// Creates a fixed-width ASCII label whose suffix identifies its layer.
@@ -153,7 +179,7 @@ fn phase(message: &str) {
 }
 
 /// Runs source construction, load, and destruction in the isolated child.
-fn child_run(shape: &str, depth: usize, profile: &str, label_bytes: Option<usize>) -> ExitCode {
+fn child_work(shape: &str, depth: usize, profile: &str, label_bytes: Option<usize>) -> ExitCode {
     phase("constructing");
     let source = match make_source(shape, depth, profile, label_bytes) {
         Ok(source) => source,
@@ -201,7 +227,13 @@ fn wait_child(child: &mut Child) -> Result<std::process::ExitStatus, &'static st
 }
 
 /// Builds the arguments that the parent passes to its probe child.
-fn child_args(shape: &str, depth: usize, profile: &str, label_bytes: Option<usize>) -> Vec<String> {
+fn child_args(
+    shape: &str,
+    depth: usize,
+    profile: &str,
+    label_bytes: Option<usize>,
+    stack_bytes: Option<usize>,
+) -> Vec<String> {
     let mut args = vec![
         "--shape".to_owned(),
         shape.to_owned(),
@@ -213,14 +245,23 @@ fn child_args(shape: &str, depth: usize, profile: &str, label_bytes: Option<usiz
     if let Some(bytes) = label_bytes {
         args.extend(["--label-bytes".to_owned(), bytes.to_string()]);
     }
+    if let Some(bytes) = stack_bytes {
+        args.extend(["--stack-bytes".to_owned(), bytes.to_string()]);
+    }
     args.push("--child".to_owned());
     args
 }
 
 /// Spawns the isolated probe child and maps its result to an exit code.
-fn parent_run(shape: &str, depth: usize, profile: &str, label_bytes: Option<usize>) -> ExitCode {
+fn parent_run(
+    shape: &str,
+    depth: usize,
+    profile: &str,
+    label_bytes: Option<usize>,
+    stack_bytes: Option<usize>,
+) -> ExitCode {
     let mut command = Command::new(env::current_exe().expect("executable path"));
-    command.args(child_args(shape, depth, profile, label_bytes));
+    command.args(child_args(shape, depth, profile, label_bytes, stack_bytes));
     let mut child = match command.spawn() {
         Ok(child) => child,
         Err(error) => {
@@ -248,12 +289,36 @@ fn parent_run(shape: &str, depth: usize, profile: &str, label_bytes: Option<usiz
 fn main() -> ExitCode {
     let args = env::args().skip(1).collect::<Vec<_>>();
     match parse(&args) {
-        Ok((shape, depth, profile, label_bytes, child)) => {
-            println!("shape={shape} depth={depth} edges={}", depth.saturating_add(1));
-            if child {
-                child_run(&shape, depth, &profile, label_bytes)
+        Ok(options) => {
+            println!(
+                "shape={} depth={} edges={}",
+                options.shape,
+                options.depth,
+                options.depth.saturating_add(1)
+            );
+            if options.child {
+                if let Some(stack_bytes) = options.stack_bytes {
+                    let worker = thread::Builder::new().stack_size(stack_bytes).spawn(move || {
+                        child_work(&options.shape, options.depth, &options.profile, options.label_bytes)
+                    });
+                    match worker {
+                        Ok(worker) => worker.join().unwrap_or(ExitCode::from(1)),
+                        Err(error) => {
+                            eprintln!("thread_spawn_error={error}");
+                            ExitCode::from(2)
+                        }
+                    }
+                } else {
+                    child_work(&options.shape, options.depth, &options.profile, options.label_bytes)
+                }
             } else {
-                parent_run(&shape, depth, &profile, label_bytes)
+                parent_run(
+                    &options.shape,
+                    options.depth,
+                    &options.profile,
+                    options.label_bytes,
+                    options.stack_bytes,
+                )
             }
         }
         Err(error) => {
@@ -278,10 +343,10 @@ mod tests {
 
     #[test]
     fn test_label_bytes_is_optional_and_validated() {
-        assert_eq!(parse(&base_args()).unwrap().3, None);
+        assert_eq!(parse(&base_args()).unwrap().label_bytes, None);
         let mut args = base_args();
         args.extend(["--label-bytes".into(), "1024".into()]);
-        assert_eq!(parse(&args).unwrap().3, Some(1024));
+        assert_eq!(parse(&args).unwrap().label_bytes, Some(1024));
         for invalid in ["0", "4097", "nope"] {
             let mut args = base_args();
             args.extend(["--label-bytes".into(), invalid.into()]);
@@ -296,12 +361,47 @@ mod tests {
     fn test_label_bytes_survives_parent_child_argument_forwarding() {
         let mut parent_args = base_args();
         parent_args.extend(["--label-bytes".into(), "1024".into()]);
-        let (_, _, _, label_bytes, _) = parse(&parent_args).unwrap();
-        assert_eq!(label_bytes, Some(1024));
-        let args = child_args("chain", 1, "default", label_bytes);
-        let (_, _, _, child_label_bytes, is_child) = parse(&args).unwrap();
-        assert_eq!(child_label_bytes, Some(1024));
-        assert!(is_child);
+        let parent_options = parse(&parent_args).unwrap();
+        assert_eq!(parent_options.label_bytes, Some(1024));
+        let args = child_args("chain", 1, "default", parent_options.label_bytes, None);
+        let child_options = parse(&args).unwrap();
+        assert_eq!(child_options.label_bytes, Some(1024));
+        assert!(child_options.child);
+    }
+
+    #[test]
+    fn test_stack_bytes_is_optional_and_validated() {
+        assert_eq!(parse(&base_args()).unwrap().stack_bytes, None);
+        let mut args = base_args();
+        args.extend(["--stack-bytes".into(), "2097152".into()]);
+        assert_eq!(parse(&args).unwrap().stack_bytes, Some(2 * 1024 * 1024));
+        for invalid in ["0", "nope"] {
+            let mut args = base_args();
+            args.extend(["--stack-bytes".into(), invalid.into()]);
+            assert!(parse(&args).is_err());
+        }
+        let mut args = base_args();
+        args.push("--stack-bytes".into());
+        assert!(parse(&args).is_err());
+    }
+
+    #[test]
+    fn test_stack_bytes_survives_parent_child_argument_forwarding() {
+        let bytes = 8 * 1024 * 1024;
+        let mut parent_args = base_args();
+        parent_args.extend(["--stack-bytes".into(), bytes.to_string()]);
+        let parent_options = parse(&parent_args).unwrap();
+        assert_eq!(parent_options.stack_bytes, Some(bytes));
+        let args = child_args(
+            "chain",
+            1,
+            "default",
+            parent_options.label_bytes,
+            parent_options.stack_bytes,
+        );
+        let child_options = parse(&args).unwrap();
+        assert_eq!(child_options.stack_bytes, Some(bytes));
+        assert!(child_options.child);
     }
 
     #[test]

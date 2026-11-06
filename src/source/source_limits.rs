@@ -16,7 +16,8 @@ pub const DEFAULT_MAX_SOURCE_INPUT_BYTES: usize = 8 * 1024 * 1024;
 pub const DEFAULT_MAX_SOURCE_PROPERTIES: usize = 65_536;
 /// Default maximum number of parsed structural nodes.
 pub const DEFAULT_MAX_SOURCE_NODES: usize = 262_144;
-/// Default maximum number of child sources in one composite.
+/// Default maximum number of cumulative descendant-source admissions within
+/// one source scope. The scope root itself is not counted.
 pub const DEFAULT_MAX_COMPOSITE_SOURCES: usize = 256;
 /// Default maximum structured document nesting depth.
 pub const DEFAULT_MAX_SOURCE_DEPTH: usize = 64;
@@ -33,20 +34,23 @@ pub use source_limits_builder::SourceLimitsBuilder;
 
 /// Resource limits for one configuration source load.
 ///
-/// Input bytes, emitted properties, parsed nodes, parser tokens, and admitted
-/// child sources are cumulative budgets: every accepted consumption is
-/// retained for the lifetime of one load session, while a rejected grouped
-/// consumption leaves every local and aggregate scope unchanged. Parser tokens
-/// count parser work before syntax-tree construction and are distinct from
-/// semantic nodes counted while flattening. Built-in TOML sources charge every
-/// lexer token, including whitespace, comments, newlines, and EOF; YAML sources
-/// charge every scanner token. TOML parser depth is a conservative structural
-/// bound, while YAML parser depth measures nested collections. Neither is
-/// equivalent to semantic nesting depth. Semantic depth and parser nesting
-/// depth are stateless point limits checked independently for each input.
-/// These limits do not synchronize access or manage resource lifetimes.
-/// The default parser-token budget is 1,048,576 tokens per source ancestry,
-/// and the default parser-depth limit is 128 for each input.
+/// Input bytes, emitted properties, parsed nodes, parser tokens, and
+/// descendant-source admissions are cumulative budgets: every accepted
+/// consumption is retained for the lifetime of one load session, while a
+/// rejected grouped consumption leaves every local and aggregate scope
+/// unchanged. Parser tokens count parser work before syntax-tree construction
+/// and are distinct from semantic nodes counted while flattening. Built-in TOML
+/// sources charge every lexer token, including whitespace, comments, newlines,
+/// and EOF; YAML sources charge every scanner token. TOML parser depth is a
+/// conservative structural bound, while YAML parser depth measures nested
+/// collections. Neither is equivalent to semantic nesting depth. Semantic depth
+/// and parser nesting depth are stateless point limits checked independently
+/// for each input. These limits do not synchronize access or manage resource
+/// lifetimes. The default parser-token budget is 1,048,576 tokens per source
+/// ancestry, and the default parser-depth limit is 128 for each input.
+/// Source-count limits apply to cumulative descendant-source admissions within
+/// the scope, including nested composites and their admitted sources; the
+/// scope root itself is not counted.
 ///
 /// Enforcement stages depend on the source adapter. TOML and YAML admit input
 /// bytes, parser tokens, and parser nesting depth before constructing a syntax
@@ -90,7 +94,8 @@ pub struct SourceLimits {
     max_properties: usize,
     /// Maximum structural nodes parsed by one source.
     max_nodes: usize,
-    /// Maximum child sources in one composite.
+    /// Maximum cumulative descendant-source admissions within this scope.
+    /// The scope root itself is not counted.
     max_sources: usize,
     /// Maximum nesting depth of structured input.
     max_nesting_depth: usize,
@@ -141,7 +146,8 @@ impl SourceLimits {
         self.max_nodes
     }
 
-    /// Returns the maximum number of child sources in a composite.
+    /// Returns the maximum cumulative descendant-source admissions within
+    /// this scope. The scope root itself is not counted.
     #[inline(always)]
     #[must_use = "use the returned value"]
     pub const fn max_sources(self) -> usize {

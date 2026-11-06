@@ -45,7 +45,8 @@ pub enum SourceLimitKind {
     PropertyCount,
     /// Parsed structural node count.
     NodeCount,
-    /// Number of child sources admitted by a composite source.
+    /// Cumulative descendant-source admissions within a scope; the scope
+    /// root itself is not counted.
     SourceCount,
     /// Root-relative structured nesting depth.
     NestingDepth,

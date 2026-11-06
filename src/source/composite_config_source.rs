@@ -34,6 +34,11 @@ pub use composite_config_source_builder::CompositeConfigSourceBuilder;
 /// by another source; they do not count only the distinct keys in the final
 /// configuration. Configure aggregate limits with
 /// [`CompositeConfigSourceBuilder::limits`].
+/// Source-count limits count cumulative descendant-source admissions within
+/// each scope. The scope root itself is not counted, but a nested composite
+/// and each source it admits are counted by the outer scope. A custom source
+/// that performs source admissions must report them through
+/// [`SourceLoadContext::consume_sources`].
 ///
 /// # Examples
 ///

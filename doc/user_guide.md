@@ -356,6 +356,9 @@ whose limit rejected it. For example, a `leaf-b` assignment rejected by the
 `outer` composite reports `leaf-b` as the source and `outer` as the budget
 scope. Labels do not change source order, final-property checks, or budget
 accounting.
+For a source-count rejection specifically, `source_id()` identifies the
+composite attempting the child admission; `source_budget_id()` identifies the
+scope whose source-count budget rejected it.
 
 The properties parser follows the Java properties escape dialect. It decodes
 `\t`, `\n`, `\r`, `\f`, escaped separators and spaces, valid `\uXXXX` UTF-16
@@ -1018,13 +1021,23 @@ The default `SourceLimits` are:
 | Parsed structural nodes | 262,144 |
 | Parser tokens | 1,048,576 |
 | Parser nesting depth | 128 |
-| Composite child sources | 256 |
+| Cumulative descendant-source admissions within one scope (scope root excluded) | 256 |
 | Nesting depth | 64 |
 
 All built-in sources use the same session API for file and in-memory entry
 points. `CompositeConfigSource::builder().limits(...).build()` configures a shared aggregate
 policy in addition to every child's local policy. Cumulative charges are
 committed to all applicable scopes only after every scope accepts them.
+`max_sources` limits cumulative descendant-source admissions within its scope;
+the scope root is not counted. Entering a nested composite costs one admission,
+and each source that composite later enters also costs one in every enclosing
+scope. For `outer -> inner -> leaf-a, leaf-b`, `outer` needs a limit of 3 and
+`inner` needs a limit of 2. Each load starts with fresh budgets. This count
+limits admitted sources, not composite nesting depth. Raising it or using
+`SourceLimits::unbounded()` does not make arbitrarily deep chains safe for the
+thread stack; prefer flatter compositions and keep conservative finite limits.
+The [composite resource probe record](composite-resource-probe-20261106T065653653Z-81411945.md)
+describes the measured environment and its limits.
 `max_parser_tokens` counts returned scanner/lexer tokens, including stream or
 document markers; TOML also counts whitespace, comments, newlines, and EOF.
 It is cumulative across the source and all enclosing composite scopes. Parser

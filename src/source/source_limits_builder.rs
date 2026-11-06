@@ -41,7 +41,8 @@ pub struct SourceLimitsBuilder {
     max_properties: usize,
     /// Maximum structural nodes parsed by one source.
     max_nodes: usize,
-    /// Maximum child sources in one composite.
+    /// Maximum cumulative descendant-source admissions within this scope.
+    /// The scope root itself is not counted.
     max_sources: usize,
     /// Maximum nesting depth of structured input.
     max_nesting_depth: usize,
@@ -115,11 +116,14 @@ impl SourceLimitsBuilder {
         self
     }
 
-    /// Sets the maximum number of child sources in a composite.
+    /// Sets the maximum number of cumulative descendant-source admissions
+    /// within this scope. The scope root itself is not counted.
     ///
     /// # Parameters
     ///
-    /// * `maximum` - Maximum number of child sources in one composite source.
+    /// * `maximum` - Maximum cumulative descendant-source admissions within
+    ///   this scope, including nested composites and their descendants but not
+    ///   the scope root.
     ///
     /// # Returns
     ///

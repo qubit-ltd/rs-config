@@ -611,6 +611,54 @@ mod test_composite_config_source {
     }
 
     #[test]
+    fn test_nested_composite_source_count_is_cumulative_per_scope() {
+        for (outer_limit, inner_limit, expected_budget) in [
+            (3, 2, None),
+            (2, 2, Some("outer")),
+            (3, 1, Some("inner")),
+            (0, 2, Some("outer")),
+        ] {
+            let calls = [Arc::new(AtomicUsize::new(0)), Arc::new(AtomicUsize::new(0))];
+            let inner = CompositeConfigSource::builder()
+                .label("inner")
+                .limits(SourceLimits::builder().max_sources(inner_limit).build())
+                .add_source(CountingSource {
+                    calls: Arc::clone(&calls[0]),
+                    fail: false,
+                    value: 1,
+                })
+                .add_source(CountingSource {
+                    calls: Arc::clone(&calls[1]),
+                    fail: false,
+                    value: 2,
+                })
+                .build();
+            let outer = CompositeConfigSource::builder()
+                .label("outer")
+                .limits(SourceLimits::builder().max_sources(outer_limit).build())
+                .add_source(inner)
+                .build();
+
+            match expected_budget {
+                None => {
+                    for _ in 0..2 {
+                        assert_eq!(outer.load().unwrap().get::<u16>("value").unwrap(), 2);
+                    }
+                    assert_eq!(calls.map(|count| count.load(Ordering::SeqCst)), [2, 2]);
+                }
+                Some(expected_budget) => {
+                    let error = outer.load().unwrap_err();
+                    assert_eq!(error.source_budget_id(), Some(expected_budget));
+                    let expected_source = if outer_limit == 0 { "outer" } else { "inner" };
+                    assert_eq!(error.source_id(), Some(expected_source));
+                    let expected_calls = if outer_limit == 0 { [0, 0] } else { [1, 0] };
+                    assert_eq!(calls.map(|count| count.load(Ordering::SeqCst)), expected_calls);
+                }
+            }
+        }
+    }
+
+    #[test]
     fn test_composite_loads_every_successful_source_once_in_order() {
         let calls = [
             Arc::new(AtomicUsize::new(0)),

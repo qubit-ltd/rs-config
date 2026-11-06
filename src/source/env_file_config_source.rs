@@ -318,7 +318,9 @@ fn escape_dotenv_substitutions_in_line(content: &str) -> String {
 /// separator, but CR and LF terminate or participate in line parsing instead.
 /// # Parameters
 ///
-/// * `character` - Value used to character during this operation.
+/// * `character` - Character being checked as a separator between a value and
+///   an inline comment. Carriage return and line feed are not horizontal
+///   separators here.
 fn is_dotenv_comment_separator(character: char) -> bool {
     character.is_whitespace() && !matches!(character, '\r' | '\n')
 }

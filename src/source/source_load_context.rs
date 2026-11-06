@@ -180,11 +180,15 @@ impl<'a> SourceLoadContext<'a> {
         self.session.consume_parser_tokens(amount)
     }
 
-    /// Charges admitted child sources to the current source and ancestors.
+    /// Charges cumulative descendant-source admissions to the current source
+    /// and all active ancestors. Composite sources charge one unit before
+    /// entering each child, including nested composites; the scope root itself
+    /// is not counted. Custom sources that admit sources must report those
+    /// admissions explicitly.
     ///
     /// # Parameters
     ///
-    /// * `amount` - Number of child sources to charge.
+    /// * `amount` - Number of descendant-source admissions to charge.
     ///
     /// # Returns
     ///

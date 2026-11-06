@@ -204,10 +204,12 @@ impl AsRef<ConversionLimits> for ReadPolicy {
 
 impl From<ConversionPolicy> for ReadPolicy {
     /// Creates a read policy from a data conversion policy.
+    /// All other fields use the defaults from [`ReadPolicy::builder`].
+    ///
     /// # Parameters
     ///
-    /// * `conversion_policy` - Value used to conversion policy during this
-    ///   operation.
+    /// * `conversion_policy` - The conversion policy retained by the new read
+    ///   policy.
     #[inline]
     fn from(conversion_policy: ConversionPolicy) -> Self {
         Self::builder().conversion_policy(conversion_policy).build()
@@ -231,5 +233,18 @@ mod tests {
 
         let converted = ReadPolicy::from(ConversionPolicy::env_friendly());
         assert_eq!(converted.conversion_policy(), &ConversionPolicy::env_friendly());
+
+        let defaults = ReadPolicy::default();
+        assert_eq!(converted.conversion_limits(), defaults.conversion_limits());
+        assert_eq!(converted.interpolation_sources(), defaults.interpolation_sources());
+        assert_eq!(converted.max_interpolation_depth(), defaults.max_interpolation_depth());
+        assert_eq!(
+            converted.max_interpolation_expansions(),
+            defaults.max_interpolation_expansions()
+        );
+        assert_eq!(
+            converted.max_interpolation_output_bytes(),
+            defaults.max_interpolation_output_bytes()
+        );
     }
 }

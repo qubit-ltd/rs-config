@@ -301,6 +301,8 @@ let sources = CompositeConfigSource::builder()
 嵌套预算拒绝扣费时，`source_id()` 指向正在处理数据的叶子来源，`source_budget_id()` 指向
 拒绝该扣费的局部来源或组合来源。例如 `leaf-b` 的赋值被 `outer` 组合来源拒绝时，来源标识是
 `leaf-b`，预算作用域是 `outer`。标签不会改变来源顺序、final 校验或预算记账。
+特别是来源数拒绝时，`source_id()` 指向尝试准入子来源的组合来源，
+`source_budget_id()` 指向拒绝该次来源数扣费的作用域。
 
 properties 解析器遵循 Java properties 的转义规则。它会解码
 `\t`、`\n`、`\r`、`\f`、被转义的分隔符和空格、合法的 `\uXXXX`
@@ -909,7 +911,7 @@ TOML 和 YAML 配置源会把映射展开成点分配置项，接受标量、空
 | 解析结构节点数 | 262,144 |
 | Parser token 数 | 1,048,576 |
 | Parser nesting depth | 128 |
-| 组合配置源的子项数 | 256 |
+| 此作用域内累计准入的后代来源数（不含作用域根） | 256 |
 | 嵌套深度 | 64 |
 
 所有内置配置源的文件入口和内存入口使用同一套 session API。
@@ -920,6 +922,13 @@ TOML 和 YAML 配置源会把映射展开成点分配置项，接受标量、空
 Parser nesting depth 对每个输入单独检查，根深度为 0；YAML 按 collection 层级计数，TOML 使用保守的
 结构上界（每个点分 key 段最多计两层，array/inline 容器还会增加层级），因此不等同于语义 `max_depth`。
 这些限制减少送入 backend 的工作，但不保证严格内存或 CPU 上限；单个大 token 和准入后的 AST 仍有成本。
+
+`max_sources` 限制此作用域内累计准入的后代来源数，不计作用域根。进入一个嵌套组合来源会计 1，
+该组合来源之后进入的每个来源也会在所有外层作用域各计 1。例如 `outer -> inner -> leaf-a, leaf-b`，
+`outer` 的限额至少为 3，`inner` 至少为 2。每次加载都会创建新的预算。该计数限制准入的来源数，
+不限制组合嵌套深度；提高该限额或使用 `SourceLimits::unbounded()` 不代表任意深链都能安全使用线程栈。
+优先扁平化组合，并保留保守的有限限额。详见[组合来源资源探测记录](composite-resource-probe-20261106T065653653Z-81411945.md)，
+其中说明了实测环境和适用边界。
 
 在了解输入边界后，可用 builder 调整限制：
 

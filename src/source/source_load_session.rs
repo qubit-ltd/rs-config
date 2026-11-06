@@ -254,8 +254,8 @@ impl<'a> SourceLoadSession<'a> {
     /// Atomically consumes one cumulative resource across all active scopes.
     /// # Parameters
     ///
-    /// * `dimension` - Value used to dimension during this operation.
-    /// * `amount` - Value used to amount during this operation.
+    /// * `dimension` - Cumulative resource dimension to charge.
+    /// * `amount` - Requested increment in units of that resource dimension.
     fn consume_cumulative(&mut self, dimension: CumulativeDimension, amount: usize) -> ConfigResult<()> {
         for (index, budget) in self.ancestors.iter().enumerate() {
             if let Err(source) = dimension.get(budget).check_available(amount) {
@@ -284,9 +284,10 @@ impl<'a> SourceLoadSession<'a> {
     /// Wraps a cumulative failure with source and budget scope context.
     /// # Parameters
     ///
-    /// * `source_id` - Value used to source id during this operation.
-    /// * `budget_id` - Value used to budget id during this operation.
-    /// * `source` - Source value or input being processed.
+    /// * `source_id` - Identity of the source whose charge was rejected.
+    /// * `budget_id` - Identity of the budget scope that rejected the charge.
+    /// * `source` - Underlying budget error with the configured limit, usage,
+    ///   and requested amount.
     fn cumulative_limit_error(
         source_id: &str,
         budget_id: &str,
@@ -305,8 +306,9 @@ impl<'a> SourceLoadSession<'a> {
     /// Wraps a point-limit failure with source and budget scope context.
     /// # Parameters
     ///
-    /// * `budget_id` - Value used to budget id during this operation.
-    /// * `source` - Source value or input being processed.
+    /// * `budget_id` - Identity of the budget scope that rejected the charge.
+    /// * `source` - Underlying budget error with the configured limit, usage,
+    ///   and requested amount.
     fn limit_error(&self, budget_id: &str, source: BudgetError<SourceLimitKind, usize>) -> ConfigError {
         let limit = source.configured_limit();
         let observed_at_least = match &source {
