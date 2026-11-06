@@ -228,7 +228,40 @@ impl PropertiesConfigSource {
         session: &mut SourceLoadSession<'_>,
     ) -> ConfigResult<Vec<(String, String)>> {
         let mut result = Vec::new();
+        Self::parse_content_into(content, source_id, session, |key, value| {
+            result.push((key, value));
+            Ok(())
+        })?;
+        Ok(result)
+    }
+
+    /// Parses properties content and forwards each budget-admitted assignment
+    /// to a receiver. The receiver is invoked only after key and budget checks.
+    ///
+    /// # Parameters
+    ///
+    /// * `content` - Properties text to parse.
+    /// * `source_id` - Identifier used to attribute parse errors.
+    /// * `session` - Active source-load session for resource accounting.
+    /// * `receive` - Sink for each parsed key/value assignment.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` after every assignment is parsed, budgeted, and accepted by the
+    /// receiver.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first parse, budget, or receiver error. Parse and budget
+    /// errors discovered later retain precedence over a receiver error.
+    fn parse_content_into(
+        content: &str,
+        source_id: &str,
+        session: &mut SourceLoadSession<'_>,
+        mut receive: impl FnMut(String, String) -> ConfigResult<()>,
+    ) -> ConfigResult<()> {
         let mut lines = properties_natural_lines(content);
+        let mut receive_error = None;
 
         while let Some(line) = lines.next() {
             let trimmed = line.trim_start_matches(is_properties_whitespace);
@@ -260,11 +293,17 @@ impl PropertiesConfigSource {
                 session.check_depth(key.split('.').count())?;
                 session.consume_nodes(1)?;
                 session.consume_properties(1)?;
-                result.push((key, value));
+                if receive_error.is_none()
+                    && let Err(error) = receive(key, value)
+                {
+                    // Preserve the old parse-first error order: keep checking
+                    // later syntax and budgets, which take precedence.
+                    receive_error = Some(error);
+                }
             }
         }
 
-        Ok(result)
+        receive_error.map_or(Ok(()), Err)
     }
 }
 
@@ -629,12 +668,11 @@ impl ConfigSource for PropertiesConfigSource {
         let session = context.session_mut();
         let source_id = self.source_id();
         let content = self.input.read_to_string("properties", session)?;
-        let properties = Self::parse_content_with_session(&content, &source_id, session)?;
-        for (key, value) in properties {
+        Self::parse_content_into(&content, &source_id, session, |key, value| {
             config
                 .set(&key, value)
-                .map_err(|error| error.with_source_context(&source_id, Some(key.clone()), None))?;
-        }
+                .map_err(|error| error.with_source_context(&source_id, Some(key), None))
+        })?;
         context.replace_layer(config);
         Ok(())
     }

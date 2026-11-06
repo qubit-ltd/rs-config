@@ -128,6 +128,44 @@ fn benchmark_continuation_backslashes(criterion: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmarks the public collecting parser and the direct source load path.
+fn benchmark_properties_parse_and_load(criterion: &mut Criterion) {
+    let mut group = criterion.benchmark_group("properties");
+    for count in [32_usize, 1_024, 16_384] {
+        for repeated in [false, true] {
+            let content = (0..count)
+                .map(|index| {
+                    let key = if repeated {
+                        "service.shared".to_string()
+                    } else {
+                        format!("service.key_{index}")
+                    };
+                    format!("{key}={index}\n")
+                })
+                .collect::<String>();
+            let source = PropertiesConfigSource::from_content(content.clone());
+            let label = format!("{count}/{}", if repeated { "repeated" } else { "distinct" });
+            group.bench_function(BenchmarkId::new("parse", &label), |b| {
+                b.iter(|| black_box(PropertiesConfigSource::parse_content(black_box(&content)).unwrap()));
+            });
+            group.bench_function(BenchmarkId::new("load", &label), |b| {
+                b.iter(|| black_box(source.load().unwrap()));
+            });
+            group.bench_function(BenchmarkId::new("legacy_collect_and_set", &label), |b| {
+                b.iter(|| {
+                    let pairs = PropertiesConfigSource::parse_content(black_box(&content)).unwrap();
+                    let mut config = Config::new();
+                    for (key, value) in pairs {
+                        config.set(&key, value).unwrap();
+                    }
+                    black_box(config)
+                });
+            });
+        }
+    }
+    group.finish();
+}
+
 /// Loads a properties configuration with generated keys and values.
 fn config_with_properties(property_count: usize, key_prefix: &str, value_prefix: &str) -> Config {
     let content = (0..property_count)
@@ -246,6 +284,7 @@ fn benchmark_composite_layers(criterion: &mut Criterion) {
 criterion_group!(
     benches,
     benchmark_source_parsing,
+    benchmark_properties_parse_and_load,
     benchmark_continuation_backslashes,
     benchmark_config_merge,
     benchmark_composite_layers

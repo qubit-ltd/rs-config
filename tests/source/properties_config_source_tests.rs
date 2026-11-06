@@ -634,6 +634,17 @@ mod test_properties_edge_cases {
     }
 
     #[test]
+    fn test_properties_later_duplicate_assignment_replaces_earlier_value() {
+        let source = PropertiesConfigSource::builder()
+            .content("same=first\nsame=second\n")
+            .build();
+
+        let config = source.load().unwrap();
+
+        assert_eq!(config.get::<String>("same").unwrap(), "second");
+    }
+
+    #[test]
     fn test_properties_node_limit_counts_each_assignment() {
         let source = PropertiesConfigSource::builder()
             .content("first=1\nsecond=2\n")
