@@ -94,8 +94,8 @@ impl<'a> ConfigSection<'a> {
     /// # Parameters
     ///
     /// * `config` - Root configuration borrowed by the section.
-    /// * `path` - Canonical section path relative to the root configuration;
-    ///   an empty path represents the root.
+    /// * `path` - Canonical section path relative to the root configuration; an
+    ///   empty path represents the root.
     /// * `read_policy` - Optional read policy borrowed by this section.
     #[inline]
     fn new_with_read_policy(config: &'a Config, path: &str, read_policy: Option<&'a ReadPolicy>) -> ConfigResult<Self> {

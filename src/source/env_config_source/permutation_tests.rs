@@ -189,7 +189,11 @@ fn test_key_unicode_error_precedes_value_unicode_and_input_budget() {
         .load_environment_entries([(invalid_key, invalid_value)], &mut context)
         .expect_err("invalid key must retain priority over invalid value and budget errors");
 
-    assert!(error.to_string().contains("Environment variable key is not valid Unicode"));
+    assert!(
+        error
+            .to_string()
+            .contains("Environment variable key is not valid Unicode")
+    );
     assert!(!error.to_string().contains("value is not valid Unicode"));
     assert!(!matches!(error, ConfigError::SourceLimitExceeded { .. }));
 }
