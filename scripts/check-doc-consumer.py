@@ -16,6 +16,14 @@ ROOT = Path(__file__).resolve().parent.parent
 DOCUMENTS = ("doc/user_guide.md", "doc/user_guide.zh_CN.md")
 DEPENDENCY_MARKER = "<!-- consumer-dependencies: diagnostics -->"
 EXAMPLE_MARKER = "<!-- example: config_error_diagnostics -->"
+EXPECTED_DEPENDENCIES = {
+    "qubit-config": "0.15",
+    "qubit-datatype": {
+        "version": "0.15",
+        "default-features": False,
+        "features": ["converter"],
+    },
+}
 
 
 def _marked_block(text: str, marker: str, language: str) -> tuple[str | None, str | None]:
@@ -52,10 +60,22 @@ def validate_documents(documents: dict[str, str]) -> list[str]:
         if not isinstance(dependencies, dict):
             errors.append(f"{path}: dependency block must define [dependencies]")
             continue
-        if "qubit-config" not in dependencies:
-            errors.append(f"{path}: missing direct qubit-config dependency")
-        if "qubit-datatype" not in dependencies:
-            errors.append(f"{path}: missing direct qubit-datatype dependency")
+        if set(data) != {"dependencies"}:
+            extra_tables = ", ".join(sorted(set(data) - {"dependencies"}))
+            errors.append(f"{path}: unexpected TOML tables outside [dependencies]: {extra_tables}")
+        actual_names = set(dependencies)
+        expected_names = set(EXPECTED_DEPENDENCIES)
+        missing = expected_names - actual_names
+        extra = actual_names - expected_names
+        if missing:
+            errors.append(f"{path}: missing direct dependencies: {', '.join(sorted(missing))}")
+        if extra:
+            errors.append(f"{path}: unexpected direct dependencies: {', '.join(sorted(extra))}")
+        for name in sorted(expected_names & actual_names):
+            expected = EXPECTED_DEPENDENCIES[name]
+            actual = dependencies[name]
+            if actual != expected:
+                errors.append(f"{path}: {name} declaration expected {expected!r}, found {actual!r}")
         parsed[path] = dependencies
     if len(parsed) == len(documents) and len(set(map(repr, parsed.values()))) != 1:
         errors.append("bilingual diagnostic dependency declarations differ")

@@ -66,6 +66,30 @@ class DependencyBlockTests(unittest.TestCase):
             )
         )
 
+    def test_extra_direct_dependency_fails_even_when_bilingual_blocks_match(self) -> None:
+        unexpected = VALID_TOML.replace(
+            'qubit-config = "0.15"\n',
+            'qubit-config = "0.15"\nserde = "1"\n',
+        )
+        errors = CHECKER.validate_documents(
+            {"doc/user_guide.md": unexpected, "doc/user_guide.zh_CN.md": unexpected}
+        )
+        self.assertTrue(any("unexpected direct dependencies" in error for error in errors))
+
+    def test_documented_dependency_versions_must_match_expected_values(self) -> None:
+        for name, changed in (
+            ("qubit-config", VALID_TOML.replace('qubit-config = "0.15"', 'qubit-config = "0.14"')),
+            (
+                "qubit-datatype",
+                VALID_TOML.replace('version = "0.15", default-features', 'version = "0.14", default-features'),
+            ),
+        ):
+            with self.subTest(dependency=name):
+                errors = CHECKER.validate_documents(
+                    {"doc/user_guide.md": changed, "doc/user_guide.zh_CN.md": changed}
+                )
+                self.assertTrue(any(f"{name}" in error and "expected" in error for error in errors))
+
     def test_bilingual_dependency_mismatch_fails(self) -> None:
         changed = VALID_TOML.replace('"0.15"', '"0.14"', 1)
         self.assertTrue(CHECKER.validate_documents({"doc/user_guide.md": VALID_TOML, "doc/user_guide.zh_CN.md": changed}))
@@ -93,9 +117,16 @@ class TemporaryConsumerTests(unittest.TestCase):
             self.assertIn("qubit-datatype", manifests[0])
             self.assertNotIn("serde", manifests[0])
             with patch.object(CHECKER, "ROOT", root), patch.object(
-                CHECKER.subprocess, "run", return_value=type("Result", (), {"returncode": 101, "stdout": "", "stderr": "cargo failed"})()
+                CHECKER.subprocess,
+                "run",
+                return_value=type(
+                    "Result",
+                    (),
+                    {"returncode": 101, "stdout": "", "stderr": "cargo failed"},
+                )(),
             ):
-                self.assertTrue(CHECKER.compile_document_consumers(docs))
+                errors = CHECKER.compile_document_consumers(docs)
+            self.assertTrue(any("cargo failed" in error for error in errors))
 
     def test_missing_rust_example_marker_fails_before_cargo(self) -> None:
         malformed = VALID_TOML + "\n```rust\n" + VALID_RUST + "```\n"
