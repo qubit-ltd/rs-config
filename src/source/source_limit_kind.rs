@@ -54,6 +54,8 @@ pub enum SourceLimitKind {
     ParserTokenCount,
     /// Parser structure depth for one input.
     ParserNestingDepth,
+    /// Composite source execution nesting depth (fixed executor guard).
+    SourceNestingDepth,
 }
 
 impl Display for SourceLimitKind {
@@ -70,6 +72,7 @@ impl Display for SourceLimitKind {
             Self::NestingDepth => formatter.write_str("nesting depth"),
             Self::ParserTokenCount => formatter.write_str("parser token count"),
             Self::ParserNestingDepth => formatter.write_str("parser nesting depth"),
+            Self::SourceNestingDepth => formatter.write_str("source nesting depth"),
         }
     }
 }

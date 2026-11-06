@@ -97,6 +97,25 @@ impl SourceLoadContext<'static> {
 }
 
 impl<'a> SourceLoadContext<'a> {
+    /// Checks the fixed executor nesting guard before entering a child source.
+    ///
+    /// # Parameters
+    ///
+    /// * `source_id` - Identifier of the child that would be entered.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the next source edge is within the executor limit.
+    ///
+    /// # Errors
+    ///
+    /// Returns `SourceLimitExceeded` when entering the child would exceed the
+    /// fixed nesting depth.
+    #[inline]
+    pub(crate) fn check_next_source_nesting(&self, source_id: &str) -> ConfigResult<()> {
+        self.session.check_next_source_nesting(source_id)
+    }
+
     /// Checks parser depth for one input against this source and every
     /// ancestor.
     ///

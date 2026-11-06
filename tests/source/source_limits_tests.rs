@@ -121,6 +121,15 @@ fn test_source_limit_kinds_have_stable_display_names() {
     assert_eq!(SourceLimitKind::NestingDepth.to_string(), "nesting depth");
     assert_eq!(SourceLimitKind::ParserTokenCount.to_string(), "parser token count");
     assert_eq!(SourceLimitKind::ParserNestingDepth.to_string(), "parser nesting depth");
+    assert_eq!(SourceLimitKind::SourceNestingDepth.to_string(), "source nesting depth");
+    assert_eq!(
+        serde_json::to_string(&SourceLimitKind::SourceNestingDepth).unwrap(),
+        "\"SourceNestingDepth\""
+    );
+    assert_eq!(
+        serde_json::from_str::<SourceLimitKind>("\"SourceNestingDepth\"").unwrap(),
+        SourceLimitKind::SourceNestingDepth
+    );
 }
 
 #[test]

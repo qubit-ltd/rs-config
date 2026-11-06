@@ -39,6 +39,13 @@ pub use composite_config_source_builder::CompositeConfigSourceBuilder;
 /// and each source it admits are counted by the outer scope. A custom source
 /// that performs source admissions must report them through
 /// [`SourceLoadContext::consume_sources`].
+/// The executor also limits active nested composite dispatch to 256 child
+/// edges, with the root source at depth zero. This fixed guard reports
+/// [`crate::ConfigError::SourceLimitExceeded`] with
+/// [`crate::source::SourceLimitKind::SourceNestingDepth`] and cannot be
+/// disabled by raising `max_sources` or using [`SourceLimits::unbounded`].
+/// Flatten deep source chains when they exceed this bound. The guard does not
+/// control recursion performed by custom sources outside this executor.
 ///
 /// # Examples
 ///
@@ -167,6 +174,7 @@ impl ConfigSource for CompositeConfigSource {
         for source in &self.sources {
             context.consume_sources(1)?;
             let source_id = source.source_id();
+            context.check_next_source_nesting(&source_id)?;
             let layer = {
                 let mut child = context.child(source_id.clone(), source.limits());
                 source.load_into(&mut child)?;

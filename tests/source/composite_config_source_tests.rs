@@ -74,6 +74,89 @@ fn test_composite_label_propagates_to_nested_budget_attribution() {
     }
 }
 
+fn nested_chain(edges: usize, limits: SourceLimits) -> CompositeConfigSource {
+    let mut source = CompositeConfigSource::builder()
+        .limits(limits)
+        .add_source(
+            PropertiesConfigSource::builder()
+                .label("leaf")
+                .content("leaf=1")
+                .build(),
+        )
+        .build();
+    for index in 0..edges {
+        source = CompositeConfigSource::builder()
+            .label(format!("layer-{index}"))
+            .limits(limits)
+            .add_source(source)
+            .build();
+    }
+    source
+}
+
+#[test]
+fn test_fixed_source_nesting_limit_and_resource_error_metadata() {
+    for (edges, expected) in [(254, true), (255, true), (256, false)] {
+        let source = nested_chain(edges, SourceLimits::unbounded());
+        let result = source.load();
+        assert_eq!(result.is_ok(), expected, "edges={edges}");
+    }
+    for limits in [
+        SourceLimits::builder().max_sources(10_000).build(),
+        SourceLimits::unbounded(),
+    ] {
+        let source = nested_chain(256, limits);
+        let error = source.load().expect_err("257th edge must hit fixed guard");
+        assert!(matches!(
+            error,
+            ConfigError::SourceLimitExceeded {
+                kind: SourceLimitKind::SourceNestingDepth,
+                limit: 256,
+                observed_at_least: 257,
+                ..
+            }
+        ));
+        assert_eq!(error.source_id(), Some("leaf"));
+        assert_eq!(error.source_budget_id(), Some("layer-255"));
+        assert_eq!(
+            error.budget_error().map(|error| *error.resource()),
+            Some(SourceLimitKind::SourceNestingDepth)
+        );
+    }
+}
+
+#[test]
+fn test_source_count_error_precedes_fixed_nesting_guard() {
+    let source = nested_chain(256, SourceLimits::default());
+    let error = source
+        .load()
+        .expect_err("default source count rejects the 257th admission first");
+    assert!(matches!(
+        error,
+        ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::SourceCount,
+            limit: 256,
+            ..
+        }
+    ));
+}
+
+#[test]
+fn test_wide_composite_is_not_rejected_by_source_nesting_guard() {
+    let limits = SourceLimits::builder().max_sources(2_000).build();
+    let mut builder = CompositeConfigSource::builder().limits(limits);
+    for index in 0..1_025 {
+        builder = builder.add_source(
+            PropertiesConfigSource::builder()
+                .label(format!("leaf-{index}"))
+                .content(format!("key{index}=value"))
+                .build(),
+        );
+    }
+    let config = builder.build().load().expect("wide source graph has nesting depth one");
+    assert_eq!(config.len(), 1_025);
+}
+
 #[test]
 fn test_named_composite_final_conflict_reports_incoming_source_and_keeps_target() {
     let mut target = Config::new();

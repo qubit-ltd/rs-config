@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use qubit_budget::BudgetError;
 use qubit_budget::InsufficientBudgetError;
+use qubit_budget::ResourceLimit;
 
 use super::SourceLimitKind;
 use super::SourceLimits;
@@ -62,6 +63,41 @@ impl SourceLoadSession<'static> {
 }
 
 impl<'a> SourceLoadSession<'a> {
+    /// Enforces the fixed executor guard for one more composite child edge.
+    ///
+    /// # Parameters
+    ///
+    /// * `source_id` - Identifier of the child that would exceed the limit.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the next edge is within the executor limit.
+    ///
+    /// # Errors
+    ///
+    /// Returns `SourceLimitExceeded` with the root budget scope and rejected
+    /// child identifier when the fixed nesting depth would be exceeded.
+    pub(crate) fn check_next_source_nesting(&self, source_id: &str) -> ConfigResult<()> {
+        const MAX_SOURCE_NESTING: usize = 256;
+        let depth = self.ancestor_ids.len().saturating_add(1);
+        ResourceLimit::new(SourceLimitKind::SourceNestingDepth, MAX_SOURCE_NESTING)
+            .check(depth)
+            .map_err(|source| {
+                let root_id = self
+                    .ancestor_ids
+                    .first()
+                    .map_or(self.source_id.as_ref(), |id| id.as_ref());
+                ConfigError::SourceLimitExceeded {
+                    source_id: source_id.to_owned(),
+                    budget_id: root_id.to_owned(),
+                    kind: SourceLimitKind::SourceNestingDepth,
+                    limit: MAX_SOURCE_NESTING,
+                    observed_at_least: depth,
+                    source: source.into(),
+                }
+            })
+    }
+
     /// Creates a child session that also charges every budget in this session.
     ///
     /// # Parameters
