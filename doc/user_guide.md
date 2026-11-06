@@ -1122,7 +1122,9 @@ it provides the missing-value context; an unset scalar is one such case. Other
 ```rust
 //! Distinguishes missing configuration values from conversion failures.
 
-use qubit_config::{Config, ConfigError, ConfigErrorKind};
+use qubit_config::Config;
+use qubit_config::ConfigError;
+use qubit_config::ConfigErrorKind;
 use qubit_datatype::DataType;
 
 /// Returns whether an error represents a missing configuration value.
