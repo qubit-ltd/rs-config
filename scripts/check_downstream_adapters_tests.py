@@ -46,6 +46,9 @@ class DownstreamAdapterCheckerTests(unittest.TestCase):
             "import json, os, sys\n"
             "args = sys.argv[1:]\n"
             "with open(os.environ['CARGO_LOG'], 'a') as log: log.write(' '.join(args) + '\\n')\n"
+            "if args and args[0] == 'tree' and '-d' in args and '-e' in args:\n"
+            "    print(\"error: the '-e features' flag does not support '--duplicates'\", file=sys.stderr)\n"
+            "    sys.exit(101)\n"
             "if args and args[0] == 'metadata':\n"
             "    if os.environ.get('FAIL_METADATA'): sys.exit(9)\n"
             "    with open(os.environ['METADATA_FILE']) as source: data = json.load(source)\n"
@@ -101,14 +104,19 @@ class DownstreamAdapterCheckerTests(unittest.TestCase):
         result = self._run()
         self.assertEqual(result.returncode, 0, result.stderr)
         calls = self.cargo_log.read_text().splitlines()
-        self.assertEqual(len(calls), 8, calls)
+        self.assertEqual(len(calls), 10, calls)
         self.assertEqual(sum(call.startswith("metadata ") for call in calls), 2, calls)
-        self.assertEqual(sum(call.startswith("tree ") for call in calls), 4, calls)
+        self.assertEqual(sum(call.startswith("tree ") for call in calls), 6, calls)
         self.assertEqual(sum(call.startswith("test ") for call in calls), 2, calls)
+        tree_calls = [call.split() for call in calls if call.startswith("tree ")]
+        self.assertEqual(sum("-d" in call for call in tree_calls), 2, tree_calls)
+        self.assertEqual(sum("-i" in call and "qubit-config" in call for call in tree_calls), 2, tree_calls)
+        self.assertEqual(sum("-e" in call and "features" in call for call in tree_calls), 2, tree_calls)
+        self.assertTrue(all(not ("-d" in call and "-e" in call) for call in tree_calls), tree_calls)
         selected = [call.split() for call in calls if "--features" in call]
-        self.assertEqual(len(selected), 4, calls)
+        self.assertEqual(len(selected), 5, calls)
         self.assertTrue(all(call[call.index("--features") + 1] == "full" for call in selected), calls)
-        self.assertEqual(sum("--features" not in call for call in calls), 4, calls)
+        self.assertEqual(sum("--features" not in call for call in calls), 5, calls)
         self.assertTrue(all("--no-default-features" in call for call in calls), calls)
         expected_manifest = str(self.project / "tests/fixtures/downstream_adapters/Cargo.toml")
         self.assertTrue(all(expected_manifest in call for call in calls), calls)

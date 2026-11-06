@@ -40,8 +40,9 @@ run_mode() {
     cargo metadata --locked --format-version 1 --manifest-path "$fixture_manifest" --no-default-features "${features[@]}" > "$metadata_file"
     python3 "$repo_root/scripts/check-config-features.py" \
         --manifest-path "$repo_root/Cargo.toml" --mode "$mode" < "$metadata_file"
-    cargo tree --locked --manifest-path "$fixture_manifest" --no-default-features "${features[@]}" -e features -d
-    cargo tree --locked --manifest-path "$fixture_manifest" --no-default-features "${features[@]}" -e features -i qubit-config
+    cargo tree --locked --manifest-path "$fixture_manifest" --no-default-features "${features[@]}" -d
+    cargo tree --locked --manifest-path "$fixture_manifest" --no-default-features "${features[@]}" -i qubit-config
+    cargo tree --locked --manifest-path "$fixture_manifest" --no-default-features "${features[@]}" -e features
     cargo test --locked --manifest-path "$fixture_manifest" --no-default-features "${features[@]}" --target-dir "$repo_root/target/downstream-adapters"
 }
 
