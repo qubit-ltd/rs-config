@@ -12,6 +12,7 @@ use std::process::Command;
 use qubit_config::Config;
 use qubit_config::ConfigError;
 use qubit_config::ConfigResult;
+use qubit_config::source::CompositeConfigSource;
 use qubit_config::source::ConfigSource;
 use qubit_config::source::EnvConfigOptions;
 use qubit_config::source::EnvConfigOptionsBuilder;
@@ -208,6 +209,46 @@ fn test_env_source_limits_are_charged_once_and_merge_is_transactional() {
         ));
         assert_eq!(target, before);
     }
+}
+
+#[test]
+fn test_composite_input_budget_attributes_failure_to_ancestor_transactionally() {
+    const PREFIX: &str = "QUBIT_ENV_COMPOSITE_LIMIT_REVIEW_";
+    const KEY: &str = "QUBIT_ENV_COMPOSITE_LIMIT_REVIEW_KEY";
+    if !run_with_env(
+        "test_composite_input_budget_attributes_failure_to_ancestor_transactionally",
+        &[(KEY, "a substantially longer value")],
+    ) {
+        return;
+    }
+
+    let env_source = EnvConfigSource::builder()
+        .options(EnvConfigOptions::builder().prefix(PREFIX).build())
+        .build();
+    let composite = CompositeConfigSource::builder()
+        .limits(SourceLimits::builder().max_input_bytes(1).build())
+        .add_source(env_source)
+        .build();
+    let mut target = Config::new();
+    target.set("existing", "old").unwrap();
+    let before = target.clone();
+    let error = merge_source(&mut target, &composite)
+        .expect_err("the aggregate input byte budget must reject the environment entry");
+
+    assert!(matches!(
+        error,
+        ConfigError::SourceLimitExceeded {
+            source_id,
+            budget_id,
+            kind: SourceLimitKind::InputBytes,
+            limit: 1,
+            observed_at_least,
+            ..
+        } if source_id == "process environment"
+            && budget_id == "composite configuration source"
+            && observed_at_least >= KEY.len() + "a substantially longer value".len()
+    ));
+    assert_eq!(target, before);
 }
 
 // ============================================================================

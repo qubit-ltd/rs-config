@@ -259,24 +259,22 @@ impl EnvConfigSource {
         false
     }
 
-    /// Converts an OS environment key to UTF-8.
+    /// Borrows an OS environment key as UTF-8.
     ///
     /// # Parameters
     ///
     /// * `key` - Environment key returned by [`std::env::vars_os`].
-    /// * `value` - Environment value paired with `key`.
-    ///
     /// # Returns
     ///
-    /// The UTF-8 environment key.
+    /// The UTF-8 environment key, borrowing from `key`.
     ///
     /// # Errors
     ///
     /// Returns a source-aware parse error with a fixed redaction marker when
     /// the key is not valid Unicode.
     #[inline]
-    fn env_key_to_string(key: &OsStr, _value: &OsStr) -> ConfigResult<String> {
-        key.to_str().map(str::to_owned).ok_or_else(|| {
+    fn env_key_to_str<'key>(key: &'key OsStr) -> ConfigResult<&'key str> {
+        key.to_str().ok_or_else(|| {
             ConfigError::source_parse_error(
                 "process environment",
                 "Environment variable key is not valid Unicode: <redacted>",
@@ -284,7 +282,7 @@ impl EnvConfigSource {
         })
     }
 
-    /// Converts an OS environment value to UTF-8.
+    /// Borrows an OS environment value as UTF-8.
     ///
     /// # Parameters
     ///
@@ -293,7 +291,7 @@ impl EnvConfigSource {
     ///
     /// # Returns
     ///
-    /// The UTF-8 environment value.
+    /// The UTF-8 environment value, borrowing from `value`.
     ///
     /// # Errors
     ///
@@ -301,8 +299,8 @@ impl EnvConfigSource {
     /// or a fixed redaction marker if the key is not Unicode, and a fixed
     /// redaction marker when the value is not valid Unicode.
     #[inline]
-    fn env_value_to_string(key: &OsStr, value: &OsStr) -> ConfigResult<String> {
-        value.to_str().map(str::to_owned).ok_or_else(|| {
+    fn env_value_to_str<'value>(key: &OsStr, value: &'value OsStr) -> ConfigResult<&'value str> {
+        value.to_str().ok_or_else(|| {
             ConfigError::source_parse_error(
                 "process environment",
                 format!(
@@ -387,8 +385,8 @@ impl EnvConfigSource {
                 continue;
             }
 
-            let key = Self::env_key_to_string(&key_os, &value_os)?;
-            let value = Self::env_value_to_string(&key_os, &value_os)?;
+            let key = Self::env_key_to_str(&key_os)?;
+            let value = Self::env_value_to_str(&key_os, &value_os)?;
             session.consume_input_bytes(key.len().saturating_add(value.len()))?;
             let transformed_key = self.transform_key(&key);
             if self.options.strip_prefix || self.options.double_underscores_to_dots {
@@ -402,7 +400,7 @@ impl EnvConfigSource {
             session.check_depth(transformed_key.split('.').count())?;
             session.consume_nodes(1)?;
             session.consume_properties(1)?;
-            accepted_entries.push((transformed_key, key, value));
+            accepted_entries.push((transformed_key, key.to_owned(), value.to_owned()));
         }
 
         accepted_entries.sort_by(|left, right| (&left.0, &left.1).cmp(&(&right.0, &right.1)));
