@@ -246,7 +246,12 @@ pub enum ConfigError {
     },
 
     /// Configuration key path cannot be represented without ambiguity.
-    #[error("Configuration key conflict at '{path}': existing {existing}, incoming {incoming}")]
+    #[error(
+        "Configuration key conflict at '{path}': existing {existing}, incoming {incoming}",
+        path = .path.escape_debug(),
+        existing = .existing.escape_debug(),
+        incoming = .incoming.escape_debug(),
+    )]
     KeyConflict {
         /// Source identifier when the conflict came from a source loader.
         source_id: Option<String>,

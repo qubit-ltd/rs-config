@@ -96,3 +96,29 @@ fn test_conflict_selection_uses_smallest_normalized_key_and_redacts_values() {
         }
     }
 }
+
+#[test]
+fn test_control_characters_in_colliding_environment_names_are_escaped() {
+    let names = ["APP_FOO\n", "APP_foo\n"];
+    let source = EnvConfigSource::from_prefix("APP_");
+
+    for ordered_names in [names, [names[1], names[0]]] {
+        let mut context = source_context(SourceLimits::default());
+        let error = source
+            .load_environment_entries(entries(&ordered_names), &mut context)
+            .unwrap_err();
+        assert!(matches!(
+            &error,
+            ConfigError::KeyConflict { path, existing, incoming, .. }
+                if path == "foo\n"
+                    && existing == "environment variable 'APP_FOO\n'"
+                    && incoming == "environment variable 'APP_foo\n'"
+        ));
+        let rendered = format!("{error:?} {error}");
+        assert!(!rendered.contains('\n'));
+        assert!(!rendered.contains("SECRET_VALUE"));
+        assert!(rendered.contains(r"foo\n"));
+        assert!(rendered.contains(r"APP_FOO\n"));
+        assert!(rendered.contains(r"APP_foo\n"));
+    }
+}

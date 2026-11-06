@@ -1120,6 +1120,9 @@ Inspect normalized environment names or flattened structured keys. Environment p
 For environment-name conflicts, the diagnostic consistently selects the
 smallest normalized-key group and its two smallest original names when the
 input is valid and within budget.
+The `KeyConflict` display escapes control characters; structured fields such
+as `path()` retain their original values, so inspect `kind()` and `path()`
+instead of parsing the display text.
 
 ### A source exceeds a limit
 

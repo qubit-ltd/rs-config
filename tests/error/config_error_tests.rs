@@ -156,6 +156,43 @@ fn test_error_accessors_retain_missing_value_source_and_conflict_context() {
 }
 
 #[test]
+fn test_key_conflict_display_escapes_control_characters_and_keeps_fields() {
+    let path = "foo\nbar\r\u{1b}\t\\雪";
+    let existing = "old\n\r\u{1b}\t\\值";
+    let incoming = "new\n\r\u{1b}\t\\値";
+    let error = ConfigError::KeyConflict {
+        source_id: Some("memory:test".to_string()),
+        path: path.to_string(),
+        existing: existing.to_string(),
+        incoming: incoming.to_string(),
+    };
+
+    let rendered = error.to_string();
+    for control in ['\n', '\r', '\u{1b}', '\t'] {
+        assert!(!rendered.contains(control));
+    }
+    assert!(rendered.contains(r"foo\nbar\r\u{1b}\t\\雪"));
+    assert!(rendered.contains(r"old\n\r\u{1b}\t\\值"));
+    assert!(rendered.contains(r"new\n\r\u{1b}\t\\値"));
+    assert!(matches!(
+        &error,
+        ConfigError::KeyConflict { path: actual_path, existing: actual_existing, incoming: actual_incoming, .. }
+            if actual_path == path && actual_existing == existing && actual_incoming == incoming
+    ));
+
+    let ascii = ConfigError::KeyConflict {
+        source_id: None,
+        path: "foo.bar".to_string(),
+        existing: "old key".to_string(),
+        incoming: "new key".to_string(),
+    };
+    assert_eq!(
+        ascii.to_string(),
+        "Configuration key conflict at 'foo.bar': existing old key, incoming new key"
+    );
+}
+
+#[test]
 fn test_context_accessors_cover_empty_and_indexed_cases() {
     let no_candidates = ConfigError::PropertyCandidatesNotFound { paths: Vec::new() };
     assert_eq!(no_candidates.path(), None);
