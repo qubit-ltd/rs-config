@@ -26,6 +26,7 @@ REQUIRED_DOCS = (
     "doc/design.zh_CN.md",
     "doc/coverage_policy.md",
     "doc/coverage_policy.zh_CN.md",
+    "doc/composite-resource-probe-20261106T065653653Z-81411945.md",
 )
 PACKAGE_LIST_COMMAND = ("cargo", "package", "--list", "--allow-dirty")
 Runner = Callable[..., subprocess.CompletedProcess[str]]

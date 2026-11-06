@@ -68,7 +68,7 @@ pub trait ConfigReader: internal::Sealed {
     /// prefix (same rules as [`Self::get`]).
     /// # Parameters
     ///
-    /// * `name` - Configuration key or source name used by this operation.
+    /// * `name` - Configuration key relative to the current reader.
     fn get_property(&self, name: impl AsRef<str>) -> ConfigResult<Option<&Property>>;
 
     /// Number of configuration entries visible to this reader (all keys for
@@ -262,7 +262,7 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// # Parameters
     ///
-    /// * `name` - Configuration key or source name used by this operation.
+    /// * `name` - Configuration key relative to the current reader.
     /// * `default` - Fallback value used when the primary value is unavailable.
     #[inline]
     fn get_or<T>(&self, name: impl AsRef<str>, default: impl IntoValueDefault<T>) -> ConfigResult<T>
@@ -603,7 +603,7 @@ pub trait ConfigReader: internal::Sealed {
     /// Gets an optional list with the same semantics as
     /// [`crate::Config::get_optional_list`].
     ///
-    /// # Type parameters
+    /// # Type Parameters
     ///
     /// * `T` - Element type supported by the shared conversion layer.
     ///
@@ -615,9 +615,6 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// `Ok(Some(vec))`, including `Some(Vec::new())` for a concrete empty
     /// collection; `Ok(None)` only when absent or effectively missing.
-    /// # Type Parameters
-    ///
-    /// * `T` - Type converted from the selected configuration property.
     fn get_optional_list<T>(&self, name: impl AsRef<str>) -> ConfigResult<Option<Vec<T>>>
     where
         T: DataConversionTarget,
@@ -733,7 +730,7 @@ pub trait ConfigReader: internal::Sealed {
     /// returns `true`.
     /// # Parameters
     ///
-    /// * `name` - Configuration key or source name used by this operation.
+    /// * `name` - Configuration key relative to the current reader.
     fn is_unset(&self, name: impl AsRef<str>) -> ConfigResult<bool> {
         let name = name.as_ref();
         Ok(self
@@ -749,17 +746,15 @@ pub trait ConfigReader: internal::Sealed {
     /// [`crate::ConfigSection::section`]. Calling this method on a section
     /// creates a nested section.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
-    /// * `path` - Relative section path; an empty path keeps the current scope.
+    /// * `path` - Canonical dotted section path relative to the current reader;
+    ///   an empty path selects the current scope.
     ///
     /// # Returns
     ///
     /// A [`ConfigSection`] borrowing this reader's underlying
     /// [`crate::Config`].
-    /// # Parameters
-    ///
-    /// * `path` - Configuration path or filesystem path used by this operation.
     fn section(&self, path: &str) -> ConfigResult<ConfigSection<'_>>;
 
     /// Creates a read-only section only when it has visible descendant
@@ -769,10 +764,10 @@ pub trait ConfigReader: internal::Sealed {
     /// returned section uses the same strict relative-key and read-policy
     /// semantics as [`Self::section`].
     ///
-    /// # Arguments
+    /// # Parameters
     ///
-    /// * `path` - Relative section path; an empty path checks the current
-    ///   reader scope.
+    /// * `path` - Canonical dotted section path relative to the current reader;
+    ///   an empty path selects the current scope.
     ///
     /// # Returns
     ///
@@ -782,9 +777,6 @@ pub trait ConfigReader: internal::Sealed {
     /// # Errors
     ///
     /// Returns [`ConfigError::InvalidPath`] when `path` is not canonical.
-    /// # Parameters
-    ///
-    /// * `path` - Configuration path or filesystem path used by this operation.
     #[inline]
     fn section_if_present(&self, path: &str) -> ConfigResult<Option<ConfigSection<'_>>> {
         let section = self.section(path)?;

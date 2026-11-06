@@ -35,6 +35,7 @@ class PackageResourceCheckerTests(unittest.TestCase):
             "doc/design.zh_CN.md",
             "doc/coverage_policy.md",
             "doc/coverage_policy.zh_CN.md",
+            "doc/composite-resource-probe-20261106T065653653Z-81411945.md",
         )
 
     def runner_for(self, paths: tuple[str, ...]) -> Mock:
@@ -81,6 +82,23 @@ class PackageResourceCheckerTests(unittest.TestCase):
                     errors,
                     [f"unexpected package document: {extra_path}"],
                 )
+
+    def test_composite_probe_is_packaged_with_its_documentation_references(self) -> None:
+        record_name = "composite-resource-probe-20261106T065653653Z-81411945.md"
+        record_path = f"doc/{record_name}"
+        self.assertIn(record_path, self.checker.REQUIRED_DOCS)
+        self.assertTrue((self.checker.ROOT / record_path).is_file())
+        for document in (
+            "doc/user_guide.md", "doc/user_guide.zh_CN.md",
+            "doc/design.md", "doc/design.zh_CN.md",
+        ):
+            with self.subTest(document=document):
+                self.assertIn(document, self.checker.REQUIRED_DOCS)
+                text = (self.checker.ROOT / document).read_text(encoding="utf-8")
+                self.assertIn(f"]({record_name})", text)
+        self.assertTrue(
+            (self.checker.ROOT / "examples/config_composite_resource_probe.rs").is_file()
+        )
 
     def test_cargo_failure_is_reported(self) -> None:
         runner = Mock(return_value=subprocess.CompletedProcess(
