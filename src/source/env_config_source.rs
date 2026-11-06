@@ -273,7 +273,7 @@ impl EnvConfigSource {
     /// Returns a source-aware parse error with a fixed redaction marker when
     /// the key is not valid Unicode.
     #[inline]
-    fn env_key_to_str<'key>(key: &'key OsStr) -> ConfigResult<&'key str> {
+    fn env_key_to_str(key: &OsStr) -> ConfigResult<&str> {
         key.to_str().ok_or_else(|| {
             ConfigError::source_parse_error(
                 "process environment",
@@ -389,9 +389,9 @@ impl EnvConfigSource {
             let key = Self::env_key_to_str(&key_os)?;
             let value = Self::env_value_to_str(&key_os, &value_os)?;
             session.consume_input_bytes(key.len().saturating_add(value.len()))?;
-            let transformed_key = self.transform_key(&key);
+            let transformed_key = self.transform_key(key);
             if self.options.strip_prefix || self.options.double_underscores_to_dots {
-                utils::validate_normalized_config_key(&transformed_key, &key).map_err(|error| {
+                utils::validate_normalized_config_key(&transformed_key, key).map_err(|error| {
                     error.with_source_context("process environment", Some(transformed_key.clone()), None)
                 })?;
             }
