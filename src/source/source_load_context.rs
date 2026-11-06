@@ -226,7 +226,8 @@ impl<'a> SourceLoadContext<'a> {
     /// `Ok(())` when the property is written successfully.
     /// # Type Parameters
     ///
-    /// * `S` - Source type whose configuration data is loaded.
+    /// * `S` - Input value or collection type convertible into a
+    ///   [`ValueContainer`].
     pub fn set<S>(&mut self, name: impl AsRef<str>, values: S) -> ConfigResult<()>
     where
         S: Into<ValueContainer>,

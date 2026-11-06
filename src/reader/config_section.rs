@@ -75,7 +75,7 @@ impl fmt::Debug for ConfigSection<'_> {
 impl<'a> ConfigSection<'a> {
     /// Creates a section over `config` at `path`.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `config` - Root configuration borrowed by the section.
     /// * `path` - Canonical root-relative section path. An empty path
@@ -84,23 +84,19 @@ impl<'a> ConfigSection<'a> {
     /// # Returns
     ///
     /// A newly created configuration section.
-    /// # Parameters
-    ///
-    /// * `config` - Configuration value or source configuration used by this
-    ///   operation.
-    /// * `path` - Configuration path or filesystem path used by this operation.
     #[inline]
     pub(crate) fn new(config: &'a Config, path: &str) -> ConfigResult<Self> {
         Self::new_with_read_policy(config, path, None)
     }
 
     /// Creates a section with an optional borrowed read-policy override.
+    ///
     /// # Parameters
     ///
-    /// * `config` - Configuration value or source configuration used by this
-    ///   operation.
-    /// * `path` - Configuration path or filesystem path used by this operation.
-    /// * `read_policy` - Value used to read policy during this operation.
+    /// * `config` - Root configuration borrowed by the section.
+    /// * `path` - Canonical section path relative to the root configuration;
+    ///   an empty path represents the root.
+    /// * `read_policy` - Optional read policy borrowed by this section.
     #[inline]
     fn new_with_read_policy(config: &'a Config, path: &str, read_policy: Option<&'a ReadPolicy>) -> ConfigResult<Self> {
         ensure_config_path(path)?;
@@ -132,7 +128,7 @@ impl<'a> ConfigSection<'a> {
 
     /// Creates a nested section below this section.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `path` - Canonical relative child path. An empty path keeps the
     ///   current section.
@@ -145,13 +141,6 @@ impl<'a> ConfigSection<'a> {
     ///
     /// Returns [`crate::ConfigError::InvalidPath`] when `path` is not
     /// canonical.
-    /// # Parameters
-    ///
-    /// * `path` - Configuration path or filesystem path used by this operation.
-    ///
-    /// # Parameters
-    ///
-    /// * `path` - Path of the nested section relative to this section.
     #[inline]
     pub fn section(&self, path: &str) -> ConfigResult<ConfigSection<'a>> {
         ensure_config_path(path)?;
@@ -187,7 +176,7 @@ impl<'a> ConfigSection<'a> {
     /// # Ok::<(), qubit_config::ConfigError>(())
     /// ```
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `path` - Relative child section path; an empty path checks this
     ///   section.
@@ -201,9 +190,6 @@ impl<'a> ConfigSection<'a> {
     ///
     /// Returns [`crate::ConfigError::InvalidPath`] when `path` is not
     /// canonical.
-    /// # Parameters
-    ///
-    /// * `path` - Configuration path or filesystem path used by this operation.
     #[inline]
     pub fn section_if_present(&self, path: &str) -> ConfigResult<Option<ConfigSection<'a>>> {
         let section = self.section(path)?;
@@ -242,14 +228,12 @@ impl<'a> ConfigSection<'a> {
     ///
     /// # Parameters
     ///
-    /// * `prefix` - Prefix interpreted relative to this section.
+    /// * `prefix` - Character prefix matched against keys visible in this
+    ///   section.
     ///
     /// # Returns
     ///
     /// `true` when a visible key starts with `prefix`.
-    /// # Parameters
-    ///
-    /// * `prefix` - Prefix matched against visible relative keys.
     #[inline(always)]
     #[must_use = "use the returned value"]
     pub fn contains_key_prefix(&self, prefix: &str) -> bool {
@@ -272,9 +256,10 @@ impl<'a> ConfigSection<'a> {
     /// Returns [`crate::ConfigError::InvalidPath`] when a non-empty `path`
     /// begins or ends with `.`, or contains an empty dotted segment.
     /// An empty path is valid. See [`crate::ConfigPath`] for path rules.
+    ///
     /// # Parameters
     ///
-    /// * `path` - Relative path whose descendants are checked.
+    /// * `path` - Dotted section path relative to this section.
     #[inline]
     pub fn contains_section(&self, path: &str) -> ConfigResult<bool> {
         <Self as ConfigReader>::contains_section(self, path)
@@ -299,7 +284,7 @@ impl<'a> ConfigSection<'a> {
 
     /// Resolves a relative property name to its root configuration key.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `name` - Property name interpreted strictly relative to this section.
     ///
@@ -307,9 +292,6 @@ impl<'a> ConfigSection<'a> {
     ///
     /// A borrowed key for root or empty-name resolution, or an owned joined
     /// key for a non-root section property.
-    /// # Parameters
-    ///
-    /// * `name` - Configuration key or source name used by this operation.
     #[inline]
     fn resolve_key_cow<'b>(&'b self, name: &'b str) -> Cow<'b, str> {
         if self.path.is_empty() {
@@ -323,16 +305,13 @@ impl<'a> ConfigSection<'a> {
 
     /// Resolves a visible property name to its root configuration key.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
     /// * `name` - Relative property name.
     ///
     /// # Returns
     ///
     /// The resolved key.
-    /// # Parameters
-    ///
-    /// * `name` - Configuration key or source name used by this operation.
     #[inline]
     fn visible_property_key<'b>(&'b self, name: &'b str) -> ConfigResult<Cow<'b, str>> {
         ensure_config_key(name)?;

@@ -259,7 +259,7 @@ impl EnvConfigSource {
         false
     }
 
-    /// Borrows an OS environment key as UTF-8.
+    /// Borrows an OS environment key as UTF-8 without copying it.
     ///
     /// # Parameters
     ///
@@ -282,7 +282,7 @@ impl EnvConfigSource {
         })
     }
 
-    /// Borrows an OS environment value as UTF-8.
+    /// Borrows an OS environment value as UTF-8 without copying it.
     ///
     /// # Parameters
     ///
@@ -369,7 +369,8 @@ impl EnvConfigSource {
     /// key.
     /// # Type Parameters
     ///
-    /// * `I` - Type converted from the selected configuration property.
+    /// * `I` - Input type whose `IntoIterator::Item` is an `(OsString,
+    ///   OsString)` native environment key/value pair.
     fn load_environment_entries<I>(&self, entries: I, context: &mut SourceLoadContext<'_>) -> ConfigResult<()>
     where
         I: IntoIterator<Item = (OsString, OsString)>,
