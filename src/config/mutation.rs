@@ -216,8 +216,10 @@ impl Config {
             self.ensure_property_not_final(name)?;
         }
 
-        let Config { mut properties, .. } = source_config;
-        self.properties.append(&mut properties);
+        let Config { properties, .. } = source_config;
+        for (name, property) in properties {
+            self.properties.insert(name, property);
+        }
         Ok(())
     }
 

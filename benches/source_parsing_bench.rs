@@ -281,12 +281,142 @@ fn benchmark_composite_layers(criterion: &mut Criterion) {
     group.finish();
 }
 
+/// Builds a baseline and small overlay layers with either overlapping or new
+/// keys.
+fn asymmetric_composite(
+    baseline_size: usize,
+    layer_count: usize,
+    assignments_per_layer: usize,
+    overlap: bool,
+) -> CompositeConfigSource {
+    let mut composite = CompositeConfigSource::new();
+    let baseline = (0..baseline_size)
+        .map(|index| format!("base.key_{index}=base_{index}\n"))
+        .collect::<String>();
+    composite.add(PropertiesConfigSource::from_content(baseline));
+
+    for layer in 0..layer_count {
+        let content = (0..assignments_per_layer)
+            .map(|assignment| {
+                let key = if overlap {
+                    format!("base.key_{assignment}")
+                } else {
+                    format!("overlay.layer_{layer}.key_{assignment}")
+                };
+                format!("{key}=layer_{layer}_{assignment}\n")
+            })
+            .collect::<String>();
+        composite.add(PropertiesConfigSource::from_content(content));
+    }
+    composite
+}
+
+/// Benchmarks full asymmetric composite loading and property-only merge cost.
+fn benchmark_asymmetric_merges(criterion: &mut Criterion) {
+    let mut fixtures = Vec::new();
+
+    for baseline_size in [1_024_usize, 16_384] {
+        for layer_count in [1_usize, 8, 64] {
+            for assignments_per_layer in [1_usize, 8] {
+                for overlap in [true, false] {
+                    let composite = asymmetric_composite(baseline_size, layer_count, assignments_per_layer, overlap);
+                    let loaded = composite.load().expect("prepared composite should load");
+                    let expected_size = if overlap {
+                        baseline_size
+                    } else {
+                        baseline_size + layer_count * assignments_per_layer
+                    };
+                    assert_eq!(loaded.len(), expected_size);
+                    assert_eq!(
+                        loaded.get::<String>("base.key_0").expect("baseline key should exist"),
+                        if overlap && assignments_per_layer > 0 {
+                            format!("layer_{}_0", layer_count - 1)
+                        } else {
+                            "base_0".to_string()
+                        }
+                    );
+                    assert_eq!(
+                        loaded
+                            .get::<String>(&format!("base.key_{}", baseline_size - 1))
+                            .expect("last baseline key should exist"),
+                        format!("base_{}", baseline_size - 1)
+                    );
+                    if !overlap {
+                        assert_eq!(
+                            loaded
+                                .get::<String>(&format!(
+                                    "overlay.layer_{}.key_{}",
+                                    layer_count - 1,
+                                    assignments_per_layer - 1
+                                ))
+                                .expect("last overlay key should exist"),
+                            format!("layer_{}_{}", layer_count - 1, assignments_per_layer - 1)
+                        );
+                    }
+
+                    let shape = format!(
+                        "baseline_{baseline_size}/layers_{layer_count}/assignments_{assignments_per_layer}/{}",
+                        if overlap { "overlap" } else { "new_keys" }
+                    );
+                    let target = config_with_properties(baseline_size, "base.key_", "base_");
+                    let mut incoming = Config::new();
+                    for layer in 0..layer_count {
+                        for assignment in 0..assignments_per_layer {
+                            let key = if overlap {
+                                format!("base.key_{assignment}")
+                            } else {
+                                format!("overlay.layer_{layer}.key_{assignment}")
+                            };
+                            incoming
+                                .set(key, format!("layer_{layer}_{assignment}"))
+                                .expect("prepared overlay property should be valid");
+                        }
+                    }
+                    let mut checked = target.clone();
+                    checked
+                        .merge_properties(incoming.clone())
+                        .expect("prepared merge should succeed");
+                    assert_eq!(checked.len(), expected_size);
+                    fixtures.push((shape, composite, target, incoming));
+                }
+            }
+        }
+    }
+
+    {
+        let mut group = criterion.benchmark_group("composite_asymmetric");
+        for (shape, composite, _, _) in &fixtures {
+            group.bench_function(BenchmarkId::new("load", shape), |bencher| {
+                bencher.iter(|| black_box(composite.load().unwrap()));
+            });
+        }
+        group.finish();
+    }
+    {
+        let mut group = criterion.benchmark_group("merge_asymmetric");
+        for (shape, _, target, incoming) in &fixtures {
+            group.bench_function(BenchmarkId::new("properties", shape), |bencher| {
+                bencher.iter_batched(
+                    || (target.clone(), incoming.clone()),
+                    |(mut target, incoming)| {
+                        target.merge_properties(incoming).unwrap();
+                        black_box(target)
+                    },
+                    BatchSize::SmallInput,
+                );
+            });
+        }
+        group.finish();
+    }
+}
+
 criterion_group!(
     benches,
     benchmark_source_parsing,
     benchmark_properties_parse_and_load,
     benchmark_continuation_backslashes,
     benchmark_config_merge,
-    benchmark_composite_layers
+    benchmark_composite_layers,
+    benchmark_asymmetric_merges
 );
 criterion_main!(benches);

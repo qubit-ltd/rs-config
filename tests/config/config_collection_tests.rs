@@ -23,6 +23,56 @@ pub(crate) use qubit_config::Config;
 pub(crate) use qubit_config::ConfigError;
 pub(crate) use qubit_config::options::InterpolationSources;
 
+#[cfg(test)]
+mod test_merge_properties_transaction {
+    use qubit_config::Config;
+    use qubit_config::ConfigErrorKind;
+    use qubit_config::options::ReadPolicy;
+
+    #[test]
+    fn test_merge_properties_final_conflict_is_transactional() {
+        let mut target = Config::builder().description("existing description").build();
+        target.set_default_read_policy(ReadPolicy::env_friendly());
+        target.set("z.locked", "original").unwrap();
+        target.set_final("z.locked", true).unwrap();
+        let original_policy = target.default_read_policy().clone();
+
+        let mut incoming = Config::new();
+        incoming.set("a.new", "must not be inserted").unwrap();
+        incoming.set("z.locked", "replacement").unwrap();
+
+        let error = target.merge_properties(incoming).unwrap_err();
+
+        assert_eq!(error.kind(), ConfigErrorKind::PropertyIsFinal);
+        assert_eq!(error.path(), Some("z.locked"));
+        assert!(!target.contains("a.new").unwrap());
+        assert_eq!(target.get::<String>("z.locked").unwrap(), "original");
+        assert_eq!(target.description(), Some("existing description"));
+        assert_eq!(target.default_read_policy(), &original_policy);
+    }
+
+    #[test]
+    fn test_merge_properties_preserves_metadata_and_accepts_empty_input() {
+        let mut target = Config::builder().description("target description").build();
+        target.set_default_read_policy(ReadPolicy::env_friendly());
+        target.set("existing", "value").unwrap();
+        let original_policy = target.default_read_policy().clone();
+
+        let mut incoming = Config::new();
+        incoming.set("incoming", "value").unwrap();
+        incoming.set_final("incoming", true).unwrap();
+        target.merge_properties(incoming).unwrap();
+
+        assert!(target.get_property("incoming").unwrap().unwrap().is_final());
+        assert_eq!(target.description(), Some("target description"));
+        assert_eq!(target.default_read_policy(), &original_policy);
+
+        let before = target.clone();
+        target.merge_properties(Config::new()).unwrap();
+        assert_eq!(target, before);
+    }
+}
+
 // IntoValueDefault Tests
 // ============================================================================
 
