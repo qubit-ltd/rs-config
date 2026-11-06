@@ -1087,7 +1087,57 @@ assert_eq!(error.kind(), ConfigErrorKind::PropertyNotFound);
 assert_eq!(error.path(), Some("server.port"));
 ```
 
-Common categories include `InvalidKey`, `InvalidPath`, `PropertyNotFound`, `PropertyHasNoValue`, `TypeMismatch`, `Conversion`, `Substitution`, `SubstitutionCycle`, `SourceLimitExceeded`, `KeyConflict`, `Merge`, `PropertyIsFinal`, `Io`, `Parse`, and `Deserialize`. Source merge conflicts use the `SourcePropertyIsFinal` variant while retaining the `PropertyIsFinal` kind; ordinary in-memory operations and source-internal direct assignments retain `PropertyIsFinal`.
+Common categories include `InvalidKey`, `InvalidPath`, `PropertyNotFound`, `PropertyHasNoValue`, `Value`, `TypeMismatch`, `Conversion`, `Substitution`, `SubstitutionCycle`, `SourceLimitExceeded`, `KeyConflict`, `Merge`, `PropertyIsFinal`, `Io`, `Parse`, and `Deserialize`. Source merge conflicts use the `SourcePropertyIsFinal` variant while retaining the `PropertyIsFinal` kind; ordinary in-memory operations and source-internal direct assignments retain `PropertyIsFinal`.
+
+For ordinary required reads of built-in scalar targets such as `get::<u16>`,
+these cases have distinct outcomes:
+
+| Input and read condition | Error kind | How to identify it and what to do |
+| --- | --- | --- |
+| The key does not exist | `PropertyNotFound` | Check the configuration sources; decide whether an optional or default read fits the application. |
+| A scalar blank string is treated as missing by `BlankStringPolicy::TreatAsMissing` | `PropertyHasNoValue` | The read policy's precheck classified the value as missing; correct the input or select a policy that matches the application. |
+| An unset scalar created with `set_null` | `Value` | Check `value_missing()` and use `is_unset()` to confirm; not every `Value` error means a missing value. |
+| A non-empty string cannot be converted, such as `not-a-port` | `Conversion` | Correct the input; do not hide a conversion failure with a default. |
+
+`Value` is a value-layer error category. When `value_missing()` returns `Some`,
+it provides the missing-value context; an unset scalar is one such case. Other
+`Value` errors are not automatically missing values. The following application
+helper classifies missing-value errors without swallowing conversion failures;
+`is_missing_value` is defined by the application, not provided by the library:
+
+```rust
+use qubit_config::{Config, ConfigError, ConfigErrorKind};
+use qubit_datatype::DataType;
+
+fn is_missing_value(error: &ConfigError) -> bool {
+    match error.kind() {
+        ConfigErrorKind::PropertyNotFound | ConfigErrorKind::PropertyHasNoValue => true,
+        ConfigErrorKind::Value => error.value_missing().is_some(),
+        _ => false,
+    }
+}
+
+fn main() -> Result<(), ConfigError> {
+    let mut config = Config::new();
+    config.set_null("server.port", DataType::String)?;
+    let error = config.get::<u16>("server.port").unwrap_err();
+    assert_eq!(error.kind(), ConfigErrorKind::Value);
+    assert_eq!(error.path(), Some("server.port"));
+    assert!(error.value_missing().unwrap().is_unset());
+    assert!(is_missing_value(&error));
+
+    config.set("server.port", "not-a-port")?;
+    let error = config.get::<u16>("server.port").unwrap_err();
+    assert_eq!(error.kind(), ConfigErrorKind::Conversion);
+    assert!(!is_missing_value(&error));
+    Ok(())
+}
+```
+
+This matrix describes ordinary required reads of built-in scalar targets only.
+Do not infer the same behavior for strict, collection, structured, or custom
+`FromConfig` reads. `get_optional` and `get_or` have different read contracts;
+their behavior should be chosen for the application's needs.
 
 `source_id()` returns the path or stable label for source I/O, parse, limit,
 invalid-key errors raised by `SourceLoadContext::set` or `set_null`, and final
@@ -1110,7 +1160,7 @@ Diagnostics should use `kind()`, `path()`, and candidate paths for program logic
 
 ### A default was not used
 
-Check whether the key exists and contains a value. Defaults apply only to a missing or effectively missing key. If the key exists but cannot be converted to the target type, `get_or` returns `ConversionError` immediately.
+Check whether the key exists and contains a value. Defaults apply only to a missing or effectively missing key. If the key exists but cannot be converted to the target type, `get_or` returns `ConversionError` immediately. See [Errors and Diagnostics](#errors-and-diagnostics) for the distinction between missing values and conversion failures.
 
 ### `${...}` remained unchanged
 

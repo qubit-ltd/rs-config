@@ -964,7 +964,49 @@ assert_eq!(error.kind(), ConfigErrorKind::PropertyNotFound);
 assert_eq!(error.path(), Some("server.port"));
 ```
 
-常见类别包括 `InvalidKey`、`InvalidPath`、`PropertyNotFound`、`PropertyHasNoValue`、`TypeMismatch`、`Conversion`、`Substitution`、`SubstitutionCycle`、`SourceLimitExceeded`、`KeyConflict`、`Merge`、`PropertyIsFinal`、`Io`、`Parse` 和 `Deserialize`。来源合并冲突使用 `SourcePropertyIsFinal` 变体，但 kind 仍是 `PropertyIsFinal`；普通内存操作和来源内部直接赋值保留 `PropertyIsFinal`。
+常见类别包括 `InvalidKey`、`InvalidPath`、`PropertyNotFound`、`PropertyHasNoValue`、`Value`、`TypeMismatch`、`Conversion`、`Substitution`、`SubstitutionCycle`、`SourceLimitExceeded`、`KeyConflict`、`Merge`、`PropertyIsFinal`、`Io`、`Parse` 和 `Deserialize`。来源合并冲突使用 `SourcePropertyIsFinal` 变体，但 kind 仍是 `PropertyIsFinal`；普通内存操作和来源内部直接赋值保留 `PropertyIsFinal`。
+
+对于 `get::<u16>` 这类内置标量类型的普通必需读取，以下情况会得到不同结果：
+
+| 输入和读取条件 | 错误类别 | 判断方式及处理建议 |
+| --- | --- | --- |
+| 配置键不存在 | `PropertyNotFound` | 检查配置来源；再根据业务需要选择可选读取或默认读取。 |
+| 空白字符串，且 `BlankStringPolicy::TreatAsMissing` 将其视为缺失 | `PropertyHasNoValue` | 读取策略的预检查将该值判为缺失；修正输入，或改用符合业务需求的策略。 |
+| 通过 `set_null` 设置的 unset 标量 | `Value` | 检查 `value_missing()`，并可用 `is_unset()` 确认；并非所有 `Value` 错误都表示缺失。 |
+| 非空字符串无法转换，例如 `not-a-port` | `Conversion` | 修正输入；不要用默认值掩盖转换失败。 |
+
+`Value` 表示值层错误。`value_missing()` 返回 `Some` 时会提供缺失值上下文；unset 标量就是其中一种情况。其他 `Value` 错误不能自动视为缺失。下面的辅助函数由应用自行定义，用于识别缺失值，同时保留转换失败；它不是库提供的新 API：
+
+```rust
+use qubit_config::{Config, ConfigError, ConfigErrorKind};
+use qubit_datatype::DataType;
+
+fn is_missing_value(error: &ConfigError) -> bool {
+    match error.kind() {
+        ConfigErrorKind::PropertyNotFound | ConfigErrorKind::PropertyHasNoValue => true,
+        ConfigErrorKind::Value => error.value_missing().is_some(),
+        _ => false,
+    }
+}
+
+fn main() -> Result<(), ConfigError> {
+    let mut config = Config::new();
+    config.set_null("server.port", DataType::String)?;
+    let error = config.get::<u16>("server.port").unwrap_err();
+    assert_eq!(error.kind(), ConfigErrorKind::Value);
+    assert_eq!(error.path(), Some("server.port"));
+    assert!(error.value_missing().unwrap().is_unset());
+    assert!(is_missing_value(&error));
+
+    config.set("server.port", "not-a-port")?;
+    let error = config.get::<u16>("server.port").unwrap_err();
+    assert_eq!(error.kind(), ConfigErrorKind::Conversion);
+    assert!(!is_missing_value(&error));
+    Ok(())
+}
+```
+
+此矩阵仅适用于内置标量类型的普通必需读取。不要据此推断严格读取、集合读取、结构化读取或自定义 `FromConfig` 具有相同行为。`get_optional` 和 `get_or` 遵循不同的读取契约，应按应用需求选择。
 
 对于配置源的 IO、解析、限制错误，以及 `SourceLoadContext::set` 或 `set_null`
 产生的无效键错误，`source_id()` 会返回文件路径或稳定的配置源标识。此类赋值错误
@@ -985,7 +1027,7 @@ assert_eq!(error.path(), Some("server.port"));
 
 ### 默认值没有生效
 
-检查配置键是否存在并且有值。默认值只适用于缺失或实际缺失的配置键；如果配置键存在但无法转换为目标类型，`get_or` 会立即返回 `ConversionError`。
+检查配置键是否存在并且有值。默认值只适用于缺失或实际缺失的配置键；如果配置键存在但无法转换为目标类型，`get_or` 会立即返回 `ConversionError`。缺失值和转换失败的区别见[错误与诊断](#错误与诊断)。
 
 ### `${...}` 没有被替换
 
