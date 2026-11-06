@@ -6,8 +6,12 @@ publish = false
 
 [workspace]
 
+[features]
+default = []
+full = ["qubit-config/full"]
+
 [dependencies]
-qubit-config = { path = "../../../../rs-config", features = ["full"] }
+qubit-config = { path = "../../../../rs-config", default-features = false }
 qubit-http = { path = "../../../../rs-http" }
 qubit-mime = { path = "../../../../rs-mime" }
 qubit-ioc = { path = "../../../../rs-ioc", default-features = false, features = ["config"] }

@@ -32,5 +32,5 @@ jobs:
           done < scripts/downstream-adapters-revisions.tsv
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-      - name: Run real adapter contracts
+      - name: Run minimal and full adapter contracts
         run: scripts/check-downstream-adapters.sh
