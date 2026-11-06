@@ -108,10 +108,12 @@ fn load_server_config() -> Result<(String, u16), Box<dyn std::error::Error>> {
 
 With `APP_SERVER__HOST` and `APP_SERVER__PORT` set, the environment layer supplies the final values after prefix removal, lowercasing, and double-underscore-to-dot conversion. A single underscore remains part of a key segment. If normalization makes distinct environment names map to one key, loading returns `ConfigError::KeyConflict` and reports the conflicting names in lexicographic order; it never selects a winner based on process-environment iteration order. The same composition pattern can use `TomlConfigSource`, `YamlConfigSource`, or `EnvFileConfigSource` when their features are enabled.
 
-For stable source diagnostics, source builders accept an optional `label`. It
-is diagnostic metadata only, must not contain secrets, and does not change
-source order or Wire V1. See the [user guide](doc/user_guide.md#load-and-merge-sources)
-for nested budget attribution and resetting to the default label.
+For stable source diagnostics, the properties, TOML, YAML, `.env`, and
+composite source builders accept an optional `label`. `EnvConfigSource` keeps
+its fixed `process environment` identifier. Labels are diagnostic metadata
+only, must not contain secrets, and do not change source order or Wire V1. See
+the [user guide](doc/user_guide.md#load-and-merge-sources) for nested budget
+attribution and resetting to the default label.
 
 ## Structured Reads and Custom Policies
 

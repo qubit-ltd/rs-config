@@ -108,7 +108,7 @@ fn load_server_config() -> Result<(String, u16), Box<dyn std::error::Error>> {
 
 设置 `APP_SERVER__HOST` 和 `APP_SERVER__PORT` 后，环境变量层会在去除前缀、转小写并把双下划线转换为点号后提供最终值；单个下划线保留在层级片段中。如果规范化使不同的环境变量名称映射到同一个 key，加载会返回 `ConfigError::KeyConflict`，并按字典序报告冲突名称；不会根据进程环境变量的遍历顺序静默选择其中一个。启用对应 feature 后，相同的组合方式也可以使用 `TomlConfigSource`、`YamlConfigSource` 或 `EnvFileConfigSource`。
 
-来源 builder 可通过可选的 `label` 为诊断设置稳定名称。它只属于诊断元数据，不得包含秘密，也不会改变来源顺序或 Wire V1。嵌套预算归因和恢复默认标签的说明见[用户手册](doc/user_guide.zh_CN.md#加载和合并配置源)。
+Properties、TOML、YAML、`.env` 和 composite 来源的 builder 可通过可选的 `label` 为诊断设置稳定名称；`EnvConfigSource` 保留固定的 `process environment` 标识。标签只属于诊断元数据，不得包含秘密，也不会改变来源顺序或 Wire V1。嵌套预算归因和恢复默认标签的说明见[用户手册](doc/user_guide.zh_CN.md#加载和合并配置源)。
 
 ## 结构化读取与自定义策略
 
