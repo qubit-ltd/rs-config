@@ -20,6 +20,14 @@ while IFS=$'\t' read -r sibling revision repository; do
     [[ "$actual" == "$revision" ]] || {
         echo "error: $sibling revision mismatch: expected $revision, found ${actual:-unavailable}" >&2; exit 1;
     }
+    dependency_status=$(git -C "$dependency" status --porcelain=v1 --untracked-files=all --ignore-submodules=none) || {
+        echo "error: cannot inspect worktree for $sibling" >&2
+        exit 1
+    }
+    [[ -z "$dependency_status" ]] || {
+        echo "error: $sibling worktree differs from pinned revision; preserve local changes and prepare clean pinned dependencies before retrying" >&2
+        exit 1
+    }
 done < "$revision_file"
 
 cargo tree --locked --manifest-path "$fixture_manifest" -d
