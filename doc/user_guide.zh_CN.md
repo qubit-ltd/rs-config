@@ -926,8 +926,11 @@ Parser nesting depth 对每个输入单独检查，根深度为 0；YAML 按 col
 `max_sources` 限制此作用域内累计准入的后代来源数，不计作用域根。进入一个嵌套组合来源会计 1，
 该组合来源之后进入的每个来源也会在所有外层作用域各计 1。例如 `outer -> inner -> leaf-a, leaf-b`，
 `outer` 的限额至少为 3，`inner` 至少为 2。每次加载都会创建新的预算。该计数限制准入的来源数，
-不限制组合嵌套深度；提高该限额或使用 `SourceLimits::unbounded()` 不代表任意深链都能安全使用线程栈。
-优先扁平化组合，并保留保守的有限限额。详见[组合来源资源探测记录](composite-resource-probe-20261106T065653653Z-81411945.md)，
+不限制组合嵌套深度。执行器还会独立拒绝超过 256 条活动子来源边的内置组合调度（根深度为 0），
+并返回 `SourceLimitExceeded` 和 `SourceLimitKind::SourceNestingDepth`；提高 `max_sources` 或使用
+`SourceLimits::unbounded()` 都不能关闭该固定保护。请扁平化更深的组合，以保留来源顺序、覆盖规则和 final
+属性检查。此保护不涵盖自定义来源自行递归，也不保证任意自定义来源树都能安全销毁。仍应保留保守的有限来源数限额。
+详见[组合来源资源探测记录](composite-resource-probe-20261106T065653653Z-81411945.md)，
 其中说明了实测环境和适用边界。
 
 在了解输入边界后，可用 builder 调整限制：

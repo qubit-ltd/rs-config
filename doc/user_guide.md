@@ -1035,7 +1035,13 @@ scope. For `outer -> inner -> leaf-a, leaf-b`, `outer` needs a limit of 3 and
 `inner` needs a limit of 2. Each load starts with fresh budgets. This count
 limits admitted sources, not composite nesting depth. Raising it or using
 `SourceLimits::unbounded()` does not make arbitrarily deep chains safe for the
-thread stack; prefer flatter compositions and keep conservative finite limits.
+thread stack. Independently, the executor rejects built-in composite dispatch
+beyond 256 active child edges (root depth zero) as `SourceLimitExceeded` with
+`SourceLimitKind::SourceNestingDepth`; this fixed guard cannot be raised or
+disabled. Flatten deeper compositions to preserve source order, override rules,
+and final-property checks. The guard does not cover custom sources that recurse
+on their own or guarantee safe destruction for arbitrary custom source trees.
+Keep conservative finite source-count limits as well.
 The [composite resource probe record](composite-resource-probe-20261106T065653653Z-81411945.md)
 describes the measured environment and its limits.
 `max_parser_tokens` counts returned scanner/lexer tokens, including stream or

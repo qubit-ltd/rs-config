@@ -303,7 +303,7 @@ The crate has separate resource domains rather than one shared counter:
 | Typed conversion | `qubit-datatype` `ConversionLimits::default()` | One ordinary read, or one complete structured materialization |
 | Structured input admission | Reader conversion operation and structured-value limits | Complete selected input; independent original/expanded passes for interpolation |
 | Interpolation | depth 64; 4,096 expansions; 1 MiB output | One interpolated read |
-| Source loading | 8 MiB input; 65,536 assignments; 262,144 nodes; 1,048,576 parser tokens; parser depth 128; 256 cumulative descendant-source admissions per scope; semantic depth 64 | Tokens aggregate across a source and its enclosing composites; parser depth is checked per input; other cumulative dimensions use local and enclosing scopes |
+| Source loading | 8 MiB input; 65,536 assignments; 262,144 nodes; 1,048,576 parser tokens; parser depth 128; 256 cumulative descendant-source admissions per scope; semantic depth 64; fixed composite-dispatch depth of 256 edges | Tokens aggregate across a source and its enclosing composites; parser depth is checked per input; other cumulative dimensions use local and enclosing scopes; the fixed dispatch guard uses root depth zero and is independent of `SourceLimits` |
 | JSON wire | 1 MiB input/output; depth 64; 100,000 nodes; 4,096 sequence items/map entries/properties; 256 KiB strings/object keys; 4 KiB numbers; 1 MiB payload; 256-byte property keys | One encode or decode operation |
 
 The source-count limit is the cumulative number of descendant-source
@@ -317,14 +317,20 @@ fresh budgets. Custom sources remain responsible for reporting their own work.
 This count limits admitted sources, not composite nesting depth.
 
 The [composite resource probe record](composite-resource-probe-20261106T065653653Z-81411945.md)
-contains the RSC-R03 matrix. The default source-count boundary completed or
-returned a structured budget error in the recorded environment. Explicitly
-raised or unbounded limits reproduced a loading-thread stack overflow for a
-1,025-edge chain on a 2 MiB stack, while the matched 8 MiB and wide cases
-completed. This single-machine result is not a cross-platform stack guarantee.
-Keep source-count limits finite and conservative, and prefer flatter composite
-trees; increasing the source-count limit does not guarantee safety for
-arbitrarily deep chains.
+contains the historical RSC-R03 matrix. Its raised and unbounded 1,025-edge
+chain overflow motivated a separate fixed executor guard: built-in composite
+dispatch now rejects a 257th active child edge with
+`SourceLimitKind::SourceNestingDepth`, even when source limits are raised or
+unbounded. The root is depth zero; the guard runs after source-count admission,
+so an earlier `SourceCount` error retains precedence. New supervised probes
+covered 255/256/257 and 1,025-edge chains and a wide 1,025-child source across
+debug/release, 2/8 MiB stacks, and default/raised/unbounded policies; tested
+chains completed or returned a structured error and reached destruction. The
+post-change commands, observed stages, and exit codes are recorded in the
+[implementation results](implementation-results-20261106-f1e00ce7.md). These
+single-machine results do not guarantee stack safety on every platform or for
+custom recursion and arbitrary source-tree destruction. Flatten deep built-in
+compositions and keep source-count limits finite and conservative.
 
 Source byte, assignment, node, parser-token, and child-source charges are
 cumulative and are committed to local and aggregate scopes only when every

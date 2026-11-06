@@ -251,7 +251,10 @@ the dedicated JSON helpers when their JSON number semantics must be preserved.
 
 Built-in sources use the controlled loading context and apply local and aggregate resource limits.
 Custom sources must report external work before doing it, since the framework cannot infer it from
-the finished layer. TOML and YAML apply parser admission checks before AST construction; YAML
+the finished layer. Composite loading also enforces a fixed maximum of 256 active child-source
+edges (root depth zero), independent of `max_sources`; `SourceLimits::unbounded()` cannot disable
+this executor guard. Flatten deeper compositions. This protects built-in composite dispatch only;
+custom recursion remains the custom source's responsibility. TOML and YAML apply parser admission checks before AST construction; YAML
 rejects anchor and alias tokens. `.env` loading preserves variable placeholders literally, final
 properties cannot be overridden, and library-managed loading calls `load_into`. Source limits do
 not promise a strict RSS or CPU ceiling. See the [source loading guide](doc/user_guide.md#load-and-merge-sources),
