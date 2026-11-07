@@ -569,7 +569,7 @@ mod test_env_config_source {
     #[test]
     fn test_windows_non_unicode_key_prefix_behavior_through_public_api() {
         use std::ffi::OsString;
-        use std::os::windows::ffi::OsStringExt;
+        use std::os::windows::ffi::{OsStrExt, OsStringExt};
 
         const CHILD: &str = "QUBIT_ENV_CONFIG_TEST_CHILD";
         const SECRET: &str = "WINDOWS_ENV_KEY_PUBLIC_SECRET";
