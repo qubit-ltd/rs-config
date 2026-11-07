@@ -40,12 +40,18 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           path: rs-config
-      - name: Checkout locked path dependency
+      - name: Checkout locked rs-value path dependency
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           repository: qubit-ltd/rs-value
-          ref: 0ae2aecdc02df7940be1d7101e112f9edb004376
+          ref: 6f5ae6e2acd592dcb07d30b232b84735e1cc592d
           path: rs-value
+      - name: Checkout locked rs-redact path dependency
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          repository: qubit-ltd/rs-redact
+          ref: 8d437767dcc0dd3085a8aaac6a27a34347c94807
+          path: rs-redact
       - name: Install Rust 1.94.0
         uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
         with:
@@ -61,6 +67,14 @@ jobs:
           $value = Select-String -Path ../rs-value/Cargo.toml -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1
           if ($value.Matches[0].Groups[1].Value -ne $lockedValue.Groups[1].Value) {
             throw "Checked out rs-value version does not match Cargo.lock ($($lockedValue.Groups[1].Value))."
+          }
+          $lockedRedact = [regex]::Match($lock, '(?s)\[\[package\]\]\s+name = "qubit-redact"\s+version = "([^"]+)"')
+          if (-not $lockedRedact.Success) {
+            throw "Cargo.lock does not contain the qubit-redact package."
+          }
+          $redact = Select-String -Path ../rs-redact/Cargo.toml -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1
+          if ($redact.Matches[0].Groups[1].Value -ne $lockedRedact.Groups[1].Value) {
+            throw "Checked out rs-redact version does not match Cargo.lock ($($lockedRedact.Groups[1].Value))."
           }
       - name: Run Windows environment source unit tests
         run: cargo +1.94.0 test --locked --lib source::env_config_source
@@ -111,7 +125,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           repository: qubit-ltd/rs-value
-          ref: 0ae2aecdc02df7940be1d7101e112f9edb004376
+          ref: 6f5ae6e2acd592dcb07d30b232b84735e1cc592d
           path: rs-value
       - name: Install 32-bit build environment
         run: |
