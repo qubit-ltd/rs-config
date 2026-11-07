@@ -12,4 +12,5 @@ rs-local-files	f55f4706d157585e1ef751e8dcb384259244b5cb	https://github.com/qubit
 rs-mime	73fe046cc52dc6c67e3a03257314456f2f14e187	https://github.com/qubit-ltd/rs-mime.git
 rs-redact	8d437767dcc0dd3085a8aaac6a27a34347c94807	https://github.com/qubit-ltd/rs-redact.git
 rs-value	6f5ae6e2acd592dcb07d30b232b84735e1cc592d	https://github.com/qubit-ltd/rs-value.git
+rs-web	19bebe12ea77d18149f43849a4485839666b90df	https://github.com/qubit-ltd/rs-web.git
 rs-websocket	1caed5cd57efd7237b14ee65d843f3ce05b1a282	https://github.com/qubit-ltd/rs-websocket.git

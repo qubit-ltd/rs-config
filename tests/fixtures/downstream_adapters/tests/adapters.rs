@@ -15,8 +15,31 @@ use qubit_http::HttpConfigErrorKind;
 use qubit_ioc::config::deserialize_properties;
 use qubit_mime::MimeConfig;
 use qubit_spi::ProviderSelectionTargetRef;
+use qubit_web::ConfiguredWeb;
 use qubit_websocket::WsClientBuilder;
 use serde::Deserialize;
+
+const MIME_PRIORITY_CHILD: &str = "QUBIT_DOWNSTREAM_MIME_PRIORITY_CHILD";
+const MIME_PRIORITY_COMPLETED: &str = "QUBIT_MIME_PRIORITY_ASSERTIONS_COMPLETED";
+
+fn run_mime_priority_child(test_name: &str) -> std::process::Output {
+    std::process::Command::new(std::env::current_exe().expect("test executable"))
+        .arg("--exact")
+        .arg(test_name)
+        .arg("--nocapture")
+        .env_clear()
+        .env(MIME_PRIORITY_CHILD, "1")
+        .env("QUBIT_MIME_DETECTOR_DEFAULT", "file")
+        .output()
+        .expect("isolated priority test process should start")
+}
+
+fn mime_priority_child_completed(output: &std::process::Output) -> bool {
+    output.status.success()
+        && String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .any(|line| line == MIME_PRIORITY_COMPLETED)
+}
 
 #[test]
 fn test_http_maps_config_errors_with_kind_path_and_source() {
@@ -80,8 +103,7 @@ fn test_mime_reads_values_lists_mappings_durations_and_interpolation() {
 
 #[test]
 fn test_mime_config_key_wins_over_environment_fallback() {
-    const CHILD: &str = "QUBIT_DOWNSTREAM_MIME_PRIORITY_CHILD";
-    if std::env::var_os(CHILD).is_some() {
+    if std::env::var_os(MIME_PRIORITY_CHILD).is_some() {
         let mut config = Config::new();
         config.set("mime.detector.default", "repository").unwrap();
         let loaded = MimeConfig::from_config(&config).expect("MIME config key should be read");
@@ -97,24 +119,24 @@ fn test_mime_config_key_wins_over_environment_fallback() {
             }
             other => panic!("unexpected provider selection: {other:?}"),
         }
+        println!("{MIME_PRIORITY_COMPLETED}");
         return;
     }
 
-    let output = std::process::Command::new(std::env::current_exe().expect("test executable"))
-        .arg("--exact")
-        .arg("test_mime_config_key_wins_over_environment_fallback")
-        .arg("--nocapture")
-        .env_clear()
-        .env(CHILD, "1")
-        .env("QUBIT_MIME_DETECTOR_DEFAULT", "file")
-        .output()
-        .expect("isolated priority test process should start");
+    let output = run_mime_priority_child("test_mime_config_key_wins_over_environment_fallback");
     assert!(
-        output.status.success(),
+        mime_priority_child_completed(&output),
         "{}\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+}
+
+#[test]
+fn test_mime_priority_child_rejects_zero_tests() {
+    let output = run_mime_priority_child("__qubit_config_missing_priority_child__");
+    assert!(output.status.success(), "the zero-test control must exit successfully");
+    assert!(!mime_priority_child_completed(&output));
 }
 
 #[derive(Debug, Deserialize, PartialEq, Eq)]
@@ -166,4 +188,61 @@ fn test_websocket_reads_bounded_prefix_and_reports_unknown_or_bad_values() {
     let mut bad = Config::new();
     bad.set("websocket.connect_timeout_ms", "not-a-number").unwrap();
     assert!(WsClientBuilder::from_config(&bad, "websocket").is_err());
+}
+
+#[test]
+fn test_web_config_adapter_contracts() {
+    let mut config = Config::new();
+    config.set("address", "127.0.0.1:0").unwrap();
+    let (options, _) = ConfiguredWeb::from_config(&config).unwrap().into_parts();
+    assert_eq!(options.max_transport_connections(), 1024);
+    assert_eq!(options.http2_max_concurrent_streams(), 200);
+
+    config.set("transport.max_connections", 3_u64).unwrap();
+    config.set("http.max_body_bytes", 4096_u64).unwrap();
+    config.set("transport.http1_max_buffer_bytes", 8192_u64).unwrap();
+    config
+        .set("transport.http2_max_header_list_bytes", u64::from(u32::MAX))
+        .unwrap();
+    let (options, limits) = ConfiguredWeb::from_config(&config).unwrap().into_parts();
+    assert_eq!(
+        options.address(),
+        "127.0.0.1:0".parse::<std::net::SocketAddr>().unwrap()
+    );
+    assert_eq!(options.max_transport_connections(), 3);
+    assert_eq!(options.http1_max_buffer_bytes(), Some(8192));
+    assert_eq!(options.http2_max_header_list_bytes(), Some(u32::MAX));
+    assert_eq!(limits.max_body_bytes(), 4096);
+}
+
+#[test]
+fn test_web_config_adapter_rejects_invalid_fields() {
+    assert_eq!(
+        ConfiguredWeb::from_config(&Config::new()).unwrap_err().field(),
+        "address"
+    );
+    let mut wrong_address = Config::new();
+    wrong_address.set("address", 8080_u16).unwrap();
+    assert_eq!(
+        ConfiguredWeb::from_config(&wrong_address).unwrap_err().field(),
+        "address"
+    );
+    let mut wrong_type = Config::new();
+    wrong_type.set("address", "127.0.0.1:0").unwrap();
+    wrong_type.set("transport.max_connections", "not-a-number").unwrap();
+    assert_eq!(
+        ConfiguredWeb::from_config(&wrong_type).unwrap_err().field(),
+        "transport.max_connections"
+    );
+
+    for (field, value) in [
+        ("transport.http1_max_buffer_bytes", 8191_u64),
+        ("transport.http2_max_header_list_bytes", 0_u64),
+        ("transport.http2_max_header_list_bytes", u64::from(u32::MAX) + 1),
+    ] {
+        let mut config = Config::new();
+        config.set("address", "127.0.0.1:0").unwrap();
+        config.set(field, value).unwrap();
+        assert_eq!(ConfiguredWeb::from_config(&config).unwrap_err().field(), field);
+    }
 }
