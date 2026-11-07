@@ -1,0 +1,13 @@
+[package]
+name = "doc-consumer"
+version = "0.0.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+qubit-config = "0.15"
+qubit-datatype = { version = "0.15", default-features = false, features = ["converter"] }
+
+[patch.crates-io]
+qubit-config = { path = "../../.." }

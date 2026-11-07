@@ -19,6 +19,8 @@ assert SPEC is not None
 CHECKER = importlib.util.module_from_spec(SPEC)
 sys.modules[LOADER.name] = CHECKER
 LOADER.exec_module(CHECKER)
+FIXTURE_MANIFEST = Path("tests/fixtures/doc_consumer/Cargo.toml")
+FIXTURE_LOCK = Path("tests/fixtures/doc_consumer/Cargo.lock")
 
 VALID_TOML = '''<!-- consumer-dependencies: diagnostics -->
 ```toml
@@ -96,26 +98,62 @@ class DependencyBlockTests(unittest.TestCase):
 
 
 class TemporaryConsumerTests(unittest.TestCase):
-    def test_consumer_is_isolated_and_cargo_errors_fail(self) -> None:
+    def _root_with_fixture(self, directory: str) -> Path:
+        root = Path(directory)
+        (root / "examples").mkdir()
+        (root / "examples/config_error_diagnostics.rs").write_text(VALID_RUST, encoding="utf-8")
+        fixture = root / FIXTURE_MANIFEST
+        fixture.parent.mkdir(parents=True)
+        fixture.write_text(CHECKER._manifest(CHECKER.EXPECTED_DEPENDENCIES, root), encoding="utf-8")
+        (fixture.parent / "src").mkdir()
+        (fixture.parent / "src/main.rs").write_text("fn main() {}\n", encoding="utf-8")
+        (fixture.parent / "Cargo.lock").write_bytes(b"fixed lock baseline\n")
+        return root
+
+    def test_consumers_share_persistent_lock_without_generating_or_mutating_it(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            (root / "examples").mkdir()
-            (root / "examples/config_error_diagnostics.rs").write_text(VALID_RUST, encoding="utf-8")
+            root = self._root_with_fixture(directory)
             docs = {"doc/user_guide.md": VALID_DOC, "doc/user_guide.zh_CN.md": VALID_DOC}
             manifests = []
+            lockfiles = []
             def success(command, *, cwd, **kwargs):
                 manifests.append((cwd / "Cargo.toml").read_text(encoding="utf-8"))
+                lockfiles.append((cwd / "Cargo.lock").read_bytes())
                 return type("Result", (), {"returncode": 0, "stdout": "", "stderr": ""})()
             with patch.object(CHECKER, "ROOT", root), patch.object(CHECKER.subprocess, "run", side_effect=success) as run:
                 self.assertEqual(CHECKER.compile_document_consumers(docs), [])
-            self.assertEqual(run.call_count, 4)
+            self.assertEqual(run.call_count, 2)
             commands = [call.args[0] for call in run.call_args_list]
-            self.assertEqual(commands[0][:2], ["cargo", "generate-lockfile"])
-            self.assertEqual(commands[1], ["cargo", "run", "--locked"])
+            self.assertEqual(commands, [["cargo", "run", "--locked"]] * 2)
+            self.assertEqual(lockfiles, [b"fixed lock baseline\n"] * 2)
+            self.assertEqual((root / FIXTURE_LOCK).read_bytes(), b"fixed lock baseline\n")
             self.assertIn("[workspace]", manifests[0])
             self.assertNotIn("[dev-dependencies]", manifests[0])
             self.assertIn("qubit-datatype", manifests[0])
             self.assertNotIn("serde", manifests[0])
+
+    def test_missing_fixture_lock_fails_before_cargo(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = self._root_with_fixture(directory)
+            (root / FIXTURE_LOCK).unlink()
+            with patch.object(CHECKER, "ROOT", root), patch.object(CHECKER.subprocess, "run") as run:
+                errors = CHECKER.compile_document_consumers({"doc/user_guide.md": VALID_DOC, "doc/user_guide.zh_CN.md": VALID_DOC})
+            self.assertTrue(any("lockfile" in error.lower() for error in errors))
+            run.assert_not_called()
+
+    def test_fixture_dependency_mismatch_fails_before_cargo(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = self._root_with_fixture(directory)
+            manifest = root / FIXTURE_MANIFEST
+            manifest.write_text(manifest.read_text().replace('qubit-config = "0.15"', 'qubit-config = "0.14"'), encoding="utf-8")
+            with patch.object(CHECKER, "ROOT", root), patch.object(CHECKER.subprocess, "run") as run:
+                errors = CHECKER.compile_document_consumers({"doc/user_guide.md": VALID_DOC, "doc/user_guide.zh_CN.md": VALID_DOC})
+            self.assertTrue(any("fixture" in error.lower() and "qubit-config" in error for error in errors))
+            run.assert_not_called()
+
+    def test_cargo_run_failure_is_reported(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = self._root_with_fixture(directory)
             with patch.object(CHECKER, "ROOT", root), patch.object(
                 CHECKER.subprocess,
                 "run",
@@ -125,7 +163,7 @@ class TemporaryConsumerTests(unittest.TestCase):
                     {"returncode": 101, "stdout": "", "stderr": "cargo failed"},
                 )(),
             ):
-                errors = CHECKER.compile_document_consumers(docs)
+                errors = CHECKER.compile_document_consumers({"doc/user_guide.md": VALID_DOC, "doc/user_guide.zh_CN.md": VALID_DOC})
             self.assertTrue(any("cargo failed" in error for error in errors))
 
     def test_missing_rust_example_marker_fails_before_cargo(self) -> None:
@@ -165,7 +203,8 @@ class TemporaryConsumerTests(unittest.TestCase):
 
     def test_missing_source_fails(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = self._root_with_fixture(directory)
+            (root / "examples/config_error_diagnostics.rs").unlink()
             with patch.object(CHECKER, "ROOT", root):
                 errors = CHECKER.compile_document_consumers({"doc/user_guide.md": VALID_DOC, "doc/user_guide.zh_CN.md": VALID_DOC})
             self.assertTrue(any("source" in error.lower() for error in errors))
