@@ -100,7 +100,7 @@ pub trait ConfigReader: internal::Sealed {
     /// value; collection targets consume the collection according to their
     /// [`FromConfig`] implementation.
     ///
-    /// # Type parameters
+    /// # Type Parameters
     ///
     /// * `T` - Target type parsed by [`FromConfig`].
     ///
@@ -112,9 +112,6 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// The converted value on success, or a [`crate::ConfigError`] if the key
     /// is absent, effectively missing, or not convertible.
-    /// # Type Parameters
-    ///
-    /// * `T` - Type converted from the selected configuration property.
     fn get<T>(&self, name: impl AsRef<str>) -> ConfigResult<T>
     where
         T: FromConfig,
@@ -189,7 +186,7 @@ pub trait ConfigReader: internal::Sealed {
 
     /// Reads the first stored value for `name` without cross-type conversion.
     ///
-    /// # Type parameters
+    /// # Type Parameters
     ///
     /// * `T` - Exact target type; requires `T` to implement strict reads from
     ///   both scalar and collection storage.
@@ -202,16 +199,14 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// The exact stored value on success, or a [`crate::ConfigError`] if the
     /// key is absent, unset, or has a different stored type.
-    /// # Type Parameters
-    ///
-    /// * `T` - Type converted from the selected configuration property.
     fn get_strict<T>(&self, name: impl AsRef<str>) -> ConfigResult<T>
     where
         T: StrictValueRead;
 
     /// Reads all stored values for `name` and converts each element to `T`.
+    /// The result is a `Vec<T>`, where `T` is the element type.
     ///
-    /// # Type parameters
+    /// # Type Parameters
     ///
     /// * `T` - Element type supported by the shared conversion layer.
     ///
@@ -221,10 +216,7 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// # Returns
     ///
-    /// A vector of values on success, or a [`crate::ConfigError`] on failure.
-    /// # Type Parameters
-    ///
-    /// * `T` - Type converted from the selected configuration property.
+    /// A `Vec<T>` on success, or a [`crate::ConfigError`] on failure.
     fn get_list<T>(&self, name: impl AsRef<str>) -> ConfigResult<Vec<T>>
     where
         T: DataConversionTarget,
@@ -234,7 +226,7 @@ pub trait ConfigReader: internal::Sealed {
 
     /// Reads all stored values for `name` without cross-type conversion.
     ///
-    /// # Type parameters
+    /// # Type Parameters
     ///
     /// * `T` - Exact element type supported by both value shapes.
     ///
@@ -246,9 +238,6 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// A vector of exact stored values on success, or a
     /// [`crate::ConfigError`] on failure.
-    /// # Type Parameters
-    ///
-    /// * `T` - Type converted from the selected configuration property.
     fn get_list_strict<T>(&self, name: impl AsRef<str>) -> ConfigResult<Vec<T>>
     where
         T: StrictValueRead;
@@ -307,7 +296,7 @@ pub trait ConfigReader: internal::Sealed {
     /// Gets an optional value with the same semantics as
     /// [`crate::Config::get_optional`].
     ///
-    /// # Type parameters
+    /// # Type Parameters
     ///
     /// * `T` - Target type parsed by [`FromConfig`].
     ///
@@ -321,9 +310,6 @@ pub trait ConfigReader: internal::Sealed {
     /// active read policy, or `Err` on conversion failure. Concrete empty
     /// collections are present values; blank strings are missing only when
     /// the policy says so.
-    /// # Type Parameters
-    ///
-    /// * `T` - Type converted from the selected configuration property.
     fn get_optional<T>(&self, name: impl AsRef<str>) -> ConfigResult<Option<T>>
     where
         T: FromConfig,
@@ -435,6 +421,10 @@ pub trait ConfigReader: internal::Sealed {
     /// errors stop the search. Blank strings are missing only when the active
     /// read policy says so.
     ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Target type parsed by [`FromConfig`].
+    ///
     /// # Parameters
     ///
     /// * `names` - Candidate keys in priority order.
@@ -443,9 +433,6 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// Parsed value from the first present value. Conversion errors stop the
     /// search and are returned directly.
-    /// # Type Parameters
-    ///
-    /// * `T` - Type converted from the selected configuration property.
     fn get_any<T>(&self, names: impl ConfigNames) -> ConfigResult<T>
     where
         T: FromConfig,
@@ -498,6 +485,10 @@ pub trait ConfigReader: internal::Sealed {
     /// stop the search. Blank strings are missing only when the active read
     /// policy says so.
     ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Target type parsed by [`FromConfig`].
+    ///
     /// # Parameters
     ///
     /// * `names` - Candidate keys in priority order.
@@ -506,9 +497,6 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// `Ok(None)` only when every key is absent, unset, or effectively missing
     /// under the active read policy.
-    /// # Type Parameters
-    ///
-    /// * `T` - Type converted from the selected configuration property.
     fn get_optional_any<T>(&self, names: impl ConfigNames) -> ConfigResult<Option<T>>
     where
         T: FromConfig,
@@ -547,6 +535,10 @@ pub trait ConfigReader: internal::Sealed {
     /// absent, unset, or effectively missing under the active read policy.
     /// Empty collections remain present, and conversion errors are not hidden.
     ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Target type parsed by [`FromConfig`].
+    ///
     /// # Parameters
     ///
     /// * `names` - Candidate keys in priority order.
@@ -555,9 +547,6 @@ pub trait ConfigReader: internal::Sealed {
     /// # Returns
     ///
     /// Parsed value or `default`; parsing errors are never swallowed.
-    /// # Type Parameters
-    ///
-    /// * `T` - Type converted from the selected configuration property.
     fn get_any_or<T>(&self, names: impl ConfigNames, default: impl IntoValueDefault<T>) -> ConfigResult<T>
     where
         T: FromConfig,
