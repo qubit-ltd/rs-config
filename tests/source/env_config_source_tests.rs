@@ -588,7 +588,10 @@ mod test_env_config_source {
         }
 
         let actual = std::env::var_os(&key).expect("child environment must retain native key units");
-        assert_eq!(actual.encode_wide().collect::<Vec<_>>(), key_units);
+        assert_eq!(
+            actual.encode_wide().collect::<Vec<_>>(),
+            SECRET.encode_utf16().collect::<Vec<_>>()
+        );
 
         let error =
             Config::from_env_prefix("APP_").expect_err("matching invalid Unicode key must fail through Config API");
