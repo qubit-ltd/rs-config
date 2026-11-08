@@ -236,8 +236,6 @@ source-count 准入之后，因此已有 `SourceCount` 错误仍优先。新的�
 并到达销毁阶段。这些单机结果不保证所有平台的栈安全，也不覆盖自定义递归或任意来源树销毁。请扁平化深层内置组合，
 并保留保守的有限来源数限额。
 
-实施后的探测命令、观测阶段和退出码记录在[实施结果](implementation-results-20261106-f1e00ce7.md)中。
-
 配置源的字节、赋值、节点、parser token 和子配置源计数是累计预算，只有全部适用的局部与聚合
 作用域都接受一次扣减时才会共同提交；语义深度和 parser depth 是点限制。TOML lexer token
 （包括空白、注释、换行和 EOF）与 YAML scanner token 都在 AST backend 前计费。YAML depth

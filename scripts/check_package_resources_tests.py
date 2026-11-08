@@ -36,7 +36,6 @@ class PackageResourceCheckerTests(unittest.TestCase):
             "doc/coverage_policy.md",
             "doc/coverage_policy.zh_CN.md",
             "doc/composite-resource-probe-20261106T065653653Z-81411945.md",
-            "doc/implementation-results-20261106-f1e00ce7.md",
         )
 
     def runner_for(self, paths: tuple[str, ...]) -> Mock:
@@ -100,17 +99,6 @@ class PackageResourceCheckerTests(unittest.TestCase):
         self.assertTrue(
             (self.checker.ROOT / "examples/config_composite_resource_probe.rs").is_file()
         )
-
-    def test_implementation_results_are_packaged_with_design_references(self) -> None:
-        record_name = "implementation-results-20261106-f1e00ce7.md"
-        record_path = f"doc/{record_name}"
-        self.assertIn(record_path, self.checker.REQUIRED_DOCS)
-        self.assertTrue((self.checker.ROOT / record_path).is_file())
-        for document in ("doc/design.md", "doc/design.zh_CN.md"):
-            with self.subTest(document=document):
-                self.assertIn(document, self.checker.REQUIRED_DOCS)
-                text = (self.checker.ROOT / document).read_text(encoding="utf-8")
-                self.assertIn(f"]({record_name})", text)
 
     def test_cargo_failure_is_reported(self) -> None:
         runner = Mock(return_value=subprocess.CompletedProcess(

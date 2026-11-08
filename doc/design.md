@@ -325,12 +325,10 @@ unbounded. The root is depth zero; the guard runs after source-count admission,
 so an earlier `SourceCount` error retains precedence. New supervised probes
 covered 255/256/257 and 1,025-edge chains and a wide 1,025-child source across
 debug/release, 2/8 MiB stacks, and default/raised/unbounded policies; tested
-chains completed or returned a structured error and reached destruction. The
-post-change commands, observed stages, and exit codes are recorded in the
-[implementation results](implementation-results-20261106-f1e00ce7.md). These
-single-machine results do not guarantee stack safety on every platform or for
-custom recursion and arbitrary source-tree destruction. Flatten deep built-in
-compositions and keep source-count limits finite and conservative.
+chains completed or returned a structured error and reached destruction.
+These single-machine results do not guarantee stack safety on every platform or
+for custom recursion and arbitrary source-tree destruction. Flatten deep
+built-in compositions and keep source-count limits finite and conservative.
 
 Source byte, assignment, node, parser-token, and child-source charges are
 cumulative and are committed to local and aggregate scopes only when every
