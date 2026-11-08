@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 import re
 import tempfile
@@ -13,6 +14,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = REPO_ROOT / ".github/workflows/downstream-adapters.yml"
 REVISIONS = REPO_ROOT / "scripts/downstream-adapters-revisions.tsv"
 CHECKER = "scripts/check-downstream-adapters.sh"
+FIXED_REVISION_MANIFEST_SHA256 = "dbe8316fd1324c3c0a5ceb1ffe0b9e6a39e1b1c0150017caa8feba99c8b8ca39"
 
 
 def wiring_errors(workflow: str, revisions: str) -> list[str]:
@@ -49,6 +51,7 @@ def wiring_errors(workflow: str, revisions: str) -> list[str]:
         errors.append("adapter job must not be conditionally skipped")
 
     entries = []
+    canonical_rows = []
     for line_number, line in enumerate(revisions.splitlines(), start=1):
         if not line or line.startswith("#"):
             continue
@@ -57,6 +60,7 @@ def wiring_errors(workflow: str, revisions: str) -> list[str]:
             errors.append(f"invalid revision entry on line {line_number}")
             continue
         sibling, revision, repository = fields
+        canonical_rows.append(line)
         if not re.fullmatch(r"[0-9a-f]{40}", revision):
             errors.append(f"invalid pinned SHA for {sibling}")
         if not re.fullmatch(r"rs-[a-z0-9-]+", sibling):
@@ -70,6 +74,9 @@ def wiring_errors(workflow: str, revisions: str) -> list[str]:
         errors.append(f"revision manifest must contain 14 dependencies, found {len(entries)}")
     if len(entries) != len(set(entries)):
         errors.append("revision manifest contains duplicate sibling paths")
+    canonical_manifest = "\n".join(sorted(canonical_rows)) + "\n"
+    if hashlib.sha256(canonical_manifest.encode()).hexdigest() != FIXED_REVISION_MANIFEST_SHA256:
+        errors.append("pinned dependency manifest contents differ from the expected fixed set")
     return errors
 
 
@@ -103,8 +110,10 @@ class DownstreamCIWiringTests(unittest.TestCase):
         self.assertIn("workflow must invoke the real adapter checker", self.sample_errors(changed, self.revisions))
 
     def test_wrong_sha_or_unpinned_revision_is_rejected(self) -> None:
-        changed = self.revisions.replace("f19ca48d114cb3223a079b043e4b49ef7c0b3c5d", "main", 1)
-        self.assertIn("invalid pinned SHA for rs-command", self.sample_errors(self.workflow, changed))
+        changed = self.revisions.replace("f19ca48d114cb3223a079b043e4b49ef7c0b3c5d", "0" * 40, 1)
+        self.assertIn("pinned dependency manifest contents differ from the expected fixed set", self.sample_errors(self.workflow, changed))
+        malformed = self.revisions.replace("f19ca48d114cb3223a079b043e4b49ef7c0b3c5d", "main", 1)
+        self.assertIn("invalid pinned SHA for rs-command", self.sample_errors(self.workflow, malformed))
         unpinned_fetch = self.workflow.replace('origin "$revision"', 'origin main', 1)
         self.assertIn("dependency checkout must fetch the manifest revision", self.sample_errors(unpinned_fetch, self.revisions))
         unchecked = self.workflow.replace('[[ "$actual" == "$revision" ]]', '[[ "$actual" == "$sibling" ]]', 1)
@@ -113,6 +122,14 @@ class DownstreamCIWiringTests(unittest.TestCase):
     def test_missing_dependency_is_rejected(self) -> None:
         shortened_manifest = "\n".join(self.revisions.splitlines()[:-1]) + "\n"
         self.assertIn("revision manifest must contain 14 dependencies, found 13", self.sample_errors(self.workflow, shortened_manifest))
+
+    def test_replaced_dependency_is_rejected(self) -> None:
+        changed = self.revisions.replace("rs-command", "rs-other", 1).replace(
+            "https://github.com/qubit-ltd/rs-command.git",
+            "https://github.com/qubit-ltd/rs-other.git",
+            1,
+        )
+        self.assertIn("pinned dependency manifest contents differ from the expected fixed set", self.sample_errors(self.workflow, changed))
 
     def test_wrong_working_directory_is_rejected(self) -> None:
         changed = self.workflow.replace("working-directory: ${{ github.workspace }}", "working-directory: .", 1)
