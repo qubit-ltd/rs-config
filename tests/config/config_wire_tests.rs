@@ -1066,6 +1066,89 @@ fn test_config_wire_bounded_encode_round_trips_with_default_limits() {
     assert_eq!(restored, config);
 }
 
+/// Verifies bounded encoding remains byte-compatible with ordinary Serde.
+#[test]
+fn test_config_wire_bounded_encode_matches_ordinary_serde_bytes() {
+    let empty = Config::new();
+
+    let mut config = Config::builder().description("prepared wire view").build();
+    config
+        .set("z-last", 9_i32)
+        .expect("setting the later-sorted property should succeed");
+    config
+        .set("a-first", vec![7_i16])
+        .expect("setting the single-item collection should succeed");
+    config
+        .set("json", json!({"enabled": true, "values": [1, 2, 3]}))
+        .expect("setting the JSON property should succeed");
+    config
+        .set_null("unset", DataType::String)
+        .expect("setting the unset property should succeed");
+    config
+        .get_property_mut("json")
+        .expect("the JSON property should be present")
+        .expect("the JSON property should be mutable")
+        .set_description(Some("JSON payload".to_owned()))
+        .expect("setting the property description should succeed");
+    config
+        .set_final("z-last", true)
+        .expect("marking the property final should succeed");
+
+    for config in [empty, config] {
+        let serde_bytes = to_vec(&config).expect("ordinary Serde should encode the configuration");
+        let bounded_bytes = config
+            .encode_json_vec()
+            .expect("bounded encoding should encode the configuration");
+        assert_eq!(bounded_bytes, serde_bytes);
+
+        let decoded = Config::decode_json_slice(&bounded_bytes).expect("the bounded encoding should decode again");
+        assert_eq!(decoded, config);
+    }
+}
+
+/// Verifies bounded encoding preserves per-property validation order.
+#[test]
+fn test_config_wire_bounded_encode_preserves_mixed_error_order() {
+    let mut budget_before_representation = Config::new();
+    budget_before_representation
+        .set("a-values", vec![1_i32; 4_097])
+        .expect("setting the over-limit collection should succeed");
+    budget_before_representation
+        .set("z-non-finite", f64::NAN)
+        .expect("setting the non-finite value should succeed");
+
+    assert!(matches!(
+        budget_before_representation.encode_json_vec(),
+        Err(ConfigWireEncodeError::Value(ValueWireEncodeError::Budget(
+            BudgetError::LimitExceeded {
+                resource: JsonResource::SequenceItems,
+                ..
+            }
+        )))
+    ));
+
+    let mut representation_before_budget = Config::new();
+    representation_before_budget
+        .set("a-non-finite", f64::NAN)
+        .expect("setting the non-finite value should succeed");
+    representation_before_budget
+        .set("z-values", vec![1_i32; 4_097])
+        .expect("setting the over-limit collection should succeed");
+
+    assert!(matches!(
+        representation_before_budget.encode_json_vec(),
+        Err(ConfigWireEncodeError::Value(
+            ValueWireEncodeError::NonFiniteFloat { .. }
+        ))
+    ));
+
+    let mut healthy = Config::new();
+    healthy
+        .set("value", 42_i32)
+        .expect("setting the valid value should succeed");
+    assert!(healthy.encode_json_vec().is_ok());
+}
+
 /// Verifies bounded encoding rejects an excessive property count.
 #[test]
 fn test_config_wire_bounded_encode_rejects_property_count() {
@@ -1150,6 +1233,54 @@ fn test_config_wire_bounded_encode_preflights_value_representation() {
         config.encode_json_vec(),
         Err(ConfigWireEncodeError::Value(
             ValueWireEncodeError::NonFiniteFloat { .. }
+        ))
+    ));
+}
+
+/// Verifies bounded encoding rejects non-finite floats in scalar and collection
+/// values.
+#[test]
+fn test_config_wire_bounded_encode_rejects_non_finite_float_scalars_and_collections() {
+    for value in [f64::NAN, f64::INFINITY] {
+        let mut scalar = Config::new();
+        scalar
+            .set("value", value)
+            .expect("setting the non-finite scalar should succeed");
+        assert!(matches!(
+            scalar.encode_json_vec(),
+            Err(ConfigWireEncodeError::Value(
+                ValueWireEncodeError::NonFiniteFloat { .. }
+            ))
+        ));
+
+        let mut config = Config::new();
+        config
+            .set("values", vec![1.0_f64, value])
+            .expect("setting the non-finite collection should succeed");
+
+        assert!(matches!(
+            config.encode_json_vec(),
+            Err(ConfigWireEncodeError::Value(
+                ValueWireEncodeError::NonFiniteFloat { .. }
+            ))
+        ));
+    }
+}
+
+/// Verifies bounded encoding keeps unified arbitrary-precision JSON rejection.
+#[test]
+fn test_config_wire_bounded_encode_rejects_unroundtrippable_json_number() {
+    let number: Value =
+        from_str("0.12345678901234567890123").expect("arbitrary-precision JSON should preserve the input number");
+    let mut config = Config::new();
+    config
+        .set("payload", number)
+        .expect("setting the JSON number should succeed");
+
+    assert!(matches!(
+        config.encode_json_vec(),
+        Err(ConfigWireEncodeError::Value(
+            ValueWireEncodeError::JsonNumberNotRoundTrippable
         ))
     ));
 }
