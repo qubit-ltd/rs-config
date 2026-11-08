@@ -16,6 +16,7 @@ use qubit_ioc::config::deserialize_properties;
 use qubit_mime::MimeConfig;
 use qubit_spi::ProviderSelectionTargetRef;
 use qubit_web::ConfiguredWeb;
+use qubit_web::config::stream_admission_limits_from_config;
 use qubit_websocket::WsClientBuilder;
 use serde::Deserialize;
 
@@ -245,4 +246,30 @@ fn test_web_config_adapter_rejects_invalid_fields() {
         config.set(field, value).unwrap();
         assert_eq!(ConfiguredWeb::from_config(&config).unwrap_err().field(), field);
     }
+}
+
+#[test]
+fn test_web_stream_admission_config_adapter_is_independent_of_listener_config() {
+    let mut config = Config::new();
+    config.set("stream_admission.max_body_bytes", 4096_u64).unwrap();
+    config.set("stream_admission.max_concurrent_admissions", 3_u64).unwrap();
+    config.set("stream_admission.admission_timeout_ms", 1500_u64).unwrap();
+
+    let limits = stream_admission_limits_from_config(&config).unwrap();
+    assert_eq!(limits.max_body_bytes(), 4096);
+    assert_eq!(limits.max_concurrent_admissions(), 3);
+    assert_eq!(limits.admission_timeout(), std::time::Duration::from_millis(1500));
+}
+
+#[test]
+fn test_web_stream_admission_config_adapter_reports_invalid_key() {
+    let mut config = Config::new();
+    config
+        .set("stream_admission.max_concurrent_admissions", "not-a-number")
+        .unwrap();
+
+    assert_eq!(
+        stream_admission_limits_from_config(&config).unwrap_err().field(),
+        "stream_admission.max_concurrent_admissions"
+    );
 }
