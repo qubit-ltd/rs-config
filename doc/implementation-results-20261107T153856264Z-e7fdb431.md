@@ -56,3 +56,17 @@ Fixing the reusable-job path setup requires changing project path-dependency pre
 - Implementation commits on `task/rs-config-rsc-401-402-403-20261107`: `f2ccd47`, `17a822c`, `55e009e`, `82f7d24`, `7b39b18`, `34773fb`, `82f38db`, `4e66722`, and `2e0f265`.
 - The implementation branch was fast-forward integrated into the starting `dev-starfish` branch. The existing `dev`, `main`, and `dev-starfish` branches are synchronized and pushed. The Windows and 32-bit project jobs passed in run 42393525980 with nonzero test counts.
 - Run 42393525980 completed with shared reusable-workflow setup failures on the missing `../rs-redact` path. A safe project-level bootstrap fix is blocked by the pre-existing uncommitted `.infra/bootstrap-source.json` changes; user direction is needed before touching that integrity manifest.
+
+## Shared CI dependency resolution (2026-11-08)
+
+Following the user's clarification that `qubit-redact` 0.10.1 is published on crates.io, replaced the direct `../rs-redact` path dependency with the registry requirement `^0.10`. This removes the shared workflow's need to check out `rs-redact`; the adjacent `rs-value` path dependency remains unchanged.
+
+- Refreshed `Cargo.lock`, `fuzz/Cargo.lock`, and `tests/fixtures/doc_consumer/Cargo.lock`. The documentation consumer's pinned lock was necessary because its checker copies that fixture and runs with `--locked`.
+- `.infra/bin/align-ci.sh` — exit 0; it also applied a rustfmt-only split of the Windows extension-trait imports in `tests/source/env_config_source_tests.rs`.
+- `cargo +1.94.0 metadata --locked --format-version 1 --no-deps` — exit 0.
+- `cargo +1.94.0 check --locked` — exit 0; resolved `qubit-redact v0.10.1` from crates.io without an `rs-redact` sibling checkout.
+- First `.infra/bin/ci-check.sh` run — exit 1 at isolated documentation consumers because `tests/fixtures/doc_consumer/Cargo.lock` still contained the old local package entry. After updating that fixture, `python3 -B scripts/check-doc-consumer.py` — exit 0 for both English and Chinese consumers.
+- Second `.infra/bin/ci-check.sh` run — exit 0; build, tests/doctests, feature matrix, 8 fuzz targets, package verification, project checks, coverage thresholds (functions 99.46%, lines 97.33%, regions 96.16%), and advisory scan passed.
+- `git diff --check` — exit 0 before committing these follow-up changes.
+
+The earlier missing-sibling failure described above is resolved by the registry dependency and refreshed lockfiles; no bootstrap integrity manifest changes were needed.
