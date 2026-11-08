@@ -372,6 +372,8 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::Config;
+    use crate::ConfigError;
+    use crate::ConfigReader;
 
     #[test]
     fn test_len_reports_the_number_of_properties() {
@@ -392,5 +394,22 @@ mod tests {
 
         set_description(&mut config, None);
         assert_eq!(config.description(), None);
+    }
+
+    #[test]
+    fn test_section_if_present_reports_descendants_and_rejects_invalid_paths() {
+        let mut config = Config::new();
+        config.set("server.port", 8080_u16).unwrap();
+        config.set("scalar", "value").unwrap();
+
+        let section_if_present = std::hint::black_box(Config::section_if_present);
+        let server = section_if_present(&config, "server").unwrap().unwrap();
+        assert_eq!(server.get::<u16>("port").unwrap(), 8080);
+        assert!(section_if_present(&config, "scalar").unwrap().is_none());
+        assert!(section_if_present(&config, "missing").unwrap().is_none());
+        assert!(matches!(
+            section_if_present(&config, ".server"),
+            Err(ConfigError::InvalidPath { .. })
+        ));
     }
 }
