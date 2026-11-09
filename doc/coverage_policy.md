@@ -52,12 +52,12 @@ their normal rules are strict (`>`); functions at exactly 95% meet their normal
 rule (`>=`) and do not count as an active exception.
 
 The sidecar stores per-file evidence. Both files were measured at
-`2026-11-05T21:02:16Z` with `cargo-llvm-cov 0.9.1`, Rust 1.94.0, and LLVM
+`2026-11-09T11:03:51Z` with `cargo-llvm-cov 0.9.1`, Rust 1.94.0, and LLVM
 21.1.8, using `./scripts/check-project-coverage.sh`. The evidence baseline is
-`task/rsc301-implementation worktree based on HEAD 9c9830622823a5acdcc0be528e30b6a1bf8c774d after the RSC-301 changes and authorized full-repository style remediation; this fresh coverage run includes documentation and module-layout changes.`. The TOML source SHA-256 is
-`9fcd312c9ddaff386e02fd1614c09052788ac1eade1dee7b83eacf7d829e299e`; the
+`task/rs-config-rsc-rev-001-20261109 based on d6f72b0 with RSC-REV-001 and authorized repository alignment; measured after the implementation changes.`. The TOML source SHA-256 is
+`41a0e759972830daac78f846b2f101b3f12d9625320ab33c23e3de5d839a998e`; the
 YAML source SHA-256 is
-`95627224898ab08b73c0b3073c9a226b45f7a2892a588ca334388d3fc3f0204e`.
+`37c78b096507993c8bc94a687445eb51ba8796313aa78e48101b55d22a3de0c3`.
 The TOML regression exercises scalar, datetime, empty-array, typed-array, and
 string/datetime-array writes against final properties, checking that errors
 retain the property key and leave the prior value unchanged. TOML and YAML
@@ -66,8 +66,8 @@ thresholds.
 
 | File | Functions | Lines | Regions | Active minimums |
 | --- | ---: | ---: | ---: | --- |
-| `src/source/toml_config_source.rs` | 93.02% (40/43) | 96.83% (305/315) | 94.17% (582/618) | functions >= 93.02325581395348 |
-| `src/source/yaml_config_source.rs` | 81.25% (39/48) | 93.97% (296/315) | 90.11% (556/617) | functions >= 81.25 |
+| `src/source/toml_config_source.rs` | 93.33% (42/45) | 96.65% (317/328) | 94.44% (611/647) | functions >= 93.33333333333333 |
+| `src/source/yaml_config_source.rs` | 82.35% (42/51) | 94.28% (313/332) | 90.77% (600/661) | functions >= 82.35294117647058 |
 
 The sidecar records full-precision measured percentages and covered/count
 counters for all three metrics per overridden file. Only displayed percentages
