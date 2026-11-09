@@ -1173,6 +1173,15 @@ structured rs-budget failure.
 
 `candidate_paths()` is useful for `get_any` failures because a multi-key error can contain several ordered paths. `source_index()` identifies an element position when a collection conversion reports one.
 
+For a non-canonical key in `PropertiesConfigSource`, the parse error message
+includes its 1-based physical line number. A continued assignment is attributed
+to the line where that logical assignment begins; blank lines consumed during
+continuation still count. This line number is diagnostic text, not
+`source_index()`, which remains reserved for collection element positions.
+Applications should use `kind()`, `path()`, and `source_id()` for program logic
+and must not parse the message. This line annotation applies to invalid-key
+parse errors, not budget or I/O errors.
+
 Diagnostics should use `kind()`, `path()`, and candidate paths for program logic. `Debug` output for configuration values redacts stored values through `qubit-redact` while retaining property metadata.
 
 ## Troubleshooting

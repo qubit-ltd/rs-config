@@ -120,6 +120,80 @@ mod test_properties_config_source {
     use super::fixture;
     use super::merge_source;
 
+    fn assert_invalid_key_line(error: ConfigError, line: usize, source_id: Option<&str>) {
+        assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Parse);
+        assert_eq!(error.path(), Some("invalid..key"));
+        assert_eq!(error.source_id(), source_id);
+        assert_eq!(error.source_index(), None);
+        match error {
+            ConfigError::SourceParseError { message, .. } => {
+                assert!(message.contains(&format!("at line {line}")), "{message}");
+                assert!(!message.contains("secret-marker"), "{message}");
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_invalid_properties_key_reports_physical_line_for_all_terminators() {
+        for ending in ["\n", "\r\n", "\r"] {
+            let content = ["# header", "", "good=ok", "invalid..key=secret-marker"].join(ending);
+            let error = PropertiesConfigSource::from_content(content).load().unwrap_err();
+            assert_invalid_key_line(error, 4, Some("properties:<memory>"));
+        }
+    }
+
+    #[test]
+    fn test_invalid_properties_key_reports_logical_start_line() {
+        for ending in ["\n", "\r\n", "\r"] {
+            let continued_key_after_header = format!("# header{ending}invalid.\\{ending}.key=value");
+            let error = PropertiesConfigSource::parse_content(&continued_key_after_header).unwrap_err();
+            assert_eq!(error.path(), Some("invalid..key"));
+            assert!(error.to_string().contains("at line 2"), "{error}");
+
+            let continued_key = format!("invalid.\\{ending}.key=value");
+            let error = PropertiesConfigSource::parse_content(&continued_key).unwrap_err();
+            assert_eq!(error.path(), Some("invalid..key"));
+            assert!(error.to_string().contains("at line 1"), "{error}");
+
+            let blank_continuation = format!("good=a\\{ending}{ending}invalid..key=value");
+            let error = PropertiesConfigSource::parse_content(&blank_continuation).unwrap_err();
+            assert_eq!(error.path(), Some("invalid..key"));
+            assert!(error.to_string().contains("at line 3"), "{error}");
+        }
+
+        let error = PropertiesConfigSource::parse_content("invalid..key=value").unwrap_err();
+        assert!(error.to_string().contains("at line 1"), "{error}");
+    }
+
+    #[test]
+    fn test_invalid_properties_key_line_matches_parse_and_source_entry_points() {
+        let content = "# header\ninvalid..key=secret-marker";
+        assert_invalid_key_line(
+            PropertiesConfigSource::parse_content(content).unwrap_err(),
+            2,
+            Some("properties:<memory>"),
+        );
+        assert_invalid_key_line(
+            PropertiesConfigSource::parse_content_with_limits(content, super::SourceLimits::default()).unwrap_err(),
+            2,
+            Some("properties:<memory>"),
+        );
+
+        let memory_source = PropertiesConfigSource::builder()
+            .label("deployment")
+            .content(content)
+            .build();
+        assert_invalid_key_line(memory_source.load().unwrap_err(), 2, Some("deployment"));
+
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("invalid.properties");
+        std::fs::write(&path, content).unwrap();
+        let file_source = PropertiesConfigSource::from_file(&path);
+        let error = file_source.load().unwrap_err();
+        assert_invalid_key_line(error, 2, Some(path.to_str().unwrap()));
+    }
+
     // ---- parse_content unit tests ----
 
     #[test]

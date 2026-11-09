@@ -50,6 +50,7 @@ use super::SourceLoadContext;
 use super::source_input::SourceInput;
 use super::source_load_session::SourceLoadSession;
 use crate::Config;
+use crate::ConfigError;
 use crate::ConfigKey;
 use crate::ConfigResult;
 
@@ -140,7 +141,10 @@ impl PropertiesConfigSource {
     /// Returns all parsed `(key, value)` pairs in input order. No partial
     /// result is returned if parsing, key validation, or a default source
     /// limit fails. Malformed or incomplete `\u` escapes are preserved
-    /// verbatim; valid surrogate pairs decode to one Unicode scalar.
+    /// verbatim; valid surrogate pairs decode to one Unicode scalar. A
+    /// non-canonical key parse error includes its 1-based physical line; a
+    /// continued assignment is attributed to its first physical line. This
+    /// line number is diagnostic text and is distinct from `source_index()`.
     ///
     /// Input UTF-8 bytes are admitted before parsing. Each parsed assignment
     /// is checked against node, assignment, and semantic-depth limits.
@@ -161,6 +165,9 @@ impl PropertiesConfigSource {
     /// is then checked against node, assignment, and semantic-depth limits.
     /// The returned pairs preserve input order; an error returns no partial
     /// result. Malformed or incomplete `\u` escapes are preserved verbatim.
+    /// A non-canonical key parse error includes its 1-based physical line;
+    /// continued assignments use their first physical line. This line number
+    /// is diagnostic text and is distinct from `source_index()`.
     ///
     /// # Parameters
     ///
@@ -260,10 +267,11 @@ impl PropertiesConfigSource {
         session: &mut SourceLoadSession<'_>,
         mut receive: impl FnMut(String, String) -> ConfigResult<()>,
     ) -> ConfigResult<()> {
-        let mut lines = properties_natural_lines(content);
+        let mut lines = properties_natural_lines(content).enumerate();
         let mut receive_error = None;
 
-        while let Some(line) = lines.next() {
+        while let Some((line_index, line)) = lines.next() {
+            let start_line = line_index + 1;
             let trimmed = line.trim_start_matches(is_properties_whitespace);
 
             // Skip blank lines and comments
@@ -276,7 +284,7 @@ impl PropertiesConfigSource {
             let mut continued = has_line_continuation(trimmed);
             while continued {
                 full_line.pop(); // remove trailing backslash
-                let Some(next) = lines.next() else {
+                let Some((_, next)) = lines.next() else {
                     break;
                 };
                 let next = next.trim_start_matches(is_properties_whitespace);
@@ -288,8 +296,14 @@ impl PropertiesConfigSource {
             if let Some((key, value)) = parse_key_value(&full_line) {
                 let key = unescape_properties(key);
                 let value = unescape_properties(value);
-                let _ = ConfigKey::parse(key.as_str())
-                    .map_err(|error| error.with_source_context(source_id, Some(key.clone()), None))?;
+                let _ = ConfigKey::parse(key.as_str()).map_err(|error| {
+                    ConfigError::source_parse_error_at(
+                        source_id,
+                        Some(key.clone()),
+                        None,
+                        format!("{error} at line {start_line}"),
+                    )
+                })?;
                 session.check_depth(key.split('.').count())?;
                 session.consume_nodes(1)?;
                 session.consume_properties(1)?;

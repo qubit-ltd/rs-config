@@ -1041,6 +1041,11 @@ fn main() -> Result<(), ConfigError> {
 
 `get_any` 失败时可以使用 `candidate_paths()`，因为多候选键错误可能包含按查找顺序排列的多个路径。如果集合转换错误对应原始集合中的某个元素，可以使用 `source_index()` 获取其位置。
 
+`PropertiesConfigSource` 遇到非规范键时，解析错误消息会包含从 1 开始的物理行号。
+续行赋值归属逻辑赋值开始的行；续行期间消耗的空行也计入行号。该行号仅用于诊断文本，
+不同于仅表示集合元素位置的 `source_index()`。程序逻辑应使用 `kind()`、`path()` 和
+`source_id()`，不要解析错误消息。此行号说明仅适用于无效键解析错误，不适用于预算或 I/O 错误。
+
 程序逻辑应使用 `kind()`、`path()` 和候选路径处理诊断。配置值的 `Debug` 输出会通过 `qubit-redact` 遮盖存储值，同时保留 property 元数据。
 
 ## 排障

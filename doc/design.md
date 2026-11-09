@@ -89,6 +89,12 @@ Properties physical lines use LF, CRLF, or CR terminators. Only ASCII space,
 tab, and form feed are formatting whitespace; Unicode whitespace in keys and
 values is preserved. Comment-only and otherwise value-free single YAML
 documents load as empty layers, while explicit root null values remain invalid.
+Invalid-key parse errors from `PropertiesConfigSource` include a 1-based
+physical line number in the message. Continued assignments use their first
+physical line, including when blank physical lines are consumed by continuation.
+This diagnostic line is distinct from `source_index()`, which remains the
+collection element index. Programs use structured error accessors and do not
+parse the message; budget and I/O errors do not carry this line annotation.
 Built-in text-source file reads retry `Interrupted` without charging bytes;
 other I/O failures retain their source path and error kind.
 Environment normalization conflicts are checked in sorted order, selecting the
