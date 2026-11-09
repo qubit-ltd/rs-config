@@ -16,12 +16,16 @@ use qubit_datatype::DataType;
 use qubit_datatype::InvalidValueReason;
 use qubit_value::ValueError;
 use std::num::NonZeroUsize;
+use qubit_budget::BudgetError;
+use qubit_budget::Observation;
 
 #[test]
 fn test_source_parse_location_preserves_existing_context() {
     let location = SourceLocation::new(NonZeroUsize::new(2).unwrap(), None);
-    assert_eq!(location.line(), 2);
-    assert_eq!(location.column(), None);
+    let line: fn(&SourceLocation) -> usize = SourceLocation::line;
+    let column: fn(&SourceLocation) -> Option<usize> = SourceLocation::column;
+    assert_eq!(line(&location), 2);
+    assert_eq!(column(&location), None);
 
     let error = ConfigError::SourceParseError {
         source_id: "baseline".into(),
@@ -45,6 +49,20 @@ fn test_source_parse_location_preserves_existing_context() {
         location: None,
     };
     assert_eq!(ordinary_parse.source_location(), None);
+
+    let budget_error = ConfigError::SourceLimitExceeded {
+        source_id: "memory:limited".into(),
+        budget_id: "memory:limited".into(),
+        kind: qubit_config::source::SourceLimitKind::InputBytes,
+        limit: 1,
+        observed_at_least: 2,
+        source: BudgetError::LimitExceeded {
+            resource: qubit_config::source::SourceLimitKind::InputBytes,
+            observed: Observation::Exact(2),
+            maximum: 1,
+        },
+    };
+    assert_eq!(budget_error.source_location(), None);
 }
 
 #[test]

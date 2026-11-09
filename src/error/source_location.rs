@@ -27,13 +27,13 @@ impl SourceLocation {
 
     /// Returns the one-based physical line number.
     #[inline]
-    pub const fn line(self) -> usize {
+    pub const fn line(&self) -> usize {
         self.line.get()
     }
 
     /// Returns the one-based physical column number, when known.
     #[inline]
-    pub const fn column(self) -> Option<usize> {
+    pub const fn column(&self) -> Option<usize> {
         match self.column {
             Some(column) => Some(column.get()),
             None => None,
