@@ -30,6 +30,8 @@ use qubit_config::source::SourceLimits;
 use qubit_config::source::SourceLoadContext;
 #[cfg(feature = "toml")]
 use qubit_config::source::TomlConfigSource;
+#[cfg(feature = "yaml")]
+use qubit_config::source::YamlConfigSource;
 
 #[cfg(feature = "toml")]
 fn fixture(name: &str) -> PathBuf {
@@ -96,6 +98,36 @@ fn test_nested_composite_preserves_leaf_parse_location_and_label() {
         Some((3, None))
     );
     assert!(!error.to_string().contains("secret"));
+}
+
+#[cfg(feature = "yaml")]
+#[test]
+fn test_nested_composite_preserves_yaml_guard_location_transactionally() {
+    let leaf = YamlConfigSource::builder()
+        .label("yaml-leaf")
+        .content("ready: true\nvalue: &hidden 1\n")
+        .build();
+    let inner = CompositeConfigSource::builder().label("inner").add_source(leaf).build();
+    let outer = CompositeConfigSource::builder()
+        .label("outer")
+        .add_source(inner)
+        .build();
+    let mut target = Config::new();
+    target.set("existing", "kept").unwrap();
+    let before = target.clone();
+
+    let error = target
+        .merge_properties_from_source(&outer)
+        .expect_err("the nested YAML guard error must abort the merge");
+    assert_eq!(error.source_id(), Some("yaml-leaf"));
+    assert_eq!(
+        error
+            .source_location()
+            .map(|location| (location.line(), location.column())),
+        Some((2, Some(8)))
+    );
+    assert!(!error.to_string().contains("hidden"));
+    assert_eq!(target, before);
 }
 
 fn nested_chain(edges: usize, limits: SourceLimits) -> CompositeConfigSource {

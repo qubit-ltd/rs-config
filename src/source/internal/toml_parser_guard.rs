@@ -12,6 +12,7 @@ use toml_parser::Source;
 use toml_parser::parser::parse_document;
 
 use super::super::source_load_session::SourceLoadSession;
+use super::text_location::text_location;
 use super::toml_parser_depth::TomlParserDepth;
 use crate::ConfigError;
 use crate::ConfigResult;
@@ -53,12 +54,19 @@ pub(super) fn admit_toml_parser(label: &str, content: &str, session: &mut Source
         let location = error
             .context()
             .or(error.unexpected())
-            .map(|span| toml_location(content, span.start()))
-            .unwrap_or_default();
-        return Err(ConfigError::source_parse_error(
-            label,
-            format!("Invalid TOML syntax{location}"),
-        ));
+            .and_then(|span| text_location(content, span.start()));
+        let suffix = location.map_or_else(String::new, |location| {
+            format!(
+                " at line {}, column {}",
+                location.line(),
+                location.column().unwrap_or(1)
+            )
+        });
+        let error = ConfigError::source_parse_error(label, format!("Invalid TOML syntax{suffix}"));
+        return Err(match location {
+            Some(location) => error.with_source_location(location),
+            None => error,
+        });
     }
     Ok(())
 }
@@ -96,42 +104,24 @@ pub(in crate::source) fn with_toml_admission<T>(
     backend()
 }
 
-/// Formats a byte offset as a one-based TOML line and column location.
-///
-/// Returns an empty string when the offset is not a UTF-8 character boundary.
-///
-/// # Parameters
-///
-/// * `content` - The source text containing the offset.
-/// * `offset` - The byte offset to convert.
-///
-/// # Returns
-///
-/// A formatted location suffix, or an empty string for an invalid offset.
-fn toml_location(content: &str, offset: usize) -> String {
-    let Some(prefix) = content.get(..offset) else {
-        return String::new();
-    };
-    let line = prefix.bytes().filter(|byte| *byte == b'\n').count() + 1;
-    let column = prefix.rsplit('\n').next().map_or(1, |line| line.chars().count() + 1);
-    format!(" at line {line}, column {column}")
-}
-
 #[cfg(test)]
 mod tests {
     use super::admit_toml_parser;
-    use super::toml_location;
     use crate::ConfigError;
     use crate::source::SourceLimits;
     use crate::source::source_load_session::SourceLoadSession;
 
     #[test]
-    fn test_invalid_backend_offset_has_no_location() {
-        assert_eq!(toml_location("value", usize::MAX), "");
-
+    fn test_guard_span_reports_structured_context_location() {
         let mut session = SourceLoadSession::new("TOML:test", SourceLimits::unbounded());
         let error = admit_toml_parser("TOML:test", "value = [1", &mut session)
             .expect_err("the parser must reject an unterminated TOML array");
         assert!(matches!(error, ConfigError::SourceParseError { .. }));
+        assert_eq!(
+            error
+                .source_location()
+                .map(|location| (location.line(), location.column())),
+            Some((1, Some(9)))
+        );
     }
 }

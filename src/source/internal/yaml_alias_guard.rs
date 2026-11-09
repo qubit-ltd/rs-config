@@ -10,8 +10,10 @@ use yaml_rust2::scanner::Scanner;
 use yaml_rust2::scanner::TokenType;
 
 use self::collection_frame::CollectionFrame;
+use super::text_location::text_location;
 use crate::ConfigError;
 use crate::ConfigResult;
+use crate::SourceLocation;
 use crate::source::source_load_session::SourceLoadSession;
 
 mod collection_frame;
@@ -49,13 +51,12 @@ pub(in crate::source) fn inspect_yaml_tokens(
 
     while let Some(token) = scanner.next_token().map_err(|error| {
         let marker = error.marker();
-        ConfigError::source_parse_error(
+        yaml_marker_error(
             label,
-            format!(
-                "Failed to parse YAML file '{label}' at line {}, column {}: invalid YAML syntax",
-                marker.line(),
-                marker.col() + 1,
-            ),
+            content,
+            marker.line(),
+            marker.col(),
+            format!("Failed to parse YAML file '{label}': invalid YAML syntax"),
         )
     })? {
         let yaml_rust2::scanner::Token(marker, token_type) = token;
@@ -86,13 +87,12 @@ pub(in crate::source) fn inspect_yaml_tokens(
         }
         let is_value_token = match token_type {
             TokenType::Anchor(_) | TokenType::Alias(_) => {
-                return Err(ConfigError::source_parse_error(
+                return Err(yaml_marker_error(
                     label,
-                    format!(
-                        "YAML anchors and aliases are not supported in '{label}' at line {}, column {}",
-                        marker.line(),
-                        marker.col() + 1,
-                    ),
+                    content,
+                    marker.line(),
+                    marker.col(),
+                    format!("YAML anchors and aliases are not supported in '{label}'"),
                 ));
             }
             TokenType::StreamStart(_)
@@ -107,6 +107,84 @@ pub(in crate::source) fn inspect_yaml_tokens(
     }
 
     Ok(has_value_tokens)
+}
+
+/// Converts a one-based YAML marker line and zero-based Unicode scalar column
+/// into the shared physical source location.
+///
+/// # Parameters
+///
+/// * `content` - The complete YAML source text.
+/// * `line` - The one-based physical line reported by the scanner.
+/// * `column` - The zero-based Unicode scalar column reported by the scanner.
+///
+/// The mapping runs only after a guard failure; successful scans do not rescan
+/// the source once per token.
+/// Returns `None` when the line is outside the input, the column exceeds the
+/// physical line, or the resulting byte offset cannot be represented by the
+/// shared location helper. A column at line end, including EOF, is valid.
+fn yaml_marker_location(content: &str, line: usize, column: usize) -> Option<SourceLocation> {
+    if line == 0 {
+        return None;
+    }
+    let bytes = content.as_bytes();
+    let mut line_number = 1usize;
+    let mut line_start = 0usize;
+    let mut cursor = 0usize;
+    while line_number < line {
+        if cursor >= bytes.len() {
+            return None;
+        }
+        match bytes[cursor] {
+            b'\r' => {
+                cursor += if bytes.get(cursor + 1) == Some(&b'\n') { 2 } else { 1 };
+                line_start = cursor;
+                line_number += 1;
+            }
+            b'\n' => {
+                cursor += 1;
+                line_start = cursor;
+                line_number += 1;
+            }
+            _ => cursor += 1,
+        }
+    }
+    let mut line_end = line_start;
+    while line_end < bytes.len() && !matches!(bytes[line_end], b'\r' | b'\n') {
+        line_end += 1;
+    }
+    let physical_line = content.get(line_start..line_end)?;
+    let offset = if column == physical_line.chars().count() {
+        line_end
+    } else {
+        physical_line.char_indices().nth(column)?.0 + line_start
+    };
+    text_location(content, offset)
+}
+
+/// Creates a sanitized YAML error and attaches a marker location when valid.
+///
+/// # Parameters
+///
+/// * `label` - The diagnostic source identifier.
+/// * `content` - The complete YAML source text used to map the marker.
+/// * `line` - The one-based physical line reported by the scanner.
+/// * `column` - The zero-based Unicode scalar column reported by the scanner.
+/// * `message` - A fixed, sanitized failure reason.
+fn yaml_marker_error(label: &str, content: &str, line: usize, column: usize, message: String) -> ConfigError {
+    let location = yaml_marker_location(content, line, column);
+    let suffix = location.map_or_else(String::new, |location| {
+        format!(
+            " at line {}, column {}",
+            location.line(),
+            location.column().unwrap_or(1)
+        )
+    });
+    let error = ConfigError::source_parse_error(label, format!("{message}{suffix}"));
+    match location {
+        Some(location) => error.with_source_location(location),
+        None => error,
+    }
 }
 
 /// Checks and records one collection opening in the current YAML stream.
@@ -204,6 +282,7 @@ fn invalid_collection_end(label: &str) -> ConfigError {
 mod tests {
     use super::CollectionFrame;
     use super::close_collection;
+    use super::yaml_marker_location;
     use crate::ConfigError;
 
     #[test]
@@ -217,5 +296,30 @@ mod tests {
         let error = close_collection("memory", &mut frames, |frame| frame == CollectionFrame::FlowSequence)
             .expect_err("a close token must match its most recent opening token");
         assert!(matches!(error, ConfigError::SourceParseError { .. }));
+    }
+
+    #[test]
+    fn test_yaml_marker_location_handles_physical_lines_and_bounds() {
+        for text in ["a\né", "a\r\né", "a\ré"] {
+            assert_eq!(
+                yaml_marker_location(text, 2, 0).map(|location| (location.line(), location.column())),
+                Some((2, Some(1)))
+            );
+            assert_eq!(
+                yaml_marker_location(text, 2, 1).map(|location| (location.line(), location.column())),
+                Some((2, Some(2)))
+            );
+        }
+        assert!(yaml_marker_location("a", 0, 0).is_none());
+        assert!(yaml_marker_location("a", 2, 0).is_none());
+        assert!(yaml_marker_location("a", 1, 2).is_none());
+        assert_eq!(
+            yaml_marker_location("a", 1, 1).map(|location| (location.line(), location.column())),
+            Some((1, Some(2)))
+        );
+        assert_eq!(
+            yaml_marker_location("", 1, 0).map(|location| (location.line(), location.column())),
+            Some((1, Some(1)))
+        );
     }
 }

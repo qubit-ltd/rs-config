@@ -47,6 +47,75 @@ fn test_yaml_label_applies_to_success_and_parse_errors() {
 }
 
 #[test]
+fn test_yaml_anchor_reports_structured_location_without_exposing_name() {
+    let source = YamlConfigSource::builder()
+        .label("named-yaml")
+        .content("value: &hidden 1\n")
+        .build();
+    let error = source.load().expect_err("anchor must be rejected");
+    assert_eq!(error.source_id(), Some("named-yaml"));
+    let location = error.source_location().expect("anchor token location");
+    assert_eq!((location.line(), location.column()), (1, Some(8)));
+    assert!(!error.to_string().contains("hidden"));
+    assert!(!format!("{error:?}").contains("hidden"));
+}
+
+#[test]
+fn test_yaml_alias_reports_structured_token_location() {
+    let error = YamlConfigSource::from_content("value: *hidden\n")
+        .load()
+        .expect_err("alias must be rejected");
+    assert_eq!(
+        error
+            .source_location()
+            .map(|location| (location.line(), location.column())),
+        Some((1, Some(8)))
+    );
+    assert!(!error.to_string().contains("hidden"));
+    assert!(!format!("{error:?}").contains("hidden"));
+}
+
+#[test]
+fn test_yaml_marker_locations_follow_unicode_columns_and_physical_lines() {
+    for (content, expected) in [
+        ("é:\t&hidden 1", (1, Some(4))),
+        ("first: 1\nsecond: &hidden 2", (2, Some(9))),
+        ("first: 1\r\nsecond: &hidden 2", (2, Some(9))),
+        ("first: 1\rsecond: &hidden 2", (2, Some(9))),
+        ("text: |\n  é\nnext: &hidden 1", (3, Some(7))),
+    ] {
+        let error = YamlConfigSource::from_content(content)
+            .load()
+            .expect_err("anchors must be rejected by the admission guard");
+        assert_eq!(
+            error
+                .source_location()
+                .map(|location| (location.line(), location.column())),
+            Some(expected),
+            "content: {content:?}"
+        );
+        assert!(!error.to_string().contains("hidden"));
+        assert!(!format!("{error:?}").contains("hidden"));
+    }
+}
+
+#[test]
+fn test_yaml_unclosed_quote_reports_scanner_location_without_source_text() {
+    let content = "value: \"secret";
+    let error = YamlConfigSource::from_content(content)
+        .load()
+        .expect_err("unclosed quote must fail in the scanner guard");
+    assert_eq!(
+        error
+            .source_location()
+            .map(|location| (location.line(), location.column())),
+        Some((1, Some(8)))
+    );
+    assert!(!error.to_string().contains("secret"));
+    assert!(!format!("{error:?}").contains("secret"));
+}
+
+#[test]
 fn test_yaml_unicode_whitespace_root_scalars_are_rejected() {
     for scalar in ["\u{00a0}", "\u{2003}"] {
         for input in [

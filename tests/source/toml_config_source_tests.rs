@@ -49,6 +49,19 @@ fn test_toml_label_applies_to_success_and_parse_errors() {
 }
 
 #[test]
+fn test_toml_guard_reports_structured_eof_location() {
+    let source = TomlConfigSource::builder()
+        .label("toml-guard")
+        .content("values = [1")
+        .build();
+    let error = source.load().expect_err("unterminated array must fail");
+    assert_eq!(error.source_id(), Some("toml-guard"));
+    let location = error.source_location().expect("guard span location");
+    // The locked parser's context span starts at the opening bracket.
+    assert_eq!((location.line(), location.column()), (1, Some(10)));
+}
+
+#[test]
 fn test_toml_mapping_members_are_validated_before_recursion() {
     let cases = [
         ("\"\" = { port = 8080 }", ""),
