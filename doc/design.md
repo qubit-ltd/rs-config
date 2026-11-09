@@ -89,12 +89,20 @@ Properties physical lines use LF, CRLF, or CR terminators. Only ASCII space,
 tab, and form feed are formatting whitespace; Unicode whitespace in keys and
 values is preserved. Comment-only and otherwise value-free single YAML
 documents load as empty layers, while explicit root null values remain invalid.
-Invalid-key parse errors from `PropertiesConfigSource` include a 1-based
-physical line number in the message. Continued assignments use their first
-physical line, including when blank physical lines are consumed by continuation.
-This diagnostic line is distinct from `source_index()`, which remains the
-collection element index. Programs use structured error accessors and do not
-parse the message; budget and I/O errors do not carry this line annotation.
+Source parsers attach reliable physical coordinates to `SourceParseError`,
+which callers read with `ConfigError::source_location()`. The accessor returns
+`None` when no reliable location is available. Lines and columns are one-based;
+columns count Unicode scalar values, with TAB counting as one column. LF, CRLF,
+and standalone CR delimit physical lines. TOML and YAML parser offsets are
+normalized to this contract. Properties invalid-key errors carry the first
+physical line of the logical assignment and no column; continued assignments
+retain their first line even when continuation consumes blank lines.
+`source_index()` remains the collection element index and is not a line number.
+Composite loading propagates the leaf parse error and location unchanged.
+Early scanner or guard failures that have no trustworthy source coordinate
+remain unlocated. Budget and I/O errors also have no source location. The
+location is structured metadata only: the source text is not retained, and
+parser input fragments are not added to diagnostic messages or Debug output.
 Built-in text-source file reads retry `Interrupted` without charging bytes;
 other I/O failures retain their source path and error kind.
 Environment normalization conflicts are checked in sorted order, selecting the
@@ -438,6 +446,15 @@ conflict, the error remains `KeyConflict`, but now consistently reports the
 group with the smallest normalized key and its two smallest original names.
 These notes describe the library contract and do not claim validation across
 all downstream applications.
+
+`ConfigError::SourceParseError` gains a public `location` field in this
+diagnostic enhancement. This changes the public enum-variant layout and is a
+source compatibility break for direct construction and exhaustive field
+destructuring. For a future 0.16 upgrade, direct construction must specify
+`location: None` when no coordinate is known; exhaustive destructuring should
+add `..` or bind `location`. A `{ .. }` match needs no change. This change must
+ship with the next incompatible minor release; it must not be presented as
+fully compatible with a 0.15 patch release.
 
 The rs-http configuration adapter delegates unknown-key checks and `usize`
 reads to `ConfigReader`. An integer above the platform `usize` range now

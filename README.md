@@ -115,6 +115,12 @@ only, must not contain secrets, and do not change source order or Wire V1. See
 the [user guide](doc/user_guide.md#load-and-merge-sources) for nested budget
 attribution and resetting to the default label.
 
+Source parse errors expose reliable physical coordinates through
+`ConfigError::source_location()`; locations may be absent when a parser cannot
+provide them safely. See [Errors and Diagnostics](doc/user_guide.md#errors-and-diagnostics)
+in the [user guide](doc/user_guide.md) and the [design notes](doc/design.md#source-pipeline)
+for coordinate semantics and migration details.
+
 ## Structured Reads and Custom Policies
 
 Use `Config::deserialize` when a subtree maps naturally to a Serde type:

@@ -1179,14 +1179,29 @@ structured rs-budget failure.
 
 `candidate_paths()` is useful for `get_any` failures because a multi-key error can contain several ordered paths. `source_index()` identifies an element position when a collection conversion reports one.
 
-For a non-canonical key in `PropertiesConfigSource`, the parse error message
-includes its 1-based physical line number. A continued assignment is attributed
-to the line where that logical assignment begins; blank lines consumed during
-continuation still count. This line number is diagnostic text, not
-`source_index()`, which remains reserved for collection element positions.
-Applications should use `kind()`, `path()`, and `source_id()` for program logic
-and must not parse the message. This line annotation applies to invalid-key
-parse errors, not budget or I/O errors.
+Use `ConfigError::source_location()` to inspect a source parse error's optional
+physical location without parsing its display message:
+
+```rust,ignore
+if let Some(location) = error.source_location() {
+    println!("line {}", location.line());
+    if let Some(column) = location.column() {
+        println!("column {column}");
+    }
+}
+```
+
+Lines and columns are one-based. Columns count Unicode scalar values, not UTF-8
+bytes, grapheme clusters, or rendered screen width; a TAB counts as one column.
+LF, CRLF, and standalone CR each delimit physical lines. `PropertiesConfigSource`
+reports an invalid-key parse error at the first physical line of its logical
+assignment, including continued assignments; blank lines consumed during
+continuation still count. Its column is absent because only the line is known
+reliably. A location can be absent for other parse errors when the parser does
+not provide a reliable coordinate. `source_index()` remains the original
+collection element index and is independent of source line numbers. Budget and
+I/O errors do not carry source locations. Use `kind()`, `path()`, `source_id()`,
+and `source_location()` for program logic rather than parsing diagnostic text.
 
 Diagnostics should use `kind()`, `path()`, and candidate paths for program logic. `Debug` output for configuration values redacts stored values through `qubit-redact` while retaining property metadata.
 

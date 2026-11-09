@@ -71,9 +71,14 @@ properties 物理行以 LF、CRLF 或 CR 结束。格式空白仅包含 ASCII �
 Unicode 空白会原样保留。仅含注释或其他无值 token 的单个 YAML 文档会加载为空层，显式根 null
 仍然无效。内置文本配置源读取文件时会重试 Interrupted，且不为失败读取扣减字节预算；其他
 I/O 错误保留来源路径和错误种类。
-`PropertiesConfigSource` 的无效键解析错误消息包含从 1 开始的物理行号。续行赋值使用其首个
-物理行；续行消耗的空物理行也参与计数。该诊断行号不同于仍表示集合元素位置的
-`source_index()`。程序应使用结构化错误访问器，不解析消息；预算和 I/O 错误不附带此行号。
+来源解析器会为 `SourceParseError` 附加可信的物理坐标，调用方可通过
+`ConfigError::source_location()` 读取；无法可靠确定位置时，访问器返回 `None`。行和列均从 1 开始；
+列按 Unicode scalar 值计数，TAB 计为一列。LF、CRLF 和独立 CR 都结束一个物理行。TOML 与 YAML
+解析器偏移会统一换算为此坐标约定。Properties 的无效键错误只包含逻辑赋值首个物理行，不含列；
+续行即使消耗空行，也仍归属首行。`source_index()` 仍是集合元素索引，不表示行号。组合加载会原样
+传播叶子来源的解析错误及其位置。缺少可信来源坐标的早期 scanner 或 guard 错误仍不带位置；预算与
+I/O 错误也不附带来源位置。位置仅为结构化元数据：不会保留来源文本，也不会把 parser 输入片段加入
+诊断消息或 Debug 输出。
 
 ## 读取策略与 Section
 
@@ -311,6 +316,11 @@ cargo run --locked --example config_source_resource_probe --features formats -- 
 递归前作为来源解析错误拒绝，而合法空对象仍可用。环境变量名称归一化后若发生冲突，错误仍是
 `KeyConflict`，但现在会稳定报告规范化键最小组及其中名称最小的两项。此说明只描述本库合同，
 不声称已在所有下游应用中完成验证。
+
+此次诊断增强为 `ConfigError::SourceParseError` 增加公开的 `location` 字段，改变了公开错误变体布局；
+直接构造和穷举字段解构都需要源码迁移。升级到未来的 0.16 时，直接构造若无已知坐标，应填写
+`location: None`；穷举解构应增加 `..` 或绑定 `location`。使用 `{ .. }` 的匹配无需修改。
+该变化必须随下一个不兼容 minor 版本发布，不得描述为与 0.15 的 patch 版本完全兼容。
 
 rs-http 配置适配器将未知键校验和 `usize` 读取委托给 `ConfigReader`。超出平台 `usize` 范围的整数现在
 会以 `PlatformIntegerOutOfRange`（`Conversion`）返回，并映射为 `HttpConfigErrorKind::TypeError`；这有意
