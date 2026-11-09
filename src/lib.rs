@@ -108,6 +108,7 @@ pub use config_wire_limits::ConfigWireLimitsBuilder;
 pub use config_wire_representation_error_kind::ConfigWireRepresentationErrorKind;
 pub use error::ConfigError;
 pub use error::ConfigResult;
+pub use error::SourceLocation;
 pub use property::Property;
 pub use read_policy::InterpolationSources;
 pub use read_policy::ReadPolicy;

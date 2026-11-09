@@ -19,6 +19,7 @@ use thiserror::Error;
 use crate::ConfigErrorKind;
 use crate::ConfigPathViolation;
 use crate::SourceLimitKind;
+use crate::SourceLocation;
 
 /// Configuration error type.
 ///
@@ -307,6 +308,8 @@ pub enum ConfigError {
         source_index: Option<usize>,
         /// Human-readable source parsing failure.
         message: String,
+        /// Structured physical source coordinates, when known.
+        location: Option<SourceLocation>,
     },
 
     /// Deserialization error for structured config mapping.
@@ -390,6 +393,7 @@ impl ConfigError {
             path: None,
             source_index: None,
             message: message.into(),
+            location: None,
         }
     }
 
@@ -424,6 +428,7 @@ impl ConfigError {
             path,
             source_index,
             message,
+            location: None,
         }
     }
 
@@ -560,6 +565,40 @@ impl ConfigError {
                 ..
             } => Some(source_id),
             _ => None,
+        }
+    }
+
+    /// Returns the physical source location for a source parse error.
+    ///
+    /// Lines and columns are one-based; the column may be absent when only
+    /// the line can be determined reliably.
+    #[inline]
+    pub const fn source_location(&self) -> Option<SourceLocation> {
+        match self {
+            Self::SourceParseError { location, .. } => *location,
+            _ => None,
+        }
+    }
+
+    /// Attaches a physical source location to a source parse error.
+    ///
+    /// Other error variants are returned unchanged.
+    pub(crate) fn with_source_location(self, location: SourceLocation) -> Self {
+        match self {
+            Self::SourceParseError {
+                source_id,
+                path,
+                source_index,
+                message,
+                ..
+            } => Self::SourceParseError {
+                source_id,
+                path,
+                source_index,
+                message,
+                location: Some(location),
+            },
+            other => other,
         }
     }
 
@@ -790,11 +829,45 @@ pub type ConfigResult<T> = Result<T, ConfigError>;
 
 #[cfg(test)]
 mod tests {
+    use std::num::NonZeroUsize;
+
     use qubit_datatype::DataConversionError;
     use qubit_datatype::DataType;
     use qubit_datatype::InvalidValueReason;
 
+    use crate::SourceLocation;
+
     use super::ConfigError;
+
+    #[test]
+    fn source_parse_location_helpers_preserve_context() {
+        let ordinary = ConfigError::source_parse_error("memory:test", "bad syntax");
+        assert_eq!(ordinary.source_location(), None);
+
+        let indexed = ConfigError::source_parse_error_at(
+            "memory:test",
+            Some("a..b".to_string()),
+            Some(3),
+            "bad syntax",
+        );
+        let location = SourceLocation::new(
+            NonZeroUsize::new(2).unwrap(),
+            Some(NonZeroUsize::new(4).unwrap()),
+        );
+        let located = indexed.with_source_location(location);
+        assert_eq!(located.source_location(), Some(location));
+        assert_eq!(located.kind(), crate::ConfigErrorKind::Parse);
+        assert_eq!(located.path(), Some("a..b"));
+        assert_eq!(located.source_id(), Some("memory:test"));
+        assert_eq!(located.source_index(), Some(3));
+
+        assert_eq!(
+            ConfigError::ParseError("bad syntax".to_string())
+                .with_source_location(location)
+                .source_location(),
+            None,
+        );
+    }
 
     #[test]
     fn test_context_accessors_cover_empty_and_indexed_cases() {
@@ -811,6 +884,7 @@ mod tests {
             path: None,
             source_index: Some(2),
             message: "invalid element at source index 2".to_string(),
+            location: None,
         };
         assert_eq!(indexed_parse.path(), None);
         assert_eq!(indexed_parse.source_index(), Some(2));

@@ -10,10 +10,42 @@
 use qubit_config::ConfigError;
 use qubit_config::ConfigErrorKind;
 use qubit_config::ConfigPathViolation;
+use qubit_config::SourceLocation;
 use qubit_datatype::DataConversionError;
 use qubit_datatype::DataType;
 use qubit_datatype::InvalidValueReason;
 use qubit_value::ValueError;
+use std::num::NonZeroUsize;
+
+#[test]
+fn test_source_parse_location_preserves_existing_context() {
+    let location = SourceLocation::new(NonZeroUsize::new(2).unwrap(), None);
+    assert_eq!(location.line(), 2);
+    assert_eq!(location.column(), None);
+
+    let error = ConfigError::SourceParseError {
+        source_id: "baseline".into(),
+        path: Some("a..b".into()),
+        source_index: Some(3),
+        message: "invalid syntax".into(),
+        location: Some(location),
+    };
+    assert_eq!(error.kind(), ConfigErrorKind::Parse);
+    assert_eq!(error.path(), Some("a..b"));
+    assert_eq!(error.source_id(), Some("baseline"));
+    assert_eq!(error.source_index(), Some(3));
+    assert_eq!(error.source_location(), Some(location));
+
+    assert_eq!(ConfigError::ParseError("bad".into()).source_location(), None);
+    let ordinary_parse = ConfigError::SourceParseError {
+        source_id: "plain".into(),
+        path: None,
+        source_index: None,
+        message: "bad".into(),
+        location: None,
+    };
+    assert_eq!(ordinary_parse.source_location(), None);
+}
 
 #[test]
 fn test_invalid_key_and_path_errors_keep_structured_context() {
@@ -143,6 +175,7 @@ fn test_error_accessors_retain_missing_value_source_and_conflict_context() {
         path: Some("items".to_string()),
         source_index: Some(3),
         message: "invalid element".to_string(),
+        location: None,
     };
     assert_eq!(source_parse.source_index(), Some(3));
 
@@ -207,6 +240,7 @@ fn test_context_accessors_cover_empty_and_indexed_cases() {
         path: None,
         source_index: Some(2),
         message: "invalid element at source index 2".to_string(),
+        location: None,
     };
     assert_eq!(indexed_parse.path(), None);
     assert_eq!(indexed_parse.source_index(), Some(2));

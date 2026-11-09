@@ -53,6 +53,7 @@ fn test_source_errors_expose_source_id() {
         path: None,
         source_index: None,
         message: "invalid YAML".to_string(),
+        location: None,
     };
     assert_eq!(parse_error.kind(), ConfigErrorKind::Parse);
     assert_eq!(parse_error.source_id(), Some("config.yaml"));
@@ -62,6 +63,7 @@ fn test_source_errors_expose_source_id() {
         path: Some("servers".to_string()),
         source_index: Some(0),
         message: "mapping elements are unsupported".to_string(),
+        location: None,
     };
     assert_eq!(source_path_error.path(), Some("servers"));
     assert_eq!(source_path_error.source_index(), Some(0));
