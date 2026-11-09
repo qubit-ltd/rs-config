@@ -12,6 +12,7 @@
 //! the value is missing; ordinary reads avoid carrying unused locations.
 
 use super::deserializer::ReadContext;
+use super::internal::ordered_string_map_entries::OrderedStringMapEntries;
 use super::node::NodeId;
 use super::node::SourceLocation;
 use super::traversal::ReadView;
@@ -34,7 +35,7 @@ pub(super) enum MapEntries<'tree> {
     /// Borrowed key/value pairs from a string map.
     StringMap(
         /// Key and value pairs borrowed from the input string map.
-        std::collections::hash_map::Iter<'tree, String, String>,
+        OrderedStringMapEntries<'tree>,
     ),
 }
 
@@ -53,7 +54,7 @@ impl<'tree> MapEntries<'tree> {
     pub(super) fn new(value: ReadView<'tree>) -> Option<Self> {
         match value {
             ReadView::Object(values) => Some(Self::Object(values.iter())),
-            ReadView::StringMap(values) => Some(Self::StringMap(values.iter())),
+            ReadView::StringMap(values) => Some(Self::StringMap(OrderedStringMapEntries::new(values))),
             ReadView::Json(serde_json::Value::Object(values)) => Some(Self::Json(values.iter())),
             _ => None,
         }

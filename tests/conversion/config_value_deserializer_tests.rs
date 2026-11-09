@@ -2621,6 +2621,175 @@ fn test_preparation_admits_json_and_string_map_inputs() {
 }
 
 #[test]
+fn test_string_map_deterministic_conversion() {
+    for reverse in [false, true] {
+        for _instance in 0..3 {
+            let mut values = HashMap::new();
+            let pairs = [("a", "invalid-a"), ("z", "invalid-z")];
+            let pairs = if reverse {
+                pairs.into_iter().rev().collect::<Vec<_>>()
+            } else {
+                pairs.to_vec()
+            };
+            for (key, value) in pairs {
+                values.insert(key.to_owned(), value.to_owned());
+            }
+            let mut config = Config::new();
+            config.set("map", values).unwrap();
+            let error = config.deserialize::<HashMap<String, u8>>("map").unwrap_err();
+            assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Conversion);
+            assert_eq!(error.path(), Some("map.a"));
+        }
+    }
+
+    for (key, expected_path) in [("a.b", "map[\"a.b\"]"), ("[0]", "map[\"[0]\"]"), ("配置", "map.配置")] {
+        let mut config = Config::new();
+        config
+            .set("map", HashMap::from([(key.to_owned(), "invalid".to_owned())]))
+            .unwrap();
+        let error = config.deserialize::<HashMap<String, u8>>("map").unwrap_err();
+        assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Conversion);
+        assert_eq!(error.path(), Some(expected_path));
+    }
+
+    let mut config = Config::new();
+    config
+        .set(
+            "section.map",
+            HashMap::from([
+                ("z".to_owned(), "bad-z".to_owned()),
+                ("a".to_owned(), "bad-a".to_owned()),
+            ]),
+        )
+        .unwrap();
+    let section = config.section("section").unwrap();
+    let error = section.deserialize::<HashMap<String, u8>>("map").unwrap_err();
+    assert_eq!(error.path(), Some("section.map.a"));
+}
+
+#[test]
+fn test_string_map_deterministic_interpolation() {
+    for reverse in [false, true] {
+        let mut values = HashMap::new();
+        let pairs = [("a", "${missing_a}"), ("z", "${missing_z}")];
+        let pairs = if reverse {
+            pairs.into_iter().rev().collect::<Vec<_>>()
+        } else {
+            pairs.to_vec()
+        };
+        for (key, value) in pairs {
+            values.insert(key.to_owned(), value.to_owned());
+        }
+        let mut config = Config::new();
+        config.set("map", values).unwrap();
+        let error = config
+            .deserialize_with::<HashMap<String, String>>(
+                "map",
+                ConfigDeserializeOptions {
+                    interpolate: true,
+                    unknown_fields: UnknownFieldPolicy::Reject,
+                },
+            )
+            .unwrap_err();
+        assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Substitution);
+        assert_eq!(error.path(), Some("map.a"));
+    }
+}
+
+#[test]
+fn test_string_map_deterministic_budget() {
+    for reverse in [false, true] {
+        let mut values = HashMap::new();
+        let pairs = [("a", "x"), ("z", "y")];
+        let pairs = if reverse {
+            pairs.into_iter().rev().collect::<Vec<_>>()
+        } else {
+            pairs.to_vec()
+        };
+        for (key, value) in pairs {
+            values.insert(key.to_owned(), value.to_owned());
+        }
+        let mut config = Config::new();
+        config.set("map", values).unwrap();
+        with_limits(
+            &mut config,
+            ConversionLimits::builder()
+                .operation_limits(ConversionOperationLimits::builder().max_input_bytes(2).build())
+                .build(),
+        );
+        let error = config.deserialize::<HashMap<String, String>>("map").unwrap_err();
+        assert_eq!(error.path(), Some("map.z"));
+    }
+
+    for reverse in [false, true] {
+        let mut values = HashMap::new();
+        let pairs = [("a", "x"), ("z", "y")];
+        let pairs = if reverse {
+            pairs.into_iter().rev().collect::<Vec<_>>()
+        } else {
+            pairs.to_vec()
+        };
+        for (key, value) in pairs {
+            values.insert(key.to_owned(), value.to_owned());
+        }
+        let mut config = Config::new();
+        config.set("tree.parent", values).unwrap();
+        config.set("tree.parent.child", "value").unwrap();
+        with_limits(
+            &mut config,
+            ConversionLimits::builder()
+                .operation_limits(ConversionOperationLimits::builder().max_input_bytes(1).build())
+                .build(),
+        );
+        let error = config.deserialize::<serde_json::Value>("tree").unwrap_err();
+        assert_eq!(error.path(), Some("tree.parent"));
+    }
+}
+
+#[test]
+fn test_string_map_deterministic_preparation() {
+    for reverse in [false, true] {
+        let mut values = HashMap::new();
+        let pairs = [("a", "same"), ("z", "same")];
+        let pairs = if reverse {
+            pairs.into_iter().rev().collect::<Vec<_>>()
+        } else {
+            pairs.to_vec()
+        };
+        for (key, value) in pairs {
+            values.insert(key.to_owned(), value.to_owned());
+        }
+        let mut config = Config::new();
+        config.set("tree.parent", values).unwrap();
+        config.set("tree.parent.a", "dotted").unwrap();
+        let error = config.deserialize::<serde_json::Value>("tree").unwrap_err();
+        assert_eq!(error.kind(), qubit_config::ConfigErrorKind::KeyConflict);
+        assert_eq!(error.path(), Some("tree.parent.a"));
+    }
+
+    for reverse in [false, true] {
+        let mut values = HashMap::new();
+        let pairs = [("a", "secret-a"), ("z", "secret-z")];
+        let pairs = if reverse {
+            pairs.into_iter().rev().collect::<Vec<_>>()
+        } else {
+            pairs.to_vec()
+        };
+        for (key, value) in pairs {
+            values.insert(key.to_owned(), value.to_owned());
+        }
+        let mut config = Config::new();
+        config.set("tree.parent", values).unwrap();
+        config.set("tree.parent.a", "different").unwrap();
+        let error = config.deserialize::<serde_json::Value>("tree").unwrap_err();
+        assert_eq!(error.kind(), qubit_config::ConfigErrorKind::KeyConflict);
+        assert_eq!(error.path(), Some("tree.parent.a"));
+        assert!(!error.to_string().contains("secret-a"));
+        assert!(!error.to_string().contains("secret-z"));
+    }
+}
+
+#[test]
 fn test_preparation_deserializer_preserves_json_categories_and_enum_errors() {
     #[derive(Debug, Deserialize, PartialEq)]
     enum Choice {

@@ -19,5 +19,7 @@ pub(super) mod frame;
 pub(super) mod index_capacity;
 #[path = "merge_entries.rs"]
 pub(super) mod merge_entries;
+#[path = "ordered_string_map_entries.rs"]
+pub(super) mod ordered_string_map_entries;
 #[path = "segment.rs"]
 pub(super) mod segment;

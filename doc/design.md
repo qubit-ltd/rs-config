@@ -216,6 +216,12 @@ retain their existing formats. Consumers that compare special-key structured
 diagnostic strings should update those comparisons; configuration keys and
 query behavior do not change.
 
+Native `HashMap<String, String>` members are visited in ascending raw-key
+order during structured reads. This stabilizes errors within each such map
+across independent instances. It preserves stage precedence and array order,
+and does not promise the globally smallest path when multiple nested
+preparation errors exist.
+
 Interpolation scope follows the selected storage shape. Dotted descendants use
 the selected subtree as the initial lookup scope. An exact structured property,
 such as a JSON object, uses the calling reader's scope; object member names do

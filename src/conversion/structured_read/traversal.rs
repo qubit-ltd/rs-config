@@ -11,6 +11,7 @@ use std::borrow::Cow;
 
 use super::internal::child_iter::ChildIter;
 use super::internal::frame::Frame;
+use super::internal::ordered_string_map_entries::OrderedStringMapEntries;
 use super::internal::segment::Segment;
 use super::node::SourceSegment;
 use super::prepared_read::PreparedConfigRead;
@@ -42,7 +43,7 @@ fn children<'a>(value: ReadView<'a>, prepared: &'a PreparedConfigRead<'a>) -> Op
         ReadView::Collection(values) => Some(ChildIter::Collection { values, next: 0 }),
         ReadView::Json(serde_json::Value::Array(values)) => Some(ChildIter::JsonArray(values.iter().enumerate())),
         ReadView::Json(serde_json::Value::Object(values)) => Some(ChildIter::JsonObject(values.iter())),
-        ReadView::StringMap(values) => Some(ChildIter::StringMap(values.iter())),
+        ReadView::StringMap(values) => Some(ChildIter::StringMap(OrderedStringMapEntries::new(values))),
         _ => None,
     }
 }

@@ -12,7 +12,6 @@
 //! so each yielded origin remains aligned with its arena node.
 
 use std::collections::btree_map;
-use std::collections::hash_map;
 
 use qubit_value::MultiValuesRef;
 
@@ -20,6 +19,7 @@ use super::super::node::NodeId;
 use super::super::prepared_read::PreparedConfigRead;
 use super::super::read_view::ReadView;
 use super::child::Child;
+use super::ordered_string_map_entries::OrderedStringMapEntries;
 use super::segment::Segment;
 
 /// Lazily visits direct children of a prepared or source-backed value.
@@ -51,7 +51,7 @@ pub(crate) enum ChildIter<'a> {
     /// Entries of a borrowed string map.
     StringMap(
         /// Borrowed key and value pairs from the source string map.
-        hash_map::Iter<'a, String, String>,
+        OrderedStringMapEntries<'a>,
     ),
 }
 

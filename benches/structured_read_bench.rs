@@ -8,6 +8,7 @@
 //! Measures real structured configuration reads with fixtures outside timing.
 
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::hint::black_box;
 
 use criterion::Criterion;
@@ -151,6 +152,34 @@ fn benchmark_structured_reads(c: &mut Criterion) {
     c.bench_function("structured_read/interpolation/disabled", |b| {
         b.iter(|| black_box(config.deserialize::<String>(black_box("endpoint")).unwrap()));
     });
+    for count in [0_usize, 1, 16, 1024, 16_384] {
+        let mut string_map = Config::new();
+        let entries = (0..count)
+            .map(|index| (format!("key{index:05}"), format!("value{index:05}")))
+            .collect::<HashMap<_, _>>();
+        string_map.set("map", entries).unwrap();
+        assert_eq!(
+            string_map.deserialize::<HashMap<String, String>>("map").unwrap().len(),
+            count
+        );
+        for (label, interpolate) in [("default", false), ("interpolation", true)] {
+            c.bench_function(&format!("structured_read/string_map/{label}/{count}"), |b| {
+                b.iter(|| {
+                    black_box(
+                        string_map
+                            .deserialize_with::<HashMap<String, String>>(
+                                black_box("map"),
+                                qubit_config::ConfigDeserializeOptions {
+                                    interpolate,
+                                    unknown_fields: qubit_config::UnknownFieldPolicy::Reject,
+                                },
+                            )
+                            .unwrap(),
+                    )
+                });
+            });
+        }
+    }
 }
 
 /// Measures reads of a fixed subtree as unrelated reader properties grow.

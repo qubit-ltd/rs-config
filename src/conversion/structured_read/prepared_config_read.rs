@@ -13,6 +13,7 @@ use qubit_budget::json::JsonMeasurement;
 
 use super::internal::index_capacity::IndexCapacity;
 use super::internal::merge_entries::MergeEntries;
+use super::internal::ordered_string_map_entries::OrderedStringMapEntries;
 use super::node::NodeId;
 use super::node::ReadNode;
 use super::node::SourceLocation;
@@ -121,7 +122,7 @@ impl<'a> PreparedConfigRead<'a> {
             }
             ReadNode::StringMap(values) => {
                 capacity.entries(values.len(), path)?;
-                for (key, value) in values {
+                for (key, value) in OrderedStringMapEntries::new(values) {
                     capacity.key(key.len(), path)?;
                     let location = origin
                         .as_ref()
@@ -233,7 +234,10 @@ impl<'a> PreparedConfigRead<'a> {
             self.expand_object(id, depth, capacity, &path)?;
             let mut entries = match incoming {
                 ReadNode::Json(serde_json::Value::Object(values)) => MergeEntries::Json(values.iter()),
-                ReadNode::StringMap(values) => MergeEntries::StringMap(values.iter()),
+                ReadNode::StringMap(values) => {
+                    capacity.entries(values.len(), &path)?;
+                    MergeEntries::StringMap(OrderedStringMapEntries::new(values))
+                }
                 value => return Err(conflict(&path, "object", value.kind())),
             };
             for (key, node) in &mut entries {

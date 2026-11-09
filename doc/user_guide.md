@@ -640,6 +640,12 @@ rejected member under `tree` reports `tree.key` rather than `tree`. Update
 assertions that compare these diagnostic paths. This does not add automatic
 numeric map key conversion.
 
+Within a native `HashMap<String, String>`, structured reads visit members in
+ascending raw-key order. This makes errors from that map repeatable across
+independent map instances. It does not reorder arrays or configuration sources,
+change which read stage takes precedence, or promise the globally smallest path
+when several nested preparation errors exist.
+
 Interpolation scope follows the selected storage shape. When `prefix` selects
 dotted child properties, lookup starts in that selected subtree. When it
 selects an exact structured property such as a JSON object, lookup starts in

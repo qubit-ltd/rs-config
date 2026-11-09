@@ -7,9 +7,8 @@
 // =============================================================================
 //! Borrowed object-entry iterators used while merging prepared reads.
 
-use std::collections::hash_map;
-
 use super::super::node::ReadNode;
+use super::ordered_string_map_entries::OrderedStringMapEntries;
 
 /// Borrows child entries from source object representations during merging.
 pub(crate) enum MergeEntries<'a> {
@@ -21,7 +20,7 @@ pub(crate) enum MergeEntries<'a> {
     /// Entries of a borrowed string map.
     StringMap(
         /// Borrowed key/value pairs from the original string map.
-        hash_map::Iter<'a, String, String>,
+        OrderedStringMapEntries<'a>,
     ),
 }
 
