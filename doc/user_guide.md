@@ -1198,9 +1198,11 @@ reports an invalid-key parse error at the first physical line of its logical
 assignment, including continued assignments; blank lines consumed during
 continuation still count. Its column is absent because only the line is known
 reliably. A location can be absent for other parse errors when the parser does
-not provide a reliable coordinate. `source_index()` remains the original
-collection element index and is independent of source line numbers. Budget and
-I/O errors do not carry source locations. Use `kind()`, `path()`, `source_id()`,
+not provide a reliable coordinate. TOML guard spans and YAML scanner or
+anchor/alias markers also provide locations when their coordinates map
+reliably; other early guard failures may remain unlocated. `source_index()`
+remains the original collection element index and is independent of source line
+numbers. Budget and I/O errors do not carry source locations. Use `kind()`, `path()`, `source_id()`,
 and `source_location()` for program logic rather than parsing diagnostic text.
 
 Diagnostics should use `kind()`, `path()`, and candidate paths for program logic. `Debug` output for configuration values redacts stored values through `qubit-redact` while retaining property metadata.

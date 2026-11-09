@@ -1059,8 +1059,8 @@ if let Some(location) = error.source_location() {
 行和列均从 1 开始。列按 Unicode scalar 值计数，而非 UTF-8 字节、grapheme cluster
 或屏幕显示宽度；TAB 计为一列。LF、CRLF 和独立 CR 都结束一个物理行。`PropertiesConfigSource`
 的无效键解析错误归属于逻辑赋值的首个物理行，包括续行；续行期间消耗的空行仍计入行号。
-由于只能可靠确定行号，其 column 缺省。其他解析错误在解析器无法可靠提供坐标时也可能没有位置。
-`source_index()` 仍表示原始集合元素索引，与来源行号无关。预算和 I/O 错误不附带来源位置。
+由于只能可靠确定行号，其 column 缺省。TOML guard span 以及 YAML scanner 或 anchor/alias marker
+在坐标可可靠映射时也会提供位置；其他早期 guard 错误仍可能没有位置。`source_index()` 仍表示原始集合元素索引，与来源行号无关。预算和 I/O 错误不附带来源位置。
 程序逻辑应使用 `kind()`、`path()`、`source_id()` 和 `source_location()`，不要解析诊断文本。
 
 程序逻辑应使用 `kind()`、`path()` 和候选路径处理诊断。配置值的 `Debug` 输出会通过 `qubit-redact` 遮盖存储值，同时保留 property 元数据。

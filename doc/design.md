@@ -99,8 +99,10 @@ physical line of the logical assignment and no column; continued assignments
 retain their first line even when continuation consumes blank lines.
 `source_index()` remains the collection element index and is not a line number.
 Composite loading propagates the leaf parse error and location unchanged.
-Early scanner or guard failures that have no trustworthy source coordinate
-remain unlocated. Budget and I/O errors also have no source location. The
+TOML parser-guard spans and YAML scanner or anchor/alias markers carry
+structured locations when their coordinates can be mapped reliably. Other
+early scanner or guard failures with no trustworthy source coordinate remain
+unlocated. Budget and I/O errors also have no source location. The
 location is structured metadata only: the source text is not retained, and
 parser input fragments are not added to diagnostic messages or Debug output.
 Built-in text-source file reads retry `Interrupted` without charging bytes;

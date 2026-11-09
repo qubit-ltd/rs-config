@@ -76,8 +76,9 @@ I/O 错误保留来源路径和错误种类。
 列按 Unicode scalar 值计数，TAB 计为一列。LF、CRLF 和独立 CR 都结束一个物理行。TOML 与 YAML
 解析器偏移会统一换算为此坐标约定。Properties 的无效键错误只包含逻辑赋值首个物理行，不含列；
 续行即使消耗空行，也仍归属首行。`source_index()` 仍是集合元素索引，不表示行号。组合加载会原样
-传播叶子来源的解析错误及其位置。缺少可信来源坐标的早期 scanner 或 guard 错误仍不带位置；预算与
-I/O 错误也不附带来源位置。位置仅为结构化元数据：不会保留来源文本，也不会把 parser 输入片段加入
+传播叶子来源的解析错误及其位置。TOML parser guard 的 span，以及 YAML scanner 或 anchor/alias
+marker 在坐标可可靠映射时会附带结构化位置；其他缺少可信来源坐标的早期 scanner 或 guard 错误仍不带
+位置。预算与 I/O 错误也不附带来源位置。位置仅为结构化元数据：不会保留来源文本，也不会把 parser 输入片段加入
 诊断消息或 Debug 输出。
 
 ## 读取策略与 Section
