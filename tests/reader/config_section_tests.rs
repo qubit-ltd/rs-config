@@ -314,3 +314,26 @@ fn test_section_debug_shows_only_path_and_effective_read_policy() {
     let overridden_debug = format!("{overridden:?}");
     assert!(overridden_debug.contains(&format!("read_policy: {override_policy:?}")));
 }
+
+#[test]
+fn test_section_iter_prefix_handles_root_empty_unicode_and_missing_prefixes() {
+    let mut config = Config::new();
+    config.set("http.host", "localhost").unwrap();
+    config.set("http.port", 8080_u16).unwrap();
+    config.set("httpx.host", "sibling").unwrap();
+    config.set("http.服务.地址", "本地").unwrap();
+    let section = config.section("http").unwrap();
+
+    let empty_prefix_keys: Vec<_> = section.iter_prefix("").map(|(key, _)| key).collect();
+    assert_eq!(empty_prefix_keys, ["host", "port", "服务.地址"]);
+
+    let unicode_prefix_keys: Vec<_> = section.iter_prefix("服务.").map(|(key, _)| key).collect();
+    assert_eq!(unicode_prefix_keys, ["服务.地址"]);
+
+    let missing_prefix_keys: Vec<_> = section.iter_prefix("missing").map(|(key, _)| key).collect();
+    assert!(missing_prefix_keys.is_empty());
+
+    let root = config.section("").unwrap();
+    let root_http_keys: Vec<_> = root.iter_prefix("http.").map(|(key, _)| key).collect();
+    assert_eq!(root_http_keys, ["http.host", "http.port", "http.服务.地址"]);
+}

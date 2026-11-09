@@ -447,11 +447,10 @@ impl<'a> ConfigReader for ConfigSection<'a> {
     fn iter_prefix<'b>(&'b self, prefix: &'b str) -> impl Iterator<Item = (&'b str, &'b Property)> + 'b {
         let child_prefix = self.child_prefix.as_deref().unwrap_or("");
         let full_prefix = format!("{child_prefix}{prefix}");
-        let lower_bound = full_prefix.clone();
         let child_prefix_len = child_prefix.len();
         self.config
             .properties
-            .range::<String, _>((Bound::Included(lower_bound), Bound::Unbounded))
+            .range::<str, _>((Bound::Included(full_prefix.as_str()), Bound::Unbounded))
             .take_while(move |(key, _)| key.starts_with(&full_prefix))
             .map(move |(key, property)| (&key[child_prefix_len..], property))
     }

@@ -373,3 +373,34 @@ fn test_root_reader_prefix_iteration_does_not_box() {
         "root prefix iteration should not allocate a boxed iterator",
     );
 }
+
+#[test]
+fn test_section_prefix_iteration_avoids_cloning_the_full_prefix() {
+    let _guard = ALLOCATION_TEST_LOCK
+        .lock()
+        .expect("the allocation test lock should not be poisoned");
+    let scope = "s".repeat(128);
+    let relative = "p".repeat(128);
+    let mut config = Config::new();
+    config
+        .set(format!("{scope}.{relative}.value"), 1_u64)
+        .expect("set section value");
+    let section = config.section(&scope).expect("get section");
+    let child_prefix = format!("{scope}.");
+    assert_eq!(section.iter_prefix(&relative).count(), 1);
+
+    reset_test_thread_allocations();
+    let baseline = format!("{child_prefix}{relative}");
+    std::hint::black_box(&baseline);
+    let expected_count = test_thread_allocations();
+    let expected_bytes = test_thread_allocation_bytes();
+
+    reset_test_thread_allocations();
+    let count = section.iter_prefix(&relative).count();
+    let actual_count = test_thread_allocations();
+    let actual_bytes = test_thread_allocation_bytes();
+
+    assert_eq!(count, 1);
+    assert_eq!(actual_count, expected_count);
+    assert_eq!(actual_bytes, expected_bytes);
+}
