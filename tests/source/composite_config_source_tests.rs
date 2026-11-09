@@ -74,6 +74,28 @@ fn test_composite_label_propagates_to_nested_budget_attribution() {
     }
 }
 
+#[test]
+fn test_nested_composite_preserves_leaf_parse_location_and_label() {
+    let leaf = PropertiesConfigSource::builder()
+        .label("broken-leaf")
+        .content("# header\n\ninvalid..key=secret")
+        .build();
+    let nested = CompositeConfigSource::builder()
+        .label("inner")
+        .add_source(leaf)
+        .build();
+    let outer = CompositeConfigSource::builder()
+        .label("outer")
+        .add_source(nested)
+        .build();
+
+    let error = outer.load().unwrap_err();
+    assert_eq!(error.source_id(), Some("broken-leaf"));
+    assert_eq!(error.path(), Some("invalid..key"));
+    assert_eq!(error.source_location().map(|location| (location.line(), location.column())), Some((3, None)));
+    assert!(!error.to_string().contains("secret"));
+}
+
 fn nested_chain(edges: usize, limits: SourceLimits) -> CompositeConfigSource {
     let mut source = CompositeConfigSource::builder()
         .limits(limits)

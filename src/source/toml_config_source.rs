@@ -39,6 +39,7 @@ use toml::de::Error as TomlError;
 use super::ConfigSource;
 use super::SourceLimits;
 use super::SourceLoadContext;
+use super::internal::text_location::text_location;
 use super::internal::toml_parser_guard::with_toml_admission;
 use super::source_input::SourceInput;
 use super::source_load_session::SourceLoadSession;
@@ -98,12 +99,9 @@ pub struct TomlConfigSource {
 ///
 /// `Some((line, column))` when the span starts at a valid UTF-8 boundary,
 /// otherwise `None`.
-fn toml_error_location(content: &str, error: &TomlError) -> Option<(usize, usize)> {
+fn toml_error_location(content: &str, error: &TomlError) -> Option<crate::SourceLocation> {
     let offset = error.span()?.start;
-    let prefix = content.get(..offset)?;
-    let line = prefix.bytes().filter(|byte| *byte == b'\n').count() + 1;
-    let column = prefix.rsplit('\n').next().map_or(1, |line| line.chars().count() + 1);
-    Some((line, column))
+    text_location(content, offset)
 }
 
 /// Builds a TOML parse error without formatting source text.
@@ -120,16 +118,23 @@ fn toml_error_location(content: &str, error: &TomlError) -> Option<(usize, usize
 /// A source-aware [`ConfigError`] containing the diagnostic source
 /// identifier, a source-independent message, and an available location.
 fn toml_parse_error(label: &str, content: &str, error: &TomlError) -> ConfigError {
-    let message = match toml_error_location(content, error) {
-        Some((line, column)) => format!(
+    let location = toml_error_location(content, error);
+    let message = match location {
+        Some(location) => format!(
             "Failed to parse TOML file '{}' at line {line}, column \
              {column}: {}",
             label,
             error.message(),
+            line = location.line(),
+            column = location.column().unwrap_or(1),
         ),
         None => format!("Failed to parse TOML file '{}': {}", label, error.message(),),
     };
-    ConfigError::source_parse_error(label, message)
+    let error = ConfigError::source_parse_error(label, message);
+    match location {
+        Some(location) => error.with_source_location(location),
+        None => error,
+    }
 }
 
 impl TomlConfigSource {
@@ -179,7 +184,9 @@ impl TomlConfigSource {
 impl ConfigSource for TomlConfigSource {
     /// Returns the stable identifier used to report this source during loading.
     fn source_id(&self) -> String {
-        self.label.clone().unwrap_or_else(|| self.input.label("TOML"))
+        self.label
+            .clone()
+            .unwrap_or_else(|| self.input.label("TOML"))
     }
 
     /// Returns the resource limits applied to one load of this source.
@@ -207,7 +214,15 @@ impl ConfigSource for TomlConfigSource {
         })?;
 
         let mut seen = HashSet::new();
-        flatten_toml_value(&label, "", &TomlValue::Table(table), &mut config, &mut seen, session, 0)?;
+        flatten_toml_value(
+            &label,
+            "",
+            &TomlValue::Table(table),
+            &mut config,
+            &mut seen,
+            session,
+            0,
+        )?;
         context.replace_layer(config);
         Ok(())
     }
@@ -262,16 +277,26 @@ pub(crate) fn flatten_toml_value(
                 } else {
                     format!("{prefix}.{k}")
                 };
-                ensure_config_key(k)
-                    .map_err(|error| error.with_source_context(source_id, Some(failed_member_path.clone()), None))?;
+                ensure_config_key(k).map_err(|error| {
+                    error.with_source_context(source_id, Some(failed_member_path.clone()), None)
+                })?;
                 let key = if prefix.is_empty() {
                     k.clone()
                 } else {
                     format!("{}.{}", prefix, k)
                 };
-                ensure_config_key(&key)
-                    .map_err(|error| error.with_source_context(source_id, Some(failed_member_path), None))?;
-                flatten_toml_value(source_id, &key, v, config, seen, budget, depth.saturating_add(1))?;
+                ensure_config_key(&key).map_err(|error| {
+                    error.with_source_context(source_id, Some(failed_member_path), None)
+                })?;
+                flatten_toml_value(
+                    source_id,
+                    &key,
+                    v,
+                    config,
+                    seen,
+                    budget,
+                    depth.saturating_add(1),
+                )?;
             }
         }
         TomlValue::Array(arr) => {
@@ -286,33 +311,33 @@ pub(crate) fn flatten_toml_value(
         }
         TomlValue::String(s) => {
             ensure_toml_property(source_id, seen, prefix, budget)?;
-            config
-                .set(prefix, s.clone())
-                .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))?;
+            config.set(prefix, s.clone()).map_err(|error| {
+                error.with_source_context(source_id, Some(prefix.to_string()), None)
+            })?;
         }
         TomlValue::Integer(i) => {
             ensure_toml_property(source_id, seen, prefix, budget)?;
-            config
-                .set(prefix, *i)
-                .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))?;
+            config.set(prefix, *i).map_err(|error| {
+                error.with_source_context(source_id, Some(prefix.to_string()), None)
+            })?;
         }
         TomlValue::Float(f) => {
             ensure_toml_property(source_id, seen, prefix, budget)?;
-            config
-                .set(prefix, *f)
-                .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))?;
+            config.set(prefix, *f).map_err(|error| {
+                error.with_source_context(source_id, Some(prefix.to_string()), None)
+            })?;
         }
         TomlValue::Boolean(b) => {
             ensure_toml_property(source_id, seen, prefix, budget)?;
-            config
-                .set(prefix, *b)
-                .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))?;
+            config.set(prefix, *b).map_err(|error| {
+                error.with_source_context(source_id, Some(prefix.to_string()), None)
+            })?;
         }
         TomlValue::Datetime(dt) => {
             ensure_toml_property(source_id, seen, prefix, budget)?;
-            config
-                .set(prefix, dt.to_string())
-                .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))?;
+            config.set(prefix, dt.to_string()).map_err(|error| {
+                error.with_source_context(source_id, Some(prefix.to_string()), None)
+            })?;
         }
     }
     Ok(())
@@ -369,11 +394,16 @@ fn ensure_toml_property(
 ///
 /// Returns an error when the array contains nested structures or when the
 /// configuration rejects the write, for example because the property is final.
-fn flatten_toml_array(source_id: &str, prefix: &str, arr: &[TomlValue], config: &mut Config) -> ConfigResult<()> {
+fn flatten_toml_array(
+    source_id: &str,
+    prefix: &str,
+    arr: &[TomlValue],
+    config: &mut Config,
+) -> ConfigResult<()> {
     if arr.is_empty() {
-        config
-            .set(prefix, Vec::<String>::new())
-            .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))?;
+        config.set(prefix, Vec::<String>::new()).map_err(|error| {
+            error.with_source_context(source_id, Some(prefix.to_string()), None)
+        })?;
         return Ok(());
     }
 
@@ -502,7 +532,12 @@ where
 /// category or when the configuration rejects the write. The caller validates
 /// the complete array category before conversion; the per-value check remains
 /// defensive.
-fn set_toml_string_array(source_id: &str, prefix: &str, arr: &[TomlValue], config: &mut Config) -> ConfigResult<()> {
+fn set_toml_string_array(
+    source_id: &str,
+    prefix: &str,
+    arr: &[TomlValue],
+    config: &mut Config,
+) -> ConfigResult<()> {
     let values = arr
         .iter()
         .map(|value| toml_scalar_to_string(value, prefix))
@@ -616,16 +651,40 @@ mod admission_tests {
             .parse::<toml::Table>()
             .expect_err("the backend input is intentionally malformed");
 
-        assert_eq!(toml_error_location(content, &error), Some((2, 10)));
+        assert_eq!(
+            toml_error_location(content, &error).map(|loc| (loc.line(), loc.column())),
+            Some((2, Some(10)))
+        );
         let error = toml_parse_error("TOML:test", content, &error);
         assert!(matches!(error, ConfigError::SourceParseError { .. }));
+        assert_eq!(
+            error
+                .source_location()
+                .map(|loc| (loc.line(), loc.column())),
+            Some((2, Some(10)))
+        );
         assert!(error.to_string().contains("line 2, column 10"));
         assert!(!error.to_string().contains("parser-secret"));
     }
 
     #[test]
+    fn test_backend_parse_error_location_handles_unicode_crlf_and_eof() {
+        let content = "é = 1\r\nvalue = [";
+        let error = content
+            .parse::<toml::Table>()
+            .expect_err("unterminated array");
+        assert_eq!(
+            toml_error_location(content, &error).map(|loc| (loc.line(), loc.column())),
+            Some((2, Some(10)))
+        );
+    }
+
+    #[test]
     fn test_backend_is_not_called_when_token_admission_fails() {
-        let mut session = SourceLoadSession::new("TOML:test", SourceLimits::builder().max_parser_tokens(2).build());
+        let mut session = SourceLoadSession::new(
+            "TOML:test",
+            SourceLimits::builder().max_parser_tokens(2).build(),
+        );
         let called = Cell::new(false);
         let error = with_toml_admission("TOML:test", "wide = [1, 2, 3]", &mut session, || {
             called.set(true);
@@ -645,8 +704,10 @@ mod admission_tests {
 
     #[test]
     fn test_backend_is_not_called_when_depth_admission_fails() {
-        let mut session =
-            SourceLoadSession::new("TOML:test", SourceLimits::builder().max_parser_nesting_depth(2).build());
+        let mut session = SourceLoadSession::new(
+            "TOML:test",
+            SourceLimits::builder().max_parser_nesting_depth(2).build(),
+        );
         let called = Cell::new(false);
         let error = with_toml_admission("TOML:test", "values = [[1]]", &mut session, || {
             called.set(true);
@@ -690,12 +751,21 @@ mod mapped_write_errors_tests {
             ("boolean", TomlValue::Boolean(true)),
             ("datetime", TomlValue::Datetime(datetime)),
             ("empty_array", TomlValue::Array(Vec::new())),
-            ("integer_array", TomlValue::Array(vec![TomlValue::Integer(1)])),
+            (
+                "integer_array",
+                TomlValue::Array(vec![TomlValue::Integer(1)]),
+            ),
             ("float_array", TomlValue::Array(vec![TomlValue::Float(1.5)])),
-            ("boolean_array", TomlValue::Array(vec![TomlValue::Boolean(true)])),
+            (
+                "boolean_array",
+                TomlValue::Array(vec![TomlValue::Boolean(true)]),
+            ),
             (
                 "string_array",
-                TomlValue::Array(vec![TomlValue::String("new".to_owned()), TomlValue::Datetime(datetime)]),
+                TomlValue::Array(vec![
+                    TomlValue::String("new".to_owned()),
+                    TomlValue::Datetime(datetime),
+                ]),
             ),
         ];
 
@@ -708,7 +778,15 @@ mod mapped_write_errors_tests {
             let mut seen = HashSet::new();
             let mut session = SourceLoadSession::new("TOML:test", SourceLimits::default());
 
-            let error = flatten_toml_value("TOML:test", key, &value, &mut config, &mut seen, &mut session, 0)
+            let error = flatten_toml_value(
+                "TOML:test",
+                key,
+                &value,
+                &mut config,
+                &mut seen,
+                &mut session,
+                0,
+            )
                 .expect_err("writing a final property must fail");
 
             assert!(matches!(

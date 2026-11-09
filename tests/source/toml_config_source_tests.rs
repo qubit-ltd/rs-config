@@ -446,6 +446,7 @@ mod test_toml_config_source {
         let debug = format!("{error:?}");
         assert!(display.contains("line 1"));
         assert!(display.contains("column"));
+        assert!(error.source_location().is_some());
         assert!(!display.contains(SECRET_MARKER));
         assert!(!debug.contains(SECRET_MARKER));
     }

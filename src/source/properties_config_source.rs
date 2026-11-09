@@ -47,12 +47,14 @@ use std::str::Chars;
 use super::ConfigSource;
 use super::SourceLimits;
 use super::SourceLoadContext;
+use super::internal::text_location::text_location;
 use super::source_input::SourceInput;
 use super::source_load_session::SourceLoadSession;
 use crate::Config;
 use crate::ConfigError;
 use crate::ConfigKey;
 use crate::ConfigResult;
+use crate::SourceLocation;
 
 // Defines PropertiesConfigSource construction without exposing its stored
 // fields.
@@ -184,7 +186,10 @@ impl PropertiesConfigSource {
     /// node, assignment, or depth limit is exceeded, or
     /// [`crate::ConfigError::SourceParseError`] for a non-canonical key.
     #[inline]
-    pub fn parse_content_with_limits(content: &str, limits: SourceLimits) -> ConfigResult<Vec<(String, String)>> {
+    pub fn parse_content_with_limits(
+        content: &str,
+        limits: SourceLimits,
+    ) -> ConfigResult<Vec<(String, String)>> {
         Self::parse_content_with_source(content, limits, "properties:<memory>")
     }
 
@@ -297,12 +302,20 @@ impl PropertiesConfigSource {
                 let key = unescape_properties(key);
                 let value = unescape_properties(value);
                 let _ = ConfigKey::parse(key.as_str()).map_err(|error| {
-                    ConfigError::source_parse_error_at(
+                    let error = ConfigError::source_parse_error_at(
                         source_id,
                         Some(key.clone()),
                         None,
                         format!("{error} at line {start_line}"),
-                    )
+                    );
+                    let line = text_location(content, properties_line_offset(content, start_line))
+                        .expect("physical line starts are valid UTF-8 boundaries")
+                        .line();
+                    error.with_source_location(SourceLocation::new(
+                        std::num::NonZeroUsize::new(line)
+                            .expect("physical line numbers are non-zero"),
+                        None,
+                    ))
                 })?;
                 session.check_depth(key.split('.').count())?;
                 session.consume_nodes(1)?;
@@ -347,6 +360,27 @@ fn properties_natural_lines(mut remaining: &str) -> impl Iterator<Item = &str> {
             .unwrap_or(suffix);
         Some(line)
     })
+}
+
+/// Returns the byte offset at the start of a one-based physical properties line.
+fn properties_line_offset(content: &str, target_line: usize) -> usize {
+    let mut line = 1usize;
+    let bytes = content.as_bytes();
+    let mut index = 0usize;
+    while index < bytes.len() && line < target_line {
+        match bytes[index] {
+            b'\r' if bytes.get(index + 1) == Some(&b'\n') => {
+                index += 2;
+                line += 1;
+            }
+            b'\r' | b'\n' => {
+                index += 1;
+                line += 1;
+            }
+            _ => index += 1,
+        }
+    }
+    index
 }
 
 /// Parses a single `key=value`, `key: value`, or `key value` line.
@@ -508,7 +542,11 @@ fn has_line_continuation(line: &str) -> bool {
 /// Number of trailing `\` bytes.
 #[inline]
 fn count_trailing_backslashes(line: &str) -> usize {
-    line.as_bytes().iter().rev().take_while(|&&b| b == b'\\').count()
+    line.as_bytes()
+        .iter()
+        .rev()
+        .take_while(|&&b| b == b'\\')
+        .count()
 }
 
 /// Processes Java properties escape sequences in a string.
@@ -662,7 +700,9 @@ fn decode_surrogate_pair(high: u32, low: u32) -> Option<char> {
 impl ConfigSource for PropertiesConfigSource {
     /// Returns the stable identifier used to report this source during loading.
     fn source_id(&self) -> String {
-        self.label.clone().unwrap_or_else(|| self.input.label("properties"))
+        self.label
+            .clone()
+            .unwrap_or_else(|| self.input.label("properties"))
     }
 
     /// Returns the resource limits applied to one load of this source.
