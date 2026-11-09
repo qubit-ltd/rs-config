@@ -207,9 +207,7 @@ fn with_yaml_admission<T>(
 impl ConfigSource for YamlConfigSource {
     /// Returns the stable identifier used to report this source during loading.
     fn source_id(&self) -> String {
-        self.label
-            .clone()
-            .unwrap_or_else(|| self.input.label("YAML"))
+        self.label.clone().unwrap_or_else(|| self.input.label("YAML"))
     }
 
     /// Returns the resource limits applied to one load of this source.
@@ -230,8 +228,7 @@ impl ConfigSource for YamlConfigSource {
         let label = self.source_id();
         let content = self.input.read_to_string("YAML", session)?;
         let (has_value_tokens, value) = with_yaml_admission(&label, &content, session, || {
-            from_str::<YamlValue>(&content)
-                .map_err(|error| yaml_parse_error(&label, &content, &error))
+            from_str::<YamlValue>(&content).map_err(|error| yaml_parse_error(&label, &content, &error))
         })?;
 
         if matches!(&value, YamlValue::Null) && !has_value_tokens {
@@ -292,34 +289,23 @@ pub(crate) fn flatten_yaml_value(
     match value {
         YamlValue::Mapping(map) => {
             for (k, v) in map {
-                let key_str = yaml_key_to_string(k).map_err(|error| {
-                    error.with_source_context(source_id, Some(prefix.to_string()), None)
-                })?;
+                let key_str = yaml_key_to_string(k)
+                    .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))?;
                 let failed_member_path = if prefix.is_empty() {
                     key_str.clone()
                 } else {
                     format!("{prefix}.{key_str}")
                 };
-                ensure_config_key(&key_str).map_err(|error| {
-                    error.with_source_context(source_id, Some(failed_member_path.clone()), None)
-                })?;
+                ensure_config_key(&key_str)
+                    .map_err(|error| error.with_source_context(source_id, Some(failed_member_path.clone()), None))?;
                 let key = if prefix.is_empty() {
                     key_str
                 } else {
                     format!("{}.{}", prefix, key_str)
                 };
-                ensure_config_key(&key).map_err(|error| {
-                    error.with_source_context(source_id, Some(failed_member_path), None)
-                })?;
-                flatten_yaml_value(
-                    source_id,
-                    &key,
-                    v,
-                    config,
-                    seen,
-                    budget,
-                    depth.saturating_add(1),
-                )?;
+                ensure_config_key(&key)
+                    .map_err(|error| error.with_source_context(source_id, Some(failed_member_path), None))?;
+                flatten_yaml_value(source_id, &key, v, config, seen, budget, depth.saturating_add(1))?;
             }
         }
         YamlValue::Sequence(seq) => {
@@ -335,51 +321,43 @@ pub(crate) fn flatten_yaml_value(
             // semantics.
             use qubit_datatype::DataType;
             ensure_yaml_property(source_id, seen, prefix, budget)?;
-            config.set_null(prefix, DataType::String).map_err(|error| {
-                error.with_source_context(source_id, Some(prefix.to_string()), None)
-            })?;
+            config
+                .set_null(prefix, DataType::String)
+                .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))?;
         }
         YamlValue::Bool(b) => {
             ensure_yaml_property(source_id, seen, prefix, budget)?;
-            config.set(prefix, *b).map_err(|error| {
-                error.with_source_context(source_id, Some(prefix.to_string()), None)
-            })?;
+            config
+                .set(prefix, *b)
+                .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))?;
         }
         YamlValue::Number(n) => {
             ensure_yaml_property(source_id, seen, prefix, budget)?;
             if let Some(i) = n.as_i64() {
-                config.set(prefix, i).map_err(|error| {
-                    error.with_source_context(source_id, Some(prefix.to_string()), None)
-                })?;
+                config
+                    .set(prefix, i)
+                    .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))?;
             } else if let Some(i) = n.as_u64() {
-                config.set(prefix, i).map_err(|error| {
-                    error.with_source_context(source_id, Some(prefix.to_string()), None)
-                })?;
+                config
+                    .set(prefix, i)
+                    .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))?;
             } else {
                 let f = n
                     .as_f64()
                     .expect("YAML number should be representable as i64, u64, or f64");
-                config.set(prefix, f).map_err(|error| {
-                    error.with_source_context(source_id, Some(prefix.to_string()), None)
-                })?;
+                config
+                    .set(prefix, f)
+                    .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))?;
             }
         }
         YamlValue::String(s) => {
             ensure_yaml_property(source_id, seen, prefix, budget)?;
-            config.set(prefix, s.clone()).map_err(|error| {
-                error.with_source_context(source_id, Some(prefix.to_string()), None)
-            })?;
+            config
+                .set(prefix, s.clone())
+                .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))?;
         }
         YamlValue::Tagged(tagged) => {
-            flatten_yaml_value(
-                source_id,
-                prefix,
-                &tagged.value,
-                config,
-                seen,
-                budget,
-                depth,
-            )?;
+            flatten_yaml_value(source_id, prefix, &tagged.value, config, seen, budget, depth)?;
         }
     }
     Ok(())
@@ -438,16 +416,11 @@ fn ensure_yaml_property(
 ///
 /// Returns an error when the sequence contains nested structures or when the
 /// configuration rejects the write, for example because the property is final.
-fn flatten_yaml_sequence(
-    source_id: &str,
-    prefix: &str,
-    seq: &[YamlValue],
-    config: &mut Config,
-) -> ConfigResult<()> {
+fn flatten_yaml_sequence(source_id: &str, prefix: &str, seq: &[YamlValue], config: &mut Config) -> ConfigResult<()> {
     if seq.is_empty() {
-        config.set(prefix, Vec::<String>::new()).map_err(|error| {
-            error.with_source_context(source_id, Some(prefix.to_string()), None)
-        })?;
+        config
+            .set(prefix, Vec::<String>::new())
+            .map_err(|error| error.with_source_context(source_id, Some(prefix.to_string()), None))?;
         return Ok(());
     }
 
@@ -500,11 +473,7 @@ fn flatten_yaml_sequence(
         YamlValue::Bool(_) if seq.iter().all(|value| matches!(value, YamlValue::Bool(_))) => {
             set_yaml_sequence_values(source_id, prefix, seq, config, YamlValue::as_bool)
         }
-        YamlValue::String(_)
-            if seq
-                .iter()
-                .all(|value| matches!(value, YamlValue::String(_))) =>
-        {
+        YamlValue::String(_) if seq.iter().all(|value| matches!(value, YamlValue::String(_))) => {
             set_yaml_string_sequence(source_id, prefix, seq, config)
         }
         YamlValue::Mapping(_) | YamlValue::Sequence(_) | YamlValue::Tagged(_) => {
@@ -512,11 +481,7 @@ fn flatten_yaml_sequence(
         }
         _ => {
             let index = if let YamlValue::Number(first_number) = &seq[0] {
-                let mut allowed = [
-                    first_number.is_i64(),
-                    first_number.is_u64(),
-                    first_number.is_f64(),
-                ];
+                let mut allowed = [first_number.is_i64(), first_number.is_u64(), first_number.is_f64()];
                 seq.iter()
                     .enumerate()
                     .skip(1)
@@ -600,12 +565,7 @@ where
 /// Returns an error when `seq` contains a non-string value or when the
 /// configuration rejects the write. The caller validates the complete
 /// sequence category before conversion; the per-value check remains defensive.
-fn set_yaml_string_sequence(
-    source_id: &str,
-    prefix: &str,
-    seq: &[YamlValue],
-    config: &mut Config,
-) -> ConfigResult<()> {
+fn set_yaml_string_sequence(source_id: &str, prefix: &str, seq: &[YamlValue], config: &mut Config) -> ConfigResult<()> {
     let values = seq
         .iter()
         .map(|value| yaml_scalar_to_string(value, prefix))
@@ -633,9 +593,7 @@ fn set_yaml_string_sequence(
 fn yaml_key_to_string(value: &YamlValue) -> ConfigResult<String> {
     match value {
         YamlValue::String(s) => Ok(s.clone()),
-        _ => Err(ConfigError::ParseError(
-            "YAML mapping keys must be strings".to_string(),
-        )),
+        _ => Err(ConfigError::ParseError("YAML mapping keys must be strings".to_string())),
     }
 }
 
@@ -683,9 +641,7 @@ fn same_yaml_scalar_kind(first: &YamlValue, other: &YamlValue) -> bool {
         | (YamlValue::Bool(_), YamlValue::Bool(_))
         | (YamlValue::String(_), YamlValue::String(_)) => true,
         (YamlValue::Number(first), YamlValue::Number(other)) => {
-            first.is_i64() == other.is_i64()
-                && first.is_u64() == other.is_u64()
-                && first.is_f64() == other.is_f64()
+            first.is_i64() == other.is_i64() && first.is_u64() == other.is_u64() && first.is_f64() == other.is_f64()
         }
         _ => false,
     }
@@ -715,17 +671,14 @@ mod admission_tests {
         ] {
             assert!(same_yaml_scalar_kind(&value, &value));
         }
-        assert!(!same_yaml_scalar_kind(
-            &YamlValue::Null,
-            &YamlValue::Bool(false)
-        ));
+        assert!(!same_yaml_scalar_kind(&YamlValue::Null, &YamlValue::Bool(false)));
     }
 
     #[test]
     fn test_backend_parse_error_fallback_keeps_safe_location() {
         let content = "value: [\"parser-secret\"";
-        let error = serde_norway::from_str::<YamlValue>(content)
-            .expect_err("the backend input is intentionally malformed");
+        let error =
+            serde_norway::from_str::<YamlValue>(content).expect_err("the backend input is intentionally malformed");
         let error = yaml_parse_error("YAML:<memory>", content, &error);
 
         assert!(matches!(error, ConfigError::SourceParseError { .. }));
@@ -736,8 +689,7 @@ mod admission_tests {
     #[test]
     fn test_backend_parse_error_location_normalizes_unicode_crlf_and_eof() {
         let content = "é: ok\r\nvalue: [";
-        let error =
-            serde_norway::from_str::<YamlValue>(content).expect_err("unterminated sequence");
+        let error = serde_norway::from_str::<YamlValue>(content).expect_err("unterminated sequence");
         let location = yaml_parse_error("YAML:<memory>", content, &error).source_location();
         assert_eq!(
             location.map(|location| (location.line(), location.column())),
@@ -748,10 +700,7 @@ mod admission_tests {
     #[test]
     fn test_backend_is_not_called_when_token_admission_fails() {
         let called = Cell::new(false);
-        let mut session = SourceLoadSession::new(
-            "YAML:<memory>",
-            SourceLimits::builder().max_parser_tokens(0).build(),
-        );
+        let mut session = SourceLoadSession::new("YAML:<memory>", SourceLimits::builder().max_parser_tokens(0).build());
 
         let error = with_yaml_admission("YAML:<memory>", "value: yes", &mut session, || {
             called.set(true);
@@ -777,15 +726,10 @@ mod admission_tests {
             SourceLimits::builder().max_parser_nesting_depth(0).build(),
         );
 
-        let error = with_yaml_admission(
-            "YAML:<memory>",
-            "outer: {inner: value}",
-            &mut session,
-            || {
+        let error = with_yaml_admission("YAML:<memory>", "outer: {inner: value}", &mut session, || {
             called.set(true);
             Ok(())
-            },
-        )
+        })
         .expect_err("depth admission must fail before invoking the backend");
 
         assert!(!called.get());

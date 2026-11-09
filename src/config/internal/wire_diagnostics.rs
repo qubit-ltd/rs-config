@@ -183,6 +183,9 @@ fn wire_pointer(path: &Path) -> String {
 ///
 /// Unknown segments can be keys from arbitrary JSON values and may contain
 /// user data, so diagnostic paths stop before including them.
+///
+/// # Parameters
+/// - `segment`: Path segment to check against the persisted wire fields.
 fn is_safe_wire_field(segment: &str) -> bool {
     matches!(
         segment,

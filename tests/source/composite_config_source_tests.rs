@@ -80,10 +80,7 @@ fn test_nested_composite_preserves_leaf_parse_location_and_label() {
         .label("broken-leaf")
         .content("# header\n\ninvalid..key=secret")
         .build();
-    let nested = CompositeConfigSource::builder()
-        .label("inner")
-        .add_source(leaf)
-        .build();
+    let nested = CompositeConfigSource::builder().label("inner").add_source(leaf).build();
     let outer = CompositeConfigSource::builder()
         .label("outer")
         .add_source(nested)
@@ -92,7 +89,12 @@ fn test_nested_composite_preserves_leaf_parse_location_and_label() {
     let error = outer.load().unwrap_err();
     assert_eq!(error.source_id(), Some("broken-leaf"));
     assert_eq!(error.path(), Some("invalid..key"));
-    assert_eq!(error.source_location().map(|location| (location.line(), location.column())), Some((3, None)));
+    assert_eq!(
+        error
+            .source_location()
+            .map(|location| (location.line(), location.column())),
+        Some((3, None))
+    );
     assert!(!error.to_string().contains("secret"));
 }
 

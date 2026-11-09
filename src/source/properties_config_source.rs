@@ -186,10 +186,7 @@ impl PropertiesConfigSource {
     /// node, assignment, or depth limit is exceeded, or
     /// [`crate::ConfigError::SourceParseError`] for a non-canonical key.
     #[inline]
-    pub fn parse_content_with_limits(
-        content: &str,
-        limits: SourceLimits,
-    ) -> ConfigResult<Vec<(String, String)>> {
+    pub fn parse_content_with_limits(content: &str, limits: SourceLimits) -> ConfigResult<Vec<(String, String)>> {
         Self::parse_content_with_source(content, limits, "properties:<memory>")
     }
 
@@ -312,8 +309,7 @@ impl PropertiesConfigSource {
                         .expect("physical line starts are valid UTF-8 boundaries")
                         .line();
                     error.with_source_location(SourceLocation::new(
-                        std::num::NonZeroUsize::new(line)
-                            .expect("physical line numbers are non-zero"),
+                        std::num::NonZeroUsize::new(line).expect("physical line numbers are non-zero"),
                         None,
                     ))
                 })?;
@@ -362,7 +358,16 @@ fn properties_natural_lines(mut remaining: &str) -> impl Iterator<Item = &str> {
     })
 }
 
-/// Returns the byte offset at the start of a one-based physical properties line.
+/// Returns the byte offset at the start of a one-based physical properties
+/// line.
+///
+/// # Parameters
+/// - `content`: Properties source text whose physical lines are counted.
+/// - `target_line`: One-based line number to locate.
+///
+/// # Returns
+/// The byte offset at the start of `target_line`, or the end of `content` if
+/// the requested line is past the source.
 fn properties_line_offset(content: &str, target_line: usize) -> usize {
     let mut line = 1usize;
     let bytes = content.as_bytes();
@@ -542,11 +547,7 @@ fn has_line_continuation(line: &str) -> bool {
 /// Number of trailing `\` bytes.
 #[inline]
 fn count_trailing_backslashes(line: &str) -> usize {
-    line.as_bytes()
-        .iter()
-        .rev()
-        .take_while(|&&b| b == b'\\')
-        .count()
+    line.as_bytes().iter().rev().take_while(|&&b| b == b'\\').count()
 }
 
 /// Processes Java properties escape sequences in a string.
@@ -700,9 +701,7 @@ fn decode_surrogate_pair(high: u32, low: u32) -> Option<char> {
 impl ConfigSource for PropertiesConfigSource {
     /// Returns the stable identifier used to report this source during loading.
     fn source_id(&self) -> String {
-        self.label
-            .clone()
-            .unwrap_or_else(|| self.input.label("properties"))
+        self.label.clone().unwrap_or_else(|| self.input.label("properties"))
     }
 
     /// Returns the resource limits applied to one load of this source.

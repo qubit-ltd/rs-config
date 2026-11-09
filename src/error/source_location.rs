@@ -14,12 +14,19 @@ use std::num::NonZeroUsize;
 /// A missing column indicates that only the line could be determined reliably.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct SourceLocation {
+    /// One-based physical line number.
     line: NonZeroUsize,
+    /// One-based physical column number when the parser can determine it.
     column: Option<NonZeroUsize>,
 }
 
 impl SourceLocation {
-    /// Creates a source location from one-based line and optional column values.
+    /// Creates a source location from one-based line and optional column
+    /// values.
+    ///
+    /// # Parameters
+    /// - `line`: Non-zero physical line number.
+    /// - `column`: Optional non-zero Unicode-scalar column number.
     #[inline]
     pub const fn new(line: NonZeroUsize, column: Option<NonZeroUsize>) -> Self {
         Self { line, column }

@@ -2,6 +2,8 @@
 //    Copyright (c) 2025 - 2026 Haixing Hu.
 //
 //    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 //! Converts byte offsets in source text to one-based physical coordinates.
 
@@ -13,6 +15,14 @@ use crate::SourceLocation;
 ///
 /// CRLF is a single line ending. An offset between its bytes belongs to the
 /// previous line end; the offset after it starts the next line at column 1.
+///
+/// # Parameters
+/// - `content`: UTF-8 source text to measure.
+/// - `offset`: Byte offset to convert.
+///
+/// # Returns
+/// The source location when the offset is in range and on a character
+/// boundary; otherwise, `None`.
 pub(crate) fn text_location(content: &str, offset: usize) -> Option<SourceLocation> {
     if offset > content.len() || !content.is_char_boundary(offset) {
         return None;
@@ -47,10 +57,7 @@ pub(crate) fn text_location(content: &str, offset: usize) -> Option<SourceLocati
             }
         }
     }
-    Some(SourceLocation::new(
-        NonZeroUsize::new(line)?,
-        NonZeroUsize::new(column),
-    ))
+    Some(SourceLocation::new(NonZeroUsize::new(line)?, NonZeroUsize::new(column)))
 }
 
 #[cfg(test)]
@@ -58,14 +65,14 @@ mod tests {
     use super::text_location;
 
     #[test]
-    fn counts_unicode_tabs_and_eof() {
+    fn test_counts_unicode_tabs_and_eof() {
         assert_eq!(text_location("a\té", 0).unwrap().column(), Some(1));
         assert_eq!(text_location("a\té", 2).unwrap().column(), Some(3));
         assert_eq!(text_location("a\té", 4).unwrap().column(), Some(4));
     }
 
     #[test]
-    fn counts_crlf_cr_and_lf() {
+    fn test_counts_crlf_cr_and_lf() {
         let text = "ab\r\ncd\ref\ng";
         assert_eq!(
             (
@@ -105,7 +112,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_invalid_offsets() {
+    fn test_rejects_invalid_offsets() {
         assert!(text_location("é", 1).is_none());
         assert!(text_location("é", 3).is_none());
     }

@@ -125,7 +125,12 @@ mod test_properties_config_source {
         assert_eq!(error.path(), Some("invalid..key"));
         assert_eq!(error.source_id(), source_id);
         assert_eq!(error.source_index(), None);
-        assert_eq!(error.source_location().map(|location| (location.line(), location.column())), Some((line, None)));
+        assert_eq!(
+            error
+                .source_location()
+                .map(|location| (location.line(), location.column())),
+            Some((line, None))
+        );
         match error {
             ConfigError::SourceParseError { message, .. } => {
                 assert!(message.contains(&format!("at line {line}")), "{message}");
@@ -150,19 +155,34 @@ mod test_properties_config_source {
             let continued_key_after_header = format!("# header{ending}invalid.\\{ending}.key=value");
             let error = PropertiesConfigSource::parse_content(&continued_key_after_header).unwrap_err();
             assert_eq!(error.path(), Some("invalid..key"));
-            assert_eq!(error.source_location().map(|location| (location.line(), location.column())), Some((2, None)));
+            assert_eq!(
+                error
+                    .source_location()
+                    .map(|location| (location.line(), location.column())),
+                Some((2, None))
+            );
             assert!(error.to_string().contains("at line 2"), "{error}");
 
             let continued_key = format!("invalid.\\{ending}.key=value");
             let error = PropertiesConfigSource::parse_content(&continued_key).unwrap_err();
             assert_eq!(error.path(), Some("invalid..key"));
-            assert_eq!(error.source_location().map(|location| (location.line(), location.column())), Some((1, None)));
+            assert_eq!(
+                error
+                    .source_location()
+                    .map(|location| (location.line(), location.column())),
+                Some((1, None))
+            );
             assert!(error.to_string().contains("at line 1"), "{error}");
 
             let blank_continuation = format!("good=a\\{ending}{ending}invalid..key=value");
             let error = PropertiesConfigSource::parse_content(&blank_continuation).unwrap_err();
             assert_eq!(error.path(), Some("invalid..key"));
-            assert_eq!(error.source_location().map(|location| (location.line(), location.column())), Some((3, None)));
+            assert_eq!(
+                error
+                    .source_location()
+                    .map(|location| (location.line(), location.column())),
+                Some((3, None))
+            );
             assert!(error.to_string().contains("at line 3"), "{error}");
         }
 

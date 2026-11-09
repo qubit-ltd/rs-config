@@ -7,6 +7,10 @@
 // =============================================================================
 //! Focused tests for public configuration errors.
 
+use std::num::NonZeroUsize;
+
+use qubit_budget::BudgetError;
+use qubit_budget::Observation;
 use qubit_config::ConfigError;
 use qubit_config::ConfigErrorKind;
 use qubit_config::ConfigPathViolation;
@@ -15,9 +19,6 @@ use qubit_datatype::DataConversionError;
 use qubit_datatype::DataType;
 use qubit_datatype::InvalidValueReason;
 use qubit_value::ValueError;
-use std::num::NonZeroUsize;
-use qubit_budget::BudgetError;
-use qubit_budget::Observation;
 
 #[test]
 fn test_source_parse_location_preserves_existing_context() {

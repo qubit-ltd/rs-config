@@ -583,6 +583,14 @@ impl ConfigError {
     /// Attaches a physical source location to a source parse error.
     ///
     /// Other error variants are returned unchanged.
+    ///
+    /// # Parameters
+    /// - `location`: Physical source location to attach when this is a
+    ///   source-parse error.
+    ///
+    /// # Returns
+    /// This error with `location` attached to `SourceParseError`, or the
+    /// original error for any other variant.
     pub(crate) fn with_source_location(self, location: SourceLocation) -> Self {
         match self {
             Self::SourceParseError {
@@ -835,25 +843,17 @@ mod tests {
     use qubit_datatype::DataType;
     use qubit_datatype::InvalidValueReason;
 
+    use super::ConfigError;
     use crate::SourceLocation;
 
-    use super::ConfigError;
-
     #[test]
-    fn source_parse_location_helpers_preserve_context() {
+    fn test_source_parse_location_helpers_preserve_context() {
         let ordinary = ConfigError::source_parse_error("memory:test", "bad syntax");
         assert_eq!(ordinary.source_location(), None);
 
-        let indexed = ConfigError::source_parse_error_at(
-            "memory:test",
-            Some("a..b".to_string()),
-            Some(3),
-            "bad syntax",
-        );
-        let location = SourceLocation::new(
-            NonZeroUsize::new(2).unwrap(),
-            Some(NonZeroUsize::new(4).unwrap()),
-        );
+        let indexed =
+            ConfigError::source_parse_error_at("memory:test", Some("a..b".to_string()), Some(3), "bad syntax");
+        let location = SourceLocation::new(NonZeroUsize::new(2).unwrap(), Some(NonZeroUsize::new(4).unwrap()));
         let located = indexed.with_source_location(location);
         assert_eq!(located.source_location(), Some(location));
         assert_eq!(located.kind(), crate::ConfigErrorKind::Parse);
