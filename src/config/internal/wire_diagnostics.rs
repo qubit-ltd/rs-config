@@ -146,15 +146,81 @@ fn check_wire_shape(value: &Value) -> Result<(), ConfigWireDecodeError> {
 /// * `path` - Serde path identifying the rejected wire field.
 fn wire_pointer(path: &Path) -> String {
     let mut pointer = String::new();
+    let mut first_segment = true;
+    let mut expect_property_name = false;
     for segment in path {
         match segment {
-            Segment::Map { key } => pointer = pointer_child(&pointer, key),
+            Segment::Map { key } => {
+                if expect_property_name {
+                    pointer = pointer_child(&pointer, key);
+                    expect_property_name = false;
+                    continue;
+                }
+                if !is_safe_wire_field(key) {
+                    break;
+                }
+                pointer = pointer_child(&pointer, key);
+                if first_segment && key == "properties" {
+                    expect_property_name = true;
+                }
+                first_segment = false;
+            }
             Segment::Seq { index } => pointer = pointer_child(&pointer, &index.to_string()),
-            Segment::Enum { variant } => pointer = pointer_child(&pointer, variant),
+            Segment::Enum { variant } => {
+                if !is_safe_wire_field(variant) {
+                    break;
+                }
+                pointer = pointer_child(&pointer, variant);
+                first_segment = false;
+            }
             Segment::Unknown => break,
         }
     }
     pointer
+}
+
+/// Returns whether a path segment names a field in the persisted wire schema.
+///
+/// Unknown segments can be keys from arbitrary JSON values and may contain
+/// user data, so diagnostic paths stop before including them.
+fn is_safe_wire_field(segment: &str) -> bool {
+    matches!(
+        segment,
+        "version"
+            | "description"
+            | "properties"
+            | "read_options"
+            | "name"
+            | "value"
+            | "is_final"
+            | "scalar"
+            | "collection"
+            | "bool"
+            | "char"
+            | "int8"
+            | "int16"
+            | "int32"
+            | "int64"
+            | "int128"
+            | "uint8"
+            | "uint16"
+            | "uint32"
+            | "uint64"
+            | "uint128"
+            | "float32"
+            | "float64"
+            | "biginteger"
+            | "bigdecimal"
+            | "string"
+            | "date"
+            | "time"
+            | "datetime"
+            | "instant"
+            | "duration"
+            | "url"
+            | "stringmap"
+            | "json"
+    )
 }
 
 /// Appends one escaped JSON Pointer segment.
