@@ -318,10 +318,10 @@ cargo run --locked --example config_source_resource_probe --features formats -- 
 `KeyConflict`，但现在会稳定报告规范化键最小组及其中名称最小的两项。此说明只描述本库合同，
 不声称已在所有下游应用中完成验证。
 
-此次诊断增强为 `ConfigError::SourceParseError` 增加公开的 `location` 字段，改变了公开错误变体布局；
-直接构造和穷举字段解构都需要源码迁移。升级到未来的 0.16 时，直接构造若无已知坐标，应填写
-`location: None`；穷举解构应增加 `..` 或绑定 `location`。使用 `{ .. }` 的匹配无需修改。
-该变化必须随下一个不兼容 minor 版本发布，不得描述为与 0.15 的 patch 版本完全兼容。
+`ConfigError::SourceParseError` 在 0.15 中包含公开的 `location` 字段。与 0.15 之前的开发基线相比，
+该字段改变了公开错误变体布局；直接构造和穷举字段解构都需要源码迁移。直接构造时若无已知坐标，
+应填写 `location: None`；穷举解构应增加 `..` 或绑定 `location`。使用 `{ .. }` 的匹配无需修改。
+0.15 尚未发布；该 API 属于即将发布的 0.15 契约。
 
 rs-http 配置适配器将未知键校验和 `usize` 读取委托给 `ConfigReader`。超出平台 `usize` 范围的整数现在
 会以 `PlatformIntegerOutOfRange`（`Conversion`）返回，并映射为 `HttpConfigErrorKind::TypeError`；这有意

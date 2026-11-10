@@ -450,14 +450,13 @@ group with the smallest normalized key and its two smallest original names.
 These notes describe the library contract and do not claim validation across
 all downstream applications.
 
-`ConfigError::SourceParseError` gains a public `location` field in this
-diagnostic enhancement. This changes the public enum-variant layout and is a
-source compatibility break for direct construction and exhaustive field
-destructuring. For a future 0.16 upgrade, direct construction must specify
-`location: None` when no coordinate is known; exhaustive destructuring should
-add `..` or bind `location`. A `{ .. }` match needs no change. This change must
-ship with the next incompatible minor release; it must not be presented as
-fully compatible with a 0.15 patch release.
+`ConfigError::SourceParseError` includes the public `location` field in 0.15.
+This changes the public enum-variant layout compared with the pre-0.15
+development baseline and is a source compatibility break for direct
+construction and exhaustive field destructuring. Direct construction must
+specify `location: None` when no coordinate is known; exhaustive destructuring
+should add `..` or bind `location`. A `{ .. }` match needs no change. Version
+0.15 has not been released; this API is part of the upcoming 0.15 contract.
 
 The rs-http configuration adapter delegates unknown-key checks and `usize`
 reads to `ConfigReader`. An integer above the platform `usize` range now
