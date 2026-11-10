@@ -161,6 +161,22 @@ fn test_environment_and_config_references_use_distinct_conversion_budgets() {
             max_expansions: 32,
         }) if path == "alias"
     ));
+
+    let final_conversion_limited_policy = ReadPolicy::builder()
+        .conversion_limits(
+            ConversionLimits::builder()
+                .operation_limits(ConversionOperationLimits::builder().max_input_bytes(16).build())
+                .build(),
+        )
+        .max_interpolation_output_bytes(64)
+        .build();
+    let mut final_conversion_limited = Config::new();
+    final_conversion_limited.set_default_read_policy(with_environment_fallback(final_conversion_limited_policy));
+    final_conversion_limited.set("alias", "${A}").unwrap();
+    let error = final_conversion_limited
+        .get_interpolated::<String>("alias")
+        .unwrap_err();
+    assert_eq!(error.path(), Some("alias"));
 }
 
 #[test]
