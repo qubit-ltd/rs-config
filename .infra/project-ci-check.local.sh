@@ -11,6 +11,8 @@ python3 -B scripts/coverage_pipeline_tests.py
 python3 -B scripts/check-doc-examples.py
 python3 -B scripts/check_doc_examples_tests.py
 python3 -B scripts/check-doc-consumer.py
+python3 -B scripts/check_design_evidence_tests.py
+python3 -B scripts/check-design-evidence.py
 cargo run --example config_policy_restore
 cargo run --example config_numeric_map_keys
 cargo run --example config_guide_sources
