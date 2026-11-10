@@ -27,8 +27,8 @@ use super::internal::dotenv_line_state::DotenvLineState;
 use super::source_input::SourceInput;
 use crate::Config;
 use crate::ConfigError;
-use crate::ConfigKey;
 use crate::ConfigResult;
+use crate::config_path::ensure_config_key;
 
 // Defines EnvFileConfigSource construction without exposing its stored fields.
 #[path = "env_file_config_source_builder.rs"]
@@ -486,7 +486,7 @@ impl ConfigSource for EnvFileConfigSource {
 
         for item in iter {
             let (key, value) = item.map_err(|error| map_dotenv_error(&label, error))?;
-            let _ = ConfigKey::parse(key.as_str())
+            ensure_config_key(key.as_str())
                 .map_err(|error| error.with_source_context(&label, Some(key.clone()), None))?;
             session.check_depth(key.split('.').count())?;
             session.consume_nodes(1)?;

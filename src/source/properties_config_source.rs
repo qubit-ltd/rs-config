@@ -52,9 +52,9 @@ use super::source_input::SourceInput;
 use super::source_load_session::SourceLoadSession;
 use crate::Config;
 use crate::ConfigError;
-use crate::ConfigKey;
 use crate::ConfigResult;
 use crate::SourceLocation;
+use crate::config_path::ensure_config_key;
 
 // Defines PropertiesConfigSource construction without exposing its stored
 // fields.
@@ -298,7 +298,7 @@ impl PropertiesConfigSource {
             if let Some((key, value)) = parse_key_value(&full_line) {
                 let key = unescape_properties(key);
                 let value = unescape_properties(value);
-                let _ = ConfigKey::parse(key.as_str()).map_err(|error| {
+                ensure_config_key(key.as_str()).map_err(|error| {
                     let error = ConfigError::source_parse_error_at(
                         source_id,
                         Some(key.clone()),
