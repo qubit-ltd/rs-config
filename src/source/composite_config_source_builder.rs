@@ -101,7 +101,6 @@ impl CompositeConfigSourceBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    /// Returns the resource limits applied to one load of this source.
     #[inline]
     pub fn limits(mut self, limits: SourceLimits) -> Self {
         self.limits = limits;
