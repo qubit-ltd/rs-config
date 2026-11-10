@@ -113,6 +113,94 @@ fn benchmark_source_parsing(criterion: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmarks environment-file preprocessing across representative input shapes.
+fn benchmark_env_file_preprocessing(criterion: &mut Criterion) {
+    #[cfg(feature = "env-file")]
+    {
+        let fixtures = PROPERTY_COUNTS
+        .into_iter()
+        .flat_map(|property_count| {
+            [
+                (
+                    "plain",
+                    (0..property_count)
+                        .map(|index| format!("KEY_{index}=value{index}\n"))
+                        .collect::<String>(),
+                    "value0",
+                ),
+                (
+                    "comments",
+                    (0..property_count)
+                        .map(|index| {
+                            format!(
+                                "KEY_{index}=value{index} # comment with 'quotes' and ${{IGNORED}}\n"
+                            )
+                        })
+                        .collect::<String>(),
+                    "value0",
+                ),
+                (
+                    "placeholders",
+                    (0..property_count)
+                        .map(|index| {
+                            format!(
+                                "KEY_{index}=\"${{UNRESOLVED_{index}}}/$OTHER_{index}\"\n"
+                            )
+                        })
+                        .collect::<String>(),
+                    "${UNRESOLVED_0}/$OTHER_0",
+                ),
+                (
+                    "multiline",
+                    (0..property_count)
+                        .map(|index| {
+                            format!(
+                                "KEY_{index}=\"first\n${{UNRESOLVED_{index}}}\nlast\"\n"
+                            )
+                        })
+                        .collect::<String>(),
+                    "first\n${UNRESOLVED_0}\nlast",
+                ),
+            ]
+            .into_iter()
+            .map(move |(shape, content, expected_value)| {
+                (
+                    property_count,
+                    shape,
+                    EnvFileConfigSource::from_content(content),
+                    expected_value,
+                )
+            })
+        })
+        .collect::<Vec<_>>();
+
+        // Validate assignment counts and representative values before timed iterations.
+        for (property_count, shape, source, expected_value) in &fixtures {
+            let config = source
+                .load()
+                .unwrap_or_else(|error| panic!("{shape} fixture should load: {error}"));
+            assert_eq!(config.len(), *property_count, "{shape} fixture size");
+            assert_eq!(
+                config.get::<String>("KEY_0").unwrap(),
+                *expected_value,
+                "{shape} fixture value"
+            );
+        }
+
+        let mut group = criterion.benchmark_group("env_file_preprocessing");
+        for (property_count, shape, source, _) in &fixtures {
+            group.bench_with_input(
+                BenchmarkId::new(*shape, property_count),
+                source,
+                |bencher, source| {
+                    bencher.iter(|| black_box(source.load().unwrap()));
+                },
+            );
+        }
+        group.finish();
+    }
+}
+
 /// Benchmarks parsing properties values continued across physical lines.
 fn benchmark_continuation_backslashes(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("properties_continuation_backslashes");
@@ -413,6 +501,7 @@ fn benchmark_asymmetric_merges(criterion: &mut Criterion) {
 criterion_group!(
     benches,
     benchmark_source_parsing,
+    benchmark_env_file_preprocessing,
     benchmark_properties_parse_and_load,
     benchmark_continuation_backslashes,
     benchmark_config_merge,
