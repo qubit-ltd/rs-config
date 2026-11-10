@@ -20,11 +20,11 @@
 use std::borrow::Cow;
 use std::path::Path;
 
-use super::internal::dotenv_line_state::DotenvLineState;
-use super::source_input::SourceInput;
 use super::ConfigSource;
 use super::SourceLimits;
 use super::SourceLoadContext;
+use super::internal::dotenv_line_state::DotenvLineState;
+use super::source_input::SourceInput;
 use crate::Config;
 use crate::ConfigError;
 use crate::ConfigKey;
@@ -114,12 +114,12 @@ fn map_dotenv_error(label: &str, error: dotenvy::Error) -> ConfigError {
 /// * `content` - Original `.env` text whose recognized inline comments should
 ///   be removed.
 fn strip_dotenv_inline_comments(content: &str) -> Cow<'_, str> {
-    let mut normalized: Option<String> = None;
     let mut state = DotenvLineState::Complete;
     let mut in_comment = false;
     let mut physical_line_start = 0;
+    let mut characters = content.char_indices();
 
-    for (index, character) in content.char_indices() {
+    while let Some((index, character)) = characters.next() {
         if index == physical_line_start
             && state == DotenvLineState::Complete
             && is_dotenv_full_comment_line(content, index)
@@ -132,13 +132,18 @@ fn strip_dotenv_inline_comments(content: &str) -> Cow<'_, str> {
         }
 
         if in_comment && !matches!(character, '\r' | '\n') {
-            if normalized.is_none() {
-                let mut output = String::with_capacity(content.len());
-                output.push_str(&content[..index]);
-                normalized = Some(output);
-            }
-        } else if let Some(output) = &mut normalized {
-            output.push(character);
+            let mut normalized = String::with_capacity(content.len());
+            normalized.push_str(&content[..index]);
+            state.advance(character);
+            append_dotenv_inline_comments_remainder(
+                content,
+                characters,
+                &mut state,
+                &mut in_comment,
+                &mut physical_line_start,
+                &mut normalized,
+            );
+            return Cow::Owned(normalized);
         }
         state.advance(character);
         if character == '\n' {
@@ -146,7 +151,52 @@ fn strip_dotenv_inline_comments(content: &str) -> Cow<'_, str> {
             physical_line_start = index + character.len_utf8();
         }
     }
-    normalized.map_or(Cow::Borrowed(content), Cow::Owned)
+    Cow::Borrowed(content)
+}
+
+/// Appends the rest of a comment-normalized input after its first removal.
+///
+/// The caller has advanced `state` through the first removed character and
+/// copied the unchanged prefix, so this loop can append retained characters
+/// directly without checking whether an output buffer exists on each step.
+///
+/// # Parameters
+///
+/// * `content` - Full input used to identify physical comment lines.
+/// * `characters` - Remaining characters after the first removed character.
+/// * `state` - Dotenv line state after that removed character.
+/// * `in_comment` - Whether the current physical line is in an inline comment.
+/// * `physical_line_start` - Byte offset of the current physical line start.
+/// * `output` - Buffer receiving retained characters.
+fn append_dotenv_inline_comments_remainder(
+    content: &str,
+    characters: std::str::CharIndices<'_>,
+    state: &mut DotenvLineState,
+    in_comment: &mut bool,
+    physical_line_start: &mut usize,
+    output: &mut String,
+) {
+    for (index, character) in characters {
+        if index == *physical_line_start
+            && *state == DotenvLineState::Complete
+            && is_dotenv_full_comment_line(content, index)
+        {
+            *state = DotenvLineState::Comment;
+        }
+
+        if !*in_comment && *state == DotenvLineState::WhiteSpace && character == '#' {
+            *in_comment = true;
+        }
+
+        if !*in_comment || matches!(character, '\r' | '\n') {
+            output.push(character);
+        }
+        state.advance(character);
+        if character == '\n' {
+            *in_comment = false;
+            *physical_line_start = index + character.len_utf8();
+        }
+    }
 }
 
 /// Protects substitutions independently within each dotenv logical line.
@@ -161,6 +211,10 @@ fn strip_dotenv_inline_comments(content: &str) -> Cow<'_, str> {
 ///
 /// * `content` - Input content being parsed.
 fn escape_dotenv_substitutions(content: &str) -> Cow<'_, str> {
+    if !content.contains('$') {
+        return Cow::Borrowed(content);
+    }
+
     let mut escaped_content = None;
     let mut state = DotenvLineState::Complete;
     let mut logical_line_start = 0;
@@ -177,12 +231,7 @@ fn escape_dotenv_substitutions(content: &str) -> Cow<'_, str> {
         state.advance(character);
         let end = index + character.len_utf8();
         if character == '\n' && state == DotenvLineState::Complete {
-            escape_dotenv_substitutions_in_line(
-                content,
-                logical_line_start,
-                end,
-                &mut escaped_content,
-            );
+            escape_dotenv_substitutions_in_line(content, logical_line_start, end, &mut escaped_content);
             logical_line_start = end;
             state = DotenvLineState::Complete;
         }
@@ -191,12 +240,7 @@ fn escape_dotenv_substitutions(content: &str) -> Cow<'_, str> {
         }
     }
 
-    escape_dotenv_substitutions_in_line(
-        content,
-        logical_line_start,
-        content.len(),
-        &mut escaped_content,
-    );
+    escape_dotenv_substitutions_in_line(content, logical_line_start, content.len(), &mut escaped_content);
     escaped_content.map_or(Cow::Borrowed(content), Cow::Owned)
 }
 
@@ -221,12 +265,7 @@ fn is_dotenv_full_comment_line(content: &str, start: usize) -> bool {
 /// # Parameters
 ///
 /// * `content` - Input content being parsed.
-fn escape_dotenv_substitutions_in_line(
-    content: &str,
-    start: usize,
-    end: usize,
-    escaped_content: &mut Option<String>,
-) {
+fn escape_dotenv_substitutions_in_line(content: &str, start: usize, end: usize, escaped_content: &mut Option<String>) {
     let mut strong_quote = false;
     let mut weak_quote = false;
     let mut escaped = false;
@@ -237,8 +276,6 @@ fn escape_dotenv_substitutions_in_line(
 
     let mut copied_through = start;
     for (relative_index, character) in content[start..end].char_indices() {
-        let index = start + relative_index;
-        let character_end = index + character.len_utf8();
         if character == '\n' {
             comment = false;
             // The outer scanner owns logical assignment boundaries. A physical
@@ -293,13 +330,10 @@ fn escape_dotenv_substitutions_in_line(
                 '"' => {
                     weak_quote = false;
                 }
-                '$' => escape_dotenv_dollar(
-                    content,
-                    index,
-                    character_end,
-                    &mut copied_through,
-                    escaped_content,
-                ),
+                '$' => {
+                    let index = start + relative_index;
+                    escape_dotenv_dollar(content, index, index + 1, &mut copied_through, escaped_content);
+                }
                 _ => {}
             }
             line_has_non_whitespace |= !character.is_whitespace();
@@ -320,13 +354,10 @@ fn escape_dotenv_substitutions_in_line(
             '#' if previous_was_whitespace => {
                 comment = true;
             }
-            '$' => escape_dotenv_dollar(
-                content,
-                index,
-                character_end,
-                &mut copied_through,
-                escaped_content,
-            ),
+            '$' => {
+                let index = start + relative_index;
+                escape_dotenv_dollar(content, index, index + 1, &mut copied_through, escaped_content);
+            }
             _ => {}
         }
         line_has_non_whitespace |= !character.is_whitespace();
@@ -381,79 +412,6 @@ fn escape_dotenv_dollar(
 ///   separators here.
 fn is_dotenv_comment_separator(character: char) -> bool {
     character.is_whitespace() && !matches!(character, '\r' | '\n')
-}
-
-#[cfg(test)]
-mod preprocessing_tests {
-    use std::borrow::Cow;
-
-    use super::{escape_dotenv_substitutions, strip_dotenv_inline_comments};
-
-    #[test]
-    fn comment_stripping_borrows_unmodified_input_and_owns_removed_comments() {
-        for input in [
-            "",
-            "KEY=value\n",
-            "# whole line\n",
-            "KEY='a # b'\n",
-            "KEY=\\$NAME\n",
-        ] {
-            assert!(matches!(
-                strip_dotenv_inline_comments(input),
-                Cow::Borrowed(_)
-            ));
-        }
-
-        let input = "KEY=value # remove\r\nNEXT=ok";
-        assert_eq!(
-            strip_dotenv_inline_comments(input).as_ref(),
-            "KEY=value \r\nNEXT=ok"
-        );
-        assert!(matches!(strip_dotenv_inline_comments(input), Cow::Owned(_)));
-
-        let unicode = "VALUE=你好 # remove";
-        assert_eq!(
-            strip_dotenv_inline_comments(unicode).as_ref(),
-            "VALUE=你好 "
-        );
-
-        let later_unicode_comment = "PREFIX=你好\nVALUE=x # remove\nLAST=y # trim";
-        assert_eq!(
-            strip_dotenv_inline_comments(later_unicode_comment).as_ref(),
-            "PREFIX=你好\nVALUE=x \nLAST=y "
-        );
-    }
-
-    #[test]
-    fn substitution_escaping_borrows_unmodified_and_owns_first_and_later_changes() {
-        for input in [
-            "",
-            "KEY=value\n",
-            "# ${NAME}\n",
-            "KEY='${NAME}'\n",
-            "KEY=\\$NAME\n",
-        ] {
-            assert!(matches!(
-                escape_dotenv_substitutions(input),
-                Cow::Borrowed(_)
-            ));
-        }
-
-        for (input, expected) in [
-            ("KEY=${NAME}\n", "KEY=\\${NAME}\n"),
-            ("FIRST=ok\nLAST=${NAME}", "FIRST=ok\nLAST=\\${NAME}"),
-            ("PREFIX=你好\nLAST=${NAME}", "PREFIX=你好\nLAST=\\${NAME}"),
-            ("FIRST=ok\nLAST=${名}", "FIRST=ok\nLAST=\\${名}"),
-            ("A=${A}\r\nB=${B}\r\n", "A=\\${A}\r\nB=\\${B}\r\n"),
-            ("A=${A}\nB=${B}\n", "A=\\${A}\nB=\\${B}\n"),
-            ("A=${A}\n", "A=\\${A}\n"),
-        ] {
-            let output = escape_dotenv_substitutions(input);
-            assert!(matches!(output, Cow::Owned(_)), "input: {input:?}");
-            assert_eq!(output, expected, "input: {input:?}");
-            assert_eq!(output.matches("\\$").count(), input.matches('$').count());
-        }
-    }
 }
 
 impl EnvFileConfigSource {
@@ -539,5 +497,55 @@ impl ConfigSource for EnvFileConfigSource {
         }
         context.replace_layer(config);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod preprocessing_tests {
+    use std::borrow::Cow;
+
+    use super::escape_dotenv_substitutions;
+    use super::strip_dotenv_inline_comments;
+
+    #[test]
+    fn test_comment_stripping_borrows_unmodified_input_and_owns_removed_comments() {
+        for input in ["", "KEY=value\n", "# whole line\n", "KEY='a # b'\n", "KEY=\\$NAME\n"] {
+            assert!(matches!(strip_dotenv_inline_comments(input), Cow::Borrowed(_)));
+        }
+
+        let input = "KEY=value # remove\r\nNEXT=ok";
+        assert_eq!(strip_dotenv_inline_comments(input).as_ref(), "KEY=value \r\nNEXT=ok");
+        assert!(matches!(strip_dotenv_inline_comments(input), Cow::Owned(_)));
+
+        let unicode = "VALUE=你好 # remove";
+        assert_eq!(strip_dotenv_inline_comments(unicode).as_ref(), "VALUE=你好 ");
+
+        let later_unicode_comment = "PREFIX=你好\nVALUE=x # remove\nLAST=y # trim";
+        assert_eq!(
+            strip_dotenv_inline_comments(later_unicode_comment).as_ref(),
+            "PREFIX=你好\nVALUE=x \nLAST=y "
+        );
+    }
+
+    #[test]
+    fn test_substitution_escaping_borrows_unmodified_and_owns_first_and_later_changes() {
+        for input in ["", "KEY=value\n", "# ${NAME}\n", "KEY='${NAME}'\n", "KEY=\\$NAME\n"] {
+            assert!(matches!(escape_dotenv_substitutions(input), Cow::Borrowed(_)));
+        }
+
+        for (input, expected) in [
+            ("KEY=${NAME}\n", "KEY=\\${NAME}\n"),
+            ("FIRST=ok\nLAST=${NAME}", "FIRST=ok\nLAST=\\${NAME}"),
+            ("PREFIX=你好\nLAST=${NAME}", "PREFIX=你好\nLAST=\\${NAME}"),
+            ("FIRST=ok\nLAST=${名}", "FIRST=ok\nLAST=\\${名}"),
+            ("A=${A}\r\nB=${B}\r\n", "A=\\${A}\r\nB=\\${B}\r\n"),
+            ("A=${A}\nB=${B}\n", "A=\\${A}\nB=\\${B}\n"),
+            ("A=${A}\n", "A=\\${A}\n"),
+        ] {
+            let output = escape_dotenv_substitutions(input);
+            assert!(matches!(output, Cow::Owned(_)), "input: {input:?}");
+            assert_eq!(output, expected, "input: {input:?}");
+            assert_eq!(output.matches("\\$").count(), input.matches('$').count());
+        }
     }
 }
