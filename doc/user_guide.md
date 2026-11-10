@@ -1110,6 +1110,12 @@ assert_eq!(error.path(), Some("server.port"));
 
 Common categories include `InvalidKey`, `InvalidPath`, `PropertyNotFound`, `PropertyHasNoValue`, `Value`, `TypeMismatch`, `Conversion`, `Substitution`, `SubstitutionCycle`, `SourceLimitExceeded`, `KeyConflict`, `Merge`, `PropertyIsFinal`, `Io`, `Parse`, and `Deserialize`. Source merge conflicts use the `SourcePropertyIsFinal` variant while retaining the `PropertyIsFinal` kind; ordinary in-memory operations and source-internal direct assignments retain `PropertyIsFinal`.
 
+`ConfigError`'s `Display` output escapes control characters in dynamic diagnostic
+text (for example, a newline appears as `\n`). Its structured fields and
+accessors keep the original text. If an application logs or displays a raw
+field such as `path()` or `source_id()` directly, it must escape or otherwise
+handle that value for its output format.
+
 For ordinary required reads of built-in scalar targets such as `get::<u16>`,
 these cases have distinct outcomes:
 

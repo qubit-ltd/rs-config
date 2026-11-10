@@ -7,6 +7,7 @@
 // =============================================================================
 //! Focused tests for public configuration errors.
 
+use std::error::Error;
 use std::num::NonZeroUsize;
 
 use qubit_budget::BudgetError;
@@ -14,11 +15,237 @@ use qubit_budget::Observation;
 use qubit_config::ConfigError;
 use qubit_config::ConfigErrorKind;
 use qubit_config::ConfigPathViolation;
+use qubit_config::ConfigReader;
+use qubit_config::ConfigSource;
 use qubit_config::SourceLocation;
+use qubit_config::source::PropertiesConfigSource;
 use qubit_datatype::DataConversionError;
 use qubit_datatype::DataType;
 use qubit_datatype::InvalidValueReason;
 use qubit_value::ValueError;
+
+#[test]
+fn test_missing_property_display_escapes_controls_and_keeps_path() {
+    let key = "a\n\r\t\u{1b}\0\u{7f}\u{85}雪";
+    let error = qubit_config::Config::new().get::<String>(key).unwrap_err();
+    assert_eq!(error.kind(), ConfigErrorKind::PropertyNotFound);
+    assert_eq!(error.path(), Some(key));
+    assert_eq!(error.candidate_paths().unwrap(), &[key.to_owned()]);
+    let displayed = error.to_string();
+    assert!(!displayed.chars().any(char::is_control));
+    assert!(displayed.contains(r"a\n\r\t\u{1b}\0\u{7f}\u{85}雪"));
+}
+
+#[test]
+fn test_ordinary_display_preserves_visible_text_and_literal_backslashes() {
+    let key = r#"雪["quoted"]\n"#;
+    let error = ConfigError::PropertyNotFound(key.to_string());
+    assert_eq!(error.to_string(), format!("Property not found: {key}"));
+}
+
+#[test]
+fn test_config_error_display_escapes_dynamic_diagnostics_and_preserves_fields() {
+    let noisy = "x\n\r\t\u{1b}\0\u{7f}\u{85}雪";
+    let variants = vec![
+        ConfigError::InvalidKey {
+            key: noisy.into(),
+            violation: ConfigPathViolation::EmptySegment,
+        },
+        ConfigError::SourceInvalidKey {
+            source_id: noisy.into(),
+            key: noisy.into(),
+            violation: ConfigPathViolation::EmptySegment,
+        },
+        ConfigError::InvalidPath {
+            path: noisy.into(),
+            violation: ConfigPathViolation::EmptySegment,
+        },
+        ConfigError::SourceLimitExceeded {
+            source_id: noisy.into(),
+            budget_id: noisy.into(),
+            kind: qubit_config::source::SourceLimitKind::InputBytes,
+            limit: 1,
+            observed_at_least: 2,
+            source: BudgetError::LimitExceeded {
+                resource: qubit_config::source::SourceLimitKind::InputBytes,
+                observed: Observation::Exact(2),
+                maximum: 1,
+            },
+        },
+        ConfigError::PropertyCandidatesNotFound {
+            paths: vec![noisy.into(), "second\n".into()],
+        },
+        ConfigError::PropertyHasNoValue(noisy.into()),
+        ConfigError::TypeMismatch {
+            key: noisy.into(),
+            expected: DataType::String,
+            actual: DataType::Bool,
+        },
+        ConfigError::ConversionError {
+            key: noisy.into(),
+            source_index: Some(2),
+            source: DataConversionError::missing(DataType::String, DataType::String),
+        },
+        ConfigError::PlatformIntegerOutOfRange {
+            key: noisy.into(),
+            source_index: None,
+        },
+        ConfigError::ValueError {
+            key: noisy.into(),
+            source: ValueError::TypeMismatch {
+                expected: DataType::String,
+                actual: DataType::Bool,
+            },
+        },
+        ConfigError::SubstitutionError {
+            path: noisy.into(),
+            message: noisy.into(),
+        },
+        ConfigError::SubstitutionDepthExceeded {
+            path: noisy.into(),
+            max_depth: 1,
+        },
+        ConfigError::SubstitutionExpansionLimitExceeded {
+            path: noisy.into(),
+            max_expansions: 1,
+        },
+        ConfigError::SubstitutionOutputTooLarge {
+            path: noisy.into(),
+            max_output_bytes: 1,
+        },
+        ConfigError::SubstitutionCycle {
+            path: noisy.into(),
+            chain: vec!["a\n".into(), "b\r".into()],
+        },
+        ConfigError::MergeError(noisy.into()),
+        ConfigError::PropertyIsFinal(noisy.into()),
+        ConfigError::SourcePropertyIsFinal {
+            source_id: noisy.into(),
+            key: noisy.into(),
+        },
+        ConfigError::UnknownProperties {
+            paths: vec![noisy.into(), "second\n".into()],
+        },
+        ConfigError::IoError(std::io::Error::other(noisy)),
+        ConfigError::SourceIoError {
+            source_id: noisy.into(),
+            source: std::io::Error::other(noisy),
+        },
+        ConfigError::ParseError(noisy.into()),
+        ConfigError::SourceParseError {
+            source_id: noisy.into(),
+            path: Some(noisy.into()),
+            source_index: None,
+            message: noisy.into(),
+            location: None,
+        },
+        ConfigError::DeserializeError {
+            path: noisy.into(),
+            message: noisy.into(),
+            source: None,
+        },
+        ConfigError::Other(noisy.into()),
+    ];
+    for error in variants {
+        let rendered = error.to_string();
+        assert!(!rendered.chars().any(char::is_control), "{error:?}: {rendered:?}");
+    }
+
+    let candidates = ConfigError::PropertyCandidatesNotFound {
+        paths: vec!["first\n".into(), "second\r".into()],
+    };
+    assert_eq!(
+        candidates.to_string(),
+        r"None of the candidate properties was found: first\n, second\r"
+    );
+    assert_eq!(candidates.candidate_paths().unwrap(), &["first\n", "second\r"]);
+    let unknown = ConfigError::UnknownProperties {
+        paths: vec!["one\n".into(), "two\r".into()],
+    };
+    assert_eq!(unknown.to_string(), r"Unknown configuration properties: one\n, two\r");
+    assert_eq!(unknown.unknown_property_paths().unwrap(), &["one\n", "two\r"]);
+    let indexed = ConfigError::IndexedSubstitutionError {
+        source_index: 7,
+        source: Box::new(ConfigError::SubstitutionError {
+            path: noisy.into(),
+            message: noisy.into(),
+        }),
+    };
+    assert!(!indexed.to_string().chars().any(char::is_control));
+    assert_eq!(indexed.source_index(), Some(7));
+    assert_eq!(indexed.kind(), ConfigErrorKind::Substitution);
+    assert!(Error::source(&indexed).is_some());
+
+    let io = ConfigError::SourceIoError {
+        source_id: "source".into(),
+        source: std::io::Error::other(noisy),
+    };
+    let source = Error::source(&io).unwrap();
+    assert_eq!(source.to_string(), noisy);
+    assert!(!io.to_string().chars().any(char::is_control));
+}
+
+#[test]
+fn test_source_diagnostics_escape_labels_and_final_conflict_text() {
+    let label = "source\n\u{1b}雪";
+    let source = PropertiesConfigSource::builder()
+        .label(label)
+        .content("a..b=value")
+        .build();
+    let invalid = source.load().unwrap_err();
+    assert_eq!(invalid.source_id(), Some(label));
+    assert_eq!(invalid.path(), Some("a..b"));
+    assert!(!invalid.to_string().chars().any(char::is_control));
+
+    let mut target = qubit_config::Config::new();
+    target.set("locked", "old").unwrap();
+    target.set_final("locked", true).unwrap();
+    let incoming = PropertiesConfigSource::builder()
+        .label(label)
+        .content("locked=new")
+        .build();
+    let conflict = target.merge_properties_from_source(&incoming).unwrap_err();
+    assert_eq!(conflict.source_id(), Some(label));
+    assert_eq!(conflict.path(), Some("locked"));
+    assert!(!conflict.to_string().chars().any(char::is_control));
+    assert!(conflict.to_string().contains(r"source\n\u{1b}雪"));
+}
+
+#[test]
+fn test_missing_candidates_display_keeps_control_character_path_order() {
+    let first = "first\nkey";
+    let second = "second\tkey";
+    let error = qubit_config::Config::new()
+        .get_any::<String>([first, second])
+        .unwrap_err();
+
+    assert_eq!(error.candidate_paths().unwrap(), &[first.to_owned(), second.to_owned()]);
+    assert_eq!(
+        error.to_string(),
+        r"None of the candidate properties was found: first\nkey, second\tkey"
+    );
+    assert!(!error.to_string().chars().any(char::is_control));
+}
+
+#[test]
+fn test_ensure_known_keys_keeps_raw_unknown_paths() {
+    let first = "first\nkey";
+    let second = "second\tkey";
+    let mut config = qubit_config::Config::new();
+    config.set(first, "one").unwrap();
+    config.set(second, "two").unwrap();
+
+    let error = config.ensure_known_keys(&[], &[]).unwrap_err();
+    assert_eq!(
+        error.unknown_property_paths().unwrap(),
+        &[first.to_owned(), second.to_owned()]
+    );
+    assert_eq!(
+        error.to_string(),
+        r"Unknown configuration properties: first\nkey, second\tkey"
+    );
+    assert!(!error.to_string().chars().any(char::is_control));
+}
 
 #[test]
 fn test_source_parse_location_preserves_existing_context() {
@@ -220,6 +447,10 @@ fn test_key_conflict_display_escapes_control_characters_and_keeps_fields() {
     };
 
     let rendered = error.to_string();
+    assert_eq!(
+        rendered,
+        r"Configuration key conflict at 'foo\nbar\r\u{1b}\t\\雪': existing old\n\r\u{1b}\t\\值, incoming new\n\r\u{1b}\t\\値"
+    );
     for control in ['\n', '\r', '\u{1b}', '\t'] {
         assert!(!rendered.contains(control));
     }

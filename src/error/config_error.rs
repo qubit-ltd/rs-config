@@ -9,6 +9,8 @@
 //!
 //! Defines all possible error scenarios in the configuration system.
 
+use std::borrow::Cow;
+
 use qubit_budget::BudgetError;
 use qubit_datatype::DataConversionError;
 use qubit_datatype::DataType;
@@ -20,6 +22,43 @@ use crate::ConfigErrorKind;
 use crate::ConfigPathViolation;
 use crate::SourceLimitKind;
 use crate::SourceLocation;
+
+/// Escapes control characters in text included in a diagnostic display.
+///
+/// Text without control characters is borrowed unchanged. Other characters,
+/// including visible Unicode, quotes, and literal backslashes, are preserved.
+///
+/// # Parameters
+///
+/// * `text` - Diagnostic text to escape when it contains control characters.
+fn escape_diagnostic(text: &str) -> Cow<'_, str> {
+    if !text.chars().any(char::is_control) {
+        return Cow::Borrowed(text);
+    }
+    let mut escaped = String::with_capacity(text.len());
+    for ch in text.chars() {
+        if ch.is_control() {
+            escaped.extend(ch.escape_debug());
+        } else {
+            escaped.push(ch);
+        }
+    }
+    Cow::Owned(escaped)
+}
+
+/// Joins diagnostic text after escaping control characters in each item.
+///
+/// # Parameters
+///
+/// * `items` - Diagnostic items to escape and join in their original order.
+/// * `separator` - Text inserted between the escaped items.
+fn join_diagnostics(items: &[String], separator: &str) -> String {
+    items
+        .iter()
+        .map(|item| escape_diagnostic(item))
+        .collect::<Vec<_>>()
+        .join(separator)
+}
 
 /// Configuration error type.
 ///
@@ -50,7 +89,7 @@ use crate::SourceLocation;
 #[derive(Debug, Error)]
 pub enum ConfigError {
     /// Configuration property key is not canonical.
-    #[error("Invalid configuration key '{key}': {violation}")]
+    #[error("Invalid configuration key '{key}': {violation}", key = escape_diagnostic(key))]
     InvalidKey {
         /// Rejected property key.
         key: String,
@@ -59,7 +98,7 @@ pub enum ConfigError {
     },
 
     /// A configuration source supplied a non-canonical property key.
-    #[error("Invalid configuration key '{key}' in source '{source_id}': {violation}")]
+    #[error("Invalid configuration key '{key}' in source '{source_id}': {violation}", key = escape_diagnostic(key), source_id = escape_diagnostic(source_id))]
     SourceInvalidKey {
         /// Stable source identifier or path.
         source_id: String,
@@ -70,7 +109,7 @@ pub enum ConfigError {
     },
 
     /// Configuration section path is not canonical.
-    #[error("Invalid configuration path '{path}': {violation}")]
+    #[error("Invalid configuration path '{path}': {violation}", path = escape_diagnostic(path))]
     InvalidPath {
         /// Rejected section path.
         path: String,
@@ -79,7 +118,7 @@ pub enum ConfigError {
     },
 
     /// A configuration source exceeded a resource limit.
-    #[error("Configuration source '{source_id}' exceeded budget '{budget_id}': {source}")]
+    #[error("Configuration source '{source_id}' exceeded budget '{budget_id}': {source}", source_id = escape_diagnostic(source_id), budget_id = escape_diagnostic(budget_id), source = escape_diagnostic(&source.to_string()))]
     SourceLimitExceeded {
         /// Source identifier or path.
         source_id: String,
@@ -97,7 +136,7 @@ pub enum ConfigError {
     },
 
     /// Property not found.
-    #[error("Property not found: {0}")]
+    #[error("Property not found: {}", escape_diagnostic(.0))]
     PropertyNotFound(
         /// Missing configuration path.
         String,
@@ -106,7 +145,7 @@ pub enum ConfigError {
     /// None of several candidate properties was found.
     #[error(
         "None of the candidate properties was found: {}",
-        paths.join(", ")
+        join_diagnostics(.paths, ", ")
     )]
     PropertyCandidatesNotFound {
         /// Missing root-relative configuration paths in lookup order.
@@ -114,14 +153,14 @@ pub enum ConfigError {
     },
 
     /// Property has no value.
-    #[error("Property '{0}' has no value")]
+    #[error("Property '{}' has no value", escape_diagnostic(.0))]
     PropertyHasNoValue(
         /// Configuration path whose property has no usable value.
         String,
     ),
 
     /// Type mismatch at a specific key/path.
-    #[error("Type mismatch at '{key}': expected {expected}, actual {actual}")]
+    #[error("Type mismatch at '{key}': expected {expected}, actual {actual}", key = escape_diagnostic(key))]
     TypeMismatch {
         /// Configuration key/path where the mismatch occurred.
         key: String,
@@ -132,7 +171,7 @@ pub enum ConfigError {
     },
 
     /// Structured, value-redacted conversion failure.
-    #[error("Type conversion failed at '{key}': {source}")]
+    #[error("Type conversion failed at '{key}': {source}", key = escape_diagnostic(key), source = escape_diagnostic(&source.to_string()))]
     ConversionError {
         /// Configuration key/path where the conversion failed.
         key: String,
@@ -145,7 +184,7 @@ pub enum ConfigError {
 
     /// A non-negative integer exceeds the range supported by this platform's
     /// `usize`.
-    #[error("configuration value at '{key}' exceeds the platform usize range")]
+    #[error("configuration value at '{key}' exceeds the platform usize range", key = escape_diagnostic(key))]
     PlatformIntegerOutOfRange {
         /// Configuration key/path where the value was read.
         key: String,
@@ -155,7 +194,7 @@ pub enum ConfigError {
     },
 
     /// Value-layer error not covered by a specialized configuration mapping.
-    #[error("Value error at '{key}': {source}")]
+    #[error("Value error at '{key}': {source}", key = escape_diagnostic(key), source = escape_diagnostic(&source.to_string()))]
     ValueError {
         /// Configuration key/path where the value access failed.
         key: String,
@@ -165,7 +204,7 @@ pub enum ConfigError {
     },
 
     /// Variable substitution failed.
-    #[error("Variable substitution failed at '{path}': {message}")]
+    #[error("Variable substitution failed at '{path}': {message}", path = escape_diagnostic(path), message = escape_diagnostic(message))]
     SubstitutionError {
         /// Configuration path whose value was being expanded.
         path: String,
@@ -184,7 +223,7 @@ pub enum ConfigError {
     },
 
     /// Variable substitution depth exceeded.
-    #[error("Variable substitution at '{path}' exceeded maximum depth: {max_depth}")]
+    #[error("Variable substitution at '{path}' exceeded maximum depth: {max_depth}", path = escape_diagnostic(path))]
     SubstitutionDepthExceeded {
         /// Configuration path whose value was being expanded.
         path: String,
@@ -193,7 +232,7 @@ pub enum ConfigError {
     },
 
     /// Variable substitution resolved too many placeholders.
-    #[error("Variable substitution at '{path}' exceeded maximum expansions: {max_expansions}")]
+    #[error("Variable substitution at '{path}' exceeded maximum expansions: {max_expansions}", path = escape_diagnostic(path))]
     SubstitutionExpansionLimitExceeded {
         /// Configuration path whose value was being expanded.
         path: String,
@@ -202,7 +241,7 @@ pub enum ConfigError {
     },
 
     /// Variable substitution produced an oversized value.
-    #[error("Variable substitution at '{path}' exceeded maximum output bytes: {max_output_bytes}")]
+    #[error("Variable substitution at '{path}' exceeded maximum output bytes: {max_output_bytes}", path = escape_diagnostic(path))]
     SubstitutionOutputTooLarge {
         /// Configuration path whose value was being expanded.
         path: String,
@@ -213,7 +252,8 @@ pub enum ConfigError {
     /// Variable substitution cycle detected.
     #[error(
         "Variable substitution cycle at '{path}': {}",
-        chain.join(" -> ")
+        join_diagnostics(chain, " -> "),
+        path = escape_diagnostic(path)
     )]
     SubstitutionCycle {
         /// Configuration path whose value was being expanded.
@@ -223,14 +263,14 @@ pub enum ConfigError {
     },
 
     /// Configuration merge failed.
-    #[error("Configuration merge failed: {0}")]
+    #[error("Configuration merge failed: {}", escape_diagnostic(.0))]
     MergeError(
         /// Human-readable merge failure.
         String,
     ),
 
     /// Property is final and cannot be overridden.
-    #[error("Property '{0}' is final and cannot be overridden")]
+    #[error("Property '{}' is final and cannot be overridden", escape_diagnostic(.0))]
     PropertyIsFinal(
         /// Configuration path protected against mutation.
         String,
@@ -238,7 +278,7 @@ pub enum ConfigError {
 
     /// A source property could not be merged because the target property is
     /// final.
-    #[error("Property '{key}' is final and cannot be overridden by source '{source_id}'")]
+    #[error("Property '{key}' is final and cannot be overridden by source '{source_id}'", key = escape_diagnostic(key), source_id = escape_diagnostic(source_id))]
     SourcePropertyIsFinal {
         /// Stable identifier of the incoming source at the merge boundary.
         source_id: String,
@@ -265,7 +305,7 @@ pub enum ConfigError {
     },
 
     /// Structured deserialization found fields not consumed by the target.
-    #[error("Unknown configuration properties: {}", paths.join(", "))]
+    #[error("Unknown configuration properties: {}", join_diagnostics(paths, ", "))]
     UnknownProperties {
         /// Root-relative configuration paths not recognized by the target
         /// type.
@@ -273,7 +313,7 @@ pub enum ConfigError {
     },
 
     /// I/O error not associated with a named configuration source.
-    #[error("IO error: {0}")]
+    #[error("IO error: {}", escape_diagnostic(&.0.to_string()))]
     IoError(
         /// Underlying I/O failure.
         #[from]
@@ -281,7 +321,7 @@ pub enum ConfigError {
     ),
 
     /// I/O error raised while loading a named configuration source.
-    #[error("IO error in source '{source_id}': {source}")]
+    #[error("IO error in source '{source_id}': {source}", source_id = escape_diagnostic(source_id), source = escape_diagnostic(&source.to_string()))]
     SourceIoError {
         /// Stable source identifier or path.
         source_id: String,
@@ -291,14 +331,14 @@ pub enum ConfigError {
     },
 
     /// Parse error not associated with a named configuration source.
-    #[error("Parse error: {0}")]
+    #[error("Parse error: {}", escape_diagnostic(.0))]
     ParseError(
         /// Human-readable source parsing failure.
         String,
     ),
 
     /// Parse error raised while loading a named configuration source.
-    #[error("Parse error in source '{source_id}': {message}")]
+    #[error("Parse error in source '{source_id}': {message}", source_id = escape_diagnostic(source_id), message = escape_diagnostic(message))]
     SourceParseError {
         /// Stable source identifier or path.
         source_id: String,
@@ -313,7 +353,7 @@ pub enum ConfigError {
     },
 
     /// Deserialization error for structured config mapping.
-    #[error("Deserialization error at '{path}': {message}")]
+    #[error("Deserialization error at '{path}': {message}", path = escape_diagnostic(path), message = escape_diagnostic(message))]
     DeserializeError {
         /// Config prefix/path being deserialized.
         path: String,
@@ -325,7 +365,7 @@ pub enum ConfigError {
     },
 
     /// Other error.
-    #[error("Configuration error: {0}")]
+    #[error("Configuration error: {}", escape_diagnostic(.0))]
     Other(
         /// Human-readable uncategorized failure.
         String,

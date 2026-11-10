@@ -982,6 +982,8 @@ assert_eq!(error.path(), Some("server.port"));
 
 常见类别包括 `InvalidKey`、`InvalidPath`、`PropertyNotFound`、`PropertyHasNoValue`、`Value`、`TypeMismatch`、`Conversion`、`Substitution`、`SubstitutionCycle`、`SourceLimitExceeded`、`KeyConflict`、`Merge`、`PropertyIsFinal`、`Io`、`Parse` 和 `Deserialize`。来源合并冲突使用 `SourcePropertyIsFinal` 变体，但 kind 仍是 `PropertyIsFinal`；普通内存操作和来源内部直接赋值保留 `PropertyIsFinal`。
 
+`ConfigError` 的 `Display` 输出会转义动态诊断文本中的控制字符（例如将换行显示为 `\n`）。结构化字段和访问器仍保留原始文本。如果应用直接记录或显示 `path()`、`source_id()` 等原始字段，应用必须针对自己的输出格式转义或以其他方式处理这些值。
+
 对于 `get::<u16>` 这类内置标量类型的普通必需读取，以下情况会得到不同结果：
 
 | 输入和读取条件 | 错误类别 | 判断方式及处理建议 |
