@@ -96,6 +96,74 @@ fn test_interpolation_reference_uses_active_conversion_limits() {
     assert_eq!(error.path(), Some("payload"));
 }
 #[test]
+fn test_environment_and_config_references_use_distinct_conversion_budgets() {
+    if !run_with_environment(
+        "test_variable_substitution::test_environment_and_config_references_use_distinct_conversion_budgets",
+        &[("A", &"${B}".repeat(32)), ("B", "x")],
+    ) {
+        return;
+    }
+
+    let limits = ConversionLimits::builder()
+        .operation_limits(ConversionOperationLimits::builder().max_input_bytes(64).build())
+        .build();
+    let policy = with_environment_fallback(ReadPolicy::builder().conversion_limits(limits).build());
+
+    let mut environment_config = Config::new();
+    environment_config.set_default_read_policy(policy.clone());
+    environment_config.set("alias", "${A}").unwrap();
+    assert_eq!(
+        environment_config.get_interpolated::<String>("alias").unwrap(),
+        "x".repeat(32),
+    );
+
+    let mut config_reference = Config::new();
+    config_reference.set_default_read_policy(policy.clone());
+    config_reference.set("A", "${B}".repeat(32)).unwrap();
+    config_reference.set("alias", "${A}").unwrap();
+    let error = config_reference.get_interpolated::<String>("alias").unwrap_err();
+    assert_eq!(error.path(), Some("A"));
+
+    let output_limited_policy = ReadPolicy::builder()
+        .conversion_limits(
+            ConversionLimits::builder()
+                .operation_limits(ConversionOperationLimits::builder().max_input_bytes(64).build())
+                .build(),
+        )
+        .max_interpolation_output_bytes(16)
+        .build();
+    let mut output_limited = Config::new();
+    output_limited.set_default_read_policy(with_environment_fallback(output_limited_policy));
+    output_limited.set("alias", "${A}").unwrap();
+    assert!(matches!(
+        output_limited.get_interpolated::<String>("alias"),
+        Err(ConfigError::SubstitutionOutputTooLarge {
+            path,
+            max_output_bytes: 16,
+        }) if path == "alias"
+    ));
+
+    let expansion_limited_policy = ReadPolicy::builder()
+        .conversion_limits(
+            ConversionLimits::builder()
+                .operation_limits(ConversionOperationLimits::builder().max_input_bytes(64).build())
+                .build(),
+        )
+        .max_interpolation_expansions(32)
+        .build();
+    let mut expansion_limited = Config::new();
+    expansion_limited.set_default_read_policy(with_environment_fallback(expansion_limited_policy));
+    expansion_limited.set("alias", "${A}").unwrap();
+    assert!(matches!(
+        expansion_limited.get_interpolated::<String>("alias"),
+        Err(ConfigError::SubstitutionExpansionLimitExceeded {
+            path,
+            max_expansions: 32,
+        }) if path == "alias"
+    ));
+}
+
+#[test]
 fn test_get_string_substitutes_simple_placeholder() {
     let mut config = Config::new();
     config.set("name", "world").unwrap();

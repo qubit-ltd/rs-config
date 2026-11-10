@@ -38,9 +38,9 @@ use super::EnvConfigOptions;
 use super::EnvConfigSourceBuilder;
 use super::SourceLimits;
 use super::SourceLoadContext;
+use crate::config_path::ensure_config_key;
 use crate::Config;
 use crate::ConfigError;
-use crate::ConfigKey;
 use crate::ConfigResult;
 use crate::utils;
 
@@ -395,7 +395,7 @@ impl EnvConfigSource {
                     error.with_source_context("process environment", Some(transformed_key.clone()), None)
                 })?;
             }
-            let _ = ConfigKey::parse(transformed_key.as_str()).map_err(|error| {
+            ensure_config_key(transformed_key.as_str()).map_err(|error| {
                 error.with_source_context("process environment", Some(transformed_key.clone()), None)
             })?;
             session.check_depth(transformed_key.split('.').count())?;
