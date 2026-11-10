@@ -39,6 +39,9 @@ API 文档和测试为准。
 自定义配置源通过 `SourceLoadContext::set` 或 `set_null` 写入配置，并在消耗资源前
 报告输入字节、解析节点和子配置源数量。框架无法根据最终配置层推断自定义配置源
 没有报告的外部 I/O 或解析工作。
+`ConfigSource` 不要求 `Send` 或 `Sync`，因此 `CompositeConfigSource` 及其 builder
+不承诺具备这些线程 trait。可以在线程内部构造并加载组合来源，避免跨线程移动组合来源本身；
+但捕获的输入和返回值仍须满足相应线程边界的要求。
 这些上下文方法返回的无效赋值键使用 `ConfigError::SourceInvalidKey`；`kind()` 仍为
 `InvalidKey`，`path()` 保留被拒绝的键，`source_id()` 标识执行赋值的配置源（嵌套组合时为
 叶子来源）。直接 `Config::set` 仍返回不带来源上下文的 `InvalidKey`。赋值校验前的预算

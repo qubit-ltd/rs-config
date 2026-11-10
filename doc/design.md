@@ -43,6 +43,11 @@ The default `ConfigSource::load` uses this executor; direct calls to an overridd
 through `SourceLoadContext::set` or `set_null` and report input bytes, parser
 nodes, and child sources before consuming those resources. Work not reported by
 a custom source cannot be inferred from its final layer.
+`ConfigSource` does not require `Send` or `Sync`, so `CompositeConfigSource` and
+its builder do not promise those thread traits. A worker can construct and load
+the composite inside the worker to avoid moving the composite itself across the
+thread boundary; captured inputs and returned values must still meet that
+boundary's requirements.
 Invalid assignment keys returned by these context methods use
 `ConfigError::SourceInvalidKey`; `kind()` remains `InvalidKey`, `path()` keeps
 the rejected key, and `source_id()` identifies the assigning source (including
