@@ -256,10 +256,11 @@ root-relative dotted configuration paths.
 //! Demonstrates navigating nested configuration sections with readers.
 
 use qubit_config::Config;
+use qubit_config::ConfigError;
 use qubit_config::ConfigReader;
 
 /// Reads a nested TLS setting through successive section views.
-fn main() -> Result<(), qubit_config::ConfigError> {
+fn main() -> Result<(), ConfigError> {
     let mut config = Config::new();
     config.set("server.tls.enabled", true)?;
     let server = config.section("server")?;
@@ -938,9 +939,12 @@ Saved overlays can also be admitted against cumulative aggregate budgets. A sing
 Expansion count is shared across a logical read, including candidate-key
 search and fields a structured visitor later ignores. Depth applies to the
 current reference chain; the output-byte limit applies to each expanded value.
-Reference values use the active `ReadPolicy` and its conversion limits. Each
-reference conversion is an independent conversion operation; expansion limits
-remain cumulative for the logical read.
+Configuration property references are converted to text with the active
+`ReadPolicy`; each such conversion is an independent operation and uses its
+conversion limits. Environment fallback values are read through the process
+environment API and do not enter that per-reference conversion operation. They
+remain subject to interpolation output and expansion limits, and the final
+requested-type conversion still uses the active conversion limits.
 Interpolated string collections are expanded and converted in source order
 with one shared conversion session. The first substitution or conversion error
 is returned with its original item index, and only one expanded item is held

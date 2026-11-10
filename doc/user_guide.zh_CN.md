@@ -252,10 +252,11 @@ reader.ensure_known_keys(&["port", "max_connections"], &["proxy"])?;
 //! Demonstrates navigating nested configuration sections with readers.
 
 use qubit_config::Config;
+use qubit_config::ConfigError;
 use qubit_config::ConfigReader;
 
 /// Reads a nested TLS setting through successive section views.
-fn main() -> Result<(), qubit_config::ConfigError> {
+fn main() -> Result<(), ConfigError> {
     let mut config = Config::new();
     config.set("server.tls.enabled", true)?;
     let server = config.section("server")?;
@@ -838,8 +839,9 @@ let _ = config;
 插值使用显式堆帧栈遍历引用，不再为每层引用各占一个 Rust 调用栈帧。活动帧存储会随引用链增长；现有深度、展开次数和输出字节限制仍生效，但不承诺严格的进程内存或 CPU 上限。
 占位符展开次数会在一次逻辑读取内共享累计，包括候选键搜索和结构化 visitor 最终忽略的字段。
 深度限制按当前引用链计算，输出字节限制则应用于每个展开值。
-引用值转成文本时使用当前 `ReadPolicy` 及其转换限制；每次引用转换使用独立的转换操作，
-一次逻辑读取内的插值展开预算仍会累计共享。
+配置属性引用转成文本时使用当前 `ReadPolicy` 及其转换限制；每次引用转换使用独立的转换操作。
+环境回退值通过进程环境 API 读取，不进入这项逐引用转换操作，但仍受插值输出与展开次数限制；
+最终目标类型转换仍使用当前转换限制。一次逻辑读取内的插值展开预算仍会累计共享。
 插值字符串集合会按源顺序逐项展开并转换，所有元素共享同一个转换会话。遇到首个插值或
 转换错误时立即返回，并保留原集合索引；处理过程中只持有一个已展开的元素。集合元素仍是
 独立值，标量文本仍按配置的列表拆分策略处理。现有调用方式和有效输入无需迁移。

@@ -184,9 +184,12 @@ Expansion counts accumulate across one logical read, including candidate-key
 search and fields later ignored by a structured visitor. Depth is measured along
 the current reference chain, and the output-byte limit applies to each expanded
 value. These limits are not reset for each candidate or field.
-Each referenced value is converted to text with the active `ReadPolicy` and its
-conversion limits. Each reference conversion is an independent conversion
-operation; interpolation expansion counters remain shared by the logical read.
+Configuration property references are converted to text with the active
+`ReadPolicy`; each such conversion is an independent operation and uses its
+conversion limits. Environment fallback values are read through the process
+environment API and do not enter that per-reference conversion operation.
+They remain subject to interpolation output and expansion limits, and the
+final requested-type conversion still uses the active conversion limits.
 Interpolated string collections are expanded and converted in source order with
 one shared conversion session. This returns the first substitution or
 conversion error with its original source index while keeping at most one
