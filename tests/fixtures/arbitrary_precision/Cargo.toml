@@ -6,8 +6,8 @@ rust-version = "1.94"
 publish = false
 
 [dependencies]
-qubit-config = { path = "../../..", version = "0.15" }
-qubit-datatype = { version = "0.15", default-features = false, features = ["converter"] }
+qubit-config = { path = "../../../", version = "^0.15" }
+qubit-datatype = { version = "^0.15", default-features = false, features = ["converter"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["arbitrary_precision"] }
 
