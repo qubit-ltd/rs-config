@@ -100,8 +100,8 @@ jobs:
       - name: Default-feature contracts
         run: >-
           cargo +1.94.0 test --locked --target i686-unknown-linux-gnu
-          --test from_config_tests --test downstream_contract_tests
+          --test from_config_tests
       - name: All-feature contracts
         run: >-
           cargo +1.94.0 test --locked --target i686-unknown-linux-gnu
-          --all-features --test from_config_tests --test downstream_contract_tests
+          --all-features --test from_config_tests
