@@ -10,8 +10,11 @@
 
 /// Provides borrowed access to a candidate configuration key list.
 ///
-/// Candidate order is preserved by this adapter. Configuration lookup APIs
-/// check names in that order and return the first present value.
+/// Candidate order is preserved by this adapter. Lookup APIs return the first
+/// candidate that is not effectively missing under the active read policy.
+/// Conversion errors stop the search; a concrete empty collection is present.
+/// See [`ConfigReader::get_any`](crate::ConfigReader::get_any) for lookup
+/// semantics.
 ///
 /// # Examples
 ///

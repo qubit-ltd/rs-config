@@ -1,0 +1,19 @@
+{
+  "repositories": [
+    {
+      "name": "rs-http",
+      "url": "https://github.com/qubit-ltd/rs-http.git",
+      "revision": "1a8a2de33c8adbcc4bb7209823d870e596c08c7e"
+    },
+    {
+      "name": "rs-ioc",
+      "url": "https://github.com/qubit-ltd/rs-ioc.git",
+      "revision": "49dccd37a58e322c1a430be37b470afe88b6ffaa"
+    },
+    {
+      "name": "rs-redact",
+      "url": "https://github.com/qubit-ltd/rs-redact.git",
+      "revision": "d3116d19fc40d6e23db0fdca4db3748d0dede7d8"
+    }
+  ]
+}

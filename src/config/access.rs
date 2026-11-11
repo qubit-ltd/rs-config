@@ -202,7 +202,7 @@ impl Config {
         self.properties.len()
     }
 
-    /// Reports whether this configuration contains any properties.
+    /// Reports whether this configuration contains no properties.
     ///
     /// # Returns
     ///

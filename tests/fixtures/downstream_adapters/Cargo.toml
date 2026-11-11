@@ -1,0 +1,17 @@
+[package]
+name = "downstream-config-adapters"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[features]
+default = []
+full = ["qubit-config/full"]
+
+[dependencies]
+qubit-config = { path = "../../../", version = "0.15", default-features = false }
+qubit-http = { path = "../../../../rs-http", version = "0.16", default-features = false }
+qubit-ioc = { path = "../../../../rs-ioc", version = "0.4", default-features = false, features = ["config"] }
+serde = { version = "^1.0", features = ["derive"] }
