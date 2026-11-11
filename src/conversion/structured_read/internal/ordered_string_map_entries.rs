@@ -39,11 +39,13 @@ impl<'a> Iterator for OrderedStringMapEntries<'a> {
     type Item = (&'a String, &'a String);
 
     /// Returns the next entry in ascending raw-key order.
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.entries.next()
     }
 
     /// Returns lower and upper bounds for the number of remaining entries.
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.entries.size_hint()
     }
@@ -51,6 +53,7 @@ impl<'a> Iterator for OrderedStringMapEntries<'a> {
 
 impl ExactSizeIterator for OrderedStringMapEntries<'_> {
     /// Returns the exact number of entries not yet yielded.
+    #[inline]
     fn len(&self) -> usize {
         self.entries.len()
     }

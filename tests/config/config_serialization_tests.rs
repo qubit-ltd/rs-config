@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-// # [`qubit_config::Config`] unit tests
+// # [`qubit_config::Config`] integration tests
 //
 // Covers the public `Config` API (including APIs introduced in v0.3.0).
 
@@ -698,7 +698,6 @@ mod test_merge_properties_from_source {
     use super::Config;
     use super::ConfigError;
 
-    /// Resolves a named shared source fixture path.
     /// Resolves a named shared source fixture path.
     fn fixture(name: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))

@@ -42,6 +42,8 @@ impl AccountingConfigWireSeed {
     /// # Returns
     ///
     /// A seed that applies these limits while reading one persisted config.
+    #[must_use]
+    #[inline]
     pub(in crate::config) const fn new(limits: ConfigWireLimits) -> Self {
         Self { limits }
     }

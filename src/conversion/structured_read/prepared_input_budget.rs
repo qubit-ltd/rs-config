@@ -61,6 +61,10 @@ impl<'a> PreparedInputBudget<'a> {
     /// # Parameters
     ///
     /// * `options` - Read policy that supplies the independent resource limits.
+    ///
+    /// # Returns
+    ///
+    /// A fresh pair of budgets initialized from the policy's current limits.
     pub(super) fn new(options: &'a ReadPolicy) -> Self {
         let limits = options.conversion_limits();
         let value_limits = (*limits.structured().value())
@@ -96,7 +100,18 @@ impl<'a> PreparedInputBudget<'a> {
     /// # Parameters
     ///
     /// * `visit` - Current value, key, path, and source-position metadata.
-    /// * `text_override` - Optional owned overlay text charged as input text.
+    /// * `text_override` - `Some(text)` charges owned overlay text; `None`
+    ///   admits the value from the traversal visit.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the visit and any overlay text fit their applicable
+    /// budgets.
+    ///
+    /// # Errors
+    ///
+    /// Returns a budget or conversion error with the visit's diagnostic
+    /// context.
     pub(super) fn admit_visit(&mut self, visit: &Visit<'_>, text_override: Option<&str>) -> ConfigResult<()> {
         if let Some(key) = visit.key {
             self.input(key, visit)?;
@@ -163,6 +178,14 @@ impl<'a> PreparedInputBudget<'a> {
     ///
     /// * `measurement` - JSON shape or payload charge for the current value.
     /// * `visit` - Source metadata used to attach path and index on rejection.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the measurement is committed to the structure budget.
+    ///
+    /// # Errors
+    ///
+    /// Returns a budget error when the measurement exceeds a configured limit.
     fn admit(&mut self, measurement: JsonMeasurement, visit: &Visit<'_>) -> ConfigResult<()> {
         let mut transaction = self.structure.transaction();
         transaction
@@ -178,6 +201,14 @@ impl<'a> PreparedInputBudget<'a> {
     ///
     /// * `text` - UTF-8 source text whose bytes are charged.
     /// * `visit` - Source metadata used to report a rejected charge.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when all UTF-8 bytes fit the input budget.
+    ///
+    /// # Errors
+    ///
+    /// Returns a budget error when the input-byte limit is exceeded.
     fn input(&mut self, text: &str, visit: &Visit<'_>) -> ConfigResult<()> {
         self.input
             .try_consume_usize(text.len())
@@ -190,6 +221,14 @@ impl<'a> PreparedInputBudget<'a> {
     ///
     /// * `text` - UTF-8 text charged to both budgets.
     /// * `visit` - Source metadata used for depth and diagnostic context.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the text fits both budgets.
+    ///
+    /// # Errors
+    ///
+    /// Returns a budget error when either applicable limit is exceeded.
     fn text(&mut self, text: &str, visit: &Visit<'_>) -> ConfigResult<()> {
         self.input(text, visit)?;
         self.admit(
@@ -208,6 +247,14 @@ impl<'a> PreparedInputBudget<'a> {
     /// * `value` - Displayable scalar rendered into the bounded counting sink.
     /// * `number` - Whether the rendered representation is a JSON number.
     /// * `visit` - Source metadata used for depth and error reporting.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the formatted representation fits its applicable budgets.
+    ///
+    /// # Errors
+    ///
+    /// Returns a budget or conversion error when formatting or admission fails.
     fn display(&mut self, value: &impl Display, number: bool, visit: &Visit<'_>) -> ConfigResult<()> {
         let probe = if number {
             JsonMeasurement::Number {
@@ -275,6 +322,14 @@ impl<'a> PreparedInputBudget<'a> {
     ///
     /// * `value` - Native scalar whose representation is charged.
     /// * `visit` - Source metadata used to charge depth and report errors.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the scalar's JSON representation is admitted.
+    ///
+    /// # Errors
+    ///
+    /// Returns a budget or conversion error when the scalar cannot be admitted.
     fn scalar(&mut self, value: ValueRef<'_>, visit: &Visit<'_>) -> ConfigResult<()> {
         match value {
             ValueRef::Unset(_) => self.admit(JsonMeasurement::Null { depth: visit.depth }, visit),
@@ -359,6 +414,10 @@ impl<'a> PreparedInputBudget<'a> {
 /// # Parameters
 ///
 /// * `visit` - Traversal metadata containing the current borrowed value.
+///
+/// # Returns
+///
+/// The source data type represented by the current traversal value.
 fn data_type(visit: &Visit<'_>) -> DataType {
     match visit.value {
         ReadView::Scalar(value) => DataConverter::from(value).data_type(),
@@ -376,6 +435,10 @@ fn data_type(visit: &Visit<'_>) -> DataType {
 ///
 /// * `visit` - Current traversal location for the failed resource charge.
 /// * `source` - Budget failure describing the rejected resource measurement.
+///
+/// # Returns
+///
+/// A configuration error preserving the visit path and source index.
 fn budget_error(visit: &Visit<'_>, source: MeasuredBudgetError<ConversionResource, u64>) -> ConfigError {
     ConfigError::from((
         visit.path.as_ref(),
@@ -393,6 +456,10 @@ fn budget_error(visit: &Visit<'_>, source: MeasuredBudgetError<ConversionResourc
 ///
 /// * `visit` - Current source location and optional outer collection index.
 /// * `reason` - Invalid representation category for the converted scalar.
+///
+/// # Returns
+///
+/// A conversion error preserving the visit's diagnostic context.
 fn conversion_error(visit: &Visit<'_>, reason: InvalidValueReason) -> ConfigError {
     source_error(
         visit,
@@ -406,6 +473,10 @@ fn conversion_error(visit: &Visit<'_>, reason: InvalidValueReason) -> ConfigErro
 ///
 /// * `visit` - Current source location and optional outer collection index.
 /// * `source` - Underlying scalar conversion failure.
+///
+/// # Returns
+///
+/// A configuration error retaining the source index when one is present.
 fn source_error(visit: &Visit<'_>, source: DataConversionError) -> ConfigError {
     match visit.source_index() {
         Some(source_index) => ConfigError::from((
@@ -423,6 +494,11 @@ fn source_error(visit: &Visit<'_>, source: DataConversionError) -> ConfigError {
 /// # Parameters
 ///
 /// * `limits` - Conversion limits whose payload and text bounds are applied.
+///
+/// # Returns
+///
+/// A cloned limits value whose output bound is set to the structured payload
+/// limit.
 fn formatting_limits(limits: &ConversionLimits) -> ConversionLimits {
     limits
         .clone()

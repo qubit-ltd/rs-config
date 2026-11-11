@@ -661,6 +661,10 @@ impl Config {
 }
 impl ConfigReader for Config {
     /// Returns the policy used by direct reads on this configuration.
+    ///
+    /// # Returns
+    ///
+    /// The policy currently configured for direct reads.
     #[inline]
     fn read_policy(&self) -> &ReadPolicy {
         Config::default_read_policy(self)
@@ -671,24 +675,44 @@ impl ConfigReader for Config {
     /// # Parameters
     ///
     /// * `name` - Canonical property name to look up.
+    ///
+    /// # Returns
+    ///
+    /// The property when it exists, or `None` when the key is absent.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when `name` is not a valid configuration key.
     #[inline]
     fn get_property(&self, name: impl AsRef<str>) -> ConfigResult<Option<&Property>> {
         Config::get_property(self, name)
     }
 
     /// Returns the number of properties stored in this configuration.
+    ///
+    /// # Returns
+    ///
+    /// The number of stored properties.
     #[inline]
     fn len(&self) -> usize {
         Config::len(self)
     }
 
     /// Checks whether this configuration contains no properties.
+    ///
+    /// # Returns
+    ///
+    /// `true` when no properties are stored.
     #[inline]
     fn is_empty(&self) -> bool {
         Config::is_empty(self)
     }
 
     /// Returns owned canonical names for all stored properties.
+    ///
+    /// # Returns
+    ///
+    /// The stored property names in canonical order.
     #[inline]
     fn keys(&self) -> Vec<String> {
         Config::keys(self)
@@ -699,6 +723,14 @@ impl ConfigReader for Config {
     /// # Parameters
     ///
     /// * `name` - Canonical property name to check.
+    ///
+    /// # Returns
+    ///
+    /// Whether the key is present.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when `name` is not a valid configuration key.
     #[inline]
     fn contains(&self, name: impl AsRef<str>) -> ConfigResult<bool> {
         Config::contains(self, name)
@@ -713,6 +745,14 @@ impl ConfigReader for Config {
     /// # Parameters
     ///
     /// * `name` - Canonical property name whose value is read.
+    ///
+    /// # Returns
+    ///
+    /// The exact typed value on success.
+    ///
+    /// # Errors
+    ///
+    /// Returns a missing-property, invalid-key, or type-mismatch error.
     #[inline]
     fn get_strict<T>(&self, name: impl AsRef<str>) -> ConfigResult<T>
     where
@@ -730,6 +770,14 @@ impl ConfigReader for Config {
     /// # Parameters
     ///
     /// * `name` - Canonical property name whose values are read.
+    ///
+    /// # Returns
+    ///
+    /// All stored values when each has the requested exact type.
+    ///
+    /// # Errors
+    ///
+    /// Returns a missing-property or type-mismatch error.
     #[inline]
     fn get_list_strict<T>(&self, name: impl AsRef<str>) -> ConfigResult<Vec<T>>
     where
@@ -743,6 +791,10 @@ impl ConfigReader for Config {
     /// # Parameters
     ///
     /// * `prefix` - Name prefix to search for among stored properties.
+    ///
+    /// # Returns
+    ///
+    /// Whether any stored property name starts with `prefix`.
     #[inline]
     fn contains_key_prefix(&self, prefix: &str) -> bool {
         Config::contains_key_prefix(self, prefix)
@@ -753,6 +805,14 @@ impl ConfigReader for Config {
     /// # Parameters
     ///
     /// * `path` - Canonical section path to check.
+    ///
+    /// # Returns
+    ///
+    /// Whether the path has visible descendant properties.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when `path` is not a valid section path.
     #[inline]
     fn contains_section(&self, path: &str) -> ConfigResult<bool> {
         Config::contains_section(self, path)
@@ -763,12 +823,20 @@ impl ConfigReader for Config {
     /// # Parameters
     ///
     /// * `prefix` - Name prefix used to select yielded properties.
+    ///
+    /// # Returns
+    ///
+    /// An iterator over matching properties in canonical order.
     #[inline]
     fn iter_prefix<'a>(&'a self, prefix: &'a str) -> impl Iterator<Item = (&'a str, &'a Property)> + 'a {
         Config::iter_prefix(self, prefix)
     }
 
     /// Iterates over every property in canonical name order.
+    ///
+    /// # Returns
+    ///
+    /// An iterator over all stored properties in canonical order.
     #[inline]
     fn iter<'a>(&'a self) -> impl Iterator<Item = (&'a str, &'a Property)> + 'a {
         Config::iter(self)
@@ -779,6 +847,14 @@ impl ConfigReader for Config {
     /// # Parameters
     ///
     /// * `path` - Canonical root-relative section path.
+    ///
+    /// # Returns
+    ///
+    /// A read-only section rooted at `path`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when `path` is not a valid section path.
     #[inline]
     fn section(&self, path: &str) -> ConfigResult<ConfigSection<'_>> {
         Config::section(self, path)

@@ -10,6 +10,10 @@
 use std::collections::HashMap;
 use std::fmt;
 
+#[cfg(all(feature = "num-bigint", feature = "bigdecimal"))]
+use bigdecimal::BigDecimal;
+#[cfg(all(feature = "num-bigint", feature = "bigdecimal"))]
+use num_bigint::BigInt;
 use qubit_config::Config;
 use qubit_config::ConfigDeserializeOptions;
 use qubit_config::ConfigError;
@@ -28,6 +32,8 @@ use qubit_datatype::DataConversionErrorKind;
 use qubit_datatype::DataConverter;
 use qubit_datatype::DataType;
 use qubit_datatype::EmptyItemPolicy;
+#[cfg(all(feature = "num-bigint", feature = "bigdecimal"))]
+use qubit_datatype::NumericConversionLimits;
 use qubit_datatype::StructuredConversionLimits;
 use qubit_value::MultiValues;
 use qubit_value::Value as QubitValue;
@@ -2420,7 +2426,6 @@ fn test_invalid_map_keys_and_enum_payloads_preserve_paths() {
 }
 #[test]
 fn test_scalar_sequence_source_and_unconsumed_tail_limits_preserve_errors() {
-    use qubit_datatype::CollectionConversionLimits;
     let mut config = Config::new();
     config.set("ports", "1,2,3").unwrap();
     config.set_default_read_policy(
@@ -2545,10 +2550,6 @@ fn test_preparation_source_and_rendered_number_budgets_are_public_errors() {
 #[cfg(all(feature = "num-bigint", feature = "bigdecimal"))]
 #[test]
 fn test_preparation_rich_numeric_limits_are_observable_through_deserialize() {
-    use bigdecimal::BigDecimal;
-    use num_bigint::BigInt;
-    use qubit_datatype::NumericConversionLimits;
-
     let mut config = Config::new();
     config.set("integer", BigInt::from(1000)).unwrap();
     config.set("decimal", "1e100".parse::<BigDecimal>().unwrap()).unwrap();

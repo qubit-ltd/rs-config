@@ -17,7 +17,7 @@ mod conversion_input;
 mod deserializer;
 #[path = "structured_read/source_enum_access.rs"]
 mod enum_access;
-#[path = "structured_read/internal/mod.rs"]
+#[path = "structured_read/internal.rs"]
 mod internal;
 #[path = "structured_read/interpolation_overlay.rs"]
 mod interpolation_overlay;
@@ -41,14 +41,10 @@ mod read_view;
 mod scalar_seq_access;
 #[path = "structured_read/source_seq_access.rs"]
 mod seq_access;
-#[path = "structured_read/sequence_values.rs"]
-mod sequence_values;
 #[path = "structured_read/source_index.rs"]
 mod source_index;
 #[path = "structured_read/source_location.rs"]
 mod source_location;
-#[path = "structured_read/source_segment.rs"]
-mod source_segment;
 #[path = "structured_read/traversal.rs"]
 mod traversal;
 #[path = "structured_read/visit.rs"]

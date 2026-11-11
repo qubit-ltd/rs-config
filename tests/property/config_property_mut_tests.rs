@@ -7,6 +7,8 @@
 // =============================================================================
 //! Tests guarded mutable property access and final-property enforcement.
 
+use std::ops::Deref;
+
 use qubit_config::Config;
 use qubit_config::ConfigError;
 use qubit_config::Property;
@@ -24,7 +26,7 @@ fn test_config_property_mut_updates_non_final_property() {
             .expect("mutable access should succeed")
             .expect("property should exist");
         assert_eq!(property.as_property().name(), "server.port");
-        let read_only: &Property = std::ops::Deref::deref(&property);
+        let read_only: &Property = Deref::deref(&property);
         assert_eq!(read_only.name(), "server.port");
         property
             .set_description(Some("HTTP port".to_string()))
@@ -37,7 +39,12 @@ fn test_config_property_mut_updates_non_final_property() {
         .expect("property lookup should succeed")
         .expect("property should remain present");
     assert_eq!(property.description(), Some("HTTP port"));
-    assert_eq!(config.get::<i32>("server.port").unwrap(), 9090);
+    assert_eq!(
+        config
+            .get::<i32>("server.port")
+            .expect("updated value should be readable"),
+        9090
+    );
 }
 
 #[test]
@@ -79,14 +86,24 @@ fn test_config_property_mut_rejects_mutation_after_marking_final() {
             Err(ConfigError::PropertyIsFinal(name)) if name == "server.host"
         ));
     }
-    assert_eq!(config.get::<String>("server.host").unwrap(), "localhost");
+    assert_eq!(
+        config
+            .get::<String>("server.host")
+            .expect("final property value should remain readable"),
+        "localhost"
+    );
 }
 
 #[test]
 fn test_config_property_mut_add_reports_property_path() {
     let mut config = Config::new();
-    config.set("server.port", 8080_i32).unwrap();
-    let mut property = config.get_property_mut("server.port").unwrap().unwrap();
+    config
+        .set("server.port", 8080_i32)
+        .expect("setting config value should succeed");
+    let mut property = config
+        .get_property_mut("server.port")
+        .expect("mutable access should succeed")
+        .expect("property should exist");
 
     let error = property.add("invalid").unwrap_err();
 

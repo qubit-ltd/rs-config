@@ -19,9 +19,9 @@ use serde::de::SeqAccess;
 
 use super::deserializer::ReadContext;
 use super::deserializer::SourceDeserializer;
+pub(super) use super::internal::sequence_values::SequenceValues;
 use super::node::SourceLocation;
 use super::node::SourceSegment;
-pub(super) use super::sequence_values::SequenceValues;
 use crate::config_deserialize_error::ConfigDeserializeError;
 
 /// Deserializes sequence elements lazily while borrowing values from the
@@ -129,7 +129,8 @@ impl<'de, 'tree, 'policy: 'tree> SeqAccess<'de> for SourceSeqAccess<'tree, 'poli
     ///
     /// # Returns
     ///
-    /// Returns `Some` with the remaining element count.
+    /// Always returns `Some` with the exact remaining element count because
+    /// this accessor knows the full sequence length.
     #[inline]
     fn size_hint(&self) -> Option<usize> {
         Some(self.values.len() - self.index)

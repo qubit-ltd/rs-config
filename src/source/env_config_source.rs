@@ -38,10 +38,10 @@ use super::EnvConfigOptions;
 use super::EnvConfigSourceBuilder;
 use super::SourceLimits;
 use super::SourceLoadContext;
-use crate::config_path::ensure_config_key;
 use crate::Config;
 use crate::ConfigError;
 use crate::ConfigResult;
+use crate::config_path::ensure_config_key;
 use crate::utils;
 
 /// Configuration source that loads from system environment variables
@@ -61,6 +61,7 @@ use crate::utils;
 /// assert!(config.get::<String>("app_name").is_ok());
 /// # Ok::<(), qubit_config::ConfigError>(())
 /// ```
+#[must_use = "use the configured environment source"]
 #[derive(Debug, Clone)]
 pub struct EnvConfigSource {
     /// Key selection and normalization options.
@@ -264,6 +265,7 @@ impl EnvConfigSource {
     /// # Parameters
     ///
     /// * `key` - Environment key returned by [`std::env::vars_os`].
+    ///
     /// # Returns
     ///
     /// The UTF-8 environment key, borrowing from `key`.
@@ -313,7 +315,12 @@ impl EnvConfigSource {
 }
 
 impl Default for EnvConfigSource {
-    /// Creates the default value for this type.
+    /// Creates a source with default environment options and resource limits.
+    ///
+    /// # Returns
+    ///
+    /// A source that loads all environment variables without key
+    /// transformation.
     #[inline]
     fn default() -> Self {
         Self::new()
@@ -322,12 +329,20 @@ impl Default for EnvConfigSource {
 
 impl ConfigSource for EnvConfigSource {
     /// Returns the stable identifier used to report this source during loading.
+    ///
+    /// # Returns
+    ///
+    /// The stable identifier `"process environment"`.
     #[inline]
     fn source_id(&self) -> String {
         "process environment".to_string()
     }
 
     /// Returns the resource limits applied to one load of this source.
+    ///
+    /// # Returns
+    ///
+    /// A copy of the source's configured limits.
     #[inline]
     fn limits(&self) -> SourceLimits {
         self.limits
@@ -339,6 +354,15 @@ impl ConfigSource for EnvConfigSource {
     ///
     /// * `context` - Context for charging resource use and writing the source
     ///   layer.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` after loading the current process environment.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if an environment entry is invalid, exceeds resource
+    /// limits, or conflicts with another normalized key.
     fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
         self.load_environment_entries(std::env::vars_os(), context)
     }
@@ -351,6 +375,11 @@ impl EnvConfigSource {
     /// against the load budget, normalized, and sorted before collisions are
     /// checked. Sorting makes conflict diagnostics independent of iteration
     /// order. The output layer is replaced only after all entries are valid.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `I` - Input type whose `IntoIterator::Item` is an `(OsString,
+    ///   OsString)` native environment key/value pair.
     ///
     /// # Parameters
     ///
@@ -367,10 +396,6 @@ impl EnvConfigSource {
     /// Returns an error if an entry is not valid Unicode, violates key
     /// constraints or resource limits, or conflicts with another normalized
     /// key.
-    /// # Type Parameters
-    ///
-    /// * `I` - Input type whose `IntoIterator::Item` is an `(OsString,
-    ///   OsString)` native environment key/value pair.
     fn load_environment_entries<I>(&self, entries: I, context: &mut SourceLoadContext<'_>) -> ConfigResult<()>
     where
         I: IntoIterator<Item = (OsString, OsString)>,

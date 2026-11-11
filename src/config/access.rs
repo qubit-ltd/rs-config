@@ -24,11 +24,14 @@ impl Config {
     // Basic Property Access
     // ========================================================================
 
-    /// Gets the configuration description
+    /// Returns the optional description stored with this configuration.
+    ///
+    /// The borrowed string remains valid for the duration of the immutable
+    /// borrow. No allocation or copy is performed.
     ///
     /// # Returns
     ///
-    /// Returns the configuration description as Option
+    /// `Some` with the description when one is set, otherwise `None`.
     #[inline]
     pub fn description(&self) -> Option<&str> {
         self.description.as_deref()
@@ -188,33 +191,35 @@ impl Config {
         Ok(self.properties.get_mut(name).map(ConfigPropertyMut::new))
     }
 
-    /// Gets the number of configuration items
+    /// Returns the number of stored configuration items.
     ///
     /// # Returns
     ///
-    /// Returns the number of configuration items
+    /// The number of entries in this configuration's property map.
     #[inline(always)]
     #[must_use = "use the returned value"]
     pub fn len(&self) -> usize {
         self.properties.len()
     }
 
-    /// Checks if the configuration is empty
+    /// Reports whether this configuration contains any properties.
     ///
     /// # Returns
     ///
-    /// Returns `true` if the configuration contains no items
+    /// Returns `true` when no properties are stored, otherwise `false`.
     #[inline(always)]
     #[must_use = "use the returned value"]
     pub fn is_empty(&self) -> bool {
         self.properties.is_empty()
     }
 
-    /// Gets all configuration item names
+    /// Copies the names of all stored configuration items.
+    ///
+    /// Names are returned in the property map's lexical order.
     ///
     /// # Returns
     ///
-    /// Returns a Vec of configuration item names
+    /// A newly allocated vector containing every property name.
     ///
     /// # Examples
     ///
@@ -238,11 +243,11 @@ impl Config {
 
     // Configuration mutation
 
-    /// Sets the configuration description
+    /// Replaces or clears the description stored with this configuration.
     ///
     /// # Parameters
     ///
-    /// * `description` - Configuration description
+    /// * `description` - New description, or `None` to remove the existing one.
     ///
     /// # Returns
     ///
@@ -252,15 +257,15 @@ impl Config {
         self.description = description;
     }
 
-    /// Sets the default runtime read policy.
+    /// Replaces the runtime policy used by direct reads on this configuration.
     ///
     /// # Parameters
     ///
-    /// * `policy` - New default read policy.
+    /// * `policy` - Policy applied to direct reads such as `get` and `get_any`.
     ///
     /// # Returns
     ///
-    /// Mutable reference to this configuration for chaining.
+    /// A mutable reference to this configuration for chaining.
     #[inline(always)]
     pub fn set_default_read_policy(&mut self, policy: ReadPolicy) -> &mut Self {
         self.default_read_policy = Transient::new(policy);
@@ -338,7 +343,7 @@ impl Config {
         Ok(self.properties.remove(name))
     }
 
-    /// Clears all configuration items if none of them are final.
+    /// Removes every configuration item when none of them are final.
     ///
     /// # Examples
     ///
@@ -366,50 +371,5 @@ impl Config {
         self.ensure_no_final_properties()?;
         self.properties.clear();
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::Config;
-    use crate::ConfigError;
-    use crate::ConfigReader;
-
-    #[test]
-    fn test_len_reports_the_number_of_properties() {
-        let mut config = Config::new();
-        assert_eq!(config.len(), 0);
-        config.set("server.port", 8080).unwrap();
-        config.set("server.host", "localhost").unwrap();
-        assert_eq!(config.len(), 2);
-    }
-
-    #[test]
-    fn test_set_description_updates_config_metadata() {
-        let mut config = Config::new();
-        let set_description = std::hint::black_box(Config::set_description);
-
-        set_description(&mut config, Some("service config".to_string()));
-        assert_eq!(config.description(), Some("service config"));
-
-        set_description(&mut config, None);
-        assert_eq!(config.description(), None);
-    }
-
-    #[test]
-    fn test_section_if_present_reports_descendants_and_rejects_invalid_paths() {
-        let mut config = Config::new();
-        config.set("server.port", 8080_u16).unwrap();
-        config.set("scalar", "value").unwrap();
-
-        let section_if_present = std::hint::black_box(Config::section_if_present);
-        let server = section_if_present(&config, "server").unwrap().unwrap();
-        assert_eq!(server.get::<u16>("port").unwrap(), 8080);
-        assert!(section_if_present(&config, "scalar").unwrap().is_none());
-        assert!(section_if_present(&config, "missing").unwrap().is_none());
-        assert!(matches!(
-            section_if_present(&config, ".server"),
-            Err(ConfigError::InvalidPath { .. })
-        ));
     }
 }

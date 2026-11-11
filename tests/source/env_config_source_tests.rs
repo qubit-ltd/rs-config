@@ -753,7 +753,6 @@ mod test_env_edge_cases {
     // ---- env: transform_key without strip_prefix ----
     #[test]
     fn test_env_config_source_with_options_no_strip() {
-        use qubit_config::source::EnvConfigSource;
         if !run_with_env(
             "test_env_edge_cases::test_env_config_source_with_options_no_strip",
             &[("COVTEST_FOO", "bar")],

@@ -5,30 +5,30 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-// # [`qubit_config::Config`] unit tests
+// # [`qubit_config::Config`] integration tests
 //
 // Covers the public `Config` API (including APIs introduced in v0.3.0).
 
 #[cfg(feature = "chrono")]
-pub(crate) use chrono::DateTime;
+use chrono::DateTime;
 #[cfg(feature = "chrono")]
-pub(crate) use chrono::NaiveDate;
+use chrono::NaiveDate;
 #[cfg(feature = "chrono")]
-pub(crate) use chrono::NaiveDateTime;
+use chrono::NaiveDateTime;
 #[cfg(feature = "chrono")]
-pub(crate) use chrono::NaiveTime;
+use chrono::NaiveTime;
 #[cfg(feature = "chrono")]
-pub(crate) use chrono::Utc;
-pub(crate) use qubit_config::Config;
-pub(crate) use qubit_config::ConfigBuilder;
-pub(crate) use qubit_config::ConfigError;
-pub(crate) use qubit_config::ConfigReader;
-pub(crate) use qubit_config::options::InterpolationSources;
-pub(crate) use qubit_config::options::ReadPolicy;
-pub(crate) use qubit_value::MultiValues;
+use chrono::Utc;
+use qubit_config::Config;
+use qubit_config::ConfigBuilder;
+use qubit_config::ConfigError;
+use qubit_config::ConfigReader;
+use qubit_config::options::InterpolationSources;
+use qubit_config::options::ReadPolicy;
+use qubit_value::MultiValues;
 
 /// Creates a test configuration object
-pub(crate) fn create_test_config() -> Config {
+fn create_test_config() -> Config {
     let mut config = Config::new();
     config.set("string_value", "test").unwrap();
     config.set("int_value", 42).unwrap();

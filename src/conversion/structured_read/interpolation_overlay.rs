@@ -45,6 +45,16 @@ use crate::utils::InterpolationSession;
 ///
 /// * `prepared` - Bounded projection whose string leaves are traversed.
 /// * `primary` - Active reader and policy for interpolation.
+///
+/// # Returns
+///
+/// The changed strings keyed by their typed source locations. Unchanged
+/// strings are omitted from the overlay.
+///
+/// # Errors
+///
+/// Returns an error if traversal, interpolation, or prepared-input admission
+/// exceeds its configured limits or encounters an invalid reference.
 pub(super) fn interpolate<R: ConfigReader + ?Sized>(
     prepared: &PreparedConfigRead<'_>,
     primary: &R,
@@ -98,6 +108,15 @@ pub(super) fn interpolate<R: ConfigReader + ?Sized>(
 /// * `prepared` - Mutable projection whose root scalar nodes may be classified.
 /// * `options` - String policy used to classify normalized optional values.
 /// * `exact` - Whether the projection represents a single exact property.
+///
+/// # Returns
+///
+/// Returns `Ok(())` after classifying root string scalars and removing omitted
+/// synthetic parents.
+///
+/// # Errors
+///
+/// Returns an error when optional-string normalization fails for a root scalar.
 pub(super) fn classify_missing(
     prepared: &mut PreparedConfigRead<'_>,
     options: &ReadPolicy,

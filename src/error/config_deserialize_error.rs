@@ -40,6 +40,10 @@ impl ConfigDeserializeError {
     ///
     /// * `path` - Configuration path at which the value failed validation.
     /// * `expected` - Expected structural shape, such as a sequence or map.
+    ///
+    /// # Returns
+    ///
+    /// An error retaining the expected shape and configuration path.
     pub(crate) fn shape_mismatch(path: &str, expected: &'static str) -> Self {
         Self::Message {
             message: format!("configuration value must have shape: {expected}"),
@@ -54,6 +58,10 @@ impl ConfigDeserializeError {
     /// * `path` - Configuration path of the tuple.
     /// * `actual` - Number of elements found in the input tuple.
     /// * `expected` - Required number of tuple elements.
+    ///
+    /// # Returns
+    ///
+    /// An error describing the actual and expected tuple lengths at `path`.
     pub(crate) fn tuple_length(path: &str, actual: usize, expected: usize) -> Self {
         Self::Message {
             message: format!("configuration tuple has length {actual}; expected {expected}"),
@@ -68,6 +76,10 @@ impl ConfigDeserializeError {
     ///
     /// * `path` - Configuration path of the sequence.
     /// * `expected` - Maximum number of elements accepted by the tuple.
+    ///
+    /// # Returns
+    ///
+    /// An error describing the tuple's maximum accepted length at `path`.
     pub(crate) fn tuple_has_extra_items(path: &str, expected: usize) -> Self {
         Self::Message {
             message: format!("configuration tuple has more elements than expected length {expected}"),
@@ -80,6 +92,10 @@ impl ConfigDeserializeError {
     /// # Parameters
     ///
     /// * `error` - Structured error whose kind and path must be preserved.
+    ///
+    /// # Returns
+    ///
+    /// A deserialization error that retains the structured error unchanged.
     #[inline]
     pub(crate) fn from_config(error: ConfigError) -> Self {
         Self::Config(error)
@@ -90,6 +106,10 @@ impl ConfigDeserializeError {
     /// # Parameters
     ///
     /// * `path` - Leaf path to use when the error does not already have one.
+    ///
+    /// # Returns
+    ///
+    /// The same error, with `path` attached only when no path was present.
     pub(crate) fn with_path(self, path: String) -> Self {
         match self {
             Self::Message { message, path: None } => Self::Message {
@@ -105,6 +125,11 @@ impl ConfigDeserializeError {
     /// # Parameters
     ///
     /// * `path` - Fallback path used when the stored diagnostic has no path.
+    ///
+    /// # Returns
+    ///
+    /// The public configuration error, preserving structured errors and
+    /// applying `path` only when the diagnostic has no stored path.
     pub(crate) fn into_config_error(self, path: &str) -> ConfigError {
         match self {
             ConfigDeserializeError::Message {
@@ -131,6 +156,10 @@ impl de::Error for ConfigDeserializeError {
     ///
     /// * `_msg` - Serde diagnostic, deliberately omitted to avoid retaining
     ///   potentially sensitive input text.
+    ///
+    /// # Returns
+    ///
+    /// A generic safe diagnostic without user-provided message text.
     fn custom<T: fmt::Display>(_msg: T) -> Self {
         Self::Message {
             message: "configuration value does not match the requested type".to_string(),
@@ -143,6 +172,10 @@ impl de::Error for ConfigDeserializeError {
     /// # Parameters
     ///
     /// * `field` - Name of the required field absent from the input.
+    ///
+    /// # Returns
+    ///
+    /// A safe diagnostic naming the missing field.
     fn missing_field(field: &'static str) -> Self {
         let field = serde_json::to_string(field).expect("serializing a string cannot fail");
         Self::Message {
@@ -157,6 +190,10 @@ impl de::Error for ConfigDeserializeError {
     ///
     /// * `_unexpected` - Serde description of the value that was found.
     /// * `_expected` - Serde description of the type required by the schema.
+    ///
+    /// # Returns
+    ///
+    /// A safe diagnostic that does not include input or schema descriptions.
     fn invalid_type(_unexpected: de::Unexpected<'_>, _expected: &dyn de::Expected) -> Self {
         Self::Message {
             message: "configuration value has an invalid type".to_string(),
@@ -170,6 +207,10 @@ impl de::Error for ConfigDeserializeError {
     ///
     /// * `_variant` - Unrecognized variant name supplied by the input.
     /// * `expected` - Variant names accepted by the schema.
+    ///
+    /// # Returns
+    ///
+    /// A safe diagnostic listing the expected variant names.
     fn unknown_variant(_variant: &str, expected: &'static [&'static str]) -> Self {
         let expected = serde_json::to_string(expected).expect("serializing variant names cannot fail");
         Self::Message {
@@ -184,6 +225,10 @@ impl de::Error for ConfigDeserializeError {
     ///
     /// * `len` - Number of sequence elements found in the input.
     /// * `_expected` - Serde description of the expected sequence shape.
+    ///
+    /// # Returns
+    ///
+    /// A safe diagnostic containing the observed sequence length.
     fn invalid_length(len: usize, _expected: &dyn de::Expected) -> Self {
         Self::Message {
             message: format!("configuration value has an invalid length: {len}"),
@@ -202,6 +247,10 @@ impl fmt::Display for ConfigDeserializeError {
     /// # Returns
     ///
     /// Formatting success or the formatter's error.
+    ///
+    /// # Errors
+    ///
+    /// Returns the formatter's error if writing the diagnostic fails.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ConfigDeserializeError::Message { message, .. } => f.write_str(message),
@@ -212,6 +261,11 @@ impl fmt::Display for ConfigDeserializeError {
 
 impl std::error::Error for ConfigDeserializeError {
     /// Returns the underlying configuration error when available.
+    ///
+    /// # Returns
+    ///
+    /// `Some` for a retained structured configuration error, or `None` for a
+    /// serde-originated diagnostic.
     #[inline]
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {

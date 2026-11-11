@@ -7,6 +7,9 @@
 // =============================================================================
 // Tests for bounded configuration source ingestion.
 
+use std::fs::write;
+use std::iter::repeat_n;
+
 use qubit_config::Config;
 use qubit_config::ConfigError;
 use qubit_config::ConfigResult;
@@ -23,6 +26,9 @@ use qubit_config::source::SourceLoadContext;
 use qubit_config::source::TomlConfigSource;
 #[cfg(feature = "yaml")]
 use qubit_config::source::YamlConfigSource;
+use serde_json::from_str;
+use serde_json::to_string;
+use tempfile::tempdir;
 
 struct InputAccountingSource {
     amount: usize,
@@ -107,7 +113,7 @@ fn test_parser_limits_defaults_and_serde_compatibility() {
     assert_eq!(SourceLimits::unbounded().max_parser_nesting_depth(), usize::MAX);
 
     let legacy = r#"{"max_input_bytes":1,"max_properties":2,"max_nodes":3,"max_sources":4,"max_nesting_depth":5}"#;
-    let decoded: SourceLimits = serde_json::from_str(legacy).expect("legacy limits should decode");
+    let decoded: SourceLimits = from_str(legacy).expect("legacy limits should decode");
     assert_eq!(decoded.max_parser_tokens(), 1_048_576);
     assert_eq!(decoded.max_parser_nesting_depth(), 128);
 }
@@ -123,11 +129,11 @@ fn test_source_limit_kinds_have_stable_display_names() {
     assert_eq!(SourceLimitKind::ParserNestingDepth.to_string(), "parser nesting depth");
     assert_eq!(SourceLimitKind::SourceNestingDepth.to_string(), "source nesting depth");
     assert_eq!(
-        serde_json::to_string(&SourceLimitKind::SourceNestingDepth).unwrap(),
+        to_string(&SourceLimitKind::SourceNestingDepth).unwrap(),
         "\"SourceNestingDepth\""
     );
     assert_eq!(
-        serde_json::from_str::<SourceLimitKind>("\"SourceNestingDepth\"").unwrap(),
+        from_str::<SourceLimitKind>("\"SourceNestingDepth\"").unwrap(),
         SourceLimitKind::SourceNestingDepth
     );
 }
@@ -240,9 +246,9 @@ fn test_properties_source_rejects_oversized_input_transactionally() {
 
 #[test]
 fn test_properties_file_source_reports_file_identity_for_limits() {
-    let dir = tempfile::tempdir().expect("temporary directory should exist");
+    let dir = tempdir().expect("temporary directory should exist");
     let path = dir.path().join("limited.properties");
-    std::fs::write(&path, "a=1\n").expect("properties file should be written");
+    write(&path, "a=1\n").expect("properties file should be written");
     let source = PropertiesConfigSource::builder()
         .file(&path)
         .limits(SourceLimits::builder().max_input_bytes(3).build())
@@ -319,7 +325,7 @@ fn test_properties_source_rejects_invalid_keys_and_excessive_key_depth() {
         }) if source_id == "properties:<memory>" && path == "bad..key"
     ));
 
-    let deep_key = std::iter::repeat_n("a", 65).collect::<Vec<_>>().join(".");
+    let deep_key = repeat_n("a", 65).collect::<Vec<_>>().join(".");
     let source = PropertiesConfigSource::builder()
         .content(format!("{deep_key}=1"))
         .limits(SourceLimits::builder().max_nesting_depth(64).build())

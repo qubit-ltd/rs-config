@@ -76,7 +76,7 @@ fn test_deserialize_bool_multi() {
     let mut config = Config::new();
     config.set("x.val", vec![true, false]).unwrap();
     let s: AnyStruct = config.deserialize("x").unwrap();
-    assert!(s.val.is_array());
+    assert_eq!(s.val, serde_json::json!([true, false]));
 }
 
 #[test]
@@ -412,13 +412,12 @@ fn test_deserialize_empty_string_multivalue_is_array() {
 fn test_deserialize_multi_int32_array() {
     let config = config_with_mv("x.val", MultiValues::Int32(vec![1, 2, 3]));
     let s: AnyStruct = config.deserialize("x").unwrap();
-    assert!(s.val.is_array());
-    assert_eq!(s.val.as_array().unwrap().len(), 3);
+    assert_eq!(s.val, serde_json::json!([1, 2, 3]));
 }
 
 #[test]
 fn test_deserialize_multi_string_array() {
     let config = config_with_mv("x.val", MultiValues::String(vec!["a".to_string(), "b".to_string()]));
     let s: AnyStruct = config.deserialize("x").unwrap();
-    assert!(s.val.is_array());
+    assert_eq!(s.val, serde_json::json!(["a", "b"]));
 }

@@ -8,7 +8,12 @@
 //! Shared file and in-memory input handling for text sources.
 
 use std::borrow::Cow;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::fmt::Result as FmtResult;
 use std::fs::File;
+use std::io::Error;
+use std::io::ErrorKind;
 use std::io::Read;
 use std::path::PathBuf;
 
@@ -38,13 +43,21 @@ pub(crate) enum SourceInput {
     ),
 }
 
-impl std::fmt::Debug for SourceInput {
+impl Debug for SourceInput {
     /// Formats the input kind without revealing in-memory source contents.
     ///
     /// # Parameters
     ///
     /// * `formatter` - Destination buffer for the redacted debug structure.
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the redacted input representation is written successfully.
+    ///
+    /// # Errors
+    ///
+    /// Returns the formatting error reported by the destination formatter.
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> FmtResult {
         match self {
             Self::File(path) => formatter.debug_tuple("File").field(path).finish(),
             Self::Content(content) => formatter
@@ -69,6 +82,7 @@ impl SourceInput {
     /// # Returns
     ///
     /// A content-free source identifier suitable for diagnostics.
+    #[must_use]
     pub(crate) fn label(&self, format: &str) -> String {
         match self {
             Self::File(path) => path.display().to_string(),
@@ -109,8 +123,8 @@ impl SourceInput {
                 String::from_utf8(bytes).map(Cow::Owned).map_err(|error| {
                     ConfigError::source_io_error(
                         label.clone(),
-                        std::io::Error::new(
-                            std::io::ErrorKind::InvalidData,
+                        Error::new(
+                            ErrorKind::InvalidData,
                             format!("Failed to read {format} source '{label}': {error}"),
                         ),
                     )
@@ -148,7 +162,7 @@ fn read_file_bytes(mut reader: impl Read, session: &mut SourceLoadSession<'_>) -
     loop {
         let count = match reader.read(&mut chunk) {
             Ok(count) => count,
-            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(error) if error.kind() == ErrorKind::Interrupted => continue,
             Err(error) => {
                 return Err(ConfigError::source_io_error(session.source_id().to_owned(), error));
             }
@@ -165,12 +179,15 @@ fn read_file_bytes(mut reader: impl Read, session: &mut SourceLoadSession<'_>) -
 #[cfg(test)]
 mod tests {
     use std::collections::VecDeque;
+    use std::error::Error as StdError;
     use std::fmt::Display;
     use std::fmt::Formatter;
+    use std::fmt::Result as FmtResult;
     use std::io::Cursor;
     use std::io::Error;
     use std::io::ErrorKind;
     use std::io::Read;
+    use std::io::Result as IoResult;
 
     use super::read_file_bytes;
     use crate::ConfigError;
@@ -181,7 +198,7 @@ mod tests {
     struct FailingReader(Option<Error>);
 
     impl Read for FailingReader {
-        fn read(&mut self, _output: &mut [u8]) -> std::io::Result<usize> {
+        fn read(&mut self, _output: &mut [u8]) -> IoResult<usize> {
             Err(self.0.take().expect("one read is expected"))
         }
     }
@@ -190,13 +207,13 @@ mod tests {
     struct InnerFailure(Error);
 
     impl Display for InnerFailure {
-        fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        fn fmt(&self, formatter: &mut Formatter<'_>) -> FmtResult {
             formatter.write_str("injected reader failure")
         }
     }
 
-    impl std::error::Error for InnerFailure {
-        fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+    impl StdError for InnerFailure {
+        fn source(&self) -> Option<&(dyn StdError + 'static)> {
             Some(&self.0)
         }
     }
@@ -207,7 +224,7 @@ mod tests {
     }
 
     impl Read for InterruptedOnce {
-        fn read(&mut self, output: &mut [u8]) -> std::io::Result<usize> {
+        fn read(&mut self, output: &mut [u8]) -> IoResult<usize> {
             if self.pending {
                 self.pending = false;
                 return Err(Error::from(ErrorKind::Interrupted));
@@ -221,7 +238,7 @@ mod tests {
     }
 
     impl Read for ScriptedReader {
-        fn read(&mut self, output: &mut [u8]) -> std::io::Result<usize> {
+        fn read(&mut self, output: &mut [u8]) -> IoResult<usize> {
             match self.steps.pop_front() {
                 Some(Ok(bytes)) => {
                     output[..bytes.len()].copy_from_slice(&bytes);
@@ -291,7 +308,7 @@ mod tests {
             .expect_err("permanent I/O errors are returned");
 
         assert_eq!(error.source_id(), Some("input-test"));
-        let io_error = std::error::Error::source(&error)
+        let io_error = StdError::source(&error)
             .and_then(|source| source.downcast_ref::<Error>())
             .expect("source I/O error should retain its underlying io::Error");
         assert_eq!(io_error.raw_os_error(), Some(12345));
@@ -307,7 +324,7 @@ mod tests {
         .expect_err("permanent I/O errors are returned");
 
         assert_eq!(error.source_id(), Some("input-test"));
-        let io_error = std::error::Error::source(&error)
+        let io_error = StdError::source(&error)
             .and_then(|source| source.downcast_ref::<Error>())
             .expect("source I/O error should retain its underlying io::Error");
         let inner = io_error
@@ -316,7 +333,7 @@ mod tests {
             .expect("the custom error stored in io::Error should be preserved");
         assert_eq!(inner.0.raw_os_error(), Some(12345));
         assert_eq!(
-            std::error::Error::source(inner)
+            StdError::source(inner)
                 .and_then(|source| source.downcast_ref::<Error>())
                 .and_then(Error::raw_os_error),
             Some(12345),

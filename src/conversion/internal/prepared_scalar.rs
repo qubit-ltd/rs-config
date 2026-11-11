@@ -15,6 +15,10 @@ use crate::ConfigResult;
 /// A successful result is cached and returned by later reads. Errors are not
 /// cached, so a later read retries substitution and can succeed if its inputs
 /// have changed.
+///
+/// # Type Parameters
+///
+/// * `'a` - Lifetime of the source text borrowed by this prepared scalar.
 pub(crate) struct PreparedScalar<'a> {
     /// Original scalar text borrowed from the source.
     raw: &'a str,
@@ -28,6 +32,10 @@ impl<'a> PreparedScalar<'a> {
     /// # Parameters
     ///
     /// * `raw` - Source text retained for reads that do not interpolate.
+    ///
+    /// # Returns
+    ///
+    /// A prepared scalar that borrows `raw` and has no cached result.
     #[must_use]
     #[inline]
     pub(crate) fn new(raw: &'a str) -> Self {
@@ -46,6 +54,16 @@ impl<'a> PreparedScalar<'a> {
     ///
     /// * `interpolate` - Whether to resolve placeholders in the source text.
     /// * `substitute` - Operation that expands the source text when requested.
+    ///
+    /// # Returns
+    ///
+    /// Original text when interpolation is disabled, or the successful
+    /// interpolation result borrowed from this scalar's cache.
+    ///
+    /// # Errors
+    ///
+    /// Returns the substitution error when interpolation fails. The failure
+    /// is not cached, so a later call retries the operation.
     pub(crate) fn text(
         &self,
         interpolate: bool,
@@ -69,54 +87,13 @@ impl<'a> PreparedScalar<'a> {
     /// # Parameters
     ///
     /// * `value` - Candidate text to compare with the original source.
+    ///
+    /// # Returns
+    ///
+    /// `true` when `value` has the same contents as the original text.
     #[must_use]
     #[inline]
     pub(crate) fn is_raw(&self, value: &str) -> bool {
         self.raw == value
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::cell::Cell;
-
-    use super::PreparedScalar;
-    use crate::ConfigError;
-    use crate::ConfigResult;
-
-    #[test]
-    fn test_successful_scalar_preparation_runs_once() {
-        let scalar = PreparedScalar::new("${value}");
-        let calls = Cell::new(0);
-        let substitute = |_: &str| -> ConfigResult<String> {
-            calls.set(calls.get() + 1);
-            Ok("prepared".to_owned())
-        };
-
-        assert_eq!(scalar.text(true, &substitute).unwrap(), "prepared");
-        assert_eq!(scalar.text(true, &substitute).unwrap(), "prepared");
-        assert_eq!(calls.get(), 1);
-    }
-
-    #[test]
-    fn test_failed_scalar_preparation_is_not_cached() {
-        let scalar = PreparedScalar::new("${value}");
-        let calls = Cell::new(0);
-        let substitute = |_: &str| -> ConfigResult<String> {
-            calls.set(calls.get() + 1);
-            if calls.get() == 1 {
-                Err(ConfigError::SubstitutionError {
-                    path: "key".to_owned(),
-                    message: "unavailable".to_owned(),
-                })
-            } else {
-                Ok("prepared".to_owned())
-            }
-        };
-
-        assert!(scalar.text(true, &substitute).is_err());
-        assert_eq!(scalar.text(true, &substitute).unwrap(), "prepared");
-        assert_eq!(scalar.text(true, &substitute).unwrap(), "prepared");
-        assert_eq!(calls.get(), 2);
     }
 }

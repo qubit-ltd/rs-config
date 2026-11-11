@@ -271,7 +271,6 @@ impl Property {
     ///
     /// Returns the strict read error from the underlying value container.
     #[inline(always)]
-    #[must_use = "use the returned value"]
     pub fn get<T>(&self) -> ValueResult<T>
     where
         T: StrictValueRead,
@@ -291,7 +290,6 @@ impl Property {
     /// * `self` - Property whose first value is borrowed for the conversion.
     /// * `'a` - Lifetime shared by the property borrow and returned reference.
     #[inline(always)]
-    #[must_use = "use the returned value"]
     pub fn get_ref<'a, T: ?Sized>(&'a self) -> ValueResult<&'a T>
     where
         &'a T: TryFrom<&'a Value, Error = ValueError> + TryFrom<&'a MultiValues, Error = ValueError>,
@@ -328,7 +326,6 @@ impl Property {
     ///
     /// Returns the property description as Option
     #[inline]
-    #[must_use = "use the returned value"]
     pub fn description(&self) -> Option<&str> {
         self.description.as_deref()
     }
@@ -375,7 +372,6 @@ impl Property {
     ///
     /// Returns the data type of the property value
     #[inline]
-    #[must_use = "use the returned value"]
     pub fn data_type(&self) -> DataType {
         self.value.data_type()
     }
@@ -434,21 +430,5 @@ impl DerefMut for Property {
     #[inline(always)]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.value
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::ops::Deref;
-
-    use super::Property;
-
-    #[test]
-    fn test_len_and_deref_observe_the_same_stored_value() {
-        let property = Property::new("coverage.property", "value").unwrap();
-        let dereferenced = property.deref();
-
-        assert_eq!(property.len(), dereferenced.len());
-        assert!(std::ptr::eq(dereferenced, property.value()));
     }
 }

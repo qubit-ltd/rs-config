@@ -63,6 +63,38 @@ impl SourceLoadSession<'static> {
 }
 
 impl<'a> SourceLoadSession<'a> {
+    /// Creates a child session that also charges every budget in this session.
+    ///
+    /// # Parameters
+    ///
+    /// * `source_id` - Identifier associated with the child source.
+    /// * `limits` - Local limits enforced for the child.
+    ///
+    /// # Returns
+    ///
+    /// A child session that charges its local budget and every ancestor budget.
+    #[doc(hidden)]
+    pub fn child<'child>(
+        &'child mut self,
+        source_id: impl Into<String>,
+        limits: SourceLimits,
+    ) -> SourceLoadSession<'child> {
+        let mut ancestors = self
+            .ancestors
+            .iter_mut()
+            .map(|budget| &mut **budget)
+            .collect::<Vec<_>>();
+        ancestors.push(&mut self.local);
+        let mut ancestor_ids = self.ancestor_ids.clone();
+        ancestor_ids.push(Arc::clone(&self.source_id));
+        SourceLoadSession {
+            source_id: Arc::<str>::from(source_id.into()),
+            local: SourceLoadBudget::new(limits),
+            ancestor_ids,
+            ancestors,
+        }
+    }
+
     /// Enforces the fixed executor guard for one more composite child edge.
     ///
     /// # Parameters
@@ -96,38 +128,6 @@ impl<'a> SourceLoadSession<'a> {
                     source: source.into(),
                 }
             })
-    }
-
-    /// Creates a child session that also charges every budget in this session.
-    ///
-    /// # Parameters
-    ///
-    /// * `source_id` - Identifier associated with the child source.
-    /// * `limits` - Local limits enforced for the child.
-    ///
-    /// # Returns
-    ///
-    /// A child session that charges its local budget and every ancestor budget.
-    #[doc(hidden)]
-    pub fn child<'child>(
-        &'child mut self,
-        source_id: impl Into<String>,
-        limits: SourceLimits,
-    ) -> SourceLoadSession<'child> {
-        let mut ancestors = self
-            .ancestors
-            .iter_mut()
-            .map(|budget| &mut **budget)
-            .collect::<Vec<_>>();
-        ancestors.push(&mut self.local);
-        let mut ancestor_ids = self.ancestor_ids.clone();
-        ancestor_ids.push(Arc::clone(&self.source_id));
-        SourceLoadSession {
-            source_id: Arc::<str>::from(source_id.into()),
-            local: SourceLoadBudget::new(limits),
-            ancestor_ids,
-            ancestors,
-        }
     }
 
     /// Checks a root-relative depth against every active budget scope.
@@ -288,10 +288,20 @@ impl<'a> SourceLoadSession<'a> {
     }
 
     /// Atomically consumes one cumulative resource across all active scopes.
+    ///
     /// # Parameters
     ///
     /// * `dimension` - Cumulative resource dimension to charge.
     /// * `amount` - Requested increment in units of that resource dimension.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when every active scope accepts and records the charge.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::SourceLimitExceeded`] without changing any
+    /// scope when one active budget rejects the charge.
     fn consume_cumulative(&mut self, dimension: CumulativeDimension, amount: usize) -> ConfigResult<()> {
         for (index, budget) in self.ancestors.iter().enumerate() {
             if let Err(source) = dimension.get(budget).check_available(amount) {
@@ -318,12 +328,18 @@ impl<'a> SourceLoadSession<'a> {
     }
 
     /// Wraps a cumulative failure with source and budget scope context.
+    ///
     /// # Parameters
     ///
     /// * `source_id` - Identity of the source whose charge was rejected.
     /// * `budget_id` - Identity of the budget scope that rejected the charge.
     /// * `source` - Underlying budget error with the configured limit, usage,
     ///   and requested amount.
+    ///
+    /// # Returns
+    ///
+    /// A source-limit error retaining the rejected source, budget scope, and
+    /// observed lower bound.
     fn cumulative_limit_error(
         source_id: &str,
         budget_id: &str,
@@ -340,11 +356,17 @@ impl<'a> SourceLoadSession<'a> {
     }
 
     /// Wraps a point-limit failure with source and budget scope context.
+    ///
     /// # Parameters
     ///
     /// * `budget_id` - Identity of the budget scope that rejected the charge.
     /// * `source` - Underlying budget error with the configured limit, usage,
     ///   and requested amount.
+    ///
+    /// # Returns
+    ///
+    /// A source-limit error retaining this source, the rejecting scope, and
+    /// the observed lower bound.
     fn limit_error(&self, budget_id: &str, source: BudgetError<SourceLimitKind, usize>) -> ConfigError {
         let limit = source.configured_limit();
         let observed_at_least = match &source {

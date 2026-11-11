@@ -439,7 +439,6 @@ mod test_toml_config_source {
         let source = TomlConfigSource::from_file("/nonexistent/path/config.toml");
         let mut config = Config::new();
         let result = merge_source(&mut config, &source);
-        assert!(result.is_err());
         assert!(matches!(result, Err(ConfigError::SourceIoError { .. })));
     }
 

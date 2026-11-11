@@ -21,6 +21,7 @@ use crate::ConfigError;
 use crate::ConfigResult;
 
 /// Independent resource budgets for the prepared structured-read index.
+#[must_use = "the index capacity must account for indexed resources"]
 pub(crate) struct IndexCapacity {
     /// Structure budget for the serialized map index.
     budget: JsonValueBudget<ConversionResource, u64>,

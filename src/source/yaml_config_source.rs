@@ -129,17 +129,18 @@ fn yaml_parse_error(label: &str, content: &str, error: &YamlError) -> ConfigErro
 impl YamlConfigSource {
     /// Creates a new `YamlConfigSource` from a file path
     ///
-    /// # Parameters
-    ///
-    /// * `path` - Path to the YAML file
-    ///
     /// # Type Parameters
     ///
     /// * `P` - Path-like type accepted by `AsRef<Path>`.
     ///
+    /// # Parameters
+    ///
+    /// * `path` - Path to the YAML file
+    ///
     /// # Returns
     ///
     /// A YAML source that reads from the given file path.
+    #[must_use]
     #[inline]
     pub fn from_file<P: AsRef<Path>>(path: P) -> Self {
         Self::builder().file(path).build()
@@ -154,6 +155,7 @@ impl YamlConfigSource {
     /// # Returns
     ///
     /// A YAML source that reads the supplied in-memory content.
+    #[must_use]
     #[inline]
     pub fn from_content(content: impl Into<String>) -> Self {
         Self::builder().content(content).build()
@@ -191,6 +193,7 @@ impl YamlConfigSource {
 /// # Errors
 ///
 /// Returns a scanner admission error or the backend's parse error.
+///
 /// # Type Parameters
 ///
 /// * `T` - Type converted from the selected configuration property.
@@ -206,11 +209,19 @@ fn with_yaml_admission<T>(
 
 impl ConfigSource for YamlConfigSource {
     /// Returns the stable identifier used to report this source during loading.
+    ///
+    /// # Returns
+    ///
+    /// The configured diagnostic label, or a label derived from the input.
     fn source_id(&self) -> String {
         self.label.clone().unwrap_or_else(|| self.input.label("YAML"))
     }
 
     /// Returns the resource limits applied to one load of this source.
+    ///
+    /// # Returns
+    ///
+    /// The limits configured for this source.
     #[inline]
     fn limits(&self) -> SourceLimits {
         self.limits
@@ -222,6 +233,15 @@ impl ConfigSource for YamlConfigSource {
     ///
     /// * `context` - Context for charging resource use and writing the source
     ///   layer.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` after replacing the context layer with the loaded YAML data.
+    ///
+    /// # Errors
+    ///
+    /// Returns an input, parser, resource-limit, key-validation, or
+    /// configuration-write error.
     fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
         let mut config = Config::new();
         let session = context.session_mut();

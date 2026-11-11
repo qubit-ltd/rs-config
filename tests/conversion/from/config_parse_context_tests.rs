@@ -16,8 +16,8 @@ use qubit_config::Property;
 use qubit_config::conversion::ConfigParseContext;
 use qubit_config::conversion::FromConfig;
 
-#[derive(Debug, PartialEq)]
 /// Test fixture whose scalar conversion observes the supplied read context.
+#[derive(Debug, PartialEq)]
 struct ServicePort(u16);
 
 impl FromConfig for ServicePort {

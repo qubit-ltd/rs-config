@@ -7,10 +7,12 @@
 // =============================================================================
 
 use qubit_config::Config;
+use qubit_config::ConfigError;
 use qubit_config::ConfigErrorKind;
 use qubit_config::ConfigResult;
 use qubit_config::source::CompositeConfigSource;
 use qubit_config::source::ConfigSource;
+use qubit_config::source::SourceLimitKind;
 use qubit_config::source::SourceLimits;
 use qubit_config::source::SourceLoadContext;
 use qubit_datatype::DataType;
@@ -272,7 +274,9 @@ fn test_source_load_session_failed_local_charge_leaves_every_scope_unchanged() {
 #[test]
 fn test_source_load_failure_discards_partial_layer_before_merge() {
     let mut config = Config::new();
-    config.set("existing", "kept").unwrap();
+    config
+        .set("existing", "kept")
+        .expect("initial config value should be valid");
 
     let error = config
         .merge_properties_from_source(&PartialLayerFailureSource)
@@ -280,8 +284,17 @@ fn test_source_load_failure_discards_partial_layer_before_merge() {
 
     assert_eq!(error.source_budget_id(), Some("partial layer"));
     assert_eq!(error.source_id(), Some("partial layer"));
-    assert_eq!(config.get::<String>("existing").unwrap(), "kept");
-    assert!(!config.contains("partial.key").unwrap());
+    assert_eq!(
+        config
+            .get::<String>("existing")
+            .expect("existing value should remain readable"),
+        "kept"
+    );
+    assert!(
+        !config
+            .contains("partial.key")
+            .expect("partial key lookup should succeed")
+    );
 }
 
 #[test]
@@ -297,11 +310,21 @@ fn test_assignment_budget_failure_keeps_source_limit_error() {
 
 #[test]
 fn test_source_load_context_exposes_node_charges_and_typed_nulls() {
-    let config = NodeAndNullSource.load().unwrap();
+    let config = NodeAndNullSource
+        .load()
+        .expect("node accounting and typed null assignment should succeed");
 
-    assert!(config.is_unset("optional.value").unwrap());
+    assert!(
+        config
+            .is_unset("optional.value")
+            .expect("optional property lookup should succeed")
+    );
     assert_eq!(
-        config.get_property("optional.value").unwrap().unwrap().data_type(),
+        config
+            .get_property("optional.value")
+            .expect("optional property lookup should succeed")
+            .expect("typed null property should be present")
+            .data_type(),
         DataType::String
     );
 }
@@ -354,8 +377,8 @@ fn test_parser_token_charge_is_atomic_across_ancestors() {
         .expect_err("ancestor charge should reject sibling's second charge");
     assert!(matches!(
         error,
-        qubit_config::ConfigError::SourceLimitExceeded {
-            kind: qubit_config::source::SourceLimitKind::ParserTokenCount,
+        ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::ParserTokenCount,
             limit: 3,
             observed_at_least: 4,
             ..
@@ -402,8 +425,8 @@ fn test_parser_depth_reports_rejecting_scope() {
         .expect_err("ancestor depth limit should reject the input");
     assert!(matches!(
         error,
-        qubit_config::ConfigError::SourceLimitExceeded {
-            kind: qubit_config::source::SourceLimitKind::ParserNestingDepth,
+        ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::ParserNestingDepth,
             limit: 2,
             observed_at_least: 3,
             ..
@@ -449,8 +472,8 @@ fn test_parser_budget_failure_preserves_merged_config() {
 
     assert!(matches!(
         error,
-        qubit_config::ConfigError::SourceLimitExceeded {
-            kind: qubit_config::source::SourceLimitKind::ParserTokenCount,
+        ConfigError::SourceLimitExceeded {
+            kind: SourceLimitKind::ParserTokenCount,
             limit: 0,
             observed_at_least: 1,
             ..

@@ -12,12 +12,16 @@ use std::process::Command;
 use qubit_config::Config;
 use qubit_config::ConfigDeserializeOptions;
 use qubit_config::ConfigError;
+use qubit_config::ConfigErrorKind;
 use qubit_config::ConfigReader;
 use qubit_config::UnknownFieldPolicy;
 use qubit_config::options::InterpolationSources;
 use qubit_config::options::ReadPolicy;
 use qubit_datatype::BlankStringPolicy;
 use qubit_datatype::CollectionConversionPolicy;
+use qubit_datatype::ConversionLimits;
+use qubit_datatype::ConversionOperationLimits;
+use qubit_datatype::ConversionResource;
 use qubit_value::ValueError;
 use serde::Deserialize;
 
@@ -37,7 +41,7 @@ fn test_interpolated_first_item_error_keeps_index_across_reader_apis() {
                 .unwrap_err(),
         ];
         for error in errors {
-            assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Substitution);
+            assert_eq!(error.kind(), ConfigErrorKind::Substitution);
             assert_eq!(error.path(), Some("service.items"));
             assert_eq!(error.source_index(), Some(0));
             assert!(matches!(error,
@@ -58,7 +62,7 @@ fn test_interpolated_first_item_retains_scalar_and_lazy_semantics() {
     let mut config = Config::new();
     config.set("scalar", "${missing}").unwrap();
     let error = config.get_interpolated::<String>("scalar").unwrap_err();
-    assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Substitution);
+    assert_eq!(error.kind(), ConfigErrorKind::Substitution);
     assert_eq!(error.source_index(), None);
     config.set("items", vec!["ready", "${missing}"]).unwrap();
     assert_eq!(config.get_interpolated::<String>("items").unwrap(), "ready");
@@ -142,10 +146,7 @@ fn test_interpolation_expansions_accumulate_across_list_elements() {
     config.set("x", "ok").unwrap();
     config.set("items", ["${x}", "${x}"]).unwrap();
     let error = config.get_interpolated::<Vec<String>>("items").unwrap_err();
-    assert_eq!(
-        error.kind(),
-        qubit_config::ConfigErrorKind::SubstitutionExpansionLimitExceeded
-    );
+    assert_eq!(error.kind(), ConfigErrorKind::SubstitutionExpansionLimitExceeded);
     assert_eq!(error.path(), Some("items"));
     assert_eq!(error.source_index(), Some(1));
     assert!(matches!(
@@ -165,7 +166,7 @@ fn test_interpolated_collection_reports_earlier_conversion_error_first() {
 
     let error = config.get_interpolated::<Vec<u16>>("items").unwrap_err();
 
-    assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Conversion);
+    assert_eq!(error.kind(), ConfigErrorKind::Conversion);
     assert_eq!(error.path(), Some("items"));
     assert_eq!(error.source_index(), Some(0));
 }
@@ -177,7 +178,7 @@ fn test_interpolated_collection_substitution_error_keeps_original_index() {
 
     let error = config.get_interpolated::<Vec<String>>("items").unwrap_err();
 
-    assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Substitution);
+    assert_eq!(error.kind(), ConfigErrorKind::Substitution);
     assert_eq!(error.path(), Some("items"));
     assert_eq!(error.source_index(), Some(1));
 }
@@ -201,9 +202,9 @@ fn test_interpolated_string_collection_preserves_collection_and_split_semantics(
 #[test]
 fn test_interpolated_collection_conversion_budgets_accumulate_across_items() {
     fn read_with_limits(max_input_bytes: u64, max_output_bytes: u64) -> Result<Vec<String>, ConfigError> {
-        let limits = qubit_datatype::ConversionLimits::builder()
+        let limits = ConversionLimits::builder()
             .operation_limits(
-                qubit_datatype::ConversionOperationLimits::builder()
+                ConversionOperationLimits::builder()
                     .max_items(2)
                     .max_input_bytes(max_input_bytes)
                     .max_output_bytes(max_output_bytes)
@@ -222,15 +223,9 @@ fn test_interpolated_collection_conversion_budgets_accumulate_across_items() {
         assert_eq!(error.source_index(), Some(1));
     }
 
-    let operation = qubit_datatype::ConversionOperationLimits::builder()
-        .max_items(0)
-        .build();
+    let operation = ConversionOperationLimits::builder().max_items(0).build();
     let policy = ReadPolicy::builder()
-        .conversion_limits(
-            qubit_datatype::ConversionLimits::builder()
-                .operation_limits(operation)
-                .build(),
-        )
+        .conversion_limits(ConversionLimits::builder().operation_limits(operation).build())
         .build();
     let mut config = Config::builder().default_read_policy(policy).build();
     config.set("items", vec!["1"]).unwrap();
@@ -418,12 +413,8 @@ fn test_interpolated_collection_first_item_uses_expansion_budget_and_output_limi
         "{error:?}"
     );
 
-    let limits = qubit_datatype::ConversionLimits::builder()
-        .operation_limits(
-            qubit_datatype::ConversionOperationLimits::builder()
-                .max_output_bytes(3)
-                .build(),
-        )
+    let limits = ConversionLimits::builder()
+        .operation_limits(ConversionOperationLimits::builder().max_output_bytes(3).build())
         .build();
     let mut output_limited = Config::builder()
         .default_read_policy(ReadPolicy::builder().conversion_limits(limits).build())
@@ -475,9 +466,9 @@ fn test_rsc204_interpolated_blank_precheck_keeps_interpolation_budget_separate()
                     .blank_string_policy(BlankStringPolicy::TreatAsMissing)
                     .max_interpolation_expansions(1)
                     .conversion_limits(
-                        qubit_datatype::ConversionLimits::builder()
+                        ConversionLimits::builder()
                             .operation_limits(
-                                qubit_datatype::ConversionOperationLimits::builder()
+                                ConversionOperationLimits::builder()
                                     .max_input_bytes(input_limit)
                                     .build(),
                             )
@@ -497,12 +488,8 @@ fn test_rsc204_interpolated_blank_precheck_keeps_interpolation_budget_separate()
                 .blank_string_policy(BlankStringPolicy::TreatAsMissing)
                 .max_interpolation_expansions(0)
                 .conversion_limits(
-                    qubit_datatype::ConversionLimits::builder()
-                        .operation_limits(
-                            qubit_datatype::ConversionOperationLimits::builder()
-                                .max_input_bytes(0)
-                                .build(),
-                        )
+                    ConversionLimits::builder()
+                        .operation_limits(ConversionOperationLimits::builder().max_input_bytes(0).build())
                         .build(),
                 )
                 .build(),
@@ -519,9 +506,9 @@ fn test_rsc204_interpolated_blank_precheck_keeps_interpolation_budget_separate()
 #[test]
 fn test_rsc204_interpolated_blank_candidate_skips_to_nonempty_alias() {
     for (input_limit, should_succeed) in [(0, false), (1, true)] {
-        let limits = qubit_datatype::ConversionLimits::builder()
+        let limits = ConversionLimits::builder()
             .operation_limits(
-                qubit_datatype::ConversionOperationLimits::builder()
+                ConversionOperationLimits::builder()
                     .max_input_bytes(input_limit)
                     .build(),
             )
@@ -543,7 +530,7 @@ fn test_rsc204_interpolated_blank_candidate_skips_to_nonempty_alias() {
         } else {
             for result in [optional, defaulted.map(Some)] {
                 let error = result.expect_err("secondary non-empty input exceeds the conversion budget");
-                assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Conversion);
+                assert_eq!(error.kind(), ConfigErrorKind::Conversion);
                 assert_eq!(error.path(), Some("secondary"));
                 assert!(matches!(
                     error,
@@ -552,7 +539,7 @@ fn test_rsc204_interpolated_blank_candidate_skips_to_nonempty_alias() {
                         source_index: None,
                         source,
                     } if key == "secondary"
-                        && source.resource() == Some(qubit_datatype::ConversionResource::InputBytes)
+                        && source.resource() == Some(ConversionResource::InputBytes)
                 ));
             }
         }

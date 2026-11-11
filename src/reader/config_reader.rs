@@ -66,21 +66,42 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// For a [`ConfigSection`], `name` is resolved relative to the view
     /// prefix (same rules as [`Self::get`]).
+    ///
     /// # Parameters
     ///
     /// * `name` - Configuration key relative to the current reader.
+    ///
+    /// # Returns
+    ///
+    /// The matching property, or `None` when the key is absent.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when `name` is not a valid key in the reader's scope.
     fn get_property(&self, name: impl AsRef<str>) -> ConfigResult<Option<&Property>>;
 
     /// Number of configuration entries visible to this reader (all keys for
     /// [`crate::Config`]; relative keys only for a [`ConfigSection`]).
+    ///
+    /// # Returns
+    ///
+    /// The number of visible entries.
     #[must_use = "use the returned value"]
     fn len(&self) -> usize;
 
     /// Returns `true` when [`Self::len`] is zero.
+    ///
+    /// # Returns
+    ///
+    /// `true` when this reader has no visible entries.
     #[must_use = "use the returned value"]
     fn is_empty(&self) -> bool;
 
     /// All keys visible to this reader (relative keys for a section).
+    ///
+    /// # Returns
+    ///
+    /// Owned visible keys in reader order.
     #[must_use = "use the returned value"]
     fn keys(&self) -> Vec<String>;
 
@@ -112,6 +133,10 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// The converted value on success, or a [`crate::ConfigError`] if the key
     /// is absent, effectively missing, or not convertible.
+    ///
+    /// # Errors
+    ///
+    /// Returns a missing-property, invalid-key, or conversion error.
     fn get<T>(&self, name: impl AsRef<str>) -> ConfigResult<T>
     where
         T: FromConfig,
@@ -199,6 +224,11 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// The exact stored value on success, or a [`crate::ConfigError`] if the
     /// key is absent, unset, or has a different stored type.
+    ///
+    /// # Errors
+    ///
+    /// Returns a missing-property, invalid-key, unset-value, or type-mismatch
+    /// error.
     fn get_strict<T>(&self, name: impl AsRef<str>) -> ConfigResult<T>
     where
         T: StrictValueRead;
@@ -217,6 +247,10 @@ pub trait ConfigReader: internal::Sealed {
     /// # Returns
     ///
     /// A `Vec<T>` on success, or a [`crate::ConfigError`] on failure.
+    ///
+    /// # Errors
+    ///
+    /// Returns a missing-property, invalid-key, or conversion error.
     fn get_list<T>(&self, name: impl AsRef<str>) -> ConfigResult<Vec<T>>
     where
         T: DataConversionTarget,
@@ -238,6 +272,10 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// A vector of exact stored values on success, or a
     /// [`crate::ConfigError`] on failure.
+    ///
+    /// # Errors
+    ///
+    /// Returns a missing-property, invalid-key, or stored-type mismatch error.
     fn get_list_strict<T>(&self, name: impl AsRef<str>) -> ConfigResult<Vec<T>>
     where
         T: StrictValueRead;
@@ -253,6 +291,16 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// * `name` - Configuration key relative to the current reader.
     /// * `default` - Fallback value used when the primary value is unavailable.
+    ///
+    /// # Returns
+    ///
+    /// The converted property value, or `default` when the property is
+    /// absent or effectively missing.
+    ///
+    /// # Errors
+    ///
+    /// Returns a key or conversion error; conversion failures are not hidden
+    /// by `default`.
     #[inline]
     fn get_or<T>(&self, name: impl AsRef<str>, default: impl IntoValueDefault<T>) -> ConfigResult<T>
     where
@@ -310,6 +358,10 @@ pub trait ConfigReader: internal::Sealed {
     /// active read policy, or `Err` on conversion failure. Concrete empty
     /// collections are present values; blank strings are missing only when
     /// the policy says so.
+    ///
+    /// # Errors
+    ///
+    /// Returns key or conversion errors for a present property.
     fn get_optional<T>(&self, name: impl AsRef<str>) -> ConfigResult<Option<T>>
     where
         T: FromConfig,
@@ -322,7 +374,12 @@ pub trait ConfigReader: internal::Sealed {
                 if is_effectively_missing(property, self.read_policy()) {
                     Ok(None)
                 } else {
-                    optional_converted_value(parse_property_from_reader(self, resolved, property, self.read_policy()))
+                    internal::optional_converted_value(parse_property_from_reader(
+                        self,
+                        resolved,
+                        property,
+                        self.read_policy(),
+                    ))
                 }
             }
         }
@@ -370,7 +427,7 @@ pub trait ConfigReader: internal::Sealed {
                         if is_effectively_missing_with_context(property, context)? {
                             Ok(None)
                         } else {
-                            optional_converted_value(T::from_config(property, context))
+                            internal::optional_converted_value(T::from_config(property, context))
                         }
                     },
                 )
@@ -383,7 +440,7 @@ pub trait ConfigReader: internal::Sealed {
     /// # Returns
     ///
     /// The policy inherited by ordinary reads.
-    #[must_use = "use the returned value"]
+    #[must_use = "use the returned read policy"]
     fn read_policy(&self) -> &ReadPolicy;
 
     /// Creates a borrowed reader view using `policy` for typed reads.
@@ -395,6 +452,11 @@ pub trait ConfigReader: internal::Sealed {
     /// # Returns
     ///
     /// A view preserving this reader's current scope.
+    ///
+    /// # Panics
+    ///
+    /// Panics only if the reader cannot create a valid view of its current
+    /// scope, which violates the reader invariant.
     #[inline]
     fn read_with<'a>(&'a self, policy: &'a ReadPolicy) -> ConfigSection<'a> {
         self.section("")
@@ -408,7 +470,7 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// The root reader returns an empty string.
     #[inline(always)]
-    #[must_use = "use the returned value"]
+    #[must_use = "use the returned scope path"]
     fn scope_path(&self) -> &str {
         ""
     }
@@ -433,13 +495,17 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// Parsed value from the first present value. Conversion errors stop the
     /// search and are returned directly.
+    ///
+    /// # Errors
+    ///
+    /// Returns a missing-candidate, key, or conversion error.
     fn get_any<T>(&self, names: impl ConfigNames) -> ConfigResult<T>
     where
         T: FromConfig,
     {
         names.with_config_names(|names| match self.get_optional_any(names)? {
             Some(value) => Ok(value),
-            None => Err(missing_candidates_error(self, names)?),
+            None => Err(internal::missing_candidates_error(self, names)?),
         })
     }
 
@@ -474,7 +540,7 @@ pub trait ConfigReader: internal::Sealed {
     {
         names.with_config_names(|names| match self.get_optional_any_interpolated(names)? {
             Some(value) => Ok(value),
-            None => Err(missing_candidates_error(self, names)?),
+            None => Err(internal::missing_candidates_error(self, names)?),
         })
     }
 
@@ -495,13 +561,18 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// # Returns
     ///
-    /// `Ok(None)` only when every key is absent, unset, or effectively missing
-    /// under the active read policy.
+    /// `Ok(Some(value))` for the first present candidate, or `Ok(None)` when
+    /// every key is absent, unset, or effectively missing under the active
+    /// read policy.
+    ///
+    /// # Errors
+    ///
+    /// Returns key or conversion errors from a selected candidate.
     fn get_optional_any<T>(&self, names: impl ConfigNames) -> ConfigResult<Option<T>>
     where
         T: FromConfig,
     {
-        names.with_config_names(|names| get_optional_any_with_options(self, names, self.read_policy(), false))
+        names.with_config_names(|names| internal::get_optional_any_with_options(self, names, self.read_policy(), false))
     }
 
     /// Reads an optional interpolated value from the first configured key.
@@ -528,7 +599,7 @@ pub trait ConfigReader: internal::Sealed {
     where
         T: FromConfig,
     {
-        names.with_config_names(|names| get_optional_any_with_options(self, names, self.read_policy(), true))
+        names.with_config_names(|names| internal::get_optional_any_with_options(self, names, self.read_policy(), true))
     }
 
     /// Reads a value from any key, using `default` only when every key is
@@ -547,6 +618,10 @@ pub trait ConfigReader: internal::Sealed {
     /// # Returns
     ///
     /// Parsed value or `default`; parsing errors are never swallowed.
+    ///
+    /// # Errors
+    ///
+    /// Returns key or conversion errors from selected candidates.
     fn get_any_or<T>(&self, names: impl ConfigNames, default: impl IntoValueDefault<T>) -> ConfigResult<T>
     where
         T: FromConfig,
@@ -604,6 +679,10 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// `Ok(Some(vec))`, including `Some(Vec::new())` for a concrete empty
     /// collection; `Ok(None)` only when absent or effectively missing.
+    ///
+    /// # Errors
+    ///
+    /// Returns key or element-conversion errors.
     fn get_optional_list<T>(&self, name: impl AsRef<str>) -> ConfigResult<Option<Vec<T>>>
     where
         T: DataConversionTarget,
@@ -633,6 +712,10 @@ pub trait ConfigReader: internal::Sealed {
     /// # Returns
     ///
     /// `true` when at least one descendant belongs to that exact dotted path.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when `path` is not a valid section path.
     fn contains_section(&self, path: &str) -> ConfigResult<bool>;
 
     /// Iterates `(key, property)` pairs for keys that start with `prefix`.
@@ -648,6 +731,10 @@ pub trait ConfigReader: internal::Sealed {
 
     /// Iterates all `(key, property)` pairs visible to this reader (same scope
     /// as [`Self::keys`]).
+    ///
+    /// # Returns
+    ///
+    /// An iterator borrowing every visible key and property.
     fn iter<'a>(&'a self) -> impl Iterator<Item = (&'a str, &'a Property)> + 'a;
 
     /// Ensures every visible property is explicitly declared or belongs to an
@@ -720,6 +807,14 @@ pub trait ConfigReader: internal::Sealed {
     /// # Parameters
     ///
     /// * `name` - Configuration key relative to the current reader.
+    ///
+    /// # Returns
+    ///
+    /// `true` only when the key exists and its stored value is unset.
+    ///
+    /// # Errors
+    ///
+    /// Returns key validation errors from the underlying lookup.
     fn is_unset(&self, name: impl AsRef<str>) -> ConfigResult<bool> {
         let name = name.as_ref();
         Ok(self
@@ -744,6 +839,10 @@ pub trait ConfigReader: internal::Sealed {
     ///
     /// A [`ConfigSection`] borrowing this reader's underlying
     /// [`crate::Config`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when `path` is not a canonical section path.
     fn section(&self, path: &str) -> ConfigResult<ConfigSection<'_>>;
 
     /// Creates a read-only section only when it has visible descendant
@@ -790,6 +889,10 @@ pub trait ConfigReader: internal::Sealed {
     /// # Returns
     ///
     /// Root-relative key path string.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when `name` is not a canonical key path.
     #[inline]
     fn resolve_key(&self, name: impl AsRef<str>) -> ConfigResult<String> {
         let name = name.as_ref();
@@ -806,103 +909,16 @@ pub trait ConfigReader: internal::Sealed {
 /// # Parameters
 ///
 /// * `reader` - Configuration reader used to resolve the requested value.
+///
+/// # Returns
+///
+/// The root configuration shared by the reader.
 #[inline(always)]
 pub(crate) fn root_config<R>(reader: &R) -> &Config
 where
     R: ConfigReader + ?Sized,
 {
     internal::Sealed::root_config(reader)
-}
-
-/// Creates a structured error for an unsuccessful multi-key lookup.
-/// # Type Parameters
-///
-/// * `R` - Reader used to resolve the requested configuration values.
-///
-/// # Parameters
-///
-/// * `reader` - Configuration reader used to resolve the requested value.
-/// * `names` - Candidate configuration keys checked in order.
-fn missing_candidates_error<R>(reader: &R, names: &[&str]) -> ConfigResult<ConfigError>
-where
-    R: ConfigReader + ?Sized,
-{
-    let paths = names
-        .iter()
-        .map(|name| reader.resolve_key(*name))
-        .collect::<ConfigResult<Vec<_>>>()?;
-    Ok(ConfigError::PropertyCandidatesNotFound { paths })
-}
-
-/// Shared implementation for field-level and global multi-key reads.
-/// # Type Parameters
-///
-/// * `R` - Reader used to resolve the requested configuration values.
-/// * `T` - Type converted from the selected configuration property.
-///
-/// # Parameters
-///
-/// * `reader` - Configuration reader used to resolve the requested value.
-/// * `names` - Candidate configuration keys checked in order.
-/// * `options` - Options that control source key selection and normalization.
-/// * `interpolate` - Whether interpolation is applied while reading each
-///   candidate.
-fn get_optional_any_with_options<R, T>(
-    reader: &R,
-    names: impl ConfigNames,
-    options: &ReadPolicy,
-    interpolate: bool,
-) -> ConfigResult<Option<T>>
-where
-    R: ConfigReader + ?Sized,
-    T: FromConfig,
-{
-    names.with_config_names(|names| {
-        let session = RefCell::new(InterpolationSession::new(options));
-        for name in names {
-            ensure_config_key(name)?;
-        }
-        for name in names {
-            let Some(property) = reader.get_property(*name)? else {
-                continue;
-            };
-            let resolved = property.name();
-            let parsed =
-                with_property_read_context(reader, resolved, property, options, interpolate, &session, |context| {
-                    if is_effectively_missing_with_context(property, context)? {
-                        return Ok(None);
-                    }
-                    optional_converted_value(T::from_config(property, context))
-                })?;
-            if let Some(value) = parsed {
-                return Ok(Some(value));
-            }
-        }
-        Ok(None)
-    })
-}
-
-/// Classifies converted missing values without hiding collection failures.
-/// # Type Parameters
-///
-/// * `T` - Type converted from the selected configuration property.
-///
-/// # Parameters
-///
-/// * `result` - Result returned by the value conversion to classify
-///   missing-value errors.
-fn optional_converted_value<T>(result: ConfigResult<T>) -> ConfigResult<Option<T>> {
-    match result {
-        Ok(value) => Ok(Some(value)),
-        Err(error)
-            if error
-                .value_missing()
-                .is_some_and(|missing| missing.is_defaultable_for_conversion()) =>
-        {
-            Ok(None)
-        }
-        Err(error) => Err(error),
-    }
 }
 
 impl internal::Sealed for Config {

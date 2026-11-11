@@ -10,6 +10,7 @@
 use serde_json::Value;
 use serde_path_to_error::Path;
 use serde_path_to_error::Segment;
+use serde_path_to_error::deserialize;
 
 use super::ConfigWireFields;
 use crate::ConfigWireDecodeError;
@@ -29,7 +30,7 @@ use crate::ConfigWireRepresentationErrorKind;
 /// shape, or when deserialization rejects a nested representation.
 pub(in crate::config) fn decode_fields(value: Value) -> Result<ConfigWireFields, ConfigWireDecodeError> {
     check_wire_shape(&value)?;
-    serde_path_to_error::deserialize(value).map_err(|error| ConfigWireDecodeError::Representation {
+    deserialize(value).map_err(|error| ConfigWireDecodeError::Representation {
         path: wire_pointer(error.path()),
         reason: ConfigWireRepresentationErrorKind::InvalidValue,
     })
@@ -42,6 +43,11 @@ pub(in crate::config) fn decode_fields(value: Value) -> Result<ConfigWireFields,
 ///
 /// * `value` - Admitted JSON value whose envelope and property fields are
 ///   checked without inspecting nested payloads.
+///
+/// # Errors
+///
+/// Returns a classified representation error at the first invalid contract
+/// path.
 fn check_wire_shape(value: &Value) -> Result<(), ConfigWireDecodeError> {
     let Some(envelope) = value.as_object() else {
         return Err(representation("", ConfigWireRepresentationErrorKind::InvalidType));
@@ -89,52 +95,69 @@ fn check_wire_shape(value: &Value) -> Result<(), ConfigWireDecodeError> {
     };
 
     for (key, property) in properties {
-        let property_path = pointer_child("/properties", key);
-        let Some(fields) = property.as_object() else {
+        check_property_wire_shape(key, property)?;
+    }
+    Ok(())
+}
+
+/// Checks one persisted property against the property wire contract.
+///
+/// # Parameters
+///
+/// * `key` - Persisted property name used to identify errors without exposing
+///   the property's value.
+/// * `property` - Admitted JSON value containing the property's wire fields.
+///
+/// # Errors
+///
+/// Returns a classified representation error at the first invalid property
+/// field path.
+fn check_property_wire_shape(key: &str, property: &Value) -> Result<(), ConfigWireDecodeError> {
+    let property_path = pointer_child("/properties", key);
+    let Some(fields) = property.as_object() else {
+        return Err(representation(
+            &property_path,
+            ConfigWireRepresentationErrorKind::InvalidType,
+        ));
+    };
+
+    for field in fields.keys() {
+        if !matches!(field.as_str(), "name" | "value" | "description" | "is_final") {
             return Err(representation(
                 &property_path,
-                ConfigWireRepresentationErrorKind::InvalidType,
+                ConfigWireRepresentationErrorKind::UnknownField,
             ));
-        };
+        }
+    }
 
-        for field in fields.keys() {
-            if !matches!(field.as_str(), "name" | "value" | "description" | "is_final") {
-                return Err(representation(
-                    &property_path,
-                    ConfigWireRepresentationErrorKind::UnknownField,
-                ));
-            }
-        }
-
-        for required in ["name", "value", "is_final"] {
-            if !fields.contains_key(required) {
-                return Err(representation(
-                    &pointer_child(&property_path, required),
-                    ConfigWireRepresentationErrorKind::MissingField,
-                ));
-            }
-        }
-        if !fields.get("name").is_some_and(Value::is_string) {
+    for required in ["name", "value", "is_final"] {
+        if !fields.contains_key(required) {
             return Err(representation(
-                &pointer_child(&property_path, "name"),
-                ConfigWireRepresentationErrorKind::InvalidType,
+                &pointer_child(&property_path, required),
+                ConfigWireRepresentationErrorKind::MissingField,
             ));
         }
-        if !fields.get("is_final").is_some_and(Value::is_boolean) {
-            return Err(representation(
-                &pointer_child(&property_path, "is_final"),
-                ConfigWireRepresentationErrorKind::InvalidType,
-            ));
-        }
-        if let Some(description) = fields.get("description")
-            && !description.is_null()
-            && !description.is_string()
-        {
-            return Err(representation(
-                &pointer_child(&property_path, "description"),
-                ConfigWireRepresentationErrorKind::InvalidType,
-            ));
-        }
+    }
+    if !fields.get("name").is_some_and(Value::is_string) {
+        return Err(representation(
+            &pointer_child(&property_path, "name"),
+            ConfigWireRepresentationErrorKind::InvalidType,
+        ));
+    }
+    if !fields.get("is_final").is_some_and(Value::is_boolean) {
+        return Err(representation(
+            &pointer_child(&property_path, "is_final"),
+            ConfigWireRepresentationErrorKind::InvalidType,
+        ));
+    }
+    if let Some(description) = fields.get("description")
+        && !description.is_null()
+        && !description.is_string()
+    {
+        return Err(representation(
+            &pointer_child(&property_path, "description"),
+            ConfigWireRepresentationErrorKind::InvalidType,
+        ));
     }
     Ok(())
 }
@@ -144,6 +167,11 @@ fn check_wire_shape(value: &Value) -> Result<(), ConfigWireDecodeError> {
 /// # Parameters
 ///
 /// * `path` - Serde path identifying the rejected wire field.
+///
+/// # Returns
+///
+/// A JSON Pointer containing only recognized wire-schema segments.
+#[must_use]
 fn wire_pointer(path: &Path) -> String {
     let mut pointer = String::new();
     let mut first_segment = true;
@@ -186,6 +214,11 @@ fn wire_pointer(path: &Path) -> String {
 ///
 /// # Parameters
 /// - `segment`: Path segment to check against the persisted wire fields.
+///
+/// # Returns
+///
+/// `true` when the segment is part of the persisted wire schema.
+#[must_use]
 fn is_safe_wire_field(segment: &str) -> bool {
     matches!(
         segment,
@@ -232,6 +265,11 @@ fn is_safe_wire_field(segment: &str) -> bool {
 ///
 /// * `parent` - Existing JSON Pointer prefix.
 /// * `segment` - Raw path segment to escape and append.
+///
+/// # Returns
+///
+/// A new pointer with `segment` escaped according to RFC 6901.
+#[must_use]
 fn pointer_child(parent: &str, segment: &str) -> String {
     let escaped = segment.replace('~', "~0").replace('/', "~1");
     format!("{parent}/{escaped}")
@@ -243,6 +281,10 @@ fn pointer_child(parent: &str, segment: &str) -> String {
 ///
 /// * `path` - JSON Pointer locating the wire-contract violation.
 /// * `reason` - Safe classification of the rejected value or field.
+///
+/// # Returns
+///
+/// A representation error that retains the safe path and reason.
 fn representation(path: &str, reason: ConfigWireRepresentationErrorKind) -> ConfigWireDecodeError {
     ConfigWireDecodeError::Representation {
         path: path.to_owned(),

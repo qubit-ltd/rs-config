@@ -29,10 +29,16 @@ pub(crate) struct InterpolationSession {
 
 impl InterpolationSession {
     /// Creates a session using the limits from one read policy.
+    ///
     /// # Parameters
     ///
     /// * `options` - Read policy supplying the placeholder expansion limit and
     ///   per-value output byte limit.
+    ///
+    /// # Returns
+    ///
+    /// A new session initialized with independent expansion and output limits.
+    #[must_use]
     pub(crate) fn new(options: &ReadPolicy) -> Self {
         Self {
             expansions: ResourceBudget::new(
@@ -48,10 +54,30 @@ impl InterpolationSession {
         }
     }
 
+    /// Returns the byte limit for each expanded value.
+    ///
+    /// # Returns
+    ///
+    /// The configured maximum output size in bytes.
+    #[must_use = "use the returned value"]
+    #[inline]
+    pub(crate) const fn max_output_bytes(&self) -> usize {
+        self.max_output_bytes
+    }
+
     /// Charges one parsed placeholder to this read.
+    ///
     /// # Parameters
     ///
     /// * `path` - Configuration path or filesystem path used by this operation.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` after charging one expansion.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the configured expansion budget is exhausted.
     pub(crate) fn consume_expansion(&mut self, path: &str) -> ConfigResult<()> {
         self.expansions
             .try_consume(1)
@@ -62,10 +88,19 @@ impl InterpolationSession {
     }
 
     /// Checks an intermediate or final expanded value against its byte limit.
+    ///
     /// # Parameters
     ///
     /// * `bytes` - Number of output bytes to account for.
     /// * `path` - Configuration path or filesystem path used by this operation.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when `bytes` is within the per-value limit.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when `bytes` exceeds the configured output limit.
     pub(crate) fn check_output(&self, bytes: usize, path: &str) -> ConfigResult<()> {
         self.output
             .check(bytes)
@@ -73,11 +108,5 @@ impl InterpolationSession {
                 path: path.to_string(),
                 max_output_bytes: self.max_output_bytes,
             })
-    }
-
-    /// Returns the byte limit for each expanded value.
-    #[inline]
-    pub(crate) const fn max_output_bytes(&self) -> usize {
-        self.max_output_bytes
     }
 }

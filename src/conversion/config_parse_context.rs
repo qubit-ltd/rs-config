@@ -152,6 +152,11 @@ impl<'a> ConfigParseContext<'a> {
     /// Gets scalar text, reusing the prepared value only when its raw input
     /// matches.
     ///
+    /// # Parameters
+    ///
+    /// * `value` - Raw string to return or interpolate using this read's
+    ///   prepared scalar cache and substitution session.
+    ///
     /// # Returns
     ///
     /// Borrowed input text when interpolation is disabled or a matching
@@ -161,11 +166,6 @@ impl<'a> ConfigParseContext<'a> {
     ///
     /// Returns a substitution error when the input needs interpolation and
     /// substitution fails.
-    ///
-    /// # Parameters
-    ///
-    /// * `value` - Raw string to return or interpolate using this read's
-    ///   prepared scalar cache and substitution session.
     pub(crate) fn scalar_text<'s>(&'s self, value: &'s str) -> ConfigResult<Cow<'s, str>> {
         if !self.interpolate {
             return Ok(Cow::Borrowed(value));

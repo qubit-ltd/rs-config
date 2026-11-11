@@ -13,10 +13,16 @@ use std::process::ExitCode;
 use std::time::Instant;
 
 #[cfg(any(feature = "toml", feature = "yaml"))]
+use qubit_config::Config;
+#[cfg(any(feature = "toml", feature = "yaml"))]
 use qubit_config::ConfigError;
 #[cfg(any(feature = "toml", feature = "yaml"))]
 use qubit_config::source::ConfigSource;
 use qubit_config::source::SourceLimits;
+#[cfg(feature = "toml")]
+use qubit_config::source::TomlConfigSource;
+#[cfg(feature = "yaml")]
+use qubit_config::source::YamlConfigSource;
 
 const USAGE: &str = "usage: config_source_resource_probe FORMAT SHAPE SIZE MAX_NODES MAX_DEPTH MODE\nFORMAT: toml | yaml; SHAPE: wide | deep; MODE: load | generate-only";
 
@@ -85,9 +91,9 @@ fn generate(format: &str, shape: &str, size: usize) -> Result<String, &'static s
     }
 }
 
-#[cfg(any(feature = "toml", feature = "yaml"))]
 /// Reports source-load outcomes and timing using stable probe labels.
-fn report_result(result: Result<qubit_config::Config, ConfigError>, elapsed: u128) -> ExitCode {
+#[cfg(any(feature = "toml", feature = "yaml"))]
+fn report_result(result: Result<Config, ConfigError>, elapsed: u128) -> ExitCode {
     match result {
         Ok(config) => {
             println!("result=ok properties={}", config.len());
@@ -159,18 +165,12 @@ fn run() -> Result<ExitCode, &'static str> {
     let started = Instant::now();
     #[cfg(feature = "toml")]
     if format == "toml" {
-        let source = qubit_config::source::TomlConfigSource::builder()
-            .content(content)
-            .limits(limits)
-            .build();
+        let source = TomlConfigSource::builder().content(content).limits(limits).build();
         return Ok(report_result(source.load(), started.elapsed().as_nanos()));
     }
     #[cfg(feature = "yaml")]
     if format == "yaml" {
-        let source = qubit_config::source::YamlConfigSource::builder()
-            .content(content)
-            .limits(limits)
-            .build();
+        let source = YamlConfigSource::builder().content(content).limits(limits).build();
         return Ok(report_result(source.load(), started.elapsed().as_nanos()));
     }
     #[cfg(not(feature = "toml"))]

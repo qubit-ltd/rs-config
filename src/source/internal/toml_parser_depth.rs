@@ -82,6 +82,35 @@ impl<'a, 'b> TomlParserDepth<'a, 'b> {
         }
     }
 
+    /// Returns the conservative key bound: two depth units per key segment.
+    ///
+    /// The multiplication is checked, and overflow is handled as an
+    /// unrepresentable parser depth by the caller. This bound does not define
+    /// the semantic nesting depth of the parsed value.
+    ///
+    /// # Returns
+    ///
+    /// The checked key-depth bound, or `None` if multiplication overflows.
+    #[inline]
+    fn key_depth(&self) -> Option<usize> {
+        self.key_segments.checked_mul(2)
+    }
+
+    /// Adds two depth components, returning `None` if their sum overflows.
+    ///
+    /// # Parameters
+    ///
+    /// * `left` - The base depth.
+    /// * `right` - The additional depth component.
+    ///
+    /// # Returns
+    ///
+    /// The sum when representable, or `None` on overflow.
+    #[inline]
+    fn add_depth(left: usize, right: usize) -> Option<usize> {
+        left.checked_add(right)
+    }
+
     /// Checks a representable conservative depth and retains the first error.
     ///
     /// # Parameters
@@ -134,35 +163,6 @@ impl<'a, 'b> TomlParserDepth<'a, 'b> {
             observed_at_least: usize::MAX,
             source,
         });
-    }
-
-    /// Adds two depth components, returning `None` if their sum overflows.
-    ///
-    /// # Parameters
-    ///
-    /// * `left` - The base depth.
-    /// * `right` - The additional depth component.
-    ///
-    /// # Returns
-    ///
-    /// The sum when representable, or `None` on overflow.
-    #[inline]
-    fn add_depth(left: usize, right: usize) -> Option<usize> {
-        left.checked_add(right)
-    }
-
-    /// Returns the conservative key bound: two depth units per key segment.
-    ///
-    /// The multiplication is checked, and overflow is handled as an
-    /// unrepresentable parser depth by the caller. This bound does not define
-    /// the semantic nesting depth of the parsed value.
-    ///
-    /// # Returns
-    ///
-    /// The checked key-depth bound, or `None` if multiplication overflows.
-    #[inline]
-    fn key_depth(&self) -> Option<usize> {
-        self.key_segments.checked_mul(2)
     }
 }
 

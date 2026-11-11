@@ -12,7 +12,11 @@ use qubit_budget::ResourceLimit;
 use crate::source::SourceLimitKind;
 use crate::source::SourceLimits;
 
-/// Owned resource budgets for one source or composite scope.
+/// Owns the resource counters enforced for one source or composite scope.
+///
+/// Byte, property, node, parser-token, and descendant-source budgets retain
+/// accepted usage for the scope's lifetime. Semantic and parser depth limits
+/// are immutable per-input bounds and do not accumulate usage.
 #[must_use = "source load budgets must be retained for accounting"]
 pub(in crate::source) struct SourceLoadBudget {
     /// Cumulative raw input bytes admitted in this source scope.

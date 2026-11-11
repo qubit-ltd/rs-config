@@ -28,30 +28,34 @@ use qubit_config::source::YamlConfigSource;
 const PROPERTY_COUNTS: [usize; 3] = [32, 1_024, 16_384];
 
 /// Builds properties-format input with the requested number of assignments.
+#[must_use]
 fn properties_content(property_count: usize) -> String {
     (0..property_count)
         .map(|index| format!("service.endpoint_{index}={index}\n"))
         .collect()
 }
 
-#[cfg(feature = "env-file")]
 /// Builds environment-file input with the requested number of assignments.
+#[must_use]
+#[cfg(feature = "env-file")]
 fn env_file_content(property_count: usize) -> String {
     (0..property_count)
         .map(|index| format!("SERVICE_ENDPOINT_{index}={index}\n"))
         .collect()
 }
 
-#[cfg(feature = "toml")]
 /// Builds TOML input with the requested number of assignments.
+#[must_use]
+#[cfg(feature = "toml")]
 fn toml_content(property_count: usize) -> String {
     (0..property_count)
         .map(|index| format!("service.endpoint_{index} = {index}\n"))
         .collect()
 }
 
-#[cfg(feature = "yaml")]
 /// Builds YAML input with the requested number of assignments.
+#[must_use]
+#[cfg(feature = "yaml")]
 fn yaml_content(property_count: usize) -> String {
     (0..property_count)
         .map(|index| format!("service.endpoint_{index}: {index}\n"))

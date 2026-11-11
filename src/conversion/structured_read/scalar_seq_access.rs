@@ -40,6 +40,15 @@ impl<'tree, 'policy: 'tree, 'session> ScalarSeqAccess<'tree, 'policy, 'session> 
     /// * `text` - Scalar source whose items are consumed lazily.
     /// * `path` - Diagnostic path of the source sequence.
     /// * `session` - Shared conversion budget charged as items are admitted.
+    ///
+    /// # Returns
+    ///
+    /// The lazy accessor for the admitted scalar sequence.
+    ///
+    /// # Errors
+    ///
+    /// Returns an indexed conversion error if the scalar source cannot be
+    /// admitted under the shared conversion session.
     pub(super) fn new(
         context: ReadContext<'tree>,
         text: &'tree str,
@@ -57,6 +66,16 @@ impl<'tree, 'policy: 'tree, 'session> ScalarSeqAccess<'tree, 'policy, 'session> 
     /// This advances the source and charges the shared conversion session.
     /// An item admission failure is returned with its sequence index and
     /// diagnostic path; it is not reported as `Ok(false)`.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(true)` if an item was admitted, or `Ok(false)` if the source is
+    /// exhausted.
+    ///
+    /// # Errors
+    ///
+    /// Returns an indexed conversion error if the next item cannot be
+    /// admitted.
     pub(super) fn has_remaining(&mut self) -> Result<bool, ConfigDeserializeError> {
         match self.source.next_item() {
             None => Ok(false),
@@ -87,6 +106,16 @@ impl<'de, 'tree, 'policy: 'tree> SeqAccess<'de> for ScalarSeqAccess<'tree, 'poli
     /// # Parameters
     ///
     /// * `seed` - Visitor that constructs the requested output from the item.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(Some(value))` when the next item was deserialized, or `Ok(None)`
+    /// when the source is exhausted.
+    ///
+    /// # Errors
+    ///
+    /// Returns an indexed conversion error if item admission or deserialization
+    /// fails.
     fn next_element_seed<T: DeserializeSeed<'de>>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error> {
         let Some(item) = self.source.next_item() else {
             return Ok(None);

@@ -7,13 +7,22 @@
 // =============================================================================
 //! Regression tests for private structured-read preparation contracts.
 
+use std::borrow::Cow;
+use std::collections::HashMap;
+
 use qubit_datatype::BlankStringPolicy;
 use qubit_datatype::ConversionLimits;
 use qubit_datatype::ConversionOperationLimits;
+use qubit_datatype::DataType;
+use qubit_value::ValueMissing;
 use qubit_value::ValueRef;
 
 use super::node::ReadNode;
+use super::node::SourceSegment;
+use super::prepared_input_budget::PreparedInputBudget;
 use super::prepared_read::prepare_read;
+use super::read_view::ReadView;
+use super::visit::Visit;
 use crate::Config;
 use crate::ReadPolicy;
 
@@ -53,12 +62,6 @@ fn test_diagnostic_paths_encode_each_original_segment_unambiguously() {
 
 #[test]
 fn test_input_admission_reports_string_map_and_missing_source_types() {
-    use std::borrow::Cow;
-    use std::collections::HashMap;
-
-    use qubit_datatype::DataType;
-    use qubit_value::ValueMissing;
-
     let options = ReadPolicy::builder()
         .conversion_limits(
             ConversionLimits::builder()
@@ -70,12 +73,12 @@ fn test_input_admission_reports_string_map_and_missing_source_types() {
     let missing = ValueMissing::unset_scalar(DataType::Int32, DataType::Json);
     let json = serde_json::Value::Bool(true);
     for value in [
-        super::read_view::ReadView::StringMap(&map),
-        super::read_view::ReadView::Missing(&missing),
-        super::read_view::ReadView::Scalar(ValueRef::Unset(DataType::String)),
-        super::read_view::ReadView::Scalar(ValueRef::Json(&json)),
+        ReadView::StringMap(&map),
+        ReadView::Missing(&missing),
+        ReadView::Scalar(ValueRef::Unset(DataType::String)),
+        ReadView::Scalar(ValueRef::Json(&json)),
     ] {
-        let visit = super::visit::Visit {
+        let visit = Visit {
             value,
             location: None,
             path: Cow::Borrowed("value"),
@@ -83,7 +86,7 @@ fn test_input_admission_reports_string_map_and_missing_source_types() {
             key: None,
             original_index: None,
         };
-        let mut budget = super::prepared_input_budget::PreparedInputBudget::new(&options);
+        let mut budget = PreparedInputBudget::new(&options);
         assert!(budget.admit_visit(&visit, None).is_err());
     }
 }
@@ -106,7 +109,6 @@ fn test_exact_string_keeps_the_original_payload() {
 
 #[test]
 fn test_nested_overlay_locations_distinguish_literal_dots_and_array_indices() {
-    use super::node::SourceSegment;
     let mut config = Config::new();
     config.set("left", "one").unwrap();
     config.set("right", "two").unwrap();

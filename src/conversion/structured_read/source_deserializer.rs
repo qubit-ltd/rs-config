@@ -208,6 +208,10 @@ impl<'tree, 'policy: 'tree, 'session> SourceDeserializer<'tree, 'policy, 'sessio
 
     /// Returns the borrowed prepared-tree view; admitted items have no tree
     /// view because their scalar and admission state are carried by the item.
+    ///
+    /// # Returns
+    ///
+    /// The prepared view for borrowed inputs, or `None` for admitted items.
     #[inline]
     fn view(&self) -> Option<ReadView<'tree>> {
         match &self.input {
@@ -218,6 +222,11 @@ impl<'tree, 'policy: 'tree, 'session> SourceDeserializer<'tree, 'policy, 'sessio
 
     /// Returns text from the interpolation overlay when one exists for this
     /// source location, otherwise from the borrowed tree view.
+    ///
+    /// # Returns
+    ///
+    /// Overlay or source text when available, or `None` when the input has no
+    /// string representation.
     #[inline]
     fn string(&self) -> Option<&'tree str> {
         self.location
@@ -228,6 +237,11 @@ impl<'tree, 'policy: 'tree, 'session> SourceDeserializer<'tree, 'policy, 'sessio
     }
 
     /// Reports values represented as missing, JSON null, or an unset scalar.
+    ///
+    /// # Returns
+    ///
+    /// `true` when the input represents one of those absent-value states.
+    #[must_use]
     #[inline]
     fn is_missing(&self) -> bool {
         matches!(

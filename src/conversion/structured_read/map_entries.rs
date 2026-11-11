@@ -51,6 +51,11 @@ impl<'tree> MapEntries<'tree> {
     /// # Parameters
     ///
     /// * `value` - Read view to expose when it has a supported map shape.
+    ///
+    /// # Returns
+    ///
+    /// Returns an entry iterator for supported map shapes, or `None` when the
+    /// view is not map-shaped.
     pub(super) fn new(value: ReadView<'tree>) -> Option<Self> {
         match value {
             ReadView::Object(values) => Some(Self::Object(values.iter())),
@@ -62,6 +67,7 @@ impl<'tree> MapEntries<'tree> {
 
     /// Returns the number of entries not yet yielded by this iterator.
     #[must_use]
+    #[inline]
     pub(super) fn len(&self) -> usize {
         match self {
             Self::Object(values) => values.len(),
@@ -82,6 +88,11 @@ impl<'tree> MapEntries<'tree> {
     ///
     /// * `context` - Prepared read context used to resolve IDs and origins for
     ///   indexed object entries.
+    ///
+    /// # Returns
+    ///
+    /// Returns the next borrowed entry, or `None` when the iterator is
+    /// exhausted.
     pub(super) fn next(
         &mut self,
         context: ReadContext<'tree>,

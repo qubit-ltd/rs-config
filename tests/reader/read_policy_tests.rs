@@ -8,8 +8,12 @@
 
 // Tests for configurable read parsing behavior.
 
+use std::cell::Cell;
+use std::hint::black_box;
+
 use qubit_config::Config;
 use qubit_config::ConfigError;
+use qubit_config::ConfigErrorKind;
 use qubit_config::ConfigReader;
 use qubit_config::ConfigResult;
 use qubit_config::Property;
@@ -22,7 +26,9 @@ use qubit_datatype::BlankStringPolicy;
 use qubit_datatype::BooleanConversionPolicy;
 use qubit_datatype::CollectionConversionPolicy;
 use qubit_datatype::ConversionLimits;
+use qubit_datatype::ConversionOperationLimits;
 use qubit_datatype::ConversionPolicy;
+use qubit_datatype::ConversionResource;
 use qubit_datatype::DurationConversionLimits;
 use qubit_datatype::DurationConversionPolicy;
 use qubit_datatype::DurationUnit;
@@ -31,10 +37,36 @@ use qubit_datatype::NumericConversionLimits;
 use qubit_datatype::NumericConversionPolicy;
 use qubit_datatype::StringConversionPolicy;
 use qubit_datatype::SuffixlessDurationPolicy;
+use qubit_value::ValueError;
+
+#[test]
+fn test_conversion_traits_preserve_conversion_policy() {
+    let policy = ReadPolicy::default();
+    let conversion_policy: &ConversionPolicy = policy.as_ref();
+    assert_eq!(conversion_policy, policy.conversion_policy());
+    let conversion_limits: &ConversionLimits = policy.as_ref();
+    assert_eq!(conversion_limits, policy.conversion_limits());
+
+    let converted = ReadPolicy::from(ConversionPolicy::env_friendly());
+    assert_eq!(converted.conversion_policy(), &ConversionPolicy::env_friendly());
+
+    let defaults = ReadPolicy::default();
+    assert_eq!(converted.conversion_limits(), defaults.conversion_limits());
+    assert_eq!(converted.interpolation_sources(), defaults.interpolation_sources());
+    assert_eq!(converted.max_interpolation_depth(), defaults.max_interpolation_depth());
+    assert_eq!(
+        converted.max_interpolation_expansions(),
+        defaults.max_interpolation_expansions()
+    );
+    assert_eq!(
+        converted.max_interpolation_output_bytes(),
+        defaults.max_interpolation_output_bytes()
+    );
+}
 
 thread_local! {
     /// Counts target conversions in the RSC204 blank-value regression tests.
-    static RSC204_CONVERSION_CALLS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static RSC204_CONVERSION_CALLS: Cell<usize> = const { Cell::new(0) };
 }
 
 /// Conversion target that records each call to verify blank inputs are skipped.
@@ -55,7 +87,7 @@ fn reset_rsc204_conversion_calls() {
 
 /// Returns the number of conversions observed in the current thread.
 fn rsc204_conversion_calls() -> usize {
-    RSC204_CONVERSION_CALLS.with(std::cell::Cell::get)
+    RSC204_CONVERSION_CALLS.with(Cell::get)
 }
 
 /// Builds a policy with blank strings treated as missing and a byte budget.
@@ -65,7 +97,7 @@ fn rsc204_policy(input_limit: u64) -> ReadPolicy {
         .conversion_limits(
             ConversionLimits::builder()
                 .operation_limits(
-                    qubit_datatype::ConversionOperationLimits::builder()
+                    ConversionOperationLimits::builder()
                         .max_input_bytes(input_limit)
                         .build(),
                 )
@@ -87,7 +119,7 @@ fn test_rsc204_blank_scalar_precheck_skips_target_conversion_and_budget() {
             assert_eq!(rsc204_conversion_calls(), 0);
             reset_rsc204_conversion_calls();
             let error = reader.get::<Rsc204CountedString>("value").unwrap_err();
-            assert_eq!(error.kind(), qubit_config::ConfigErrorKind::PropertyHasNoValue);
+            assert_eq!(error.kind(), ConfigErrorKind::PropertyHasNoValue);
             assert_eq!(error.path(), Some("value"));
             assert_eq!(rsc204_conversion_calls(), 0);
             assert_eq!(reader.get_or::<String>("value", "fallback").unwrap(), "fallback");
@@ -103,12 +135,12 @@ fn test_rsc204_blank_scalar_precheck_skips_target_conversion_and_budget() {
         .get_optional::<Rsc204CountedString>("value")
         .expect_err("non-empty input must be admitted before conversion");
     assert_eq!(rsc204_conversion_calls(), 1);
-    assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Conversion);
+    assert_eq!(error.kind(), ConfigErrorKind::Conversion);
     assert!(matches!(
         error,
         ConfigError::ConversionError { key, source, .. }
             if key == "value"
-                && source.resource() == Some(qubit_datatype::ConversionResource::InputBytes)
+                && source.resource() == Some(ConversionResource::InputBytes)
     ));
 
     let policy = rsc204_policy(1);
@@ -132,7 +164,7 @@ fn test_rsc204_blank_alias_is_skipped_before_nonempty_candidate_conversion() {
             assert!(result.unwrap().is_some());
         } else {
             let error = result.expect_err("secondary input exceeds the conversion budget");
-            assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Conversion);
+            assert_eq!(error.kind(), ConfigErrorKind::Conversion);
             assert_eq!(error.path(), Some("secondary"));
             assert!(matches!(
                 error,
@@ -141,7 +173,7 @@ fn test_rsc204_blank_alias_is_skipped_before_nonempty_candidate_conversion() {
                     source_index: None,
                     source,
                 } if key == "secondary"
-                    && source.resource() == Some(qubit_datatype::ConversionResource::InputBytes)
+                    && source.resource() == Some(ConversionResource::InputBytes)
             ));
         }
         assert_eq!(
@@ -154,7 +186,7 @@ fn test_rsc204_blank_alias_is_skipped_before_nonempty_candidate_conversion() {
             assert_eq!(result.unwrap(), "x");
         } else {
             let error = result.expect_err("secondary input exceeds the conversion budget");
-            assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Conversion);
+            assert_eq!(error.kind(), ConfigErrorKind::Conversion);
             assert_eq!(error.path(), Some("secondary"));
             assert!(matches!(
                 error,
@@ -163,7 +195,7 @@ fn test_rsc204_blank_alias_is_skipped_before_nonempty_candidate_conversion() {
                     source_index: None,
                     source,
                 } if key == "secondary"
-                    && source.resource() == Some(qubit_datatype::ConversionResource::InputBytes)
+                    && source.resource() == Some(ConversionResource::InputBytes)
             ));
         }
     }
@@ -176,7 +208,7 @@ fn test_rsc204_blank_alias_is_skipped_before_nonempty_candidate_conversion() {
         let error = reader.get_optional::<Vec<String>>("items").unwrap_err();
         assert_eq!(error.path(), Some("items"));
         if input_limit == 0 {
-            assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Conversion);
+            assert_eq!(error.kind(), ConfigErrorKind::Conversion);
             assert!(matches!(
                 error,
                 ConfigError::ConversionError {
@@ -184,15 +216,15 @@ fn test_rsc204_blank_alias_is_skipped_before_nonempty_candidate_conversion() {
                     source_index: Some(0),
                     source,
                 } if key == "items"
-                    && source.resource() == Some(qubit_datatype::ConversionResource::InputBytes)
+                    && source.resource() == Some(ConversionResource::InputBytes)
             ));
         } else {
-            assert_eq!(error.kind(), qubit_config::ConfigErrorKind::Value);
+            assert_eq!(error.kind(), ConfigErrorKind::Value);
             assert!(matches!(
                 error,
                 ConfigError::ValueError {
                     key,
-                    source: qubit_value::ValueError::Missing(missing),
+                    source: ValueError::Missing(missing),
                 } if key == "items" && missing.source_index() == Some(0)
             ));
         }
@@ -630,20 +662,15 @@ fn test_read_policy_override_combines_conversion_and_interpolation_limits() {
 #[test]
 fn test_read_policy_defaults_limits_and_borrowed_limits_are_callable_as_functions() {
     let interpolation_default: fn() -> InterpolationSources = Default::default;
-    assert_eq!(
-        std::hint::black_box(interpolation_default)(),
-        InterpolationSources::ConfigOnly,
-    );
+    assert_eq!(black_box(interpolation_default)(), InterpolationSources::ConfigOnly,);
 
     let builder_default: fn() -> ReadPolicyBuilder = Default::default;
     let duration_limits = DurationConversionLimits::default();
-    let policy = std::hint::black_box(builder_default)()
-        .duration_limits(duration_limits)
-        .build();
+    let policy = black_box(builder_default)().duration_limits(duration_limits).build();
     assert_eq!(policy.conversion_limits().duration(), &duration_limits);
 
     let as_limits: for<'a> fn(&'a ReadPolicy) -> &'a ConversionLimits = <ReadPolicy as AsRef<ConversionLimits>>::as_ref;
-    assert_eq!(std::hint::black_box(as_limits)(&policy), policy.conversion_limits());
+    assert_eq!(black_box(as_limits)(&policy), policy.conversion_limits());
     assert_eq!(
         <ReadPolicy as AsRef<ConversionPolicy>>::as_ref(&policy),
         policy.conversion_policy(),

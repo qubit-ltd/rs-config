@@ -68,16 +68,15 @@ pub use toml_config_source_builder::TomlConfigSourceBuilder;
 ///
 /// ```rust
 /// use qubit_config::source::{TomlConfigSource, ConfigSource};
-/// use qubit_config::Config;
 ///
 /// let temp_dir = tempfile::tempdir().unwrap();
 /// let path = temp_dir.path().join("config.toml");
 /// std::fs::write(&path, "server.port = 8080\n").unwrap();
 /// let source = TomlConfigSource::from_file(path);
-/// let mut config = Config::new();
 /// let config = source.load().unwrap();
 /// assert_eq!(config.get::<i64>("server.port").unwrap(), 8080);
 /// ```
+#[must_use = "use the returned value"]
 #[derive(Debug, Clone)]
 pub struct TomlConfigSource {
     /// File or in-memory content to load.
@@ -140,13 +139,13 @@ fn toml_parse_error(label: &str, content: &str, error: &TomlError) -> ConfigErro
 impl TomlConfigSource {
     /// Creates a new `TomlConfigSource` from a file path
     ///
-    /// # Parameters
-    ///
-    /// * `path` - Path to the TOML file
-    ///
     /// # Type Parameters
     ///
     /// * `P` - Path-like type accepted by `AsRef<Path>`.
+    ///
+    /// # Parameters
+    ///
+    /// * `path` - Path to the TOML file.
     ///
     /// # Returns
     ///

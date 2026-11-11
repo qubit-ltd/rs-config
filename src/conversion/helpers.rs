@@ -25,6 +25,11 @@ use crate::utils::InterpolationSession;
 /// # Parameters
 ///
 /// * `property` - Property whose scalar value is inspected without conversion.
+///
+/// # Returns
+///
+/// The scalar string when the property's value has string scalar shape;
+/// otherwise, `None`.
 pub(crate) fn first_scalar_string(property: &Property) -> Option<&str> {
     property.value().as_scalar().and_then(|value| match value.view() {
         ValueRef::String(value) => Some(value),
@@ -38,6 +43,12 @@ pub(crate) fn first_scalar_string(property: &Property) -> Option<&str> {
 ///
 /// * `property` - Property whose unset or normalized-empty state is checked.
 /// * `options` - Read policy supplying optional-string normalization rules.
+///
+/// # Returns
+///
+/// `true` when the property is unset or its string scalar normalizes to no
+/// value; otherwise, `false`.
+#[must_use]
 pub(crate) fn is_effectively_missing(property: &Property, options: &ReadPolicy) -> bool {
     property.is_unset()
         || first_scalar_string(property)
@@ -57,6 +68,14 @@ pub(crate) fn is_effectively_missing(property: &Property, options: &ReadPolicy) 
 /// * `name` - Canonical key associated with the property.
 /// * `property` - Property value to parse.
 /// * `options` - Runtime policy for interpolation and conversion.
+///
+/// # Returns
+///
+/// The parsed value, or the conversion error produced for the property.
+///
+/// # Errors
+///
+/// Returns an error when the property's value cannot be converted to `T`.
 pub(crate) fn parse_property_from_reader<R, T>(
     reader: &R,
     name: &str,
@@ -90,6 +109,14 @@ where
 /// * `interpolate` - Whether this read should substitute string values.
 /// * `session` - Shared interpolation state for this logical read.
 /// * `read` - Callback that converts the property using the prepared context.
+///
+/// # Returns
+///
+/// The value returned by `read`, or its conversion or interpolation error.
+///
+/// # Errors
+///
+/// Returns an error propagated from interpolation or the `read` callback.
 pub(crate) fn with_property_read_context<R, T>(
     reader: &R,
     name: &str,
@@ -126,6 +153,15 @@ where
 ///
 /// * `property` - Property whose unset state is checked before text handling.
 /// * `context` - Prepared context supplying normalized/interpolated text.
+///
+/// # Returns
+///
+/// Whether the property is effectively missing under the prepared scalar
+/// value and active conversion policy.
+///
+/// # Errors
+///
+/// Returns an error if obtaining the prepared scalar text fails.
 pub(crate) fn is_effectively_missing_with_context(
     property: &Property,
     context: &ConfigParseContext<'_>,

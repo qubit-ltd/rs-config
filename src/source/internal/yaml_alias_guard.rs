@@ -120,9 +120,12 @@ pub(in crate::source) fn inspect_yaml_tokens(
 ///
 /// The mapping runs only after a guard failure; successful scans do not rescan
 /// the source once per token.
-/// Returns `None` when the line is outside the input, the column exceeds the
-/// physical line, or the resulting byte offset cannot be represented by the
-/// shared location helper. A column at line end, including EOF, is valid.
+///
+/// # Returns
+///
+/// `Some` with the mapped source location when the marker is valid, or `None`
+/// when its line or column is outside the source text. A column at line end,
+/// including EOF, is valid.
 fn yaml_marker_location(content: &str, line: usize, column: usize) -> Option<SourceLocation> {
     if line == 0 {
         return None;
@@ -171,6 +174,11 @@ fn yaml_marker_location(content: &str, line: usize, column: usize) -> Option<Sou
 /// * `line` - The one-based physical line reported by the scanner.
 /// * `column` - The zero-based Unicode scalar column reported by the scanner.
 /// * `message` - A fixed, sanitized failure reason.
+///
+/// # Returns
+///
+/// A configuration source parse error with the mapped source location when
+/// the marker points into the input.
 fn yaml_marker_error(label: &str, content: &str, line: usize, column: usize, message: String) -> ConfigError {
     let location = yaml_marker_location(content, line, column);
     let suffix = location.map_or_else(String::new, |location| {

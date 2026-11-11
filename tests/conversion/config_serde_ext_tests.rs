@@ -30,8 +30,6 @@ use serde_json::Value;
 
 #[test]
 fn test_deserialize_with_accepts_borrowed_prefix_and_explicit_options() {
-    use qubit_config::ConfigDeserializeOptions;
-    use qubit_config::UnknownFieldPolicy;
     #[derive(Debug, Deserialize, PartialEq)]
     struct One {
         port: u16,

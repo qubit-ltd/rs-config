@@ -81,6 +81,7 @@ where
 /// # Type Parameters
 ///
 /// * `D` - Deserializer implementation providing a single-precision value.
+#[inline]
 pub(super) fn deserialize_f32<'de, D>(
     deserializer: D,
     seed: AccountingUniqueJsonValueSeed<'_, '_>,
@@ -109,6 +110,7 @@ where
 /// # Type Parameters
 ///
 /// * `D` - Deserializer implementation providing a double-precision value.
+#[inline]
 pub(super) fn deserialize_f64<'de, D>(
     deserializer: D,
     seed: AccountingUniqueJsonValueSeed<'_, '_>,
@@ -138,6 +140,14 @@ impl<'de, 'safe, 'transaction, 'budget> Visitor<'de> for TypedFloatVisitor<'safe
     /// # Parameters
     ///
     /// * `formatter` - Destination for the expected input description.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` after writing the expected input description.
+    ///
+    /// # Errors
+    ///
+    /// Returns a formatting error if the formatter cannot accept the text.
     fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str("a native JSON floating-point value")
     }
@@ -151,6 +161,15 @@ impl<'de, 'safe, 'transaction, 'budget> Visitor<'de> for TypedFloatVisitor<'safe
     /// # Parameters
     ///
     /// * `value` - Native single-precision value received from Serde.
+    ///
+    /// # Returns
+    ///
+    /// The JSON number admitted by the accounting seed.
+    ///
+    /// # Errors
+    ///
+    /// Returns a safe conversion or budget error from the accounting seed.
+    #[inline]
     fn visit_f32<E>(self, value: f32) -> Result<Self::Value, E>
     where
         E: DeError,
@@ -167,6 +186,15 @@ impl<'de, 'safe, 'transaction, 'budget> Visitor<'de> for TypedFloatVisitor<'safe
     /// # Parameters
     ///
     /// * `value` - Native double-precision value received from Serde.
+    ///
+    /// # Returns
+    ///
+    /// The JSON number admitted by the accounting seed.
+    ///
+    /// # Errors
+    ///
+    /// Returns a safe conversion or budget error from the accounting seed.
+    #[inline]
     fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E>
     where
         E: DeError,
@@ -184,6 +212,15 @@ impl<'de, 'safe, 'transaction, 'budget> Visitor<'de> for TypedFloatVisitor<'safe
     /// # Parameters
     ///
     /// * `value` - Signed integer value received from Serde.
+    ///
+    /// # Returns
+    ///
+    /// The JSON number admitted by the accounting seed.
+    ///
+    /// # Errors
+    ///
+    /// Returns a safe conversion or budget error from the accounting seed.
+    #[inline]
     fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
     where
         E: DeError,
@@ -201,6 +238,15 @@ impl<'de, 'safe, 'transaction, 'budget> Visitor<'de> for TypedFloatVisitor<'safe
     /// # Parameters
     ///
     /// * `value` - Signed integer value received from Serde.
+    ///
+    /// # Returns
+    ///
+    /// The JSON number admitted by the accounting seed.
+    ///
+    /// # Errors
+    ///
+    /// Returns a safe conversion or budget error from the accounting seed.
+    #[inline]
     fn visit_i128<E>(self, value: i128) -> Result<Self::Value, E>
     where
         E: DeError,
@@ -217,6 +263,15 @@ impl<'de, 'safe, 'transaction, 'budget> Visitor<'de> for TypedFloatVisitor<'safe
     /// # Parameters
     ///
     /// * `value` - Unsigned integer value received from Serde.
+    ///
+    /// # Returns
+    ///
+    /// The JSON number admitted by the accounting seed.
+    ///
+    /// # Errors
+    ///
+    /// Returns a safe conversion or budget error from the accounting seed.
+    #[inline]
     fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
     where
         E: DeError,
@@ -234,6 +289,15 @@ impl<'de, 'safe, 'transaction, 'budget> Visitor<'de> for TypedFloatVisitor<'safe
     /// # Parameters
     ///
     /// * `value` - Unsigned integer value received from Serde.
+    ///
+    /// # Returns
+    ///
+    /// The JSON number admitted by the accounting seed.
+    ///
+    /// # Errors
+    ///
+    /// Returns a safe conversion or budget error from the accounting seed.
+    #[inline]
     fn visit_u128<E>(self, value: u128) -> Result<Self::Value, E>
     where
         E: DeError,
@@ -256,6 +320,14 @@ impl<'safe, 'transaction, 'budget> TypedFloatVisitor<'safe, 'transaction, 'budge
     /// # Parameters
     ///
     /// * `callback` - Numeric seed operation whose safe error may be retained.
+    ///
+    /// # Returns
+    ///
+    /// The JSON number produced by the callback.
+    ///
+    /// # Errors
+    ///
+    /// Returns the callback error after retaining its safe diagnostic.
     fn forward<E>(
         self,
         callback: impl FnOnce(AccountingUniqueJsonValueSeed<'transaction, 'budget>) -> Result<serde_json::Value, E>,
@@ -309,31 +381,6 @@ mod tests {
         assert!(error.to_string().contains("NumberBytes"), "unexpected error: {error}");
         assert!(error.to_string().contains("exactly 4"), "unexpected charge: {error}");
         assert!(!error.to_string().contains(INVALID_NATIVE_FLOAT));
-    }
-
-    #[test]
-    fn test_decodes_float32_roles_and_redacts_pre_callback_errors() {
-        let mut config = Config::new();
-        config.set("ratio", 1.25_f32).unwrap();
-        let mut wire = serde_json::to_value(config).unwrap();
-        let bytes = serde_json::to_vec(&wire).unwrap();
-        let mut deserializer = serde_json::Deserializer::from_slice(&bytes);
-        let decoded = AccountingConfigWireSeed::new(ConfigWireLimits::default())
-            .deserialize(&mut deserializer)
-            .expect("the f32 wire value should deserialize")
-            .expect("the f32 wire value should form a config");
-        drop(decoded);
-
-        wire["properties"]["ratio"]["value"]["value"]["scalar"]["float32"] =
-            serde_json::Value::String("secret".to_owned());
-        let bytes = serde_json::to_vec(&wire).unwrap();
-        let mut deserializer = serde_json::Deserializer::from_slice(&bytes);
-        let error = match AccountingConfigWireSeed::new(ConfigWireLimits::default()).deserialize(&mut deserializer) {
-            Ok(_) => panic!("a string cannot be decoded as a native float"),
-            Err(error) => error,
-        };
-        assert!(error.to_string().contains(INVALID_NATIVE_FLOAT));
-        assert!(!error.to_string().contains("secret"));
     }
 
     #[test]

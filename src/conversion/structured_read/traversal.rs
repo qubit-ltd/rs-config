@@ -33,6 +33,7 @@ use crate::ConfigResult;
 ///
 /// Returns a lazy child iterator for a traversable shape, or `None` for a
 /// scalar or missing value.
+#[must_use]
 #[inline]
 fn children<'a>(value: ReadView<'a>, prepared: &'a PreparedConfigRead<'a>) -> Option<ChildIter<'a>> {
     match value {
@@ -48,8 +49,9 @@ fn children<'a>(value: ReadView<'a>, prepared: &'a PreparedConfigRead<'a>) -> Op
     }
 }
 
-/// Invokes admission before creating the next iterator frame. Only ancestor
-/// frames remain live, so a large array cannot allocate a queue of its leaves.
+/// Visits the selected root and reachable children in depth-first order,
+/// invoking the callback before expanding each node. Only ancestor frames
+/// remain live, so a large array cannot allocate a queue of its leaves.
 ///
 /// # Parameters
 ///

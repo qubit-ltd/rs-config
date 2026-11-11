@@ -95,6 +95,7 @@ fn test_interpolation_reference_uses_active_conversion_limits() {
         .unwrap_err();
     assert_eq!(error.path(), Some("payload"));
 }
+
 #[test]
 fn test_environment_and_config_references_use_distinct_conversion_budgets() {
     if !run_with_environment(

@@ -76,10 +76,12 @@ fn test_structured_deserialization_corpus_seeds_reach_their_expected_shapes() {
         }
 
         let collections = load_seed(target, "collections-nested.json");
-        let ordinary: Value = collections.deserialize("").unwrap();
+        let ordinary: Value = collections.deserialize("").expect("read the ordinary collections seed");
         assert_eq!(ordinary["items"], serde_json::json!(["${base}", "two"]));
         assert_eq!(ordinary["nested"], serde_json::json!({"array": [1, {"enabled": true}]}));
-        let interpolated: Value = collections.deserialize_with("", options(true)).unwrap();
+        let interpolated: Value = collections
+            .deserialize_with("", options(true))
+            .expect("read the interpolated collections seed");
         assert_eq!(interpolated["items"], serde_json::json!(["example.test", "two"]));
         assert_eq!(
             interpolated["nested"],
@@ -95,23 +97,31 @@ fn test_structured_deserialization_corpus_seeds_reach_their_expected_shapes() {
             label: Some(Label("hello".to_owned())),
         };
         assert_eq!(
-            record.deserialize_with::<TypedConfig>("", options(false)).unwrap(),
+            record
+                .deserialize_with::<TypedConfig>("", options(false))
+                .expect("read the ordinary typed record seed"),
             expected_record
         );
         assert_eq!(
-            record.deserialize_with::<TypedConfig>("", options(true)).unwrap(),
+            record
+                .deserialize_with::<TypedConfig>("", options(true))
+                .expect("read the interpolated typed record seed"),
             expected_record
         );
 
         let labeled = load_seed(target, "typed-labeled-interpolation.json");
-        let ordinary = labeled.deserialize_with::<TypedConfig>("", options(false)).unwrap();
+        let ordinary = labeled
+            .deserialize_with::<TypedConfig>("", options(false))
+            .expect("read the ordinary labeled seed");
         assert_eq!(ordinary.label, Some(Label("${base}".to_owned())));
         assert_eq!(ordinary.mode, Some(Mode::Labeled(Label("tag".to_owned()))));
         assert_eq!(ordinary.signed, None);
         assert_eq!(ordinary.unsigned, None);
         assert_eq!(ordinary.timeout, None);
 
-        let interpolated = labeled.deserialize_with::<TypedConfig>("", options(true)).unwrap();
+        let interpolated = labeled
+            .deserialize_with::<TypedConfig>("", options(true))
+            .expect("read the interpolated labeled seed");
         assert_eq!(interpolated.label, Some(Label("example.test".to_owned())));
         assert_eq!(interpolated.mode, Some(Mode::Labeled(Label("tag".to_owned()))));
         assert_eq!(interpolated.signed, None);
@@ -274,34 +284,43 @@ fn test_typed_semantic_cases_match_all_read_shapes() {
         let mut dotted = Config::new();
         let mut root = Config::new();
         for (key, value) in object.as_object().expect("case object") {
-            dotted.set(format!("case.{key}"), value.clone()).unwrap();
-            root.set(key, value.clone()).unwrap();
+            dotted
+                .set(format!("case.{key}"), value.clone())
+                .expect("set the dotted case field");
+            root.set(key, value.clone()).expect("set the root case field");
         }
         let mut exact = Config::new();
-        exact.set("case", object).unwrap();
+        exact.set("case", object).expect("set the exact case object");
         if dotted.get::<Value>("case").is_err() {
-            dotted.set("case.timeout", Value::Null).unwrap();
+            dotted
+                .set("case.timeout", Value::Null)
+                .expect("add the nested timeout field to preserve the case object");
         }
         for interpolate in [false, true] {
             let read_options = options(interpolate);
             assert_eq!(
-                dotted.deserialize_with::<TypedConfig>("case", read_options).unwrap(),
+                dotted
+                    .deserialize_with::<TypedConfig>("case", read_options)
+                    .expect("read typed values from the dotted shape"),
                 expected
             );
             assert_eq!(
                 dotted
                     .section("case")
-                    .unwrap()
+                    .expect("select the dotted case section")
                     .deserialize_with::<TypedConfig>("", read_options)
-                    .unwrap(),
+                    .expect("read typed values from the dotted section"),
                 expected
             );
             assert_eq!(
-                root.deserialize_with::<TypedConfig>("", read_options).unwrap(),
+                root.deserialize_with::<TypedConfig>("", read_options)
+                    .expect("read typed values from the root shape"),
                 expected
             );
             assert_eq!(
-                exact.deserialize_with::<TypedConfig>("case", read_options).unwrap(),
+                exact
+                    .deserialize_with::<TypedConfig>("case", read_options)
+                    .expect("read typed values from the exact shape"),
                 expected
             );
         }

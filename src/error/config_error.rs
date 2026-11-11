@@ -549,6 +549,7 @@ impl ConfigError {
     ///
     /// `Some(path)` for errors tied to one configuration key, otherwise
     /// `None`.
+    #[must_use]
     pub fn path(&self) -> Option<&str> {
         match self {
             Self::InvalidKey { key: path, .. }
@@ -592,6 +593,7 @@ impl ConfigError {
     /// The source path or in-memory source label for source I/O, parse,
     /// resource-limit, source-originated key-conflict, source assignment key,
     /// and final-property merge errors; otherwise `None`.
+    #[must_use]
     #[inline]
     pub fn source_id(&self) -> Option<&str> {
         match self {
@@ -612,6 +614,12 @@ impl ConfigError {
     ///
     /// Lines and columns are one-based; the column may be absent when only
     /// the line can be determined reliably.
+    ///
+    /// # Returns
+    ///
+    /// The physical location for `SourceParseError`, or `None` when the error
+    /// has no source location.
+    #[must_use]
     #[inline]
     pub const fn source_location(&self) -> Option<SourceLocation> {
         match self {
@@ -657,6 +665,7 @@ impl ConfigError {
     ///
     /// Returns the budget identifier for a source-limit error, or `None` for
     /// other error variants.
+    #[must_use]
     #[inline]
     pub fn source_budget_id(&self) -> Option<&str> {
         match self {
@@ -671,6 +680,7 @@ impl ConfigError {
     ///
     /// Returns the borrowed budget failure for a source-limit error, or
     /// `None` otherwise.
+    #[must_use = "inspect the borrowed budget failure"]
     #[inline]
     pub const fn budget_error(&self) -> Option<&BudgetError<SourceLimitKind, usize>> {
         match self {
@@ -686,6 +696,7 @@ impl ConfigError {
     /// A one-element slice for [`Self::PropertyNotFound`], all ordered
     /// candidates for [`Self::PropertyCandidatesNotFound`], or `None` for
     /// other error kinds.
+    #[must_use]
     #[inline]
     pub fn candidate_paths(&self) -> Option<&[String]> {
         match self {
@@ -706,6 +717,7 @@ impl ConfigError {
     ///
     /// Returns the unknown-property path list for `UnknownProperties`, or
     /// `None` for other error variants.
+    #[must_use]
     #[inline]
     pub fn unknown_property_paths(&self) -> Option<&[String]> {
         match self {
@@ -721,6 +733,7 @@ impl ConfigError {
     /// The original zero-based source index for collection conversion errors,
     /// indexed substitution errors, source parse errors, and indexed value
     /// errors when available; otherwise `None`.
+    #[must_use]
     #[inline(always)]
     pub const fn source_index(&self) -> Option<usize> {
         match self {
@@ -743,6 +756,7 @@ impl ConfigError {
     ///
     /// Returns the borrowed missing-value details from a value error, or
     /// `None` otherwise.
+    #[must_use = "inspect the borrowed missing-value details"]
     #[inline]
     pub const fn value_missing(&self) -> Option<&ValueMissing> {
         match self {

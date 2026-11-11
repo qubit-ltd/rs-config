@@ -7,15 +7,21 @@
 // =============================================================================
 // [`qubit_config::ConfigReader`] tests.
 
+use std::error::Error;
+
 use qubit_config::Config;
 use qubit_config::ConfigError;
 use qubit_config::ConfigReader;
 use qubit_config::ConfigResult;
 use qubit_config::ConfigSection;
+use qubit_config::Property;
+use qubit_config::conversion::ConfigParseContext;
+use qubit_config::conversion::FromConfig;
 use qubit_config::options::ReadPolicy;
 use qubit_datatype::BlankStringPolicy;
 use qubit_datatype::ConversionLimits;
 use qubit_datatype::ConversionOperationLimits;
+use qubit_datatype::DataConversionError;
 use qubit_datatype::DataConversionTarget;
 use qubit_datatype::DataType;
 use qubit_datatype::InvalidValueReason;
@@ -985,15 +991,12 @@ fn test_unset_conversion_keeps_value_error_source() {
     assert_eq!(missing.target_type(), Some(DataType::Int32));
     assert!(missing.is_unset());
     assert!(missing.conversion_error().is_some());
-    use std::error::Error;
     assert!(error.source().unwrap().source().unwrap().source().is_some());
     assert_eq!(config.get_or::<i32>("port", 8080).unwrap(), 8080);
 }
 
 #[test]
 fn test_collection_missing_never_skips_to_default_or_next_candidate() {
-    use qubit_config::options::ReadPolicy;
-    use qubit_datatype::BlankStringPolicy;
     let mut config = Config::new();
     config.set_default_read_policy(
         ReadPolicy::builder()
@@ -1016,13 +1019,6 @@ fn test_collection_missing_never_skips_to_default_or_next_candidate() {
 
 #[test]
 fn test_optional_reads_classify_custom_conversion_missing() {
-    use qubit_config::ConfigError;
-    use qubit_config::ConfigResult;
-    use qubit_config::Property;
-    use qubit_config::conversion::ConfigParseContext;
-    use qubit_config::conversion::FromConfig;
-    use qubit_datatype::DataConversionError;
-    use qubit_datatype::DataType;
     #[derive(Debug)]
     struct Missing;
     impl FromConfig for Missing {

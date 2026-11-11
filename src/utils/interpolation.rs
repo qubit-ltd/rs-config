@@ -36,6 +36,16 @@ use crate::options::ReadPolicy;
 ///   sources, and resource limits.
 /// * `path` - Configuration path or filesystem path used by this operation.
 /// * `session` - Interpolation budget session shared by one logical read.
+///
+/// # Returns
+///
+/// The expanded string after resolving every placeholder.
+///
+/// # Errors
+///
+/// Returns an error when a referenced value cannot be resolved or converted,
+/// an interpolation cycle or depth limit is reached, or a resource limit is
+/// exceeded.
 pub(crate) fn substitute_variables_with_fallback<P: ConfigReader + ?Sized, F: ConfigReader + ?Sized>(
     value: &str,
     primary: &P,
@@ -59,6 +69,15 @@ pub(crate) fn substitute_variables_with_fallback<P: ConfigReader + ?Sized, F: Co
 /// * `path` - Configuration path or filesystem path used by this operation.
 /// * `session` - Interpolation budget session shared by one logical read.
 /// * `resolve` - Callback that resolves one referenced variable.
+///
+/// # Returns
+///
+/// The expanded string after resolving every placeholder.
+///
+/// # Errors
+///
+/// Returns an error when resolution fails, a cycle or depth limit is reached,
+/// or an interpolation resource limit is exceeded.
 fn substitute_variables_by(
     value: &str,
     options: &ReadPolicy,
@@ -121,22 +140,15 @@ fn substitute_variables_by(
                 )?;
             }
 
-            if let Some(index) = active_variables.iter().position(|name| name == &variable_name) {
-                let mut chain = active_variables[index..].to_vec();
-                chain.push(variable_name);
-                return Err(ConfigError::SubstitutionCycle {
-                    path: path.to_string(),
-                    chain,
-                });
-            }
-
-            session.consume_expansion(path)?;
-            active_variables.push(variable_name.clone());
-            let raw_value = resolve(&variable_name)?;
-            let frame = frames.last_mut().expect("parent interpolation frame remains present");
-            frame.last_end = match_end;
-            frame.search_from = match_end;
-            frames.push(InterpolationFrame::new(raw_value, Some(variable_name)));
+            begin_variable_expansion(
+                &mut frames,
+                &mut active_variables,
+                match_end,
+                variable_name,
+                session,
+                path,
+                &mut resolve,
+            )?;
             continue;
         }
 
@@ -157,11 +169,63 @@ fn substitute_variables_by(
     }
 }
 
+/// Checks cycle and expansion budgets before pushing a resolved child frame.
+///
+/// The parent cursor, active-variable stack, expansion count, resolver call,
+/// and child-frame push occur in the same order as the interpolation loop.
+///
+/// # Parameters
+///
+/// * `frames` - Interpolation frames, with the current parent at the end.
+/// * `active_variables` - Names on the active expansion path for cycle checks.
+/// * `match_end` - Byte offset immediately after the placeholder in the parent.
+/// * `variable_name` - Name of the variable being resolved and expanded.
+/// * `session` - Shared interpolation budget session.
+/// * `path` - Configuration path used in returned diagnostics.
+/// * `resolve` - Callback that resolves the variable name to its raw value.
+///
+/// # Errors
+///
+/// Returns an error when the variable creates a cycle, the expansion budget is
+/// exhausted, or the resolver cannot obtain the variable value.
+fn begin_variable_expansion(
+    frames: &mut Vec<InterpolationFrame>,
+    active_variables: &mut Vec<String>,
+    match_end: usize,
+    variable_name: String,
+    session: &mut InterpolationSession,
+    path: &str,
+    resolve: &mut impl FnMut(&str) -> ConfigResult<String>,
+) -> ConfigResult<()> {
+    if let Some(index) = active_variables.iter().position(|name| name == &variable_name) {
+        let mut chain = active_variables[index..].to_vec();
+        chain.push(variable_name);
+        return Err(ConfigError::SubstitutionCycle {
+            path: path.to_string(),
+            chain,
+        });
+    }
+
+    session.consume_expansion(path)?;
+    active_variables.push(variable_name.clone());
+    let raw_value = resolve(&variable_name)?;
+    let frame = frames.last_mut().expect("parent interpolation frame remains present");
+    frame.last_end = match_end;
+    frame.search_from = match_end;
+    frames.push(InterpolationFrame::new(raw_value, Some(variable_name)));
+    Ok(())
+}
+
 /// Finds the next non-empty `${name}` placeholder in `value`.
 /// # Parameters
 ///
 /// * `value` - Input value whose placeholders are being expanded.
 /// * `search_from` - Byte offset where the next placeholder search begins.
+///
+/// # Returns
+///
+/// The byte range and name of the next non-empty placeholder, or `None` when
+/// no complete placeholder remains.
 fn find_next_variable(value: &str, mut search_from: usize) -> Option<(usize, usize, &str)> {
     while let Some(relative_start) = value.get(search_from..)?.find("${") {
         let match_start = search_from + relative_start;
@@ -183,6 +247,11 @@ fn find_next_variable(value: &str, mut search_from: usize) -> Option<(usize, usi
 /// * `fragment` - Text fragment appended to the current interpolation output.
 /// * `session` - Interpolation budget session shared by one logical read.
 /// * `path` - Configuration path used for interpolation diagnostics.
+///
+/// # Errors
+///
+/// Returns an error when appending the fragment would exceed the configured
+/// output byte limit.
 fn push_substitution_fragment(
     result: &mut String,
     fragment: &str,
@@ -213,6 +282,15 @@ fn push_substitution_fragment(
 /// * `options` - Read policy controlling value conversion, interpolation
 ///   sources, and resource limits.
 /// * `path` - Configuration path or filesystem path used by this operation.
+///
+/// # Returns
+///
+/// The resolved string value for the requested variable.
+///
+/// # Errors
+///
+/// Returns an error when lookup, conversion, or the permitted environment
+/// fallback cannot resolve the variable.
 fn find_variable_value<R: ConfigReader + ?Sized>(
     var_name: &str,
     config: &R,
@@ -258,6 +336,15 @@ fn find_variable_value<R: ConfigReader + ?Sized>(
 /// * `options` - Read policy controlling value conversion, interpolation
 ///   sources, and resource limits.
 /// * `path` - Configuration path or filesystem path used by this operation.
+///
+/// # Returns
+///
+/// The resolved string value for the requested variable.
+///
+/// # Errors
+///
+/// Returns an error when primary lookup, conversion, fallback lookup, or the
+/// permitted environment fallback cannot resolve the variable.
 fn find_variable_value_with_fallback<P: ConfigReader + ?Sized, F: ConfigReader + ?Sized>(
     var_name: &str,
     primary: &P,

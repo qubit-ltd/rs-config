@@ -17,8 +17,8 @@ use qubit_value::ValueContainer;
 use qubit_value::ValueMissing;
 use qubit_value::ValueRef;
 
+pub(super) use super::internal::source_segment::SourceSegment;
 pub(super) use super::source_location::SourceLocation;
-pub(super) use super::source_segment::SourceSegment;
 
 /// Index of a node in the prepared read arena; valid only while it indexes
 /// the corresponding `PreparedConfigRead::nodes` vector.
@@ -70,41 +70,6 @@ pub(crate) enum ReadNode<'a> {
 }
 
 impl<'a> ReadNode<'a> {
-    /// Natural structural kind for value-free conflict diagnostics.
-    ///
-    /// # Parameters
-    ///
-    /// - `self`: arena node whose structural kind is classified.
-    ///
-    /// # Returns
-    ///
-    /// Returns `null`, `array`, `object`, `boolean`, `number`, or `string` to
-    /// describe the node without serializing or copying its payload.
-    #[must_use]
-    #[inline]
-    pub(super) fn kind(&self) -> &'static str {
-        match self {
-            Self::Missing(_) | Self::Json(serde_json::Value::Null) => "null",
-            Self::Collection(_) | Self::Json(serde_json::Value::Array(_)) => "array",
-            Self::Object(_) | Self::StringMap(_) | Self::Json(serde_json::Value::Object(_)) => "object",
-            Self::Scalar(ValueRef::Bool(_)) | Self::Json(serde_json::Value::Bool(_)) => "boolean",
-            Self::Scalar(
-                ValueRef::Int8(_)
-                | ValueRef::Int16(_)
-                | ValueRef::Int32(_)
-                | ValueRef::Int64(_)
-                | ValueRef::UInt8(_)
-                | ValueRef::UInt16(_)
-                | ValueRef::UInt32(_)
-                | ValueRef::UInt64(_)
-                | ValueRef::Float32(_)
-                | ValueRef::Float64(_),
-            )
-            | Self::Json(serde_json::Value::Number(_)) => "number",
-            _ => "string",
-        }
-    }
-
     /// Separates source shape without copying any payload.
     ///
     /// # Parameters
@@ -148,6 +113,41 @@ impl<'a> ReadNode<'a> {
             ValueRef::StringMap(value) => Self::StringMap(value),
             ValueRef::Unset(data_type) => Self::Missing(ValueMissing::unset_scalar(data_type, DataType::Json)),
             view => Self::Scalar(view),
+        }
+    }
+
+    /// Natural structural kind for value-free conflict diagnostics.
+    ///
+    /// # Parameters
+    ///
+    /// - `self`: arena node whose structural kind is classified.
+    ///
+    /// # Returns
+    ///
+    /// Returns `null`, `array`, `object`, `boolean`, `number`, or `string` to
+    /// describe the node without serializing or copying its payload.
+    #[must_use]
+    #[inline]
+    pub(super) fn kind(&self) -> &'static str {
+        match self {
+            Self::Missing(_) | Self::Json(serde_json::Value::Null) => "null",
+            Self::Collection(_) | Self::Json(serde_json::Value::Array(_)) => "array",
+            Self::Object(_) | Self::StringMap(_) | Self::Json(serde_json::Value::Object(_)) => "object",
+            Self::Scalar(ValueRef::Bool(_)) | Self::Json(serde_json::Value::Bool(_)) => "boolean",
+            Self::Scalar(
+                ValueRef::Int8(_)
+                | ValueRef::Int16(_)
+                | ValueRef::Int32(_)
+                | ValueRef::Int64(_)
+                | ValueRef::UInt8(_)
+                | ValueRef::UInt16(_)
+                | ValueRef::UInt32(_)
+                | ValueRef::UInt64(_)
+                | ValueRef::Float32(_)
+                | ValueRef::Float64(_),
+            )
+            | Self::Json(serde_json::Value::Number(_)) => "number",
+            _ => "string",
         }
     }
 }
