@@ -133,10 +133,14 @@ def _load_fixture(root: Path) -> tuple[dict | None, bytes | None, list[str]]:
         errors.append("consumer fixture must define [dependencies]")
         dependencies = {}
     for name in sorted(set(dependencies) | set(EXPECTED_DEPENDENCIES)):
-        if dependencies.get(name) != EXPECTED_DEPENDENCIES.get(name):
+        expected = EXPECTED_DEPENDENCIES.get(name)
+        actual = dependencies.get(name)
+        if name not in EXPECTED_DEPENDENCIES or not _fixture_dependency_matches(
+            name, actual, expected, manifest_path.parent, root
+        ):
             errors.append(
                 f"consumer fixture {name} declaration expected "
-                f"{EXPECTED_DEPENDENCIES.get(name)!r}, found {dependencies.get(name)!r}"
+                f"{expected!r}, found {actual!r}"
             )
     try:
         lock_bytes = lock_path.read_bytes()
@@ -146,26 +150,65 @@ def _load_fixture(root: Path) -> tuple[dict | None, bytes | None, list[str]]:
     return dependencies, lock_bytes, errors
 
 
+def _fixture_dependency_matches(
+    name: str, actual: object, expected: object, fixture_dir: Path, root: Path
+) -> bool:
+    """Compare fixture declarations while allowing Cargo's equivalent `^` form."""
+    if isinstance(expected, str):
+        if isinstance(actual, str):
+            return actual in {expected, f"^{expected}"}
+        if not isinstance(actual, dict) or set(actual) - {"version", "path"}:
+            return False
+        if actual.get("version") not in {expected, f"^{expected}"}:
+            return False
+        if name == "qubit-config" and "path" in actual:
+            path = actual["path"]
+            return isinstance(path, str) and (fixture_dir / path).resolve() == root.resolve()
+        return "path" not in actual
+    if not isinstance(expected, dict) or not isinstance(actual, dict):
+        return False
+    if set(actual) != set(expected):
+        return False
+    for key, expected_value in expected.items():
+        actual_value = actual[key]
+        if key == "version" and isinstance(expected_value, str):
+            if actual_value not in {expected_value, f"^{expected_value}"}:
+                return False
+        elif actual_value != expected_value:
+            return False
+    return True
+
+
 def compile_document_consumers(documents: dict[str, str]) -> list[str]:
     errors: list[str] = []
-    fixture_dependencies, fixture_lock, fixture_errors = _load_fixture(ROOT)
-    errors.extend(fixture_errors)
-    if errors:
-        return errors
-    assert fixture_dependencies is not None and fixture_lock is not None
+    # Validate document structure before consulting the checked-in fixture so
+    # malformed documentation gets its actionable marker/fence diagnostic.
+    marked_blocks: dict[str, tuple[str, str]] = {}
     for path in DOCUMENTS:
         text = documents.get(path, "")
         block, dep_error = _marked_block(text, DEPENDENCY_MARKER, "toml")
         code, code_error = _marked_block(text, EXAMPLE_MARKER, "rust")
         if dep_error or code_error:
             errors.append(f"{path}: {dep_error or code_error}")
-            continue
+        else:
+            assert block is not None and code is not None
+            marked_blocks[path] = (block, code)
+    if errors:
+        return errors
+
+    fixture_dependencies, fixture_lock, fixture_errors = _load_fixture(ROOT)
+    errors.extend(fixture_errors)
+    if errors:
+        return errors
+    assert fixture_dependencies is not None and fixture_lock is not None
+    for path in DOCUMENTS:
+        block, code = marked_blocks[path]
         try:
-            dependencies = tomllib.loads(block or "").get("dependencies", {})
+            dependencies = tomllib.loads(block).get("dependencies", {})
         except tomllib.TOMLDecodeError as exc:
             errors.append(f"{path}: invalid dependency TOML: {exc}")
             continue
-        if dependencies != fixture_dependencies:
+        if dependencies != EXPECTED_DEPENDENCIES:
             errors.append(f"{path}: dependencies do not match the checked-in consumer fixture")
             continue
         source = ROOT / "examples" / "config_error_diagnostics.rs"
@@ -176,7 +219,7 @@ def compile_document_consumers(documents: dict[str, str]) -> list[str]:
             project = Path(temporary)
             (project / "src").mkdir()
             (project / "Cargo.toml").write_text(_manifest(dependencies, ROOT), encoding="utf-8")
-            (project / "src/main.rs").write_text(code or "", encoding="utf-8")
+            (project / "src/main.rs").write_text(code, encoding="utf-8")
             lock_path = project / "Cargo.lock"
             lock_path.write_bytes(fixture_lock)
             environment = os.environ.copy()
