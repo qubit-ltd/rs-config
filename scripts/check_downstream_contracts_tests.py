@@ -27,12 +27,15 @@ class MetadataValidationTests(unittest.TestCase):
                 {"id": "config 0.15.0 (path+file:///tmp/contract-root/rs-config)", "name": "qubit-config", "manifest_path": "/tmp/contract-root/rs-config/Cargo.toml"},
                 {"id": "http 0.16.0 (path+file:///tmp/contract-root/rs-http)", "name": "qubit-http", "manifest_path": "/tmp/contract-root/rs-http/Cargo.toml"},
                 {"id": "ioc 0.4.0 (path+file:///tmp/contract-root/rs-ioc)", "name": "qubit-ioc", "manifest_path": "/tmp/contract-root/rs-ioc/Cargo.toml"},
+                {"id": "websocket 0.3.0 (path+file:///tmp/contract-root/rs-websocket)", "name": "qubit-websocket", "manifest_path": "/tmp/contract-root/rs-websocket/Cargo.toml"},
+                {"id": "tungstenite 0.26.2 (git+https://github.com/qubit-ltd/tungstenite-rs?rev=b24a4442be0247a71fe9ee4e520eb483ac1b2873#b24a4442be0247a71fe9ee4e520eb483ac1b2873)", "name": "tungstenite", "manifest_path": "/tmp/tungstenite/Cargo.toml", "source": "git+https://github.com/qubit-ltd/tungstenite-rs?rev=b24a4442be0247a71fe9ee4e520eb483ac1b2873#b24a4442be0247a71fe9ee4e520eb483ac1b2873"},
             ],
             "resolve": {
                 "nodes": [
                     {"id": "config 0.15.0 (path+file:///tmp/contract-root/rs-config)", "features": [], "deps": []},
                     {"id": "http 0.16.0 (path+file:///tmp/contract-root/rs-http)", "features": [], "deps": [{"name": "qubit_config", "pkg": "config 0.15.0 (path+file:///tmp/contract-root/rs-config)"}]},
                     {"id": "ioc 0.4.0 (path+file:///tmp/contract-root/rs-ioc)", "features": ["config"], "deps": [{"name": "qubit_config", "pkg": "config 0.15.0 (path+file:///tmp/contract-root/rs-config)"}]},
+                    {"id": "websocket 0.3.0 (path+file:///tmp/contract-root/rs-websocket)", "features": ["config"], "deps": [{"name": "qubit_config", "pkg": "config 0.15.0 (path+file:///tmp/contract-root/rs-config)"}]},
                 ]
             },
         }
@@ -79,6 +82,39 @@ class MetadataValidationTests(unittest.TestCase):
     def test_rejects_missing_config_dependency_edge(self) -> None:
         self.metadata["resolve"]["nodes"][1]["deps"] = []
         with self.assertRaisesRegex(ValueError, "qubit-http does not depend"):
+            checker.validate_metadata(self.metadata, self.workspace, full=False)
+
+    def test_accepts_websocket_source_and_config_edge(self) -> None:
+        checker.validate_metadata(self.metadata, self.workspace, full=False)
+
+    def test_rejects_missing_websocket_node(self) -> None:
+        self.metadata["packages"] = [package for package in self.metadata["packages"] if package["name"] != "qubit-websocket"]
+        with self.assertRaisesRegex(ValueError, "exactly one qubit-websocket"):
+            checker.validate_metadata(self.metadata, self.workspace, full=False)
+
+    def test_rejects_duplicate_websocket_node(self) -> None:
+        self.metadata["packages"].append(dict(self.metadata["packages"][3]))
+        with self.assertRaisesRegex(ValueError, "exactly one qubit-websocket"):
+            checker.validate_metadata(self.metadata, self.workspace, full=False)
+
+    def test_rejects_websocket_manifest_outside_prepared_checkout(self) -> None:
+        self.metadata["packages"][3]["manifest_path"] = "/registry/qubit-websocket/Cargo.toml"
+        with self.assertRaisesRegex(ValueError, "prepared rs-websocket"):
+            checker.validate_metadata(self.metadata, self.workspace, full=False)
+
+    def test_rejects_websocket_without_config_feature(self) -> None:
+        self.metadata["resolve"]["nodes"][3]["features"] = []
+        with self.assertRaisesRegex(ValueError, "qubit-websocket config feature"):
+            checker.validate_metadata(self.metadata, self.workspace, full=False)
+
+    def test_rejects_websocket_edge_to_other_config_node(self) -> None:
+        self.metadata["resolve"]["nodes"][3]["deps"][0]["pkg"] = "config 0.14 (registry)"
+        with self.assertRaisesRegex(ValueError, "qubit-websocket does not depend exclusively"):
+            checker.validate_metadata(self.metadata, self.workspace, full=False)
+
+    def test_rejects_tungstenite_patch_source_or_revision_mismatch(self) -> None:
+        self.metadata["packages"][4]["source"] = "registry+https://github.com/rust-lang/crates.io-index"
+        with self.assertRaisesRegex(ValueError, "tungstenite patch source/revision mismatch"):
             checker.validate_metadata(self.metadata, self.workspace, full=False)
 
 

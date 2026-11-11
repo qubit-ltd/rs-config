@@ -11,6 +11,11 @@
       "revision": "49dccd37a58e322c1a430be37b470afe88b6ffaa"
     },
     {
+      "name": "rs-websocket",
+      "url": "https://github.com/qubit-ltd/rs-websocket.git",
+      "revision": "e62a8437eb60fab664f781ef6d344041d713a601"
+    },
+    {
       "name": "rs-redact",
       "url": "https://github.com/qubit-ltd/rs-redact.git",
       "revision": "d3116d19fc40d6e23db0fdca4db3748d0dede7d8"
