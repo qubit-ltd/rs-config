@@ -29,6 +29,15 @@ impl fmt::Write for CountingWriter {
     /// # Parameters
     ///
     /// * `text` - Formatted text whose UTF-8 byte length is charged.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` after the text's byte length is charged to the budget.
+    ///
+    /// # Errors
+    ///
+    /// Returns `fmt::Error` when the budget cannot accept the text. The
+    /// underlying budget error is retained in `self.error` for the caller.
     fn write_str(&mut self, text: &str) -> fmt::Result {
         self.budget.try_consume_usize(text.len()).map_err(|error| {
             self.error = Some(error);

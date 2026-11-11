@@ -15,7 +15,7 @@
 /// Typed segments keep a literal dotted JSON key distinct from nested keys.
 #[must_use]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(super) enum SourceSegment {
+pub(in crate::structured_read) enum SourceSegment {
     /// Segment for one object key, kept literal even when it contains dots.
     Key(
         /// Original key text from the source value.

@@ -33,6 +33,7 @@ impl<'de> Deserialize<'de> for WireVersion {
     /// # Type Parameters
     ///
     /// * `D` - Deserializer implementation containing the version value.
+    #[inline]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,

@@ -133,8 +133,7 @@ impl YamlConfigSourceBuilder {
     ///
     /// # Returns
     ///
-    /// The updated builder.
-    /// Returns the resource limits applied to one load of this source.
+    /// The updated builder configured to use `limits` for source loading.
     #[inline]
     pub const fn limits(mut self, limits: SourceLimits) -> Self {
         self.limits = limits;

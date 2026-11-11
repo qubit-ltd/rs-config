@@ -7,8 +7,6 @@
 // =============================================================================
 //! Semantic oracles reused by integration tests and fuzz targets.
 
-#[path = "source_semantics/dotenv.rs"]
 #[cfg(feature = "env-file")]
 pub mod dotenv;
-#[path = "source_semantics/properties.rs"]
 pub mod properties;

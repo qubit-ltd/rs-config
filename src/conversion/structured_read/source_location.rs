@@ -7,7 +7,7 @@
 // =============================================================================
 //! Original property and nested location for interpolation overlays.
 
-use super::source_segment::SourceSegment;
+use super::internal::source_segment::SourceSegment;
 
 /// Location of a value within one original configuration property.
 ///

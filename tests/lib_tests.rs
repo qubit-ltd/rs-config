@@ -34,11 +34,26 @@ fn test_crate_public_modules_are_reachable() {
 /// Verifies both README files use current and process-safe examples.
 #[test]
 fn test_readmes_use_current_dependency_and_safe_examples() {
-    for readme in [README, README_ZH_CN] {
-        assert!(readme.contains("qubit-datatype = { version = \"0.15\""));
-        assert!(readme.contains(".deserialize::<Database>(\"db\")"));
-        assert!(readme.contains("config.deserialize_with::<Database>("));
-        assert!(readme.contains("unknown_fields: UnknownFieldPolicy::Ignore"));
-        assert!(!readme.contains("std::env::set_var"));
+    for (name, readme) in [("README.md", README), ("README.zh_CN.md", README_ZH_CN)] {
+        assert!(
+            readme.contains("qubit-datatype = { version = \"0.15\""),
+            "{name} must use the current qubit-datatype dependency"
+        );
+        assert!(
+            readme.contains(".deserialize::<Database>(\"db\")"),
+            "{name} must use the current database deserialization example"
+        );
+        assert!(
+            readme.contains("config.deserialize_with::<Database>("),
+            "{name} must show deserialization with the current config API"
+        );
+        assert!(
+            readme.contains("unknown_fields: UnknownFieldPolicy::Ignore"),
+            "{name} must document the explicit unknown-field policy"
+        );
+        assert!(
+            !readme.contains("std::env::set_var"),
+            "{name} must avoid process-global environment mutation"
+        );
     }
 }

@@ -42,17 +42,25 @@ where
     ValueWireV1Seed::new().deserialize(deserializer)
 }
 
-/// Owned wire representation used while deserializing a property.
+/// Owned wire fields consumed to construct a validated
+/// [`super::super::Property`].
+///
+/// The representation preserves the incoming name until the property
+/// deserializer validates it as a [`crate::ConfigKey`]. Its value is decoded
+/// through the explicit V1 envelope before conversion into the runtime
+/// container.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(in crate::property) struct PropertyWireOwned {
-    /// Property name.
+    /// Unvalidated property name, parsed into a [`crate::ConfigKey`] by the
+    /// owning property deserializer.
     pub(in crate::property) name: String,
-    /// Explicitly versioned property value.
+    /// Runtime value encoded in and validated from the explicit V1 envelope.
     #[serde(deserialize_with = "deserialize_value_wire")]
     pub(in crate::property) value: ValueWireV1,
-    /// Optional human-readable description.
+    /// Optional description copied into the decoded [`super::super::Property`].
     pub(in crate::property) description: Option<String>,
-    /// Whether overriding is prohibited.
+    /// Whether configuration-managed mutation and merging treat the property
+    /// as final; standalone property mutation remains allowed.
     pub(in crate::property) is_final: bool,
 }

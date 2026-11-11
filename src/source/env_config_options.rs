@@ -39,6 +39,10 @@ pub struct EnvConfigOptions {
 
 impl EnvConfigOptions {
     /// Creates a builder initialized with no prefix filter or transformation.
+    ///
+    /// # Returns
+    ///
+    /// A builder with no prefix filter and all key transformations disabled.
     #[inline]
     pub const fn builder() -> EnvConfigOptionsBuilder {
         EnvConfigOptionsBuilder::new()
@@ -47,6 +51,10 @@ impl EnvConfigOptions {
 
 impl Default for EnvConfigOptions {
     /// Creates the default value for this type.
+    ///
+    /// # Returns
+    ///
+    /// Options with no prefix filter or key transformations enabled.
     fn default() -> Self {
         Self::builder().build()
     }

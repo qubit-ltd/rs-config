@@ -60,6 +60,7 @@ pub enum SourceLimitKind {
 
 impl Display for SourceLimitKind {
     /// Formats this limit kind as a concise diagnostic label.
+    ///
     /// # Parameters
     ///
     /// * `formatter` - Formatter receiving the human-readable limit label.

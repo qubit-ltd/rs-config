@@ -40,8 +40,6 @@ mod config_deserialize_options;
 mod config_error;
 #[path = "error/config_error_kind.rs"]
 mod config_error_kind;
-#[path = "key/config_key.rs"]
-mod config_key;
 #[path = "key/config_names.rs"]
 mod config_names;
 /// Parsing context shared by typed configuration conversions.
@@ -88,11 +86,13 @@ mod structured_read;
 mod unknown_field_policy;
 mod utils;
 
+#[cfg(test)]
+mod tests;
+
 pub use config::Config;
 pub use config::ConfigBuilder;
 pub use config_deserialize_options::ConfigDeserializeOptions;
 pub use config_error_kind::ConfigErrorKind;
-pub use config_key::ConfigKey;
 pub use config_names::ConfigNames;
 pub use config_path::ConfigPath;
 pub use config_path_violation::ConfigPathViolation;
@@ -109,6 +109,7 @@ pub use config_wire_representation_error_kind::ConfigWireRepresentationErrorKind
 pub use error::ConfigError;
 pub use error::ConfigResult;
 pub use error::SourceLocation;
+pub use key::ConfigKey;
 pub use property::Property;
 pub use read_policy::InterpolationSources;
 pub use read_policy::ReadPolicy;

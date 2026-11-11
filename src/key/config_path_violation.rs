@@ -15,6 +15,15 @@ use serde::Deserialize;
 use serde::Serialize;
 
 /// Describes why a configuration key or path is not canonical.
+///
+/// # Examples
+///
+/// ```rust
+/// use qubit_config::ConfigPathViolation;
+///
+/// let violation = ConfigPathViolation::Empty;
+/// assert_eq!(violation.to_string(), "the key is empty");
+/// ```
 #[non_exhaustive]
 #[must_use = "handle the configuration path violation"]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

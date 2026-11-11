@@ -32,6 +32,7 @@ impl JsonAdmittedConfigWireSeed {
     /// # Returns
     /// A seed that converts the admitted value without charging its JSON budget
     /// again.
+    #[inline]
     pub(in crate::config) const fn new(limits: ConfigWireLimits) -> Self {
         Self { limits }
     }

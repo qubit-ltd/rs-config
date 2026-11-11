@@ -27,7 +27,7 @@ use crate::ConfigResult;
 /// Each resource charge is atomic across the local and aggregate budgets, but
 /// charges accepted earlier in the same failed load are not rolled back.
 ///
-/// # Example
+/// # Examples
 ///
 /// ```rust
 /// use qubit_config::ConfigReader;
@@ -56,6 +56,7 @@ pub trait ConfigSource {
     /// # Returns
     ///
     /// A stable source identifier.
+    #[must_use = "use the returned source identifier"]
     fn source_id(&self) -> String;
 
     /// Returns the local resource limits for one load.
@@ -104,13 +105,23 @@ pub trait ConfigSource {
 }
 
 /// Executes a source with a fresh local budget and output layer.
+///
 /// # Type Parameters
 ///
 /// * `S` - Source type whose configuration data is loaded.
 ///
 /// # Parameters
 ///
-/// * `source` - Source value or input being processed.
+/// * `source` - Source whose identifier, limits, and data populate the output
+///   layer.
+///
+/// # Returns
+///
+/// The completed configuration layer produced by the source.
+///
+/// # Errors
+///
+/// Returns an error reported by the source or its resource accounting.
 pub(crate) fn load_source<S>(source: &S) -> ConfigResult<Config>
 where
     S: ConfigSource + ?Sized,

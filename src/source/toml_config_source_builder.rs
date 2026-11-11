@@ -43,6 +43,7 @@ impl TomlConfigSourceBuilder {
     /// # Returns
     ///
     /// A builder initialized with empty content and default limits.
+    #[inline]
     pub fn new() -> Self {
         Self {
             input: SourceInput::Content(String::new()),
@@ -134,7 +135,6 @@ impl TomlConfigSourceBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    /// Returns the resource limits applied to one load of this source.
     #[inline]
     pub const fn limits(mut self, limits: SourceLimits) -> Self {
         self.limits = limits;

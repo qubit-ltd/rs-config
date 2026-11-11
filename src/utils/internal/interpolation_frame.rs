@@ -29,6 +29,13 @@ impl InterpolationFrame {
     /// * `text` - Text currently being expanded.
     /// * `entering_variable` - Variable whose expansion created this frame, if
     ///   any.
+    ///
+    /// # Returns
+    ///
+    /// A frame with zeroed scan positions, an empty output buffer, and
+    /// `entered` set to `false`.
+    #[must_use]
+    #[inline]
     pub(in crate::utils) fn new(text: String, entering_variable: Option<String>) -> Self {
         Self {
             text,

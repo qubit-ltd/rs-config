@@ -136,6 +136,7 @@ pub trait ConfigSerdeExt: ConfigReader {
     ///
     /// Returns lookup, conversion, input-limit, conflict, unknown-field, or
     /// sanitized Serde errors with root-relative paths.
+    #[inline]
     fn deserialize<T: DeserializeOwned>(&self, prefix: impl AsRef<str>) -> ConfigResult<T> {
         self.deserialize_with(prefix, ConfigDeserializeOptions::default())
     }

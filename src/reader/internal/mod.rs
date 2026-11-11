@@ -7,6 +7,10 @@
 // =============================================================================
 
 /// Sealing trait that exposes the root configuration internally.
+mod helpers;
 mod sealed;
 
+pub(super) use helpers::get_optional_any_with_options;
+pub(super) use helpers::missing_candidates_error;
+pub(super) use helpers::optional_converted_value;
 pub(crate) use sealed::Sealed;

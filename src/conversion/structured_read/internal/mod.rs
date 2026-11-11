@@ -23,3 +23,5 @@ pub(super) mod merge_entries;
 pub(super) mod ordered_string_map_entries;
 #[path = "segment.rs"]
 pub(super) mod segment;
+#[path = "sequence_values.rs"]
+pub(super) mod sequence_values;

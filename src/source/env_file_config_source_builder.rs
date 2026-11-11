@@ -13,6 +13,21 @@ use super::SourceInput;
 use super::SourceLimits;
 
 /// Builder for [`EnvFileConfigSource`].
+///
+/// # Examples
+///
+/// ```rust
+/// use qubit_config::source::ConfigSource;
+/// use qubit_config::source::EnvFileConfigSource;
+///
+/// let source = EnvFileConfigSource::builder()
+///     .content("PORT=8080\n")
+///     .label("example")
+///     .build();
+/// assert_eq!(source.source_id(), "example");
+/// let config = source.load().expect("valid dotenv content");
+/// assert_eq!(config.get::<String>("PORT").unwrap(), "8080");
+/// ```
 #[must_use = "use the returned value"]
 pub struct EnvFileConfigSourceBuilder {
     /// Selected file or in-memory content.
@@ -87,6 +102,10 @@ impl EnvFileConfigSourceBuilder {
     /// opened until the built source is loaded, so I/O, format, and resource
     /// limit errors are reported by [`crate::source::ConfigSource`].
     ///
+    /// # Type Parameters
+    ///
+    /// * `P` - Path type that can be borrowed as a filesystem path.
+    ///
     /// # Parameters
     ///
     /// * `path` - Path to the `.env` file.
@@ -94,9 +113,6 @@ impl EnvFileConfigSourceBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    /// # Type Parameters
-    ///
-    /// * `P` - Path type that can be borrowed as a filesystem path.
     pub fn file<P: AsRef<Path>>(mut self, path: P) -> Self {
         self.input = SourceInput::File(path.as_ref().to_path_buf());
         self
@@ -112,7 +128,6 @@ impl EnvFileConfigSourceBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    /// Returns the resource limits applied to one load of this source.
     #[inline]
     pub const fn limits(mut self, limits: SourceLimits) -> Self {
         self.limits = limits;

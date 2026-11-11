@@ -9,10 +9,11 @@
 //! Demonstrates navigating nested configuration sections with readers.
 
 use qubit_config::Config;
+use qubit_config::ConfigError;
 use qubit_config::ConfigReader;
 
 /// Reads a nested TLS setting through successive section views.
-fn main() -> Result<(), qubit_config::ConfigError> {
+fn main() -> Result<(), ConfigError> {
     let mut config = Config::new();
     config.set("server.tls.enabled", true)?;
     let server = config.section("server")?;

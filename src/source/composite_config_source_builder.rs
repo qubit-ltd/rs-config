@@ -56,6 +56,10 @@ impl CompositeConfigSourceBuilder {
 
     /// Adds a source to the composite in application order.
     ///
+    /// # Type Parameters
+    ///
+    /// * `S` - Source type whose configuration data is loaded.
+    ///
     /// # Parameters
     ///
     /// * `source` - The source to add.
@@ -63,9 +67,6 @@ impl CompositeConfigSourceBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    /// # Type Parameters
-    ///
-    /// * `S` - Source type whose configuration data is loaded.
     pub fn add_source<S: ConfigSource + 'static>(mut self, source: S) -> Self {
         self.sources.push(Box::new(source));
         self
@@ -124,6 +125,10 @@ impl CompositeConfigSourceBuilder {
 
 impl Default for CompositeConfigSourceBuilder {
     /// Creates the default value for this type.
+    ///
+    /// # Returns
+    ///
+    /// An empty builder with default aggregate limits and no diagnostic label.
     fn default() -> Self {
         Self::new()
     }

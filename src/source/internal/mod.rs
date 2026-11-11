@@ -9,6 +9,7 @@
 pub(super) mod cumulative_dimension;
 #[cfg(feature = "env-file")]
 pub(super) mod dotenv_line_state;
+pub(super) mod properties_syntax;
 pub(super) mod source_load_budget;
 pub(super) mod text_location;
 #[cfg(feature = "toml")]

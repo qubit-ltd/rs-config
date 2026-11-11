@@ -7,7 +7,8 @@
 // =============================================================================
 //! Configuration key, name, and path validation types.
 
-pub use crate::config_key::ConfigKey;
+mod config_key;
+pub use self::config_key::ConfigKey;
 pub use crate::config_names::ConfigNames;
 pub use crate::config_path::ConfigPath;
 pub use crate::config_path_violation::ConfigPathViolation;

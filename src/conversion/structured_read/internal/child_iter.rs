@@ -59,7 +59,13 @@ impl<'a> Iterator for ChildIter<'a> {
     /// Borrowed child view with its logical path segment and source origin.
     type Item = Child<'a>;
 
-    /// Returns the next child with its logical segment and optional origin.
+    /// Returns the next child with its logical segment and optional source
+    /// origin.
+    ///
+    /// Returns `Some(child)` while an unvisited direct child remains. The child
+    /// borrows its key and value from the prepared or source-backed container;
+    /// prepared-object children also retain their source origin when available.
+    /// Returns `None` when the iterator has visited every direct child.
     fn next(&mut self) -> Option<Self::Item> {
         match self {
             Self::Object { values, prepared } => values.next().map(|(key, id)| Child {

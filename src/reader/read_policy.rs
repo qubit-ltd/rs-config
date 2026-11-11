@@ -215,36 +215,3 @@ impl From<ConversionPolicy> for ReadPolicy {
         Self::builder().conversion_policy(conversion_policy).build()
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use qubit_datatype::ConversionLimits;
-    use qubit_datatype::ConversionPolicy;
-
-    use super::ReadPolicy;
-
-    #[test]
-    fn test_conversion_traits_preserve_policy_values() {
-        let policy = ReadPolicy::default();
-        let conversion_policy: &ConversionPolicy = policy.as_ref();
-        assert_eq!(conversion_policy, policy.conversion_policy());
-        let conversion_limits: &ConversionLimits = policy.as_ref();
-        assert_eq!(conversion_limits, policy.conversion_limits());
-
-        let converted = ReadPolicy::from(ConversionPolicy::env_friendly());
-        assert_eq!(converted.conversion_policy(), &ConversionPolicy::env_friendly());
-
-        let defaults = ReadPolicy::default();
-        assert_eq!(converted.conversion_limits(), defaults.conversion_limits());
-        assert_eq!(converted.interpolation_sources(), defaults.interpolation_sources());
-        assert_eq!(converted.max_interpolation_depth(), defaults.max_interpolation_depth());
-        assert_eq!(
-            converted.max_interpolation_expansions(),
-            defaults.max_interpolation_expansions()
-        );
-        assert_eq!(
-            converted.max_interpolation_output_bytes(),
-            defaults.max_interpolation_output_bytes()
-        );
-    }
-}

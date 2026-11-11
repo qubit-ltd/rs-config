@@ -55,6 +55,7 @@ impl WireReadRole {
     /// # Returns
     /// The schema role for that child, or [`Self::General`] for an unrecognized
     /// key.
+    #[inline]
     pub(super) fn child_for_key(self, key: &str) -> Self {
         match (self, key) {
             (Self::ConfigRoot, "properties") => Self::Properties,
@@ -78,6 +79,7 @@ impl WireReadRole {
     ///
     /// # Returns
     /// The schema role to apply to each element of the sequence.
+    #[inline]
     pub(super) fn sequence_element(self) -> Self {
         match self {
             Self::Float32Sequence => Self::Float32,

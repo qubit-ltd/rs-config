@@ -73,14 +73,23 @@ impl ConfigKey {
     }
 
     /// Borrows the canonical key text.
+    ///
+    /// # Returns
+    ///
+    /// The exact validated key text, borrowed for the lifetime of `self`.
     #[inline(always)]
     #[must_use = "inspect the canonical key text"]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
-    /// Consumes this key and returns its owned text.
+    /// Consumes this key and returns its owned text without revalidation.
+    ///
+    /// # Returns
+    ///
+    /// The exact validated key text, with ownership transferred to the caller.
     #[inline(always)]
+    #[must_use = "retain the canonical key text"]
     pub fn into_string(self) -> String {
         self.0
     }
@@ -100,6 +109,11 @@ impl<'de> Deserialize<'de> for ConfigKey {
     /// # Returns
     ///
     /// The validated key, or the deserializer's error.
+    ///
+    /// # Errors
+    ///
+    /// Returns the deserializer's error when the input is not a string or
+    /// does not contain a valid canonical key.
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -119,6 +133,10 @@ impl Display for ConfigKey {
     /// # Returns
     ///
     /// Formatting success or the destination's formatting error.
+    ///
+    /// # Errors
+    ///
+    /// Returns the formatter's error if writing the key text fails.
     #[inline]
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         formatter.write_str(&self.0)
@@ -126,24 +144,13 @@ impl Display for ConfigKey {
 }
 
 impl AsRef<str> for ConfigKey {
-    /// Borrows the canonical key text.
+    /// Borrows the exact canonical key text for generic string APIs.
+    ///
+    /// # Returns
+    ///
+    /// The validated key text, borrowed for the lifetime of `self`.
     #[inline]
     fn as_ref(&self) -> &str {
         self.as_str()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::ConfigKey;
-
-    #[test]
-    fn test_deserialize_validates_and_preserves_key_text() {
-        let key: ConfigKey = serde_json::from_str("\"server.port\"").unwrap();
-        assert_eq!(key.as_str(), "server.port");
-        assert_eq!(key.as_ref(), "server.port");
-
-        let error = serde_json::from_str::<ConfigKey>("\"server..port\"").unwrap_err();
-        assert!(error.to_string().contains("empty segment"));
     }
 }

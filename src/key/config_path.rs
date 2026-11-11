@@ -71,6 +71,10 @@ impl ConfigPath {
     }
 
     /// Borrows the canonical path text.
+    ///
+    /// # Returns
+    ///
+    /// The path text without allocating.
     #[inline]
     #[must_use = "inspect the canonical path text"]
     pub fn as_str(&self) -> &str {
@@ -78,7 +82,12 @@ impl ConfigPath {
     }
 
     /// Consumes this path and returns its owned text.
+    ///
+    /// # Returns
+    ///
+    /// The owned canonical path text.
     #[inline]
+    #[must_use = "retain or inspect the owned path text"]
     pub fn into_string(self) -> String {
         self.0
     }
@@ -125,6 +134,10 @@ impl Display for ConfigPath {
 
 impl AsRef<str> for ConfigPath {
     /// Borrows the canonical path text.
+    ///
+    /// # Returns
+    ///
+    /// The path text without allocating.
     #[inline]
     fn as_ref(&self) -> &str {
         self.as_str()

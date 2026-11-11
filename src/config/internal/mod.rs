@@ -6,6 +6,7 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+/// Accounts for configuration wire decoding under configured resource limits.
 mod accounting_config_wire_seed;
 /// Legacy and current Serde persistence representations.
 mod config_serde_repr;
@@ -21,6 +22,7 @@ mod config_wire_v1_ref;
 mod json_admitted_config_wire_seed;
 /// Safe diagnostics for bounded wire representation failures.
 mod wire_diagnostics;
+/// Assigns schema roles to decoded wire values.
 mod wire_read_role;
 /// Distinguishes an absent legacy version from an explicit version byte.
 mod wire_version;

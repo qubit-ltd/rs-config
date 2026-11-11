@@ -73,6 +73,7 @@ pub use composite_config_source_builder::CompositeConfigSourceBuilder;
 /// ));
 /// # Ok::<(), ConfigError>(())
 /// ```
+#[must_use = "use the returned value"]
 pub struct CompositeConfigSource {
     /// Sources applied in insertion order.
     sources: Vec<Box<dyn ConfigSource>>,
@@ -84,6 +85,10 @@ pub struct CompositeConfigSource {
 
 impl CompositeConfigSource {
     /// Creates a builder initialized with an empty composite source.
+    ///
+    /// # Returns
+    ///
+    /// A builder with no sources and default aggregate limits.
     #[inline]
     pub fn builder() -> CompositeConfigSourceBuilder {
         CompositeConfigSourceBuilder::new()
@@ -97,27 +102,6 @@ impl CompositeConfigSource {
     #[inline]
     pub fn new() -> Self {
         Self::builder().build()
-    }
-
-    /// Adds a configuration source
-    ///
-    /// Sources are applied in the order they are added. Later sources override
-    /// earlier sources for the same key.
-    ///
-    /// # Parameters
-    ///
-    /// * `source` - The configuration source to add
-    ///
-    /// # Returns
-    ///
-    /// `self` for method chaining.
-    /// # Type Parameters
-    ///
-    /// * `S` - Source type whose configuration data is loaded.
-    #[inline]
-    pub fn add<S: ConfigSource + 'static>(&mut self, source: S) -> &mut Self {
-        self.sources.push(Box::new(source));
-        self
     }
 
     /// Returns the number of sources in this composite.
@@ -141,10 +125,36 @@ impl CompositeConfigSource {
     pub fn is_empty(&self) -> bool {
         self.sources.is_empty()
     }
+
+    /// Adds a configuration source.
+    ///
+    /// Sources are applied in the order they are added. Later sources override
+    /// earlier sources for the same key.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `S` - Source type whose configuration data is loaded.
+    ///
+    /// # Parameters
+    ///
+    /// * `source` - The configuration source to add.
+    ///
+    /// # Returns
+    ///
+    /// `self` for method chaining.
+    #[inline]
+    pub fn add<S: ConfigSource + 'static>(&mut self, source: S) -> &mut Self {
+        self.sources.push(Box::new(source));
+        self
+    }
 }
 
 impl Default for CompositeConfigSource {
     /// Creates the default value for this type.
+    ///
+    /// # Returns
+    ///
+    /// An empty composite source with default aggregate limits.
     #[inline]
     fn default() -> Self {
         Self::new()
@@ -153,6 +163,10 @@ impl Default for CompositeConfigSource {
 
 impl ConfigSource for CompositeConfigSource {
     /// Returns the stable identifier used to report this source during loading.
+    ///
+    /// # Returns
+    ///
+    /// The configured label, or the default composite-source identifier.
     fn source_id(&self) -> String {
         self.label
             .clone()
@@ -160,6 +174,10 @@ impl ConfigSource for CompositeConfigSource {
     }
 
     /// Returns the resource limits applied to one load of this source.
+    ///
+    /// # Returns
+    ///
+    /// The aggregate limits configured for this composite.
     fn limits(&self) -> SourceLimits {
         self.limits
     }
@@ -170,6 +188,15 @@ impl ConfigSource for CompositeConfigSource {
     ///
     /// * `context` - Context for charging resource use and writing the source
     ///   layer.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` after all child layers have been merged into the context.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first error from source accounting, child loading, or layer
+    /// merging. A failed child layer is not merged into the context.
     fn load_into(&self, context: &mut SourceLoadContext<'_>) -> ConfigResult<()> {
         for source in &self.sources {
             context.consume_sources(1)?;

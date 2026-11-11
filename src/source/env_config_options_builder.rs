@@ -9,6 +9,22 @@
 use super::EnvConfigOptions;
 
 /// Builder for [`EnvConfigOptions`].
+///
+/// # Examples
+///
+/// ```rust
+/// use qubit_config::source::{EnvConfigOptions, EnvConfigOptionsBuilder};
+///
+/// let options = EnvConfigOptionsBuilder::new()
+///     .prefix("APP_")
+///     .strip_prefix()
+///     .build();
+/// let expected = EnvConfigOptions::builder()
+///     .prefix("APP_")
+///     .strip_prefix()
+///     .build();
+/// assert_eq!(options, expected);
+/// ```
 #[must_use = "use the returned value"]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EnvConfigOptionsBuilder {
@@ -103,11 +119,11 @@ impl EnvConfigOptionsBuilder {
 }
 
 impl Default for EnvConfigOptionsBuilder {
-    /// Creates environment options with no prefix filter or key transformation.
+    /// Creates a builder with no prefix filter or key transformation.
     ///
     /// # Returns
     ///
-    /// The default options with filtering and transformations disabled.
+    /// A builder with all filtering and transformations disabled.
     #[inline]
     fn default() -> Self {
         Self::new()

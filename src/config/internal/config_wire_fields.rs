@@ -57,6 +57,7 @@ pub(in crate::config) struct ConfigWireFields {
 /// # Type Parameters
 ///
 /// * `D` - Deserializer implementation positioned at the legacy field value.
+#[inline]
 fn deserialize_present_read_options<'de, D>(deserializer: D) -> Result<Option<IgnoredAny>, D::Error>
 where
     D: Deserializer<'de>,

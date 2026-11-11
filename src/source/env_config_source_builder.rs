@@ -11,6 +11,15 @@ use super::EnvConfigSource;
 use super::SourceLimits;
 
 /// Builder for [`EnvConfigSource`].
+///
+/// # Examples
+///
+/// ```
+/// use qubit_config::source::EnvConfigSourceBuilder;
+///
+/// let source = EnvConfigSourceBuilder::new().build();
+/// let _ = source;
+/// ```
 #[must_use = "use the returned value"]
 pub struct EnvConfigSourceBuilder {
     /// Key selection and normalization options.
@@ -57,7 +66,6 @@ impl EnvConfigSourceBuilder {
     /// # Returns
     ///
     /// The updated builder.
-    /// Returns the resource limits applied to one load of this source.
     #[inline]
     pub fn limits(mut self, limits: SourceLimits) -> Self {
         self.limits = limits;
