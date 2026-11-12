@@ -215,3 +215,23 @@ impl From<ConversionPolicy> for ReadPolicy {
         Self::builder().conversion_policy(conversion_policy).build()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ConversionLimits;
+    use super::ConversionPolicy;
+    use super::ReadPolicy;
+
+    #[test]
+    fn test_as_ref_exposes_both_retained_policy_components() {
+        let policy = ReadPolicy::default();
+        assert_eq!(
+            <ReadPolicy as AsRef<ConversionPolicy>>::as_ref(&policy),
+            policy.conversion_policy()
+        );
+        assert_eq!(
+            <ReadPolicy as AsRef<ConversionLimits>>::as_ref(&policy),
+            policy.conversion_limits()
+        );
+    }
+}

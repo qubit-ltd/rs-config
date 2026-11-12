@@ -373,3 +373,22 @@ impl Config {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Config;
+
+    #[test]
+    fn test_section_if_present_and_description_mutation_are_observable() {
+        let mut config = Config::new();
+        config.set("server.port", 8080).unwrap();
+        config.set_description(Some("service configuration".to_owned()));
+
+        assert_eq!(config.description(), Some("service configuration"));
+        assert!(config.section_if_present("server").unwrap().is_some());
+        assert!(config.section_if_present("missing").unwrap().is_none());
+
+        config.set_description(None);
+        assert_eq!(config.description(), None);
+    }
+}

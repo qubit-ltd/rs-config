@@ -333,6 +333,33 @@ impl PropertiesConfigSource {
     }
 }
 
+/// Sets one parsed property and preserves its source identity on failure.
+///
+/// # Parameters
+///
+/// * `config` - Configuration receiving the property.
+/// * `source_id` - Identifier attached to a write error.
+/// * `key` - Parsed property name.
+/// * `value` - Parsed property value.
+///
+/// # Returns
+///
+/// `Ok(())` when the property is stored.
+///
+/// # Errors
+///
+/// Returns the configuration write error with the source context attached.
+fn set_property_with_source_context(
+    config: &mut Config,
+    source_id: &str,
+    key: String,
+    value: String,
+) -> ConfigResult<()> {
+    config
+        .set(&key, value)
+        .map_err(|error| error.with_source_context(source_id, Some(key), None))
+}
+
 impl ConfigSource for PropertiesConfigSource {
     /// Returns the stable identifier used to report this source during loading.
     fn source_id(&self) -> String {
@@ -357,11 +384,58 @@ impl ConfigSource for PropertiesConfigSource {
         let source_id = self.source_id();
         let content = self.input.read_to_string("properties", session)?;
         Self::parse_content_into(&content, &source_id, session, |key, value| {
-            config
-                .set(&key, value)
-                .map_err(|error| error.with_source_context(&source_id, Some(key), None))
+            set_property_with_source_context(&mut config, &source_id, key, value)
         })?;
         context.replace_layer(config);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::PropertiesConfigSource;
+    use super::SourceLimits;
+    use super::SourceLoadSession;
+    use crate::ConfigError;
+
+    #[test]
+    fn test_parse_content_admits_input_and_preserves_assignments() {
+        assert_eq!(
+            PropertiesConfigSource::parse_content("server.port=8080\n").unwrap(),
+            vec![("server.port".to_owned(), "8080".to_owned())]
+        );
+    }
+
+    #[test]
+    fn test_explicit_source_parser_admits_bytes_and_retains_receiver_errors() {
+        let parsed = PropertiesConfigSource::parse_content_with_source(
+            "server.port=8080\n",
+            SourceLimits::default(),
+            "memory:test",
+        )
+        .unwrap();
+        assert_eq!(parsed.len(), 1);
+
+        let mut session = SourceLoadSession::new("memory:test", SourceLimits::default());
+        let error =
+            PropertiesConfigSource::parse_content_into("server.port=8080\n", "memory:test", &mut session, |_, _| {
+                Err(ConfigError::source_parse_error("memory:test", "receiver failed"))
+            })
+            .unwrap_err();
+        assert!(error.to_string().contains("receiver failed"));
+    }
+
+    #[test]
+    fn test_failed_property_write_keeps_source_context() {
+        let mut config = crate::Config::new();
+        let error = super::set_property_with_source_context(
+            &mut config,
+            "memory:test",
+            "invalid..key".to_owned(),
+            "value".to_owned(),
+        )
+        .unwrap_err();
+
+        assert!(error.to_string().contains("memory:test"));
     }
 }

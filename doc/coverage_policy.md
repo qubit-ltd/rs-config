@@ -52,12 +52,12 @@ their normal rules are strict (`>`); functions at exactly 95% meet their normal
 rule (`>=`) and do not count as an active exception.
 
 The sidecar stores per-file evidence. Both files were measured at
-`2026-11-09T11:03:51Z` with `cargo-llvm-cov 0.9.1`, Rust 1.94.0, and LLVM
+`2026-11-12T06:42:57Z` with `cargo-llvm-cov 0.9.1`, Rust 1.94.0, and LLVM
 21.1.8, using `./scripts/check-project-coverage.sh`. The evidence baseline is
-`task/rs-config-rsc-rev-001-20261109 based on d6f72b0 with RSC-REV-001 and authorized repository alignment; measured after the implementation changes.`. The TOML source SHA-256 is
-`41a0e759972830daac78f846b2f101b3f12d9625320ab33c23e3de5d839a998e`; the
+`task/rs-config-rsc-20261112 based on 1f46f99 with RSC-20261112-01 and authorized repository alignment; measured after the implementation changes.`. The TOML source SHA-256 is
+`908e2cd28849e9630bd26239bf8ceaabe3b17e66cf43008fbc75baa0944cbf25`; the
 YAML source SHA-256 is
-`37c78b096507993c8bc94a687445eb51ba8796313aa78e48101b55d22a3de0c3`.
+`2b1345c77ee67a37660b0876eef10fb3c1628385c34a1654dab77a9453e4aacd`.
 The TOML regression exercises scalar, datetime, empty-array, typed-array, and
 string/datetime-array writes against final properties, checking that errors
 retain the property key and leave the prior value unchanged. TOML and YAML

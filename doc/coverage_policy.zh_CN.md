@@ -44,11 +44,11 @@ regions 必须高于 85%。sidecar 下限只应用于明确列出的指标，并
 在普通阈值的精确等号处，lines 和 regions 仍须使用 override，因为其普通规则是严格大于（`>`）；
 functions 正好为 95% 时已满足普通规则（`>=`），不计为活跃例外。
 
-两份文件均于 `2026-11-09T11:03:51Z` 使用 `cargo-llvm-cov 0.9.1`、Rust
+两份文件均于 `2026-11-12T06:42:57Z` 使用 `cargo-llvm-cov 0.9.1`、Rust
 1.94.0 和 LLVM 21.1.8，通过 `./scripts/check-project-coverage.sh` 测量。证据基线为
-`task/rs-config-rsc-rev-001-20261109 based on d6f72b0 with RSC-REV-001 and authorized repository alignment; measured after the implementation changes.`。TOML 源码 SHA-256 为
-`41a0e759972830daac78f846b2f101b3f12d9625320ab33c23e3de5d839a998e`；YAML 源码 SHA-256 为
-`37c78b096507993c8bc94a687445eb51ba8796313aa78e48101b55d22a3de0c3`。
+`task/rs-config-rsc-20261112 based on 1f46f99 with RSC-20261112-01 and authorized repository alignment; measured after the implementation changes.`。TOML 源码 SHA-256 为
+`908e2cd28849e9630bd26239bf8ceaabe3b17e66cf43008fbc75baa0944cbf25`；YAML 源码 SHA-256 为
+`2b1345c77ee67a37660b0876eef10fb3c1628385c34a1654dab77a9453e4aacd`。
 TOML 回归测试针对 final property 验证标量、日期时间、空数组、同类型数组和字符串/日期时间数组写入，
 断言错误保留属性 key 且原值不变。TOML 与 YAML 均仅保留 functions 下限；两者的 lines 和 regions
 达到普通门槛。

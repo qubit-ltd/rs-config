@@ -154,3 +154,16 @@ impl AsRef<str> for ConfigKey {
         self.as_str()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ConfigKey;
+
+    #[test]
+    fn test_canonical_text_is_borrowed_and_deserialization_validates_it() {
+        let key = ConfigKey::parse("server.port").unwrap();
+        assert_eq!(key.as_str(), "server.port");
+        assert_eq!(serde_json::from_str::<ConfigKey>("\"server.port\"").unwrap(), key);
+        assert!(serde_json::from_str::<ConfigKey>("\"server..port\"").is_err());
+    }
+}

@@ -53,10 +53,6 @@
       "reason": "segment data declaration only"
     },
     {
-      "path": "src/conversion/structured_read/source_segment.rs",
-      "reason": "source segment data declaration only"
-    },
-    {
       "path": "src/conversion/unknown_field_policy.rs",
       "reason": "policy enum declaration only"
     },
@@ -151,6 +147,30 @@
     {
       "path": "src/source/internal/yaml_alias_guard/collection_frame.rs",
       "reason": "YAML collection frame enum declaration only"
+    },
+    {
+      "path": "src/conversion/structured_read/internal.rs",
+      "reason": "module declarations only"
+    },
+    {
+      "path": "src/conversion/structured_read/internal/source_segment.rs",
+      "reason": "data type declarations only"
+    },
+    {
+      "path": "src/tests/mod.rs",
+      "reason": "test module declarations only"
+    },
+    {
+      "path": "src/tests/conversion/mod.rs",
+      "reason": "test module declarations only"
+    },
+    {
+      "path": "src/tests/conversion/internal/mod.rs",
+      "reason": "test module declarations only"
+    },
+    {
+      "path": "src/tests/conversion/internal/prepared_scalar_tests.rs",
+      "reason": "test code only"
     }
   ]
 }
