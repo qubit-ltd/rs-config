@@ -23,9 +23,9 @@ SPEC.loader.exec_module(CHECKER_MODULE)
 class ConfigFeaturesTests(unittest.TestCase):
     def setUp(self) -> None:
         self.package = {
-            "id": "path+file:///workspace/rs-config#qubit-config@0.15.0",
+            "id": "path+file:///workspace/rs-config#qubit-config@0.15.1",
             "name": "qubit-config",
-            "version": "0.15.0",
+            "version": "0.15.1",
             "manifest_path": str((ROOT / "Cargo.toml").resolve()),
         }
         self.metadata = {

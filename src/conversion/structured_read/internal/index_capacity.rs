@@ -114,7 +114,8 @@ impl IndexCapacity {
     /// * `count` - Number of entries in the map being indexed.
     /// * `path` - Diagnostic path attached to a rejected count.
     pub(crate) fn entries(&self, count: usize, path: &str) -> ConfigResult<()> {
-        // Rust supports pointer widths up to 64 bits, so every `usize` fits in `u64`.
+        // Rust supports pointer widths up to 64 bits, so every `usize` fits in
+        // `u64`.
         let count = count as u64;
         self.limits
             .structured()

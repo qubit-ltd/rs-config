@@ -307,8 +307,8 @@ fn escape_dotenv_substitutions_in_line(content: &str, start: usize, end: usize, 
         if escaped {
             escaped = false;
             line_has_non_whitespace |= !character.is_whitespace();
-            // An escaped whitespace character belongs to the value, not a comment
-            // separator.
+            // An escaped whitespace character belongs to the value, not a
+            // comment separator.
             previous_was_whitespace = false;
             continue;
         }

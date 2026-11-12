@@ -53,7 +53,8 @@ pub fn check(data: &[u8]) {
             format!("VALUE=\"left \\\"{payload}\\\\ {PLACEHOLDER}\"\nAFTER=sentinel\n"),
             format!("left \"{payload}\\ {PLACEHOLDER}"),
         ),
-        // Escaped whitespace is data, and the adjacent placeholder remains literal.
+        // Escaped whitespace is data, and the adjacent placeholder remains
+        // literal.
         6 => (
             format!("VALUE=escaped\\ {payload}{PLACEHOLDER}\nAFTER=sentinel\n"),
             format!("escaped {payload}{PLACEHOLDER}"),

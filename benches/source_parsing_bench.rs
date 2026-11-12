@@ -167,7 +167,8 @@ fn benchmark_env_file_preprocessing(criterion: &mut Criterion) {
             })
             .collect::<Vec<_>>();
 
-        // Validate assignment counts and representative values before timed iterations.
+        // Validate assignment counts and representative values before timed
+        // iterations.
         for (property_count, shape, source, expected_value) in &fixtures {
             let config = source
                 .load()

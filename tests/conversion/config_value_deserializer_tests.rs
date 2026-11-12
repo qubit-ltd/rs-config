@@ -2326,7 +2326,8 @@ fn test_byte_targets_distinguish_string_bytes_from_numeric_sequences() -> Config
     config.set("byte_vec", vec![65_u8, 66_u8])?;
     config.set("json_array", serde_json::json!([65, 66]))?;
 
-    // Both bytes entry points convert a string-compatible scalar to UTF-8 bytes.
+    // Both bytes entry points convert a string-compatible scalar to UTF-8
+    // bytes.
     assert_eq!(
         config.deserialize::<BytesOnly>("text_ascii")?,
         BytesOnly(b"AB".to_vec())

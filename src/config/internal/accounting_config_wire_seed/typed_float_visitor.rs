@@ -338,8 +338,9 @@ impl<'safe, 'transaction, 'budget> TypedFloatVisitor<'safe, 'transaction, 'budge
         match callback(self.seed) {
             Ok(value) => Ok(value),
             Err(error) => {
-                // These callbacks can fail only with safe conversion or budget summaries;
-                // arbitrary deserializer errors never enter this method.
+                // These callbacks can fail only with safe conversion or budget
+                // summaries; arbitrary deserializer errors never enter this
+                // method.
                 *self.safe_failure = Some(error.to_string());
                 Err(error)
             }
