@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import tomllib
 import unittest
 
 
@@ -22,10 +23,12 @@ SPEC.loader.exec_module(CHECKER_MODULE)
 
 class ConfigFeaturesTests(unittest.TestCase):
     def setUp(self) -> None:
+        with (ROOT / "Cargo.toml").open("rb") as stream:
+            version = tomllib.load(stream)["package"]["version"]
         self.package = {
-            "id": "path+file:///workspace/rs-config#qubit-config@0.15.1",
+            "id": f"path+file:///workspace/rs-config#qubit-config@{version}",
             "name": "qubit-config",
-            "version": "0.15.1",
+            "version": version,
             "manifest_path": str((ROOT / "Cargo.toml").resolve()),
         }
         self.metadata = {

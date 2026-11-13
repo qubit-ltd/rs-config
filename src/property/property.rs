@@ -432,3 +432,26 @@ impl DerefMut for Property {
         &mut self.value
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Property;
+
+    #[test]
+    fn test_len_reports_the_stored_value_count() {
+        let property = Property::new("coverage.property", 42_i32).expect("the test property name should be canonical");
+
+        assert_eq!(property.len(), 1);
+    }
+
+    #[test]
+    fn test_unset_removes_the_stored_value() {
+        let mut property =
+            Property::new("coverage.property", 42_i32).expect("the test property name should be canonical");
+
+        property.unset();
+
+        assert!(property.is_unset());
+        assert_eq!(property.len(), 0);
+    }
+}
