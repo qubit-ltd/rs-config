@@ -96,6 +96,26 @@ class DependencyBlockTests(unittest.TestCase):
         changed = VALID_TOML.replace('"0.15"', '"0.14"', 1)
         self.assertTrue(CHECKER.validate_documents({"doc/user_guide.md": VALID_TOML, "doc/user_guide.zh_CN.md": changed}))
 
+    def test_expected_versions_follow_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "Cargo.toml").write_text(
+                '[package]\nname = "qubit-config"\nversion = "0.16.3"\n'
+                '[dependencies]\nqubit-datatype = { version = "^0.16", features = ["converter"] }\n',
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                CHECKER.expected_dependencies(root),
+                {
+                    "qubit-config": "0.16",
+                    "qubit-datatype": {
+                        "version": "0.16",
+                        "default-features": False,
+                        "features": ["converter"],
+                    },
+                },
+            )
+
 
 class TemporaryConsumerTests(unittest.TestCase):
     def _root_with_fixture(self, directory: str) -> Path:
@@ -104,7 +124,12 @@ class TemporaryConsumerTests(unittest.TestCase):
         (root / "examples/config_error_diagnostics.rs").write_text(VALID_RUST, encoding="utf-8")
         fixture = root / FIXTURE_MANIFEST
         fixture.parent.mkdir(parents=True)
-        fixture.write_text(CHECKER._manifest(CHECKER.EXPECTED_DEPENDENCIES, root), encoding="utf-8")
+        (root / "Cargo.toml").write_text(
+            '[package]\nname = "qubit-config"\nversion = "0.15.2"\n'
+            '[dependencies]\nqubit-datatype = { version = "^0.15", features = ["converter"] }\n',
+            encoding="utf-8",
+        )
+        fixture.write_text(CHECKER._manifest(CHECKER.expected_dependencies(root), root), encoding="utf-8")
         (fixture.parent / "src").mkdir()
         (fixture.parent / "src/main.rs").write_text("fn main() {}\n", encoding="utf-8")
         (fixture.parent / "Cargo.lock").write_bytes(b"fixed lock baseline\n")

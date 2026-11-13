@@ -22,17 +22,6 @@ ROOT = Path(__file__).resolve().parent.parent
 DOCUMENTS = ("doc/user_guide.md", "doc/user_guide.zh_CN.md")
 DEPENDENCY_MARKER = "<!-- consumer-dependencies: diagnostics -->"
 EXAMPLE_MARKER = "<!-- example: config_error_diagnostics -->"
-EXPECTED_DEPENDENCIES = {
-    "qubit-config": "0.15",
-    "qubit-datatype": {
-        "version": "0.15",
-        "default-features": False,
-        "features": ["converter"],
-    },
-}
-FIXTURE_MANIFEST = Path("tests/fixtures/doc_consumer/Cargo.toml")
-FIXTURE_LOCK = Path("tests/fixtures/doc_consumer/Cargo.lock")
-
 
 def _marked_block(text: str, marker: str, language: str) -> tuple[str | None, str | None]:
     lines = text.splitlines()
@@ -50,8 +39,45 @@ def _marked_block(text: str, marker: str, language: str) -> tuple[str | None, st
     return "\n".join(lines[index + 1 : end]) + "\n", None
 
 
+def expected_dependencies(root: Path = ROOT) -> dict[str, object]:
+    """Read the documented compatibility ranges from this package manifest."""
+    try:
+        manifest = tomllib.loads((root / "Cargo.toml").read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        raise ValueError(f"cannot read package manifest: {exc}") from exc
+    package_version = manifest.get("package", {}).get("version")
+    dependencies = manifest.get("dependencies", {})
+    datatype = dependencies.get("qubit-datatype")
+    datatype_version = datatype.get("version") if isinstance(datatype, dict) else datatype
+    if not isinstance(package_version, str) or not isinstance(datatype_version, str):
+        raise ValueError("Cargo.toml must define package.version and qubit-datatype.version")
+
+    def major_minor(version: str) -> str:
+        components = version.removeprefix("^").split(".")
+        if len(components) < 2 or not all(component.isdigit() for component in components[:2]):
+            raise ValueError(f"unsupported documented dependency version: {version!r}")
+        return ".".join(components[:2])
+
+    return {
+        "qubit-config": major_minor(package_version),
+        "qubit-datatype": {
+            "version": major_minor(datatype_version),
+            "default-features": False,
+            "features": ["converter"],
+        },
+    }
+
+
+FIXTURE_MANIFEST = Path("tests/fixtures/doc_consumer/Cargo.toml")
+FIXTURE_LOCK = Path("tests/fixtures/doc_consumer/Cargo.lock")
+
+
 def validate_documents(documents: dict[str, str]) -> list[str]:
     errors: list[str] = []
+    try:
+        expected = expected_dependencies()
+    except ValueError as exc:
+        return [str(exc)]
     parsed: dict[str, dict] = {}
     for path, text in documents.items():
         block, error = _marked_block(text, DEPENDENCY_MARKER, "toml")
@@ -72,7 +98,7 @@ def validate_documents(documents: dict[str, str]) -> list[str]:
             extra_tables = ", ".join(sorted(set(data) - {"dependencies"}))
             errors.append(f"{path}: unexpected TOML tables outside [dependencies]: {extra_tables}")
         actual_names = set(dependencies)
-        expected_names = set(EXPECTED_DEPENDENCIES)
+        expected_names = set(expected)
         missing = expected_names - actual_names
         extra = actual_names - expected_names
         if missing:
@@ -80,10 +106,10 @@ def validate_documents(documents: dict[str, str]) -> list[str]:
         if extra:
             errors.append(f"{path}: unexpected direct dependencies: {', '.join(sorted(extra))}")
         for name in sorted(expected_names & actual_names):
-            expected = EXPECTED_DEPENDENCIES[name]
+            expected_value = expected[name]
             actual = dependencies[name]
-            if actual != expected:
-                errors.append(f"{path}: {name} declaration expected {expected!r}, found {actual!r}")
+            if actual != expected_value:
+                errors.append(f"{path}: {name} declaration expected {expected_value!r}, found {actual!r}")
         parsed[path] = dependencies
     if len(parsed) == len(documents) and len(set(map(repr, parsed.values()))) != 1:
         errors.append("bilingual diagnostic dependency declarations differ")
@@ -125,6 +151,10 @@ def _load_fixture(root: Path) -> tuple[dict | None, bytes | None, list[str]]:
     lock_path = root / FIXTURE_LOCK
     errors: list[str] = []
     try:
+        expected = expected_dependencies(root)
+    except ValueError as exc:
+        return None, None, [str(exc)]
+    try:
         manifest = tomllib.loads(manifest_path.read_text(encoding="utf-8"))
     except (OSError, tomllib.TOMLDecodeError) as exc:
         return None, None, [f"consumer fixture manifest is missing or invalid: {exc}"]
@@ -132,15 +162,15 @@ def _load_fixture(root: Path) -> tuple[dict | None, bytes | None, list[str]]:
     if not isinstance(dependencies, dict):
         errors.append("consumer fixture must define [dependencies]")
         dependencies = {}
-    for name in sorted(set(dependencies) | set(EXPECTED_DEPENDENCIES)):
-        expected = EXPECTED_DEPENDENCIES.get(name)
+    for name in sorted(set(dependencies) | set(expected)):
+        expected_value = expected.get(name)
         actual = dependencies.get(name)
-        if name not in EXPECTED_DEPENDENCIES or not _fixture_dependency_matches(
-            name, actual, expected, manifest_path.parent, root
+        if name not in expected or not _fixture_dependency_matches(
+            name, actual, expected_value, manifest_path.parent, root
         ):
             errors.append(
                 f"consumer fixture {name} declaration expected "
-                f"{expected!r}, found {actual!r}"
+                f"{expected_value!r}, found {actual!r}"
             )
     try:
         lock_bytes = lock_path.read_bytes()
@@ -201,6 +231,7 @@ def compile_document_consumers(documents: dict[str, str]) -> list[str]:
     if errors:
         return errors
     assert fixture_dependencies is not None and fixture_lock is not None
+    expected = expected_dependencies()
     for path in DOCUMENTS:
         block, code = marked_blocks[path]
         try:
@@ -208,7 +239,7 @@ def compile_document_consumers(documents: dict[str, str]) -> list[str]:
         except tomllib.TOMLDecodeError as exc:
             errors.append(f"{path}: invalid dependency TOML: {exc}")
             continue
-        if dependencies != EXPECTED_DEPENDENCIES:
+        if dependencies != expected:
             errors.append(f"{path}: dependencies do not match the checked-in consumer fixture")
             continue
         source = ROOT / "examples" / "config_error_diagnostics.rs"
